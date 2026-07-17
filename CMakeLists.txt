@@ -340,6 +340,14 @@ IF( INSTALL_MAN )
 		MESSAGE( STATUS "MAN_PAGE_COMPRESSOR flag not set. Available values: gzip, bzip2, lzma" )
 		MESSAGE( STATUS "Will be installed not compressed MAN pages" )
 		
-		INSTALL( FILES ${CMAKE_SOURCE_DIR}/${aqemu_man_page} DESTINATION share/man/man1 )
 	ENDIF( COMPRESSOR_SUFFIX )
 ENDIF( INSTALL_MAN )
+
+# CPack Packaging Configuration
+SET( CPACK_GENERATOR "DEB" )
+SET( CPACK_PACKAGE_NAME "aqemu" )
+SET( CPACK_PACKAGE_VERSION "0.9.6" )
+SET( CPACK_PACKAGE_CONTACT "chronic8000" )
+SET( CPACK_PACKAGE_DESCRIPTION_SUMMARY "AQEMU is a graphical user interface for the QEMU emulator." )
+SET( CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON )
+INCLUDE( CPack )

@@ -1,67 +1,81 @@
-###Latest news:
-2020: 0.9.6 is now the current development version (in master for now),
-use TBK fork if you want to use a stable checkout now, but use this repository
-if you want to contribute to AQEMU's future.
-Building using meson/ninja is recommended now.
-See the changelog for all the new features that will work in the next stable
-release, I'm most exciting about AQEMU being turned into a manager for VM services.
-This means you can close the AQEMU UI and your VMs will keep running, also you
-can restart the UI and manage running VMs you previously started with AQEMU.
-And even better, you're able to start/stop VMs from the command line without
-the need for a UI. Giving you a lot more flexibility, and hopefully increasing
-the audience for AQEMU. As you may have guessed there are still many issues with this
-new set of features, therefore a stable release can't be provided currently.
-I was working on those features years ago, when I had to stop due various reasons,
-but now I plan to bring the work to an end, hopefully with the help of the community.
+# AQEMU (Optimized for Raspberry Pi 5 & Wayland)
 
-Example how to build using meson/ninja:
+AQEMU is a graphical user interface (GUI) frontend for the QEMU emulator, written in C++ using Qt5. It allows users to easily manage, configure, and execute virtual machines.
+
+This fork is specifically modernized and optimized to target the **Raspberry Pi 5** running **Raspbian OS Trixie (Debian 13)** with native **Wayland** display compositors and **16KB page size** kernel support.
+
+---
+
+## 🚀 Key Features & Pi 5 Optimizations
+
+- **Cortex-A76 Hardware Tuning**: The compiler leverages target-specific flags (`-mcpu=cortex-a76 -mtune=cortex-a76 -O3`) to optimize instructions for the Broadcom BCM2712 processor, resulting in improved performance.
+- **16KB & 64KB Page Size Support**: Binary segment loading is aligned to 64KB boundaries (`-Wl,-z,max-page-size=65536`), preventing load crashes on modern 16KB page kernels (standard on newer Raspberry Pi 5 operating systems).
+- **Native Wayland Execution**: Seamless desktop integration using Qt5's Wayland platform backend.
+- **Automated QEMU Installer**: If QEMU isn't found during setup, AQEMU will prompt to install it and execute `pkexec apt-get install -y qemu-system qemu-utils` to securely authorize package installation.
+- **Auto-locating Resources**: Scans directory paths relative to the running binary (e.g. `../resources/`), preventing data folder warnings when running directly from the build directory.
+- **Window Geometry Persistence**: Resolves a long-standing TODO item by saving and restoring the size and coordinates of the **Emulator Control Window** via `aqemu.cfg`.
+
+---
+
+## 📦 How to Install (.deb Release)
+
+You can download and install the pre-compiled `.deb` package directly from our **GitHub Releases** page:
+
+1. **Install the package**:
+   ```bash
+   sudo apt update
+   sudo apt install ./aqemu_0.9.6_arm64.deb
+   ```
+2. **Launch AQEMU**:
+   Simply run:
+   ```bash
+   aqemu
+   ```
+
+---
+
+## 🛠️ Building from Source on Raspberry Pi 5
+
+If you prefer to compile manually, follow these steps:
+
+### 1. Install Dependencies
+```bash
+sudo apt update
+sudo apt install -y build-essential cmake qtbase5-dev libqt5widgets5 qtwayland5 libvncserver-dev extra-cmake-modules
 ```
-meson builddir
-cd builddir
-ninja
-./aqemu
+
+### 2. Configure & Build (CMake)
+```bash
+mkdir -p build && cd build
+cmake -DPI5_OPTIMIZATIONS=ON ..
+make -j$(nproc)
 ```
 
-I set up a [crowdfunding page for AQEMU](https://salt.bountysource.com/teams/aqemu), it will enable users to donate for the whole
-project and/or for individual issues. Please consider setting up a monthly donation.
-
-I want AQEMU to pick up steam again with your help, with the goal of making the best
-virtual machine manager GUI.
-
-Bountysource crowdfunding page for AQEMU: https://salt.bountysource.com/teams/aqemu
-
-Patreon crowdfunding page: https://www.patreon.com/tobimensch
-
-Donate via PayPal: donate2aqemu@emailn.de
-
-
-![ScreenShot](https://i.imgur.com/PkvFUEk.png)
-
-Current stable release: https://github.com/tobimensch/aqemu/releases/tag/v0.9.2
-See the CHANGELOG for details.
-
-Upgrading from 0.8.2 is highly recommended.
+### 3. Build a Debian Package (Optional)
+To build a custom `.deb` package of your compiled code using CPack:
+```bash
+cd build
+cpack
+```
 
 ---
 
-Port of AQEMU 0.8.2 from Qt4 to Qt5.
+## ⚠️ Potential Issues & Troubleshooting
 
----
+### Wayland Rendering Anomalies
+AQEMU features an embedded VNC viewer (`libvncclient`) that draws emulator outputs inside the application. If you experience mouse grabbing issues or rendering quirks running natively under Wayland, run AQEMU in XWayland compatibility mode instead:
 
-Use cmake to build.
+* **Wayland Native (Default):**
+  ```bash
+  QT_QPA_PLATFORM=wayland aqemu
+  ```
+* **XWayland Fallback (Safer VNC grab behavior):**
+  ```bash
+  QT_QPA_PLATFORM=xcb aqemu
+  ```
 
-Dependencies: 
- - Qt5Core
- - Qt5Widgets 
- - Qt5Network
- - Qt5Test
- - Qt5PrintSupport
- - Qt5DBus
- - LibVNCServer
-
-
----
-
-As an alternative to cmake the meson build system is also supported:
-https://github.com/mesonbuild/meson
-
+### Polkit/Authentication Dialog Missing
+The automated QEMU installer relies on `pkexec` (Polkit) to request superuser permissions. If you are running on a headless setup or custom environment without a polkit agent running, the installer command will fail. You can install QEMU manually in your terminal if this occurs:
+```bash
+sudo apt install -y qemu-system qemu-utils
+```
