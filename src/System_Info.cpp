@@ -2909,13 +2909,18 @@ bool System_Info::Update_Host_USB()
 
 void System_Info::Get_Free_Memory_Size( int &allRAM, int &freeRAM )
 {
-	MEMORYSTATUS mem;
-	memset( (void*)&mem, 0, sizeof(mem) );
+	MEMORYSTATUSEX mem;
 	mem.dwLength = sizeof( mem );
-	GlobalMemoryStatus( &mem );
-	
-	freeRAM = (int)mem.dwAvailPhys / 1024.0 / 1024.0;
-	allRAM = (int)mem.dwTotalPhys / 1024.0 / 1024.0;
+	if( GlobalMemoryStatusEx( &mem ) )
+	{
+		freeRAM = (int)(mem.ullAvailPhys / 1024 / 1024);
+		allRAM = (int)(mem.ullTotalPhys / 1024 / 1024);
+	}
+	else
+	{
+		freeRAM = 2048;
+		allRAM = 4096;
+	}
 }
 
 QStringList System_Info::Get_Host_FDD_List()
@@ -2982,6 +2987,143 @@ bool System_Info::Update_Host_USB()
 {
 	AQError( "System_Info::Update_Host_USB()",
 			 "Not implemented!" );
+	return false;
+}
+
+bool System_Info::Auto_Find_And_Save_Emulators()
+{
+	QStringList sys_env = QProcess::systemEnvironment();
+	QStringList paths;
+	for( int ix = 0; ix < sys_env.count(); ix++ )
+	{
+		if( sys_env[ix].startsWith("PATH=") )
+		{
+			QString tmp = sys_env[ ix ].remove( "PATH=" );
+			paths = tmp.split( QDir::listSeparator(), QString::SkipEmptyParts );
+			break;
+		}
+	}
+	
+	#ifdef Q_OS_WIN32
+	paths << "C:/Program Files/qemu/" << "C:/Program Files (x86)/qemu/";
+	#else
+	paths << "/usr/bin/" << "/usr/local/bin/";
+	#endif
+	
+	for( int ix = 0; ix < paths.count(); ix++ )
+	{
+		if( paths[ix].contains("/usr/bin/X11") ) paths.removeAt( ix );
+	}
+	paths.removeDuplicates();
+	
+	for( int ix = 0; ix < paths.count(); ++ix )
+	{
+		paths[ ix ] = QDir::toNativeSeparators( (paths[ix].endsWith("/") || paths[ix].endsWith("\\"))
+												? paths[ix]
+												: paths[ix] + "/" );
+	}
+	
+	if( paths.count() <= 0 ) return false;
+	
+	// Find QEMU-IMG
+	QString exe_suffix = "";
+	#ifdef Q_OS_WIN32
+	exe_suffix = ".exe";
+	#endif
+	
+	QSettings Settings;
+	if( Settings.value("QEMU-IMG_Path", "").toString().isEmpty() )
+	{
+		for( int ix = 0; ix < paths.count(); ++ix )
+		{
+			if( QFile::exists(paths[ix] + "qemu-img" + exe_suffix) )
+			{
+				Settings.setValue( "QEMU-IMG_Path", QDir::toNativeSeparators(paths[ix] + "qemu-img" + exe_suffix) );
+				break;
+			}
+		}
+	}
+	
+	// Find QEMU Binaries
+	QList<Emulator> qemuEmulatorsList;
+	for( int qx = 0; qx < paths.count(); ++qx )
+	{
+		QMap<QString, QString> qemu_list = System_Info::Find_QEMU_Binary_Files( paths[qx] );
+		bool qemuBinFilesFound = false;
+		for( QMap<QString, QString>::const_iterator it = qemu_list.constBegin(); it != qemu_list.constEnd(); ++it )
+		{
+			if( ! it.value().isEmpty() )
+			{
+				qemuBinFilesFound = true;
+				break;
+			}
+		}
+		
+		if( ! qemuBinFilesFound ) continue;
+		
+		VM::Emulator_Version qemu_version = VM::Obsolete;
+		QMap<QString, QString>::const_iterator iter = qemu_list.constBegin();
+		while( iter != qemu_list.constEnd() )
+		{
+			if( QFile::exists(iter.value()) )
+				qemu_version = System_Info::Get_Emulator_Version( iter.value() );
+			
+			if( qemu_version != VM::Obsolete ) break;
+			iter++;
+		}
+		
+		if( qemu_version == VM::Obsolete )
+		{
+			qemu_version = VM::QEMU_2_0;
+		}
+		
+		QMap<QString, Available_Devices> devList;
+		iter = qemu_list.constBegin();
+		while( iter != qemu_list.constEnd() )
+		{
+			if( ! iter.value().isEmpty() )
+			{
+				bool ok = false;
+				Available_Devices tmpDev = System_Info::Get_Emulator_Info( iter.value(), &ok, qemu_version, iter.key() );
+				if( ok )
+					devList[ iter.key() ] = tmpDev;
+			}
+			++iter;
+		}
+		
+		Emulator emul;
+		QString emulName = Emulator_Version_To_String( qemu_version );
+		int emulDublicateNameCount = 1;
+		for( int ix = 0; ix < qemuEmulatorsList.count(); ++ix )
+		{
+			if( emulName == qemuEmulatorsList[ix].Get_Name() )
+			{
+				++emulDublicateNameCount;
+				emulName = QString("%1 #%2").arg( Emulator_Version_To_String(qemu_version) )
+											.arg( emulDublicateNameCount );
+				ix = 0;
+			}
+		}
+		emul.Set_Name( emulName );
+		emul.Set_Version( qemu_version );
+		emul.Set_Path( paths[qx] );
+		emul.Set_Devices( devList );
+		emul.Set_Binary_Files( qemu_list );
+		emul.Set_Check_Version( false );
+		emul.Set_Check_Available_Options( false );
+		emul.Set_Force_Version( false );
+		
+		qemuEmulatorsList << emul;
+	}
+	
+	if( qemuEmulatorsList.count() > 0 )
+	{
+		qemuEmulatorsList[ 0 ].Set_Default( true );
+		for( int ix = 0; ix < qemuEmulatorsList.count(); ++ix )
+			qemuEmulatorsList[ ix ].Save();
+		return true;
+	}
+	
 	return false;
 }
 

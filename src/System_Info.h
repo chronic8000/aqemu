@@ -32,6 +32,7 @@ class System_Info
 		System_Info();
 		
 		static bool Update_VM_Computers_List();
+		static bool Auto_Find_And_Save_Emulators();
 		
 		static VM::Emulator_Version Get_Emulator_Version( const QString &path = "" );
 		

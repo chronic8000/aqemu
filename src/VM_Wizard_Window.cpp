@@ -698,7 +698,30 @@ void VM_Wizard_Window::on_RB_Generate_VM_toggled( bool on )
 {
 	if( on )
 	{
-		if( ui.CB_Computer_Type->currentIndex() == 0 ||
+		// Make sure a computer type is selected
+		if( (ui.CB_Computer_Type->currentIndex() == -1 || ui.CB_Computer_Type->currentIndex() == 0) && ui.CB_Computer_Type->count() > 0 )
+		{
+			// Pre-select x86_64 or first item
+			int defaultIndex = 0;
+			for( int ix = 0; ix < ui.CB_Computer_Type->count(); ++ix )
+			{
+				QString text = ui.CB_Computer_Type->itemText( ix );
+				if( text.contains("64Bit") || text.contains("x86_64") )
+				{
+					defaultIndex = ix;
+					break;
+				}
+			}
+			ui.CB_Computer_Type->setCurrentIndex( defaultIndex );
+		}
+
+		// Make sure a release date is selected (instead of "None Selected" at index 0)
+		if( ui.CB_Relese_Date->currentIndex() == 0 && ui.CB_Relese_Date->count() > 4 )
+		{
+			ui.CB_Relese_Date->setCurrentIndex( 4 ); // Default to 2000-2005
+		}
+
+		if( ui.CB_Computer_Type->currentIndex() == -1 ||
 		  	ui.CB_Relese_Date->currentIndex() == 0 )
 			ui.Button_Next->setEnabled( false );
 		else
@@ -716,7 +739,7 @@ void VM_Wizard_Window::on_CB_OS_Type_currentIndexChanged( int index )
 
 void VM_Wizard_Window::on_CB_Computer_Type_currentIndexChanged( int index )
 {
-	if( index == 0 )
+	if( index == -1 )
 	{
 		ui.Button_Next->setEnabled( false );
 	}
@@ -735,7 +758,7 @@ void VM_Wizard_Window::on_CB_Relese_Date_currentIndexChanged( int index )
 	}
 	else
 	{
-		if( ui.CB_Computer_Type->currentIndex() != 0 )
+		if( ui.CB_Computer_Type->currentIndex() != -1 )
 			ui.Button_Next->setEnabled( true );
 	}
 }

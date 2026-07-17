@@ -606,6 +606,16 @@ bool Update_Emulators_List()
 	
 	if( emulFiles.isEmpty() )
 	{
+		AQDebug( "bool Update_Emulators_List()", "No emulators configured, running auto-discovery..." );
+		if( System_Info::Auto_Find_And_Save_Emulators() )
+		{
+			// Re-scan
+			emulFiles = emulDir.entryList( QStringList("*.emulator"), QDir::Files, QDir::Name );
+		}
+	}
+	
+	if( emulFiles.isEmpty() )
+	{
 		AQWarning( "bool Update_Emulators_List()",
 				   QString("No emulators found in \"%1\"").arg(aqemuSettingsFolder) );
 		return false;
