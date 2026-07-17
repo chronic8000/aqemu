@@ -295,7 +295,7 @@ bool Emulator::Load( const QString &path )
 		childElement = childElement.firstChildElement( iter.key() );
 		if( childElement.isNull() )
 		{
-			AQWarning( "bool Emulator::Load( const QString &path )",
+			AQDebug( "bool Emulator::Load( const QString &path )",
 					   QString("No \"%1\" element!").arg(iter.key()) );
 			continue;
 		}

@@ -200,7 +200,7 @@ Main_Window::Main_Window( QWidget *parent )
 		if( ! Load_Virtual_Machines() ) // Loading XML VM files
 		{
 			// no vm's
-			AQWarning( "Main_Window::Main_Window( QWidget *parent )", "No VM Loaded!" );
+			AQDebug( "Main_Window::Main_Window", "No VM Loaded!" );
 
 			// FIXME
 			if( VM_List.count() <= 0 )
@@ -233,6 +233,7 @@ Main_Window::Main_Window( QWidget *parent )
 
 void Main_Window::init_dbus()
 {
+#ifndef Q_OS_WIN32
     //dbus listening stuff
 
     if (!QDBusConnection::sessionBus().isConnected()) {
@@ -246,10 +247,11 @@ void Main_Window::init_dbus()
                 qPrintable(QDBusConnection::sessionBus().lastError().message()));
     }
 
-    AQError("void Main_Window::init_dbus()", "registered");
+    AQDebug("void Main_Window::init_dbus()", "registered");
 
     QDBusConnection::sessionBus().unregisterObject("/main_window", QDBusConnection::UnregisterTree);
     QDBusConnection::sessionBus().registerObject("/main_window", this, QDBusConnection::ExportAllSlots);
+#endif
 }
 
 Main_Window::~Main_Window()

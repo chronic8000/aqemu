@@ -1213,7 +1213,7 @@ QMap<QString, QString> System_Info::Find_QEMU_Binary_Files( const QString &path 
 	// Path valid?
 	if( ! QFile::exists(path) )
 	{
-		AQError( "QMap<QString, QString> System_Info::Find_QEMU_Binary_Files( const QString &path )",
+		AQDebug( "QMap<QString, QString> System_Info::Find_QEMU_Binary_Files( const QString &path )",
 				 QString("Path \"%1\" not exists!").arg(path) );
 		return emulFiles;
 	}

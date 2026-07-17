@@ -103,6 +103,12 @@ AQEMU_Main::~AQEMU_Main()
 
 int AQEMU_Main::main(int argc, char *argv[])
 {
+    std::cout << "========================================" << std::endl;
+    std::cout << "Starting AQEMU (Qt5 VM Manager)" << std::endl;
+    std::cout << "Version: " << CURRENT_AQEMU_VERSION << std::endl;
+    std::cout << "Pair programming with Antigravity" << std::endl;
+    std::cout << "========================================" << std::endl << std::endl;
+
     QString version = QString("aqemu ") + CURRENT_AQEMU_VERSION;
     std::map<std::string, docopt::value> args
         = docopt::docopt(USAGE,
