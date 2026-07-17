@@ -2991,6 +2991,8 @@ bool System_Info::Update_Host_USB()
 	return false;
 }
 
+#endif // Q_OS_WIN32
+
 bool System_Info::Auto_Find_And_Save_Emulators()
 {
 	QStringList sys_env = QProcess::systemEnvironment();
@@ -3127,5 +3129,3 @@ bool System_Info::Auto_Find_And_Save_Emulators()
 	
 	return false;
 }
-
-#endif // Windows
