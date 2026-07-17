@@ -11,6 +11,12 @@ incdir = include_directories('src')
 
 add_global_arguments( ['-DVNC_DISPLAY', '-DQTONLY'] , language : 'cpp')
 
+# Raspberry Pi 5 Optimizations
+if get_option('pi5_optimizations')
+  add_project_arguments('-O3', '-mcpu=cortex-a76', '-mtune=cortex-a76', language : 'cpp')
+  add_project_link_arguments('-Wl,-z,max-page-size=65536', language : 'cpp')
+endif
+
 aqemu_headers =    ['src/No_Boot_Device.h',
                     'src/Highlighted_Label.h',
                     'src/main.h',

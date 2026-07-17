@@ -385,6 +385,35 @@ void First_Start_Wizard::on_Button_Find_Emulators_clicked()
 					qemuEmulatorsList[ 0 ].Save();
 				}
 			}
+			else
+			{
+				#ifndef Q_OS_WIN32
+				QMessageBox::StandardButton reply;
+				reply = QMessageBox::question(this, tr("QEMU Not Found"),
+											tr("No QEMU emulators were found on your system.\n"
+											   "Would you like to install QEMU now?"),
+											QMessageBox::Yes | QMessageBox::No);
+				if( reply == QMessageBox::Yes )
+				{
+					QMessageBox::information(this, tr("Installing QEMU"),
+											 tr("Please authenticate in the prompt to install QEMU."));
+					
+					QProcess proc;
+					proc.start("pkexec", QStringList() << "apt-get" << "install" << "-y" << "qemu-system" << "qemu-utils");
+					proc.waitForFinished(-1);
+					
+					if( proc.exitCode() == 0 )
+					{
+						QMessageBox::information(this, tr("Success"), tr("QEMU installed successfully! Re-scanning..."));
+						on_Button_Find_Emulators_clicked();
+					}
+					else
+					{
+						QMessageBox::warning(this, tr("Failed"), tr("Failed to install QEMU. Please install it manually."));
+					}
+				}
+				#endif
+			}
 		}
 	}
 }

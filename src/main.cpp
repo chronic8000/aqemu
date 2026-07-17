@@ -22,6 +22,7 @@
 ****************************************************************************/
 
 #include <QApplication>
+#include <QCoreApplication>
 #include <QResource>
 #include <QMessageBox>
 #include <QTranslator>
@@ -377,7 +378,9 @@ int AQEMU_Main::find_data_folders()
         QStringList dataDirs;
         dataDirs << "/usr/share/aqemu/"
                  << "/usr/share/apps/aqemu/"
-                 << "/usr/local/share/aqemu/";
+                 << "/usr/local/share/aqemu/"
+                 << QDir::cleanPath(QCoreApplication::applicationDirPath() + "/../resources/") + "/"
+                 << QDir::cleanPath(QCoreApplication::applicationDirPath() + "/resources/") + "/";
 
         // Find data dir
         for( int dx = 0; dx < dataDirs.count(); ++dx )

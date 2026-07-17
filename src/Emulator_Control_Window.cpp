@@ -65,6 +65,11 @@ Emulator_Control_Window::Emulator_Control_Window( QWidget *parent )
 		ui.menubar->removeAction( ui.menuConnect->menuAction() );
 	else
 		ui.menubar->removeAction( ui.menuConnectNew->menuAction() );
+
+	// Restore Emulator Control Window size and position
+	resize( Settings.value( "Emulator_Window_Width", "640" ).toInt(),
+			Settings.value( "Emulator_Window_Height", "480" ).toInt() );
+	move( Settings.value( "Emulator_Window_Position", QPoint(350, 350) ).toPoint() );
 }
 
 void Emulator_Control_Window::Apply_Full_Size( int w, int h )
@@ -518,6 +523,12 @@ void Emulator_Control_Window::on_actionUpdate_list_triggered()
 
 void Emulator_Control_Window::closeEvent( QCloseEvent *event )
 {
+	// Save Emulator Control Window size and position
+	Settings.setValue( "Emulator_Window_Width", QString::number(this->width()) );
+	Settings.setValue( "Emulator_Window_Height", QString::number(this->height()) );
+	Settings.setValue( "Emulator_Window_Position", pos() );
+	Settings.sync();
+
 	#ifdef VNC_DISPLAY
 	if( this->isVisible() == false || Show_Close_Warning == false )
 	{

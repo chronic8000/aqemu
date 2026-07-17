@@ -5,14 +5,15 @@
 # Timothy Redaelli (Fix for build in a different folder)
 # Tobias Gläßer (Qt5 port)
 
+CMAKE_MINIMUM_REQUIRED( VERSION 3.5 FATAL_ERROR )
 PROJECT( AQEMU CXX )
-CMAKE_MINIMUM_REQUIRED( VERSION 3.1.0 FATAL_ERROR )
 
 # Available options
 OPTION( DEBUG "Build with debug information" )
 OPTION( WITHOUT_EMBEDDED_DISPLAY "Build without support Embedded VNC Display" )
 OPTION( UPDATE_TRANSLATIONS "Update source translation files (WARNING: make clean will delete the source .ts files!)" )
 OPTION( INSTALL_MAN "Install MAN page file" "ON" )
+OPTION( PI5_OPTIMIZATIONS "Enable compiler and linker optimizations for Raspberry Pi 5" OFF )
 
 # Debug mode
 IF( DEBUG )
@@ -22,6 +23,15 @@ IF( DEBUG )
 	# GCC
 	ADD_DEFINITIONS( -Wall -g )
 ENDIF( DEBUG )
+
+# Raspberry Pi 5 Optimizations
+IF( PI5_OPTIMIZATIONS )
+	# Optimize for Cortex-A76 and enable high-level optimizations
+	ADD_COMPILE_OPTIONS( -O3 -mcpu=cortex-a76 -mtune=cortex-a76 )
+	# Align ELF load segments to 64KB page boundaries to support 16KB kernels on Pi 5
+	SET( CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-z,max-page-size=65536" )
+	MESSAGE( STATUS "Raspberry Pi 5 optimizations enabled (-mcpu=cortex-a76, -z max-page-size=65536)" )
+ENDIF( PI5_OPTIMIZATIONS )
 
 # For finding VNC libs
 SET( CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/resources/cmake/modules )

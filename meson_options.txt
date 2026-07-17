@@ -1,0 +1,1 @@
+option('pi5_optimizations', type : 'boolean', value : false, description : 'Enable compiler and linker optimizations for Raspberry Pi 5')
