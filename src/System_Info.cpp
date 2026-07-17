@@ -1867,8 +1867,7 @@ Available_Devices System_Info::Get_Emulator_Info( const QString &path, bool *ok,
 	if( tmp_dev.CPU_List.count() < 2 )
 	{
 		tmp_dev.CPU_List = default_device.CPU_List; // FIXME Emul Version
-		AQWarning( "Available_Devices System_Info::Get_Emulator_Info( const QString &path, bool *ok,"
-				   "VM::Emulator_Version version, const QString &internalName )",
+		AQDebug( "Available_Devices System_Info::Get_Emulator_Info",
 				   QString("Cannot get CPU's info from emulator \"%1\". Use default list").arg(path) );
 	}
 	
@@ -1928,8 +1927,7 @@ Available_Devices System_Info::Get_Emulator_Info( const QString &path, bool *ok,
 	if( tmp_dev.Machine_List.count() < 2 )
 	{
 		tmp_dev.Machine_List = default_device.Machine_List; // FIXME Emul Version
-		AQWarning( "Available_Devices System_Info::Get_Emulator_Info( const QString &path, bool *ok,"
-				   "VM::Emulator_Version version, const QString &internalName )",
+		AQDebug( "Available_Devices System_Info::Get_Emulator_Info",
 				   QString("Cannot get machines info from emulator \"%1\". Use default list").arg(path) );
 	}
 	
@@ -2034,8 +2032,7 @@ Available_Devices System_Info::Get_Emulator_Info( const QString &path, bool *ok,
 		else
 		{
 			if( ! qemu_dev_name.isEmpty() )
-				AQWarning( "Available_Devices System_Info::Get_Emulator_Info( const QString &path, bool *ok,"
-						   "VM::Emulator_Version version, const QString &internalName )",
+				AQDebug( "Available_Devices System_Info::Get_Emulator_Info",
 						   "Unregistred Sound Card Name: \"" + qemu_dev_name + "\"" );
 			continue;
 		}
@@ -2100,8 +2097,7 @@ Available_Devices System_Info::Get_Emulator_Info( const QString &path, bool *ok,
 	if( tmp_dev.Network_Card_List.count() < 2 )
 	{
 		tmp_dev.Network_Card_List = default_device.Network_Card_List; // FIXME Emul Version
-		AQWarning( "Available_Devices System_Info::Get_Emulator_Info( const QString &path, bool *ok,"
-				   "VM::Emulator_Version version, const QString &internalName )",
+		AQDebug( "Available_Devices System_Info::Get_Emulator_Info",
 				   QString("Cannot get net cards info from emulator \"%1\". Use default list").arg(path) );
 	}
 	
