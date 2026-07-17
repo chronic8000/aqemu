@@ -29,6 +29,16 @@
 #include "VM_Wizard_Window.h"
 #include "System_Info.h"
 
+#ifdef Q_OS_WIN32
+#include <QSysInfo>
+QString Get_My_System_Architecture()
+{
+    QString arch = QSysInfo::currentCpuArchitecture();
+    if( arch == "i386" ) return "i686";
+    if( arch == "arm64" ) return "aarch64";
+    return arch;
+}
+#else
 #include <sys/utsname.h>
 #include <stdio.h>
 
@@ -41,6 +51,7 @@ QString Get_My_System_Architecture()
     uname(&name);
     return QString(name.machine);
 }
+#endif
 
 VM_Wizard_Window::VM_Wizard_Window( QWidget *parent )
 	: QDialog(parent)

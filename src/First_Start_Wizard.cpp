@@ -436,42 +436,6 @@ void First_Start_Wizard::on_Button_Edit_clicked()
 	delete edit_win;
 }
 
-#ifdef Q_OS_WIN32
-void First_Start_Wizard::on_TB_Add_Emulator_Browse_clicked()
-{
-	QString emulatorDirPath = QFileDialog::getExistingDirectory( this, tr("Select QEMU emulator directory"),
-																 Get_Last_Dir_Path(ui.Edit_Add_Emulator_Path->text()) );
-
-	if( ! emulatorDirPath.isEmpty() )
-		ui.Edit_Add_Emulator_Path->setText( QDir::toNativeSeparators(emulatorDirPath) );
-}
-
-void First_Start_Wizard::on_Button_Add_Emulator_Find_clicked()
-{
-
-}
-
-void First_Start_Wizard::on_Button_Add_Emulator_Manual_Mode_clicked()
-{
-	Emulator_Options_Window *emulatorOptionsWin = new Emulator_Options_Window( this );
-
-	Emul.Set_Name( ui.CB_Add_Emulator_Version->currentText() );
-	Emul.Set_Path( ui.Edit_Add_Emulator_Path->text() );
-	Emul.Set_Version( String_To_Emulator_Version(ui.CB_Add_Emulator_Version->currentText()) );
-	Emul.Set_Force_Version( true );
-	emulatorOptionsWin->Set_Emulator( Emul );
-
-	if( emulatorOptionsWin->exec() == QDialog::Accepted )
-	{
-		Emul = emulatorOptionsWin->Get_Emulator();
-
-		ui.Edit_Add_Emulator_Path->setText( Emul.Get_Path() );
-		ui.CB_Add_Emulator_Version->setEditText( Emulator_Version_To_String(Emul.Get_Version()) );
-	}
-
-	delete emulatorOptionsWin;
-}
-#endif
 
 void First_Start_Wizard::on_All_Pages_currentChanged( int index )
 {
@@ -554,64 +518,7 @@ bool First_Start_Wizard::Save_Settings()
 	// Off First Start
 	Settings.setValue( "First_Start", "no" );
 	
-	#ifdef Q_OS_WIN32
-	// Check emulator
-	if( Emul.Get_Name().isEmpty() )
-	{
-		Emul.Set_Name( ui.CB_Add_Emulator_Version->currentText() );
-		Emul.Set_Path( ui.Edit_Add_Emulator_Path->text() );
-		Emul.Set_Version( String_To_Emulator_Version(ui.CB_Add_Emulator_Version->currentText()) );
-		Emul.Set_Force_Version( true );
-		
-		bool foundEmulBinary = false;
-		bool searchAgain = true;
-		
-		while( true )
-		{
-			QList<QString> emulBinPaths = Emul.Get_Binary_Files().values();
-			for( int ix = 0; ix < emulBinPaths.count(); ++ix )
-			{
-				if( QFile::exists(emulBinPaths[ix]) )
-				{
-					foundEmulBinary = true;
-					break;
-				}
-			}
-			
-			if( ! foundEmulBinary )
-			{
-				if( ! searchAgain ) break;
-				
-				searchAgain = false;
-				Emul.Set_Binary_Files( System_Info::Find_QEMU_Binary_Files(ui.Edit_Add_Emulator_Path->text()) );
-			}
-			else break;
-		}
-		
-		if( ! foundEmulBinary )
-		{
-			AQGraphic_Warning( tr("Error"), tr("Emulator binary files not exists! Please click Back and set it manual.") );
-			return false;
-		}
-		
-		// qemu-img
-		if( ! QFile::exists(Settings.value("QEMU-IMG_Path", "").toString()) )
-		{
-			QString qemuImgPath = (ui.Edit_Add_Emulator_Path->text().endsWith("/") || ui.Edit_Add_Emulator_Path->text().endsWith("\\"))
-								  ? ui.Edit_Add_Emulator_Path->text() + "qemu-img.exe"
-								  : ui.Edit_Add_Emulator_Path->text() + QDir::toNativeSeparators("/qemu-img.exe");
-			
-			if( QFile::exists(qemuImgPath) )
-				Settings.setValue( "QEMU-IMG_Path", QDir::toNativeSeparators(qemuImgPath) );
-			else
-				AQGraphic_Warning( tr("Warning!"),
-								   tr("Cannot find qemu-img.exe! You most set it path in: File->Advanced Settings->Advanced->qemu-img path") );
-		}
-	}
-	
-	Remove_All_Emulators_Files();
-	Emul.Save();
-	#endif
+
 	
 	return true;
 }

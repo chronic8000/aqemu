@@ -46,11 +46,7 @@ class First_Start_Wizard: public QDialog
 		void on_Button_Skip_Find_clicked();
 		void on_Button_Edit_clicked();
 		
-		#ifdef Q_OS_WIN32
-		void on_TB_Add_Emulator_Browse_clicked();
-		void on_Button_Add_Emulator_Find_clicked();
-		void on_Button_Add_Emulator_Manual_Mode_clicked();
-		#endif
+
 		
 		void on_All_Pages_currentChanged( int index );
 		

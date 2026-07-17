@@ -2920,69 +2920,61 @@ void System_Info::Get_Free_Memory_Size( int &allRAM, int &freeRAM )
 
 QStringList System_Info::Get_Host_FDD_List()
 {
-	DWORD len = GetLogicalDriveStrings( 0, NULL );
-	TCHAR buf[ len ];
-	int buf_size = sizeof(buf) / sizeof(TCHAR);
-	GetLogicalDriveStrings( buf_size, buf );
+	DWORD len = GetLogicalDriveStringsW( 0, NULL );
+	if( len == 0 ) return QStringList();
+	
+	WCHAR *buf = new WCHAR[ len ];
+	GetLogicalDriveStringsW( len, buf );
 	
 	QStringList ret_list;
 	QString tmp = "";
-	for( int ix = 0; ix < buf_size-1; ix++ )
+	for( DWORD ix = 0; ix < len-1; ix++ )
 	{
-		if( buf[ix] != NULL )
+		if( buf[ix] != L'\0' )
 		{
-			tmp += (char)buf[ix];
+			tmp += QChar(buf[ix]);
 		}
 		else
 		{
-			WCHAR *w = new WCHAR[ tmp.count() ];
-			tmp.toWCharArray( w );
-			UINT uDriveType = GetDriveType( w );
-			delete w;
-			
+			UINT uDriveType = GetDriveTypeW( (LPCWSTR)tmp.utf16() );
 			if( uDriveType == DRIVE_REMOVABLE )
 			{
 				ret_list << tmp;
 			}
-			
 			tmp = "";
 		}
 	}
-
+	delete[] buf;
 	return ret_list;
 }
 
 QStringList System_Info::Get_Host_CDROM_List()
 {
-	DWORD len = GetLogicalDriveStrings( 0, NULL );
-	TCHAR buf[ len ];
-	int buf_size = sizeof(buf) / sizeof(TCHAR);
-	GetLogicalDriveStrings( buf_size, buf );
+	DWORD len = GetLogicalDriveStringsW( 0, NULL );
+	if( len == 0 ) return QStringList();
+	
+	WCHAR *buf = new WCHAR[ len ];
+	GetLogicalDriveStringsW( len, buf );
 	
 	QStringList ret_list;
 	QString tmp = "";
-	for( int ix = 0; ix < buf_size-1; ix++ )
+	for( DWORD ix = 0; ix < len-1; ix++ )
 	{
-		if( buf[ix] != NULL )
+		if( buf[ix] != L'\0' )
 		{
-			tmp += (char)buf[ix];
+			tmp += QChar(buf[ix]);
 		}
 		else
 		{
-			WCHAR *w = new WCHAR[ tmp.count() ];
-			tmp.toWCharArray( w );
-			UINT uDriveType = GetDriveType( w );
-			delete w;
-			
+			UINT uDriveType = GetDriveTypeW( (LPCWSTR)tmp.utf16() );
 			if( uDriveType == DRIVE_CDROM )
 			{
 				ret_list << tmp;
 			}
-			
 			tmp = "";
 		}
 	}
-	
+	delete[] buf;
 	return ret_list;
 }
 

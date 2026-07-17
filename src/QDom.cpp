@@ -237,13 +237,13 @@ const QDomElement QDomNode::toElement() const
 
 QDomDocument::QDomDocument()
 {
-    document = new XMLDocument();
+    document = new tinyxml2::XMLDocument();
 }
 
 
 QDomDocument::QDomDocument(const QString&)
 {
-    document = new XMLDocument();
+    document = new tinyxml2::XMLDocument();
     //TODO
 }
 
