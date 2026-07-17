@@ -299,7 +299,7 @@ MACRO( create_docs _sources )
 	ENDFOREACH( curFile )
 ENDMACRO( create_docs )
 
-CREATE_DOCS( docs_bz2 AUTHORS CHANGELOG README TODO )
+CREATE_DOCS( docs_bz2 AUTHORS CHANGELOG README.md TODO )
 ADD_CUSTOM_TARGET( docs ALL DEPENDS ${docs_bz2} )
 INSTALL( FILES ${docs_bz2} DESTINATION share/doc/aqemu )
 
