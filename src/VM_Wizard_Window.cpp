@@ -190,10 +190,37 @@ void VM_Wizard_Window::on_Button_Next_clicked()
 
         // Comp types
         ui.CB_Computer_Type->clear();
-        ui.CB_Computer_Type->addItem( tr("None Selected") );
         for( QMap<QString, Available_Devices>::const_iterator it = All_Systems.constBegin(); it != All_Systems.constEnd(); it++ )
         {
             ui.CB_Computer_Type->addItem( it.value().System.Caption );
+        }
+
+        // Pre-select host target architecture (like x86_64) if it exists, otherwise select the first item
+        int defaultIndex = 0;
+        for( int ix = 0; ix < ui.CB_Computer_Type->count(); ++ix )
+        {
+            QString text = ui.CB_Computer_Type->itemText( ix );
+            if( text.contains("64Bit") || text.contains("x86_64") )
+            {
+                defaultIndex = ix;
+                break;
+            }
+        }
+        if( ui.CB_Computer_Type->count() > 0 )
+        {
+            ui.CB_Computer_Type->setCurrentIndex( defaultIndex );
+        }
+
+        // Auto-select standard release date (2000-2005) instead of "None Selected" (index 0)
+        if( ui.CB_Relese_Date->currentIndex() == 0 && ui.CB_Relese_Date->count() > 4 )
+        {
+            ui.CB_Relese_Date->setCurrentIndex( 4 ); // Default to 2000-2005
+        }
+
+        // Auto-select first template if none is selected
+        if( ui.CB_OS_Type->currentIndex() == 0 && ui.CB_OS_Type->count() > 1 )
+        {
+            ui.CB_OS_Type->setCurrentIndex( 1 );
         }
 
         ui.Button_Next->setEnabled( true );

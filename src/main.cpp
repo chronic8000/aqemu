@@ -362,25 +362,31 @@ int AQEMU_Main::find_data_folders()
     // Find Data Folder
     if( settings->value("AQEMU_Data_Folder", "").toString().isEmpty() )
     {
-        #ifdef Q_OS_WIN32
-        if( QDir(QDir::currentPath() + "\\os_icons").exists() &&
-            QDir(QDir::currentPath() + "\\os_templates").exists() )
-        {
-            settings->setValue( "AQEMU_Data_Folder", QDir::toNativeSeparators(QDir::currentPath()) );
-            AQDebug( "int main( int argc, char *argv[] )", "Use Data Folder: " + QDir::currentPath() );
-        }
-        else
-        {
-            AQGraphic_Error( "int main( int argc, char *argv[] )", QObject::tr("Error!"),
-                             QObject::tr("Cannot Find AQEMU Data!"), false );
-        }
-        #else
         QStringList dataDirs;
+        
+        // 1. App resources folder (development / relative to build binary)
+        dataDirs << QDir::cleanPath(QCoreApplication::applicationDirPath() + "/resources/") + "/";
+        dataDirs << QDir::cleanPath(QCoreApplication::applicationDirPath() + "/../resources/") + "/";
+        
+        // 2. App binary folder (flat distribution)
+        dataDirs << QDir::cleanPath(QCoreApplication::applicationDirPath()) + "/";
+        
+        // 3. Current working directory options
+        dataDirs << QDir::cleanPath(QDir::currentPath() + "/resources/") + "/";
+        dataDirs << QDir::cleanPath(QDir::currentPath()) + "/";
+        
+        #ifdef Q_OS_WIN32
+        // 4. Typical installation folders on Windows
+        dataDirs << "C:/Program Files/AQEMU/resources/"
+                 << "C:/Program Files/AQEMU/"
+                 << "C:/Program Files (x86)/AQEMU/resources/"
+                 << "C:/Program Files (x86)/AQEMU/";
+        #else
+        // 5. Typical installation folders on Unix/Linux
         dataDirs << "/usr/share/aqemu/"
                  << "/usr/share/apps/aqemu/"
-                 << "/usr/local/share/aqemu/"
-                 << QDir::cleanPath(QCoreApplication::applicationDirPath() + "/../resources/") + "/"
-                 << QDir::cleanPath(QCoreApplication::applicationDirPath() + "/resources/") + "/";
+                 << "/usr/local/share/aqemu/";
+        #endif
 
         // Find data dir
         for( int dx = 0; dx < dataDirs.count(); ++dx )
@@ -390,7 +396,8 @@ int AQEMU_Main::find_data_folders()
             if( dataDir.exists("./os_icons") &&
                 dataDir.exists("./os_templates") )
             {
-                settings->setValue( "AQEMU_Data_Folder", dataDirs[dx] );
+                settings->setValue( "AQEMU_Data_Folder", QDir::toNativeSeparators(dataDirs[dx]) );
+                AQDebug( "int main( int argc, char *argv[] )", "Use Data Folder: " + dataDirs[dx] );
                 break;
             }
         }
@@ -414,11 +421,10 @@ int AQEMU_Main::find_data_folders()
             }
             else
             {
-                if( ! aqemuDataDir.endsWith("/") ) aqemuDataDir += "/";
-                settings->setValue( "AQEMU_Data_Folder", aqemuDataDir );
+                if( ! aqemuDataDir.endsWith("/") && ! aqemuDataDir.endsWith("\\") ) aqemuDataDir += "/";
+                settings->setValue( "AQEMU_Data_Folder", QDir::toNativeSeparators(aqemuDataDir) );
             }
         }
-        #endif
     }
 
     return 0;

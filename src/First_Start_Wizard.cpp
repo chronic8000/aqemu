@@ -170,10 +170,16 @@ void First_Start_Wizard::on_Button_Find_Emulators_clicked()
 			if( sys_env[ix].startsWith("PATH=") )
 			{
 				QString tmp = sys_env[ ix ].remove( "PATH=" );
-				paths = tmp.split( ":", QString::SkipEmptyParts );
+				paths = tmp.split( QDir::listSeparator(), QString::SkipEmptyParts );
 				break;
 			}
 		}
+		
+		#ifdef Q_OS_WIN32
+		paths << "C:/Program Files/qemu/" << "C:/Program Files (x86)/qemu/";
+		#else
+		paths << "/usr/bin/" << "/usr/local/bin/";
+		#endif
 		
 		// Delete /usr/bin/X11/ from PATH's list
 		for( int ix = 0; ix < paths.count(); ix++ )
@@ -202,30 +208,34 @@ void First_Start_Wizard::on_Button_Find_Emulators_clicked()
 		{
 			// Find QEMU-IMG
 			bool qemuIMG_Found = false;
+			QString exe_suffix = "";
+			#ifdef Q_OS_WIN32
+			exe_suffix = ".exe";
+			#endif
 			
 			for( int ix = 0; ix < paths.count(); ++ix )
 			{
-				if( QFile::exists(paths[ix] + "qemu-img") )
+				if( QFile::exists(paths[ix] + "qemu-img" + exe_suffix) )
 				{
-					Settings.setValue( "QEMU-IMG_Path", paths[ix] + "qemu-img" );
+					Settings.setValue( "QEMU-IMG_Path", paths[ix] + "qemu-img" + exe_suffix );
 					qemuIMG_Found = true;
 					break;
 				}
-				else if( QFile::exists(paths[ix] + "kvm-img") )
+				else if( QFile::exists(paths[ix] + "kvm-img" + exe_suffix) )
 				{
-					Settings.setValue( "QEMU-IMG_Path", paths[ix] + "kvm-img" );
+					Settings.setValue( "QEMU-IMG_Path", paths[ix] + "kvm-img" + exe_suffix );
 					qemuIMG_Found = true;
 					break;
 				}
-				else if( QFile::exists(paths[ix] + "qemu-img-kvm") )
+				else if( QFile::exists(paths[ix] + "qemu-img-kvm" + exe_suffix) )
 				{
-					Settings.setValue( "QEMU-IMG_Path", paths[ix] + "qemu-img-kvm" );
+					Settings.setValue( "QEMU-IMG_Path", paths[ix] + "qemu-img-kvm" + exe_suffix );
 					qemuIMG_Found = true;
 					break;
 				}
-				else if( QFile::exists(paths[ix] + "qemu-kvm-img") )
+				else if( QFile::exists(paths[ix] + "qemu-kvm-img" + exe_suffix) )
 				{
-					Settings.setValue( "QEMU-IMG_Path", paths[ix] + "qemu-kvm-img" );
+					Settings.setValue( "QEMU-IMG_Path", paths[ix] + "qemu-kvm-img" + exe_suffix );
 					qemuIMG_Found = true;
 					break;
 				}
