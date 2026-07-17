@@ -864,6 +864,11 @@ bool System_Info::Update_VM_Computers_List()
 		Available_Devices new_ad = Available_Devices();
 		new_ad.System = Device_Map( QObject::tr(target_templates[tx].caption), target_templates[tx].binary_name );
 		
+		new_ad.CPU_List << Device_Map( QObject::tr("Default CPU"), "max" )
+		                << Device_Map( QObject::tr("Host CPU"), "host" );
+		
+		new_ad.Machine_List << Device_Map( QObject::tr("Generic Virtual Machine (virt)"), "virt" );
+		
 		new_ad.Network_Card_List << Device_Map( QObject::tr("VirtIO Network Card"), "virtio-net-pci" )
 		                         << Device_Map( QObject::tr("NE2000 PCI"), "ne2k_pci" )
 		                         << Device_Map( QObject::tr("RTL8139"), "rtl8139" )

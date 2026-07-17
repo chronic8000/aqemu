@@ -57,10 +57,13 @@ VM_Wizard_Window::VM_Wizard_Window( QWidget *parent )
 	: QDialog(parent)
 {
 	ui.setupUi( this );
-	ui.Label_Page->setBackgroundRole( QPalette::Base );
     ui.Wizard_Pages->setCurrentIndex(0);
 	
 	New_VM = new Virtual_Machine();
+	
+	// Hide release date widgets
+	ui.Label_Relese_Date->hide();
+	ui.CB_Relese_Date->hide();
 	
 	// Loadind All Templates
 	if( Load_OS_Templates() )
@@ -78,10 +81,10 @@ VM_Wizard_Window::VM_Wizard_Window( QWidget *parent )
 				   "No VM Templates Found!" );
 	}
 
-    connect(ui.RB_Emulator_KVM, SIGNAL(toggled(bool)),this, SLOT(on_KVM_toggled(bool)));
+    connect(ui.RB_Emulator_KVM, SIGNAL(toggled(bool)),this, SLOT(KVM_toggled(bool)));
 }
 
-void VM_Wizard_Window::on_KVM_toggled(bool toggled)
+void VM_Wizard_Window::KVM_toggled(bool toggled)
 {
     if ( toggled )
         ui.toolBox_accelInfo->setCurrentIndex(1);
@@ -209,12 +212,6 @@ void VM_Wizard_Window::on_Button_Next_clicked()
         if( ui.CB_Computer_Type->count() > 0 )
         {
             ui.CB_Computer_Type->setCurrentIndex( defaultIndex );
-        }
-
-        // Auto-select standard release date (2000-2005) instead of "None Selected" (index 0)
-        if( ui.CB_Relese_Date->currentIndex() == 0 && ui.CB_Relese_Date->count() > 4 )
-        {
-            ui.CB_Relese_Date->setCurrentIndex( 4 ); // Default to 2000-2005
         }
 
         // Auto-select first template if none is selected
@@ -372,7 +369,8 @@ void VM_Wizard_Window::applyTemplate()
 	}
 	else // Create New VM in Date Mode
 	{
-        By_Year();
+		ui.Memory_Size->setValue( 2048 );
+		ui.SB_HDD_Size->setValue( 20.0 );
 
 		// Find CPU List For This Template
 		QString compCaption = ui.CB_Computer_Type->currentText();
@@ -425,50 +423,6 @@ void VM_Wizard_Window::Typical_Or_Custom()
 		ui.Line_CPU_Type->setVisible( true );
 		ui.Label_CPU_Type->setVisible( true );
 		ui.CB_CPU_Type->setVisible( true );
-	}
-}
-
-void VM_Wizard_Window::By_Year()
-{
-	// Select Memory Size, and HDD Size
-	switch( ui.CB_Relese_Date->currentIndex() )
-	{
-		case 0:
-			AQError( "void VM_Wizard_Window::Create_New_VM()",
-					 "Relese Date Not Selected!" );
-			ui.Memory_Size->setValue( 512 );
-			break;
-
-		case 1: // 1985-1990
-			ui.Memory_Size->setValue( 16 );
-			ui.SB_HDD_Size->setValue( 1.0 );
-			break;
-
-		case 2: // 1990-1995
-			ui.Memory_Size->setValue( 64 );
-			ui.SB_HDD_Size->setValue( 2.0 );
-			break;
-
-		case 3: // 1995-2000
-			ui.Memory_Size->setValue( 256 );
-			ui.SB_HDD_Size->setValue( 10.0 );
-			break;
-
-		case 4: // 2000-2005
-			ui.Memory_Size->setValue( 512 );
-			ui.SB_HDD_Size->setValue( 20.0 );
-			break;
-
-		case 5: // 2005-2010
-			ui.Memory_Size->setValue( 1024 );
-			ui.SB_HDD_Size->setValue( 40.0 );
-			break;
-
-		default:
-			AQError( "void VM_Wizard_Window::Create_New_VM()",
-					 "Relese Date Default Section!" );
-			ui.Memory_Size->setValue( 512 );
-			break;
 	}
 }
 
@@ -715,14 +669,7 @@ void VM_Wizard_Window::on_RB_Generate_VM_toggled( bool on )
 			ui.CB_Computer_Type->setCurrentIndex( defaultIndex );
 		}
 
-		// Make sure a release date is selected (instead of "None Selected" at index 0)
-		if( ui.CB_Relese_Date->currentIndex() == 0 && ui.CB_Relese_Date->count() > 4 )
-		{
-			ui.CB_Relese_Date->setCurrentIndex( 4 ); // Default to 2000-2005
-		}
-
-		if( ui.CB_Computer_Type->currentIndex() == -1 ||
-		  	ui.CB_Relese_Date->currentIndex() == 0 )
+		if( ui.CB_Computer_Type->currentIndex() == -1 )
 			ui.Button_Next->setEnabled( false );
 		else
 			ui.Button_Next->setEnabled( true );
@@ -745,21 +692,7 @@ void VM_Wizard_Window::on_CB_Computer_Type_currentIndexChanged( int index )
 	}
 	else
 	{
-		if( ui.CB_Relese_Date->currentIndex() != 0 )
-			ui.Button_Next->setEnabled( true );
-	}
-}
-
-void VM_Wizard_Window::on_CB_Relese_Date_currentIndexChanged( int index )
-{
-	if( index == 0 )
-	{
-		ui.Button_Next->setEnabled( false );
-	}
-	else
-	{
-		if( ui.CB_Computer_Type->currentIndex() != -1 )
-			ui.Button_Next->setEnabled( true );
+		ui.Button_Next->setEnabled( true );
 	}
 }
 

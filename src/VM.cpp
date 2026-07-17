@@ -7676,6 +7676,12 @@ void Virtual_Machine::Update_Current_Emulator_Devices()
 		Current_Emulator_Devices = Current_Emulator.Get_Devices()[ Computer_Type ];
 	}
 	
+	// Predefined fallback if devices list does not contain this computer type
+	if( Current_Emulator_Devices.System.QEMU_Name.isEmpty() )
+	{
+		Current_Emulator_Devices = System_Info::Emulator_QEMU_2_0[ Computer_Type ];
+	}
+	
 	// Loading Info Complete?
 	if( Current_Emulator_Devices.System.QEMU_Name.isEmpty() )
 	{

@@ -141,6 +141,37 @@ bool AQEMU_Service::call(const QString& command, const QList<QVariant>& params, 
         successful_init = true;
     }
 
+#ifdef Q_OS_WIN32
+    // On Windows, run the command locally since we don't use D-Bus
+    QString result;
+    if( command == "start" && params.count() >= 1 ) result = start( params[0].toString() );
+    else if( command == "stop" && params.count() >= 1 ) result = stop( params[0].toString() );
+    else if( command == "shutdown" && params.count() >= 1 ) result = shutdown( params[0].toString() );
+    else if( command == "reset" && params.count() >= 1 ) result = reset( params[0].toString() );
+    else if( command == "pause" && params.count() >= 1 ) result = pause( params[0].toString() );
+    else if( command == "save" && params.count() >= 1 ) result = save( params[0].toString() );
+    else if( command == "monitor" && params.count() >= 1 ) result = monitor( params[0].toString() );
+    else if( command == "error" && params.count() >= 1 ) result = error( params[0].toString() );
+    else if( command == "control" && params.count() >= 1 ) result = control( params[0].toString() );
+    else if( command == "status" )
+    {
+        if( params.count() >= 1 ) result = status( params[0].toString() );
+        else result = status();
+    }
+    else if( command == "command" && params.count() >= 2 ) result = this->command( params[0].toString(), params[1].toString() );
+    else if( command == "list" ) result = list();
+
+    if( ! result.isEmpty() )
+    {
+        if( result.contains("could not be") )
+        {
+            std::cerr << qPrintable(result) << std::endl;
+            return false;
+        }
+        std::cout << qPrintable(result) << std::endl;
+    }
+    return true;
+#else
     if (!QDBusConnection::sessionBus().isConnected()) {
         fprintf(stderr, "Cannot connect to the D-Bus session bus.\n"
                 "To start it, run:\n"
@@ -170,6 +201,7 @@ bool AQEMU_Service::call(const QString& command, const QList<QVariant>& params, 
     fprintf(stderr, "%s\n",
             qPrintable(QDBusConnection::sessionBus().lastError().message()));
     return false;
+#endif
 }
 
 bool AQEMU_Service::call(const QString &command, Virtual_Machine *vm, bool noblock)
@@ -209,6 +241,7 @@ bool AQEMU_Service::init_service()
         return false;
     }
 
+#ifndef Q_OS_WIN32
     //dbus listening stuff
 
     if (!QDBusConnection::sessionBus().isConnected()) {
@@ -225,6 +258,7 @@ bool AQEMU_Service::init_service()
     }
 
     QDBusConnection::sessionBus().registerObject("/", this, QDBusConnection::ExportAllSlots);
+#endif
     return true;
 }
 

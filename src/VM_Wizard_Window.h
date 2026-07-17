@@ -42,7 +42,7 @@ class VM_Wizard_Window: public QDialog
 		Virtual_Machine *New_VM;
 		
 	private slots:
-        void on_KVM_toggled(bool toggled);
+        void KVM_toggled(bool toggled);
 		bool Load_OS_Templates();
         bool Create_New_VM(bool simulate = false);
 		QString Find_OS_Icon( const QString os_name );
@@ -54,7 +54,6 @@ class VM_Wizard_Window: public QDialog
 		void on_RB_Generate_VM_toggled( bool on );
 		void on_CB_OS_Type_currentIndexChanged( int index );
 		void on_CB_Computer_Type_currentIndexChanged( int index );
-		void on_CB_Relese_Date_currentIndexChanged( int index );
 		
 		// Memory
 		void on_Memory_Size_valueChanged( int value );
