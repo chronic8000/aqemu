@@ -833,6 +833,54 @@ bool System_Info::Update_VM_Computers_List()
 	ad.PSO_Initial_Graphic_Mode = true;
 	System_Info::Emulator_QEMU_2_0[ "qemu-system-sparc64" ] = ad;
 	
+	// Register templates for all other QEMU target architectures
+	struct AQEMU_Target_Template
+	{
+		const char *binary_name;
+		const char *caption;
+	};
+	
+	AQEMU_Target_Template target_templates[] = {
+		{ "qemu-system-i386", "IBM PC 32Bit" },
+		{ "qemu", "IBM PC 32Bit" },
+		{ "qemu-system-aarch64", "AArch64 (ARM 64-bit)" },
+		{ "qemu-system-riscv64", "RISC-V 64-bit" },
+		{ "qemu-system-riscv32", "RISC-V 32-bit" },
+		{ "qemu-system-loongarch64", "LoongArch 64-bit" },
+		{ "qemu-system-openrisc", "OpenRISC 1000" },
+		{ "qemu-system-s390x", "S390x (Mainframe)" },
+		{ "qemu-system-alpha", "Alpha Server" },
+		{ "qemu-system-hppa", "HP PA-RISC" },
+		{ "qemu-system-sh4el", "SuperH SH-4 (Little Endian)" },
+		{ "qemu-system-avr", "AVR Microcontroller" },
+		{ "qemu-system-rx", "Renesas RX" },
+		{ "qemu-system-tricore", "Infineon TriCore" },
+		{ "qemu-system-xtensa", "Tensilica Xtensa" },
+		{ "qemu-system-microblazeel", "MicroBlaze (Little Endian)" }
+	};
+	
+	for( size_t tx = 0; tx < sizeof(target_templates)/sizeof(target_templates[0]); ++tx )
+	{
+		Available_Devices new_ad = Available_Devices();
+		new_ad.System = Device_Map( QObject::tr(target_templates[tx].caption), target_templates[tx].binary_name );
+		
+		new_ad.Network_Card_List << Device_Map( QObject::tr("VirtIO Network Card"), "virtio-net-pci" )
+		                         << Device_Map( QObject::tr("NE2000 PCI"), "ne2k_pci" )
+		                         << Device_Map( QObject::tr("RTL8139"), "rtl8139" )
+		                         << Device_Map( QObject::tr("e1000"), "e1000" );
+		
+		new_ad.Video_Card_List << Device_Map( QObject::tr("Standard VGA"), "std" )
+		                       << Device_Map( QObject::tr("VirtIO GPU"), "virtio" )
+		                       << Device_Map( QObject::tr("Cirrus VGA"), "cirrus" )
+		                       << Device_Map( QObject::tr("None"), "none" );
+		
+		new_ad.Audio_Card_List = VM::Sound_Cards();
+		new_ad.PSO_SMP_Count = 255;
+		new_ad.PSO_Initial_Graphic_Mode = true;
+		
+		System_Info::Emulator_QEMU_2_0[ target_templates[tx].binary_name ] = new_ad;
+	}
+	
 
 	ad.PSO_SMP_Cores = true;
 	ad.PSO_SMP_Threads = true;
@@ -1128,21 +1176,36 @@ QMap<QString, QString> System_Info::Find_QEMU_Binary_Files( const QString &path 
 	QMap<QString, QString> emulFiles;
 	
 	emulFiles[ "qemu-system-x86_64" ] = "";
+	emulFiles[ "qemu-system-i386" ] = "";
+	emulFiles[ "qemu-system-aarch64" ] = "";
 	emulFiles[ "qemu-system-arm" ] = "";
-	emulFiles[ "qemu-system-cris" ] = "";
-	emulFiles[ "qemu-system-m68k" ] = "";
-	emulFiles[ "qemu-system-microblaze" ] = "";
-	emulFiles[ "qemu-system-mips" ] = "";
-	emulFiles[ "qemu-system-mips64" ] = "";
-	emulFiles[ "qemu-system-mips64el" ] = "";
-	emulFiles[ "qemu-system-mipsel" ] = "";
+	emulFiles[ "qemu-system-riscv64" ] = "";
+	emulFiles[ "qemu-system-riscv32" ] = "";
+	emulFiles[ "qemu-system-loongarch64" ] = "";
+	emulFiles[ "qemu-system-openrisc" ] = "";
 	emulFiles[ "qemu-system-ppc" ] = "";
 	emulFiles[ "qemu-system-ppc64" ] = "";
 	emulFiles[ "qemu-system-ppcemb" ] = "";
-	emulFiles[ "qemu-system-sh4" ] = "";
-	emulFiles[ "qemu-system-sh4eb" ] = "";
 	emulFiles[ "qemu-system-sparc" ] = "";
 	emulFiles[ "qemu-system-sparc64" ] = "";
+	emulFiles[ "qemu-system-mips" ] = "";
+	emulFiles[ "qemu-system-mipsel" ] = "";
+	emulFiles[ "qemu-system-mips64" ] = "";
+	emulFiles[ "qemu-system-mips64el" ] = "";
+	emulFiles[ "qemu-system-s390x" ] = "";
+	emulFiles[ "qemu-system-alpha" ] = "";
+	emulFiles[ "qemu-system-hppa" ] = "";
+	emulFiles[ "qemu-system-sh4" ] = "";
+	emulFiles[ "qemu-system-sh4eb" ] = "";
+	emulFiles[ "qemu-system-sh4el" ] = "";
+	emulFiles[ "qemu-system-avr" ] = "";
+	emulFiles[ "qemu-system-m68k" ] = "";
+	emulFiles[ "qemu-system-rx" ] = "";
+	emulFiles[ "qemu-system-tricore" ] = "";
+	emulFiles[ "qemu-system-xtensa" ] = "";
+	emulFiles[ "qemu-system-cris" ] = "";
+	emulFiles[ "qemu-system-microblaze" ] = "";
+	emulFiles[ "qemu-system-microblazeel" ] = "";
 	
 	// path empty - this not error. It return empty bin files list
 	if( path.isEmpty() ) return emulFiles;
