@@ -289,7 +289,7 @@ INSTALL( FILES ${app_menu} DESTINATION share/appdata )
 MACRO( create_docs _sources )
 	FOREACH( curFile ${ARGN} )
 		GET_FILENAME_COMPONENT( _in ${curFile} ABSOLUTE )
-		GET_FILENAME_COMPONENT( _basename ${curFile} NAME_WE )
+		GET_FILENAME_COMPONENT( _basename ${curFile} NAME )
 		
 		SET( _out ${CMAKE_CURRENT_SOURCE_DIR}/${_basename}.bz2 )
 		
