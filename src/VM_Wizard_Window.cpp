@@ -364,6 +364,9 @@ void VM_Wizard_Window::applyTemplate()
 		
 		// Memory
 		ui.Memory_Size->setValue( New_VM->Get_Memory_Size() );
+
+		// CPU Cores
+		ui.SB_CPU_Cores->setValue( New_VM->Get_SMP_CPU_Count() );
 		
 		// HDA
 		double hda_size = New_VM->Get_HDA().Get_Virtual_Size_in_GB();
@@ -384,6 +387,7 @@ void VM_Wizard_Window::applyTemplate()
 	{
 		ui.Memory_Size->setValue( 2048 );
 		ui.SB_HDD_Size->setValue( 20.0 );
+		ui.SB_CPU_Cores->setValue( 1 );
 
 		// Find CPU List For This Template
 		QString compCaption = ui.CB_Computer_Type->currentText();
@@ -427,6 +431,11 @@ void VM_Wizard_Window::Typical_Or_Custom()
 		ui.Line_CPU_Type->setVisible( false );
 		ui.Label_CPU_Type->setVisible( false );
 		ui.CB_CPU_Type->setVisible( false );
+
+		ui.Label_Caption_CPU_Cores->setVisible( false );
+		ui.Line_CPU_Cores->setVisible( false );
+		ui.Label_CPU_Cores->setVisible( false );
+		ui.SB_CPU_Cores->setVisible( false );
 	}
 	else
 	{
@@ -437,6 +446,11 @@ void VM_Wizard_Window::Typical_Or_Custom()
 		ui.Line_CPU_Type->setVisible( true );
 		ui.Label_CPU_Type->setVisible( true );
 		ui.CB_CPU_Type->setVisible( true );
+
+		ui.Label_Caption_CPU_Cores->setVisible( true );
+		ui.Line_CPU_Cores->setVisible( true );
+		ui.Label_CPU_Cores->setVisible( true );
+		ui.SB_CPU_Cores->setVisible( true );
 	}
 }
 
@@ -487,6 +501,9 @@ bool VM_Wizard_Window::Create_New_VM(bool simulate)
 
 	// RAM
 	New_VM->Set_Memory_Size( ui.Memory_Size->value() );
+
+	// CPU Cores
+	New_VM->Set_SMP_CPU_Count( ui.SB_CPU_Cores->value() );
 
 	// Wizard Mode
 	if( ui.RB_Typical->isChecked() )

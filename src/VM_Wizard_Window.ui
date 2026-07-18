@@ -644,19 +644,88 @@
          </item>
         </layout>
        </item>
-       <item row="6" column="0">
-        <spacer name="s6">
-         <property name="orientation">
-          <enum>Qt::Vertical</enum>
-         </property>
-         <property name="sizeHint" stdset="0">
-          <size>
-           <width>20</width>
-           <height>31</height>
-          </size>
-         </property>
-        </spacer>
-       </item>
+        <item row="6" column="0">
+         <layout class="QHBoxLayout" name="horizontalLayout_CPU_Cores">
+          <item>
+           <widget class="QLabel" name="Label_Caption_CPU_Cores">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Maximum" vsizetype="Preferred">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="text">
+             <string>CPU Cores:</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="Line" name="Line_CPU_Cores">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item row="7" column="0">
+         <layout class="QHBoxLayout" name="horizontalLayout_Cores_Select">
+          <item>
+           <widget class="QLabel" name="Label_CPU_Cores">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="text">
+             <string>Specify the number of CPU cores for the virtual machine:</string>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QSpinBox" name="SB_CPU_Cores">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="minimumSize">
+             <size>
+              <width>140</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="minimum">
+             <number>1</number>
+            </property>
+            <property name="maximum">
+             <number>255</number>
+            </property>
+            <property name="value">
+             <number>1</number>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item row="8" column="0">
+         <spacer name="s6">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>20</width>
+            <height>31</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
       </layout>
      </widget>
      <widget class="QWidget" name="Accelerator_Page">

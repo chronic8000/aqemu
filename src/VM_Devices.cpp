@@ -37,6 +37,8 @@
 
 using namespace TinyXML2QDomWrapper;
 
+static void Merge_Predefined_Properties( Available_Devices &dev, const QString &computerType );
+
 // Available_Devices ---------------------------------------------------------
 
 Available_Devices::Available_Devices()
@@ -577,6 +579,7 @@ bool Emulator::Load( const QString &path )
 			tmpDev.PSO_Std_VGA = (childElement.firstChildElement("Std_VGA").text() == "yes" );
 			
 			// Add devices
+			Merge_Predefined_Properties( tmpDev, iter.key() );
 			Devices[ iter.key() ] = tmpDev;
 		}
 	}
@@ -1560,9 +1563,35 @@ const QMap<QString, Available_Devices> &Emulator::Get_Devices() const
 	}
 }
 
+static void Merge_Predefined_Properties( Available_Devices &dev, const QString &computerType )
+{
+	if( System_Info::Emulator_QEMU_2_0.contains( computerType ) )
+	{
+		const Available_Devices &fallback = System_Info::Emulator_QEMU_2_0[ computerType ];
+		dev.PSO_SMP_Count = qMax( dev.PSO_SMP_Count, fallback.PSO_SMP_Count );
+		dev.PSO_SMP_Cores = dev.PSO_SMP_Cores || fallback.PSO_SMP_Cores;
+		dev.PSO_SMP_Threads = dev.PSO_SMP_Threads || fallback.PSO_SMP_Threads;
+		dev.PSO_SMP_Sockets = dev.PSO_SMP_Sockets || fallback.PSO_SMP_Sockets;
+		dev.PSO_SMP_MaxCPUs = dev.PSO_SMP_MaxCPUs || fallback.PSO_SMP_MaxCPUs;
+		
+		dev.PSO_Initial_Graphic_Mode = dev.PSO_Initial_Graphic_Mode || fallback.PSO_Initial_Graphic_Mode;
+		dev.PSO_No_FB_Boot_Check = dev.PSO_No_FB_Boot_Check || fallback.PSO_No_FB_Boot_Check;
+		dev.PSO_Win2K_Hack = dev.PSO_Win2K_Hack || fallback.PSO_Win2K_Hack;
+		dev.PSO_Kernel_KQEMU = dev.PSO_Kernel_KQEMU || fallback.PSO_Kernel_KQEMU;
+		dev.PSO_No_ACPI = dev.PSO_No_ACPI || fallback.PSO_No_ACPI;
+		dev.PSO_KVM = dev.PSO_KVM || fallback.PSO_KVM;
+		dev.PSO_RTC_TD_Hack = dev.PSO_RTC_TD_Hack || fallback.PSO_RTC_TD_Hack;
+	}
+}
+
 void Emulator::Set_Devices( const QMap<QString, Available_Devices> &devices )
 {
 	Devices = devices;
+	
+	for( QMap<QString, Available_Devices>::iterator ix = Devices.begin(); ix != Devices.end(); ++ix )
+	{
+		Merge_Predefined_Properties( ix.value(), ix.key() );
+	}
 }
 
 //---------------------------------------------------------------------------
