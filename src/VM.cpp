@@ -5245,20 +5245,20 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 
 	#ifdef Q_OS_WIN32
 	Args << "-monitor" << QString("tcp:%1:%2,server,nowait")
-						  .arg(Settings.value("Emulator_Monitor_Hostname", "localhost").toString() )
-						  .arg(Settings.value("Emulator_MonGitor_Port", 6000).toInt() + Embedded_Display_Port);
+						  .arg(Settings.value("Emulator_Monitor_Hostname", "127.0.0.1").toString() )
+						  .arg(Settings.value("Emulator_MonGitor_Port", 6000).toInt() + (Embedded_Display_Port >= 0 ? Embedded_Display_Port : 0));
 
-	Monitor_Hostname = Settings.value("Emulator_Monitor_Hostname", "localhost").toString();
-	Monitor_Port = (unsigned int)Settings.value("Emulator_MonGitor_Port", 6000).toInt() + Embedded_Display_Port;
+	Monitor_Hostname = Settings.value("Emulator_Monitor_Hostname", "127.0.0.1").toString();
+	Monitor_Port = (unsigned int)Settings.value("Emulator_MonGitor_Port", 6000).toInt() + (Embedded_Display_Port >= 0 ? Embedded_Display_Port : 0);
 	#else
 	if( Settings.value("Emulator_Monitor_Type", "stdio").toString() == "tcp" )
 	{
 		Args << "-monitor" << QString("tcp:%1:%2,server,nowait")
-							  .arg(Settings.value("Emulator_Monitor_Hostname", "localhost").toString() )
-							  .arg(Settings.value("Emulator_MonGitor_Port", 6000).toInt() + Embedded_Display_Port);
+							  .arg(Settings.value("Emulator_Monitor_Hostname", "127.0.0.1").toString() )
+							  .arg(Settings.value("Emulator_MonGitor_Port", 6000).toInt() + (Embedded_Display_Port >= 0 ? Embedded_Display_Port : 0));
 
-		Monitor_Hostname = Settings.value("Emulator_Monitor_Hostname", "localhost").toString();
-		Monitor_Port = (unsigned int)Settings.value("Emulator_MonGitor_Port", 6000).toInt() + Embedded_Display_Port;
+		Monitor_Hostname = Settings.value("Emulator_Monitor_Hostname", "127.0.0.1").toString();
+		Monitor_Port = (unsigned int)Settings.value("Emulator_MonGitor_Port", 6000).toInt() + (Embedded_Display_Port >= 0 ? Embedded_Display_Port : 0);
 	}
 	else
 	{
