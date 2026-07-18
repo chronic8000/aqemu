@@ -177,7 +177,7 @@ Advanced_Settings_Window::Advanced_Settings_Window( QWidget *parent )
 	ui.RB_Monitor_TCP->setChecked( Settings.value("Emulator_Monitor_Type", "stdio").toString() == "tcp" );
 	#endif
 	ui.CB_Monitor_Hostname->setEditText( Settings.value("Emulator_Monitor_Hostname", "127.0.0.1").toString() );
-	ui.SB_Monitor_Port->setValue( Settings.value("Emulator_MonGitor_Port", 6000).toInt() );
+	ui.SB_Monitor_Port->setValue( Settings.value("Emulator_MonGitor_Port", 26000).toInt() );
 
 	// QEMU_AUDIO
 	ui.CH_Audio_Default->setChecked( Settings.value("QEMU_AUDIO/Use_Default_Driver", "yes").toString() == "no" );

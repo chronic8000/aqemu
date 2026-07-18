@@ -79,7 +79,7 @@ Virtual_Machine::Virtual_Machine( const Virtual_Machine &vm )
 	Monitor_Socket = new QTcpSocket( this );
 	Use_Monitor_TCP = false;
 	Monitor_Hostname = "localhost";
-	Monitor_Port = 6000;
+	Monitor_Port = 26000;
 	State = vm.Get_State();
 	Emu_Ctl = new Emulator_Control_Window();
 	VM_XML_File_Path = vm.Get_VM_XML_File_Path();
@@ -288,7 +288,7 @@ void Virtual_Machine::Shared_Constructor()
 	Monitor_Socket = new QTcpSocket( this );
 	Use_Monitor_TCP = false;
 	Monitor_Hostname = "localhost";
-	Monitor_Port = 6000;
+	Monitor_Port = 26000;
 	this->State = VM::VMS_Power_Off;
 	Emu_Ctl = new Emulator_Control_Window();
 	Removable_Devices_List = "";
@@ -654,7 +654,7 @@ Virtual_Machine &Virtual_Machine::operator=( const Virtual_Machine &vm )
 	Monitor_Socket = new QTcpSocket( this );
 	Use_Monitor_TCP = false;
 	Monitor_Hostname = "localhost";
-	Monitor_Port = 6000;
+	Monitor_Port = 26000;
     delete Emu_Ctl;
 	Emu_Ctl = new Emulator_Control_Window();
 	VM_XML_File_Path = vm.Get_VM_XML_File_Path();
@@ -5249,20 +5249,20 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 
 	Args << "-monitor" << QString("tcp:%1:%2,server,nowait")
 						  .arg(monitor_host)
-						  .arg(Settings.value("Emulator_MonGitor_Port", 6000).toInt() + (Embedded_Display_Port >= 0 ? Embedded_Display_Port : 0));
+						  .arg(Settings.value("Emulator_MonGitor_Port", 26000).toInt() + (Embedded_Display_Port >= 0 ? Embedded_Display_Port : 0));
 
 	Monitor_Hostname = monitor_host;
-	Monitor_Port = (unsigned int)Settings.value("Emulator_MonGitor_Port", 6000).toInt() + (Embedded_Display_Port >= 0 ? Embedded_Display_Port : 0);
+	Monitor_Port = (unsigned int)Settings.value("Emulator_MonGitor_Port", 26000).toInt() + (Embedded_Display_Port >= 0 ? Embedded_Display_Port : 0);
 	#else
 	QString monitor_host = Settings.value("Emulator_Monitor_Hostname", "127.0.0.1").toString();
 	if( Settings.value("Emulator_Monitor_Type", "stdio").toString() == "tcp" )
 	{
 		Args << "-monitor" << QString("tcp:%1:%2,server,nowait")
 							  .arg(monitor_host)
-							  .arg(Settings.value("Emulator_MonGitor_Port", 6000).toInt() + (Embedded_Display_Port >= 0 ? Embedded_Display_Port : 0));
+							  .arg(Settings.value("Emulator_MonGitor_Port", 26000).toInt() + (Embedded_Display_Port >= 0 ? Embedded_Display_Port : 0));
 
 		Monitor_Hostname = monitor_host;
-		Monitor_Port = (unsigned int)Settings.value("Emulator_MonGitor_Port", 6000).toInt() + (Embedded_Display_Port >= 0 ? Embedded_Display_Port : 0);
+		Monitor_Port = (unsigned int)Settings.value("Emulator_MonGitor_Port", 26000).toInt() + (Embedded_Display_Port >= 0 ? Embedded_Display_Port : 0);
 	}
 	else
 	{

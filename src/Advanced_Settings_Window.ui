@@ -1212,7 +1212,7 @@ with embedded display</string>
                  <bool>false</bool>
                 </property>
                 <property name="minimum">
-                 <number>6000</number>
+                 <number>1024</number>
                 </property>
                 <property name="maximum">
                  <number>65000</number>
