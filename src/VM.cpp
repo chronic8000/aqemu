@@ -5393,7 +5393,21 @@ QStringList Virtual_Machine::Build_QEMU_Args()
     Args << "-machine";
 
     QStringList props;
-    props << "accel="+VM::Accel_To_String( Machine_Accelerator );
+    #ifdef Q_OS_WIN32
+    if( Machine_Accelerator == VM::KVM )
+        props << "accel=whpx:hax:tcg";
+    else if( Machine_Accelerator == VM::XEN )
+        props << "accel=xen:tcg";
+    else
+        props << "accel="+VM::Accel_To_String( Machine_Accelerator );
+    #else
+    if( Machine_Accelerator == VM::KVM )
+        props << "accel=kvm:tcg";
+    else if( Machine_Accelerator == VM::XEN )
+        props << "accel=xen:tcg";
+    else
+        props << "accel="+VM::Accel_To_String( Machine_Accelerator );
+    #endif
 
 	if( Current_Emulator_Devices.PSO_KVM_Shadow_Memory && KVM_Shadow_Memory )
 		props << "kvm_shadow_mem=" + QString::number( KVM_Shadow_Memory_Size * 1024 );
