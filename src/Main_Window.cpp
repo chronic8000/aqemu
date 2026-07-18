@@ -67,7 +67,7 @@ QList<VM_USB> System_Info::All_Host_USB;
 QList<VM_USB> System_Info::Used_Host_USB;
 
 Main_Window::Main_Window( QWidget *parent )
-	: QMainWindow( parent )
+	: QMainWindow( parent ), block_VM_changed_signals( true )
 {
     Advanced_Options = new QDialog(this);
     Accelerator_Options = new QDialog(this);
@@ -1022,7 +1022,7 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
 			break;
 
 		default:
-            if ( show_user_errors )
+            if ( show_user_errors && ui.CB_InitGM_Depth->currentIndex() != -1 )
     			AQError( "bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, QListWidgetItem *item )",
 					 "Initial Graphical Mode: Default Section!" );
 			tmp_mode.Set_Depth( 24 );
@@ -1564,8 +1564,11 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 			break;
 
 		default:
-			AQError( "void Main_Window::Update_VM_Ui()",
-					 "Initial Graphical Mode: Default Section!" );
+			if( tmp_vm->Get_Init_Graphic_Mode().Get_Depth() != 0 )
+			{
+				AQError( "void Main_Window::Update_VM_Ui()",
+						 "Initial Graphical Mode: Default Section!" );
+			}
 			ui.CB_InitGM_Depth->setCurrentIndex( 2 );
 			break;
 	}
