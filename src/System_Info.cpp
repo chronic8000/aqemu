@@ -2986,7 +2986,7 @@ QStringList System_Info::Get_Host_CDROM_List()
 
 bool System_Info::Update_Host_USB()
 {
-	AQError( "System_Info::Update_Host_USB()",
+	AQDebug( "System_Info::Update_Host_USB()",
 			 "Not implemented!" );
 	return false;
 }

@@ -7054,6 +7054,7 @@ bool Virtual_Machine::Start_impl()
     delete QEMU_Error_Win;
     QEMU_Error_Win = new Error_Log_Window();
 
+#ifndef Q_OS_WIN32
     // Check KVM
     if( (Current_Emulator_Devices.PSO_KVM || Current_Emulator_Devices.PSO_Enable_KVM ) &&
         Settings.value("Disable_KVM_Module_Check", "no").toString() != "yes" )
@@ -7158,6 +7159,7 @@ bool Virtual_Machine::Start_impl()
             }
         }
     }
+#endif
 
     // QEMU Audio Environment
     if( Settings.value("QEMU_AUDIO/Use_Default_Driver", "yes").toString() == "no" )

@@ -43,6 +43,7 @@
 #include "VM.h"
 #include "Service.h"
 #include "main.h"
+#include "Main_Window.h"
 
 AQEMU_Service::AQEMU_Service()
 {
@@ -51,6 +52,7 @@ AQEMU_Service::AQEMU_Service()
     called_dbus = false;
     main_window = false;
     successful_init = false;
+    main_window_ptr = nullptr;
 }
 
 AQEMU_Service::~AQEMU_Service()
@@ -75,6 +77,7 @@ int AQEMU_Service::machineCount() const
 
 void AQEMU_Service::vm_state_changed(Virtual_Machine *vm, VM::VM_State s)
 {
+#ifndef Q_OS_WIN32
     if (! QDBusConnection::sessionBus().isConnected())
     {
         fprintf(stderr, "Cannot connect to the D-Bus session bus.\n"
@@ -85,17 +88,7 @@ void AQEMU_Service::vm_state_changed(Virtual_Machine *vm, VM::VM_State s)
     {
         QDBusInterface iface("org.aqemu.main_window", "/main_window", "", QDBusConnection::sessionBus());
         if (iface.isValid()) {
-            /*QDBusReply<QString> reply =*/
-
             iface.call(QDBus::NoBlock, "VM_State_Changed", vm->Get_VM_XML_File_Path(), s );
-
-            /*if (reply.isValid()) {
-                printf("Reply was: %s\n", qPrintable(reply.value()));*/
-            //    return;
-            /*}
-
-            fprintf(stderr, "Call failed: %s\n", qPrintable(reply.error().message()));
-            return;*/
         }
         else
         {
@@ -103,6 +96,12 @@ void AQEMU_Service::vm_state_changed(Virtual_Machine *vm, VM::VM_State s)
                     qPrintable(QDBusConnection::sessionBus().lastError().message()));
         }
     }
+#else
+    if( main_window_ptr )
+    {
+        main_window_ptr->VM_State_Changed( vm->Get_VM_XML_File_Path(), (int)s );
+    }
+#endif
 
     //remove VM from service and shutdown the service, if there are no VMs running
     if ( s == VM::VMS_Power_Off )

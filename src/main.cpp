@@ -237,6 +237,7 @@ int AQEMU_Main::main_window()
 
     // Show main window
     window = new Main_Window;
+    AQEMU_Service::get().setMainWindowPtr( window );
     window->show();
 
     application->setWindowIcon(QIcon(":/aqemu.png"));

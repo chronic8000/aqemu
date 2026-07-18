@@ -32,6 +32,7 @@
 
 class Run_Guard;
 class AQEMU_Main;
+class Main_Window;
 
 #define SERVICE_NAME "org.aqemu.service"
 
@@ -50,6 +51,8 @@ class AQEMU_Service : public QObject
               static AQEMU_Service instance;
               return instance;
         }
+        void setMainWindowPtr( Main_Window *ptr ) { main_window_ptr = ptr; }
+        Main_Window *getMainWindowPtr() const { return main_window_ptr; }
         bool wasCalled()
         {
             return called_dbus;
@@ -109,6 +112,7 @@ class AQEMU_Service : public QObject
 
         bool main_window;
         bool successful_init;
+        Main_Window *main_window_ptr;
 };
 
 #endif
