@@ -498,6 +498,8 @@ class Virtual_Machine: public QObject
 		
 		QString Snapshot_Name_String;
 		QString Last_Output;
+		QString QEMU_Stderr_History;
+		QString QEMU_Stdout_History;
 		QStringList Output_Parts;
 		
 		QString Icon_Path; // OS Logo Icon

@@ -86,6 +86,8 @@ Virtual_Machine::Virtual_Machine( const Virtual_Machine &vm )
 	Build_QEMU_Args_for_Script_Mode = false;
 	Build_QEMU_Args_for_Tab_Info = false;
 	UID = vm.Get_UID();
+	QEMU_Stderr_History = "";
+	QEMU_Stdout_History = "";
 	
 	// Accel
 	Machine_Accelerator = vm.Get_Machine_Accelerator();
@@ -295,6 +297,8 @@ void Virtual_Machine::Shared_Constructor()
 	Build_QEMU_Args_for_Script_Mode = false;
 	Build_QEMU_Args_for_Tab_Info = false;
 	UID = "";
+	QEMU_Stderr_History = "";
+	QEMU_Stdout_History = "";
 	
 	// Accel
 	Machine_Accelerator = VM::TCG;
@@ -7050,6 +7054,8 @@ QStringList Virtual_Machine::Build_Shared_Folder_Args( VM_Shared_Folder folder, 
 
 bool Virtual_Machine::Start_impl()
 {
+	QEMU_Stderr_History.clear();
+	QEMU_Stdout_History.clear();
 
     delete QEMU_Error_Win;
     QEMU_Error_Win = new Error_Log_Window();
@@ -9032,12 +9038,27 @@ void Virtual_Machine::Parse_StdOut()
 {
 	QString convOutput = "";
 
-	#ifndef Q_OS_WIN32
-	if( Use_Monitor_TCP == false )
+	if( sender() == QEMU_Process )
+	{
 		convOutput = QEMU_Process->readAllStandardOutput();
-	else
-	#endif
+		QEMU_Stdout_History.append( convOutput );
+	}
+	else if( sender() == Monitor_Socket )
+	{
 		convOutput = Monitor_Socket->readAll();
+	}
+	else
+	{
+		#ifndef Q_OS_WIN32
+		if( Use_Monitor_TCP == false )
+		{
+			convOutput = QEMU_Process->readAllStandardOutput();
+			QEMU_Stdout_History.append( convOutput );
+		}
+		else
+		#endif
+			convOutput = Monitor_Socket->readAll();
+	}
 
     // For whatever reason qemu doesn't write all errors to stderr,
     // which means we unfortunately need to filter output to stdout
@@ -9076,6 +9097,7 @@ void Virtual_Machine::Parse_StdErr()
 {
 	// FIXME in monitor tcp mode no possible get error strings
 	QString convOutput = QEMU_Process->readAllStandardError();
+	QEMU_Stderr_History.append( convOutput );
 	
 	emit Clean_Console( convOutput );
 	emit Ready_StdErr( convOutput );
@@ -9177,9 +9199,9 @@ void Virtual_Machine::QEMU_Finished( int exitCode, QProcess::ExitStatus exitStat
 	}
     else if ( (exitCode != 0) ) 
     {
-        QString error = QString::fromLocal8Bit( QEMU_Process->readAllStandardError() );
+        QString error = QEMU_Stderr_History;
         if( error.isEmpty() )
-            error = QString::fromLocal8Bit( QEMU_Process->readAllStandardOutput() );
+            error = QEMU_Stdout_History;
         AQError( "QEMU return value != 0", error );
 
         Show_QEMU_Error( error );
