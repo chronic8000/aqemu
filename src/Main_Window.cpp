@@ -791,10 +791,24 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
 	tmp_vm->Set_Computer_Type( curComp.System.QEMU_Name );
 
 	// Machine Type
-	tmp_vm->Set_Machine_Type( curComp.Machine_List[ui_arch.CB_Machine_Type->currentIndex()].QEMU_Name );
+	if( ui_arch.CB_Machine_Type->currentIndex() != -1 && ui_arch.CB_Machine_Type->currentIndex() < curComp.Machine_List.count() )
+	{
+		tmp_vm->Set_Machine_Type( curComp.Machine_List[ui_arch.CB_Machine_Type->currentIndex()].QEMU_Name );
+	}
+	else
+	{
+		tmp_vm->Set_Machine_Type( "" );
+	}
 
 	// CPU Type
-	tmp_vm->Set_CPU_Type( curComp.CPU_List[ui_arch.CB_CPU_Type->currentIndex()].QEMU_Name );
+	if( ui_arch.CB_CPU_Type->currentIndex() != -1 && ui_arch.CB_CPU_Type->currentIndex() < curComp.CPU_List.count() )
+	{
+		tmp_vm->Set_CPU_Type( curComp.CPU_List[ui_arch.CB_CPU_Type->currentIndex()].QEMU_Name );
+	}
+	else
+	{
+		tmp_vm->Set_CPU_Type( "" );
+	}
 
 	// Create Emulator Info
 	Emulator tmp_emul = Get_Default_Emulator();
