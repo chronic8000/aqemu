@@ -318,29 +318,42 @@ void VM_Wizard_Window::applyTemplate()
 	// Find CPU List For This Template
 	bool devices_found = false;
 	
-	if( ui.RB_Emulator_KVM->isChecked() )
+	if( ui.RB_VM_Template->isChecked() )
 	{
-        New_VM->Set_Machine_Accelerator(VM::KVM);
-		New_VM->Set_Computer_Type( "qemu-system-x86_64" );
-		
-		if( New_VM->Get_Audio_Cards().Audio_es1370 )
-		{
-			VM::Sound_Cards tmp_audio = New_VM->Get_Audio_Cards();
-			tmp_audio.Audio_es1370 = false;
-			tmp_audio.Audio_AC97 = true;
-			New_VM->Set_Audio_Cards( tmp_audio );
-		}
-		
+		if( ui.RB_Emulator_KVM->isChecked() )
+			New_VM->Set_Machine_Accelerator(VM::KVM);
+		else
+			New_VM->Set_Machine_Accelerator(VM::TCG);
+			
 		Current_Devices = &All_Systems[ New_VM->Get_Computer_Type() ];
 		devices_found = true;
 	}
 	else
 	{
-        New_VM->Set_Machine_Accelerator(VM::TCG);
-		New_VM->Set_Computer_Type( "qemu-system-x86_64" );
+		if( ui.RB_Emulator_KVM->isChecked() )
+		{
+			New_VM->Set_Machine_Accelerator(VM::KVM);
+			New_VM->Set_Computer_Type( "qemu-system-x86_64" );
+			
+			if( New_VM->Get_Audio_Cards().Audio_es1370 )
+			{
+				VM::Sound_Cards tmp_audio = New_VM->Get_Audio_Cards();
+				tmp_audio.Audio_es1370 = false;
+				tmp_audio.Audio_AC97 = true;
+				New_VM->Set_Audio_Cards( tmp_audio );
+			}
+			
+			Current_Devices = &All_Systems[ New_VM->Get_Computer_Type() ];
+			devices_found = true;
+		}
+		else
+		{
+			New_VM->Set_Machine_Accelerator(VM::TCG);
+			New_VM->Set_Computer_Type( "qemu-system-x86_64" );
 
-		Current_Devices = &All_Systems[ New_VM->Get_Computer_Type() ];
-		/*if( ! Current_Devices->System.QEMU_Name.isEmpty() )*/ devices_found = true;
+			Current_Devices = &All_Systems[ New_VM->Get_Computer_Type() ];
+			devices_found = true;
+		}
 	}
 	
 	// Use Selected Template
@@ -380,6 +393,7 @@ void VM_Wizard_Window::applyTemplate()
 			{
 				Current_Devices = &it.value();
 				/*if( ! Current_Devices->System.QEMU_Name.isEmpty() )*/ devices_found = true;
+				New_VM->Set_Computer_Type( Current_Devices->System.QEMU_Name );
 			}
 		}
 	}
