@@ -9177,7 +9177,9 @@ void Virtual_Machine::QEMU_Finished( int exitCode, QProcess::ExitStatus exitStat
 	}
     else if ( (exitCode != 0) ) 
     {
-        QString error = QEMU_Process->readAll();
+        QString error = QString::fromLocal8Bit( QEMU_Process->readAllStandardError() );
+        if( error.isEmpty() )
+            error = QString::fromLocal8Bit( QEMU_Process->readAllStandardOutput() );
         AQError( "QEMU return value != 0", error );
 
         Show_QEMU_Error( error );
