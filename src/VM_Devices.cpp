@@ -1536,6 +1536,12 @@ const QMap<QString, Available_Devices> &Emulator::Get_Devices() const
 		{
 			
 			case VM::QEMU_2_0:
+			case VM::QEMU_2_1:
+			case VM::QEMU_2_2:
+			case VM::QEMU_2_3:
+			case VM::QEMU_2_4:
+			case VM::QEMU_2_5:
+			case VM::QEMU_2_6:
 				return System_Info::Emulator_QEMU_2_0;
 				
 			/*case VM::KVM_2_0:

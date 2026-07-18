@@ -7705,6 +7705,12 @@ void Virtual_Machine::Update_Current_Emulator_Devices()
 		switch( Current_Emulator.Get_Version() )
 		{
 			case VM::QEMU_2_0:
+			case VM::QEMU_2_1:
+			case VM::QEMU_2_2:
+			case VM::QEMU_2_3:
+			case VM::QEMU_2_4:
+			case VM::QEMU_2_5:
+			case VM::QEMU_2_6:
 				Current_Emulator_Devices = System_Info::Emulator_QEMU_2_0[ Computer_Type ];
 				break;
 				
@@ -7733,7 +7739,10 @@ void Virtual_Machine::Update_Current_Emulator_Devices()
 	if( Current_Emulator_Devices.System.QEMU_Name.isEmpty() )
 	{
 		AQError( "void Update_Current_Emulator_Devices()",
-				 "Cannot Load Info About This Emulator! AQEMU Doesn't Work!" );
+				 QString("Cannot Load Info About This Emulator! Computer_Type: '%1', QEMU_2_0 count: %2, contains target: %3")
+				 .arg(Computer_Type)
+				 .arg(System_Info::Emulator_QEMU_2_0.count())
+				 .arg(System_Info::Emulator_QEMU_2_0.contains(Computer_Type) ? "yes" : "no") );
 	}
 }
 
