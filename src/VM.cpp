@@ -6058,7 +6058,9 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			for( int nc = 0; nc < Network_Cards.count(); nc++ )
 			{
 				Args << "-net";
-				QString nic_str = "nic,vlan=" + QString::number( Network_Cards[nc].Get_VLAN() );
+				QString nic_str = "nic";
+				if( Network_Cards[nc].Get_VLAN() > 0 )
+					nic_str += ",vlan=" + QString::number( Network_Cards[nc].Get_VLAN() );
 				
 				if( ! Network_Cards[nc].Get_MAC_Address().isEmpty() ) // Use MAC?
 					nic_str += ",macaddr=" + Network_Cards[nc].Get_MAC_Address();
@@ -6077,17 +6079,22 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 						break;
 					
 					case VM::Net_Mode_Usermode:
-						if( Network_Cards[nc].Get_Hostname().isEmpty() )
-							Args << "-net" << QString( "user,vlan=" + QString::number(Network_Cards[nc].Get_VLAN()) );
-						else
-							Args << "-net" << QString( "user,vlan=" + QString::number(Network_Cards[nc].Get_VLAN()) +
-									",hostname=" + Network_Cards[nc].Get_Hostname() );
+						{
+							QString user_str = "user";
+							if( Network_Cards[nc].Get_VLAN() > 0 )
+								user_str += ",vlan=" + QString::number( Network_Cards[nc].Get_VLAN() );
+							if( ! Network_Cards[nc].Get_Hostname().isEmpty() )
+								user_str += ",hostname=" + Network_Cards[nc].Get_Hostname();
+							Args << "-net" << user_str;
+						}
 						break;
 					
 					case VM::Net_Mode_Tuntap:
 						Args << "-net" ;
 						
-						tap_tmp = QString( "tap,vlan=" + QString::number(Network_Cards[nc].Get_VLAN()) );
+						tap_tmp = "tap";
+						if( Network_Cards[nc].Get_VLAN() > 0 )
+							tap_tmp += ",vlan=" + QString::number( Network_Cards[nc].Get_VLAN() );
 						
 						if( ! Network_Cards[nc].Get_Interface_Name().isEmpty() )
 							tap_tmp += QString( ",ifname=" + Network_Cards[nc].Get_Interface_Name() );
@@ -6111,61 +6118,75 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 						break;
 						
 					case VM::Net_Mode_Tuntapfd:
-						Args << "-net" << QString( "tap,vlan=" + QString::number(Network_Cards[nc].Get_VLAN()) +
-												   ((Network_Cards[nc].Get_File_Descriptor() > 0) ? ",fd=" + QString::number(Network_Cards[nc].Get_File_Descriptor()) : "") +
-												   ((Network_Cards[nc].Get_Interface_Name().isEmpty() == false) ? ",ifname=" + Network_Cards[nc].Get_Interface_Name() : "") );
+						{
+							QString tap_fd_str = "tap";
+							if( Network_Cards[nc].Get_VLAN() > 0 )
+								tap_fd_str += ",vlan=" + QString::number( Network_Cards[nc].Get_VLAN() );
+							if( Network_Cards[nc].Get_File_Descriptor() > 0 )
+								tap_fd_str += ",fd=" + QString::number( Network_Cards[nc].Get_File_Descriptor() );
+							if( ! Network_Cards[nc].Get_Interface_Name().isEmpty() )
+								tap_fd_str += ",ifname=" + Network_Cards[nc].Get_Interface_Name();
+							Args << "-net" << tap_fd_str;
+						}
 						break;
 						
 					case VM::Net_Mode_Tcplisten:
-						if( Network_Cards[nc].Get_IP_Address().isEmpty() )
 						{
-							Args << "-net" << QString( "socket,vlan=" + QString::number(Network_Cards[nc].Get_VLAN()) +
-									",listen=:" + QString::number(Network_Cards[nc].Get_Port()) );
-						}
-						else
-						{
-							Args << "-net" << QString( "socket,vlan=" + QString::number(Network_Cards[nc].Get_VLAN()) +
-									",listen=" + Network_Cards[nc].Get_IP_Address() + ":" +
-									QString::number(Network_Cards[nc].Get_Port()) );
+							QString sock_str = "socket";
+							if( Network_Cards[nc].Get_VLAN() > 0 )
+								sock_str += ",vlan=" + QString::number( Network_Cards[nc].Get_VLAN() );
+							if( Network_Cards[nc].Get_IP_Address().isEmpty() )
+								sock_str += ",listen=:" + QString::number( Network_Cards[nc].Get_Port() );
+							else
+								sock_str += ",listen=" + Network_Cards[nc].Get_IP_Address() + ":" + QString::number( Network_Cards[nc].Get_Port() );
+							Args << "-net" << sock_str;
 						}
 						break;
 						
 					case VM::Net_Mode_Tcpfd:
-						Args << "-net" << QString( "socket,vlan=" + QString::number(Network_Cards[nc].Get_VLAN()) +
-								",fd=" + QString::number(Network_Cards[nc].Get_File_Descriptor()) );
+						{
+							QString sock_fd_str = "socket";
+							if( Network_Cards[nc].Get_VLAN() > 0 )
+								sock_fd_str += ",vlan=" + QString::number( Network_Cards[nc].Get_VLAN() );
+							sock_fd_str += ",fd=" + QString::number( Network_Cards[nc].Get_File_Descriptor() );
+							Args << "-net" << sock_fd_str;
+						}
 						break;
 						
 					case VM::Net_Mode_Tcpconnect:
-						if( Network_Cards[nc].Get_IP_Address().isEmpty() )
 						{
-							Args << "-net" << QString( "socket,vlan=" + QString::number(Network_Cards[nc].Get_VLAN()) +
-									",connect=:" + QString::number(Network_Cards[nc].Get_Port()) );
-						}
-						else
-						{
-							Args << "-net" << QString( "socket,vlan=" + QString::number(Network_Cards[nc].Get_VLAN()) +
-									",connect=" + Network_Cards[nc].Get_IP_Address() +
-									":" + QString::number(Network_Cards[nc].Get_Port()) );
+							QString sock_conn_str = "socket";
+							if( Network_Cards[nc].Get_VLAN() > 0 )
+								sock_conn_str += ",vlan=" + QString::number( Network_Cards[nc].Get_VLAN() );
+							if( Network_Cards[nc].Get_IP_Address().isEmpty() )
+								sock_conn_str += ",connect=:" + QString::number( Network_Cards[nc].Get_Port() );
+							else
+								sock_conn_str += ",connect=" + Network_Cards[nc].Get_IP_Address() + ":" + QString::number( Network_Cards[nc].Get_Port() );
+							Args << "-net" << sock_conn_str;
 						}
 						break;
 						
 					case VM::Net_Mode_Multicast:
-						if( Network_Cards[nc].Get_IP_Address().isEmpty() )
 						{
-							Args << "-net" << QString( "socket,vlan=" + QString::number(Network_Cards[nc].Get_VLAN()) +
-									",mcast=:" + QString::number(Network_Cards[nc].Get_Port()) );
-						}
-						else
-						{
-							Args << "-net" << QString( "socket,vlan=" + QString::number(Network_Cards[nc].Get_VLAN()) +
-									",mcast=" + Network_Cards[nc].Get_IP_Address() +
-									":" + QString::number(Network_Cards[nc].Get_Port()) );
+							QString sock_mcast_str = "socket";
+							if( Network_Cards[nc].Get_VLAN() > 0 )
+								sock_mcast_str += ",vlan=" + QString::number( Network_Cards[nc].Get_VLAN() );
+							if( Network_Cards[nc].Get_IP_Address().isEmpty() )
+								sock_mcast_str += ",mcast=:" + QString::number( Network_Cards[nc].Get_Port() );
+							else
+								sock_mcast_str += ",mcast=" + Network_Cards[nc].Get_IP_Address() + ":" + QString::number( Network_Cards[nc].Get_Port() );
+							Args << "-net" << sock_mcast_str;
 						}
 						break;
 						
 					case VM::Net_Mode_Multicastfd:
-						Args << "-net" << QString( "socket,vlan=" + QString::number(Network_Cards[nc].Get_VLAN()) +
-								",fd=" + QString::number(Network_Cards[nc].Get_File_Descriptor()) );
+						{
+							QString sock_mcastfd_str = "socket";
+							if( Network_Cards[nc].Get_VLAN() > 0 )
+								sock_mcastfd_str += ",vlan=" + QString::number( Network_Cards[nc].Get_VLAN() );
+							sock_mcastfd_str += ",fd=" + QString::number( Network_Cards[nc].Get_File_Descriptor() );
+							Args << "-net" << sock_mcastfd_str;
+						}
 						break;
 						
 					default:
