@@ -1,7 +1,7 @@
 /****************************************************************************
 **
 ** Copyright (C) 2008-2010 Andrey Rijov <ANDron142@yandex.ru>
-** Copyright (C) 2016 Tobias Gl√§√üer
+** Copyright (C) 2016 Tobias Glùùer
 **
 ** This file is part of AQEMU.
 **
@@ -198,6 +198,7 @@ Virtual_Machine::Virtual_Machine( const Virtual_Machine &vm )
 	{
 		this->USB_Ports.append( VM_USB(vm.Get_USB_Ports()[ux]) );
 	}
+	this->USB_Hub = vm.Use_USB_Hub();
 	
 	// Other Tab
 	this->Linux_Boot = vm.Get_Use_Linux_Boot();
@@ -220,6 +221,13 @@ Virtual_Machine::Virtual_Machine( const Virtual_Machine &vm )
 	
 	this->PFlash = vm.Use_PFlash_File();
 	this->PFlash_File = vm.Get_PFlash_File();
+	
+	this->UEFI = vm.Use_UEFI();
+	this->UEFI_CODE_File = vm.Get_UEFI_CODE_File();
+	this->UEFI_VARS_File = vm.Get_UEFI_VARS_File();
+	this->VirtIO_RNG = vm.Use_VirtIO_RNG();
+	this->VirtIO_Balloon = vm.Use_VirtIO_Balloon();
+	this->VirtIO_Keyboard = vm.Use_VirtIO_Keyboard();
 	
 	this->Enable_KVM = vm.Use_KVM();
 	this->KVM_IRQChip = vm.Use_KVM_IRQChip();
@@ -388,6 +396,8 @@ void Virtual_Machine::Shared_Constructor()
 	HDC = VM_HDD();
 	HDD = VM_HDD();
 	
+	USB_Hub = false;
+	
 	Use_Network = true;
     Native_Network = false;
 	Use_Redirections = false;
@@ -414,6 +424,13 @@ void Virtual_Machine::Shared_Constructor()
 	
 	PFlash = false;
 	PFlash_File = "";
+	
+	UEFI = false;
+	UEFI_CODE_File = "";
+	UEFI_VARS_File = "";
+	VirtIO_RNG = false;
+	VirtIO_Balloon = false;
+	VirtIO_Keyboard = false;
 	
 	Enable_KVM = true;
 	KVM_IRQChip = false;
@@ -513,6 +530,12 @@ bool Virtual_Machine::operator==( const Virtual_Machine &vm ) const
 		this->SecureDigital_File == vm.Get_SecureDigital_File() &&
 		this->PFlash == vm.Use_PFlash_File() &&
 		this->PFlash_File == vm.Get_PFlash_File() &&
+		this->UEFI == vm.Use_UEFI() &&
+		this->UEFI_CODE_File == vm.Get_UEFI_CODE_File() &&
+		this->UEFI_VARS_File == vm.Get_UEFI_VARS_File() &&
+		this->VirtIO_RNG == vm.Use_VirtIO_RNG() &&
+		this->VirtIO_Balloon == vm.Use_VirtIO_Balloon() &&
+		this->VirtIO_Keyboard == vm.Use_VirtIO_Keyboard() &&
 		this->Enable_KVM == vm.Use_KVM() &&
 		this->KVM_IRQChip == vm.Use_KVM_IRQChip() &&
 		this->No_KVM_Pit == vm.Use_No_KVM_Pit() &&
@@ -769,6 +792,7 @@ Virtual_Machine &Virtual_Machine::operator=( const Virtual_Machine &vm )
 	{
 		this->USB_Ports.append( VM_USB(vm.Get_USB_Ports()[ux]) );
 	}
+	this->USB_Hub = vm.Use_USB_Hub();
 	
 	// Other Tab
 	this->Linux_Boot = vm.Get_Use_Linux_Boot();
@@ -791,6 +815,13 @@ Virtual_Machine &Virtual_Machine::operator=( const Virtual_Machine &vm )
 	
 	this->PFlash = vm.Use_PFlash_File();
 	this->PFlash_File = vm.Get_PFlash_File();
+	
+	this->UEFI = vm.Use_UEFI();
+	this->UEFI_CODE_File = vm.Get_UEFI_CODE_File();
+	this->UEFI_VARS_File = vm.Get_UEFI_VARS_File();
+	this->VirtIO_RNG = vm.Use_VirtIO_RNG();
+	this->VirtIO_Balloon = vm.Use_VirtIO_Balloon();
+	this->VirtIO_Keyboard = vm.Use_VirtIO_Keyboard();
 	
 	this->Enable_KVM = vm.Use_KVM();
 	this->KVM_IRQChip = vm.Use_KVM_IRQChip();
@@ -1184,6 +1215,18 @@ bool Virtual_Machine::Create_VM_File( const QString &file_name, bool template_mo
 	else
 		Dom_Text = New_Dom_Document.createTextNode( "false" );
 	
+	Sec_Element.appendChild( Dom_Text );
+	
+	// Audio_VirtIO
+	Sec_Element = New_Dom_Document.createElement( "Audio_VirtIO" );
+	Dom_Element.appendChild( Sec_Element );
+	Dom_Text = New_Dom_Document.createTextNode( Audio_Card.Audio_VirtIO ? "true" : "false" );
+	Sec_Element.appendChild( Dom_Text );
+	
+	// Audio_USB
+	Sec_Element = New_Dom_Document.createElement( "Audio_USB" );
+	Dom_Element.appendChild( Sec_Element );
+	Dom_Text = New_Dom_Document.createTextNode( Audio_Card.Audio_USB ? "true" : "false" );
 	Sec_Element.appendChild( Dom_Text );
 	
 	VM_Element.appendChild( Dom_Element );
@@ -2696,6 +2739,11 @@ bool Virtual_Machine::Create_VM_File( const QString &file_name, bool template_mo
 		}
 		
 		// USB Ports
+		Dom_Element = New_Dom_Document.createElement( "USB_Hub" );
+		VM_Element.appendChild( Dom_Element );
+		Dom_Text = New_Dom_Document.createTextNode( USB_Hub ? "true" : "false" );
+		Dom_Element.appendChild( Dom_Text );
+		
 		Dom_Element = New_Dom_Document.createElement( "USB_Ports_Count" );
 		VM_Element.appendChild( Dom_Element );
 		Dom_Text = New_Dom_Document.createTextNode( QString::number(USB_Ports.count()) );
@@ -2910,6 +2958,37 @@ bool Virtual_Machine::Create_VM_File( const QString &file_name, bool template_mo
 	Dom_Element = New_Dom_Document.createElement( "PFlash_File" );
 	VM_Element.appendChild( Dom_Element );
 	Dom_Text = New_Dom_Document.createTextNode( PFlash_File );
+	Dom_Element.appendChild( Dom_Text );
+	
+	// UEFI dual pflash
+	Dom_Element = New_Dom_Document.createElement( "Use_UEFI" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( UEFI ? "true" : "false" );
+	Dom_Element.appendChild( Dom_Text );
+	
+	Dom_Element = New_Dom_Document.createElement( "UEFI_CODE_File" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( UEFI_CODE_File );
+	Dom_Element.appendChild( Dom_Text );
+	
+	Dom_Element = New_Dom_Document.createElement( "UEFI_VARS_File" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( UEFI_VARS_File );
+	Dom_Element.appendChild( Dom_Text );
+	
+	Dom_Element = New_Dom_Document.createElement( "Use_VirtIO_RNG" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( VirtIO_RNG ? "true" : "false" );
+	Dom_Element.appendChild( Dom_Text );
+	
+	Dom_Element = New_Dom_Document.createElement( "Use_VirtIO_Balloon" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( VirtIO_Balloon ? "true" : "false" );
+	Dom_Element.appendChild( Dom_Text );
+	
+	Dom_Element = New_Dom_Document.createElement( "Use_VirtIO_Keyboard" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( VirtIO_Keyboard ? "true" : "false" );
 	Dom_Element.appendChild( Dom_Text );
 	
 	// Additional Arguments
@@ -3822,6 +3901,12 @@ bool Virtual_Machine::Load_VM( const QString &file_name )
 			// Audio_cs4231
 			snd_card.Audio_cs4231a = Second_Element.firstChildElement("Audio_cs4231a").text() == "true";
 			
+			// Audio_VirtIO
+			snd_card.Audio_VirtIO = Second_Element.firstChildElement("Audio_VirtIO").text() == "true";
+			
+			// Audio_USB
+			snd_card.Audio_USB = Second_Element.firstChildElement("Audio_USB").text() == "true";
+			
 			Set_Audio_Cards( snd_card );
 			
 			// Check Free RAM
@@ -4465,6 +4550,9 @@ bool Virtual_Machine::Load_VM( const QString &file_name )
 				Parallel_Ports << tmp_port;
 			}
 			
+			// USB Hub
+			USB_Hub = (Child_Element.firstChildElement("USB_Hub").text() == "true");
+			
 			// USB Count
 			int usb_count = Child_Element.firstChildElement( "USB_Ports_Count" ).text().toInt();
 			
@@ -4573,6 +4661,14 @@ bool Virtual_Machine::Load_VM( const QString &file_name )
 			
 			// PFlash File
 			PFlash_File = Child_Element.firstChildElement( "PFlash_File" ).text();
+			
+			// UEFI
+			UEFI = (Child_Element.firstChildElement("Use_UEFI").text() == "true" );
+			UEFI_CODE_File = Child_Element.firstChildElement( "UEFI_CODE_File" ).text();
+			UEFI_VARS_File = Child_Element.firstChildElement( "UEFI_VARS_File" ).text();
+			VirtIO_RNG = (Child_Element.firstChildElement("Use_VirtIO_RNG").text() == "true" );
+			VirtIO_Balloon = (Child_Element.firstChildElement("Use_VirtIO_Balloon").text() == "true" );
+			VirtIO_Keyboard = (Child_Element.firstChildElement("Use_VirtIO_Keyboard").text() == "true" );
 			
 			// Enable KVM
 			Enable_KVM = ! (Child_Element.firstChildElement("Enable_KVM").text() == "false" );
@@ -5301,20 +5397,30 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	}
 	
 	// SMP Mode
-	if( SMP.SMP_Count <= Current_Emulator_Devices.PSO_SMP_Count )
+	int smp_count = SMP.SMP_Count;
+	if( smp_count < 1 ) smp_count = 1;
+	// aarch64 under TCG with 1 vCPU is unusably slow; match kiosk default of 4
+	const bool virt_arch_for_smp =
+		Computer_Type.contains( "aarch64", Qt::CaseInsensitive ) ||
+		Computer_Type.contains( "qemu-system-arm", Qt::CaseInsensitive ) ||
+		Computer_Type.contains( "riscv", Qt::CaseInsensitive );
+	if( virt_arch_for_smp && smp_count < 2 )
+		smp_count = 4;
+
+	if( smp_count <= Current_Emulator_Devices.PSO_SMP_Count )
 	{
 		if( Current_Emulator_Devices.PSO_SMP_Cores ||
 			Current_Emulator_Devices.PSO_SMP_Threads ||
 			Current_Emulator_Devices.PSO_SMP_Sockets ||
 			Current_Emulator_Devices.PSO_SMP_MaxCPUs )
 		{
-			if( SMP.SMP_Count > 1 ||
+			if( smp_count > 1 ||
 				SMP.SMP_Cores > 0 ||
 				SMP.SMP_Threads > 0 ||
 				SMP.SMP_Sockets > 0 ||
 				SMP.SMP_MaxCPUs > 0 )
 			{
-				QString smp_args = QString::number( SMP.SMP_Count );
+				QString smp_args = QString::number( smp_count );
 				
 				if( Current_Emulator_Devices.PSO_SMP_Cores && SMP.SMP_Cores > 0 )
 					smp_args += ",cores=" + QString::number( SMP.SMP_Cores );
@@ -5333,87 +5439,208 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		}
 		else
 		{
-			if( SMP.SMP_Count > 1 )
-				Args << "-smp" << QString::number( SMP.SMP_Count );
+			if( smp_count > 1 )
+				Args << "-smp" << QString::number( smp_count );
 		}
 	}
 	
 	// CPU Model
-	if( Current_Emulator_Devices.CPU_List.count() > 1 &&
-		CPU_Type.isEmpty() == false )
+	// TCG on aarch64: pauth-impdef=on is the big win (Linaro / virtio-win docs).
+	// Pi kiosk uses -cpu host under KVM ù not available for aarch64 on x86 Windows.
 	{
-		Args << "-cpu" << CPU_Type;
+		QString cpu_arg;
+		if( Current_Emulator_Devices.CPU_List.count() > 1 &&
+			CPU_Type.isEmpty() == false )
+		{
+			cpu_arg = CPU_Type;
+		}
+		else if( Computer_Type.contains( "aarch64", Qt::CaseInsensitive ) ||
+				 Computer_Type.contains( "qemu-system-arm", Qt::CaseInsensitive ) )
+		{
+			#ifdef Q_OS_WIN32
+			cpu_arg = "max";
+			#else
+			if( Machine_Accelerator == VM::KVM )
+				cpu_arg = "host";
+			else
+				cpu_arg = "max";
+			#endif
+		}
+
+		if( ! cpu_arg.isEmpty() )
+		{
+			const bool aarch64 =
+				Computer_Type.contains( "aarch64", Qt::CaseInsensitive ) ||
+				Computer_Type.contains( "qemu-system-arm", Qt::CaseInsensitive );
+			#ifdef Q_OS_WIN32
+			const bool tcg_guest = aarch64; // WHPX cannot accelerate aarch64 on x86 hosts
+			#else
+			const bool tcg_guest = aarch64 && Machine_Accelerator != VM::KVM;
+			#endif
+			if( tcg_guest &&
+				( cpu_arg == "max" || cpu_arg.startsWith( "max," ) ) &&
+				! cpu_arg.contains( "pauth-impdef" ) )
+			{
+				cpu_arg += ",pauth-impdef=on";
+			}
+			Args << "-cpu" << cpu_arg;
+		}
 	}
 	
-	// Audio
-	QStringList audio_list;
+	// Audio ù prefer modern -audiodev / -device; fall back to -soundhw for legacy ISA cards
+	QStringList legacy_soundhw;
+	bool need_audiodev = false;
 	
-	if( Audio_Card.Audio_sb16 &&  Current_Emulator_Devices.Audio_Card_List.Audio_sb16 ) audio_list << "sb16";
-	if( Audio_Card.Audio_es1370 && Current_Emulator_Devices.Audio_Card_List.Audio_es1370 ) audio_list << "es1370";
-	if( Audio_Card.Audio_Adlib && Current_Emulator_Devices.Audio_Card_List.Audio_Adlib ) audio_list << "adlib";
-	if( Audio_Card.Audio_PC_Speaker && Current_Emulator_Devices.Audio_Card_List.Audio_PC_Speaker ) audio_list << "pcspk";
-	if( Audio_Card.Audio_GUS && Current_Emulator_Devices.Audio_Card_List.Audio_GUS ) audio_list << "gus";
-	if( Audio_Card.Audio_AC97 && Current_Emulator_Devices.Audio_Card_List.Audio_AC97 ) audio_list << "ac97";
-	if( Audio_Card.Audio_HDA && Current_Emulator_Devices.Audio_Card_List.Audio_HDA ) audio_list << "hda";
-	if( Audio_Card.Audio_cs4231a && Current_Emulator_Devices.Audio_Card_List.Audio_cs4231a ) audio_list << "cs4231a";
+	if( Audio_Card.Audio_VirtIO && Current_Emulator_Devices.Audio_Card_List.Audio_VirtIO ) need_audiodev = true;
+	if( Audio_Card.Audio_USB && Current_Emulator_Devices.Audio_Card_List.Audio_USB ) need_audiodev = true;
+	if( Audio_Card.Audio_HDA && Current_Emulator_Devices.Audio_Card_List.Audio_HDA ) need_audiodev = true;
+	if( Audio_Card.Audio_AC97 && Current_Emulator_Devices.Audio_Card_List.Audio_AC97 ) need_audiodev = true;
+	if( Audio_Card.Audio_es1370 && Current_Emulator_Devices.Audio_Card_List.Audio_es1370 ) need_audiodev = true;
+	if( Audio_Card.Audio_sb16 && Current_Emulator_Devices.Audio_Card_List.Audio_sb16 ) need_audiodev = true;
+	if( Audio_Card.Audio_Adlib && Current_Emulator_Devices.Audio_Card_List.Audio_Adlib ) need_audiodev = true;
+	if( Audio_Card.Audio_GUS && Current_Emulator_Devices.Audio_Card_List.Audio_GUS ) need_audiodev = true;
+	if( Audio_Card.Audio_cs4231a && Current_Emulator_Devices.Audio_Card_List.Audio_cs4231a ) need_audiodev = true;
+	if( Audio_Card.Audio_PC_Speaker && Current_Emulator_Devices.Audio_Card_List.Audio_PC_Speaker )
+		legacy_soundhw << "pcspk";
 	
-	if( audio_list.count() > 0 )
+	if( need_audiodev )
 	{
-		Args << "-soundhw";
+		QString audiodev_backend;
+		#ifdef Q_OS_WIN32
+		audiodev_backend = "wasapi";
+		#else
+		if( Settings.value("QEMU_AUDIO/Use_Default_Driver", "yes").toString() == "no" )
+			audiodev_backend = Settings.value("QEMU_AUDIO/QEMU_AUDIO_DRV", "pa").toString();
+		else
+			audiodev_backend = "pa";
+		if( audiodev_backend == "alsa" || audiodev_backend == "oss" || audiodev_backend == "sdl" ||
+			audiodev_backend == "pa" || audiodev_backend == "pipewire" )
+			; // keep
+		else
+			audiodev_backend = "pa";
+		#endif
 		
-		QString all_cards = "";
+		Args << "-audiodev" << ( audiodev_backend + ",id=snd0" );
 		
-		for( int ax = 0; ax < audio_list.count(); ++ax )
+		if( Audio_Card.Audio_VirtIO && Current_Emulator_Devices.Audio_Card_List.Audio_VirtIO )
+			Args << "-device" << "virtio-sound-pci,audiodev=snd0";
+		
+		if( Audio_Card.Audio_USB && Current_Emulator_Devices.Audio_Card_List.Audio_USB )
+			Args << "-device" << "usb-audio,audiodev=snd0";
+		
+		if( Audio_Card.Audio_HDA && Current_Emulator_Devices.Audio_Card_List.Audio_HDA )
 		{
-			// Next card end?
-			if( ax != audio_list.count()-1 )
-				all_cards += audio_list[ ax ] + ",";
-			else
-				all_cards += audio_list[ ax ];
+			Args << "-device" << "intel-hda,id=hda0";
+			Args << "-device" << "hda-duplex,bus=hda0.0,audiodev=snd0";
 		}
 		
-		Args << all_cards;
+		if( Audio_Card.Audio_AC97 && Current_Emulator_Devices.Audio_Card_List.Audio_AC97 )
+			Args << "-device" << "AC97,audiodev=snd0";
+		
+		if( Audio_Card.Audio_es1370 && Current_Emulator_Devices.Audio_Card_List.Audio_es1370 )
+			Args << "-device" << "ES1370,audiodev=snd0";
+		
+		if( Audio_Card.Audio_sb16 && Current_Emulator_Devices.Audio_Card_List.Audio_sb16 )
+			Args << "-device" << "sb16,audiodev=snd0";
+		
+		if( Audio_Card.Audio_Adlib && Current_Emulator_Devices.Audio_Card_List.Audio_Adlib )
+			Args << "-device" << "adlib,audiodev=snd0";
+		
+		if( Audio_Card.Audio_GUS && Current_Emulator_Devices.Audio_Card_List.Audio_GUS )
+			Args << "-device" << "gus,audiodev=snd0";
+		
+		if( Audio_Card.Audio_cs4231a && Current_Emulator_Devices.Audio_Card_List.Audio_cs4231a )
+			Args << "-device" << "cs4231a,audiodev=snd0";
 	}
 	
-	// Machine Type
-	if( ! Machine_Type.isEmpty() )
-		Args << "-M" << Machine_Type;
+	if( legacy_soundhw.count() > 0 )
+	{
+		Args << "-soundhw";
+		Args << legacy_soundhw.join( "," );
+	}
+	
+	// Effective machine type. aarch64/arm/riscv have no QEMU default ù must pass virt
+	// (matches win11-pi5-kiosk: -M virt,accel=kvm).
+	QString effective_machine = Machine_Type;
+	const bool is_virt_arch =
+		Computer_Type.contains( "aarch64", Qt::CaseInsensitive ) ||
+		Computer_Type.contains( "qemu-system-arm", Qt::CaseInsensitive ) ||
+		Computer_Type.contains( "riscv", Qt::CaseInsensitive );
+	if( effective_machine.isEmpty() && is_virt_arch )
+		effective_machine = "virt";
 	
 	// Keyboard Layout (language)
 	if( Keyboard_Layout != "Default" )
 		Args << "-k" << Get_Keyboard_Layout();
 	
-	// Video
-	if( Current_Emulator_Devices.PSO_Std_VGA ) // QEMU before 0.10 style
-		Args << Video_Card;
-	else if( ! Video_Card.isEmpty() ) // QEMU 0.10 style
-		Args << "-vga" << Video_Card;
+	// Video ù aarch64/arm/riscv: never use -vga (virtio/std cause "Virtio VGA not available").
+	// Match win11-pi5-kiosk: -device virtio-gpu-pci,...
+	QString effective_video = Video_Card;
+	if( is_virt_arch )
+	{
+		if( effective_video.isEmpty() ||
+			effective_video == "std" || effective_video == "cirrus" ||
+			effective_video == "virtio" || effective_video == "vmware" ||
+			effective_video == "qxl" || effective_video == "xenfb" )
+			effective_video = "virtio-gpu-pci";
 
-    // Accelerator
-    Args << "-machine";
+		if( effective_video == "none" || effective_video == "-nographic" )
+			Args << "-nographic";
+		else if( effective_video == "ramfb" )
+			Args << "-device" << "ramfb";
+		else if( effective_video == "virtio-gpu-gl-pci" )
+			Args << "-device" << "virtio-gpu-gl-pci";
+		else
+			Args << "-device" << "virtio-gpu-pci,edid=on,xres=1920,yres=1080,max_outputs=1";
+	}
+	else if( Current_Emulator_Devices.PSO_Std_VGA ) // QEMU before 0.10 style
+		Args << effective_video;
+	else if( ! effective_video.isEmpty() ) // QEMU 0.10 style
+		Args << "-vga" << effective_video;
 
-    QStringList props;
-    #ifdef Q_OS_WIN32
-    if( Machine_Accelerator == VM::KVM )
-        props << "accel=whpx:hax:tcg";
-    else if( Machine_Accelerator == VM::XEN )
-        props << "accel=xen:tcg";
-    else
-        props << "accel="+VM::Accel_To_String( Machine_Accelerator );
-    #else
-    if( Machine_Accelerator == VM::KVM )
-        props << "accel=kvm:tcg";
-    else if( Machine_Accelerator == VM::XEN )
-        props << "accel=xen:tcg";
-    else
-        props << "accel="+VM::Accel_To_String( Machine_Accelerator );
-    #endif
+	// Machine + accelerator.
+	// thread=multi is an -accel property, NOT a -machine property
+	// (putting it on -machine causes: Property 'virt-*.thread' not found).
+	Args << "-machine";
+	QStringList props;
+	if( ! effective_machine.isEmpty() )
+		props << effective_machine;
+
+	// GICv3+ for modern aarch64 guests (Win11 ARM / Linux); ignored on non-virt boards
+	if( is_virt_arch &&
+		( Computer_Type.contains( "aarch64", Qt::CaseInsensitive ) ||
+		  Computer_Type.contains( "qemu-system-arm", Qt::CaseInsensitive ) ) )
+		props << "gic-version=max";
+
+	bool use_separate_tcg_accel = false;
+	#ifdef Q_OS_WIN32
+	if( is_virt_arch )
+		use_separate_tcg_accel = true;
+	else if( Machine_Accelerator == VM::KVM )
+		props << "accel=whpx:hax:tcg";
+	else if( Machine_Accelerator == VM::XEN )
+		props << "accel=xen:tcg";
+	else
+		props << "accel="+VM::Accel_To_String( Machine_Accelerator );
+	#else
+	if( Machine_Accelerator == VM::KVM )
+		props << "accel=kvm:tcg";
+	else if( Machine_Accelerator == VM::XEN )
+		props << "accel=xen:tcg";
+	else if( is_virt_arch )
+		use_separate_tcg_accel = true;
+	else
+		props << "accel="+VM::Accel_To_String( Machine_Accelerator );
+	#endif
 
 	if( Current_Emulator_Devices.PSO_KVM_Shadow_Memory && KVM_Shadow_Memory )
 		props << "kvm_shadow_mem=" + QString::number( KVM_Shadow_Memory_Size * 1024 );
 
-    Args << props.join(",");
-	
+	Args << props.join(",");
+
+	// TCG: multi-thread + larger TB cache (Gemini/Linaro tips). tb-size is an -accel prop, not -tb-size.
+	if( use_separate_tcg_accel )
+		Args << "-accel" << "tcg,thread=multi,tb-size=1024";
 	// KVM Options
 	//if( Current_Emulator_Devices.PSO_Enable_KVM && Enable_KVM )
 	//	Args << "-enable-kvm";
@@ -5584,7 +5811,28 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		{
 			if( QFile::exists(HDA.Get_File_Name()) || Build_QEMU_Args_for_Tab_Info )
 			{
-				if( Build_QEMU_Args_for_Script_Mode )
+				// virt machines have no IDE ù use if=virtio like win11-pi5-kiosk
+				if( effective_machine == "virt" || is_virt_arch )
+				{
+					#ifdef Q_OS_WIN32
+					QString drive = QString( "file=%1,if=none,id=aqhd0,cache=writeback,aio=threads" )
+						.arg( HDA.Get_File_Name() );
+					#else
+					QString drive = QString( "file=%1,if=none,id=aqhd0,cache=none,aio=threads" )
+						.arg( HDA.Get_File_Name() );
+					#endif
+					if( Build_QEMU_Args_for_Script_Mode )
+					{
+						StorageArgs << "-device" << "virtio-blk-pci,drive=aqhd0,bootindex=1";
+						StorageArgs << "-drive" << "\"" + drive + "\"";
+					}
+					else
+					{
+						StorageArgs << "-device" << "virtio-blk-pci,drive=aqhd0,bootindex=1";
+						StorageArgs << "-drive" << drive;
+					}
+				}
+				else if( Build_QEMU_Args_for_Script_Mode )
 					StorageArgs << "-hda" << "\"" + HDA.Get_File_Name() + "\"";
 				else
 					StorageArgs << "-hda" << HDA.Get_File_Name();
@@ -5727,8 +5975,9 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	//      (further) problems ...
 	Args << StorageArgs;
 
-	// Boot Device
-	if( Current_Emulator_Devices.PSO_Boot_Order )
+	// Boot Device ù PC BIOS only. aarch64/arm/riscv UEFI (like win11-pi5-kiosk)
+	// has no -boot order support; firmware boots from pflash NVRAM + VirtIO disk.
+	if( Current_Emulator_Devices.PSO_Boot_Order && ! is_virt_arch )
 	{
 		int bootDevCount = 0;
 		int onceBootDeviceIndex = -1;
@@ -6057,6 +6306,26 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		{
 			for( int nc = 0; nc < Network_Cards.count(); nc++ )
 			{
+				QString model = Network_Cards[nc].Get_Card_Model();
+				if( ( model == "virtio" || model == "virtio-net" || model.isEmpty() ) &&
+					( effective_machine == "virt" || is_virt_arch ) )
+					model = "virtio-net-pci";
+
+				// aarch64/virt: modern netdev like win11-pi5-kiosk (no PXE bootindex on legacy -net)
+				if( is_virt_arch && Network_Cards[nc].Get_Net_Mode() == VM::Net_Mode_Usermode )
+				{
+					QString nid = QString( "net%1" ).arg( nc );
+					QString netdev = "user,id=" + nid;
+					if( ! Network_Cards[nc].Get_Hostname().isEmpty() )
+						netdev += ",hostname=" + Network_Cards[nc].Get_Hostname();
+					Args << "-netdev" << netdev;
+					QString nic_dev = model + ",netdev=" + nid;
+					if( ! Network_Cards[nc].Get_MAC_Address().isEmpty() )
+						nic_dev += ",mac=" + Network_Cards[nc].Get_MAC_Address();
+					Args << "-device" << nic_dev;
+					continue;
+				}
+
 				Args << "-net";
 				QString nic_str = "nic";
 				if( Network_Cards[nc].Get_VLAN() > 0 )
@@ -6065,8 +6334,8 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 				if( ! Network_Cards[nc].Get_MAC_Address().isEmpty() ) // Use MAC?
 					nic_str += ",macaddr=" + Network_Cards[nc].Get_MAC_Address();
 				
-				if( ! Network_Cards[nc].Get_Card_Model().isEmpty() )
-					nic_str += ",model=" + Network_Cards[nc].Get_Card_Model();
+				if( ! model.isEmpty() )
+					nic_str += ",model=" + model;
 				
 				Args << nic_str;
 				
@@ -6642,13 +6911,59 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			Args << "-sd" << SecureDigital_File;
 	}
 	
-	// parallel flash image
-	if( Current_Emulator_Devices.PSO_PFlash && PFlash )
+	// parallel flash image (legacy single pflash)
+	if( Current_Emulator_Devices.PSO_PFlash && PFlash && ! UEFI )
 	{
 		if( Build_QEMU_Args_for_Script_Mode )
 			Args << "-pflash" << "\"" + PFlash_File + "\"";
 		else
 			Args << "-pflash" << PFlash_File;
+	}
+	
+	// UEFI dual pflash (AAVMF / EDK2) ù required for Windows 11 ARM / aarch64 virt
+	if( UEFI && ! UEFI_CODE_File.isEmpty() )
+	{
+		QString code_arg = QString( "if=pflash,format=raw,unit=0,file=%1,readonly=on" ).arg( UEFI_CODE_File );
+		if( Build_QEMU_Args_for_Script_Mode )
+			Args << "-drive" << "\"" + code_arg + "\"";
+		else
+			Args << "-drive" << code_arg;
+		
+		if( ! UEFI_VARS_File.isEmpty() )
+		{
+			QString vars_arg = QString( "if=pflash,format=raw,unit=1,file=%1" ).arg( UEFI_VARS_File );
+			if( Build_QEMU_Args_for_Script_Mode )
+				Args << "-drive" << "\"" + vars_arg + "\"";
+			else
+				Args << "-drive" << vars_arg;
+		}
+	}
+	
+	// VirtIO RNG
+	if( VirtIO_RNG )
+	{
+		// Windows QEMU builds do not provide rng-random (/dev/urandom); use rng-builtin
+		#ifdef Q_OS_WIN32
+		Args << "-object" << "rng-builtin,id=rng0";
+		#else
+		Args << "-object" << "rng-random,id=rng0,filename=/dev/urandom";
+		#endif
+		Args << "-device" << "virtio-rng-pci,rng=rng0";
+	}
+	
+	// VirtIO Balloon
+	if( VirtIO_Balloon )
+		Args << "-device" << "virtio-balloon-pci";
+	
+	// VirtIO Keyboard
+	if( VirtIO_Keyboard )
+		Args << "-device" << "virtio-keyboard-pci";
+	
+	// USB tablet + xHCI controller for virt machines (Windows 11 ARM profile)
+	if( USB_Hub )
+	{
+		Args << "-device" << "qemu-xhci";
+		Args << "-device" << "usb-tablet";
 	}
 	
 	// Set the initial graphical resolution and depth
@@ -6961,7 +7276,13 @@ QStringList Virtual_Machine::Build_Native_Device_Args( VM_Native_Storage_Device 
 				break;
 				
 			case VM::DI_Virtio:
-				opt << "if=virtio";
+				// aarch64: use virtio-blk-pci so we can set bootindex (if=virtio rejects it on qcow2)
+				if( Computer_Type.contains( "aarch64", Qt::CaseInsensitive ) ||
+					Computer_Type.contains( "qemu-system-arm", Qt::CaseInsensitive ) ||
+					Computer_Type.contains( "riscv", Qt::CaseInsensitive ) )
+					opt << "if=none,id=" + vsname;
+				else
+					opt << "if=virtio";
 				break;
 
 			case VM::DI_Virtio_SCSI:
@@ -7022,9 +7343,16 @@ QStringList Virtual_Machine::Build_Native_Device_Args( VM_Native_Storage_Device 
 		else opt << "snapshot=off";
 	}
 	
-	// Cache
+	// Cache ù on Windows, cache=none with qcow2 fails ("Image is not in qcow2 format")
 	if( device.Use_Cache() )
-		opt << "cache=" + device.Get_Cache();
+	{
+		QString cache = device.Get_Cache();
+		#ifdef Q_OS_WIN32
+		if( cache == "none" || cache == "directsync" || cache == "unsafe" )
+			cache = "writeback";
+		#endif
+		opt << "cache=" + cache;
+	}
 	
 	// AIO
 	if( device.Use_AIO() )
@@ -7054,10 +7382,21 @@ QStringList Virtual_Machine::Build_Native_Device_Args( VM_Native_Storage_Device 
 	
 	// return
 	QStringList args;
+	const bool virt_arch_blk =
+		Computer_Type.contains( "aarch64", Qt::CaseInsensitive ) ||
+		Computer_Type.contains( "qemu-system-arm", Qt::CaseInsensitive ) ||
+		Computer_Type.contains( "riscv", Qt::CaseInsensitive );
+
 	if (device.Get_Interface() == VM::DI_Virtio_SCSI) {
 	    QString devtype =
 		(device.Get_Media() == VM::DM_CD_ROM ? "scsi-cd" : "scsi-hd");
 	    args << "-device" << devtype + ",drive=" + vsname;
+	}
+	else if( device.Get_Interface() == VM::DI_Virtio && virt_arch_blk &&
+			 ( ! device.Use_Media() || device.Get_Media() == VM::DM_Disk ) )
+	{
+		// Prefer this disk over PXE in UEFI (kiosk uses VARS boot order instead)
+		args << "-device" << "virtio-blk-pci,drive=" + vsname + ",bootindex=1";
 	}
 	args << "-drive" << driveStr;
 	return args;
@@ -7270,7 +7609,10 @@ bool Virtual_Machine::Start_impl()
                 System_Info::Add_To_Used_USB_List( usb_dev );
         }
 
-        QEMU_Process->start( bin_path, this->Build_QEMU_Args() );
+        QStringList qemu_args = this->Build_QEMU_Args();
+        AQDebug( "bool Virtual_Machine::Start()",
+                 QString( "Starting: \"%1\" %2" ).arg( bin_path, qemu_args.join( " " ) ) );
+        QEMU_Process->start( bin_path, qemu_args );
     }
 
     // Do NOT Start CPU
@@ -8596,6 +8938,7 @@ QString Virtual_Machine::Get_USB_Bus_Address( const QString &id )
 	return "";
 }
 
+/*
 bool Virtual_Machine::Use_USB_Hub() const
 {
 	return USB_Hub;
@@ -8634,6 +8977,16 @@ void Virtual_Machine::Set_USB_Port( int index, const VM_USB &u )
 	}
 }
 */
+bool Virtual_Machine::Use_USB_Hub() const
+{
+	return USB_Hub;
+}
+
+void Virtual_Machine::Use_USB_Hub( bool use )
+{
+	USB_Hub = use;
+}
+
 void Virtual_Machine::Add_USB_Port( const VM_USB &u )
 {
 	USB_Ports.append( VM_USB(u) );
@@ -8785,6 +9138,66 @@ const QString &Virtual_Machine::Get_PFlash_File() const
 void Virtual_Machine::Set_PFlash_File( const QString &file )
 {
 	PFlash_File = file;
+}
+
+bool Virtual_Machine::Use_UEFI() const
+{
+	return UEFI;
+}
+
+void Virtual_Machine::Use_UEFI( bool use )
+{
+	UEFI = use;
+}
+
+const QString &Virtual_Machine::Get_UEFI_CODE_File() const
+{
+	return UEFI_CODE_File;
+}
+
+void Virtual_Machine::Set_UEFI_CODE_File( const QString &file )
+{
+	UEFI_CODE_File = file;
+}
+
+const QString &Virtual_Machine::Get_UEFI_VARS_File() const
+{
+	return UEFI_VARS_File;
+}
+
+void Virtual_Machine::Set_UEFI_VARS_File( const QString &file )
+{
+	UEFI_VARS_File = file;
+}
+
+bool Virtual_Machine::Use_VirtIO_RNG() const
+{
+	return VirtIO_RNG;
+}
+
+void Virtual_Machine::Use_VirtIO_RNG( bool use )
+{
+	VirtIO_RNG = use;
+}
+
+bool Virtual_Machine::Use_VirtIO_Balloon() const
+{
+	return VirtIO_Balloon;
+}
+
+void Virtual_Machine::Use_VirtIO_Balloon( bool use )
+{
+	VirtIO_Balloon = use;
+}
+
+bool Virtual_Machine::Use_VirtIO_Keyboard() const
+{
+	return VirtIO_Keyboard;
+}
+
+void Virtual_Machine::Use_VirtIO_Keyboard( bool use )
+{
+	VirtIO_Keyboard = use;
 }
 
 bool Virtual_Machine::Use_KVM() const

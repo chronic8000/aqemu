@@ -562,10 +562,14 @@ bool System_Info::Update_VM_Computers_List()
 	Audio_Card_x86.Audio_sb16 = true;
 	Audio_Card_x86.Audio_Adlib = true;
 	Audio_Card_x86.Audio_es1370 = true;
+	Audio_Card_x86.Audio_VirtIO = true;
+	Audio_Card_x86.Audio_USB = true;
 	
 	Audio_Card_PPC.Audio_sb16 = true;
 	Audio_Card_PPC.Audio_Adlib = true;
 	Audio_Card_PPC.Audio_es1370 = true;
+	Audio_Card_PPC.Audio_VirtIO = true;
+	Audio_Card_PPC.Audio_USB = true;
 	
 	// QEMU 0.10.0
 	QList<Device_Map> QEMU_Video_Cards_v0_10_0;
@@ -597,6 +601,7 @@ bool System_Info::Update_VM_Computers_List()
 	ad.Audio_Card_List = Audio_Card_x86;
 	ad.Audio_Card_List.Audio_GUS = true;
 	ad.Audio_Card_List.Audio_AC97 = true;
+	ad.Audio_Card_List.Audio_HDA = true;
 	ad.PSO_SMP_Count = 255;
 	ad.PSO_No_FB_Boot_Check = true;
 	ad.PSO_Win2K_Hack = true;
@@ -875,13 +880,19 @@ bool System_Info::Update_VM_Computers_List()
 		                         << Device_Map( QObject::tr("e1000"), "e1000" );
 		
 		new_ad.Video_Card_List << Device_Map( QObject::tr("Standard VGA"), "std" )
-		                       << Device_Map( QObject::tr("VirtIO GPU"), "virtio" )
+		                       << Device_Map( QObject::tr("VirtIO GPU (PCI)"), "virtio-gpu-pci" )
+		                       << Device_Map( QObject::tr("VirtIO VGA"), "virtio" )
+		                       << Device_Map( QObject::tr("RAM Framebuffer"), "ramfb" )
 		                       << Device_Map( QObject::tr("Cirrus VGA"), "cirrus" )
 		                       << Device_Map( QObject::tr("None"), "none" );
 		
 		new_ad.Audio_Card_List = VM::Sound_Cards();
+		new_ad.Audio_Card_List.Audio_VirtIO = true;
+		new_ad.Audio_Card_List.Audio_USB = true;
+		new_ad.Audio_Card_List.Audio_HDA = true;
 		new_ad.PSO_SMP_Count = 255;
 		new_ad.PSO_Initial_Graphic_Mode = true;
+		new_ad.PSO_PFlash = true;
 		
 		System_Info::Emulator_QEMU_2_0[ target_templates[tx].binary_name ] = new_ad;
 	}
@@ -1180,42 +1191,28 @@ QMap<QString, QString> System_Info::Find_QEMU_Binary_Files( const QString &path 
 {
 	QMap<QString, QString> emulFiles;
 	
-	emulFiles[ "qemu-system-x86_64" ] = "";
-	emulFiles[ "qemu-system-i386" ] = "";
-	emulFiles[ "qemu-system-aarch64" ] = "";
-	emulFiles[ "qemu-system-arm" ] = "";
-	emulFiles[ "qemu-system-riscv64" ] = "";
-	emulFiles[ "qemu-system-riscv32" ] = "";
-	emulFiles[ "qemu-system-loongarch64" ] = "";
-	emulFiles[ "qemu-system-openrisc" ] = "";
-	emulFiles[ "qemu-system-ppc" ] = "";
-	emulFiles[ "qemu-system-ppc64" ] = "";
-	emulFiles[ "qemu-system-ppcemb" ] = "";
-	emulFiles[ "qemu-system-sparc" ] = "";
-	emulFiles[ "qemu-system-sparc64" ] = "";
-	emulFiles[ "qemu-system-mips" ] = "";
-	emulFiles[ "qemu-system-mipsel" ] = "";
-	emulFiles[ "qemu-system-mips64" ] = "";
-	emulFiles[ "qemu-system-mips64el" ] = "";
-	emulFiles[ "qemu-system-s390x" ] = "";
-	emulFiles[ "qemu-system-alpha" ] = "";
-	emulFiles[ "qemu-system-hppa" ] = "";
-	emulFiles[ "qemu-system-sh4" ] = "";
-	emulFiles[ "qemu-system-sh4eb" ] = "";
-	emulFiles[ "qemu-system-sh4el" ] = "";
-	emulFiles[ "qemu-system-avr" ] = "";
-	emulFiles[ "qemu-system-m68k" ] = "";
-	emulFiles[ "qemu-system-rx" ] = "";
-	emulFiles[ "qemu-system-tricore" ] = "";
-	emulFiles[ "qemu-system-xtensa" ] = "";
-	emulFiles[ "qemu-system-cris" ] = "";
-	emulFiles[ "qemu-system-microblaze" ] = "";
-	emulFiles[ "qemu-system-microblazeel" ] = "";
+	// Well-known targets (ensures UI keys exist even when probing an empty dir)
+	const char *known[] = {
+		"qemu-system-x86_64", "qemu-system-i386",
+		"qemu-system-aarch64", "qemu-system-arm",
+		"qemu-system-riscv64", "qemu-system-riscv32",
+		"qemu-system-loongarch64", "qemu-system-openrisc",
+		"qemu-system-ppc", "qemu-system-ppc64", "qemu-system-ppcemb",
+		"qemu-system-sparc", "qemu-system-sparc64",
+		"qemu-system-mips", "qemu-system-mipsel", "qemu-system-mips64", "qemu-system-mips64el",
+		"qemu-system-s390x", "qemu-system-alpha", "qemu-system-hppa",
+		"qemu-system-sh4", "qemu-system-sh4eb", "qemu-system-sh4el",
+		"qemu-system-avr", "qemu-system-m68k", "qemu-system-rx",
+		"qemu-system-tricore", "qemu-system-xtensa", "qemu-system-xtensaeb",
+		"qemu-system-cris", "qemu-system-microblaze", "qemu-system-microblazeel",
+		"qemu-system-nios2", "qemu-system-or1k", "qemu-system-rx"
+	};
+	for( size_t i = 0; i < sizeof(known)/sizeof(known[0]); ++i )
+		emulFiles[ known[i] ] = "";
 	
-	// path empty - this not error. It return empty bin files list
+	// path empty - return empty bin paths for known keys (Emulator Options UI)
 	if( path.isEmpty() ) return emulFiles;
 	
-	// Path valid?
 	if( ! QFile::exists(path) )
 	{
 		AQDebug( "QMap<QString, QString> System_Info::Find_QEMU_Binary_Files( const QString &path )",
@@ -1223,30 +1220,45 @@ QMap<QString, QString> System_Info::Find_QEMU_Binary_Files( const QString &path 
 		return emulFiles;
 	}
 	
-	// Find
 	QString dirPath = QDir::toNativeSeparators( (path.endsWith("/") || path.endsWith("\\")) ? path : path + "/" );
+	QDir dir( dirPath );
 	
+	#ifdef Q_OS_WIN32
+	QStringList filters;
+	filters << "qemu-system-*.exe";
+	QFileInfoList found = dir.entryInfoList( filters, QDir::Files | QDir::Readable, QDir::Name );
+	for( int i = 0; i < found.count(); ++i )
+	{
+		QString base = found[i].completeBaseName(); // qemu-system-x86_64
+		emulFiles[ base ] = found[i].absoluteFilePath();
+	}
+	// Also check known list in case of non-standard naming
 	QMap<QString, QString>::iterator iter = emulFiles.begin();
 	while( iter != emulFiles.end() )
 	{
-		#ifdef Q_OS_WIN32
-		if( QFile::exists(dirPath + iter.key() + ".exe") ) iter.value() = dirPath + iter.key() + ".exe";
-		#else
-		if( QFile::exists(dirPath + iter.key()) ) iter.value() = dirPath + iter.key();
-		#endif
-		
+		if( iter.value().isEmpty() && QFile::exists(dirPath + iter.key() + ".exe") )
+			iter.value() = dirPath + iter.key() + ".exe";
 		++iter;
 	}
-	
-	/*// Next code for QEMU 1.0 in it version 'qemu' binary name changed to 'qemu-system-i386'
-	if( emulFiles["qemu"].isEmpty() )
+	#else
+	QStringList filters;
+	filters << "qemu-system-*";
+	QFileInfoList found = dir.entryInfoList( filters, QDir::Files | QDir::Executable | QDir::Readable, QDir::Name );
+	for( int i = 0; i < found.count(); ++i )
 	{
-		#ifdef Q_OS_WIN32
-		if( QFile::exists(dirPath + "qemu-system-i386.exe") ) emulFiles[ "qemu" ] = dirPath + "qemu-system-i386.exe";
-		#else
-		if( QFile::exists(dirPath + "qemu-system-i386") ) emulFiles[ "qemu" ] = dirPath + "qemu-system-i386";
-		#endif
-	}*/
+		QString base = found[i].fileName();
+		// Skip backups / wrappers with extensions
+		if( base.contains( '.' ) ) continue;
+		emulFiles[ base ] = found[i].absoluteFilePath();
+	}
+	QMap<QString, QString>::iterator iter = emulFiles.begin();
+	while( iter != emulFiles.end() )
+	{
+		if( iter.value().isEmpty() && QFile::exists(dirPath + iter.key()) )
+			iter.value() = dirPath + iter.key();
+		++iter;
+	}
+	#endif
 	
 	return emulFiles;
 }
@@ -1301,6 +1313,76 @@ QString System_Info::Find_IMG( const QStringList &paths )
 	AQWarning( "static QString System_Info::Find_IMG( const QStringList &paths )",
 			   "Cannot find qemu-img or kvm-img!" );
 	return "";
+}
+
+void System_Info::Normalize_Virt_Arch_Devices( Available_Devices &dev )
+{
+	const QString bin = dev.System.QEMU_Name;
+	if( ! ( bin.contains( "aarch64", Qt::CaseInsensitive ) ||
+			bin.contains( "qemu-system-arm", Qt::CaseInsensitive ) ||
+			bin.contains( "riscv", Qt::CaseInsensitive ) ) )
+		return;
+	
+	dev.Audio_Card_List.Audio_VirtIO = true;
+	dev.Audio_Card_List.Audio_USB = true;
+	dev.Audio_Card_List.Audio_HDA = true;
+	
+	bool has_virtio_gpu = false;
+	for( int i = 0; i < dev.Video_Card_List.count(); ++i )
+	{
+		if( dev.Video_Card_List[i].QEMU_Name == "virtio-gpu-pci" )
+		{
+			has_virtio_gpu = true;
+			break;
+		}
+	}
+	if( ! has_virtio_gpu )
+	{
+		QList<Device_Map> cleaned;
+		cleaned << Device_Map( QObject::tr("VirtIO GPU (PCI)"), "virtio-gpu-pci" )
+		        << Device_Map( QObject::tr("ramfb (simple framebuffer)"), "ramfb" )
+		        << Device_Map( QObject::tr("None"), "none" );
+		for( int i = 0; i < dev.Video_Card_List.count(); ++i )
+		{
+			const QString n = dev.Video_Card_List[i].QEMU_Name;
+			if( n == "virtio-gpu-pci" || n == "ramfb" || n == "none" || n == "virtio-gpu-gl-pci" )
+				continue;
+			// Never offer x86 -vga names (std/cirrus/virtio) — they break aarch64
+		}
+		dev.Video_Card_List = cleaned;
+	}
+	else
+	{
+		// Strip unsafe -vga aliases even when virtio-gpu is already present
+		QList<Device_Map> cleaned;
+		for( int i = 0; i < dev.Video_Card_List.count(); ++i )
+		{
+			const QString n = dev.Video_Card_List[i].QEMU_Name;
+			if( n == "std" || n == "cirrus" || n == "virtio" || n == "vmware" || n == "qxl" )
+				continue;
+			cleaned << dev.Video_Card_List[i];
+		}
+		if( ! cleaned.isEmpty() )
+			dev.Video_Card_List = cleaned;
+	}
+	
+	bool has_virt = false;
+	for( int i = 0; i < dev.Machine_List.count(); ++i )
+	{
+		if( dev.Machine_List[i].QEMU_Name == "virt" )
+		{
+			has_virt = true;
+			break;
+		}
+	}
+	if( ! has_virt )
+		dev.Machine_List.prepend( Device_Map( QObject::tr("Generic Virtual Machine (virt)"), "virt" ) );
+	
+	bool has_max = false;
+	for( int i = 0; i < dev.CPU_List.count(); ++i )
+		if( dev.CPU_List[i].QEMU_Name == "max" ) { has_max = true; break; }
+	if( ! has_max )
+		dev.CPU_List.prepend( Device_Map( QObject::tr("Max CPU"), "max" ) );
 }
 
 Available_Devices System_Info::Get_Emulator_Info( const QString &path, bool *ok,
@@ -1767,13 +1849,14 @@ Available_Devices System_Info::Get_Emulator_Info( const QString &path, bool *ok,
 	if( rx.exactMatch(all_help) ) tmp_dev.PSO_QXL = true;
 	
 	// Base emulator
-	// Get Default Devices List
+	// Get Default Devices List (or synthesize one for newly discovered qemu-system-* targets)
 	Available_Devices default_device;
 	
 	switch( version )
 	{
 		case VM::QEMU_2_0:
-			default_device = Emulator_QEMU_2_0[ internalName ];
+			if( Emulator_QEMU_2_0.contains( internalName ) )
+				default_device = Emulator_QEMU_2_0[ internalName ];
 			break;
 			
 		default:
@@ -1786,11 +1869,38 @@ Available_Devices System_Info::Get_Emulator_Info( const QString &path, bool *ok,
 	
 	if( default_device.System.QEMU_Name.isEmpty() )
 	{
-		AQError( "Available_Devices System_Info::Get_Emulator_Info( const QString &path, bool *ok,"
-				 "VM::Emulator_Version version, const QString &internalName )",
-				 "Cannot get system default device list!" );
-		*ok = false;
-		return Available_Devices();
+		// Dynamically discovered architecture — build a sensible caption and defaults
+		QString arch = internalName;
+		arch.remove( "qemu-system-" );
+		arch.remove( "qemu-" );
+		QString caption = arch;
+		if( ! caption.isEmpty() )
+			caption[0] = caption[0].toUpper();
+		caption = QObject::tr( "%1 (%2)" ).arg( caption ).arg( internalName );
+		
+		default_device.System = Device_Map( caption, internalName );
+		default_device.CPU_List << Device_Map( QObject::tr("Default CPU"), "max" )
+		                       << Device_Map( QObject::tr("Host CPU"), "host" );
+		default_device.Machine_List << Device_Map( QObject::tr("Generic Virtual Machine (virt)"), "virt" );
+		default_device.Network_Card_List << Device_Map( QObject::tr("VirtIO Network Card"), "virtio-net-pci" )
+		                                << Device_Map( QObject::tr("e1000"), "e1000" )
+		                                << Device_Map( QObject::tr("RTL8139"), "rtl8139" );
+		default_device.Video_Card_List << Device_Map( QObject::tr("Standard VGA"), "std" )
+		                              << Device_Map( QObject::tr("VirtIO GPU (PCI)"), "virtio-gpu-pci" )
+		                              << Device_Map( QObject::tr("VirtIO VGA"), "virtio" )
+		                              << Device_Map( QObject::tr("None"), "none" );
+		default_device.Audio_Card_List.Audio_VirtIO = true;
+		default_device.Audio_Card_List.Audio_USB = true;
+		default_device.Audio_Card_List.Audio_HDA = true;
+		default_device.PSO_SMP_Count = 255;
+		default_device.PSO_Initial_Graphic_Mode = true;
+		default_device.PSO_PFlash = true;
+		
+		// Cache so later merges work
+		Emulator_QEMU_2_0[ internalName ] = default_device;
+		
+		AQDebug( "Available_Devices System_Info::Get_Emulator_Info",
+				 "Synthesized defaults for discovered target: " + internalName );
 	}
 	
 	tmp_dev.System.Caption = default_device.System.Caption;
@@ -1991,7 +2101,7 @@ Available_Devices System_Info::Get_Emulator_Info( const QString &path, bool *ok,
 		}
 	}
 	
-	// Get Audio Cards Models
+	// Get Audio Cards Models (legacy -soundhw, plus modern PCI/VirtIO devices)
 	args_list.clear();
 	args_list << "-soundhw" << "?";
 	QString audio_list_str = Get_Emulator_Output( path, args_list );
@@ -2043,6 +2153,66 @@ Available_Devices System_Info::Get_Emulator_Info( const QString &path, bool *ok,
 		}
 	}
 	while( ! tmp.isNull() );
+	
+	// Modern QEMU: detect VirtIO / USB / HDA audio from -device help
+	args_list.clear();
+	args_list << "-device" << "help";
+	QString device_help_str = Get_Emulator_Output( path, args_list );
+	if( device_help_str.contains( "virtio-sound", Qt::CaseInsensitive ) ||
+		device_help_str.contains( "virtio-snd", Qt::CaseInsensitive ) )
+		tmp_dev.Audio_Card_List.Audio_VirtIO = true;
+	if( device_help_str.contains( "usb-audio", Qt::CaseInsensitive ) )
+		tmp_dev.Audio_Card_List.Audio_USB = true;
+	if( device_help_str.contains( "intel-hda", Qt::CaseInsensitive ) )
+		tmp_dev.Audio_Card_List.Audio_HDA = true;
+	
+	// Ensure common aarch64/virt choices always exist in lists (host is Linux-only)
+	auto ensure_cpu = [&]( const QString &name, const QString &caption ) {
+		for( int i = 0; i < tmp_dev.CPU_List.count(); ++i )
+			if( tmp_dev.CPU_List[i].QEMU_Name == name ) return;
+		tmp_dev.CPU_List.prepend( Device_Map( caption, name ) );
+	};
+	auto ensure_machine = [&]( const QString &name, const QString &caption ) {
+		for( int i = 0; i < tmp_dev.Machine_List.count(); ++i )
+			if( tmp_dev.Machine_List[i].QEMU_Name == name ) return;
+		tmp_dev.Machine_List.prepend( Device_Map( caption, name ) );
+	};
+	auto ensure_video = [&]( const QString &name, const QString &caption ) {
+		for( int i = 0; i < tmp_dev.Video_Card_List.count(); ++i )
+			if( tmp_dev.Video_Card_List[i].QEMU_Name == name ) return;
+		tmp_dev.Video_Card_List.prepend( Device_Map( caption, name ) );
+	};
+	
+	if( internalName.contains( "aarch64" ) || internalName.contains( "arm" ) ||
+		internalName.contains( "riscv" ) )
+	{
+		// -vga does not list VirtIO GPU on aarch64; rebuild from modern devices
+		tmp_dev.Video_Card_List.clear();
+		tmp_dev.Video_Card_List << Device_Map( QObject::tr("VirtIO GPU (PCI)"), "virtio-gpu-pci" );
+		if( device_help_str.contains( "virtio-gpu-gl-pci", Qt::CaseInsensitive ) )
+			tmp_dev.Video_Card_List << Device_Map( QObject::tr("VirtIO GPU GL (PCI)"), "virtio-gpu-gl-pci" );
+		tmp_dev.Video_Card_List << Device_Map( QObject::tr("ramfb (simple framebuffer)"), "ramfb" );
+		tmp_dev.Video_Card_List << Device_Map( QObject::tr("None"), "none" );
+		if( device_help_str.contains( "\"VGA\"", Qt::CaseInsensitive ) ||
+			device_help_str.contains( "name \"VGA\"", Qt::CaseInsensitive ) )
+			tmp_dev.Video_Card_List << Device_Map( QObject::tr("Standard VGA (PCI)"), "std" );
+		
+		ensure_machine( "virt", QObject::tr("Generic Virtual Machine (virt)") );
+		ensure_cpu( "max", QObject::tr("Max CPU") );
+		#ifndef Q_OS_WIN32
+		ensure_cpu( "host", QObject::tr("Host CPU") );
+		#endif
+	}
+	
+	// Ensure aarch64/virt targets always expose modern audio options even if probing failed
+	if( internalName.contains( "aarch64" ) || internalName.contains( "arm" ) )
+	{
+		tmp_dev.Audio_Card_List.Audio_VirtIO = true;
+		tmp_dev.Audio_Card_List.Audio_USB = true;
+		tmp_dev.Audio_Card_List.Audio_HDA = true;
+	}
+	
+	Normalize_Virt_Arch_Devices( tmp_dev );
 	
 	// Get Network Card Models
 	args_list.clear();

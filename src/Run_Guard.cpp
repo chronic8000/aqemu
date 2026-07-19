@@ -61,12 +61,27 @@ bool Run_Guard::tryToRun()
 
     memLock.acquire();
     const bool result = sharedMem.create( sizeof( quint64 ) );
-    memLock.release();
-    if ( !result )
+    if( ! result )
     {
+        // Stale shared memory from a crashed previous instance — try to reclaim
+        if( sharedMem.error() == QSharedMemory::AlreadyExists )
+        {
+            sharedMem.attach();
+            sharedMem.detach();
+            const bool retry = sharedMem.create( sizeof( quint64 ) );
+            memLock.release();
+            if( ! retry )
+            {
+                release();
+                return false;
+            }
+            return true;
+        }
+        memLock.release();
         release();
         return false;
     }
+    memLock.release();
 
     return true;
 }

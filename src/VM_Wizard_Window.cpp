@@ -24,10 +24,21 @@
 #include <QDir>
 #include <QRegExp>
 #include <QFileDialog>
+#include <QLabel>
+#include <QRadioButton>
+#include <QCheckBox>
+#include <QLineEdit>
+#include <QToolButton>
+#include <QGroupBox>
+#include <QVBoxLayout>
+#include <QHBoxLayout>
+#include <QFile>
+#include <QFileInfo>
 
 #include "Utils.h"
 #include "VM_Wizard_Window.h"
 #include "System_Info.h"
+#include "VM_Devices.h"
 
 #ifdef Q_OS_WIN32
 #include <QSysInfo>
@@ -42,9 +53,6 @@ QString Get_My_System_Architecture()
 #include <sys/utsname.h>
 #include <stdio.h>
 
-// FIXME this may be Linux only so far
-// if you're porting this to something else
-// this is a place where a lot of ifdefs may be needed
 QString Get_My_System_Architecture()
 {
     struct utsname name;
@@ -60,10 +68,13 @@ VM_Wizard_Window::VM_Wizard_Window( QWidget *parent )
     ui.Wizard_Pages->setCurrentIndex(0);
 	
 	New_VM = new Virtual_Machine();
+	Win11_ARM_Page = nullptr;
 	
 	// Hide release date widgets
 	ui.Label_Relese_Date->hide();
 	ui.CB_Relese_Date->hide();
+	
+	Build_Windows11_ARM_Page();
 	
 	// Loadind All Templates
 	if( Load_OS_Templates() )
@@ -82,6 +93,146 @@ VM_Wizard_Window::VM_Wizard_Window( QWidget *parent )
 	}
 
     connect(ui.RB_Emulator_KVM, SIGNAL(toggled(bool)),this, SLOT(KVM_toggled(bool)));
+}
+
+void VM_Wizard_Window::Build_Windows11_ARM_Page()
+{
+	Win11_ARM_Page = new QWidget();
+	QVBoxLayout *mainLay = new QVBoxLayout( Win11_ARM_Page );
+	
+	QLabel *intro = new QLabel( tr(
+		"<b>Windows 11 ARM setup</b><br>"
+		"Uses VirtIO for disk, network, GPU, keyboard, RNG, balloon, and sound by default. "
+		"Provide a slipstreamed Windows 11 ARM ISO (VirtIO drivers already included)." ) );
+	intro->setWordWrap( true );
+	mainLay->addWidget( intro );
+	
+	QGroupBox *diskBox = new QGroupBox( tr("Virtual disk") );
+	QVBoxLayout *diskLay = new QVBoxLayout( diskBox );
+	RB_Win11_New_Disk = new QRadioButton( tr("Create a new disk image") );
+	RB_Win11_Existing_Disk = new QRadioButton( tr("Use an existing disk image") );
+	RB_Win11_New_Disk->setChecked( true );
+	diskLay->addWidget( RB_Win11_New_Disk );
+	diskLay->addWidget( RB_Win11_Existing_Disk );
+	
+	QHBoxLayout *existLay = new QHBoxLayout();
+	Edit_Win11_Existing_Disk = new QLineEdit();
+	Edit_Win11_Existing_Disk->setEnabled( false );
+	TB_Win11_Existing_Disk_Browse = new QToolButton();
+	TB_Win11_Existing_Disk_Browse->setText( "..." );
+	TB_Win11_Existing_Disk_Browse->setEnabled( false );
+	existLay->addWidget( Edit_Win11_Existing_Disk );
+	existLay->addWidget( TB_Win11_Existing_Disk_Browse );
+	diskLay->addLayout( existLay );
+	mainLay->addWidget( diskBox );
+	
+	CH_Win11_Already_Installed = new QCheckBox( tr("Windows is already installed on this disk") );
+	mainLay->addWidget( CH_Win11_Already_Installed );
+	
+	QGroupBox *isoBox = new QGroupBox( tr("Install media") );
+	QVBoxLayout *isoLay = new QVBoxLayout( isoBox );
+	QHBoxLayout *isoPathLay = new QHBoxLayout();
+	Edit_Win11_ISO = new QLineEdit();
+	TB_Win11_ISO_Browse = new QToolButton();
+	TB_Win11_ISO_Browse->setText( "..." );
+	isoPathLay->addWidget( new QLabel( tr("Windows 11 ARM ISO:") ) );
+	isoPathLay->addWidget( Edit_Win11_ISO );
+	isoPathLay->addWidget( TB_Win11_ISO_Browse );
+	isoLay->addLayout( isoPathLay );
+	
+	CH_Win11_VirtIO_ISO = new QCheckBox( tr("Also attach virtio-win.iso (only if drivers were not slipstreamed)") );
+	isoLay->addWidget( CH_Win11_VirtIO_ISO );
+	QHBoxLayout *virtioLay = new QHBoxLayout();
+	Edit_Win11_VirtIO_ISO = new QLineEdit();
+	Edit_Win11_VirtIO_ISO->setEnabled( false );
+	TB_Win11_VirtIO_ISO_Browse = new QToolButton();
+	TB_Win11_VirtIO_ISO_Browse->setText( "..." );
+	TB_Win11_VirtIO_ISO_Browse->setEnabled( false );
+	virtioLay->addWidget( Edit_Win11_VirtIO_ISO );
+	virtioLay->addWidget( TB_Win11_VirtIO_ISO_Browse );
+	isoLay->addLayout( virtioLay );
+	mainLay->addWidget( isoBox );
+	
+	Label_Win11_UEFI_Status = new QLabel();
+	Label_Win11_UEFI_Status->setWordWrap( true );
+	mainLay->addWidget( Label_Win11_UEFI_Status );
+	
+	Label_Win11_Finish_Help = new QLabel( tr(
+		"<b>After Finish:</b> Start the VM, install Windows from the ISO, then set boot order to the hard disk "
+		"(or uncheck the CD-ROM) and start again for daily use." ) );
+	Label_Win11_Finish_Help->setWordWrap( true );
+	mainLay->addWidget( Label_Win11_Finish_Help );
+	mainLay->addStretch();
+	
+	ui.Wizard_Pages->addWidget( Win11_ARM_Page );
+	
+	connect( RB_Win11_New_Disk, SIGNAL(toggled(bool)), this, SLOT(on_RB_Win11_New_Disk_toggled(bool)) );
+	connect( CH_Win11_Already_Installed, SIGNAL(toggled(bool)), this, SLOT(on_CH_Win11_Already_Installed_toggled(bool)) );
+	connect( TB_Win11_ISO_Browse, SIGNAL(clicked()), this, SLOT(on_TB_Win11_ISO_Browse_clicked()) );
+	connect( TB_Win11_Existing_Disk_Browse, SIGNAL(clicked()), this, SLOT(on_TB_Win11_Existing_Disk_Browse_clicked()) );
+	connect( TB_Win11_VirtIO_ISO_Browse, SIGNAL(clicked()), this, SLOT(on_TB_Win11_VirtIO_ISO_Browse_clicked()) );
+	connect( CH_Win11_VirtIO_ISO, SIGNAL(toggled(bool)), this, SLOT(on_CH_Win11_VirtIO_ISO_toggled(bool)) );
+}
+
+void VM_Wizard_Window::on_CH_Win11_VirtIO_ISO_toggled( bool on )
+{
+	Edit_Win11_VirtIO_ISO->setEnabled( on );
+	TB_Win11_VirtIO_ISO_Browse->setEnabled( on );
+}
+
+bool VM_Wizard_Window::Is_Windows11_ARM_Template() const
+{
+	if( ! ui.RB_VM_Template->isChecked() )
+		return false;
+	if( ui.CB_OS_Type->currentIndex() <= 0 )
+		return false;
+	return ui.CB_OS_Type->currentText().contains( "Windows 11 ARM", Qt::CaseInsensitive );
+}
+
+void VM_Wizard_Window::on_RB_Win11_New_Disk_toggled( bool on )
+{
+	Edit_Win11_Existing_Disk->setEnabled( ! on );
+	TB_Win11_Existing_Disk_Browse->setEnabled( ! on );
+}
+
+void VM_Wizard_Window::on_CH_Win11_Already_Installed_toggled( bool on )
+{
+	Edit_Win11_ISO->setEnabled( ! on );
+	TB_Win11_ISO_Browse->setEnabled( ! on );
+	CH_Win11_VirtIO_ISO->setEnabled( ! on );
+	if( on )
+	{
+		CH_Win11_VirtIO_ISO->setChecked( false );
+		Edit_Win11_VirtIO_ISO->setEnabled( false );
+		TB_Win11_VirtIO_ISO_Browse->setEnabled( false );
+	}
+}
+
+void VM_Wizard_Window::on_TB_Win11_ISO_Browse_clicked()
+{
+	QString file = QFileDialog::getOpenFileName( this, tr("Select Windows 11 ARM ISO"),
+		Get_Last_Dir_Path( Edit_Win11_ISO->text() ),
+		tr("ISO Images (*.iso);;All Files (*)") );
+	if( ! file.isEmpty() )
+		Edit_Win11_ISO->setText( QDir::toNativeSeparators( file ) );
+}
+
+void VM_Wizard_Window::on_TB_Win11_Existing_Disk_Browse_clicked()
+{
+	QString file = QFileDialog::getOpenFileName( this, tr("Select existing disk image"),
+		Get_Last_Dir_Path( Edit_Win11_Existing_Disk->text() ),
+		tr("Disk Images (*.qcow2 *.qcow *.img *.vhd *.vhdx *.raw);;All Files (*)") );
+	if( ! file.isEmpty() )
+		Edit_Win11_Existing_Disk->setText( QDir::toNativeSeparators( file ) );
+}
+
+void VM_Wizard_Window::on_TB_Win11_VirtIO_ISO_Browse_clicked()
+{
+	QString file = QFileDialog::getOpenFileName( this, tr("Select virtio-win ISO"),
+		Get_Last_Dir_Path( Edit_Win11_VirtIO_ISO->text() ),
+		tr("ISO Images (*.iso);;All Files (*)") );
+	if( ! file.isEmpty() )
+		Edit_Win11_VirtIO_ISO->setText( QDir::toNativeSeparators( file ) );
 }
 
 void VM_Wizard_Window::KVM_toggled(bool toggled)
@@ -140,6 +291,19 @@ void VM_Wizard_Window::on_Button_Back_clicked()
 		ui.Label_CPU_Type->setVisible( false );
 		ui.CB_CPU_Type->setVisible( false );
 	}
+	else if( Win11_ARM_Page == ui.Wizard_Pages->currentWidget() )
+	{
+		if( ui.RB_Typical->isChecked() )
+		{
+			ui.Wizard_Pages->setCurrentWidget( ui.Typical_HDD_Page );
+			ui.Label_Page->setText( tr("Hard Disk Size") );
+		}
+		else
+		{
+			ui.Wizard_Pages->setCurrentWidget( ui.Custom_HDD_Page );
+			ui.Label_Page->setText( tr("Virtual Hard Disk") );
+		}
+	}
 	else if( ui.Custom_HDD_Page == ui.Wizard_Pages->currentWidget() )
 	{
 		ui.Wizard_Pages->setCurrentWidget( ui.Memory_Page );
@@ -147,7 +311,12 @@ void VM_Wizard_Window::on_Button_Back_clicked()
 	}
 	else if( ui.Network_Page == ui.Wizard_Pages->currentWidget() )
 	{
-		if( ui.RB_Typical->isChecked() ) // typical or custom mode
+		if( Is_Windows11_ARM_Template() )
+		{
+			ui.Wizard_Pages->setCurrentWidget( Win11_ARM_Page );
+			ui.Label_Page->setText( tr("Windows 11 ARM Install") );
+		}
+		else if( ui.RB_Typical->isChecked() ) // typical or custom mode
 		{
 			ui.Wizard_Pages->setCurrentWidget( ui.Typical_HDD_Page );
 			ui.Label_Page->setText( tr("Hard Disk Size") );
@@ -198,12 +367,30 @@ void VM_Wizard_Window::on_Button_Next_clicked()
             ui.CB_Computer_Type->addItem( it.value().System.Caption );
         }
 
-        // Pre-select host target architecture (like x86_64) if it exists, otherwise select the first item
+        // Prefer host CPU architecture when available in the emulator list
         int defaultIndex = 0;
+        QString host_arch = Get_My_System_Architecture();
         for( int ix = 0; ix < ui.CB_Computer_Type->count(); ++ix )
         {
             QString text = ui.CB_Computer_Type->itemText( ix );
-            if( text.contains("64Bit") || text.contains("x86_64") )
+            QString lower = text.toLower();
+            if( host_arch.contains( "aarch64" ) || host_arch.contains( "arm64" ) )
+            {
+                if( lower.contains( "aarch64" ) || lower.contains( "arm 64" ) )
+                {
+                    defaultIndex = ix;
+                    break;
+                }
+            }
+            else if( host_arch.contains( "x86_64" ) || host_arch.contains( "amd64" ) )
+            {
+                if( text.contains( "64Bit" ) || lower.contains( "x86_64" ) )
+                {
+                    defaultIndex = ix;
+                    break;
+                }
+            }
+            else if( lower.contains( host_arch ) )
             {
                 defaultIndex = ix;
                 break;
@@ -234,8 +421,25 @@ void VM_Wizard_Window::on_Button_Next_clicked()
         Use_Accelerator_Page = true;
 		ui.Wizard_Pages->setCurrentWidget( ui.Accelerator_Page );
 
-        //FIXME: arch shouldn't be hardcoded
-        if ( ui.RB_Generate_VM->isChecked() && ui.CB_Computer_Type->currentText() != "IBM PC 64Bit")
+        // Prefer KVM/WHPX when host arch matches guest; otherwise TCG
+        QString host_arch = Get_My_System_Architecture();
+        bool guest_is_aarch64 = false;
+        if( ui.RB_VM_Template->isChecked() && ui.CB_OS_Type->currentIndex() > 0 )
+        {
+            // Peek template computer type from filename / selection
+            guest_is_aarch64 = ui.CB_OS_Type->currentText().contains( "ARM", Qt::CaseInsensitive ) ||
+                               ui.CB_OS_Type->currentText().contains( "Raspberry", Qt::CaseInsensitive );
+        }
+        else if( ui.RB_Generate_VM->isChecked() )
+        {
+            guest_is_aarch64 = ui.CB_Computer_Type->currentText().contains( "AArch64", Qt::CaseInsensitive ) ||
+                               ui.CB_Computer_Type->currentText().contains( "ARM", Qt::CaseInsensitive );
+        }
+
+        bool host_is_aarch64 = ( host_arch == "aarch64" || host_arch == "arm64" );
+        if( guest_is_aarch64 && ! host_is_aarch64 )
+            ui.RB_Emulator_QEMU->setChecked( true ); // TCG
+        else if( ui.RB_Generate_VM->isChecked() && ui.CB_Computer_Type->currentText() != "IBM PC 64Bit" && ! guest_is_aarch64 )
             ui.RB_Emulator_QEMU->setChecked( true );
         else
             ui.RB_Emulator_KVM->setChecked( true );
@@ -272,13 +476,59 @@ void VM_Wizard_Window::on_Button_Next_clicked()
 	}
 	else if( ui.Typical_HDD_Page == ui.Wizard_Pages->currentWidget() )
 	{
+		if( Is_Windows11_ARM_Template() )
+		{
+			// Refresh UEFI status label
+			QString qemu_bin;
+			Emulator emul = Get_Default_Emulator();
+			QMap<QString, QString> bins = emul.Get_Binary_Files();
+			if( bins.contains( "qemu-system-aarch64" ) )
+				qemu_bin = bins[ "qemu-system-aarch64" ];
+			QString code = Find_UEFI_Firmware_CODE( qemu_bin );
+			if( code.isEmpty() )
+				Label_Win11_UEFI_Status->setText( tr("<font color='orange'>UEFI firmware (AAVMF/EDK2 aarch64) not found automatically. "
+					"Install QEMU EDK2/AAVMF or set UEFI paths after creating the VM.</font>") );
+			else
+				Label_Win11_UEFI_Status->setText( tr("UEFI CODE found: %1").arg( code ) );
+			
+			ui.Wizard_Pages->setCurrentWidget( Win11_ARM_Page );
+			ui.Label_Page->setText( tr("Windows 11 ARM Install") );
+		}
+		else
+		{
+			ui.Wizard_Pages->setCurrentWidget( ui.Network_Page );
+			ui.Label_Page->setText( tr("Network") );
+		}
+	}
+	else if( Win11_ARM_Page == ui.Wizard_Pages->currentWidget() )
+	{
+		if( ! CH_Win11_Already_Installed->isChecked() && Edit_Win11_ISO->text().isEmpty() )
+		{
+			AQGraphic_Warning( tr("Windows 11 ARM"),
+				tr("Please select a Windows 11 ARM ISO, or check \"Windows is already installed on this disk\".") );
+			return;
+		}
+		if( RB_Win11_Existing_Disk->isChecked() && Edit_Win11_Existing_Disk->text().isEmpty() )
+		{
+			AQGraphic_Warning( tr("Windows 11 ARM"),
+				tr("Please select an existing disk image, or choose \"Create a new disk image\".") );
+			return;
+		}
 		ui.Wizard_Pages->setCurrentWidget( ui.Network_Page );
 		ui.Label_Page->setText( tr("Network") );
 	}
 	else if( ui.Custom_HDD_Page == ui.Wizard_Pages->currentWidget() )
 	{
-		ui.Wizard_Pages->setCurrentWidget( ui.Network_Page );
-		ui.Label_Page->setText( tr("Network") );
+		if( Is_Windows11_ARM_Template() )
+		{
+			ui.Wizard_Pages->setCurrentWidget( Win11_ARM_Page );
+			ui.Label_Page->setText( tr("Windows 11 ARM Install") );
+		}
+		else
+		{
+			ui.Wizard_Pages->setCurrentWidget( ui.Network_Page );
+			ui.Label_Page->setText( tr("Network") );
+		}
 	}
 	else if( ui.Network_Page == ui.Wizard_Pages->currentWidget() )
 	{
@@ -287,6 +537,7 @@ void VM_Wizard_Window::on_Button_Next_clicked()
 		ui.Label_Page->setText( tr("Finish!") );
         Create_New_VM(true);
         ui.VM_Information_Text->setHtml(New_VM->GenerateHTMLInfoText(3));
+		Update_Finish_Page_Guidance();
 	}
 	else if( ui.Finish_Page == ui.Wizard_Pages->currentWidget() )
 	{
@@ -508,17 +759,24 @@ bool VM_Wizard_Window::Create_New_VM(bool simulate)
 	// Wizard Mode
 	if( ui.RB_Typical->isChecked() )
 	{
-		// Hard Disk
-		VM::Device_Size hd_size;
-		hd_size.Size = ui.SB_HDD_Size->value();
-		hd_size.Suffix = VM::Size_Suf_Gb;
-
 		QString hd_path = Settings.value( "VM_Directory", "~" ).toString() + VM_File_Name;
+		
+		if( Is_Windows11_ARM_Template() && RB_Win11_Existing_Disk->isChecked() )
+		{
+			New_VM->Set_HDA( VM_HDD(true, Edit_Win11_Existing_Disk->text()) );
+		}
+		else
+		{
+			// Hard Disk
+			VM::Device_Size hd_size;
+			hd_size.Size = ui.SB_HDD_Size->value();
+			hd_size.Suffix = VM::Size_Suf_Gb;
 
-        if ( ! simulate )
-            Create_New_HDD_Image( hd_path + "_HDA.img", hd_size );
+			if ( ! simulate )
+				Create_New_HDD_Image( hd_path + "_HDA.img", hd_size );
 
-		New_VM->Set_HDA( VM_HDD(true, hd_path + "_HDA.img") );
+			New_VM->Set_HDA( VM_HDD(true, hd_path + "_HDA.img") );
+		}
 
 		// Other HDD's
 		if( New_VM->Get_HDB().Get_Enabled() )
@@ -617,6 +875,12 @@ bool VM_Wizard_Window::Create_New_VM(bool simulate)
 	tmp_emul.Set_Name( "" );
 	New_VM->Set_Emulator( tmp_emul );
 	
+	if( Is_Windows11_ARM_Template() )
+		Apply_Windows11_ARM_Profile( simulate );
+	else if( New_VM->Get_Computer_Type().contains( "aarch64", Qt::CaseInsensitive ) ||
+			 New_VM->Get_Computer_Type().contains( "qemu-system-arm", Qt::CaseInsensitive ) )
+		Apply_AArch64_Generic_Profile( simulate );
+	
     if ( ! simulate )
     {
         // Create New VM XML File
@@ -624,6 +888,246 @@ bool VM_Wizard_Window::Create_New_VM(bool simulate)
     }
 
 	return true;
+}
+
+void VM_Wizard_Window::Update_Finish_Page_Guidance()
+{
+	QString help;
+	
+	if( Is_Windows11_ARM_Template() )
+	{
+		if( CH_Win11_Already_Installed->isChecked() )
+		{
+			help = tr( "<p><b>Windows 11 ARM - ready to boot</b><br>"
+				"Defaults match the win11-pi5-kiosk QEMU profile (virt + VirtIO disk/net/GPU, UEFI, USB audio). "
+				"You can change any of these later in the main window.</p>" );
+		}
+		else
+		{
+			help = tr( "<p><b>Windows 11 ARM - install checklist</b></p><ol>"
+				"<li>Start the VM (boots the ISO under UEFI).</li>"
+				"<li>Install Windows onto the VirtIO disk.</li>"
+				"<li>After install, remove or uncheck the CD-ROM / set boot order to Hard Disk.</li>"
+				"<li>Start again for daily use.</li>"
+				"</ol>"
+				"<p>All machine/CPU/device options remain editable in the main GUI after creation.</p>" );
+		}
+	}
+	else if( ui.RB_Generate_VM->isChecked() &&
+			 ( ui.CB_Computer_Type->currentText().contains( "AArch64", Qt::CaseInsensitive ) ||
+			   ui.CB_Computer_Type->currentText().contains( "ARM", Qt::CaseInsensitive ) ) )
+	{
+		help = tr( "<p><b>AArch64 / ARM custom VM</b><br>"
+			"Starts with machine <code>virt</code> and VirtIO-friendly defaults so Linux and other ARM guests work. "
+			"Pick any machine/CPU/video/network option in the main window for your OS.</p>" );
+	}
+	else
+	{
+		return;
+	}
+	
+	ui.VM_Information_Text->setHtml( ui.VM_Information_Text->toHtml() + help );
+}
+
+void VM_Wizard_Window::Apply_Windows11_ARM_Profile( bool simulate )
+{
+	QString vm_dir = Settings.value( "VM_Directory", "~" ).toString();
+	QString vm_base = Get_FS_Compatible_VM_Name( ui.Edit_VM_Name->text() );
+	
+	// CPU: host with Linux KVM; max on Windows / TCG (Windows aarch64 QEMU has no 'host')
+	if( New_VM->Get_Machine_Accelerator() == VM::KVM )
+	{
+		#ifdef Q_OS_WIN32
+		New_VM->Set_CPU_Type( "max" );
+		#else
+		New_VM->Set_CPU_Type( "host" );
+		#endif
+	}
+	else if( New_VM->Get_CPU_Type().isEmpty() )
+		New_VM->Set_CPU_Type( "max" );
+	
+	New_VM->Set_Machine_Type( "virt" );
+	New_VM->Set_Video_Card( "virtio-gpu-pci" );
+	New_VM->Set_SMP_CPU_Count( 4 );
+	New_VM->Set_Memory_Size( 8192 );
+	New_VM->Use_USB_Hub( true );
+	New_VM->Use_VirtIO_RNG( true );
+	New_VM->Use_VirtIO_Balloon( true );
+	New_VM->Use_VirtIO_Keyboard( true );
+	
+	VM::Sound_Cards audio;
+	// win11-pi5-kiosk uses usb-audio (virtio-win has no Windows ARM sound driver)
+	audio.Audio_USB = true;
+	audio.Audio_VirtIO = false;
+	New_VM->Set_Audio_Cards( audio );
+	
+	// Network virtio-net-pci
+	if( New_VM->Get_Network_Cards_Count() > 0 )
+	{
+		VM_Net_Card card = New_VM->Get_Network_Card( 0 );
+		card.Set_Card_Model( "virtio-net-pci" );
+		New_VM->Set_VM_Network_Card( 0, card );
+	}
+	
+	// VirtIO disk
+	VM_HDD hda = New_VM->Get_HDA();
+	if( hda.Get_Enabled() )
+	{
+		VM_Native_Storage_Device native;
+		native.Use_File_Path( true );
+		native.Set_File_Path( hda.Get_File_Name() );
+		native.Use_Interface( true );
+		native.Set_Interface( VM::DI_Virtio );
+		native.Use_Cache( true );
+		#ifdef Q_OS_WIN32
+		// cache=none (O_DIRECT) breaks qcow2 on Windows with a misleading format error
+		native.Set_Cache( "writeback" );
+		#else
+		native.Set_Cache( "none" );
+		#endif
+		native.Use_AIO( true );
+		native.Set_AIO( "threads" );
+		native.Use_Media( true );
+		native.Set_Media( VM::DM_Disk );
+		hda.Set_Native_Device( native );
+		New_VM->Set_HDA( hda );
+	}
+	
+	// Install ISO / boot order
+	if( CH_Win11_Already_Installed->isChecked() )
+	{
+		New_VM->Set_CD_ROM( VM_Storage_Device( false, "" ) );
+		QList<VM::Boot_Order> boot;
+		VM::Boot_Order b;
+		b.Type = VM::Boot_From_HDD;
+		b.Enabled = true;
+		boot << b;
+		New_VM->Set_Boot_Order_List( boot );
+	}
+	else if( ! Edit_Win11_ISO->text().isEmpty() )
+	{
+		VM_Storage_Device cd( true, Edit_Win11_ISO->text() );
+		New_VM->Set_CD_ROM( cd );
+		
+		QList<VM::Boot_Order> boot;
+		VM::Boot_Order bcd;
+		bcd.Type = VM::Boot_From_CDROM;
+		bcd.Enabled = true;
+		boot << bcd;
+		VM::Boot_Order bhdd;
+		bhdd.Type = VM::Boot_From_HDD;
+		bhdd.Enabled = true;
+		boot << bhdd;
+		New_VM->Set_Boot_Order_List( boot );
+		
+		if( CH_Win11_VirtIO_ISO->isChecked() && ! Edit_Win11_VirtIO_ISO->text().isEmpty() )
+		{
+			VM_Native_Storage_Device virtio_cd;
+			virtio_cd.Use_File_Path( true );
+			virtio_cd.Set_File_Path( Edit_Win11_VirtIO_ISO->text() );
+			virtio_cd.Use_Media( true );
+			virtio_cd.Set_Media( VM::DM_CD_ROM );
+			QList<VM_Native_Storage_Device> extras = New_VM->Get_Storage_Devices_List();
+			extras.append( virtio_cd );
+			New_VM->Set_Storage_Devices_List( extras );
+		}
+	}
+	
+	// UEFI dual pflash
+	Emulator emul = Get_Default_Emulator();
+	QString qemu_bin;
+	QMap<QString, QString> bins = emul.Get_Binary_Files();
+	if( bins.contains( "qemu-system-aarch64" ) )
+		qemu_bin = bins[ "qemu-system-aarch64" ];
+	
+	QString code = Find_UEFI_Firmware_CODE( qemu_bin );
+	QString vars_dest = vm_dir + vm_base + "_VARS.fd";
+	
+	New_VM->Use_UEFI( true );
+	if( ! code.isEmpty() )
+		New_VM->Set_UEFI_CODE_File( code );
+	
+	New_VM->Set_UEFI_VARS_File( vars_dest );
+	if( ! simulate )
+		Prepare_UEFI_VARS_File( vars_dest, qemu_bin );
+}
+
+void VM_Wizard_Window::Apply_AArch64_Generic_Profile( bool simulate )
+{
+	// Flexible defaults for any aarch64/ARM guest (Linux, BSD, etc.) - not Win11-specific
+	if( New_VM->Get_Machine_Type().isEmpty() )
+		New_VM->Set_Machine_Type( "virt" );
+	
+	if( New_VM->Get_CPU_Type().isEmpty() )
+	{
+		#ifdef Q_OS_WIN32
+		New_VM->Set_CPU_Type( "max" );
+		#else
+		if( New_VM->Get_Machine_Accelerator() == VM::KVM )
+			New_VM->Set_CPU_Type( "host" );
+		else
+			New_VM->Set_CPU_Type( "max" );
+		#endif
+	}
+	
+	if( New_VM->Get_Video_Card().isEmpty() || New_VM->Get_Video_Card() == "std" )
+		New_VM->Set_Video_Card( "virtio-gpu-pci" );
+	
+	// VirtIO-friendly defaults; user can change everything in the main window
+	New_VM->Use_USB_Hub( true );
+	New_VM->Use_VirtIO_RNG( true );
+	New_VM->Use_VirtIO_Keyboard( true );
+	
+	if( New_VM->Get_Network_Cards_Count() > 0 )
+	{
+		VM_Net_Card card = New_VM->Get_Network_Card( 0 );
+		QString model = card.Get_Card_Model();
+		if( model.isEmpty() || model == "virtio" || model == "ne2k_pci" )
+		{
+			card.Set_Card_Model( "virtio-net-pci" );
+			New_VM->Set_VM_Network_Card( 0, card );
+		}
+	}
+	
+	VM_HDD hda = New_VM->Get_HDA();
+	if( hda.Get_Enabled() && ! hda.Get_Native_Mode() )
+	{
+		VM_Native_Storage_Device native;
+		native.Use_File_Path( true );
+		native.Set_File_Path( hda.Get_File_Name() );
+		native.Use_Interface( true );
+		native.Set_Interface( VM::DI_Virtio );
+		native.Use_Cache( true );
+		native.Set_Cache( "writeback" );
+		native.Use_AIO( true );
+		native.Set_AIO( "threads" );
+		native.Use_Media( true );
+		native.Set_Media( VM::DM_Disk );
+		hda.Set_Native_Device( native );
+		New_VM->Set_HDA( hda );
+	}
+	
+	// UEFI when firmware is available (modern ARM guests)
+	Emulator emul = Get_Default_Emulator();
+	QMap<QString, QString> bins = emul.Get_Binary_Files();
+	QString qemu_bin;
+	if( bins.contains( New_VM->Get_Computer_Type() ) )
+		qemu_bin = bins[ New_VM->Get_Computer_Type() ];
+	else if( bins.contains( "qemu-system-aarch64" ) )
+		qemu_bin = bins[ "qemu-system-aarch64" ];
+	
+	QString code = Find_UEFI_Firmware_CODE( qemu_bin );
+	if( ! code.isEmpty() )
+	{
+		QString vm_dir = Settings.value( "VM_Directory", "~" ).toString();
+		QString vm_base = Get_FS_Compatible_VM_Name( ui.Edit_VM_Name->text() );
+		QString vars_dest = vm_dir + vm_base + "_VARS.fd";
+		New_VM->Use_UEFI( true );
+		New_VM->Set_UEFI_CODE_File( code );
+		New_VM->Set_UEFI_VARS_File( vars_dest );
+		if( ! simulate )
+			Prepare_UEFI_VARS_File( vars_dest, qemu_bin );
+	}
 }
 
 QString VM_Wizard_Window::Find_OS_Icon( const QString os_name )

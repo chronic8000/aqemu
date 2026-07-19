@@ -296,6 +296,9 @@ class Virtual_Machine: public QObject
 		const QList<VM_USB> &Get_USB_Ports() const;
 		void Set_USB_Ports( const QList<VM_USB> &list );
 		
+		bool Use_USB_Hub() const;
+		void Use_USB_Hub( bool use );
+		
 		bool Get_Use_Linux_Boot() const;
 		void Set_Use_Linux_Boot( bool use );
 		
@@ -340,6 +343,24 @@ class Virtual_Machine: public QObject
 		
 		const QString &Get_PFlash_File() const;
 		void Set_PFlash_File( const QString &file );
+		
+		bool Use_UEFI() const;
+		void Use_UEFI( bool use );
+		
+		const QString &Get_UEFI_CODE_File() const;
+		void Set_UEFI_CODE_File( const QString &file );
+		
+		const QString &Get_UEFI_VARS_File() const;
+		void Set_UEFI_VARS_File( const QString &file );
+		
+		bool Use_VirtIO_RNG() const;
+		void Use_VirtIO_RNG( bool use );
+		
+		bool Use_VirtIO_Balloon() const;
+		void Use_VirtIO_Balloon( bool use );
+		
+		bool Use_VirtIO_Keyboard() const;
+		void Use_VirtIO_Keyboard( bool use );
 		
 		bool Use_KVM() const;
 		void Use_KVM( bool use );
@@ -561,6 +582,7 @@ class Virtual_Machine: public QObject
 		QList<VM_Port> Serial_Ports;
 		QList<VM_Port> Parallel_Ports;
 		QList<VM_USB> USB_Ports;
+		bool USB_Hub;
 		
 		// Other page
 		bool Linux_Boot;
@@ -584,6 +606,14 @@ class Virtual_Machine: public QObject
 		
 		bool PFlash;
 		QString PFlash_File;
+		
+		bool UEFI;
+		QString UEFI_CODE_File;
+		QString UEFI_VARS_File;
+		
+		bool VirtIO_RNG;
+		bool VirtIO_Balloon;
+		bool VirtIO_Keyboard;
 		
 		bool Enable_KVM;
 		bool KVM_IRQChip;

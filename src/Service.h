@@ -74,6 +74,7 @@ class AQEMU_Service : public QObject
         void setMainWindow( bool );
         void setMain( AQEMU_Main* );
         int machineCount() const;
+        void stop_all();
 
     private:
         AQEMU_Service();

@@ -13,7 +13,7 @@
         <SMP_CPU_Count>4</SMP_CPU_Count>
         <Keyboard_Layout>Default</Keyboard_Layout>
         <Boot_Device>CDROM</Boot_Device>
-        <Video_Card>std</Video_Card>
+        <Video_Card>virtio-gpu-pci</Video_Card>
         <KQEMU_Mode>Default</KQEMU_Mode>
         <Audio_Cards>
             <Audio_sb16>false</Audio_sb16>
@@ -22,11 +22,13 @@
             <Audio_PC_Speaker>false</Audio_PC_Speaker>
             <Audio_GUS>false</Audio_GUS>
             <Audio_AC97>false</Audio_AC97>
-            <Audio_HDA>true</Audio_HDA>
+            <Audio_HDA>false</Audio_HDA>
             <Audio_cs4231a>false</Audio_cs4231a>
+            <Audio_VirtIO>false</Audio_VirtIO>
+            <Audio_USB>true</Audio_USB>
         </Audio_Cards>
         <Check_Free_RAM>false</Check_Free_RAM>
-        <Memory_Size>4096</Memory_Size>
+        <Memory_Size>8192</Memory_Size>
         <Fullscreen>false</Fullscreen>
         <Win2K_Hack>false</Win2K_Hack>
         <Local_Time>true</Local_Time>
@@ -68,7 +70,7 @@
         <Use_Redirections>false</Use_Redirections>
         <Network_Cards_Count>1</Network_Cards_Count>
         <Network_Card_0>
-            <Card_Model>virtio</Card_Model>
+            <Card_Model>virtio-net-pci</Card_Model>
             <Network_Mode>Usermode</Network_Mode>
             <Hostname></Hostname>
             <IP_Address></IP_Address>
@@ -85,6 +87,12 @@
         <Linux_Boot>false</Linux_Boot>
         <GDB>false</GDB>
         <GDB_Port>1234</GDB_Port>
+        <Use_UEFI>true</Use_UEFI>
+        <UEFI_CODE_File></UEFI_CODE_File>
+        <UEFI_VARS_File></UEFI_VARS_File>
+        <Use_VirtIO_RNG>true</Use_VirtIO_RNG>
+        <Use_VirtIO_Balloon>true</Use_VirtIO_Balloon>
+        <Use_VirtIO_Keyboard>true</Use_VirtIO_Keyboard>
         <Additional_Args></Additional_Args>
         <Init_Graphic_Mode>
             <Enabled>false</Enabled>

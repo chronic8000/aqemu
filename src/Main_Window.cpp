@@ -31,7 +31,11 @@
 #include <QValidator>
 #include <QPainter>
 #include <QStandardItem>
+#include <QAbstractItemView>
+#include <QComboBox>
+#ifndef Q_OS_WIN32
 #include <QtDBus>
+#endif
 
 #include <memory>
 
@@ -81,6 +85,26 @@ Main_Window::Main_Window( QWidget *parent )
 
 	ui_kvm.setupUi( Accelerator_Options );
 	ui_arch.setupUi( Architecture_Options );
+
+	// Combos were truncating long QEMU machine/video names
+	auto fixComboElide = []( QComboBox *cb ) {
+		if( ! cb ) return;
+		cb->setSizeAdjustPolicy( QComboBox::AdjustToContents );
+		cb->setMinimumContentsLength( 28 );
+		if( cb->view() )
+		{
+			cb->view()->setTextElideMode( Qt::ElideNone );
+			cb->view()->setMinimumWidth( 360 );
+		}
+	};
+	fixComboElide( ui.CB_Computer_Type );
+	fixComboElide( ui.CB_Machine_Type_Main );
+	fixComboElide( ui.CB_CPU_Type_Main );
+	fixComboElide( ui.CB_Video_Card );
+	fixComboElide( ui.CB_Boot_Priority );
+	fixComboElide( ui.CB_Disk_Interface );
+	fixComboElide( ui_arch.CB_Machine_Type );
+	fixComboElide( ui_arch.CB_CPU_Type );
 
     ui.Tabs->setCurrentIndex(0);
     ui.Use_Linux_Boot_Widget->setEnabled(false);
@@ -272,19 +296,21 @@ Main_Window::~Main_Window()
     delete Media_Settings_Widget;
     delete SMP_Settings;
 
+#ifndef Q_OS_WIN32
     QDBusConnection::sessionBus().unregisterService("org.aqemu.main_window");
+#endif
 }
 
 void Main_Window::VM_State_Changed(const QString &vm, int state)
 {
-    AQError("void Main_Window::VM_State_Changed(const QString &vm, int state)","state changed");
+    AQDebug("void Main_Window::VM_State_Changed(const QString &vm, int state)","state changed");
 
     for ( int i = 0; i < VM_List.count(); i++ )
     {
         if ( QFileInfo(vm) == QFileInfo(VM_List.at(i)->Get_VM_XML_File_Path()) )
         {
             VM_List.at(i)->Set_State( static_cast<VM::VM_State>(state) ); //FIXME
-            AQError("void Main_Window::VM_State_Changed(const QString &vm, int state)",VM_List.at(i)->Get_State_Text());
+            AQDebug("void Main_Window::VM_State_Changed(const QString &vm, int state)",VM_List.at(i)->Get_State_Text());
             break;
         }
     }
@@ -296,35 +322,11 @@ void Main_Window::closeEvent( QCloseEvent *event )
 		AQGraphic_Error( "void Main_Window::closeEvent( QCloseEvent *event )",
 						 tr("AQEMU"), tr("Could not save main window settings!"), false );
 
-    /*// Find running VM
-	for( int vx = 0; vx < VM_List.count(); ++vx )
-	{
-		if( VM_List[vx]->Get_State() == VM::VMS_Running ||
-			VM_List[vx]->Get_State() == VM::VMS_Pause )
-		{
-			int mes_res = QMessageBox::question( this, tr("Close AQEMU?"),
-												 tr("One or more VMs are running!\nTerminate all running VMs and close AQEMU?"),
-												 QMessageBox::Yes | QMessageBox::No, QMessageBox::No );
+	// Stop any QEMU processes owned by the service before leaving
+	AQEMU_Service::get().stop_all();
 
-			if( mes_res != QMessageBox::Yes )
-			{
-				event->ignore();
-				return;
-			}
-
-			break;
-		}
-	}
-
-	// Close All Emu_Ctl and QEMU_Error_Log Windows
-	for( int ex = 0; ex < VM_List.count(); ++ex )
-	{
-		VM_List[ ex ]->Hide_Emu_Ctl_Win();
-		VM_List[ ex ]->Hide_QEMU_Error_Log();
-		VM_List[ ex ]->Stop();
-    }*/
-
-    if ( ! Save_Or_Discard() )
+	// forced=true: allow quit even if UI→VM sync fails (do not trap the user)
+    if ( ! Save_Or_Discard(true) )
         event->ignore();
     else
         event->accept();
@@ -362,13 +364,19 @@ void Main_Window::Connect_Signals()
 			 this, SLOT(VM_Changed()) );
 
     connect( ui_arch.CB_CPU_Type, SIGNAL(currentIndexChanged(int)),
-			 this, SLOT(VM_Changed()) );
+			 this, SLOT(sync_arch_CPU_Type_changed(int)) );
 
 	connect( ui.CB_CPU_Count, SIGNAL(editTextChanged(const QString &)),
 			 this, SLOT(VM_Changed()) );
 
     connect( ui_arch.CB_Machine_Type, SIGNAL(currentIndexChanged(int)),
-             this, SLOT(VM_Changed()) );
+             this, SLOT(sync_arch_Machine_Type_changed(int)) );
+
+	connect( ui.CB_Machine_Type_Main, SIGNAL(currentIndexChanged(int)),
+			 this, SLOT(on_CB_Machine_Type_Main_currentIndexChanged(int)) );
+
+	connect( ui.CB_CPU_Type_Main, SIGNAL(currentIndexChanged(int)),
+			 this, SLOT(on_CB_CPU_Type_Main_currentIndexChanged(int)) );
 
 	connect( ui.CB_Boot_Priority, SIGNAL(currentIndexChanged(int)),
 			 this, SLOT(VM_Changed()) );
@@ -414,6 +422,18 @@ void Main_Window::Connect_Signals()
 
 	connect( ui.CH_cs4231a, SIGNAL(clicked()),
 			 this, SLOT(VM_Changed()) );
+
+	connect( ui.CH_VirtIO_Sound, SIGNAL(clicked()),
+			 this, SLOT(VM_Changed()) );
+
+	connect( ui.CH_USB_Audio, SIGNAL(clicked()),
+			 this, SLOT(VM_Changed()) );
+
+	connect( ui.CB_Disk_Interface, SIGNAL(currentIndexChanged(int)),
+			 this, SLOT(VM_Changed()) );
+
+	connect( ui.Button_VirtIO_Defaults, SIGNAL(clicked()),
+			 this, SLOT(on_Button_VirtIO_Defaults_clicked()) );
 
 	connect( ui.CH_Fullscreen, SIGNAL(clicked()),
 			 this, SLOT(VM_Changed()) );
@@ -704,17 +724,10 @@ Available_Devices Main_Window::Get_Current_Machine_Devices( bool *ok ) const
 		if( ui.CB_Computer_Type->currentText() == ix.value().System.Caption )
         {
 			*ok = true;
-			return ix.value();
+			Available_Devices d = ix.value();
+			System_Info::Normalize_Virt_Arch_Devices( d );
+			return d;
 		}
-    }
-
-    for( QMap<QString, Available_Devices>::const_iterator ix = allDevList.constBegin(); ix != allDevList.constEnd(); ++ix )
-    {
-        if( ui.CB_Computer_Type->currentText() == ix.value().System.Caption )
-        {
-            *ok = true;
-            return ix.value();
-        }
     }
 
 	// Not found
@@ -795,9 +808,13 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
 	{
 		tmp_vm->Set_Machine_Type( curComp.Machine_List[ui_arch.CB_Machine_Type->currentIndex()].QEMU_Name );
 	}
+	else if( ! ui_arch.CB_Machine_Type->currentText().isEmpty() )
+	{
+		tmp_vm->Set_Machine_Type( ui_arch.CB_Machine_Type->currentText() );
+	}
 	else
 	{
-		tmp_vm->Set_Machine_Type( "" );
+		tmp_vm->Set_Machine_Type( old_vm->Get_Machine_Type() );
 	}
 
 	// CPU Type
@@ -805,9 +822,13 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
 	{
 		tmp_vm->Set_CPU_Type( curComp.CPU_List[ui_arch.CB_CPU_Type->currentIndex()].QEMU_Name );
 	}
+	else if( ! ui_arch.CB_CPU_Type->currentText().isEmpty() )
+	{
+		tmp_vm->Set_CPU_Type( ui_arch.CB_CPU_Type->currentText() );
+	}
 	else
 	{
-		tmp_vm->Set_CPU_Type( "" );
+		tmp_vm->Set_CPU_Type( old_vm->Get_CPU_Type() );
 	}
 
 	// Create Emulator Info
@@ -816,10 +837,19 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
 	tmp_vm->Set_Emulator( tmp_emul );
 
 	// Video
-    if ( ui.CB_Video_Card->currentIndex() != -1 )
+    if ( ui.CB_Video_Card->currentIndex() != -1 &&
+		 ui.CB_Video_Card->currentIndex() < curComp.Video_Card_List.count() )
     {
     	tmp_vm->Set_Video_Card( curComp.Video_Card_List[ui.CB_Video_Card->currentIndex()].QEMU_Name );
     }
+	else if( ! ui.CB_Video_Card->currentText().isEmpty() )
+	{
+		tmp_vm->Set_Video_Card( ui.CB_Video_Card->currentText() );
+	}
+	else
+	{
+		tmp_vm->Set_Video_Card( old_vm->Get_Video_Card() );
+	}
 
 	// CPU Count
     if( ! Validate_CPU_Count(ui.CB_CPU_Count->currentText()) )
@@ -850,6 +880,8 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
 	snd_card.Audio_AC97 = ui.CH_AC97->isChecked();
 	snd_card.Audio_HDA = ui.CH_HDA->isChecked();
 	snd_card.Audio_cs4231a = ui.CH_cs4231a->isChecked();
+	snd_card.Audio_VirtIO = ui.CH_VirtIO_Sound->isChecked();
+	snd_card.Audio_USB = ui.CH_USB_Audio->isChecked();
 
 	tmp_vm->Set_Audio_Cards( snd_card );
 
@@ -879,6 +911,32 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
 	tmp_vm->Set_HDB( Dev_Manager->HDB );
 	tmp_vm->Set_HDC( Dev_Manager->HDC );
 	tmp_vm->Set_HDD( Dev_Manager->HDD );
+
+	// Disk bus from VM page (primary HDA)
+	{
+		VM_HDD hda = tmp_vm->Get_HDA();
+		if( hda.Get_Enabled() )
+		{
+			VM_Native_Storage_Device native = hda.Get_Native_Device();
+			native.Use_Interface( true );
+			switch( ui.CB_Disk_Interface->currentIndex() )
+			{
+				case 0: native.Set_Interface( VM::DI_Virtio ); break;
+				case 1: native.Set_Interface( VM::DI_Virtio_SCSI ); break;
+				case 2: native.Set_Interface( VM::DI_SCSI ); break;
+				case 3: native.Set_Interface( VM::DI_IDE ); break;
+				case 4: native.Set_Interface( VM::DI_SD ); break;
+				default: native.Set_Interface( VM::DI_Virtio ); break;
+			}
+			if( ! native.Use_File_Path() )
+			{
+				native.Use_File_Path( true );
+				native.Set_File_Path( hda.Get_File_Name() );
+			}
+			hda.Set_Native_Device( native );
+			tmp_vm->Set_HDA( hda );
+		}
+	}
 
 	tmp_vm->Set_Storage_Devices_List( Dev_Manager->Storage_Devices );
 
@@ -984,6 +1042,15 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
 	// Parallel Flash Image
 	tmp_vm->Use_PFlash_File( ui.CH_PFlash->isChecked() );
 	tmp_vm->Set_PFlash_File( ui.Edit_PFlash_File->text() );
+
+	// UEFI / VirtIO extras (set by Windows 11 ARM wizard; preserve until full UI exists)
+	tmp_vm->Use_UEFI( old_vm->Use_UEFI() );
+	tmp_vm->Set_UEFI_CODE_File( old_vm->Get_UEFI_CODE_File() );
+	tmp_vm->Set_UEFI_VARS_File( old_vm->Get_UEFI_VARS_File() );
+	tmp_vm->Use_VirtIO_RNG( old_vm->Use_VirtIO_RNG() );
+	tmp_vm->Use_VirtIO_Balloon( old_vm->Use_VirtIO_Balloon() );
+	tmp_vm->Use_VirtIO_Keyboard( old_vm->Use_VirtIO_Keyboard() );
+	tmp_vm->Use_USB_Hub( old_vm->Use_USB_Hub() );
 
 	// Additional QEMU Arguments
 	tmp_vm->Set_Additional_Args( ui_ao.Edit_Additional_Args->toPlainText() );
@@ -1327,6 +1394,7 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 
 	// Get current VM devices
 	Available_Devices curComp = tmp_vm->Get_Emulator().Get_Devices()[ tmp_vm->Get_Computer_Type() ];
+	System_Info::Normalize_Virt_Arch_Devices( curComp );
 
 	if( curComp.System.QEMU_Name.isEmpty() )
 	{
@@ -1349,35 +1417,62 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 
 	// Machine Type
 	QString tmp_str = tmp_vm->Get_Machine_Type();
+	bool machine_found = false;
 	for( int mx = 0; mx < curComp.Machine_List.count(); ++mx )
 	{
 		if( tmp_str == curComp.Machine_List[mx].QEMU_Name )
 		{
 			ui_arch.CB_Machine_Type->setCurrentIndex( mx );
+			ui.CB_Machine_Type_Main->setCurrentIndex( mx );
+			machine_found = true;
 			break;
 		}
+	}
+	if( ! machine_found && ! tmp_str.isEmpty() )
+	{
+		ui_arch.CB_Machine_Type->addItem( tmp_str );
+		ui.CB_Machine_Type_Main->addItem( tmp_str );
+		ui_arch.CB_Machine_Type->setCurrentIndex( ui_arch.CB_Machine_Type->count() - 1 );
+		ui.CB_Machine_Type_Main->setCurrentIndex( ui.CB_Machine_Type_Main->count() - 1 );
 	}
 
 	// CPU Type
 	tmp_str = tmp_vm->Get_CPU_Type();
+	bool cpu_found = false;
 	for( int cx = 0; cx < curComp.CPU_List.count(); ++cx )
 	{
 		if( tmp_str == curComp.CPU_List[cx].QEMU_Name )
 		{
 			ui_arch.CB_CPU_Type->setCurrentIndex( cx );
+			ui.CB_CPU_Type_Main->setCurrentIndex( cx );
+			cpu_found = true;
 			break;
 		}
+	}
+	if( ! cpu_found && ! tmp_str.isEmpty() )
+	{
+		ui_arch.CB_CPU_Type->addItem( tmp_str );
+		ui.CB_CPU_Type_Main->addItem( tmp_str );
+		ui_arch.CB_CPU_Type->setCurrentIndex( ui_arch.CB_CPU_Type->count() - 1 );
+		ui.CB_CPU_Type_Main->setCurrentIndex( ui.CB_CPU_Type_Main->count() - 1 );
 	}
 
 	// Video Card
 	tmp_str = tmp_vm->Get_Video_Card();
+	bool video_found = false;
 	for( int vx = 0; vx < curComp.Video_Card_List.count(); ++vx )
 	{
 		if( tmp_str == curComp.Video_Card_List[vx].QEMU_Name )
 		{
 			ui.CB_Video_Card->setCurrentIndex( vx );
+			video_found = true;
 			break;
 		}
+	}
+	if( ! video_found && ! tmp_str.isEmpty() )
+	{
+		ui.CB_Video_Card->addItem( tmp_str );
+		ui.CB_Video_Card->setCurrentIndex( ui.CB_Video_Card->count() - 1 );
 	}
 
 	// Count CPU's
@@ -1426,6 +1521,30 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 
 	if( tmp_vm->Get_Audio_Cards().Audio_cs4231a ) ui.CH_cs4231a->setChecked( true );
 	else ui.CH_cs4231a->setChecked( false );
+
+	if( tmp_vm->Get_Audio_Cards().Audio_VirtIO ) ui.CH_VirtIO_Sound->setChecked( true );
+	else ui.CH_VirtIO_Sound->setChecked( false );
+
+	if( tmp_vm->Get_Audio_Cards().Audio_USB ) ui.CH_USB_Audio->setChecked( true );
+	else ui.CH_USB_Audio->setChecked( false );
+
+	// Disk bus (HDA)
+	{
+		int disk_idx = 0; // VirtIO default
+		if( tmp_vm->Get_HDA().Get_Enabled() && tmp_vm->Get_HDA().Get_Native_Mode() )
+		{
+			switch( tmp_vm->Get_HDA().Get_Native_Device().Get_Interface() )
+			{
+				case VM::DI_Virtio: disk_idx = 0; break;
+				case VM::DI_Virtio_SCSI: disk_idx = 1; break;
+				case VM::DI_SCSI: disk_idx = 2; break;
+				case VM::DI_IDE: disk_idx = 3; break;
+				case VM::DI_SD: disk_idx = 4; break;
+				default: disk_idx = 0; break;
+			}
+		}
+		ui.CB_Disk_Interface->setCurrentIndex( disk_idx );
+	}
 
 	// RAM
 	if( tmp_vm->Get_Memory_Size() < 1 )
@@ -3262,7 +3381,8 @@ bool Main_Window::Save_Or_Discard(bool forced)
 	{
 		AQError( "void Main_Window::Save_Or_Discard()",
 				 "Cannot Create VM From Ui!" );
-		return false;
+		// On forced quit, do not block the user behind a sync failure
+		return forced;
 	}
 	else
 	{
@@ -3919,10 +4039,13 @@ void Main_Window::Computer_Type_Changed()
 
     ui_arch.CB_CPU_Type->blockSignals(true);
     ui_arch.CB_Machine_Type->blockSignals(true);
+    ui.CB_CPU_Type_Main->blockSignals(true);
+    ui.CB_Machine_Type_Main->blockSignals(true);
     ui.CB_Video_Card->blockSignals(true);
 
 	// CPU
 	ui_arch.CB_CPU_Type->clear();
+	ui.CB_CPU_Type_Main->clear();
 
 	cl = QStringList();
 
@@ -3934,9 +4057,11 @@ void Main_Window::Computer_Type_Changed()
 		cl << curComp.CPU_List[mx].Caption;
 
 	ui_arch.CB_CPU_Type->addItems( cl );
+	ui.CB_CPU_Type_Main->addItems( cl );
 
-	// Machine
+	// Machine — full probed list (was truncated at 64 before)
 	ui_arch.CB_Machine_Type->clear();
+	ui.CB_Machine_Type_Main->clear();
 
 	cl = QStringList();
 
@@ -3944,6 +4069,57 @@ void Main_Window::Computer_Type_Changed()
 		cl << curComp.Machine_List[mx].Caption;
 
 	ui_arch.CB_Machine_Type->addItems( cl );
+	ui.CB_Machine_Type_Main->addItems( cl );
+
+	// Prefer virt / max for aarch64 (and friends) as the working default
+	const QString arch_bin = curComp.System.QEMU_Name;
+	const bool is_virt_arch =
+		arch_bin.contains( "aarch64", Qt::CaseInsensitive ) ||
+		arch_bin.contains( "qemu-system-arm", Qt::CaseInsensitive ) ||
+		arch_bin.contains( "riscv", Qt::CaseInsensitive );
+
+	if( is_virt_arch )
+	{
+		for( int mx = 0; mx < curComp.Machine_List.count(); ++mx )
+		{
+			if( curComp.Machine_List[mx].QEMU_Name == "virt" )
+			{
+				ui_arch.CB_Machine_Type->setCurrentIndex( mx );
+				ui.CB_Machine_Type_Main->setCurrentIndex( mx );
+				break;
+			}
+		}
+		QString prefer_cpu =
+		#ifdef Q_OS_WIN32
+			"max";
+		#else
+			"host";
+		#endif
+		int cpu_idx = -1;
+		for( int cx = 0; cx < curComp.CPU_List.count(); ++cx )
+		{
+			if( curComp.CPU_List[cx].QEMU_Name == prefer_cpu )
+			{
+				cpu_idx = cx;
+				break;
+			}
+			if( cpu_idx < 0 && curComp.CPU_List[cx].QEMU_Name == "max" )
+				cpu_idx = cx;
+		}
+		if( cpu_idx >= 0 )
+		{
+			ui_arch.CB_CPU_Type->setCurrentIndex( cpu_idx );
+			ui.CB_CPU_Type_Main->setCurrentIndex( cpu_idx );
+		}
+		for( int vx = 0; vx < curComp.Video_Card_List.count(); ++vx )
+		{
+			if( curComp.Video_Card_List[vx].QEMU_Name == "virtio-gpu-pci" )
+			{
+				// Will set after video list is filled below
+				break;
+			}
+		}
+	}
 
 	// Video
 	ui.CB_Video_Card->clear();
@@ -3955,13 +4131,25 @@ void Main_Window::Computer_Type_Changed()
 
 	ui.CB_Video_Card->addItems( cl );
 
+	if( is_virt_arch )
+	{
+		for( int vx = 0; vx < curComp.Video_Card_List.count(); ++vx )
+		{
+			if( curComp.Video_Card_List[vx].QEMU_Name == "virtio-gpu-pci" )
+			{
+				ui.CB_Video_Card->setCurrentIndex( vx );
+				break;
+			}
+		}
+	}
+
 	// Use Nativ Network Cards FIXME set emulator PSO to net card widget
 	if( ui.RB_Network_Mode_New->isChecked() )
 		New_Network_Settings_Widget->Set_Network_Card_Models( curComp.Network_Card_List );
 	else
 		Old_Network_Settings_Widget->Set_Network_Card_Models( curComp.Network_Card_List );
 
-	// Audio
+	// Audio — enable every device this arch supports (user can pick)
 	ui.CH_sb16->setEnabled( curComp.Audio_Card_List.Audio_sb16 );
 	ui.CH_es1370->setEnabled( curComp.Audio_Card_List.Audio_es1370 );
 	ui.CH_Adlib->setEnabled( curComp.Audio_Card_List.Audio_Adlib );
@@ -3970,13 +4158,57 @@ void Main_Window::Computer_Type_Changed()
 	ui.CH_PCSPK->setEnabled( curComp.Audio_Card_List.Audio_PC_Speaker );
 	ui.CH_HDA->setEnabled( curComp.Audio_Card_List.Audio_HDA );
 	ui.CH_cs4231a->setEnabled( curComp.Audio_Card_List.Audio_cs4231a );
+	ui.CH_VirtIO_Sound->setEnabled( curComp.Audio_Card_List.Audio_VirtIO );
+	ui.CH_USB_Audio->setEnabled( curComp.Audio_Card_List.Audio_USB );
 
     ui_arch.CB_CPU_Type->blockSignals(false);
     ui_arch.CB_Machine_Type->blockSignals(false);
+    ui.CB_CPU_Type_Main->blockSignals(false);
+    ui.CB_Machine_Type_Main->blockSignals(false);
     ui.CB_Video_Card->blockSignals(false);
 
 	// Other Options
 	Update_Disabled_Controls();
+}
+
+void Main_Window::on_CB_Machine_Type_Main_currentIndexChanged( int index )
+{
+	if( index < 0 ) return;
+	ui_arch.CB_Machine_Type->blockSignals(true);
+	if( index < ui_arch.CB_Machine_Type->count() )
+		ui_arch.CB_Machine_Type->setCurrentIndex( index );
+	ui_arch.CB_Machine_Type->blockSignals(false);
+	VM_Changed();
+}
+
+void Main_Window::on_CB_CPU_Type_Main_currentIndexChanged( int index )
+{
+	if( index < 0 ) return;
+	ui_arch.CB_CPU_Type->blockSignals(true);
+	if( index < ui_arch.CB_CPU_Type->count() )
+		ui_arch.CB_CPU_Type->setCurrentIndex( index );
+	ui_arch.CB_CPU_Type->blockSignals(false);
+	VM_Changed();
+}
+
+void Main_Window::sync_arch_Machine_Type_changed( int index )
+{
+	if( index < 0 ) return;
+	ui.CB_Machine_Type_Main->blockSignals(true);
+	if( index < ui.CB_Machine_Type_Main->count() )
+		ui.CB_Machine_Type_Main->setCurrentIndex( index );
+	ui.CB_Machine_Type_Main->blockSignals(false);
+	VM_Changed();
+}
+
+void Main_Window::sync_arch_CPU_Type_changed( int index )
+{
+	if( index < 0 ) return;
+	ui.CB_CPU_Type_Main->blockSignals(true);
+	if( index < ui.CB_CPU_Type_Main->count() )
+		ui.CB_CPU_Type_Main->setCurrentIndex( index );
+	ui.CB_CPU_Type_Main->blockSignals(false);
+	VM_Changed();
 }
 
 void Main_Window::Update_Machine_Accelerators()
@@ -4303,6 +4535,84 @@ bool Main_Window::Validate_CPU_Count( const QString &text )
 void Main_Window::on_CH_Local_Time_toggled( bool on )
 {
 	if( on ) ui_ao.CH_Start_Date->setChecked( false );
+}
+
+void Main_Window::on_Button_VirtIO_Defaults_clicked()
+{
+	bool ok = false;
+	Available_Devices cur = Get_Current_Machine_Devices( &ok );
+	if( ! ok ) return;
+
+	// Machine: virt
+	for( int i = 0; i < cur.Machine_List.count(); ++i )
+	{
+		if( cur.Machine_List[i].QEMU_Name == "virt" )
+		{
+			ui.CB_Machine_Type_Main->setCurrentIndex( i );
+			break;
+		}
+	}
+
+	// CPU: max (or host on Linux)
+	QString prefer =
+	#ifdef Q_OS_WIN32
+		"max";
+	#else
+		"host";
+	#endif
+	int cpu_idx = -1;
+	for( int i = 0; i < cur.CPU_List.count(); ++i )
+	{
+		if( cur.CPU_List[i].QEMU_Name == prefer ) { cpu_idx = i; break; }
+		if( cpu_idx < 0 && cur.CPU_List[i].QEMU_Name == "max" ) cpu_idx = i;
+	}
+	if( cpu_idx >= 0 )
+		ui.CB_CPU_Type_Main->setCurrentIndex( cpu_idx );
+
+	// Video: virtio-gpu-pci
+	for( int i = 0; i < cur.Video_Card_List.count(); ++i )
+	{
+		if( cur.Video_Card_List[i].QEMU_Name == "virtio-gpu-pci" )
+		{
+			ui.CB_Video_Card->setCurrentIndex( i );
+			break;
+		}
+	}
+
+	ui.CB_Disk_Interface->setCurrentIndex( 0 ); // VirtIO
+	ui.CB_CPU_Count->setEditText( "4" );
+	ui.Memory_Size->setValue( 8192 );
+
+	// Audio: USB (Win11 ARM / kiosk); leave VirtIO sound available but unchecked
+	ui.CH_sb16->setChecked( false );
+	ui.CH_es1370->setChecked( false );
+	ui.CH_Adlib->setChecked( false );
+	ui.CH_AC97->setChecked( false );
+	ui.CH_GUS->setChecked( false );
+	ui.CH_PCSPK->setChecked( false );
+	ui.CH_HDA->setChecked( false );
+	ui.CH_cs4231a->setChecked( false );
+	ui.CH_VirtIO_Sound->setChecked( false );
+	ui.CH_USB_Audio->setChecked( true );
+
+	// Network: virtio-net-pci
+	QList<VM_Net_Card> nets;
+	if( Old_Network_Settings_Widget->Get_Network_Cards( nets ) && nets.count() > 0 )
+	{
+		nets[0].Set_Card_Model( "virtio-net-pci" );
+		Old_Network_Settings_Widget->Set_Network_Cards( nets );
+	}
+
+	Virtual_Machine *vm = Get_Current_VM();
+	if( vm )
+	{
+		vm->Use_USB_Hub( true );
+		vm->Use_VirtIO_RNG( true );
+		vm->Use_VirtIO_Balloon( true );
+		vm->Use_VirtIO_Keyboard( true );
+	}
+
+	VM_Changed();
 }
 
 void Main_Window::on_Tabs_currentChanged( int index )

@@ -38,9 +38,9 @@
        <verstretch>0</verstretch>
       </sizepolicy>
      </property>
-     <property name="maxCount">
-      <number>64</number>
-     </property>
+    <property name="maxCount">
+     <number>2048</number>
+    </property>
      <property name="sizeAdjustPolicy">
       <enum>QComboBox::AdjustToMinimumContentsLength</enum>
      </property>

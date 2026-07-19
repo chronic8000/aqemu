@@ -57,7 +57,23 @@ AQEMU_Service::AQEMU_Service()
 
 AQEMU_Service::~AQEMU_Service()
 {
+    // Ensure QEMU processes do not outlive the UI
+    for( int i = machines.count() - 1; i >= 0; --i )
+    {
+        if( machines[i] )
+            machines[i]->Stop();
+    }
+    machines.clear();
     delete service;
+}
+
+void AQEMU_Service::stop_all()
+{
+    for( int i = machines.count() - 1; i >= 0; --i )
+    {
+        if( machines[i] )
+            machines[i]->Stop();
+    }
 }
 
 void AQEMU_Service::setMainWindow( bool b )
@@ -275,7 +291,8 @@ QString AQEMU_Service::start(const QString& s)
 
     if ( !success )
     {
-        AQError("QString AQEMU_Service::start(const QString& s)",vm_file);
+        AQDebug("QString AQEMU_Service::start(const QString& s)",
+                QString("Trying VM path: %1").arg(vm_file));
 
         if(QFileInfo(vm_file).exists())
             vm->Load_VM(vm_file);
@@ -289,7 +306,8 @@ QString AQEMU_Service::start(const QString& s)
 
         connect(vm,SIGNAL(State_Changed( Virtual_Machine*, VM::VM_State)),this,SLOT(vm_state_changed(Virtual_Machine*, VM::VM_State)));
 
-        AQError("QString AQEMU_Service::start(const QString& s)",s);
+        AQDebug("QString AQEMU_Service::start(const QString& s)",
+                QString("VM started: %1").arg(s));
         return QString("VM \"%1\" got started.").arg(s);
     }
 

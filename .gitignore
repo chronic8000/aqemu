@@ -1,0 +1,37 @@
+# Build trees
+build/
+build_*/
+!build_win/.gitkeep
+
+# CMake / autogen junk inside build_win (keep portable DLL layout for packaging)
+build_win/CMakeCache.txt
+build_win/CMakeFiles/
+build_win/CPack*.cmake
+build_win/Makefile
+build_win/cmake_install.cmake
+build_win/aqemu_autogen/
+build_win/*.obj
+build_win/*.o
+build_win/*.a
+build_win/*.rsp
+build_win/*.d
+build_win/qerr.txt
+build_win/qout.txt
+build_win/aqemu_err*.txt
+build_win/aqemu_out.txt
+
+# Local logs
+aqemu_err.log
+aqemu_run.log
+*.log
+
+# Editor / OS
+.vs/
+.vscode/
+*.user
+Thumbs.db
+Desktop.ini
+
+# Release staging (uploaded to GitHub Releases, not the repo)
+dist/
+*.zip

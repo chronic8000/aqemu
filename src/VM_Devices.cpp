@@ -430,6 +430,8 @@ bool Emulator::Load( const QString &path )
 			tmpDev.Audio_Card_List.Audio_AC97 = (thirdElement.firstChildElement("AC97").text() == "yes");
 			tmpDev.Audio_Card_List.Audio_HDA = (thirdElement.firstChildElement("HDA").text() == "yes");
 			tmpDev.Audio_Card_List.Audio_cs4231a = (thirdElement.firstChildElement("cs4231a").text() == "yes");
+			tmpDev.Audio_Card_List.Audio_VirtIO = (thirdElement.firstChildElement("VirtIO").text() == "yes");
+			tmpDev.Audio_Card_List.Audio_USB = (thirdElement.firstChildElement("USB").text() == "yes");
 			
 			// Video Cards
 			tmpDev.Video_Card_List.clear();
@@ -791,6 +793,16 @@ bool Emulator::Save() const
 		
 		thirdElement = domDocument.createElement( "cs4231a" );
 		domText = domDocument.createTextNode( (tmpDev.Audio_Card_List.Audio_cs4231a ? "yes" : "no") );
+		thirdElement.appendChild( domText );
+		deviceElement.appendChild( thirdElement );
+		
+		thirdElement = domDocument.createElement( "VirtIO" );
+		domText = domDocument.createTextNode( (tmpDev.Audio_Card_List.Audio_VirtIO ? "yes" : "no") );
+		thirdElement.appendChild( domText );
+		deviceElement.appendChild( thirdElement );
+		
+		thirdElement = domDocument.createElement( "USB" );
+		domText = domDocument.createTextNode( (tmpDev.Audio_Card_List.Audio_USB ? "yes" : "no") );
 		thirdElement.appendChild( domText );
 		deviceElement.appendChild( thirdElement );
 		

@@ -1,81 +1,58 @@
-# AQEMU (Optimized for Raspberry Pi 5 & Wayland)
+# AQEMU (Raspberry Pi 5, Wayland & Windows)
 
-AQEMU is a graphical user interface (GUI) frontend for the QEMU emulator, written in C++ using Qt5. It allows users to easily manage, configure, and execute virtual machines.
-
-This fork is specifically modernized and optimized to target the **Raspberry Pi 5** running **Raspbian OS Trixie (Debian 13)** with native **Wayland** display compositors and **16KB page size** kernel support.
+AQEMU is a Qt5 GUI frontend for QEMU. This fork targets **Raspberry Pi 5** (Raspbian Trixie / Debian 13, Wayland, 16KB pages) and also provides a **Windows** build for managing multi-arch VMs (including Windows 11 ARM under TCG).
 
 ---
 
-## 🚀 Key Features & Pi 5 Optimizations
+## Key Features
 
-- **Cortex-A76 Hardware Tuning**: The compiler leverages target-specific flags (`-mcpu=cortex-a76 -mtune=cortex-a76 -O3`) to optimize instructions for the Broadcom BCM2712 processor, resulting in improved performance.
-- **16KB & 64KB Page Size Support**: Binary segment loading is aligned to 64KB boundaries (`-Wl,-z,max-page-size=65536`), preventing load crashes on modern 16KB page kernels (standard on newer Raspberry Pi 5 operating systems).
-- **Native Wayland Execution**: Seamless desktop integration using Qt5's Wayland platform backend.
-- **Automated QEMU Installer**: If QEMU isn't found during setup, AQEMU will prompt to install it and execute `pkexec apt-get install -y qemu-system qemu-utils` to securely authorize package installation.
-- **Auto-locating Resources**: Scans directory paths relative to the running binary (e.g. `../resources/`), preventing data folder warnings when running directly from the build directory.
-- **Window Geometry Persistence**: Resolves a long-standing TODO item by saving and restoring the size and coordinates of the **Emulator Control Window** via `aqemu.cfg`.
-
----
-
-## 📦 How to Install (.deb Release)
-
-You can download and install the pre-compiled `.deb` package directly from our **GitHub Releases** page:
-
-1. **Install the package**:
-   ```bash
-   sudo apt update
-   sudo apt install ./aqemu_0.9.6_arm64.deb
-   ```
-2. **Launch AQEMU**:
-   Simply run:
-   ```bash
-   aqemu
-   ```
+- **Pi 5 tuning**: `-mcpu=cortex-a76`, 64KB page load alignment, Wayland Qt platform
+- **Windows 11 ARM wizard**: guided profile aligned with [win11-pi5-kiosk](https://github.com/chronic8000/win11-pi5-kiosk) (`virt`, VirtIO disk/net/GPU, UEFI, USB audio)
+- **Full QEMU arch coverage**: discovers `qemu-system-*`, live-probes machines/CPUs/devices; Generate VM for any target
+- **TCG-friendly aarch64 defaults** (Windows host): `gic-version=max`, `tcg,thread=multi,tb-size=1024`, `max,pauth-impdef=on`, VirtIO bootindex
+- **Automated QEMU install on Linux** via `pkexec apt-get install -y qemu-system qemu-utils`
 
 ---
 
-## 🛠️ Building from Source on Raspberry Pi 5
+## Install from GitHub Releases
 
-If you prefer to compile manually, follow these steps:
+Download assets from the [Releases](https://github.com/chronic8000/aqemu/releases) page.
 
-### 1. Install Dependencies
+### Raspberry Pi (`.deb`)
+```bash
+sudo apt update
+sudo apt install ./aqemu_0.9.8_arm64.deb
+aqemu
+```
+
+### Windows (portable zip)
+1. Install [QEMU for Windows](https://www.qemu.org/download/#windows) (include `qemu-system-aarch64` and EDK2 firmware).
+2. Unzip `aqemu-0.9.8-win64.zip` and run `aqemu.exe`.
+
+---
+
+## Build on Raspberry Pi 5
+
 ```bash
 sudo apt update
 sudo apt install -y build-essential cmake qtbase5-dev libqt5widgets5 qtwayland5 libvncserver-dev extra-cmake-modules
-```
 
-### 2. Configure & Build (CMake)
-```bash
 mkdir -p build && cd build
 cmake -DPI5_OPTIMIZATIONS=ON ..
 make -j$(nproc)
-```
-
-### 3. Build a Debian Package (Optional)
-To build a custom `.deb` package of your compiled code using CPack:
-```bash
-cd build
-cpack
+cpack   # produces aqemu_0.9.8_arm64.deb
 ```
 
 ---
 
-## ⚠️ Potential Issues & Troubleshooting
+## Troubleshooting
 
-### Wayland Rendering Anomalies
-AQEMU features an embedded VNC viewer (`libvncclient`) that draws emulator outputs inside the application. If you experience mouse grabbing issues or rendering quirks running natively under Wayland, run AQEMU in XWayland compatibility mode instead:
+### Wayland / embedded VNC
+- Native: `QT_QPA_PLATFORM=wayland aqemu`
+- Safer grab: `QT_QPA_PLATFORM=xcb aqemu`
 
-* **Wayland Native (Default):**
-  ```bash
-  QT_QPA_PLATFORM=wayland aqemu
-  ```
-* **XWayland Fallback (Safer VNC grab behavior):**
-  ```bash
-  QT_QPA_PLATFORM=xcb aqemu
-  ```
+### Polkit missing
+Install QEMU manually: `sudo apt install -y qemu-system qemu-utils`
 
-### Polkit/Authentication Dialog Missing
-The automated QEMU installer relies on `pkexec` (Polkit) to request superuser permissions. If you are running on a headless setup or custom environment without a polkit agent running, the installer command will fail. You can install QEMU manually in your terminal if this occurs:
-```bash
-sudo apt install -y qemu-system qemu-utils
-```
+### Windows 11 ARM performance
+On an **x86_64 Windows host**, aarch64 guests use **TCG only** (no KVM/WHPX for ARM). Expect much slower than Pi + KVM. Use 4+ vCPUs and the TCG flags above.

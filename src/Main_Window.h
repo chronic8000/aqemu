@@ -131,6 +131,10 @@ class Main_Window: public QMainWindow
 		
 		// General Tab
 		void on_CB_Computer_Type_currentIndexChanged( int index );
+		void on_CB_Machine_Type_Main_currentIndexChanged( int index );
+		void on_CB_CPU_Type_Main_currentIndexChanged( int index );
+		void sync_arch_Machine_Type_changed( int index );
+		void sync_arch_CPU_Type_changed( int index );
 		void on_CB_Machine_Accelerator_currentIndexChanged( int index );
 		void CB_Boot_Priority_currentIndexChanged( int index );
 		void on_TB_Show_Boot_Settings_Window_clicked();
@@ -143,6 +147,7 @@ class Main_Window: public QMainWindow
 		void Apply_Emulator( int mode );
 		
 		void on_CH_Local_Time_toggled( bool on );
+		void on_Button_VirtIO_Defaults_clicked();
 		
 		// Memory
 		void on_Memory_Size_valueChanged( int value );

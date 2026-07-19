@@ -43,7 +43,7 @@
       <widget class="My_List_Widget" name="Machines_List">
        <property name="minimumSize">
         <size>
-         <width>150</width>
+         <width>240</width>
          <height>0</height>
         </size>
        </property>
@@ -54,7 +54,7 @@
         <enum>Qt::ScrollBarAsNeeded</enum>
        </property>
        <property name="horizontalScrollBarPolicy">
-        <enum>Qt::ScrollBarAlwaysOff</enum>
+        <enum>Qt::ScrollBarAsNeeded</enum>
        </property>
        <property name="editTriggers">
         <set>QAbstractItemView::NoEditTriggers</set>
@@ -67,9 +67,12 @@
        </property>
        <property name="iconSize">
         <size>
-         <width>48</width>
-         <height>48</height>
+         <width>32</width>
+         <height>32</height>
         </size>
+       </property>
+       <property name="textElideMode">
+        <enum>Qt::ElideNone</enum>
        </property>
        <property name="verticalScrollMode">
         <enum>QAbstractItemView::ScrollPerPixel</enum>
@@ -87,7 +90,7 @@
         <number>0</number>
        </property>
        <property name="wordWrap">
-        <bool>false</bool>
+        <bool>true</bool>
        </property>
        <property name="selectionRectVisible">
         <bool>true</bool>
@@ -273,7 +276,77 @@
                     <number>-1</number>
                    </property>
                    <property name="maxCount">
-                    <number>64</number>
+                    <number>256</number>
+                   </property>
+                   <property name="sizeAdjustPolicy">
+                    <enum>QComboBox::AdjustToMinimumContentsLength</enum>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="4" column="0">
+                  <widget class="QLabel" name="Label_Machine_Type_Main">
+                   <property name="sizePolicy">
+                    <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+                     <horstretch>0</horstretch>
+                     <verstretch>0</verstretch>
+                    </sizepolicy>
+                   </property>
+                   <property name="text">
+                    <string>Machine</string>
+                   </property>
+                   <property name="buddy">
+                    <cstring>CB_Machine_Type_Main</cstring>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="4" column="1" colspan="2">
+                  <widget class="QComboBox" name="CB_Machine_Type_Main">
+                   <property name="sizePolicy">
+                    <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
+                     <horstretch>0</horstretch>
+                     <verstretch>0</verstretch>
+                    </sizepolicy>
+                   </property>
+                   <property name="toolTip">
+                    <string>QEMU machine type for this architecture (virt is the default for modern ARM guests). Full list from your qemu-system binary.</string>
+                   </property>
+                   <property name="maxCount">
+                    <number>2048</number>
+                   </property>
+                   <property name="sizeAdjustPolicy">
+                    <enum>QComboBox::AdjustToMinimumContentsLength</enum>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="5" column="0">
+                  <widget class="QLabel" name="Label_CPU_Type_Main">
+                   <property name="sizePolicy">
+                    <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+                     <horstretch>0</horstretch>
+                     <verstretch>0</verstretch>
+                    </sizepolicy>
+                   </property>
+                   <property name="text">
+                    <string>CPU Model</string>
+                   </property>
+                   <property name="buddy">
+                    <cstring>CB_CPU_Type_Main</cstring>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="5" column="1" colspan="2">
+                  <widget class="QComboBox" name="CB_CPU_Type_Main">
+                   <property name="sizePolicy">
+                    <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
+                     <horstretch>0</horstretch>
+                     <verstretch>0</verstretch>
+                    </sizepolicy>
+                   </property>
+                   <property name="toolTip">
+                    <string>CPU model for this architecture. Windows 11 ARM defaults to max (or host on Linux KVM).</string>
+                   </property>
+                   <property name="maxCount">
+                    <number>2048</number>
                    </property>
                    <property name="sizeAdjustPolicy">
                     <enum>QComboBox::AdjustToMinimumContentsLength</enum>
@@ -1240,6 +1313,132 @@
                  </property>
                 </widget>
                </item>
+               <item row="3" column="0">
+                <widget class="QCheckBox" name="CH_VirtIO_Sound">
+                 <property name="toolTip">
+                  <string>VirtIO sound device (virtio-sound-pci). Requires VirtIO drivers in the guest.</string>
+                 </property>
+                 <property name="text">
+                  <string>VirtIO Sound</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="3" column="1">
+                <widget class="QCheckBox" name="CH_USB_Audio">
+                 <property name="toolTip">
+                  <string>USB audio device. Useful fallback when VirtIO sound is unavailable.</string>
+                 </property>
+                 <property name="text">
+                  <string>USB Audio</string>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </widget>
+            </item>
+            <item>
+             <spacer name="verticalSpacer_disk">
+              <property name="orientation">
+               <enum>Qt::Vertical</enum>
+              </property>
+              <property name="sizeType">
+               <enum>QSizePolicy::Fixed</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>20</width>
+                <height>8</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+            <item>
+             <widget class="Highlighted_Label" name="label_disk_bus">
+              <property name="text">
+               <string>Disk bus (HDA)</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QWidget" name="GB_Disk_Bus" native="true">
+              <layout class="QHBoxLayout" name="horizontalLayout_disk_bus">
+               <property name="leftMargin">
+                <number>24</number>
+               </property>
+               <property name="topMargin">
+                <number>6</number>
+               </property>
+               <property name="rightMargin">
+                <number>6</number>
+               </property>
+               <property name="bottomMargin">
+                <number>6</number>
+               </property>
+               <item>
+                <widget class="QLabel" name="Label_Disk_Interface">
+                 <property name="text">
+                  <string>Interface:</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QComboBox" name="CB_Disk_Interface">
+                 <property name="toolTip">
+                  <string>QEMU drive interface for the primary hard disk. VirtIO is recommended for Windows 11 ARM and modern Linux guests.</string>
+                 </property>
+                 <property name="sizeAdjustPolicy">
+                  <enum>QComboBox::AdjustToContents</enum>
+                 </property>
+                 <item>
+                  <property name="text">
+                   <string>VirtIO</string>
+                  </property>
+                 </item>
+                 <item>
+                  <property name="text">
+                   <string>VirtIO SCSI</string>
+                  </property>
+                 </item>
+                 <item>
+                  <property name="text">
+                   <string>SCSI</string>
+                  </property>
+                 </item>
+                 <item>
+                  <property name="text">
+                   <string>IDE</string>
+                  </property>
+                 </item>
+                 <item>
+                  <property name="text">
+                   <string>SD</string>
+                  </property>
+                 </item>
+                </widget>
+               </item>
+               <item>
+                <widget class="QPushButton" name="Button_VirtIO_Defaults">
+                 <property name="toolTip">
+                  <string>Set machine=virt, VirtIO GPU, VirtIO disk/net, USB tablet/keyboard/RNG, and USB audio (Windows 11 ARM / kiosk profile).</string>
+                 </property>
+                 <property name="text">
+                  <string>Apply VirtIO defaults</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <spacer name="horizontalSpacer_disk">
+                 <property name="orientation">
+                  <enum>Qt::Horizontal</enum>
+                 </property>
+                 <property name="sizeHint" stdset="0">
+                  <size>
+                   <width>40</width>
+                   <height>20</height>
+                  </size>
+                 </property>
+                </spacer>
+               </item>
               </layout>
              </widget>
             </item>
@@ -1341,9 +1540,6 @@
            <zorder>label_2</zorder>
            <zorder>label_3</zorder>
            <zorder>label_4</zorder>
-           <zorder>verticalSpacer_11</zorder>
-           <zorder>verticalSpacer_5</zorder>
-           <zorder>verticalSpacer_9</zorder>
           </widget>
           <widget class="QWidget" name="Tab_Media">
            <attribute name="icon">
@@ -2457,7 +2653,7 @@
                     </layout>
                    </item>
                    <item row="1" column="0" colspan="2">
-                    <widget class="QWidget" name="widget" native="true">
+                    <widget class="QWidget" name="Widget_Redirection_Protocol_Host" native="true">
                      <layout class="QHBoxLayout" name="Widget_Redirection_Protocol">
                       <property name="spacing">
                        <number>6</number>
@@ -2515,7 +2711,7 @@
                     </widget>
                    </item>
                    <item row="2" column="0" colspan="2">
-                    <widget class="QWidget" name="widget" native="true">
+                    <widget class="QWidget" name="Widget_Redirection_Net_Host" native="true">
                      <layout class="QHBoxLayout" name="Widget_Redirection_Net">
                       <property name="spacing">
                        <number>6</number>

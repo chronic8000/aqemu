@@ -442,9 +442,7 @@ QString Get_TR_Size_Suffix( VM::Device_Size suf )
 			return QObject::tr("Gb");
 				
 		default:
-			AQError( "QString Get_TR_Size_Suffix( VM::Device_Size suf )",
-					 "Virtual Size Suffix Default Section!" );
-			return "";
+			return QObject::tr("Mb");
 	}
 }
 
@@ -1007,4 +1005,114 @@ double calculateContrast(const QColor& col1, const QColor& col2)
            0.0722 * pow((double)col2.blue()/255.0, 2.2) );
 
     return (l1 > l2) ? (l1 / l2) : (l2 / l1);
+}
+
+static QString First_Existing_Path( const QStringList &candidates )
+{
+	for( int i = 0; i < candidates.count(); ++i )
+	{
+		if( QFile::exists( candidates[i] ) )
+			return QDir::toNativeSeparators( candidates[i] );
+	}
+	return QString();
+}
+
+QString Find_UEFI_Firmware_CODE( const QString &qemu_binary_path )
+{
+	QStringList candidates;
+	
+	#ifdef Q_OS_WIN32
+	QString binDir;
+	if( ! qemu_binary_path.isEmpty() )
+		binDir = QFileInfo( qemu_binary_path ).absolutePath();
+	
+	if( ! binDir.isEmpty() )
+	{
+		candidates << binDir + "/edk2-aarch64-code.fd"
+		           << binDir + "/share/edk2-aarch64-code.fd"
+		           << binDir + "/../share/qemu/edk2-aarch64-code.fd"
+		           << binDir + "/../share/edk2-aarch64-code.fd"
+		           << binDir + "/QEMU_EFI.fd"
+		           << binDir + "/AAVMF_CODE.fd";
+	}
+	candidates << "C:/Program Files/qemu/share/edk2-aarch64-code.fd"
+	           << "C:/Program Files/qemu/edk2-aarch64-code.fd"
+	           << "C:/msys64/ucrt64/share/qemu/edk2-aarch64-code.fd"
+	           << "C:/msys64/mingw64/share/qemu/edk2-aarch64-code.fd";
+	#else
+	candidates << "/usr/share/AAVMF/AAVMF_CODE.no-secboot.fd"
+	           << "/usr/share/AAVMF/AAVMF_CODE.fd"
+	           << "/usr/share/qemu-efi-aarch64/QEMU_EFI.fd"
+	           << "/usr/share/qemu/edk2-aarch64-code.fd"
+	           << "/usr/share/edk2/aarch64/QEMU_EFI.fd"
+	           << "/usr/share/OVMF/AAVMF_CODE.fd";
+	#endif
+	
+	return First_Existing_Path( candidates );
+}
+
+QString Find_UEFI_Firmware_VARS_Template( const QString &qemu_binary_path )
+{
+	QStringList candidates;
+	
+	#ifdef Q_OS_WIN32
+	QString binDir;
+	if( ! qemu_binary_path.isEmpty() )
+		binDir = QFileInfo( qemu_binary_path ).absolutePath();
+	
+	if( ! binDir.isEmpty() )
+	{
+		candidates << binDir + "/edk2-arm-vars.fd"
+		           << binDir + "/share/edk2-arm-vars.fd"
+		           << binDir + "/../share/qemu/edk2-arm-vars.fd"
+		           << binDir + "/../share/edk2-arm-vars.fd"
+		           << binDir + "/QEMU_VARS.fd"
+		           << binDir + "/AAVMF_VARS.fd";
+	}
+	candidates << "C:/Program Files/qemu/share/edk2-arm-vars.fd"
+	           << "C:/Program Files/qemu/edk2-arm-vars.fd"
+	           << "C:/msys64/ucrt64/share/qemu/edk2-arm-vars.fd"
+	           << "C:/msys64/mingw64/share/qemu/edk2-arm-vars.fd";
+	#else
+	candidates << "/usr/share/AAVMF/AAVMF_VARS.fd"
+	           << "/usr/share/qemu-efi-aarch64/QEMU_VARS.fd"
+	           << "/usr/share/qemu/edk2-arm-vars.fd"
+	           << "/usr/share/edk2/aarch64/QEMU_VARS.fd"
+	           << "/usr/share/OVMF/AAVMF_VARS.fd";
+	#endif
+	
+	return First_Existing_Path( candidates );
+}
+
+bool Prepare_UEFI_VARS_File( const QString &dest_path, const QString &qemu_binary_path )
+{
+	if( dest_path.isEmpty() )
+		return false;
+	
+	if( QFile::exists( dest_path ) )
+		return true;
+	
+	QString tmpl = Find_UEFI_Firmware_VARS_Template( qemu_binary_path );
+	if( tmpl.isEmpty() )
+	{
+		AQError( "Prepare_UEFI_VARS_File", "UEFI VARS template not found" );
+		return false;
+	}
+	
+	QDir().mkpath( QFileInfo( dest_path ).absolutePath() );
+	if( QFile::exists( dest_path ) )
+		QFile::remove( dest_path );
+	
+	if( ! QFile::copy( tmpl, dest_path ) )
+	{
+		AQError( "Prepare_UEFI_VARS_File", "Failed to copy VARS template to " + dest_path );
+		return false;
+	}
+	
+	// Ensure VARS is writable
+	QFile::setPermissions( dest_path,
+		QFile::ReadOwner | QFile::WriteOwner | QFile::ReadUser | QFile::WriteUser |
+		QFile::ReadGroup | QFile::ReadOther );
+	
+	return true;
 }

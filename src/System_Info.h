@@ -42,6 +42,7 @@ class System_Info
 		
 		static Available_Devices Get_Emulator_Info( const QString &path, bool *ok,
 												   VM::Emulator_Version version, const QString &internalName );
+		static void Normalize_Virt_Arch_Devices( Available_Devices &dev );
 		static QString Get_Emulator_Help_Output( const QString &path );
 		static QString Get_Emulator_Output( const QString &path, const QStringList &args );
 		

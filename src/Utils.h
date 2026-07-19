@@ -24,7 +24,7 @@
 #ifndef UTILS_H
 #define UTILS_H
 
-#define CURRENT_AQEMU_VERSION "0.9.7"
+#define CURRENT_AQEMU_VERSION "0.9.8"
 #define CURRENT_AQEMU_RELEASE_DATE "2026-07-17"
 
 #include <QString>
@@ -96,6 +96,13 @@ class QCheckBox;
 void Checkbox_Dependend_Set_Enabled(QList<QWidget*>& children_to_enable, QCheckBox* checkbox, bool enabled);
 
 double calculateContrast(const QColor& col1, const QColor& col2);
+
+// Find AAVMF / EDK2 aarch64 firmware CODE file; returns empty if not found
+QString Find_UEFI_Firmware_CODE( const QString &qemu_binary_path = QString() );
+// Template VARS file (read-only source to copy for a new VM)
+QString Find_UEFI_Firmware_VARS_Template( const QString &qemu_binary_path = QString() );
+// Copy VARS template into dest_path; returns true on success
+bool Prepare_UEFI_VARS_File( const QString &dest_path, const QString &qemu_binary_path = QString() );
 
 #endif
 

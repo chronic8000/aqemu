@@ -29,11 +29,20 @@
 #include <QFileDialog>
 #include <QDir>
 #include <QFile>
+#ifndef Q_OS_WIN32
 #include <QtDBus>
+#endif
 
 #ifdef Q_OS_LINUX
 #include <unistd.h>
 #include <sys/types.h>
+#endif
+#ifdef Q_OS_WIN32
+#include <io.h>
+#include <stdio.h>
+#else
+#include <unistd.h>
+#include <stdio.h>
 #endif
 #include <iostream>
 
@@ -80,10 +89,10 @@ or the name of the VM to specify on which VM to operate.
       --version          Show version.
 
   Qt Options:
-      --style THEME      Set theme/style."
+      --style THEME      Set theme/style.
 
   Examples:
-    aqemu start "Obscure OS""
+    aqemu start "Obscure OS"
     aqemu stop "$HOME/.aqemu/Obscure OS.aqemu"
 )";
 
@@ -101,13 +110,24 @@ AQEMU_Main::~AQEMU_Main()
     delete application;
 }
 
+static void AQEMU_Startup_Log( const char *stage )
+{
+    std::cout << "[AQEMU] " << stage << std::endl;
+    std::cout.flush();
+}
+
 int AQEMU_Main::main(int argc, char *argv[])
 {
-    std::cout << "========================================" << std::endl;
-    std::cout << "Starting AQEMU (Qt5 VM Manager)" << std::endl;
-    std::cout << "Version: " << CURRENT_AQEMU_VERSION << std::endl;
-    std::cout << "Pair programming with Antigravity" << std::endl;
-    std::cout << "========================================" << std::endl << std::endl;
+#ifdef Q_OS_WIN32
+    if( _isatty( _fileno( stdout ) ) )
+#else
+    if( isatty( fileno( stdout ) ) )
+#endif
+    {
+        std::cout << "AQEMU " << CURRENT_AQEMU_VERSION
+                  << " - QEMU Virtual Machine Manager" << std::endl;
+        std::cout.flush();
+    }
 
     QString version = QString("aqemu ") + CURRENT_AQEMU_VERSION;
     std::map<std::string, docopt::value> args
@@ -115,9 +135,11 @@ int AQEMU_Main::main(int argc, char *argv[])
                          { argv + 1, argv + argc },
                          true,               // show help if requested
                           qPrintable( version ) );  // version string
+    AQEMU_Startup_Log( "docopt ok" );
 
     // Create QApplication
     application = new QApplication( argc, argv );
+    AQEMU_Startup_Log( "QApplication ok" );
 
     QString AQEMU_FILE;
     if ( args.at("<AQEMU_FILE>").isString() )
@@ -227,16 +249,26 @@ int AQEMU_Main::main_window()
     Run_Guard guard( "Gmp[0Ab5598" ); //unique random key
     if ( !guard.tryToRun() )
     {
-        std::cout << qPrintable(QObject::tr("AQEMU is already running. Only one main window can be used at one time.")) << std::endl;
+        std::cout << qPrintable(QObject::tr(
+            "AQEMU is already running (or a previous instance did not exit cleanly).\n"
+            "Only one main window can be used at a time.\n"
+            "If no other AQEMU window is open, wait a moment and try again, or log off/reboot to clear the lock.")) << std::endl;
+        std::cout.flush();
         return 0;
     }
+    AQEMU_Startup_Log( "Run_Guard ok" );
 
     int ret = load_settings();
     if ( ret != 0 )
+    {
+        AQEMU_Startup_Log( "load_settings failed" );
         return ret;
+    }
+    AQEMU_Startup_Log( "load_settings ok" );
 
     // Show main window
     window = new Main_Window;
+    AQEMU_Startup_Log( "Main_Window ok" );
     AQEMU_Service::get().setMainWindowPtr( window );
     window->show();
 

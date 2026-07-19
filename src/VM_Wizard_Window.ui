@@ -407,8 +407,11 @@
              <verstretch>0</verstretch>
             </sizepolicy>
            </property>
+           <property name="toolTip">
+            <string>Build a VM for any QEMU architecture installed on this system (x86_64, aarch64, RISC-V, PPC, …). Computer Type lists every qemu-system-* binary that was found.</string>
+           </property>
            <property name="text">
-            <string>&amp;Generate VM</string>
+            <string>&amp;Generate VM (any QEMU arch)</string>
            </property>
           </widget>
          </item>

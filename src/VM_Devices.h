@@ -78,7 +78,7 @@ class VM
                 return VM::KVM; //default //FIXME? is this a good default?
         }
 		
-		// x86 audio cards ( one or more )
+		// Guest audio devices ( one or more )
 		class Sound_Cards
 		{
 			public:
@@ -90,10 +90,12 @@ class VM
 				bool Audio_AC97;
 				bool Audio_HDA;
 				bool Audio_cs4231a;
+				bool Audio_VirtIO;
+				bool Audio_USB;
 				
 				Sound_Cards()
 				{
-					Audio_sb16 = Audio_es1370 = Audio_Adlib = Audio_PC_Speaker = Audio_GUS = Audio_AC97 = Audio_HDA = Audio_cs4231a = false;
+					Audio_sb16 = Audio_es1370 = Audio_Adlib = Audio_PC_Speaker = Audio_GUS = Audio_AC97 = Audio_HDA = Audio_cs4231a = Audio_VirtIO = Audio_USB = false;
 				}
 
                 bool isEnabled()
@@ -105,7 +107,9 @@ class VM
                              Audio_GUS ||
                              Audio_AC97 ||
                              Audio_HDA ||
-                             Audio_cs4231a );
+                             Audio_cs4231a ||
+                             Audio_VirtIO ||
+                             Audio_USB );
                 }
 				
 				bool operator==( const Sound_Cards &v ) const
@@ -117,7 +121,9 @@ class VM
 						Audio_GUS == v.Audio_GUS &&
 						Audio_AC97 == v.Audio_AC97 &&
 						Audio_HDA == v.Audio_HDA &&
-						Audio_cs4231a == v.Audio_cs4231a )
+						Audio_cs4231a == v.Audio_cs4231a &&
+						Audio_VirtIO == v.Audio_VirtIO &&
+						Audio_USB == v.Audio_USB )
 					{
 						return true;
 					}

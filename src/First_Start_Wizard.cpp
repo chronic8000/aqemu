@@ -350,7 +350,15 @@ void First_Start_Wizard::on_Button_Find_Emulators_clicked()
 				emul.Set_Version( qemu_version );
 				emul.Set_Path( paths[qx] );
 				emul.Set_Devices( devList );
-				emul.Set_Binary_Files( qemu_list );
+				
+				// Keep only binaries that were actually found (plus any probed)
+				QMap<QString, QString> foundBins;
+				for( QMap<QString, QString>::const_iterator bit = qemu_list.constBegin(); bit != qemu_list.constEnd(); ++bit )
+				{
+					if( ! bit.value().isEmpty() )
+						foundBins[ bit.key() ] = bit.value();
+				}
+				emul.Set_Binary_Files( foundBins );
 				emul.Set_Check_Version( false );
 				emul.Set_Check_Available_Options( false );
 				emul.Set_Force_Version( false );
@@ -358,9 +366,10 @@ void First_Start_Wizard::on_Button_Find_Emulators_clicked()
 				qemuEmulatorsList << emul;
 				
 				// Add Text
-				ui.Edit_Enulators_List->appendPlainText( tr("QEMU Found in \"%1\", version: %2").
+				ui.Edit_Enulators_List->appendPlainText( tr("QEMU Found in \"%1\", version: %2 (%3 target(s))").
 														 arg(paths[qx]).
-														 arg(Emulator_Version_To_String(qemu_version)) );
+														 arg(Emulator_Version_To_String(qemu_version)).
+														 arg(foundBins.count()) );
 			}
 			
 			// Set default emulators
