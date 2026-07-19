@@ -450,6 +450,10 @@ class Virtual_Machine: public QObject
 		
 		int Get_Embedded_Display_Port() const;
 		void Set_Embedded_Display_Port( int port );
+
+		int Get_Embedded_Spice_Port() const { return Embedded_Spice_Port; }
+		int Get_QMP_Port() const { return QMP_Port; }
+		class QMP_Client *Get_QMP() const { return QMP; }
 		
 		// Window for control qemu/kvm
 		Emulator_Control_Window *Emu_Ctl;
@@ -477,6 +481,7 @@ class Virtual_Machine: public QObject
 
 		void QEMU_Started();
 		void QEMU_Finished( int exitCode, QProcess::ExitStatus exitStatus );
+		void Connect_Embedded_QMP();
 		
 		void Resume_Finished( const QString &neturned_text );
 		void Suspend_Finished( const QString &neturned_text );
@@ -654,6 +659,11 @@ class Virtual_Machine: public QObject
 		
 		// VNC Port for Embedded Display
 		int Embedded_Display_Port;
+
+		// Embedded session (SPICE / QMP)
+		int Embedded_Spice_Port;
+		int QMP_Port;
+		class QMP_Client *QMP;
 		
 		// Additional Windows
 		QWidget *Load_VM_Window;

@@ -48,6 +48,8 @@
 #include "Create_HDD_Image_Window.h"
 #include "Convert_HDD_Image_Window.h"
 #include "VM_Wizard_Window.h"
+#include "VM_Session_Widget.h"
+#include <QStackedWidget>
 #include "Ports_Tab_Widget.h"
 #include "Create_Template_Window.h"
 #include "Snapshots_Window.h"
@@ -71,7 +73,12 @@ QList<VM_USB> System_Info::All_Host_USB;
 QList<VM_USB> System_Info::Used_Host_USB;
 
 Main_Window::Main_Window( QWidget *parent )
-	: QMainWindow( parent ), block_VM_changed_signals( true )
+	: QMainWindow( parent )
+	, block_VM_changed_signals( true )
+	, Main_Stack( nullptr )
+	, Session_Widget( nullptr )
+	, Session_VM( nullptr )
+	, Session_Mode_Active( false )
 {
     Advanced_Options = new QDialog(this);
     Accelerator_Options = new QDialog(this);
@@ -80,6 +87,27 @@ Main_Window::Main_Window( QWidget *parent )
 
     ui.setupUi( this );
 	ui_ao.setupUi( Advanced_Options );
+
+	// Embedded session shell (guest view replaces idle UI)
+	Idle_Window_Title = windowTitle();
+	QWidget *idle_root = takeCentralWidget();
+	Main_Stack = new QStackedWidget( this );
+	Session_Widget = new VM_Session_Widget( this );
+	Main_Stack->addWidget( idle_root );
+	Main_Stack->addWidget( Session_Widget );
+	setCentralWidget( Main_Stack );
+	Main_Stack->setCurrentIndex( 0 );
+
+	connect( Session_Widget, SIGNAL(Exit_Session_View()), this, SLOT(On_Session_Exit_View()) );
+	connect( Session_Widget, SIGNAL(Request_Stop()), this, SLOT(On_Session_Request_Stop()) );
+	connect( Session_Widget, SIGNAL(Request_Shutdown()), this, SLOT(On_Session_Request_Shutdown()) );
+	connect( Session_Widget, SIGNAL(Request_Reset()), this, SLOT(On_Session_Request_Reset()) );
+
+	// Defaults for embedded session (new installs)
+	if( ! Settings.contains( "Embedded_Session" ) )
+		Settings.setValue( "Embedded_Session", "yes" );
+	if( ! Settings.contains( "Embedded_Display_Backend" ) )
+		Settings.setValue( "Embedded_Display_Backend", "spice" );
 
     connect(ui_ao.CH_Start_Date,SIGNAL(toggled(bool)),this,SLOT(adv_on_CH_Start_Date_toggled(bool)));
 
@@ -2121,6 +2149,81 @@ void Main_Window::VM_State_Changed( Virtual_Machine *vm, VM::VM_State s )
     Show_State_VM( vm );
 
 	vm->Save_VM(); // Save New State
+
+	// Embedded session: enter guest view when VM starts
+	if( Settings.value( "Embedded_Session", "yes" ).toString() == "yes" )
+	{
+		if( s == VM::VMS_Running || s == VM::VMS_Pause )
+		{
+			if( ! Session_Mode_Active || Session_VM == vm )
+				Enter_Session_Mode( vm );
+		}
+		else if( Session_Mode_Active && Session_VM == vm &&
+		         ( s == VM::VMS_Power_Off || s == VM::VMS_Saved ) )
+		{
+			Exit_Session_Mode();
+		}
+	}
+}
+
+void Main_Window::Enter_Session_Mode( Virtual_Machine *vm )
+{
+	if( ! vm || ! Session_Widget || ! Main_Stack )
+		return;
+
+	Session_VM = vm;
+	Session_Mode_Active = true;
+	setWindowTitle( tr( "AQEMU – %1" ).arg( vm->Get_Machine_Name() ) );
+
+	const int first_vnc = Settings.value( "First_VNC_Port", "5910" ).toString().toInt();
+	const int vnc_tcp = vm->Get_Embedded_Display_Port() + first_vnc;
+	const QString backend = Settings.value( "Embedded_Display_Backend", "spice" ).toString();
+
+	Session_Widget->Attach_VM( vm, vm->Get_QMP(),
+	                           QStringLiteral( "127.0.0.1" ),
+	                           vm->Get_Embedded_Spice_Port(),
+	                           vnc_tcp,
+	                           backend );
+	Main_Stack->setCurrentWidget( Session_Widget );
+}
+
+void Main_Window::Exit_Session_Mode()
+{
+	if( ! Session_Mode_Active )
+		return;
+
+	if( Session_Widget )
+		Session_Widget->Detach();
+
+	Session_Mode_Active = false;
+	Session_VM = nullptr;
+	if( Main_Stack )
+		Main_Stack->setCurrentIndex( 0 );
+	setWindowTitle( Idle_Window_Title.isEmpty() ? tr( "AQEMU" ) : Idle_Window_Title );
+}
+
+void Main_Window::On_Session_Exit_View()
+{
+	// Leave session UI without forcing power-off
+	Exit_Session_Mode();
+}
+
+void Main_Window::On_Session_Request_Stop()
+{
+	if( Session_VM )
+		AQEMU_Service::get().call( "stop", Session_VM );
+}
+
+void Main_Window::On_Session_Request_Shutdown()
+{
+	if( Session_VM )
+		AQEMU_Service::get().call( "shutdown", Session_VM );
+}
+
+void Main_Window::On_Session_Request_Reset()
+{
+	if( Session_VM )
+		AQEMU_Service::get().call( "reset", Session_VM );
 }
 
 void Main_Window::Change_The_Icon(Virtual_Machine* vm, QString _icon)
@@ -4161,6 +4264,15 @@ void Main_Window::Computer_Type_Changed()
 	ui.CH_VirtIO_Sound->setEnabled( curComp.Audio_Card_List.Audio_VirtIO );
 	ui.CH_USB_Audio->setEnabled( curComp.Audio_Card_List.Audio_USB );
 
+	// Default to Intel HDA when nothing is selected yet
+	const bool any_sound =
+		ui.CH_sb16->isChecked() || ui.CH_es1370->isChecked() || ui.CH_Adlib->isChecked() ||
+		ui.CH_AC97->isChecked() || ui.CH_GUS->isChecked() || ui.CH_PCSPK->isChecked() ||
+		ui.CH_HDA->isChecked() || ui.CH_cs4231a->isChecked() ||
+		ui.CH_VirtIO_Sound->isChecked() || ui.CH_USB_Audio->isChecked();
+	if( ! any_sound && curComp.Audio_Card_List.Audio_HDA && ui.CH_HDA->isEnabled() )
+		ui.CH_HDA->setChecked( true );
+
     ui_arch.CB_CPU_Type->blockSignals(false);
     ui_arch.CB_Machine_Type->blockSignals(false);
     ui.CB_CPU_Type_Main->blockSignals(false);
@@ -4250,34 +4362,19 @@ void Main_Window::Update_Computer_Types()
     }
     ui.CB_Computer_Type->setCurrentText(text);
 
-    bool only_native = false;
-    if (ui.CB_Machine_Accelerator->currentText() == "KVM" ||
-        ui.CB_Machine_Accelerator->currentText() == "XEN" )
-    {
-        only_native = true;
-    }
-
+	// Never grey out architectures — users may pick any guest arch.
+	// Accelerators that cannot run a guest will fall back to TCG at start / via accel tip.
     auto model = qobject_cast<QStandardItemModel*>(ui.CB_Computer_Type->model());
-
-    for ( int i = 0; i < model->rowCount(); i++)
-    {
-        auto item = model->item(i);
-
-        if ( item->text() == "IBM PC 64Bit" ) //FIXME: shouldn't be hardcoded
-        {
-            if (only_native)
-                ui.CB_Computer_Type->setCurrentText(item->text());
-            continue;
-        }
-
-        item->setFlags(only_native ? item->flags() & ~(Qt::ItemIsSelectable|Qt::ItemIsEnabled)
-                                         : (Qt::ItemIsSelectable|Qt::ItemIsEnabled));
-        // visually disable by greying out - works only if combobox has been
-        // painted already and palette returns the wanted color
-        item->setData(only_native ? ui.CB_Computer_Type->palette().color(QPalette::Disabled, QPalette::Text)
-                          : QVariant(), // clear item data in order to use default color
-                      Qt::TextColorRole);
-    }
+	if( model )
+	{
+		for( int i = 0; i < model->rowCount(); i++ )
+		{
+			auto item = model->item( i );
+			if( ! item ) continue;
+			item->setFlags( Qt::ItemIsSelectable | Qt::ItemIsEnabled );
+			item->setData( QVariant(), Qt::TextColorRole );
+		}
+	}
 
     ui.CB_Computer_Type->blockSignals(false);
 }

@@ -14,6 +14,9 @@ OPTION( WITHOUT_EMBEDDED_DISPLAY "Build without support Embedded VNC Display" )
 OPTION( UPDATE_TRANSLATIONS "Update source translation files (WARNING: make clean will delete the source .ts files!)" )
 OPTION( INSTALL_MAN "Install MAN page file" "ON" )
 OPTION( PI5_OPTIMIZATIONS "Enable compiler and linker optimizations for Raspberry Pi 5" OFF )
+OPTION( AQEMU_BUNDLE_QEMU "Prefer/copy QEMU from AQEMU_QEMU_PREFIX into the build tree" OFF )
+OPTION( AQEMU_WITH_SPICE_GTK "Build SPICE client widget via spice-gtk (Linux/Pi; optional on Windows)" OFF )
+SET( AQEMU_QEMU_PREFIX "${CMAKE_SOURCE_DIR}/third_party/qemu-install" CACHE PATH "Prefix of a built QEMU bundle (bin/qemu-system-*)" )
 
 # Debug mode
 IF( DEBUG )
@@ -85,6 +88,10 @@ SET( aqemu_headers
 	src/VM_Devices.h
 	src/VM_Wizard_Window.h
 	src/VNC_Password_Window.h
+	src/QMP_Client.h
+	src/Embedded_Display/Guest_Display_View.h
+	src/Embedded_Display/Spice_View.h
+	src/VM_Session_Widget.h
 )
 
 SET( aqemu_sources
@@ -136,6 +143,10 @@ SET( aqemu_sources
 	src/VM_Devices.cpp
 	src/VM_Wizard_Window.cpp
 	src/VNC_Password_Window.cpp
+	src/QMP_Client.cpp
+	src/Embedded_Display/Guest_Display_View.cpp
+	src/Embedded_Display/Spice_View.cpp
+	src/VM_Session_Widget.cpp
 )
 
 SET( aqemu_ui
@@ -261,6 +272,41 @@ TARGET_LINK_LIBRARIES( aqemu
 IF( NOT WITHOUT_EMBEDDED_DISPLAY )
 	TARGET_LINK_LIBRARIES( aqemu ${LIBVNCCLIENT_LIBRARIES} )
 ENDIF( NOT WITHOUT_EMBEDDED_DISPLAY )
+
+# Optional spice-gtk client
+IF( AQEMU_WITH_SPICE_GTK )
+	FIND_PACKAGE( PkgConfig REQUIRED )
+	PKG_CHECK_MODULES( SPICE_GTK REQUIRED spice-client-gtk-3.0 )
+	TARGET_INCLUDE_DIRECTORIES( aqemu PRIVATE ${SPICE_GTK_INCLUDE_DIRS} )
+	TARGET_LINK_LIBRARIES( aqemu ${SPICE_GTK_LIBRARIES} )
+	ADD_DEFINITIONS( -DAQEMU_HAVE_SPICE_GTK )
+	MESSAGE( STATUS "SPICE-GTK client enabled" )
+ENDIF( AQEMU_WITH_SPICE_GTK )
+
+# Bundle QEMU binaries next to aqemu when requested
+IF( AQEMU_BUNDLE_QEMU )
+	IF( EXISTS "${AQEMU_QEMU_PREFIX}/bin" )
+		SET( _qemu_bin_dir "${AQEMU_QEMU_PREFIX}/bin" )
+	ELSEIF( EXISTS "${AQEMU_QEMU_PREFIX}" )
+		SET( _qemu_bin_dir "${AQEMU_QEMU_PREFIX}" )
+	ELSE()
+		MESSAGE( WARNING "AQEMU_BUNDLE_QEMU set but AQEMU_QEMU_PREFIX not found: ${AQEMU_QEMU_PREFIX}" )
+		SET( _qemu_bin_dir "" )
+	ENDIF()
+	IF( _qemu_bin_dir )
+		FILE( GLOB _qemu_bins
+			"${_qemu_bin_dir}/qemu-system-*"
+			"${_qemu_bin_dir}/qemu-img*"
+		)
+		FOREACH( _qb ${_qemu_bins} )
+			ADD_CUSTOM_COMMAND( TARGET aqemu POST_BUILD
+				COMMAND ${CMAKE_COMMAND} -E copy_if_different "${_qb}" "$<TARGET_FILE_DIR:aqemu>/"
+				COMMENT "Bundle QEMU: ${_qb}"
+			)
+		ENDFOREACH()
+		MESSAGE( STATUS "Will copy QEMU binaries from ${_qemu_bin_dir} next to aqemu" )
+	ENDIF()
+ENDIF( AQEMU_BUNDLE_QEMU )
 
 # Install files
 INSTALL( TARGETS aqemu DESTINATION bin )

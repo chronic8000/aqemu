@@ -231,9 +231,78 @@ void AQSave_To_Log( const QString &mes_type, const QString &sender, const QStrin
 	}
 }
 
+QString Get_QEMU_IMG_Path()
+{
+	QSettings settings;
+	QString configured = settings.value( "QEMU-IMG_Path", "" ).toString().trimmed();
+
+#ifdef Q_OS_WIN32
+	const QString exe_suffix = ".exe";
+#else
+	const QString exe_suffix = "";
+#endif
+
+	auto path_ok = []( const QString &p ) -> bool {
+		return ! p.isEmpty() && QFile::exists( p ) && QFileInfo( p ).isFile();
+	};
+
+	if( path_ok( configured ) )
+		return QDir::toNativeSeparators( configured );
+
+	// Bare name like "qemu-img" is not usable on Windows without PATH — rediscover.
+	QStringList candidates;
+
+	// Bundled next to aqemu (AQEMU_BUNDLE_QEMU / submodule install)
+	const QString app_dir = QCoreApplication::applicationDirPath();
+	candidates << app_dir + QDir::separator() + "qemu-img" + exe_suffix;
+	candidates << app_dir + QDir::separator() + "qemu" + QDir::separator() + "qemu-img" + exe_suffix;
+
+	// Next to any configured emulator binary
+	const Emulator &emul = Get_Default_Emulator();
+	QMap<QString, QString> bins = emul.Get_Binary_Files();
+	for( QMap<QString, QString>::const_iterator it = bins.constBegin(); it != bins.constEnd(); ++it )
+	{
+		if( it.value().isEmpty() )
+			continue;
+		QFileInfo fi( it.value() );
+		if( fi.exists() )
+			candidates << fi.absolutePath() + "/qemu-img" + exe_suffix;
+	}
+
+	candidates
+		<< "C:/Program Files/qemu/qemu-img" + exe_suffix
+		<< "C:/Program Files (x86)/qemu/qemu-img" + exe_suffix
+		<< "/usr/bin/qemu-img"
+		<< "/usr/local/bin/qemu-img"
+		<< "qemu-img" + exe_suffix
+		<< "qemu-img";
+
+	for( int i = 0; i < candidates.size(); ++i )
+	{
+		QString c = QDir::toNativeSeparators( candidates[i] );
+		if( path_ok( c ) )
+		{
+			settings.setValue( "QEMU-IMG_Path", c );
+			AQDebug( "QString Get_QEMU_IMG_Path()", "Using qemu-img: " + c );
+			return c;
+		}
+	}
+
+	AQWarning( "QString Get_QEMU_IMG_Path()",
+			   "qemu-img not found; falling back to configured value: " + configured );
+	if( ! configured.isEmpty() )
+		return configured;
+	return QString( "qemu-img" ) + exe_suffix;
+}
+
 bool Create_New_HDD_Image( bool encrypted, const QString &base_image,
 						   const QString &file_name, const QString &format, VM::Device_Size size, bool verbose )
 {
+	// Ensure destination directory exists
+	QFileInfo outInfo( file_name );
+	if( ! outInfo.absolutePath().isEmpty() )
+		QDir().mkpath( outInfo.absolutePath() );
+
 	// Create command line
 	QStringList args;
 	args << "create";
@@ -265,14 +334,16 @@ bool Create_New_HDD_Image( bool encrypted, const QString &base_image,
 	
 	// Start qemu-img process
 	QProcess qemu_img;
-	QSettings settings;
-	qemu_img.start( settings.value("QEMU-IMG_Path", "qemu-img").toString(), args );
+	QString qemu_img_path = Get_QEMU_IMG_Path();
+	qemu_img.start( qemu_img_path, args );
 	
 	if( ! qemu_img.waitForStarted(2000) )
 	{
 		AQGraphic_Error( "bool Create_New_HDD_Image( bool encrypted, const QString &base_image,"
 						 "const QString &file_name, const QString &format, VM::Device_Size size, bool verbose )",
-						 QObject::tr("Error!"), QObject::tr("Cannot Start qemu-img! Image isn't Created!") );
+						 QObject::tr("Error!"),
+						 QObject::tr("Cannot Start qemu-img! Image isn't Created!\nTried: %1")
+							 .arg( qemu_img_path ) );
 		return false;
 	}
 	

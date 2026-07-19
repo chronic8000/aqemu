@@ -44,6 +44,7 @@
 #include "Snapshots_Window.h"
 #include "VM_Devices.h"
 #include "Service.h"
+#include "QMP_Client.h"
 
 Emulator_Control_Window::Emulator_Control_Window( QWidget *parent )
 	: QMainWindow( parent )
@@ -867,8 +868,11 @@ void Emulator_Control_Window::on_actionFD0_Other_triggered()
 void Emulator_Control_Window::on_actionFD0_Eject_triggered()
 {
 	if( ! FD0_Available() ) return;
-	
-	emit Ready_Read_Command( "eject -f floppy0" );
+
+	if( Cur_VM && Cur_VM->Get_QMP() && Cur_VM->Get_QMP()->Is_Connected() )
+		Cur_VM->Get_QMP()->Eject_Medium( "aqemu-fd0", true );
+	else
+		emit Ready_Read_Command( "eject -f floppy0" );
 }
 
 void Emulator_Control_Window::Open_Recent_Floppy0_Image()
@@ -923,7 +927,10 @@ void Emulator_Control_Window::on_actionFD1_Eject_triggered()
 {
 	if( ! FD1_Available() ) return;
 
-	emit Ready_Read_Command( "eject -f floppy1" );
+	if( Cur_VM && Cur_VM->Get_QMP() && Cur_VM->Get_QMP()->Is_Connected() )
+		Cur_VM->Get_QMP()->Eject_Medium( "aqemu-fd1", true );
+	else
+		emit Ready_Read_Command( "eject -f floppy1" );
 }
 
 void Emulator_Control_Window::Open_Recent_Floppy1_Image()
@@ -977,8 +984,11 @@ void Emulator_Control_Window::on_actionCDROM_Other_triggered()
 void Emulator_Control_Window::on_actionCDROM_Eject_triggered()
 {
 	if( ! CD_ROM_Available() ) return;
-	
-	emit Ready_Read_Command( "eject -f ide1-cd0" );
+
+	if( Cur_VM && Cur_VM->Get_QMP() && Cur_VM->Get_QMP()->Is_Connected() )
+		Cur_VM->Get_QMP()->Eject_Medium( "aqemu-cdrom", true );
+	else
+		emit Ready_Read_Command( "eject -f ide1-cd0" );
 }
 
 void Emulator_Control_Window::Open_Recent_CD_ROM_Image()
@@ -1585,23 +1595,39 @@ void Emulator_Control_Window::Set_Device( const QString &dev_name, const QString
 	/*if( Cur_VM->Get_Emulator().Get_Version() != VM::QEMU_0_9_0 )*/
 	QString new_dev_name;
 	
-	if( dev_name == "fda" ) new_dev_name = "floppy0";
-	else if( dev_name == "fdb" ) new_dev_name = "floppy1";
-	else if( dev_name == "cdrom" ) new_dev_name = "ide1-cd0";
+	if( dev_name == "fda" ) new_dev_name = "aqemu-fd0";
+	else if( dev_name == "fdb" ) new_dev_name = "aqemu-fd1";
+	else if( dev_name == "cdrom" ) new_dev_name = "aqemu-cdrom";
+	else if( dev_name == "floppy0" ) new_dev_name = "aqemu-fd0";
+	else if( dev_name == "floppy1" ) new_dev_name = "aqemu-fd1";
+	else if( dev_name == "ide1-cd0" ) new_dev_name = "aqemu-cdrom";
 	else new_dev_name = dev_name;
-	
-	emit Ready_Read_Command( "change " + new_dev_name + " \"" + path + "\"" );
+
+	// Prefer QMP when embedded session is active
+	if( Cur_VM && Cur_VM->Get_QMP() && Cur_VM->Get_QMP()->Is_Connected() )
+	{
+		Cur_VM->Get_QMP()->Change_Medium( new_dev_name, path );
+	}
+	else
+	{
+		// HMP fallback — classic QEMU device names
+		QString hmp_name = new_dev_name;
+		if( new_dev_name == "aqemu-fd0" ) hmp_name = "floppy0";
+		else if( new_dev_name == "aqemu-fd1" ) hmp_name = "floppy1";
+		else if( new_dev_name == "aqemu-cdrom" ) hmp_name = "ide1-cd0";
+		emit Ready_Read_Command( "change " + hmp_name + " \"" + path + "\"" );
+	}
 	
 	// Save new path
-	if( dev_name == "fda" ) Cur_VM->Set_FD0( VM_Storage_Device(true, path) );
-	else if( dev_name == "fdb" ) Cur_VM->Set_FD1( VM_Storage_Device(true, path) );
-	else if( dev_name == "cdrom" ) Cur_VM->Set_CD_ROM( VM_Storage_Device(true, path) );
+	if( dev_name == "fda" || new_dev_name == "aqemu-fd0" ) Cur_VM->Set_FD0( VM_Storage_Device(true, path) );
+	else if( dev_name == "fdb" || new_dev_name == "aqemu-fd1" ) Cur_VM->Set_FD1( VM_Storage_Device(true, path) );
+	else if( dev_name == "cdrom" || new_dev_name == "aqemu-cdrom" ) Cur_VM->Set_CD_ROM( VM_Storage_Device(true, path) );
 	else
 	{
 		// Find device
-		if( dev_name.contains("-cd") ) // CD-ROM?
+		if( dev_name.contains("-cd") || new_dev_name == "aqemu-cdrom" ) // CD-ROM?
 		{
-			if( dev_name == "ide1-cd0" ) // Default CD-ROM drive
+			if( new_dev_name == "aqemu-cdrom" || dev_name == "ide1-cd0" ) // Default CD-ROM drive
 			{
 				Cur_VM->Set_CD_ROM( VM_Storage_Device( true,
 													   path,

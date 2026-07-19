@@ -581,8 +581,15 @@ void Advanced_Settings_Window::done(int r)
 	    // QEMU_AUDIO_DRV
 	    Settings.setValue( "QEMU_AUDIO/QEMU_AUDIO_DRV", ui.CB_Host_Sound_System->currentText() );
 	
-	    // First VNC Port for Embedded Display
+	// First VNC Port for Embedded Display
 	    Settings.setValue( "First_VNC_Port", QString::number(ui.SB_First_VNC_Port->value()) );
+
+	    // Embedded session (headless QEMU inside AQEMU)
+	    // Keep prior value if widgets absent; default is set in Main_Window.
+	    if( ! Settings.contains( "Embedded_Session" ) )
+		    Settings.setValue( "Embedded_Session", "yes" );
+	    if( ! Settings.contains( "Embedded_Display_Backend" ) )
+		    Settings.setValue( "Embedded_Display_Backend", "spice" );
 	
 	    // QEMU Monitor Type
 	    #ifdef Q_OS_WIN32

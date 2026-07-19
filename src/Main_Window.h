@@ -46,6 +46,8 @@ class Device_Manager_Widget;
 class Folder_Sharing_Widget;
 class Network_Card_Widget;
 class Block_VM_Changed_Signals;
+class VM_Session_Widget;
+class QStackedWidget;
 
 class Main_Window: public QMainWindow
 {
@@ -189,6 +191,13 @@ class Main_Window: public QMainWindow
 		void on_TB_MTDBlock_File_Browse_clicked();
 		void on_TB_SD_Image_File_Browse_clicked();
 		void on_TB_PFlash_File_Browse_clicked();
+
+		void Enter_Session_Mode( Virtual_Machine *vm );
+		void Exit_Session_Mode();
+		void On_Session_Exit_View();
+		void On_Session_Request_Stop();
+		void On_Session_Request_Shutdown();
+		void On_Session_Request_Reset();
 		
 	protected:
 		void closeEvent( QCloseEvent *event );
@@ -287,6 +296,12 @@ class Main_Window: public QMainWindow
 		Old_Network_Widget *Old_Network_Settings_Widget;
 		
         SPICE_Settings_Widget* SPICE_Widget;
+
+		QStackedWidget *Main_Stack;
+		VM_Session_Widget *Session_Widget;
+		Virtual_Machine *Session_VM;
+		QString Idle_Window_Title;
+		bool Session_Mode_Active;
 
         bool block_VM_changed_signals;
 };

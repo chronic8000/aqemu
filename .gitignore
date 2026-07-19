@@ -35,3 +35,9 @@ Desktop.ini
 # Release staging (uploaded to GitHub Releases, not the repo)
 dist/
 *.zip
+
+# Bundled QEMU build outputs
+third_party/qemu-build/
+third_party/qemu-build-win/
+third_party/qemu-install/
+
