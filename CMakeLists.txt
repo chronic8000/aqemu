@@ -8,6 +8,14 @@
 CMAKE_MINIMUM_REQUIRED( VERSION 3.5 FATAL_ERROR )
 PROJECT( AQEMU CXX )
 
+# Host platforms we ship and document. macOS guests under QEMU are fine;
+# building AQEMU itself on macOS is not supported.
+IF( APPLE )
+	MESSAGE( FATAL_ERROR
+		"AQEMU host builds are only supported on Linux (incl. Raspberry Pi) and Windows. "
+		"macOS is not a supported build target. You can still run macOS as a QEMU guest from Linux/Windows." )
+ENDIF()
+
 # Available options
 OPTION( DEBUG "Build with debug information" )
 OPTION( WITHOUT_EMBEDDED_DISPLAY "Build without support Embedded VNC Display" )

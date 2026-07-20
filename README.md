@@ -1,6 +1,8 @@
 # AQEMU (Raspberry Pi 5, Wayland & Windows)
 
-AQEMU is a Qt5 GUI frontend for QEMU. This fork targets **Raspberry Pi 5** (Raspbian Trixie / Debian 13, Wayland) and **Windows** hosts for multi-arch VMs (including Windows 11 ARM under TCG).
+AQEMU is a Qt5 GUI frontend for QEMU. This fork targets **Linux** (including **Raspberry Pi 5** / Raspbian Trixie) and **Windows** hosts for multi-arch VMs (including Windows 11 ARM under TCG).
+
+**Supported host builds:** Linux (Debian/Ubuntu/Pi) and Windows. **macOS is not a supported host** — do not expect AQEMU itself to build or run on Mac. macOS / classic Mac OS as **QEMU guests** are still available in the New VM wizard.
 
 ---
 

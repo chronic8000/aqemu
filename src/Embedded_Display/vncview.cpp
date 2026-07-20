@@ -644,7 +644,7 @@ void VncView::keyEventHandler(QKeyEvent *e)
         return;
 
     // RFB keys are X11 keysyms. On Linux/X11, nativeVirtualKey() already returns
-    // those. On Windows/macOS it returns OS virtual-key codes (e.g. VK_RETURN=0x0D
+    // those. On Windows it returns OS virtual-key codes (e.g. VK_RETURN=0x0D
     // instead of XK_Return=0xFF0D) — digits work by accident, Enter/Tab/arrows fail.
     // Mapping based on Veyon VncView.cpp.
     rfbKeySym k = 0;
