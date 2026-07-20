@@ -8,6 +8,8 @@
 #include <QTcpSocket>
 #include <QJsonObject>
 #include <QJsonDocument>
+#include <QJsonArray>
+#include <QHash>
 #include <QTimer>
 
 class QMP_Client : public QObject
@@ -27,6 +29,8 @@ class QMP_Client : public QObject
 		bool System_Reset();
 		bool Quit_QEMU();
 		bool Query_Block();
+		bool Query_Blockstats();
+		bool Human_Monitor( const QString &command_line );
 
 		quint16 Port() const { return Port_; }
 
@@ -37,6 +41,7 @@ class QMP_Client : public QObject
 		void Event_Received( const QJsonObject &event );
 		void Reply_Received( const QJsonObject &reply );
 		void Block_Info( const QJsonArray &devices );
+		void Block_Stats( const QJsonArray &stats );
 
 	private slots:
 		void On_Ready_Read();
@@ -50,6 +55,7 @@ class QMP_Client : public QObject
 		quint16 Port_;
 		bool Capabilities_Sent;
 		int Next_Id;
+		QHash<int, QString> Pending_Commands;
 };
 
 quint16 Find_Free_TCP_Port( quint16 start = 4444 );

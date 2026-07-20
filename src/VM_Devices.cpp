@@ -1593,7 +1593,23 @@ static void Merge_Predefined_Properties( Available_Devices &dev, const QString &
 		dev.PSO_No_ACPI = dev.PSO_No_ACPI || fallback.PSO_No_ACPI;
 		dev.PSO_KVM = dev.PSO_KVM || fallback.PSO_KVM;
 		dev.PSO_RTC_TD_Hack = dev.PSO_RTC_TD_Hack || fallback.PSO_RTC_TD_Hack;
+
+		// OR-merge audio so stale emulator XML never greys out working cards
+		dev.Audio_Card_List.Audio_sb16 = dev.Audio_Card_List.Audio_sb16 || fallback.Audio_Card_List.Audio_sb16;
+		dev.Audio_Card_List.Audio_es1370 = dev.Audio_Card_List.Audio_es1370 || fallback.Audio_Card_List.Audio_es1370;
+		dev.Audio_Card_List.Audio_Adlib = dev.Audio_Card_List.Audio_Adlib || fallback.Audio_Card_List.Audio_Adlib;
+		dev.Audio_Card_List.Audio_PC_Speaker = dev.Audio_Card_List.Audio_PC_Speaker || fallback.Audio_Card_List.Audio_PC_Speaker;
+		dev.Audio_Card_List.Audio_GUS = dev.Audio_Card_List.Audio_GUS || fallback.Audio_Card_List.Audio_GUS;
+		dev.Audio_Card_List.Audio_AC97 = dev.Audio_Card_List.Audio_AC97 || fallback.Audio_Card_List.Audio_AC97;
+		dev.Audio_Card_List.Audio_HDA = dev.Audio_Card_List.Audio_HDA || fallback.Audio_Card_List.Audio_HDA;
+		dev.Audio_Card_List.Audio_cs4231a = dev.Audio_Card_List.Audio_cs4231a || fallback.Audio_Card_List.Audio_cs4231a;
+		dev.Audio_Card_List.Audio_VirtIO = dev.Audio_Card_List.Audio_VirtIO || fallback.Audio_Card_List.Audio_VirtIO;
+		dev.Audio_Card_List.Audio_USB = dev.Audio_Card_List.Audio_USB || fallback.Audio_Card_List.Audio_USB;
 	}
+
+	if( dev.System.QEMU_Name.isEmpty() )
+		dev.System.QEMU_Name = computerType;
+	System_Info::Normalize_Virt_Arch_Devices( dev );
 }
 
 void Emulator::Set_Devices( const QMap<QString, Available_Devices> &devices )
@@ -2287,20 +2303,30 @@ VM::Device_Size VM_HDD::String_to_Device_Size( const QString &size ) const
 				 "Size String is Empty..." );
 		return zero_size;
 	}
+
+	// Accept "40G", "40 G", "40GiB", "2.5M", etc.
+	QString s = size.trimmed();
+	int paren = s.indexOf( '(' );
+	if( paren > 0 )
+		s = s.left( paren ).trimmed();
+	s.replace( QRegExp( "\\s+" ), "" );
+	s.replace( "GiB", "G", Qt::CaseInsensitive );
+	s.replace( "MiB", "M", Qt::CaseInsensitive );
+	s.replace( "KiB", "K", Qt::CaseInsensitive );
 	
-	QRegExp RegInfo = QRegExp( "([\\d]+|[\\d]+[.,][\\d]+).*([KMG]+)" );
+	QRegExp RegInfo = QRegExp( "^([\\d]+(?:[.,][\\d]+)?)([KMGkmg]).*" );
 	
-	if( ! RegInfo.exactMatch(size) )
+	if( ! RegInfo.exactMatch(s) )
 	{
 		AQError( "VM::Device_Size VM_HDD::String_to_Device_Size( const QString &size ) const",
-				 "Cannot Match RegExp!" );
+				 "Cannot Match RegExp! Input: " + size );
 		return zero_size;
 	}
 	
 	QStringList info_lines = RegInfo.capturedTexts();
 	
 	bool ok = false;
-	hd_size.Size = info_lines[1].toDouble( &ok );
+	hd_size.Size = info_lines[1].replace( ',', '.' ).toDouble( &ok );
 	
 	if( ! ok )
 	{
@@ -2309,11 +2335,12 @@ VM::Device_Size VM_HDD::String_to_Device_Size( const QString &size ) const
 		return zero_size;
 	}
 	
-	if( info_lines[2] == "K" )
+	QChar suf = info_lines[2].at( 0 ).toUpper();
+	if( suf == 'K' )
 		hd_size.Suffix = VM::Size_Suf_Kb;
-	else if( info_lines[2] == "M" )
+	else if( suf == 'M' )
 		hd_size.Suffix = VM::Size_Suf_Mb;
-	else if( info_lines[2] == "G" )
+	else if( suf == 'G' )
 		hd_size.Suffix = VM::Size_Suf_Gb;
 	else
 	{

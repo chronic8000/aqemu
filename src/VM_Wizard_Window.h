@@ -35,6 +35,9 @@
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QFileDialog>
+#include <QTreeWidget>
+#include <QListWidget>
+#include <QJsonObject>
 
 #include "VM.h"
 #include "ui_VM_Wizard_Window.h"
@@ -76,12 +79,12 @@ class VM_Wizard_Window: public QDialog
 		void on_Button_New_HDD_clicked();
 		void on_Button_Existing_clicked();
 		
-		void on_RB_Win11_New_Disk_toggled( bool on );
-		void on_CH_Win11_Already_Installed_toggled( bool on );
-		void on_TB_Win11_ISO_Browse_clicked();
-		void on_TB_Win11_Existing_Disk_Browse_clicked();
-		void on_TB_Win11_VirtIO_ISO_Browse_clicked();
-		void on_CH_Win11_VirtIO_ISO_toggled( bool on );
+		void Win11_New_Disk_Toggled( bool on );
+		void Win11_Already_Installed_Toggled( bool on );
+		void Win11_ISO_Browse_Clicked();
+		void Win11_Existing_Disk_Browse_Clicked();
+		void Win11_VirtIO_ISO_Browse_Clicked();
+		void Win11_VirtIO_ISO_Toggled( bool on );
 		
 	private:
         void applyTemplate();
@@ -92,6 +95,29 @@ class VM_Wizard_Window: public QDialog
 		void Apply_AArch64_Generic_Profile( bool simulate );
 		void Build_Windows11_ARM_Page();
 		void Update_Finish_Page_Guidance();
+
+		// Three-path wizard
+		void Build_Three_Path_Pages();
+		bool Load_Wizard_Trees();
+		void Populate_OS_Tree();
+		void Populate_Platform_Tree();
+		void Populate_Arch_List();
+		void Populate_Arch_Machines( const QString &arch_display );
+		bool Ensure_Emulator_Ready();
+		bool Apply_Selected_Computer_Type( const QString &target );
+		void Apply_Platform_Binding( const QString &platform_display );
+		void Apply_OS_Defaults( const QString &os_name );
+		QString Selected_Tree_Leaf( QTreeWidget *tree ) const;
+		void Goto_Hardware_Flow();
+		void Prefer_Accelerator_For_Target( const QString &target );
+
+		enum Creation_Method {
+			Method_None = 0,
+			Method_Guest_OS,
+			Method_Platform,
+			Method_Architecture,
+			Method_Custom
+		};
 
 		QSettings Settings;
 		Ui::VM_Wizard_Window ui;
@@ -119,6 +145,39 @@ class VM_Wizard_Window: public QDialog
 		QToolButton *TB_Win11_VirtIO_ISO_Browse;
 		QLabel *Label_Win11_UEFI_Status;
 		QLabel *Label_Win11_Finish_Help;
+
+		// Three-path pages
+		QWidget *Creation_Method_Page;
+		QWidget *OS_Tree_Page;
+		QWidget *Platform_Tree_Page;
+		QWidget *Arch_List_Page;
+		QWidget *Arch_Machines_Page;
+		QRadioButton *RB_Method_Guest_OS;
+		QRadioButton *RB_Method_Platform;
+		QRadioButton *RB_Method_Architecture;
+		QRadioButton *RB_Method_Custom;
+		QTreeWidget *Tree_OS;
+		QTreeWidget *Tree_Platform;
+		QListWidget *List_Arch;
+		QTreeWidget *Tree_Arch_Machines;
+		QJsonObject Wizard_Trees;
+		Creation_Method Current_Method;
+		bool Three_Path_Active;
+		QString Selected_OS_Name;
+		QString Selected_Platform_Name;
+		QString Selected_Arch_Name;
+		QString Selected_Target;
+		QString Selected_Machine_Id;
+		int Guest_RAM_MB;
+		double Guest_HDD_GB;
+		QString Guest_NIC_Model;
+		VM::Sound_Cards Guest_Sound;
+		QString Guest_Compat_Tip;
+		QLabel *Label_Guest_Compat_Tip;
+		bool Guest_Suggest_Win2K_Hack;
+
+		void Update_Guest_Compat_Tip();
+		void Apply_Guest_Hardware_To_New_VM();
 };
 
 #endif

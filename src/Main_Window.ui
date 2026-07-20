@@ -665,6 +665,38 @@
                   </widget>
                  </item>
                  <item row="3" column="0">
+                  <widget class="QLabel" name="Label_Display_Resolution">
+                   <property name="sizePolicy">
+                    <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+                     <horstretch>0</horstretch>
+                     <verstretch>0</verstretch>
+                    </sizepolicy>
+                   </property>
+                   <property name="text">
+                    <string>Resol&amp;ution:</string>
+                   </property>
+                   <property name="buddy">
+                    <cstring>CB_Display_Resolution</cstring>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="3" column="1" colspan="2">
+                  <widget class="QComboBox" name="CB_Display_Resolution">
+                   <property name="sizePolicy">
+                    <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
+                     <horstretch>0</horstretch>
+                     <verstretch>0</verstretch>
+                    </sizepolicy>
+                   </property>
+                   <property name="toolTip">
+                    <string>Guest display size for VirtIO GPU (EDID). Lower resolutions are faster on ARM/TCG. Windows on ARM often cannot change this from inside the guest.</string>
+                   </property>
+                   <property name="sizeAdjustPolicy">
+                    <enum>QComboBox::AdjustToMinimumContentsLength</enum>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="4" column="0">
                   <widget class="QLabel" name="Label_Keyboard_Layout">
                    <property name="sizePolicy">
                     <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
@@ -680,7 +712,7 @@
                    </property>
                   </widget>
                  </item>
-                 <item row="3" column="1" colspan="2">
+                 <item row="4" column="1" colspan="2">
                   <widget class="QComboBox" name="CB_Keyboard_Layout">
                    <property name="sizePolicy">
                     <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
@@ -864,6 +896,86 @@
                      <string>tr</string>
                     </property>
                    </item>
+                  </widget>
+                 </item>
+                 <item row="5" column="0">
+                  <widget class="QLabel" name="Label_Mouse_Type">
+                   <property name="text">
+                    <string>&amp;Mouse:</string>
+                   </property>
+                   <property name="buddy">
+                    <cstring>CB_Mouse_Type</cstring>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="5" column="1" colspan="2">
+                  <widget class="QComboBox" name="CB_Mouse_Type">
+                   <property name="toolTip">
+                    <string>Guest pointer device. USB Tablet (absolute) is recommended for remote/embedded displays so the cursor tracks without grab. PS/2 is relative (needs grab). VirtIO needs guest drivers. VMware mouse needs the vmware VGA + guest tools.</string>
+                   </property>
+                   <property name="sizeAdjustPolicy">
+                    <enum>QComboBox::AdjustToMinimumContentsLength</enum>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="6" column="0">
+                  <widget class="QLabel" name="Label_Mouse_USB_Controller">
+                   <property name="text">
+                    <string>USB controller:</string>
+                   </property>
+                   <property name="buddy">
+                    <cstring>CB_Mouse_USB_Controller</cstring>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="6" column="1" colspan="2">
+                  <widget class="QComboBox" name="CB_Mouse_USB_Controller">
+                   <property name="toolTip">
+                    <string>Controller used when Mouse is a USB device. Auto picks UHCI (-usb) for PC machines and xHCI for virt/ARM. Win98 usually wants UHCI.</string>
+                   </property>
+                   <property name="sizeAdjustPolicy">
+                    <enum>QComboBox::AdjustToMinimumContentsLength</enum>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="7" column="0">
+                  <widget class="QLabel" name="Label_Mouse_USB_Version">
+                   <property name="text">
+                    <string>USB version:</string>
+                   </property>
+                   <property name="buddy">
+                    <cstring>CB_Mouse_USB_Version</cstring>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="7" column="1" colspan="2">
+                  <widget class="QComboBox" name="CB_Mouse_USB_Version">
+                   <property name="toolTip">
+                    <string>usb_version property for usb-tablet / usb-mouse. USB 1.1 often works better with Windows 98.</string>
+                   </property>
+                   <property name="sizeAdjustPolicy">
+                    <enum>QComboBox::AdjustToMinimumContentsLength</enum>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="8" column="0">
+                  <widget class="QLabel" name="Label_SPICE_Agent_Mouse">
+                   <property name="text">
+                    <string>SPICE agent mouse:</string>
+                   </property>
+                   <property name="buddy">
+                    <cstring>CB_SPICE_Agent_Mouse</cstring>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="8" column="1" colspan="2">
+                  <widget class="QComboBox" name="CB_SPICE_Agent_Mouse">
+                   <property name="toolTip">
+                    <string>QEMU -spice agent-mouse=on|off. Uses the SPICE vdagent in the guest when available. Leave Default unless you know you need it. Win98 has no vdagent — use USB Tablet instead.</string>
+                   </property>
+                   <property name="sizeAdjustPolicy">
+                    <enum>QComboBox::AdjustToMinimumContentsLength</enum>
+                   </property>
                   </widget>
                  </item>
                  <item row="1" column="2">
@@ -2255,7 +2367,7 @@
                 <item>
                  <widget class="QCheckBox" name="CH_Show_Cursor">
                   <property name="text">
-                   <string>Show cursor (It works only in QEMU SDL window)</string>
+                   <string>Show cursor (-show-cursor; host/SDL and some display backends)</string>
                   </property>
                  </widget>
                 </item>

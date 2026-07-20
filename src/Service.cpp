@@ -221,7 +221,28 @@ bool AQEMU_Service::call(const QString& command, const QList<QVariant>& params, 
 
 bool AQEMU_Service::call(const QString &command, Virtual_Machine *vm, bool noblock)
 {
-    return call(command, vm->Get_VM_XML_File_Path(), noblock);
+    if( ! vm )
+        return false;
+
+    // Prefer the caller's VM object so Main_Window session mode / QMP / display
+    // ports stay attached to the same instance that actually runs QEMU.
+    // (Creating a fresh Load_VM() clone breaks embedded display on Windows.)
+    if( command == "start" )
+    {
+        const QString result = start( vm );
+        if( ! result.isEmpty() )
+        {
+            if( result.contains( "could not be" ) )
+            {
+                std::cerr << qPrintable( result ) << std::endl;
+                return false;
+            }
+            std::cout << qPrintable( result ) << std::endl;
+        }
+        return true;
+    }
+
+    return call( command, vm->Get_VM_XML_File_Path(), noblock );
 }
 
 bool AQEMU_Service::call(const QString &command, const QString& vm, bool noblock)
@@ -277,8 +298,37 @@ bool AQEMU_Service::init_service()
     return true;
 }
 
+QString AQEMU_Service::start(Virtual_Machine *vm)
+{
+    if( ! vm )
+        return QString( "VM could not be started. Null VM." );
+
+    const QString path = vm->Get_VM_XML_File_Path();
+
+    if( getMachine( path ) )
+        return QString( "VM \"%1\" is already running." ).arg( path );
+
+    // If Main_Window already owns this VM in its list, use it; otherwise own it.
+    if( vm->Start() )
+    {
+        machines.append( vm );
+        connect( vm, SIGNAL(State_Changed(Virtual_Machine*, VM::VM_State)),
+                 this, SLOT(vm_state_changed(Virtual_Machine*, VM::VM_State)),
+                 Qt::UniqueConnection );
+
+        AQDebug( "QString AQEMU_Service::start(Virtual_Machine *vm)",
+                 QString( "VM started: %1" ).arg( path ) );
+        return QString( "VM \"%1\" got started." ).arg( path );
+    }
+
+    return QString( "VM \"%1\" could not be started." ).arg( path );
+}
+
 QString AQEMU_Service::start(const QString& s)
 {
+    if( Virtual_Machine *existing = getMachine( s ) )
+        return QString( "VM \"%1\" is already running." ).arg( s );
+
     QSettings settings;
     QString vm_dir = QDir::toNativeSeparators(settings.value("VM_Directory", QDir::homePath() + "/.aqemu/").toString());
     QString vm_file = vm_dir+s+".aqemu";
@@ -295,23 +345,28 @@ QString AQEMU_Service::start(const QString& s)
                 QString("Trying VM path: %1").arg(vm_file));
 
         if(QFileInfo(vm_file).exists())
-            vm->Load_VM(vm_file);
+            success = vm->Load_VM(vm_file);
         else
+        {
+            delete vm;
             return QString("VM \"%1\" could not be started. No such VM found.").arg(s);
+        }
     }
 
-    if ( vm->Start() )
+    if( ! success )
     {
-        machines.append(vm);
-
-        connect(vm,SIGNAL(State_Changed( Virtual_Machine*, VM::VM_State)),this,SLOT(vm_state_changed(Virtual_Machine*, VM::VM_State)));
-
-        AQDebug("QString AQEMU_Service::start(const QString& s)",
-                QString("VM started: %1").arg(s));
-        return QString("VM \"%1\" got started.").arg(s);
+        delete vm;
+        return QString("VM \"%1\" could not be started. No such VM found.").arg(s);
     }
 
-    return QString("VM \"%1\" could not be started.").arg(s);
+    // Assign a stable display port index for embedded VNC when started headless
+    if( vm->Get_Embedded_Display_Port() < 0 )
+        vm->Set_Embedded_Display_Port( machines.count() );
+
+    QString result = start( vm );
+    if( result.contains( "could not be" ) )
+        delete vm;
+    return result;
 }
 
 Virtual_Machine* AQEMU_Service::getMachine(const QString& s)

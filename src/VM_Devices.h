@@ -98,7 +98,7 @@ class VM
 					Audio_sb16 = Audio_es1370 = Audio_Adlib = Audio_PC_Speaker = Audio_GUS = Audio_AC97 = Audio_HDA = Audio_cs4231a = Audio_VirtIO = Audio_USB = false;
 				}
 
-                bool isEnabled()
+                bool isEnabled() const
                 {
                     return ( Audio_sb16 ||
                              Audio_es1370 ||

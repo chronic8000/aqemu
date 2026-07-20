@@ -7,6 +7,7 @@
 #include <QAbstractSocket>
 #include <QTcpServer>
 #include <QJsonArray>
+#include <QDir>
 
 #include "Utils.h"
 
@@ -55,6 +56,7 @@ void QMP_Client::Disconnect()
 		Socket->disconnectFromHost();
 	Capabilities_Sent = false;
 	Buffer.clear();
+	Pending_Commands.clear();
 }
 
 bool QMP_Client::Is_Connected() const
@@ -112,8 +114,17 @@ void QMP_Client::Handle_Line( const QByteArray &line )
 			emit Connected();
 		}
 		emit Reply_Received( obj );
+
+		const int reply_id = obj.value( "id" ).toInt( -1 );
+		const QString cmd = Pending_Commands.take( reply_id );
 		if( obj.value( "return" ).isArray() )
-			emit Block_Info( obj.value( "return" ).toArray() );
+		{
+			const QJsonArray arr = obj.value( "return" ).toArray();
+			if( cmd == "query-blockstats" )
+				emit Block_Stats( arr );
+			else
+				emit Block_Info( arr );
+		}
 		return;
 	}
 
@@ -132,11 +143,13 @@ bool QMP_Client::Send_Command( const QString &execute, const QJsonObject &argume
 	if( Socket->state() != QAbstractSocket::ConnectedState )
 		return false;
 
+	const int id = Next_Id++;
 	QJsonObject cmd;
 	cmd.insert( "execute", execute );
 	if( ! arguments.isEmpty() )
 		cmd.insert( "arguments", arguments );
-	cmd.insert( "id", Next_Id++ );
+	cmd.insert( "id", id );
+	Pending_Commands.insert( id, execute );
 
 	QByteArray payload = QJsonDocument( cmd ).toJson( QJsonDocument::Compact );
 	payload.append( '\n' );
@@ -145,18 +158,37 @@ bool QMP_Client::Send_Command( const QString &execute, const QJsonObject &argume
 
 bool QMP_Client::Change_Medium( const QString &device_id, const QString &file_path )
 {
-	QJsonObject args;
-	args.insert( "device", device_id );
-	args.insert( "filename", file_path );
-	return Send_Command( "change", args );
+	const QString path = QDir::fromNativeSeparators( file_path );
+
+	// For "-drive …,id=aqemu-fd0" the block backend name is the QMP "device"
+	// field. QOM "id" is a different path (e.g. /machine/unattached/device[N])
+	// and fails with DeviceNotFound — which left us stuck on null-co forever.
+	QJsonObject by_device;
+	by_device.insert( "device", device_id );
+	by_device.insert( "filename", path );
+	by_device.insert( "format", "raw" );
+	if( Send_Command( "blockdev-change-medium", by_device ) )
+		return true;
+
+	QJsonObject by_id;
+	by_id.insert( "id", device_id );
+	by_id.insert( "filename", path );
+	by_id.insert( "format", "raw" );
+	return Send_Command( "blockdev-change-medium", by_id );
 }
 
 bool QMP_Client::Eject_Medium( const QString &device_id, bool force )
 {
-	QJsonObject args;
-	args.insert( "device", device_id );
-	args.insert( "force", force );
-	return Send_Command( "eject", args );
+	QJsonObject by_device;
+	by_device.insert( "device", device_id );
+	by_device.insert( "force", force );
+	if( Send_Command( "eject", by_device ) )
+		return true;
+
+	QJsonObject by_id;
+	by_id.insert( "id", device_id );
+	by_id.insert( "force", force );
+	return Send_Command( "eject", by_id );
 }
 
 bool QMP_Client::System_Powerdown()
@@ -177,4 +209,16 @@ bool QMP_Client::Quit_QEMU()
 bool QMP_Client::Query_Block()
 {
 	return Send_Command( "query-block" );
+}
+
+bool QMP_Client::Query_Blockstats()
+{
+	return Send_Command( "query-blockstats" );
+}
+
+bool QMP_Client::Human_Monitor( const QString &command_line )
+{
+	QJsonObject args;
+	args.insert( "command-line", command_line );
+	return Send_Command( "human-monitor-command", args );
 }

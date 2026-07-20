@@ -25,10 +25,15 @@
 #include "krdc_debug.h"
 
 #include <cerrno>
+#ifndef Q_OS_WIN32
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#else
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#endif
 #include <QMutexLocker>
 #include <QThreadStorage>
 #include <QTimer>
@@ -165,14 +170,14 @@ rfbBool VncClientThread::newclient()
         cl->appData.qualityLevel = 9;
         break;
     case RemoteView::Medium:
-        cl->appData.encodingsString = "copyrect tight zrle ultra zlib hextile corre rre raw";
+        cl->appData.encodingsString = "copyrect zrle ultra zlib hextile corre rre raw";
         cl->appData.compressLevel = 5;
         cl->appData.qualityLevel = 7;
         break;
     case RemoteView::Low:
     case RemoteView::Unknown:
     default:
-        cl->appData.encodingsString = "copyrect tight zrle ultra zlib hextile corre rre raw";
+        cl->appData.encodingsString = "copyrect zrle ultra zlib hextile corre rre raw";
         cl->appData.compressLevel = 9;
         cl->appData.qualityLevel = 1;
     }
@@ -484,15 +489,19 @@ void VncClientThread::run()
         }
         if (i) {
             if (!HandleRFBServerMessage(cl)) {
-                if (m_keepalive.failed) {
+                if (m_keepalive.failed && !m_stopped) {
                     do {
                         // Reconnect after a short delay. That way, if the
                         // attempt fails very quickly, we don't sit in a very
                         // tight loop.
                         clientDestroy();
                         msleep(1000);
+                        if (m_stopped)
+                            break;
                         clientStateChange(RemoteView::Connecting, i18n("Reconnecting."));
-                    } while (!clientCreate(true));
+                    } while (!m_stopped && !clientCreate(true));
+                    if (m_stopped)
+                        break;
                     continue;
                 }
                 qCritical(KRDC) << "HandleRFBServerMessage failed";
@@ -587,6 +596,17 @@ void VncClientThread::clientSetKeepalive()
     if (!m_keepalive.intervalSeconds) {
         return;
     }
+
+#ifdef Q_OS_WIN32
+    // TCP_KEEPIDLE / KEEPINTVL / KEEPCNT are Linux-specific; enable basic keepalive.
+    BOOL alive = TRUE;
+    if (setsockopt(cl->sock, SOL_SOCKET, SO_KEEPALIVE,
+                   reinterpret_cast<const char *>(&alive), sizeof(alive)) < 0) {
+        qCritical(KRDC) << "setsockopt(SO_KEEPALIVE)" << WSAGetLastError();
+        m_keepalive.failed = true;
+        return;
+    }
+#else
     int optval;
     socklen_t optlen = sizeof(optval);
 
@@ -614,6 +634,7 @@ void VncClientThread::clientSetKeepalive()
         qCritical(KRDC) << "setsockopt(TCP_KEEPCNT)" << strerror(errno);
         return;
     }
+#endif
     m_keepalive.set = true;
     qCDebug(KRDC) << "TCP keepalive set";
 }

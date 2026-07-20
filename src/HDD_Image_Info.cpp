@@ -22,6 +22,8 @@
 
 #include <QFile>
 #include <QSettings>
+#include <QRegExp>
+#include <QStringList>
 
 #include "Utils.h"
 #include "HDD_Image_Info.h"
@@ -54,7 +56,7 @@ void HDD_Image_Info::Update_Disk_Info( const QString &path )
 	
 	if( QFile::exists(Info.Image_File_Name) == false )
 	{
-		AQWarning( "void QEMU_IMG_Thread::run()",
+		AQWarning( "void HDD_Image_Info::Update_Disk_Info( const QString &path )",
                    "Image \"" + Info.Image_File_Name + "\" does not exist!" );
 		Clear_Info();
 		return;
@@ -65,8 +67,7 @@ void HDD_Image_Info::Update_Disk_Info( const QString &path )
 		args << "info" << Info.Image_File_Name;
 		
 		QEMU_IMG_Proc = new QProcess( this );
-		QSettings settings;
-		QEMU_IMG_Proc->start( settings.value("QEMU-IMG_Path", "qemu-img").toString(), args );
+		QEMU_IMG_Proc->start( Get_QEMU_IMG_Path(), args );
 		
 		connect( QEMU_IMG_Proc, SIGNAL(finished(int, QProcess::ExitStatus)),
 				 this, SLOT(Parse_Info(int, QProcess::ExitStatus)), Qt::DirectConnection );
@@ -83,81 +84,89 @@ void HDD_Image_Info::Clear_Info()
 	
 	VM_HDD tmp_hdd;
 	Info.Disk_Format = "";
-	Info.Virtual_Size = tmp_hdd.String_to_Device_Size( "0 G" );
-	Info.Disk_Size = tmp_hdd.String_to_Device_Size( "0 G" );
+	Info.Virtual_Size = tmp_hdd.String_to_Device_Size( "0G" );
+	Info.Disk_Size = tmp_hdd.String_to_Device_Size( "0G" );
 	Info.Cluster_Size = 0;
 	
 	emit Completed( false );
 }
 
+static QString Normalize_Qemu_Img_Size_Token( QString token )
+{
+	token = token.trimmed();
+	// Strip trailing parenthetical byte count: "40 GiB (42949672960 bytes)"
+	int paren = token.indexOf( '(' );
+	if( paren > 0 )
+		token = token.left( paren ).trimmed();
+	// "40 GiB" / "40G" / "2.0M" → compact form for String_to_Device_Size
+	token.replace( QRegExp( "\\s+" ), "" );
+	token.replace( "GiB", "G", Qt::CaseInsensitive );
+	token.replace( "MiB", "M", Qt::CaseInsensitive );
+	token.replace( "KiB", "K", Qt::CaseInsensitive );
+	token.replace( "TiB", "G", Qt::CaseInsensitive ); // rare; treat as G scale not ideal but rare
+	// bare "iB" leftovers shouldn't remain after GiB→G
+	return token;
+}
+
 void HDD_Image_Info::Parse_Info( int exitCode, QProcess::ExitStatus exitStatus )
 {
+	Q_UNUSED( exitCode );
+	Q_UNUSED( exitStatus );
 
-
-	QByteArray info_str_ba = QEMU_IMG_Proc->readAll();
-	QString info_str = QString( info_str_ba ); // Create QString
+	QByteArray info_str_ba = QEMU_IMG_Proc->readAllStandardOutput();
+	if( info_str_ba.isEmpty() )
+		info_str_ba = QEMU_IMG_Proc->readAll();
+	QString info_str = QString::fromLocal8Bit( info_str_ba );
 	if( info_str.isEmpty() )
 	{
-		AQDebug( "void HDD_Image_Info::Parse_Info( int exitCode, QProcess::ExitStatus exitStatus )",
+		AQDebug( "void HDD_Image_Info::Parse_Info(...)",
 				 "Data is empty." );
-		return;
-	}
-	
-	QRegExp RegInfo = QRegExp( ".*image:[\\s]+([^\n\r]+).*file format:[\\s]+([\\w\\d]+).*virtual size:[\\s]+([\\d]+[.]*[\\d]*[KMG]+).*disk size:[\\s]+([\\d]+[.]*[\\d]*[KMG]+).*cluster_size:[\\s]+([\\d]+).*" );
-	
-	bool cluster = true;
-		if( ! RegInfo.exactMatch(info_str) )
-	{
-		AQWarning( "void QEMU_IMG_Thread::Parse_Info( int exitCode, QProcess::ExitStatus exitStatus )",
-				   "QRegExp With Cluster Size Not Matched!" );
-		
-        RegInfo = QRegExp( QString(".*image:[\\s]+([^\n\r]+).*")+
-                           QString("file format:[\\s]+([\\w\\d]+).*")+
-                           QString("virtual size:[\\s]+([\\d]+[.]*[\\d]*[KMG]+).*")+
-                           QString("disk size:[\\s]+([\\d]+[.]*[\\d]*[KMG]*).*") );
-		
-		if( ! RegInfo.exactMatch(info_str) )
-		{
-			AQError( "void QEMU_IMG_Thread::Parse_Info( int exitCode, QProcess::ExitStatus exitStatus )",
-					 "QRegExp Without Cluster Size Not Matched! Image: " + Info.Image_File_Name + "\nData: " + info_str );
-			Clear_Info();
-			return;
-		}
-		else
-		{
-			cluster = false;
-		}
-	}
-	
-	QStringList info_lines = RegInfo.capturedTexts();
-	
-	if( cluster && info_lines.count() != 6 )
-	{
-		AQError( "void QEMU_IMG_Thread::Parse_Info( int exitCode, QProcess::ExitStatus exitStatus )",
-				 "info_str.count() != 6" );
 		Clear_Info();
 		return;
 	}
-	else if( ! cluster && info_lines.count() != 5 )
+
+	QString image_line;
+	QString format;
+	QString virtual_size;
+	QString disk_size;
+	QString cluster_size;
+
+	const QStringList lines = info_str.split( QRegExp( "[\r\n]+" ), QString::SkipEmptyParts );
+	for( int i = 0; i < lines.count(); ++i )
 	{
-		AQError( "void QEMU_IMG_Thread::Parse_Info( int exitCode, QProcess::ExitStatus exitStatus )",
-				 "info_str.count() != 5" );
+		const QString line = lines.at( i ).trimmed();
+		if( line.startsWith( "image:", Qt::CaseInsensitive ) )
+			image_line = line.mid( 6 ).trimmed();
+		else if( line.startsWith( "file format:", Qt::CaseInsensitive ) )
+			format = line.mid( QString( "file format:" ).length() ).trimmed();
+		else if( line.startsWith( "virtual size:", Qt::CaseInsensitive ) )
+			virtual_size = Normalize_Qemu_Img_Size_Token( line.mid( QString( "virtual size:" ).length() ) );
+		else if( line.startsWith( "disk size:", Qt::CaseInsensitive ) )
+			disk_size = Normalize_Qemu_Img_Size_Token( line.mid( QString( "disk size:" ).length() ) );
+		else if( line.startsWith( "cluster_size:", Qt::CaseInsensitive ) )
+			cluster_size = line.mid( QString( "cluster_size:" ).length() ).trimmed();
+	}
+
+	if( format.isEmpty() || virtual_size.isEmpty() )
+	{
+		AQError( "void HDD_Image_Info::Parse_Info(...)",
+				 "Cannot parse qemu-img info for: " + Info.Image_File_Name + "\nData:\n" + info_str );
 		Clear_Info();
 		return;
 	}
-	
-	if( info_lines[1] != Info.Image_File_Name )
+
+	if( ! image_line.isEmpty() && image_line != Info.Image_File_Name )
 	{
-		AQWarning( "void QEMU_IMG_Thread::Parse_Info( int exitCode, QProcess::ExitStatus exitStatus )",
-				   QString("info_lines[1] != Image_File_Name\nDetails:\n[[%1]]\n[[%2]]").arg(info_lines[1]).arg(Info.Image_File_Name) );
+		AQWarning( "void HDD_Image_Info::Parse_Info(...)",
+				   QString( "Reported image path differs:\n[[%1]]\n[[%2]]" )
+					   .arg( image_line ).arg( Info.Image_File_Name ) );
 	}
-	
-	Info.Disk_Format = info_lines[ 2 ];
+
+	Info.Disk_Format = format;
 	VM_HDD tmp_hdd;
-	Info.Virtual_Size = tmp_hdd.String_to_Device_Size( info_lines[3] );
-	Info.Disk_Size = tmp_hdd.String_to_Device_Size( info_lines[4] );
-	if( cluster ) Info.Cluster_Size = info_lines[ 5 ].toInt();
-	else Info.Cluster_Size = 0;
-	
+	Info.Virtual_Size = tmp_hdd.String_to_Device_Size( virtual_size );
+	Info.Disk_Size = tmp_hdd.String_to_Device_Size( disk_size.isEmpty() ? virtual_size : disk_size );
+	Info.Cluster_Size = cluster_size.isEmpty() ? 0 : cluster_size.toInt();
+
 	emit Completed( true );
 }

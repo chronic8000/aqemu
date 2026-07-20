@@ -82,6 +82,8 @@ class AQEMU_Service : public QObject
 
     public slots:
         QString start(const QString& vm);
+        /** Start an already-loaded VM object (preferred when Main_Window owns it). */
+        QString start(Virtual_Machine *vm);
         QString stop(const QString& vm);
         QString shutdown(const QString& vm);
         QString pause(const QString& vm);

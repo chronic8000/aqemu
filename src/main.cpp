@@ -29,6 +29,10 @@
 #include <QFileDialog>
 #include <QDir>
 #include <QFile>
+#include <QDateTime>
+#include <QTextStream>
+#include <QMutex>
+#include <QMutexLocker>
 #ifndef Q_OS_WIN32
 #include <QtDBus>
 #endif
@@ -110,10 +114,64 @@ AQEMU_Main::~AQEMU_Main()
     delete application;
 }
 
+static QString g_run_log_path;
+static QMutex g_run_log_mutex;
+
+static void Append_Run_Log_Line( const QString &line )
+{
+    if( g_run_log_path.isEmpty() )
+        return;
+
+    QMutexLocker locker( &g_run_log_mutex );
+    QFile log_file( g_run_log_path );
+    if( ! log_file.open( QIODevice::Append | QIODevice::Text ) )
+        return;
+
+    QTextStream out( &log_file );
+    out << line << "\n";
+}
+
+static void AQEMU_Qt_Message_Handler( QtMsgType type, const QMessageLogContext &context, const QString &msg )
+{
+    QString type_name = "Info";
+    switch( type )
+    {
+        case QtDebugMsg: type_name = "QtDebug"; break;
+        case QtWarningMsg: type_name = "QtWarning"; break;
+        case QtCriticalMsg: type_name = "QtCritical"; break;
+        case QtFatalMsg: type_name = "QtFatal"; break;
+#if QT_VERSION >= QT_VERSION_CHECK(5, 5, 0)
+        case QtInfoMsg: type_name = "QtInfo"; break;
+#endif
+    }
+
+    QString sender = QString::fromLatin1( context.function ? context.function : "" );
+    if( sender.isEmpty() )
+        sender = QString::fromLatin1( context.category ? context.category : "qt" );
+
+    Append_Run_Log_Line(
+        QString( "[%1] %2 Sender: %3 Message: %4" )
+            .arg( QDateTime::currentDateTime().toString( "yyyy.MM.dd hh:mm:ss zzz" ),
+                  type_name,
+                  sender,
+                  msg ) );
+
+    QByteArray local = msg.toLocal8Bit();
+    fprintf( stderr, "%s\n", local.constData() );
+    fflush( stderr );
+
+    if( type == QtFatalMsg )
+        abort();
+}
+
 static void AQEMU_Startup_Log( const char *stage )
 {
     std::cout << "[AQEMU] " << stage << std::endl;
     std::cout.flush();
+    Append_Run_Log_Line(
+        QString( "[%1] Startup: %2" )
+            .arg( QDateTime::currentDateTime().toString( "yyyy.MM.dd hh:mm:ss zzz" ),
+                  QString::fromLatin1( stage ) ) );
 }
 
 int AQEMU_Main::main(int argc, char *argv[])
@@ -477,12 +535,17 @@ void AQEMU_Main::log_settings()
         settings->setValue( "Log/Save_In_File", "yes" );
         AQUse_Log( true );
 
-        if( settings->value("Log/Log_Path", "").toString().isEmpty() )
+        QString log_path = settings->value("Log/Log_Path", "").toString();
+        #ifdef Q_OS_WIN32
+        // Portable Windows builds: always write a fresh log beside aqemu.exe.
+        log_path = QDir::toNativeSeparators( QCoreApplication::applicationDirPath() + "/aqemu.log" );
+        settings->setValue( "Log/Log_Path", log_path );
+        #else
+        if( log_path.isEmpty() )
         {
             QFileInfo logFileDir( settings->fileName() );
             QString logDirPath = logFileDir.absolutePath();
 
-            // Dir for log file exists?
             if( ! QFile::exists(logDirPath) )
             {
                 QDir dir;
@@ -491,28 +554,28 @@ void AQEMU_Main::log_settings()
                                        QObject::tr("Cannot create directory for log file! Path: %1").arg(logDirPath) );
             }
 
-            settings->setValue( "Log/Log_Path", QDir::toNativeSeparators(logDirPath + "/aqemu.log") );
+            log_path = QDir::toNativeSeparators( logDirPath + "/aqemu.log" );
+            settings->setValue( "Log/Log_Path", log_path );
         }
-        else
-        {
-            // Log Size
-            if( QFile::exists(settings->value("Log/Log_Path", "").toString()) )
-            {
-                QFileInfo log_info( settings->value("Log/Log_Path", "").toString() );
+        #endif
+        QFileInfo log_info( log_path );
+        QDir().mkpath( log_info.absolutePath() );
 
-                // Log > 1MB
-                if( log_info.size() > (1 * 1024 * 1024) )
-                {
-                    // FIXME Delete Half Log Size
-                    QFile::remove( settings->value("Log/Log_Path", "").toString() );
-                }
-            }
+        // Fresh log per app launch so crash/debug evidence is easy to share.
+        QFile reset_file( log_path );
+        if( reset_file.open( QIODevice::WriteOnly | QIODevice::Text | QIODevice::Truncate ) )
+        {
+            QTextStream out( &reset_file );
+            out << "AQEMU " << CURRENT_AQEMU_VERSION << " run log\n";
+            out << "Started: " << QDateTime::currentDateTime().toString( "yyyy.MM.dd hh:mm:ss zzz" ) << "\n\n";
         }
     }
     else AQUse_Log( false );
 
     // Log File Name
     AQLog_Path( settings->value("Log/Log_Path", "").toString() );
+    g_run_log_path = settings->value("Log/Log_Path", "").toString();
+    qInstallMessageHandler( AQEMU_Qt_Message_Handler );
 
     // Log Filter
     AQUse_Debug_Output( settings->value("Log/Print_In_STDOUT", "yes").toString() == "yes",

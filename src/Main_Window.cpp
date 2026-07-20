@@ -33,6 +33,9 @@
 #include <QStandardItem>
 #include <QAbstractItemView>
 #include <QComboBox>
+#include <QTimer>
+#include <QApplication>
+#include <QEventLoop>
 #ifndef Q_OS_WIN32
 #include <QtDBus>
 #endif
@@ -79,11 +82,17 @@ Main_Window::Main_Window( QWidget *parent )
 	, Session_Widget( nullptr )
 	, Session_VM( nullptr )
 	, Session_Mode_Active( false )
+	, Auto_Save_Timer( nullptr )
 {
     Advanced_Options = new QDialog(this);
     Accelerator_Options = new QDialog(this);
     Architecture_Options = new QDialog(this);
     SMP_Settings = new SMP_Settings_Window(this);
+
+	Auto_Save_Timer = new QTimer( this );
+	Auto_Save_Timer->setSingleShot( true );
+	Auto_Save_Timer->setInterval( 400 );
+	connect( Auto_Save_Timer, SIGNAL(timeout()), this, SLOT(on_Button_Apply_clicked()) );
 
     ui.setupUi( this );
 	ui_ao.setupUi( Advanced_Options );
@@ -102,12 +111,20 @@ Main_Window::Main_Window( QWidget *parent )
 	connect( Session_Widget, SIGNAL(Request_Stop()), this, SLOT(On_Session_Request_Stop()) );
 	connect( Session_Widget, SIGNAL(Request_Shutdown()), this, SLOT(On_Session_Request_Shutdown()) );
 	connect( Session_Widget, SIGNAL(Request_Reset()), this, SLOT(On_Session_Request_Reset()) );
+	connect( Session_Widget, SIGNAL(Request_Pause()), this, SLOT(On_Session_Request_Pause()) );
+	connect( Session_Widget, SIGNAL(Request_Save()), this, SLOT(On_Session_Request_Save()) );
 
 	// Defaults for embedded session (new installs)
 	if( ! Settings.contains( "Embedded_Session" ) )
 		Settings.setValue( "Embedded_Session", "yes" );
 	if( ! Settings.contains( "Embedded_Display_Backend" ) )
+	{
+#ifdef VNC_DISPLAY
+		Settings.setValue( "Embedded_Display_Backend", "vnc" );
+#else
 		Settings.setValue( "Embedded_Display_Backend", "spice" );
+#endif
+	}
 
     connect(ui_ao.CH_Start_Date,SIGNAL(toggled(bool)),this,SLOT(adv_on_CH_Start_Date_toggled(bool)));
 
@@ -129,10 +146,20 @@ Main_Window::Main_Window( QWidget *parent )
 	fixComboElide( ui.CB_Machine_Type_Main );
 	fixComboElide( ui.CB_CPU_Type_Main );
 	fixComboElide( ui.CB_Video_Card );
+	fixComboElide( ui.CB_Display_Resolution );
+	fixComboElide( ui.CB_Mouse_Type );
+	fixComboElide( ui.CB_Mouse_USB_Controller );
+	fixComboElide( ui.CB_Mouse_USB_Version );
+	fixComboElide( ui.CB_SPICE_Agent_Mouse );
 	fixComboElide( ui.CB_Boot_Priority );
 	fixComboElide( ui.CB_Disk_Interface );
 	fixComboElide( ui_arch.CB_Machine_Type );
 	fixComboElide( ui_arch.CB_CPU_Type );
+
+	Fill_Display_Resolution_Combo();
+	Update_Display_Resolution_Enabled();
+	Fill_Mouse_Combos();
+	Update_Mouse_Options_Enabled();
 
     ui.Tabs->setCurrentIndex(0);
     ui.Use_Linux_Boot_Widget->setEnabled(false);
@@ -346,6 +373,11 @@ void Main_Window::VM_State_Changed(const QString &vm, int state)
 
 void Main_Window::closeEvent( QCloseEvent *event )
 {
+	// Tear down embedded VNC/SPICE before killing QEMU — otherwise the RFB
+	// thread blocks in BlockingQueuedConnection and the UI hangs (AppHang).
+	if( Session_Mode_Active )
+		Exit_Session_Mode();
+
 	if( ! Save_Settings() )
 		AQGraphic_Error( "void Main_Window::closeEvent( QCloseEvent *event )",
 						 tr("AQEMU"), tr("Could not save main window settings!"), false );
@@ -415,7 +447,21 @@ void Main_Window::Connect_Signals()
 	connect( ui.CB_Video_Card, SIGNAL(currentIndexChanged(int)),
 			 this, SLOT(VM_Changed()) );
 
+	connect( ui.CB_Display_Resolution, SIGNAL(currentIndexChanged(int)),
+			 this, SLOT(VM_Changed()) );
+
 	connect( ui.CB_Keyboard_Layout, SIGNAL(currentIndexChanged(int)),
+			 this, SLOT(VM_Changed()) );
+
+	connect( ui.CB_Mouse_Type, SIGNAL(currentIndexChanged(int)),
+			 this, SLOT(VM_Changed()) );
+	connect( ui.CB_Mouse_Type, SIGNAL(currentIndexChanged(int)),
+			 this, SLOT(Update_Mouse_Options_Enabled()) );
+	connect( ui.CB_Mouse_USB_Controller, SIGNAL(currentIndexChanged(int)),
+			 this, SLOT(VM_Changed()) );
+	connect( ui.CB_Mouse_USB_Version, SIGNAL(currentIndexChanged(int)),
+			 this, SLOT(VM_Changed()) );
+	connect( ui.CB_SPICE_Agent_Mouse, SIGNAL(currentIndexChanged(int)),
 			 this, SLOT(VM_Changed()) );
 
 	connect( ui.Memory_Size, SIGNAL(valueChanged(int)),
@@ -865,27 +911,57 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
 	tmp_vm->Set_Emulator( tmp_emul );
 
 	// Video
-    if ( ui.CB_Video_Card->currentIndex() != -1 &&
-		 ui.CB_Video_Card->currentIndex() < curComp.Video_Card_List.count() )
     {
-    	tmp_vm->Set_Video_Card( curComp.Video_Card_List[ui.CB_Video_Card->currentIndex()].QEMU_Name );
+		QString video_name = System_Info::Sanitize_Video_Card(
+			tmp_vm->Get_Computer_Type(),
+			old_vm->Get_Video_Card(),
+			tmp_vm->Get_Machine_Type() );
+
+		const QVariant data = ui.CB_Video_Card->currentData( Qt::UserRole );
+		if( data.isValid() && ! data.toString().isEmpty() )
+			video_name = System_Info::Sanitize_Video_Card(
+				tmp_vm->Get_Computer_Type(), data.toString(), tmp_vm->Get_Machine_Type() );
+
+		tmp_vm->Set_Video_Card( video_name );
     }
-	else if( ! ui.CB_Video_Card->currentText().isEmpty() )
+
+	// Display resolution (VirtIO-GPU EDID)
 	{
-		tmp_vm->Set_Video_Card( ui.CB_Video_Card->currentText() );
-	}
-	else
-	{
-		tmp_vm->Set_Video_Card( old_vm->Get_Video_Card() );
+		const QVariant data = ui.CB_Display_Resolution->currentData( Qt::UserRole );
+		if( data.isValid() && ! data.toString().isEmpty() )
+			tmp_vm->Set_Display_Resolution( data.toString() );
+		else
+			tmp_vm->Set_Display_Resolution( QStringLiteral( "native" ) );
 	}
 
-	// CPU Count
+	// Mouse / pointer
+	{
+		const QVariant mt = ui.CB_Mouse_Type->currentData( Qt::UserRole );
+		tmp_vm->Set_Mouse_Type( mt.isValid() ? mt.toString() : QStringLiteral( "ps2" ) );
+
+		const QVariant mc = ui.CB_Mouse_USB_Controller->currentData( Qt::UserRole );
+		tmp_vm->Set_Mouse_USB_Controller( mc.isValid() ? mc.toString() : QStringLiteral( "auto" ) );
+
+		const QVariant mv = ui.CB_Mouse_USB_Version->currentData( Qt::UserRole );
+		tmp_vm->Set_Mouse_USB_Version( mv.isValid() ? mv.toInt() : 0 );
+
+		const QVariant am = ui.CB_SPICE_Agent_Mouse->currentData( Qt::UserRole );
+		tmp_vm->Set_SPICE_Agent_Mouse( am.isValid() ? am.toString() : QStringLiteral( "default" ) );
+	}
+
+	// CPU Count — CB_CPU_Count is authoritative; Set_SMP() must not wipe it with a stale dialog value.
     if( ! Validate_CPU_Count(ui.CB_CPU_Count->currentText()) )
     {
         return false;
     }
-	tmp_vm->Set_SMP_CPU_Count( ui.CB_CPU_Count->currentText().toInt() );
-    tmp_vm->Set_SMP( SMP_Settings->Get_Values() );
+	{
+		VM::SMP_Options smp = SMP_Settings->Get_Values();
+		smp.SMP_Count = ui.CB_CPU_Count->currentText().toInt();
+		if( smp.SMP_Count < 1 )
+			smp.SMP_Count = 1;
+		tmp_vm->Set_SMP( smp );
+		tmp_vm->Set_SMP_CPU_Count( smp.SMP_Count );
+	}
 
 	// Keyboard Layout
 	if( ui.CB_Keyboard_Layout->currentIndex() == 0 ) // Default
@@ -1215,8 +1291,12 @@ bool Main_Window::Load_Settings()
 	// Main Window Position
 	move( Settings.value("General_Window_Position", QPoint(300, 300)).toPoint() );
 
-        // Toolbar State
-        restoreState( Settings.value("General_Window_State").toByteArray());
+	// Toolbar State
+	restoreState( Settings.value("General_Window_State").toByteArray());
+
+	// Session mode hides these; that visibility must never stick after restart.
+	ui.Tool_Bar_VM_Manage->setVisible( true );
+	ui.Tool_Bar_VM_Control->setVisible( true );
 
 	// Splitter
 	ui.splitter->restoreState( Settings.value("General_Splitter",
@@ -1254,8 +1334,14 @@ bool Main_Window::Save_Settings()
 	Settings.setValue( "General_Window_Width", QString::number(this->width()) );
 	Settings.setValue( "General_Window_Height", QString::number(this->height()) );
 
-        // Save Toolbar State
-        Settings.setValue ( "General_Window_State", saveState() );
+	// Save Toolbar State — never persist session-hidden left bars
+	const bool manage_vis = ui.Tool_Bar_VM_Manage->isVisible();
+	const bool control_vis = ui.Tool_Bar_VM_Control->isVisible();
+	ui.Tool_Bar_VM_Manage->setVisible( true );
+	ui.Tool_Bar_VM_Control->setVisible( true );
+	Settings.setValue( "General_Window_State", saveState() );
+	ui.Tool_Bar_VM_Manage->setVisible( manage_vis );
+	ui.Tool_Bar_VM_Control->setVisible( control_vis );
 
 	// Save Main Window Position
 	Settings.setValue( "General_Window_Position", pos() );
@@ -1486,22 +1572,26 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 	}
 
 	// Video Card
-	tmp_str = tmp_vm->Get_Video_Card();
-	bool video_found = false;
+	tmp_str = System_Info::Sanitize_Video_Card(
+		tmp_vm->Get_Computer_Type(), tmp_vm->Get_Video_Card(), tmp_vm->Get_Machine_Type() );
+	if( tmp_str != tmp_vm->Get_Video_Card() )
+		tmp_vm->Set_Video_Card( tmp_str );
+
+	ui.CB_Video_Card->clear();
 	for( int vx = 0; vx < curComp.Video_Card_List.count(); ++vx )
 	{
-		if( tmp_str == curComp.Video_Card_List[vx].QEMU_Name )
-		{
-			ui.CB_Video_Card->setCurrentIndex( vx );
-			video_found = true;
-			break;
-		}
+		const Device_Map &vc = curComp.Video_Card_List[vx];
+		ui.CB_Video_Card->addItem( vc.Caption, vc.QEMU_Name );
 	}
-	if( ! video_found && ! tmp_str.isEmpty() )
-	{
-		ui.CB_Video_Card->addItem( tmp_str );
-		ui.CB_Video_Card->setCurrentIndex( ui.CB_Video_Card->count() - 1 );
-	}
+
+	const int video_index = ui.CB_Video_Card->findData( tmp_str );
+	if( video_index >= 0 )
+		ui.CB_Video_Card->setCurrentIndex( video_index );
+	else if( ui.CB_Video_Card->count() > 0 )
+		ui.CB_Video_Card->setCurrentIndex( 0 );
+
+	Apply_Display_Resolution_To_Ui( tmp_vm->Get_Display_Resolution() );
+	Update_Display_Resolution_Enabled();
 
 	// Count CPU's
 	ui.CB_CPU_Count->setEditText( QString::number(tmp_vm->Get_SMP_CPU_Count()) );
@@ -1519,6 +1609,9 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 	{
 		ui.CB_Keyboard_Layout->setCurrentIndex( 0 ); // default lang
 	}
+
+	Apply_Mouse_Settings_To_Ui( tmp_vm );
+	Update_Mouse_Options_Enabled();
 
 	// Boot
 	Set_Boot_Order( tmp_vm->Get_Boot_Order_List() );
@@ -2175,8 +2268,13 @@ void Main_Window::Enter_Session_Mode( Virtual_Machine *vm )
 	Session_Mode_Active = true;
 	setWindowTitle( tr( "AQEMU – %1" ).arg( vm->Get_Machine_Name() ) );
 
-	const int first_vnc = Settings.value( "First_VNC_Port", "5910" ).toString().toInt();
-	const int vnc_tcp = vm->Get_Embedded_Display_Port() + first_vnc;
+	// Session view owns all runtime controls on its top toolbar — hide left chrome
+	ui.Tool_Bar_VM_Manage->setVisible( false );
+	ui.Tool_Bar_VM_Control->setVisible( false );
+
+	const int vnc_tcp = vm->Get_Embedded_VNC_Port() > 0
+		? vm->Get_Embedded_VNC_Port()
+		: ( vm->Get_Embedded_Display_Port() + Settings.value( "First_VNC_Port", "5910" ).toString().toInt() );
 	const QString backend = Settings.value( "Embedded_Display_Backend", "spice" ).toString();
 
 	Session_Widget->Attach_VM( vm, vm->Get_QMP(),
@@ -2185,6 +2283,28 @@ void Main_Window::Enter_Session_Mode( Virtual_Machine *vm )
 	                           vnc_tcp,
 	                           backend );
 	Main_Stack->setCurrentWidget( Session_Widget );
+}
+
+void Main_Window::Enter_Session_Mode_Preparing( Virtual_Machine *vm )
+{
+	if( ! vm || ! Session_Widget || ! Main_Stack )
+		return;
+
+	Session_VM = vm;
+	Session_Mode_Active = true;
+	setWindowTitle( tr( "AQEMU – %1" ).arg( vm->Get_Machine_Name() ) );
+
+	ui.Tool_Bar_VM_Manage->setVisible( false );
+	ui.Tool_Bar_VM_Control->setVisible( false );
+
+	const QString backend = Settings.value( "Embedded_Display_Backend", "spice" ).toString();
+	// Ports are allocated during Start — show the session shell first so QEMU
+	// does not race ahead of the UI.
+	Session_Widget->Attach_VM( vm, nullptr,
+	                           QStringLiteral( "127.0.0.1" ),
+	                           0, 0, backend );
+	Main_Stack->setCurrentWidget( Session_Widget );
+	QApplication::processEvents( QEventLoop::ExcludeUserInputEvents );
 }
 
 void Main_Window::Exit_Session_Mode()
@@ -2199,7 +2319,14 @@ void Main_Window::Exit_Session_Mode()
 	Session_VM = nullptr;
 	if( Main_Stack )
 		Main_Stack->setCurrentIndex( 0 );
+
+	ui.Tool_Bar_VM_Manage->setVisible( true );
+	ui.Tool_Bar_VM_Control->setVisible( true );
+
 	setWindowTitle( Idle_Window_Title.isEmpty() ? tr( "AQEMU" ) : Idle_Window_Title );
+
+	// Refresh device tabs so floppy/CD paths saved during the session show up
+	Update_VM_Ui();
 }
 
 void Main_Window::On_Session_Exit_View()
@@ -2210,8 +2337,12 @@ void Main_Window::On_Session_Exit_View()
 
 void Main_Window::On_Session_Request_Stop()
 {
-	if( Session_VM )
-		AQEMU_Service::get().call( "stop", Session_VM );
+	Virtual_Machine *vm = Session_VM;
+	// Leave the session UI immediately so Stop/kill cannot thrash the display.
+	if( Session_Mode_Active )
+		Exit_Session_Mode();
+	if( vm )
+		AQEMU_Service::get().call( "stop", vm );
 }
 
 void Main_Window::On_Session_Request_Shutdown()
@@ -2224,6 +2355,18 @@ void Main_Window::On_Session_Request_Reset()
 {
 	if( Session_VM )
 		AQEMU_Service::get().call( "reset", Session_VM );
+}
+
+void Main_Window::On_Session_Request_Pause()
+{
+	if( Session_VM )
+		AQEMU_Service::get().call( "pause", Session_VM );
+}
+
+void Main_Window::On_Session_Request_Save()
+{
+	if( Session_VM )
+		AQEMU_Service::get().call( "save", Session_VM );
 }
 
 void Main_Window::Change_The_Icon(Virtual_Machine* vm, QString _icon)
@@ -2426,14 +2569,145 @@ void Main_Window::Set_Widgets_State( bool enabled )
     list.clear(); list << ui.VNC_General << ui.VNC_Security;
 	Checkbox_Dependend_Set_Enabled( list, ui.CH_Activate_VNC, enabled );
 
-    SPICE_Widget->My_Set_Enabled( enabled );
+	SPICE_Widget->My_Set_Enabled( enabled );
 	ui.Tab_Emulator_Window_Options->setEnabled( enabled );
+
+	// Children previously setEnabled(false) stay disabled when the parent is
+	// re-enabled — refresh resolution enablement explicitly.
+	Update_Display_Resolution_Enabled();
+}
+
+void Main_Window::Fill_Display_Resolution_Combo()
+{
+	ui.CB_Display_Resolution->blockSignals( true );
+	ui.CB_Display_Resolution->clear();
+	ui.CB_Display_Resolution->addItem( tr( "Native (host screen)" ), QStringLiteral( "native" ) );
+	ui.CB_Display_Resolution->addItem( tr( "Auto (guest / firmware)" ), QStringLiteral( "auto" ) );
+	ui.CB_Display_Resolution->addItem( QStringLiteral( "1024 × 768" ), QStringLiteral( "1024x768" ) );
+	ui.CB_Display_Resolution->addItem( QStringLiteral( "1280 × 720" ), QStringLiteral( "1280x720" ) );
+	ui.CB_Display_Resolution->addItem( QStringLiteral( "1280 × 800" ), QStringLiteral( "1280x800" ) );
+	ui.CB_Display_Resolution->addItem( QStringLiteral( "1366 × 768" ), QStringLiteral( "1366x768" ) );
+	ui.CB_Display_Resolution->addItem( QStringLiteral( "1600 × 900" ), QStringLiteral( "1600x900" ) );
+	ui.CB_Display_Resolution->addItem( QStringLiteral( "1920 × 1080" ), QStringLiteral( "1920x1080" ) );
+	ui.CB_Display_Resolution->addItem( QStringLiteral( "2560 × 1440" ), QStringLiteral( "2560x1440" ) );
+	ui.CB_Display_Resolution->setCurrentIndex( 0 );
+	ui.CB_Display_Resolution->blockSignals( false );
+}
+
+void Main_Window::Apply_Display_Resolution_To_Ui( const QString &res )
+{
+	const QString want = res.trimmed().isEmpty() ? QStringLiteral( "native" ) : res.trimmed();
+	ui.CB_Display_Resolution->blockSignals( true );
+	int ix = ui.CB_Display_Resolution->findData( want );
+	if( ix < 0 )
+	{
+		// Custom WxH from an older/hand-edited VM file
+		ui.CB_Display_Resolution->addItem( want, want );
+		ix = ui.CB_Display_Resolution->findData( want );
+	}
+	if( ix >= 0 )
+		ui.CB_Display_Resolution->setCurrentIndex( ix );
+	else
+		ui.CB_Display_Resolution->setCurrentIndex( 0 );
+	ui.CB_Display_Resolution->blockSignals( false );
+}
+
+void Main_Window::Fill_Mouse_Combos()
+{
+	ui.CB_Mouse_Type->blockSignals( true );
+	ui.CB_Mouse_Type->clear();
+	ui.CB_Mouse_Type->addItem( tr( "PS/2 mouse (relative, default)" ), QStringLiteral( "ps2" ) );
+	ui.CB_Mouse_Type->addItem( tr( "USB Tablet (absolute — best for SPICE/VNC)" ), QStringLiteral( "usb-tablet" ) );
+	ui.CB_Mouse_Type->addItem( tr( "USB Mouse (relative)" ), QStringLiteral( "usb-mouse" ) );
+	ui.CB_Mouse_Type->addItem( tr( "USB Wacom Tablet" ), QStringLiteral( "usb-wacom-tablet" ) );
+	ui.CB_Mouse_Type->addItem( tr( "VirtIO Tablet (absolute)" ), QStringLiteral( "virtio-tablet-pci" ) );
+	ui.CB_Mouse_Type->addItem( tr( "VirtIO Mouse (relative)" ), QStringLiteral( "virtio-mouse-pci" ) );
+	ui.CB_Mouse_Type->addItem( tr( "VMware mouse (vmmouse)" ), QStringLiteral( "vmmouse" ) );
+	ui.CB_Mouse_Type->setCurrentIndex( 0 );
+	ui.CB_Mouse_Type->blockSignals( false );
+
+	ui.CB_Mouse_USB_Controller->blockSignals( true );
+	ui.CB_Mouse_USB_Controller->clear();
+	ui.CB_Mouse_USB_Controller->addItem( tr( "Auto (UHCI on PC, xHCI on virt)" ), QStringLiteral( "auto" ) );
+	ui.CB_Mouse_USB_Controller->addItem( tr( "UHCI (-usb) — typical for Windows 9x" ), QStringLiteral( "uhci" ) );
+	ui.CB_Mouse_USB_Controller->addItem( tr( "xHCI (qemu-xhci) — modern / ARM virt" ), QStringLiteral( "xhci" ) );
+	ui.CB_Mouse_USB_Controller->addItem( tr( "None (use existing USB bus only)" ), QStringLiteral( "none" ) );
+	ui.CB_Mouse_USB_Controller->setCurrentIndex( 0 );
+	ui.CB_Mouse_USB_Controller->blockSignals( false );
+
+	ui.CB_Mouse_USB_Version->blockSignals( true );
+	ui.CB_Mouse_USB_Version->clear();
+	ui.CB_Mouse_USB_Version->addItem( tr( "Default" ), 0 );
+	ui.CB_Mouse_USB_Version->addItem( tr( "USB 1.1" ), 1 );
+	ui.CB_Mouse_USB_Version->addItem( tr( "USB 2.0" ), 2 );
+	ui.CB_Mouse_USB_Version->setCurrentIndex( 0 );
+	ui.CB_Mouse_USB_Version->blockSignals( false );
+
+	ui.CB_SPICE_Agent_Mouse->blockSignals( true );
+	ui.CB_SPICE_Agent_Mouse->clear();
+	ui.CB_SPICE_Agent_Mouse->addItem( tr( "Default (QEMU)" ), QStringLiteral( "default" ) );
+	ui.CB_SPICE_Agent_Mouse->addItem( tr( "On (agent-mouse=on)" ), QStringLiteral( "on" ) );
+	ui.CB_SPICE_Agent_Mouse->addItem( tr( "Off (agent-mouse=off)" ), QStringLiteral( "off" ) );
+	ui.CB_SPICE_Agent_Mouse->setCurrentIndex( 0 );
+	ui.CB_SPICE_Agent_Mouse->blockSignals( false );
+}
+
+void Main_Window::Update_Mouse_Options_Enabled()
+{
+	const QString mt = ui.CB_Mouse_Type->currentData( Qt::UserRole ).toString();
+	const bool usb = mt.startsWith( QStringLiteral( "usb-" ) );
+	ui.CB_Mouse_USB_Controller->setEnabled( usb );
+	ui.Label_Mouse_USB_Controller->setEnabled( usb );
+	ui.CB_Mouse_USB_Version->setEnabled( mt == "usb-tablet" || mt == "usb-mouse" );
+	ui.Label_Mouse_USB_Version->setEnabled( mt == "usb-tablet" || mt == "usb-mouse" );
+}
+
+void Main_Window::Apply_Mouse_Settings_To_Ui( const Virtual_Machine *vm )
+{
+	if( ! vm ) return;
+
+	auto set_combo = []( QComboBox *cb, const QVariant &data )
+	{
+		if( ! cb ) return;
+		cb->blockSignals( true );
+		int ix = cb->findData( data );
+		if( ix < 0 ) ix = 0;
+		cb->setCurrentIndex( ix );
+		cb->blockSignals( false );
+	};
+
+	set_combo( ui.CB_Mouse_Type, vm->Get_Mouse_Type() );
+	set_combo( ui.CB_Mouse_USB_Controller, vm->Get_Mouse_USB_Controller() );
+	set_combo( ui.CB_Mouse_USB_Version, vm->Get_Mouse_USB_Version() );
+	set_combo( ui.CB_SPICE_Agent_Mouse, vm->Get_SPICE_Agent_Mouse() );
+}
+
+void Main_Window::Update_Display_Resolution_Enabled()
+{
+	QString video = ui.CB_Video_Card->currentData( Qt::UserRole ).toString();
+	if( video.isEmpty() )
+		video = ui.CB_Video_Card->currentText();
+	if( video.isEmpty() )
+	{
+		Virtual_Machine *vm = Get_Current_VM();
+		if( vm )
+			video = vm->Get_Video_Card();
+	}
+
+	const bool virtio = video.contains( QStringLiteral( "virtio-gpu" ), Qt::CaseInsensitive );
+	// Respect parent tab enablement (disabled while VM is running).
+	const bool parent_ok = ui.Tab_General->isEnabled();
+	ui.CB_Display_Resolution->setEnabled( virtio && parent_ok );
+	ui.Label_Display_Resolution->setEnabled( virtio && parent_ok );
 }
 
 void Main_Window::VM_Changed()
 {
     if ( block_VM_changed_signals )
         return;
+
+	Update_Display_Resolution_Enabled();
+	Update_Mouse_Options_Enabled();
 
     // check if there's really a change compared
     // to the current VM /(and saved VM file)
@@ -2451,7 +2725,19 @@ void Main_Window::VM_Changed()
 	    ui.Button_Cancel->setEnabled( test );
 
         delete tmp_vm;
+
+		// Persist immediately (debounced) — no "save changes?" prompts.
+		if( test )
+			Schedule_Auto_Save();
+		else if( Auto_Save_Timer )
+			Auto_Save_Timer->stop();
     }
+}
+
+void Main_Window::Schedule_Auto_Save()
+{
+	if( Auto_Save_Timer )
+		Auto_Save_Timer->start();
 }
 
 // FIXME This will be rewritten in the future. Deleting and creating new tabs/layouts is not done optimally
@@ -2553,85 +2839,35 @@ void Main_Window::on_Machines_List_currentItemChanged( QListWidgetItem *current,
 		old_vm->Get_State() != VM::VMS_In_Error )
 	{
 		AQError( "void Main_Window::on_Machines_List_currentItemChanged( QListWidgetItem* current, QListWidgetItem* previous )",
-				 "Cannot Create VM!" );
+				 "Cannot Create VM! Discarding UI changes for previous VM." );
 
-		int mes_res = QMessageBox::question( this, tr("Warning!"), tr("Current VM was changed. Discard all changes?"),
-											 QMessageBox::Yes | QMessageBox::No, QMessageBox::No );
-
-		if( mes_res == QMessageBox::No )
+		// Don't block switching — leave previous VM as-is on disk.
+		if( ui.Machines_List->row(current) >= 0 &&
+			ui.Machines_List->row(current) < ui.Machines_List->count() )
 		{
-			ui.Machines_List->setCurrentItem( previous );
-			return;
+			Update_VM_Ui();
 		}
-		else
-		{
-			// Discard changes
-			if( ui.Machines_List->row(current) >= 0 &&
-				ui.Machines_List->row(current) < ui.Machines_List->count() )
-			{
-				if( old_vm->Get_State() == VM::VMS_Saved )
-				{
-					previous->setIcon( QIcon(old_vm->Get_Screenshot_Path()) );
-					previous->setData( 128, old_vm->Get_Screenshot_Path() );
-				}
-				else
-				{
-					previous->setIcon( QIcon(old_vm->Get_Icon_Path()) );
-					previous->setData( 128, old_vm->Get_Icon_Path() );
-				}
-
-				Update_VM_Ui();
-			}
-			else
-			{
-				AQError( "void Main_Window::on_Machines_List_currentItemChanged( QListWidgetItem* current, QListWidgetItem* previous )",
-						 "Index Invalid!" );
-			}
-		}
-
 		return;
 	}
 
-	// if previous machine settings were changed
+	// if previous machine settings were changed — auto-save, never ask
     if( *old_vm != tmp_vm &&
 		old_vm->Get_State() != VM::VMS_In_Error && ui.Button_Apply->isEnabled() )
 	{
-		int mes_res = QMessageBox::question( this, tr("Warning!"), tr("Current VM was changed. Save all changes?"),
-											 QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes );
+		if( Auto_Save_Timer )
+			Auto_Save_Timer->stop();
 
-		if( mes_res == QMessageBox::Yes )
-		{
-			disconnect( old_vm, SIGNAL(State_Changed(Virtual_Machine*, VM::VM_State)),
-						this, SLOT(VM_State_Changed(Virtual_Machine*, VM::VM_State)) );
+		disconnect( old_vm, SIGNAL(State_Changed(Virtual_Machine*, VM::VM_State)),
+					this, SLOT(VM_State_Changed(Virtual_Machine*, VM::VM_State)) );
 
-            *old_vm = tmp_vm;
+		*old_vm = tmp_vm;
 
-			connect( old_vm, SIGNAL(State_Changed(Virtual_Machine*, VM::VM_State)),
-					 this, SLOT(VM_State_Changed(Virtual_Machine*, VM::VM_State)) );
+		connect( old_vm, SIGNAL(State_Changed(Virtual_Machine*, VM::VM_State)),
+				 this, SLOT(VM_State_Changed(Virtual_Machine*, VM::VM_State)) );
 
-			old_vm->Save_VM();
-			Update_VM_Ui();
-			return;
-		}
-		else
-		{
-			// Discard changes
-			if( old_vm->Get_State() == VM::VMS_Saved )
-			{
-				previous->setIcon( QIcon(old_vm->Get_Screenshot_Path()) );
-				previous->setData( 128, old_vm->Get_Screenshot_Path() );
-			}
-			else
-			{
-				previous->setIcon( QIcon(old_vm->Get_Icon_Path()) );
-				previous->setData( 128, old_vm->Get_Icon_Path() );
-			}
-
-			Update_VM_Ui();
-		}
-
-		AQWarning( "void Main_Window::on_Machines_List_currentItemChanged( QListWidgetItem* current, QListWidgetItem* previous )",
-				   "Changed VM Not Saved!" );
+		old_vm->Save_VM();
+		Update_VM_Ui();
+		return;
 	}
 	else
 	{
@@ -3031,19 +3267,29 @@ bool Main_Window::Boot_Is_Correct( Virtual_Machine *tmp_vm )
 			switch( bootOrderList[bx].Type )
 			{
 				case VM::Boot_From_FDA:
-					if( tmp_vm->Get_FD0().Get_Enabled() ) return true;
+					if( tmp_vm->Get_FD0().Get_Enabled() &&
+					    QFile::exists( tmp_vm->Get_FD0().Get_File_Name() ) )
+						return true;
 					break;
 
 				case VM::Boot_From_FDB:
-					if( tmp_vm->Get_FD1().Get_Enabled() ) return true;
+					if( tmp_vm->Get_FD1().Get_Enabled() &&
+					    QFile::exists( tmp_vm->Get_FD1().Get_File_Name() ) )
+						return true;
 					break;
 
 				case VM::Boot_From_CDROM:
-					if( tmp_vm->Get_CD_ROM().Get_Enabled() ) return true;
+					if( tmp_vm->Get_CD_ROM().Get_Enabled() &&
+					    QFile::exists( tmp_vm->Get_CD_ROM().Get_File_Name() ) )
+						return true;
 					break;
 
 				case VM::Boot_From_HDD:
-					if( tmp_vm->Get_HDA().Get_Enabled() ) return true;
+					if( ( tmp_vm->Get_HDA().Get_Enabled() && QFile::exists( tmp_vm->Get_HDA().Get_File_Name() ) ) ||
+					    ( tmp_vm->Get_HDB().Get_Enabled() && QFile::exists( tmp_vm->Get_HDB().Get_File_Name() ) ) ||
+					    ( tmp_vm->Get_HDC().Get_Enabled() && QFile::exists( tmp_vm->Get_HDC().Get_File_Name() ) ) ||
+					    ( tmp_vm->Get_HDD().Get_Enabled() && QFile::exists( tmp_vm->Get_HDD().Get_File_Name() ) ) )
+						return true;
 					break;
 
 				case VM::Boot_From_Network1:
@@ -3487,51 +3733,25 @@ bool Main_Window::Save_Or_Discard(bool forced)
 		// On forced quit, do not block the user behind a sync failure
 		return forced;
 	}
-	else
+
+	// Always persist UI changes — never prompt to save/discard.
+	if( tmp_vm != *cur_vm )
 	{
-        //something must have been changed
-        if( tmp_vm != *cur_vm )
-		{
-            QMessageBox msgBox;
-            msgBox.setWindowTitle(tr("The VM was modified"));
-            msgBox.setText(tr("The VM")+" "+cur_vm->Get_Machine_Name()+" "+("was modified."));
-            msgBox.setInformativeText(tr("Do you want to save your changes?"));
-            if ( forced )
-                msgBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
-            else
-                msgBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel);
+		if( Auto_Save_Timer )
+			Auto_Save_Timer->stop();
 
-            if ( forced )
-                msgBox.setDefaultButton(QMessageBox::Yes);
-            else
-                msgBox.setDefaultButton(QMessageBox::Cancel);
+		disconnect( cur_vm, SIGNAL(State_Changed(Virtual_Machine*, VM::VM_State)),
+					this, SLOT(VM_State_Changed(Virtual_Machine*, VM::VM_State)) );
 
-			int mes_res = msgBox.exec();
+		*cur_vm = tmp_vm;
 
-			if( mes_res == QMessageBox::Yes )
-			{
-				disconnect( cur_vm, SIGNAL(State_Changed(Virtual_Machine*, VM::VM_State)),
-							this, SLOT(VM_State_Changed(Virtual_Machine*, VM::VM_State)) );
+		cur_vm->Save_VM();
+		Update_VM_Ui();
 
-                *cur_vm = tmp_vm;
-
-				cur_vm->Save_VM();
-				Update_VM_Ui();
-
-				connect( cur_vm, SIGNAL(State_Changed(Virtual_Machine*, VM::VM_State)),
-						 this, SLOT(VM_State_Changed(Virtual_Machine*, VM::VM_State)) );
-			}
-			else if ( mes_res == QMessageBox::No )
-			{
-				// discard changes
-				Update_VM_Ui();
-			}
-            else //cancel
-            {
-                return false;
-            }
-		}
+		connect( cur_vm, SIGNAL(State_Changed(Virtual_Machine*, VM::VM_State)),
+				 this, SLOT(VM_State_Changed(Virtual_Machine*, VM::VM_State)) );
 	}
+
     return true;
 }
 
@@ -3544,8 +3764,16 @@ void Main_Window::on_actionPower_On_triggered()
 
 	if( ! Boot_Is_Correct(cur_vm) ) return;
 
+	// Show the session window first, then start QEMU (display connects when Running).
+	if( Settings.value( "Embedded_Session", "yes" ).toString() == "yes" )
+		Enter_Session_Mode_Preparing( cur_vm );
+
     if( ! AQEMU_Service::get().call( "start" , cur_vm ) )
+	{
         AQError( "void Main_Window::on_action_Power_On_triggered()", "Cannot Start VM!" );
+		if( Session_Mode_Active && Session_VM == cur_vm )
+			Exit_Session_Mode();
+	}
 }
 
 void Main_Window::on_actionSave_triggered()
@@ -3600,11 +3828,14 @@ void Main_Window::on_actionPower_Off_triggered()
 	}
 
 	if( QMessageBox::question(this, tr("Are you sure?"),
-		tr("Shutdown VM \"%1\"?").arg(cur_vm->Get_Machine_Name()),
+		tr("Power off VM \"%1\"?").arg(cur_vm->Get_Machine_Name()),
 		QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes) == QMessageBox::No )
 	{
 		return;
 	}
+
+	if( Session_Mode_Active && Session_VM == cur_vm )
+		Exit_Session_Mode();
 
     AQEMU_Service::get().call( "stop" , cur_vm );
 }
@@ -4227,24 +4458,27 @@ void Main_Window::Computer_Type_Changed()
 	// Video
 	ui.CB_Video_Card->clear();
 
-	cl = QStringList();
+	QString want_video = System_Info::Default_Video_Card( arch_bin );
+	Virtual_Machine *cur_vm = Get_Current_VM();
+	if( cur_vm )
+	{
+		want_video = System_Info::Sanitize_Video_Card(
+			arch_bin, cur_vm->Get_Video_Card(), cur_vm->Get_Machine_Type() );
+		if( want_video != cur_vm->Get_Video_Card() )
+			cur_vm->Set_Video_Card( want_video );
+	}
 
 	for( int vx = 0; vx < curComp.Video_Card_List.count(); ++vx )
-		cl << curComp.Video_Card_List[vx].Caption;
-
-	ui.CB_Video_Card->addItems( cl );
-
-	if( is_virt_arch )
 	{
-		for( int vx = 0; vx < curComp.Video_Card_List.count(); ++vx )
-		{
-			if( curComp.Video_Card_List[vx].QEMU_Name == "virtio-gpu-pci" )
-			{
-				ui.CB_Video_Card->setCurrentIndex( vx );
-				break;
-			}
-		}
+		const Device_Map &vc = curComp.Video_Card_List[vx];
+		ui.CB_Video_Card->addItem( vc.Caption, vc.QEMU_Name );
 	}
+
+	const int video_sel = ui.CB_Video_Card->findData( want_video );
+	if( video_sel >= 0 )
+		ui.CB_Video_Card->setCurrentIndex( video_sel );
+	else if( ui.CB_Video_Card->count() > 0 )
+		ui.CB_Video_Card->setCurrentIndex( 0 );
 
 	// Use Nativ Network Cards FIXME set emulator PSO to net card widget
 	if( ui.RB_Network_Mode_New->isChecked() )
@@ -4278,6 +4512,8 @@ void Main_Window::Computer_Type_Changed()
     ui.CB_CPU_Type_Main->blockSignals(false);
     ui.CB_Machine_Type_Main->blockSignals(false);
     ui.CB_Video_Card->blockSignals(false);
+
+	Update_Display_Resolution_Enabled();
 
 	// Other Options
 	Update_Disabled_Controls();
@@ -4667,14 +4903,9 @@ void Main_Window::on_Button_VirtIO_Defaults_clicked()
 		ui.CB_CPU_Type_Main->setCurrentIndex( cpu_idx );
 
 	// Video: virtio-gpu-pci
-	for( int i = 0; i < cur.Video_Card_List.count(); ++i )
-	{
-		if( cur.Video_Card_List[i].QEMU_Name == "virtio-gpu-pci" )
-		{
-			ui.CB_Video_Card->setCurrentIndex( i );
-			break;
-		}
-	}
+	const int vix = ui.CB_Video_Card->findData( "virtio-gpu-pci" );
+	if( vix >= 0 )
+		ui.CB_Video_Card->setCurrentIndex( vix );
 
 	ui.CB_Disk_Interface->setCurrentIndex( 0 ); // VirtIO
 	ui.CB_CPU_Count->setEditText( "4" );
@@ -4704,6 +4935,8 @@ void Main_Window::on_Button_VirtIO_Defaults_clicked()
 	if( vm )
 	{
 		vm->Use_USB_Hub( true );
+		vm->Set_Mouse_Type( QStringLiteral( "usb-tablet" ) );
+		vm->Set_Mouse_USB_Controller( QStringLiteral( "xhci" ) );
 		vm->Use_VirtIO_RNG( true );
 		vm->Use_VirtIO_Balloon( true );
 		vm->Use_VirtIO_Keyboard( true );

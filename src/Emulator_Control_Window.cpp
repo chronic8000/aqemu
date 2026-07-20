@@ -32,7 +32,9 @@
 #include <QClipboard>
 
 #ifdef Q_OS_WIN32
-// FIXME
+#ifdef VNC_DISPLAY
+#include <QTest>
+#endif
 #else
 #include <QTest>
 #endif

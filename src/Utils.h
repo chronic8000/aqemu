@@ -56,6 +56,7 @@ bool Create_New_HDD_Image( bool encrypted, const QString &base_image,
 						   const QString &file_name, const QString &format, VM::Device_Size size, bool verbose );
 bool Create_New_HDD_Image( const QString &file_name, VM::Device_Size size );
 bool Format_HDD_Image( const QString &file_name, VM::Disk_Info info );
+QString Get_QEMU_IMG_Path();
 
 QList<QString> Get_Templates_List();
 

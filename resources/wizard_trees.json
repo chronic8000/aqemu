@@ -1,0 +1,146 @@
+{
+  "operating_systems": {
+    "Microsoft": [
+      "MS-DOS", "PC DOS", "DR-DOS",
+      "Windows 1.x", "Windows 2.x", "Windows 3.x",
+      "Windows 95", "Windows 98", "Windows ME",
+      "Windows NT 3.x", "Windows NT 4.0", "Windows 2000",
+      "Windows XP", "Windows Vista", "Windows 7", "Windows 8", "Windows 8.1",
+      "Windows 10", "Windows 11",
+      "Windows Server 2000", "Windows Server 2003", "Windows Server 2008",
+      "Windows Server 2012", "Windows Server 2016", "Windows Server 2019",
+      "Windows Server 2022", "Windows Server 2025"
+    ],
+    "Linux": [
+      "Ubuntu", "Debian", "Fedora", "RHEL", "Rocky Linux", "AlmaLinux",
+      "SUSE Linux", "openSUSE", "Arch Linux", "Gentoo", "Slackware",
+      "Kali Linux", "Linux Mint", "Alpine Linux", "Tiny Core Linux", "Generic Linux"
+    ],
+    "BSD": ["FreeBSD", "OpenBSD", "NetBSD", "DragonFly BSD"],
+    "Apple": [
+      "Mac OS 7", "Mac OS 8", "Mac OS 9",
+      "Mac OS X PPC", "Mac OS X Intel", "macOS", "Darwin"
+    ],
+    "Sun": ["Solaris x86", "Solaris SPARC", "OpenSolaris", "illumos", "OmniOS"],
+    "SGI": ["IRIX 5.x", "IRIX 6.x"],
+    "IBM": ["AIX", "OS/2", "eComStation", "ArcaOS"],
+    "DEC": ["OpenVMS", "Tru64 UNIX"],
+    "Other": [
+      "ReactOS", "Haiku", "BeOS", "AmigaOS", "MorphOS", "RISC OS",
+      "Android", "ChromeOS", "SerenityOS", "KolibriOS", "TempleOS", "Other"
+    ]
+  },
+  "architectures": [
+    "x86", "x86-64", "ARM", "ARM64 / AArch64",
+    "PowerPC 32", "PowerPC 64",
+    "MIPS", "MIPSEL", "MIPS64", "MIPS64EL",
+    "SPARC32", "SPARC64",
+    "RISC-V 32", "RISC-V 64",
+    "s390x", "Alpha", "PA-RISC", "m68k",
+    "AVR", "MicroBlaze", "OpenRISC", "Xtensa", "RX", "SH4", "TriCore", "LoongArch"
+  ],
+  "platforms": {
+    "IBM PC Compatible": ["PC (Q35)", "PC (i440FX)", "Legacy ISA PC", "MicroVM"],
+    "ARM Virtual Platforms": ["ARM Virtual Machine", "ARM64 Virtual Machine", "SBSA Reference Platform"],
+    "Raspberry Pi": [
+      "Raspberry Pi Zero", "Raspberry Pi 1", "Raspberry Pi 2",
+      "Raspberry Pi 3", "Raspberry Pi 4"
+    ],
+    "Apple Macintosh": ["Macintosh (Mac99)", "Power Macintosh G3", "Macintosh Quadra 800"],
+    "Sun Microsystems": ["UltraSPARC (sun4u)", "Sun Niagara"],
+    "IBM Power": ["IBM pSeries", "IBM PowerNV", "POWER8", "POWER9", "POWER10", "POWER11"],
+    "IBM Mainframe": ["IBM Z (s390x)"],
+    "MIPS": ["MIPS Malta", "Fuloong 2E", "Loongson 3 Virtual"],
+    "DEC Alpha": ["Alpha Clipper"],
+    "HP PA-RISC": ["HP B160L", "HP C3700", "HP A400-44", "HP 715/64"],
+    "RISC-V": ["RISC-V Virt", "RISC-V Spike", "SiFive E", "SiFive U", "OpenTitan"],
+    "Embedded": [
+      "Arduino Uno", "Arduino Duemilanove", "Arduino Mega",
+      "STM32 VL Discovery", "Netduino 2", "Netduino Plus 2", "BBC micro:bit"
+    ],
+    "Other Platforms": [
+      "SGI Magnum", "AmigaOne", "Sam460ex", "Acer Pica 61",
+      "Cubieboard", "Orange Pi PC", "Bananapi M2U", "Hundreds More..."
+    ],
+    "Generic": [
+      "Generic Virtual Machine", "Empty Machine", "Import Existing QEMU Command Line"
+    ]
+  },
+  "architecture_targets": {
+    "x86": "i386",
+    "x86-64": "x86_64",
+    "ARM": "arm",
+    "ARM64 / AArch64": "aarch64",
+    "PowerPC 32": "ppc",
+    "PowerPC 64": "ppc64",
+    "MIPS": "mips",
+    "MIPSEL": "mipsel",
+    "MIPS64": "mips64",
+    "MIPS64EL": "mips64el",
+    "SPARC32": "sparc",
+    "SPARC64": "sparc64",
+    "RISC-V 32": "riscv32",
+    "RISC-V 64": "riscv64",
+    "s390x": "s390x",
+    "Alpha": "alpha",
+    "PA-RISC": "hppa",
+    "m68k": "m68k",
+    "AVR": "avr",
+    "MicroBlaze": "microblaze",
+    "OpenRISC": "or1k",
+    "Xtensa": "xtensa",
+    "RX": "rx",
+    "SH4": "sh4",
+    "TriCore": "tricore",
+    "LoongArch": "loongarch64"
+  },
+  "platform_bindings": {
+    "PC (Q35)": {"target": "x86_64", "machine": "q35"},
+    "PC (i440FX)": {"target": "x86_64", "machine": "pc"},
+    "Legacy ISA PC": {"target": "i386", "machine": "isapc"},
+    "MicroVM": {"target": "x86_64", "machine": "microvm"},
+    "ARM Virtual Machine": {"target": "arm", "machine": "virt"},
+    "ARM64 Virtual Machine": {"target": "aarch64", "machine": "virt"},
+    "SBSA Reference Platform": {"target": "aarch64", "machine": "sbsa-ref"},
+    "Raspberry Pi Zero": {"target": "arm", "machine": "raspi0"},
+    "Raspberry Pi 1": {"target": "arm", "machine": "raspi1ap"},
+    "Raspberry Pi 2": {"target": "arm", "machine": "raspi2b"},
+    "Raspberry Pi 3": {"target": "aarch64", "machine": "raspi3b"},
+    "Raspberry Pi 4": {"target": "aarch64", "machine": "raspi4b"},
+    "Macintosh (Mac99)": {"target": "ppc", "machine": "mac99"},
+    "Power Macintosh G3": {"target": "ppc", "machine": "g3beige"},
+    "Macintosh Quadra 800": {"target": "m68k", "machine": "q800"},
+    "UltraSPARC (sun4u)": {"target": "sparc64", "machine": "sun4u"},
+    "Sun Niagara": {"target": "sparc64", "machine": "niagara"},
+    "IBM pSeries": {"target": "ppc64", "machine": "pseries"},
+    "IBM PowerNV": {"target": "ppc64", "machine": "powernv"},
+    "POWER8": {"target": "ppc64", "machine": "powernv8"},
+    "POWER9": {"target": "ppc64", "machine": "powernv9"},
+    "POWER10": {"target": "ppc64", "machine": "powernv10"},
+    "IBM Z (s390x)": {"target": "s390x", "machine": "s390-ccw-virtio"},
+    "MIPS Malta": {"target": "mipsel", "machine": "malta"},
+    "Fuloong 2E": {"target": "mipsel", "machine": "fuloong2e"},
+    "Loongson 3 Virtual": {"target": "mips64el", "machine": "loongson3-virt"},
+    "Alpha Clipper": {"target": "alpha", "machine": "clipper"},
+    "HP B160L": {"target": "hppa", "machine": "b160l"},
+    "HP C3700": {"target": "hppa", "machine": "c3700"},
+    "RISC-V Virt": {"target": "riscv64", "machine": "virt"},
+    "RISC-V Spike": {"target": "riscv64", "machine": "spike"},
+    "SiFive E": {"target": "riscv32", "machine": "sifive_e"},
+    "SiFive U": {"target": "riscv64", "machine": "sifive_u"},
+    "OpenTitan": {"target": "riscv32", "machine": "opentitan"},
+    "Arduino Uno": {"target": "avr", "machine": "arduino-duemilanove"},
+    "Arduino Duemilanove": {"target": "avr", "machine": "arduino-duemilanove"},
+    "Arduino Mega": {"target": "avr", "machine": "arduino-mega"},
+    "STM32 VL Discovery": {"target": "arm", "machine": "stm32vldiscovery"},
+    "Netduino 2": {"target": "arm", "machine": "netduino2"},
+    "Netduino Plus 2": {"target": "arm", "machine": "netduinoplus2"},
+    "BBC micro:bit": {"target": "arm", "machine": "microbit"},
+    "SGI Magnum": {"target": "mips", "machine": "magnum"},
+    "Cubieboard": {"target": "arm", "machine": "cubieboard"},
+    "Orange Pi PC": {"target": "arm", "machine": "orangepi-pc"},
+    "Bananapi M2U": {"target": "arm", "machine": "bpim2u"},
+    "Generic Virtual Machine": {"target": "aarch64", "machine": "virt"},
+    "Empty Machine": {"target": "aarch64", "machine": "none"}
+  }
+}

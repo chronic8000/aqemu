@@ -12,7 +12,7 @@
         <CPU_Type>pentium</CPU_Type>
         <SMP_CPU_Count>1</SMP_CPU_Count>
         <Keyboard_Layout>Default</Keyboard_Layout>
-        <Boot_Device>Floppy</Boot_Device>
+        <Boot_Device>FDD</Boot_Device>
         <Video_Card>cirrus</Video_Card>
         <KQEMU_Mode>Default</KQEMU_Mode>
         <Audio_Cards>

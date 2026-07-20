@@ -26,6 +26,7 @@
 #include <QString>
 #include <QDir>
 #include <QFile>
+#include <QSaveFile>
 #include <QFileInfo>
 #include <QTextStream>
 #include <QMessageBox>
@@ -33,6 +34,9 @@
 #include <QUuid>
 #include <QPainter>
 #include <QTimer>
+#include <QThread>
+#include <QGuiApplication>
+#include <QScreen>
 
 #ifdef Q_OS_WIN32
 #include <windows.h>
@@ -78,6 +82,7 @@ Virtual_Machine::Virtual_Machine( const QString &name )
 Virtual_Machine::Virtual_Machine( const Virtual_Machine &vm )
 {
 	QEMU_Process = new QProcess();
+	QEMU_Kill_Target_Pid = 0;
 	Monitor_Socket = new QTcpSocket( this );
 	Use_Monitor_TCP = false;
 	Monitor_Hostname = "localhost";
@@ -92,6 +97,7 @@ Virtual_Machine::Virtual_Machine( const Virtual_Machine &vm )
 	QEMU_Stdout_History = "";
 	Embedded_Display_Port = -1;
 	Embedded_Spice_Port = 0;
+	Embedded_VNC_Port = 0;
 	QMP_Port = 0;
 	QMP = nullptr;
 	
@@ -130,6 +136,11 @@ Virtual_Machine::Virtual_Machine( const Virtual_Machine &vm )
 	this->Boot_Order_List = vm.Get_Boot_Order_List();
 	this->Show_Boot_Menu = vm.Get_Show_Boot_Menu();
     this->Video_Card = vm.Get_Video_Card();
+	this->Display_Resolution = vm.Get_Display_Resolution();
+	this->Mouse_Type = vm.Get_Mouse_Type();
+	this->Mouse_USB_Controller = vm.Get_Mouse_USB_Controller();
+	this->Mouse_USB_Version = vm.Get_Mouse_USB_Version();
+	this->SPICE_Agent_Mouse = vm.Get_SPICE_Agent_Mouse();
 	
 	this->Audio_Card = vm.Get_Audio_Cards();
 	
@@ -299,6 +310,7 @@ Virtual_Machine::~Virtual_Machine()
 void Virtual_Machine::Shared_Constructor()
 {
 	QEMU_Process = new QProcess();
+	QEMU_Kill_Target_Pid = 0;
 	Monitor_Socket = new QTcpSocket( this );
 	Use_Monitor_TCP = false;
 	Monitor_Hostname = "localhost";
@@ -349,7 +361,7 @@ void Virtual_Machine::Shared_Constructor()
 	
 	VM::Boot_Order tmpBootOrder;
 	
-	tmpBootOrder.Enabled = true;
+	tmpBootOrder.Enabled = false;
 	tmpBootOrder.Type = VM::Boot_From_FDA;
 	this->Boot_Order_List << tmpBootOrder;
 	
@@ -361,6 +373,7 @@ void Virtual_Machine::Shared_Constructor()
 	tmpBootOrder.Type = VM::Boot_From_CDROM;
 	this->Boot_Order_List << tmpBootOrder;
 	
+	tmpBootOrder.Enabled = true;
 	tmpBootOrder.Type = VM::Boot_From_HDD;
 	this->Boot_Order_List << tmpBootOrder;
 	
@@ -380,6 +393,11 @@ void Virtual_Machine::Shared_Constructor()
 	Show_Boot_Menu = true;
 	
     Video_Card = "";
+	Display_Resolution = "native";
+	Mouse_Type = "ps2";
+	Mouse_USB_Controller = "auto";
+	Mouse_USB_Version = 0;
+	SPICE_Agent_Mouse = "default";
 	Audio_Card = VM::Sound_Cards();
 	Audio_Card.Audio_HDA = true; // sensible default for modern guests
 	Remove_RAM_Size_Limitation = false;
@@ -475,6 +493,7 @@ void Virtual_Machine::Shared_Constructor()
 	
 	Embedded_Display_Port = -1;
 	Embedded_Spice_Port = 0;
+	Embedded_VNC_Port = 0;
 	QMP_Port = 0;
 	QMP = nullptr;
 	
@@ -499,6 +518,11 @@ bool Virtual_Machine::operator==( const Virtual_Machine &vm ) const
 		this->Keyboard_Layout == vm.Get_Keyboard_Layout() &&
 		this->Show_Boot_Menu == vm.Get_Show_Boot_Menu() &&
         this->Video_Card == vm.Get_Video_Card() &&
+		this->Display_Resolution == vm.Get_Display_Resolution() &&
+		this->Mouse_Type == vm.Get_Mouse_Type() &&
+		this->Mouse_USB_Controller == vm.Get_Mouse_USB_Controller() &&
+		this->Mouse_USB_Version == vm.Get_Mouse_USB_Version() &&
+		this->SPICE_Agent_Mouse == vm.Get_SPICE_Agent_Mouse() &&
 		this->Audio_Card == vm.Get_Audio_Cards() &&
 		this->Memory_Size == vm.Get_Memory_Size() &&
 		this->Remove_RAM_Size_Limitation == vm.Get_Remove_RAM_Size_Limitation() &&
@@ -684,6 +708,7 @@ bool Virtual_Machine::operator!=( const Virtual_Machine &v1 ) const
 Virtual_Machine &Virtual_Machine::operator=( const Virtual_Machine &vm )
 {
 	QEMU_Process = new QProcess();
+	QEMU_Kill_Target_Pid = 0;
 	Monitor_Socket = new QTcpSocket( this );
 	Use_Monitor_TCP = false;
 	Monitor_Hostname = "localhost";
@@ -697,6 +722,7 @@ Virtual_Machine &Virtual_Machine::operator=( const Virtual_Machine &vm )
 	UID = vm.Get_UID();
 	Embedded_Display_Port = -1;
 	Embedded_Spice_Port = 0;
+	Embedded_VNC_Port = 0;
 	QMP_Port = 0;
 	QMP = nullptr;
 	
@@ -736,6 +762,11 @@ Virtual_Machine &Virtual_Machine::operator=( const Virtual_Machine &vm )
 	this->Boot_Order_List = vm.Get_Boot_Order_List();
 	this->Show_Boot_Menu = vm.Get_Show_Boot_Menu();
     this->Video_Card = vm.Get_Video_Card();
+	this->Display_Resolution = vm.Get_Display_Resolution();
+	this->Mouse_Type = vm.Get_Mouse_Type();
+	this->Mouse_USB_Controller = vm.Get_Mouse_USB_Controller();
+	this->Mouse_USB_Version = vm.Get_Mouse_USB_Version();
+	this->SPICE_Agent_Mouse = vm.Get_SPICE_Agent_Mouse();
 	this->Audio_Card = vm.Get_Audio_Cards();
 	this->Memory_Size = vm.Get_Memory_Size();
 	this->Remove_RAM_Size_Limitation = vm.Get_Remove_RAM_Size_Limitation();
@@ -1134,6 +1165,33 @@ bool Virtual_Machine::Create_VM_File( const QString &file_name, bool template_mo
 	Dom_Element = New_Dom_Document.createElement( "Video_Card" );
 	VM_Element.appendChild( Dom_Element );
 	Dom_Text = New_Dom_Document.createTextNode( Video_Card );
+	Dom_Element.appendChild( Dom_Text );
+
+	// Display_Resolution (virtio-gpu EDID: native|auto|WxH)
+	Dom_Element = New_Dom_Document.createElement( "Display_Resolution" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( Display_Resolution );
+	Dom_Element.appendChild( Dom_Text );
+
+	// Mouse / pointer
+	Dom_Element = New_Dom_Document.createElement( "Mouse_Type" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( Mouse_Type );
+	Dom_Element.appendChild( Dom_Text );
+
+	Dom_Element = New_Dom_Document.createElement( "Mouse_USB_Controller" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( Mouse_USB_Controller );
+	Dom_Element.appendChild( Dom_Text );
+
+	Dom_Element = New_Dom_Document.createElement( "Mouse_USB_Version" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( QString::number( Mouse_USB_Version ) );
+	Dom_Element.appendChild( Dom_Text );
+
+	Dom_Element = New_Dom_Document.createElement( "SPICE_Agent_Mouse" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( SPICE_Agent_Mouse );
 	Dom_Element.appendChild( Dom_Text );
 	
 	// Audio Cards
@@ -3510,19 +3568,29 @@ bool Virtual_Machine::Create_VM_File( const QString &file_name, bool template_mo
 	Dom_Text = New_Dom_Document.createTextNode( VNC_x509verify_Folder_Path );
 	Dom_Element.appendChild( Dom_Text );
 	
-	// Create File and Save Data
-	QFile VM_XML_File( file_name );
-	
-	if( ! VM_XML_File.open(QFile::WriteOnly | QFile::Truncate) )
+	// Write to a temp file first, then atomically rename so a failed write never
+	// corrupts the existing .aqemu file.
+	QSaveFile VM_XML_File( file_name );
+
+	if( ! VM_XML_File.open(QIODevice::WriteOnly) )
 	{
 		AQError( "bool Virtual_Machine::Create_VM_File( const QString &file_name, bool template_mode )",
 				 QString("Cannot Create New VM File \"%1\"").arg(file_name) );
 		return false;
 	}
-	
-	QTextStream Out_Stream( &VM_XML_File );
-	New_Dom_Document.save( Out_Stream, 4 );
-	
+
+	{
+		QTextStream Out_Stream( &VM_XML_File );
+		New_Dom_Document.save( Out_Stream, 4 );
+	}
+
+	if( ! VM_XML_File.commit() )
+	{
+		AQError( "bool Virtual_Machine::Create_VM_File( const QString &file_name, bool template_mode )",
+				 QString("Cannot Commit VM File \"%1\": %2").arg(file_name).arg(VM_XML_File.errorString()) );
+		return false;
+	}
+
 	return true;
 }
 
@@ -3862,7 +3930,9 @@ bool Virtual_Machine::Load_VM( const QString &file_name )
 				QString tmp_str = Child_Element.firstChildElement("Boot_Device").text();
 				VM::Boot_Device bootDev;
 				
-				if( tmp_str == "FDD" ) bootDev = VM::Boot_From_FDA;
+				if( tmp_str == "FDD" || tmp_str == "Floppy" || tmp_str == "FDA" )
+					bootDev = VM::Boot_From_FDA;
+				else if( tmp_str == "FDB" ) bootDev = VM::Boot_From_FDB;
 				else if( tmp_str == "CDROM" ) bootDev = VM::Boot_From_CDROM;
 				else if( tmp_str == "HDD" ) bootDev = VM::Boot_From_HDD;
 				else if( tmp_str == "Network" ) bootDev = VM::Boot_From_Network1;
@@ -3885,6 +3955,37 @@ bool Virtual_Machine::Load_VM( const QString &file_name )
 			
 			// Video Card
 			Video_Card = Child_Element.firstChildElement("Video_Card").text();
+			Video_Card = System_Info::Sanitize_Video_Card( Computer_Type, Video_Card, Machine_Type );
+
+			// Display Resolution (optional; default native for older VM files)
+			{
+				const QString dr = Child_Element.firstChildElement( "Display_Resolution" ).text().trimmed();
+				Display_Resolution = dr.isEmpty() ? QStringLiteral( "native" ) : dr;
+
+				QString mt = Child_Element.firstChildElement( "Mouse_Type" ).text().trimmed().toLower();
+				if( mt.isEmpty() )
+				{
+					// Legacy: USB_Hub implied qemu-xhci + usb-tablet
+					const bool hub = ( Child_Element.firstChildElement( "USB_Hub" ).text() == "true" );
+					mt = hub ? QStringLiteral( "usb-tablet" ) : QStringLiteral( "ps2" );
+					if( hub && Child_Element.firstChildElement( "Mouse_USB_Controller" ).text().trimmed().isEmpty() )
+						Mouse_USB_Controller = QStringLiteral( "xhci" );
+				}
+				Mouse_Type = mt;
+
+				const QString mc = Child_Element.firstChildElement( "Mouse_USB_Controller" ).text().trimmed().toLower();
+				if( ! mc.isEmpty() )
+					Mouse_USB_Controller = mc;
+				else if( Mouse_USB_Controller.isEmpty() )
+					Mouse_USB_Controller = QStringLiteral( "auto" );
+
+				const QString mv = Child_Element.firstChildElement( "Mouse_USB_Version" ).text().trimmed();
+				if( ! mv.isEmpty() )
+					Mouse_USB_Version = mv.toInt();
+
+				const QString am = Child_Element.firstChildElement( "SPICE_Agent_Mouse" ).text().trimmed().toLower();
+				SPICE_Agent_Mouse = am.isEmpty() ? QStringLiteral( "default" ) : am;
+			}
 			
 			// Audio Cards
 			Second_Element = Child_Element.firstChildElement( "Audio_Cards" );
@@ -5339,6 +5440,137 @@ bool Virtual_Machine::Save_VM( const QString &file_name )
 	return Create_VM_File( file_name, false );
 }
 
+static int Get_Emulator_Monitor_Base_Port()
+{
+	QSettings settings;
+	if( settings.contains( "Emulator_Monitor_Port" ) )
+		return settings.value( "Emulator_Monitor_Port" ).toInt();
+	return settings.value( "Emulator_MonGitor_Port", 26000 ).toInt();
+}
+
+static quint16 Allocate_Embedded_Monitor_Port( int embedded_display_port, quint16 qmp_port,
+                                               int spice_port, int vnc_port )
+{
+	const int preferred = Get_Emulator_Monitor_Base_Port()
+	                      + ( embedded_display_port >= 0 ? embedded_display_port : 0 );
+	quint16 candidate = Find_Free_TCP_Port( (quint16)qMax( 26000, preferred ) );
+
+	for( int attempt = 0; candidate != 0 && attempt < 2000; ++attempt )
+	{
+		if( candidate != qmp_port && candidate != (quint16)spice_port && candidate != (quint16)vnc_port )
+			return candidate;
+		candidate = Find_Free_TCP_Port( candidate + 1 );
+	}
+
+	return candidate != 0 ? candidate : (quint16)qMax( 26000, preferred );
+}
+
+static QChar Boot_Letter( VM::Boot_Device type )
+{
+	switch( type )
+	{
+		case VM::Boot_From_FDA: return QLatin1Char( 'a' );
+		case VM::Boot_From_FDB: return QLatin1Char( 'b' );
+		case VM::Boot_From_HDD: return QLatin1Char( 'c' );
+		case VM::Boot_From_CDROM: return QLatin1Char( 'd' );
+		case VM::Boot_From_Network1:
+		case VM::Boot_From_Network2:
+		case VM::Boot_From_Network3:
+		case VM::Boot_From_Network4:
+			return QLatin1Char( 'n' );
+		default:
+			return QChar();
+	}
+}
+
+static bool Is_Network_Boot( VM::Boot_Device type )
+{
+	return type == VM::Boot_From_Network1 || type == VM::Boot_From_Network2 ||
+	       type == VM::Boot_From_Network3 || type == VM::Boot_From_Network4;
+}
+
+static bool Media_Is_Bootable_Now( const Virtual_Machine &vm, VM::Boot_Device type )
+{
+	switch( type )
+	{
+		case VM::Boot_From_FDA:
+			return vm.Get_FD0().Get_Enabled() && QFile::exists( vm.Get_FD0().Get_File_Name() );
+		case VM::Boot_From_FDB:
+			return vm.Get_FD1().Get_Enabled() && QFile::exists( vm.Get_FD1().Get_File_Name() );
+		case VM::Boot_From_CDROM:
+			return vm.Get_CD_ROM().Get_Enabled() && QFile::exists( vm.Get_CD_ROM().Get_File_Name() );
+		case VM::Boot_From_HDD:
+			return ( vm.Get_HDA().Get_Enabled() && QFile::exists( vm.Get_HDA().Get_File_Name() ) ) ||
+			       ( vm.Get_HDB().Get_Enabled() && QFile::exists( vm.Get_HDB().Get_File_Name() ) ) ||
+			       ( vm.Get_HDC().Get_Enabled() && QFile::exists( vm.Get_HDC().Get_File_Name() ) ) ||
+			       ( vm.Get_HDD().Get_Enabled() && QFile::exists( vm.Get_HDD().Get_File_Name() ) );
+		case VM::Boot_From_Network1:
+		case VM::Boot_From_Network2:
+		case VM::Boot_From_Network3:
+		case VM::Boot_From_Network4:
+			return vm.Get_Use_Network();
+		default:
+			return false;
+	}
+}
+
+static int Bootindex_For( const Virtual_Machine &vm, VM::Boot_Device want )
+{
+	int idx = 1;
+	bool net_seen = false;
+	const QList<VM::Boot_Order> &list = vm.Get_Boot_Order_List();
+	for( int i = 0; i < list.count(); ++i )
+	{
+		if( ! list[i].Enabled )
+			continue;
+		if( ! Media_Is_Bootable_Now( vm, list[i].Type ) )
+			continue;
+		if( Is_Network_Boot( list[i].Type ) )
+		{
+			if( net_seen )
+				continue;
+			net_seen = true;
+		}
+		if( list[i].Type == want ||
+		    ( Is_Network_Boot( want ) && Is_Network_Boot( list[i].Type ) ) )
+			return idx;
+		++idx;
+	}
+	return 1;
+}
+
+QString Virtual_Machine::Get_X86_Boot_Order_Letters() const
+{
+	QString letters;
+	bool net_seen = false;
+	const QList<VM::Boot_Order> &list = Get_Boot_Order_List();
+	for( int i = 0; i < list.count(); ++i )
+	{
+		if( ! list[i].Enabled )
+			continue;
+		if( ! Media_Is_Bootable_Now( *this, list[i].Type ) )
+			continue;
+		if( Is_Network_Boot( list[i].Type ) )
+		{
+			if( net_seen )
+				continue;
+			net_seen = true;
+		}
+		const QChar letter = Boot_Letter( list[i].Type );
+		if( ! letter.isNull() )
+			letters += letter;
+	}
+	return letters;
+}
+
+static QString Build_X86_Boot_Arg( const Virtual_Machine &vm, bool show_menu )
+{
+	const QString letters = vm.Get_X86_Boot_Order_Letters();
+	if( letters.isEmpty() )
+		return QString();
+	return QString( "order=%1,menu=%2" ).arg( letters, show_menu ? "on" : "off" );
+}
+
 QStringList Virtual_Machine::Build_QEMU_Args()
 {
 	QStringList Args;
@@ -5364,6 +5596,11 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			QMP_Port = Find_Free_TCP_Port( 4444 );
 		if( Embedded_Spice_Port <= 0 )
 			Embedded_Spice_Port = Find_Free_TCP_Port( 5930 );
+		if( Embedded_VNC_Port <= 0 )
+		{
+			const int first_vnc = Settings.value( "First_VNC_Port", "5910" ).toString().toInt();
+			Embedded_VNC_Port = Find_Free_TCP_Port( (quint16)qMax( 5901, first_vnc ) );
+		}
 
 		if( QMP_Port > 0 )
 			Args << "-qmp" << QString( "tcp:127.0.0.1:%1,server,nowait" ).arg( QMP_Port );
@@ -5373,22 +5610,32 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	QString monitor_host = Settings.value("Emulator_Monitor_Hostname", "127.0.0.1").toString();
 	if( monitor_host.toLower() == "localhost" ) monitor_host = "127.0.0.1";
 
+	if( embedded_session )
+		Monitor_Port = Allocate_Embedded_Monitor_Port( Embedded_Display_Port, (quint16)QMP_Port,
+		                                               Embedded_Spice_Port, Embedded_VNC_Port );
+	else
+		Monitor_Port = (unsigned int)( Get_Emulator_Monitor_Base_Port()
+		                               + ( Embedded_Display_Port >= 0 ? Embedded_Display_Port : 0 ) );
+
 	Args << "-monitor" << QString("tcp:%1:%2,server,nowait")
 						  .arg(monitor_host)
-						  .arg(Settings.value("Emulator_MonGitor_Port", 26000).toInt() + (Embedded_Display_Port >= 0 ? Embedded_Display_Port : 0));
-
+						  .arg( Monitor_Port );
 	Monitor_Hostname = monitor_host;
-	Monitor_Port = (unsigned int)Settings.value("Emulator_MonGitor_Port", 26000).toInt() + (Embedded_Display_Port >= 0 ? Embedded_Display_Port : 0);
 	#else
 	QString monitor_host = Settings.value("Emulator_Monitor_Hostname", "127.0.0.1").toString();
 	if( Settings.value("Emulator_Monitor_Type", "stdio").toString() == "tcp" )
 	{
+		if( embedded_session )
+			Monitor_Port = Allocate_Embedded_Monitor_Port( Embedded_Display_Port, (quint16)QMP_Port,
+			                                               Embedded_Spice_Port, Embedded_VNC_Port );
+		else
+			Monitor_Port = (unsigned int)( Get_Emulator_Monitor_Base_Port()
+			                               + ( Embedded_Display_Port >= 0 ? Embedded_Display_Port : 0 ) );
+
 		Args << "-monitor" << QString("tcp:%1:%2,server,nowait")
 							  .arg(monitor_host)
-							  .arg(Settings.value("Emulator_MonGitor_Port", 26000).toInt() + (Embedded_Display_Port >= 0 ? Embedded_Display_Port : 0));
-
+							  .arg( Monitor_Port );
 		Monitor_Hostname = monitor_host;
-		Monitor_Port = (unsigned int)Settings.value("Emulator_MonGitor_Port", 26000).toInt() + (Embedded_Display_Port >= 0 ? Embedded_Display_Port : 0);
 	}
 	else
 	{
@@ -5518,7 +5765,11 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	}
 	
 	// Audio ? emit modern -audiodev / -device for every card the user checked
-	bool need_audiodev = Audio_Card.isEnabled();
+	// PC speaker does not get a -device (not pluggable); ignore it for audiodev
+	const bool need_audiodev =
+		Audio_Card.Audio_sb16 || Audio_Card.Audio_es1370 || Audio_Card.Audio_Adlib ||
+		Audio_Card.Audio_GUS || Audio_Card.Audio_AC97 || Audio_Card.Audio_HDA ||
+		Audio_Card.Audio_cs4231a || Audio_Card.Audio_VirtIO || Audio_Card.Audio_USB;
 	
 	if( need_audiodev )
 	{
@@ -5577,8 +5828,9 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		if( Audio_Card.Audio_cs4231a )
 			Args << "-device" << "cs4231a,audiodev=snd0";
 		
-		if( Audio_Card.Audio_PC_Speaker )
-			Args << "-device" << "isa-pcspk,audiodev=snd0";
+		// PC speaker: not pluggable as -device isa-pcspk on many QEMU builds
+		// ("Parameter 'driver' expects a pluggable device type"). Classic pc/isapc
+		// already include it; keep the UI flag for capability display only.
 	}
 	
 	// Effective machine type. aarch64/arm/riscv have no QEMU default ? must pass virt
@@ -5595,17 +5847,14 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	if( Keyboard_Layout != "Default" )
 		Args << "-k" << Get_Keyboard_Layout();
 	
-	// Video ? aarch64/arm/riscv: never use -vga (virtio/std cause "Virtio VGA not available").
-	// Match win11-pi5-kiosk: -device virtio-gpu-pci,...
-	QString effective_video = Video_Card;
-	if( is_virt_arch )
-	{
-		if( effective_video.isEmpty() ||
-			effective_video == "std" || effective_video == "cirrus" ||
-			effective_video == "virtio" || effective_video == "vmware" ||
-			effective_video == "qxl" || effective_video == "xenfb" )
-			effective_video = "virtio-gpu-pci";
+	// Video ? architecture-aware: device-based (virtio-gpu) vs legacy -vga.
+	QString effective_video = System_Info::Sanitize_Video_Card( Computer_Type, Video_Card, Machine_Type );
+	const bool device_based_video = System_Info::Uses_Device_Based_Video( Computer_Type ) ||
+	                                effective_video == "virtio-gpu-pci" || effective_video == "virtio-gpu-gl-pci" ||
+	                                effective_video == "ramfb";
 
+	if( device_based_video )
+	{
 		if( effective_video == "none" || effective_video == "-nographic" )
 			Args << "-nographic";
 		else if( effective_video == "ramfb" )
@@ -5613,12 +5862,58 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		else if( effective_video == "virtio-gpu-gl-pci" )
 			Args << "-device" << "virtio-gpu-gl-pci";
 		else
-			Args << "-device" << "virtio-gpu-pci,edid=on,xres=1920,yres=1080,max_outputs=1";
+		{
+			// VirtIO-GPU with EDID. Fixed xres/yres come from Display_Resolution
+			// (native = host screen, WxH = fixed, auto = omit size and let guest pick).
+			QString virtio = QStringLiteral( "virtio-gpu-pci,edid=on,max_outputs=1" );
+			const QString mode = Display_Resolution.trimmed().toLower();
+			int rw = 0, rh = 0;
+			bool have_size = false;
+
+			if( mode.isEmpty() || mode == "native" )
+			{
+				if( QGuiApplication::primaryScreen() )
+				{
+					const QSize sz = QGuiApplication::primaryScreen()->size();
+					rw = sz.width();
+					rh = sz.height();
+					have_size = ( rw >= 640 && rh >= 480 );
+				}
+			}
+			else if( mode != "auto" )
+			{
+				const QStringList parts = mode.split( QLatin1Char( 'x' ) );
+				if( parts.size() == 2 )
+				{
+					bool okw = false, okh = false;
+					rw = parts.at( 0 ).toInt( &okw );
+					rh = parts.at( 1 ).toInt( &okh );
+					have_size = okw && okh && rw >= 640 && rh >= 480;
+				}
+			}
+
+			if( have_size )
+				virtio += QString( ",xres=%1,yres=%2" ).arg( rw ).arg( rh );
+
+			Args << "-device" << virtio;
+		}
 	}
 	else if( Current_Emulator_Devices.PSO_Std_VGA ) // QEMU before 0.10 style
-		Args << effective_video;
-	else if( ! effective_video.isEmpty() ) // QEMU 0.10 style
-		Args << "-vga" << effective_video;
+	{
+		if( effective_video == "none" )
+			Args << "-nographic";
+		else if( effective_video == "std" )
+			Args << "-std-vga";
+		else if( ! effective_video.isEmpty() )
+			Args << effective_video;
+	}
+	else if( ! effective_video.isEmpty() )
+	{
+		if( effective_video == "none" )
+			Args << "-vga" << "none";
+		else
+			Args << "-vga" << effective_video;
+	}
 
 	// Machine + accelerator.
 	// thread=multi is an -accel property, NOT a -machine property
@@ -5638,7 +5933,9 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	#ifdef Q_OS_WIN32
 	if( is_virt_arch )
 		use_separate_tcg_accel = true;
-	else if( Machine_Accelerator == VM::KVM )
+	else if( Machine_Accelerator == VM::KVM || Machine_Accelerator == VM::TCG )
+		// Prefer Hyper-V WHPX (or HAX) for x86; fall back to TCG. Pure TCG makes
+		// DOS IDE/ATAPI CD (PIO) feel like a 1x optical drive.
 		props << "accel=whpx:hax:tcg";
 	else if( Machine_Accelerator == VM::XEN )
 		props << "accel=xen:tcg";
@@ -5690,9 +5987,16 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	if( Current_Emulator_Devices.PSO_Win2K_Hack &&
 		Win2K_Hack ) Args << "-win2k-hack";
 	
-	// No Check FDD boot sector
-	if( Current_Emulator_Devices.PSO_No_FB_Boot_Check &&
-		Check_FDD_Boot_Sector == false ) Args << "-no-fd-bootchk";
+	// No Check FDD boot sector ? never with empty/null floppies: SeaBIOS then hangs
+	// forever on "Booting from Floppy..." reading a null-co backend.
+	if( Current_Emulator_Devices.PSO_No_FB_Boot_Check && Check_FDD_Boot_Sector == false )
+	{
+		const bool has_real_floppy =
+			( FD0.Get_Enabled() && QFile::exists( FD0.Get_File_Name() ) ) ||
+			( FD1.Get_Enabled() && QFile::exists( FD1.Get_File_Name() ) );
+		if( has_real_floppy )
+			Args << "-no-fd-bootchk";
+	}
 	
 	// No ACPI
 	if( Current_Emulator_Devices.PSO_No_ACPI &&
@@ -5739,14 +6043,16 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			}
             StorageArgs << Build_Native_Device_Args( FD0.Get_Native_Device(), Build_QEMU_Args_for_Tab_Info );
 		}
-		else if( embedded_session )
+		else if( ! is_virt_arch && embedded_session )
 		{
-			QString drive = QString( "if=floppy,index=0,format=raw,id=aqemu-fd0" );
+			// x86 embedded: keep stable id for QMP hotswap
 			if( QFile::exists(FD0.Get_File_Name()) || Build_QEMU_Args_for_Tab_Info )
-				drive = QString( "file=%1," ).arg( FD0.Get_File_Name() ) + drive;
-			StorageArgs << "-drive" << drive;
+				StorageArgs << "-drive" << QString( "file=%1,if=floppy,index=0,format=raw,id=aqemu-fd0" )
+					.arg( FD0.Get_File_Name() );
+			else
+				StorageArgs << "-drive" << "if=floppy,index=0,format=raw,id=aqemu-fd0,file.driver=null-co,file.size=1474560";
 		}
-		else
+		else if( ! is_virt_arch )
 		{
 			if( QFile::exists(FD0.Get_File_Name()) || Build_QEMU_Args_for_Tab_Info )
 			{
@@ -5761,10 +6067,11 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 							QString("Image \"%1\" doesn't exists!").arg(FD0.Get_File_Name()) );
 			}
 		}
+		// virt arch: classic floppy not supported ? skip
 	}
-	else if( embedded_session )
+	else if( ! is_virt_arch && embedded_session )
 	{
-		StorageArgs << "-drive" << "if=floppy,index=0,format=raw,id=aqemu-fd0";
+		StorageArgs << "-drive" << "if=floppy,index=0,format=raw,id=aqemu-fd0,file.driver=null-co,file.size=1474560";
 	}
 	
 	// FD1
@@ -5780,14 +6087,15 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			}
             StorageArgs << Build_Native_Device_Args( FD1.Get_Native_Device(), Build_QEMU_Args_for_Tab_Info );
 		}
-		else if( embedded_session )
+		else if( ! is_virt_arch && embedded_session )
 		{
-			QString drive = QString( "if=floppy,index=1,format=raw,id=aqemu-fd1" );
 			if( QFile::exists(FD1.Get_File_Name()) || Build_QEMU_Args_for_Tab_Info )
-				drive = QString( "file=%1," ).arg( FD1.Get_File_Name() ) + drive;
-			StorageArgs << "-drive" << drive;
+				StorageArgs << "-drive" << QString( "file=%1,if=floppy,index=1,format=raw,id=aqemu-fd1" )
+					.arg( FD1.Get_File_Name() );
+			else
+				StorageArgs << "-drive" << "if=floppy,index=1,format=raw,id=aqemu-fd1,file.driver=null-co,file.size=1474560";
 		}
-        else
+        else if( ! is_virt_arch )
 		{
 			if( QFile::exists(FD1.Get_File_Name()) || Build_QEMU_Args_for_Tab_Info )
 			{
@@ -5803,9 +6111,9 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			}
 		}
 	}
-	else if( embedded_session )
+	else if( ! is_virt_arch && embedded_session )
 	{
-		StorageArgs << "-drive" << "if=floppy,index=1,format=raw,id=aqemu-fd1";
+		StorageArgs << "-drive" << "if=floppy,index=1,format=raw,id=aqemu-fd1,file.driver=null-co,file.size=1474560";
 	}
 	
 	// CD-ROM
@@ -5821,21 +6129,47 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			}
             StorageArgs << Build_Native_Device_Args( CD_ROM.Get_Native_Device(), Build_QEMU_Args_for_Tab_Info );
 		}
+		else if( is_virt_arch )
+		{
+			// UEFI virt: scsi-cd with bootindex from boot order (not IDE)
+			if( QFile::exists(CD_ROM.Get_File_Name()) || Build_QEMU_Args_for_Tab_Info )
+			{
+				has_virt_scsi = true;
+				const int cd_boot = Bootindex_For( *this, VM::Boot_From_CDROM );
+				// cache=unsafe is ideal for read-only ISOs (host page cache, no flush tax)
+				const QString drive = QString( "file=%1,if=none,id=aqemu-cdrom,format=raw,media=cdrom,readonly=on,cache=unsafe,aio=threads" )
+					.arg( CD_ROM.Get_File_Name() );
+				if( Build_QEMU_Args_for_Script_Mode )
+				{
+					StorageArgs << "-device" << QString( "scsi-cd,bus=aq-vscsi.0,drive=aqemu-cdrom,bootindex=%1" ).arg( cd_boot );
+					StorageArgs << "-drive" << "\"" + drive + "\"";
+				}
+				else
+				{
+					StorageArgs << "-device" << QString( "scsi-cd,bus=aq-vscsi.0,drive=aqemu-cdrom,bootindex=%1" ).arg( cd_boot );
+					StorageArgs << "-drive" << drive;
+				}
+			}
+		}
 		else if( embedded_session )
 		{
-			QString drive = QString( "if=ide,index=2,media=cdrom,readonly=on,id=aqemu-cdrom" );
 			if( QFile::exists(CD_ROM.Get_File_Name()) || Build_QEMU_Args_for_Tab_Info )
-				drive = QString( "file=%1," ).arg( CD_ROM.Get_File_Name() ) + drive;
-			StorageArgs << "-drive" << drive;
+				StorageArgs << "-drive" << QString( "file=%1,if=ide,index=2,media=cdrom,readonly=on,format=raw,id=aqemu-cdrom,cache=unsafe,aio=threads" )
+					.arg( CD_ROM.Get_File_Name() );
+			else
+				StorageArgs << "-drive" << "if=ide,index=2,media=cdrom,readonly=on,format=raw,id=aqemu-cdrom,cache=unsafe,aio=threads,file.driver=null-co";
 		}
 		else
 		{
 			if( QFile::exists(CD_ROM.Get_File_Name()) || Build_QEMU_Args_for_Tab_Info )
 			{
+				// Prefer -drive over -cdrom so we can set cache (DOS/Win9x IDE CD is PIO-heavy)
+				const QString drive = QString( "file=%1,if=ide,index=2,media=cdrom,readonly=on,format=raw,cache=unsafe,aio=threads" )
+					.arg( CD_ROM.Get_File_Name() );
 				if( Build_QEMU_Args_for_Script_Mode )
-					StorageArgs << "-cdrom" << "\"" + CD_ROM.Get_File_Name() + "\"";
+					StorageArgs << "-drive" << "\"" + drive + "\"";
 				else
-					StorageArgs << "-cdrom" << CD_ROM.Get_File_Name();
+					StorageArgs << "-drive" << drive;
 			}
 			else
 			{
@@ -5844,9 +6178,9 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			}
 		}
 	}
-	else if( embedded_session )
+	else if( ! is_virt_arch && embedded_session )
 	{
-		StorageArgs << "-drive" << "if=ide,index=2,media=cdrom,readonly=on,id=aqemu-cdrom";
+		StorageArgs << "-drive" << "if=ide,index=2,media=cdrom,readonly=on,format=raw,id=aqemu-cdrom,cache=unsafe,aio=threads,file.driver=null-co";
 	}
 	
 	// HDA
@@ -5869,6 +6203,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 				// virt machines have no IDE ? use if=virtio like win11-pi5-kiosk
 				if( effective_machine == "virt" || is_virt_arch )
 				{
+					const int hdd_boot = Bootindex_For( *this, VM::Boot_From_HDD );
 					#ifdef Q_OS_WIN32
 					QString drive = QString( "file=%1,if=none,id=aqhd0,cache=writeback,aio=threads" )
 						.arg( HDA.Get_File_Name() );
@@ -5876,14 +6211,15 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 					QString drive = QString( "file=%1,if=none,id=aqhd0,cache=none,aio=threads" )
 						.arg( HDA.Get_File_Name() );
 					#endif
+					const QString virtio_dev = QString( "virtio-blk-pci,drive=aqhd0,bootindex=%1" ).arg( hdd_boot );
 					if( Build_QEMU_Args_for_Script_Mode )
 					{
-						StorageArgs << "-device" << "virtio-blk-pci,drive=aqhd0,bootindex=1";
+						StorageArgs << "-device" << virtio_dev;
 						StorageArgs << "-drive" << "\"" + drive + "\"";
 					}
 					else
 					{
-						StorageArgs << "-device" << "virtio-blk-pci,drive=aqhd0,bootindex=1";
+						StorageArgs << "-device" << virtio_dev;
 						StorageArgs << "-drive" << drive;
 					}
 				}
@@ -6030,68 +6366,15 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	//      (further) problems ...
 	Args << StorageArgs;
 
-	// Boot Device ? PC BIOS only. aarch64/arm/riscv UEFI (like win11-pi5-kiosk)
-	// has no -boot order support; firmware boots from pflash NVRAM + VirtIO disk.
+	// Boot Device ? PC BIOS only. aarch64/arm/riscv UEFI uses bootindex on devices.
 	if( Current_Emulator_Devices.PSO_Boot_Order && ! is_virt_arch )
 	{
-		int bootDevCount = 0;
-		int onceBootDeviceIndex = -1;
-		for( int ix = 0; ix < Boot_Order_List.count(); ix++ )
-		{
-			if( Boot_Order_List[ix].Enabled )
-			{
-				bootDevCount++;
-				onceBootDeviceIndex = ix;
-			}
-		}
-		
-		if( bootDevCount > 1 )
-		{
-			QString bootStr = "";
-			
-			for( int ix = 0; ix < Boot_Order_List.count(); ix++ )
-			{
-				if( Boot_Order_List[ix].Enabled )
-				{
-					     if( Boot_Order_List[ix].Type == VM::Boot_From_FDA ) bootStr += "a";
-					else if( Boot_Order_List[ix].Type == VM::Boot_From_FDB ) bootStr += "b";
-					else if( Boot_Order_List[ix].Type == VM::Boot_From_HDD ) bootStr += "c";
-					else if( Boot_Order_List[ix].Type == VM::Boot_From_CDROM ) bootStr += "d";
-					else if( Boot_Order_List[ix].Type == VM::Boot_From_Network1 ) bootStr += "n-1";
-					else if( Boot_Order_List[ix].Type == VM::Boot_From_Network2 ) bootStr += "n-2";
-					else if( Boot_Order_List[ix].Type == VM::Boot_From_Network3 ) bootStr += "n-3";
-					else if( Boot_Order_List[ix].Type == VM::Boot_From_Network4 ) bootStr += "n-4";
-				}
-			}
-			
-			bootStr.prepend( (bootStr.isEmpty() ? "" : "order=") );
-			bootStr += QString(bootStr.isEmpty() ? "" : ",") + "menu=" + QString(Show_Boot_Menu ? "on" : "off");
-			
+		const QString bootStr = Build_X86_Boot_Arg( *this, Show_Boot_Menu );
+		if( ! bootStr.isEmpty() )
 			Args << "-boot" << bootStr;
-		}
-		else if( onceBootDeviceIndex != -1 )
-		{
-			QString bootStr = "";
-			
-			     if( Boot_Order_List[onceBootDeviceIndex].Type == VM::Boot_From_FDA ) bootStr = "a";
-			else if( Boot_Order_List[onceBootDeviceIndex].Type == VM::Boot_From_FDB ) bootStr = "b";
-			else if( Boot_Order_List[onceBootDeviceIndex].Type == VM::Boot_From_HDD ) bootStr = "c";
-			else if( Boot_Order_List[onceBootDeviceIndex].Type == VM::Boot_From_CDROM ) bootStr = "d";
-			else if( Boot_Order_List[onceBootDeviceIndex].Type == VM::Boot_From_Network1 ) bootStr = "n-1";
-			else if( Boot_Order_List[onceBootDeviceIndex].Type == VM::Boot_From_Network2 ) bootStr = "n-2";
-			else if( Boot_Order_List[onceBootDeviceIndex].Type == VM::Boot_From_Network3 ) bootStr = "n-3";
-			else if( Boot_Order_List[onceBootDeviceIndex].Type == VM::Boot_From_Network4 ) bootStr = "n-4";
-			
-			bootStr.prepend( (bootStr.isEmpty() ? "" : "once=") );
-			bootStr += QString(bootStr.isEmpty() ? "" : ",") + "menu=" + QString(Show_Boot_Menu ? "on" : "off");
-			
-			Args << "-boot" << bootStr;
-		}
 		else
-		{
 			AQWarning( "QStringList Virtual_Machine::Build_QEMU_Args()",
-					   "No boot devices? Use empty boot settings..." );
-		}
+					   "No bootable media in order list ? omitting -boot" );
 	}
 	
 	// Network Cards
@@ -7013,12 +7296,91 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	// VirtIO Keyboard
 	if( VirtIO_Keyboard )
 		Args << "-device" << "virtio-keyboard-pci";
-	
-	// USB tablet + xHCI controller for virt machines (Windows 11 ARM profile)
-	if( USB_Hub )
+
+	// Pointer / mouse (QEMU input devices)
 	{
-		Args << "-device" << "qemu-xhci";
-		Args << "-device" << "usb-tablet";
+		const QString mt = Mouse_Type.trimmed().toLower();
+		const bool want_usb_ptr =
+			mt == "usb-tablet" || mt == "usb-mouse" || mt == "usb-wacom-tablet";
+		const bool want_virtio_ptr =
+			mt == "virtio-tablet-pci" || mt == "virtio-mouse-pci" ||
+			mt == "virtio-tablet" || mt == "virtio-mouse";
+		const bool want_vmmouse = ( mt == "vmmouse" );
+
+		bool added_xhci = false;
+		bool added_uhci = false;
+
+		auto ensure_usb_controller = [ & ]()
+		{
+			QString ctrl = Mouse_USB_Controller.trimmed().toLower();
+			if( ctrl.isEmpty() || ctrl == "auto" )
+			{
+				const bool virt_like =
+					Computer_Type.contains( "aarch64", Qt::CaseInsensitive ) ||
+					Computer_Type.contains( "qemu-system-arm", Qt::CaseInsensitive ) ||
+					Machine_Type.contains( "virt", Qt::CaseInsensitive ) ||
+					USB_Hub;
+				ctrl = virt_like ? QStringLiteral( "xhci" ) : QStringLiteral( "uhci" );
+			}
+
+			if( ctrl == "none" )
+				return;
+
+			if( ctrl == "xhci" && ! added_xhci )
+			{
+				Args << "-device" << "qemu-xhci,id=aqemu_mouse_xhci";
+				added_xhci = true;
+			}
+			else if( ctrl == "uhci" && ! added_uhci )
+			{
+				Args << "-usb";
+				added_uhci = true;
+			}
+		};
+
+		if( want_usb_ptr )
+		{
+			ensure_usb_controller();
+
+			QString dev = mt;
+			if( mt == "usb-wacom-tablet" )
+				dev = QStringLiteral( "usb-wacom-tablet" );
+
+			QStringList props;
+			props << "id=aqemu_mouse";
+			if( added_xhci )
+				props << "bus=aqemu_mouse_xhci.0";
+			if( ( mt == "usb-tablet" || mt == "usb-mouse" ) &&
+			    ( Mouse_USB_Version == 1 || Mouse_USB_Version == 2 ) )
+			{
+				props << QString( "usb_version=%1" ).arg( Mouse_USB_Version );
+			}
+
+			Args << "-device" << ( props.isEmpty() ? dev : ( dev + "," + props.join( "," ) ) );
+		}
+		else if( want_virtio_ptr )
+		{
+			QString dev = mt;
+			if( mt == "virtio-tablet" )
+				dev = QStringLiteral( "virtio-tablet-pci" );
+			else if( mt == "virtio-mouse" )
+				dev = QStringLiteral( "virtio-mouse-pci" );
+			Args << "-device" << ( dev + ",id=aqemu_mouse" );
+		}
+		else if( want_vmmouse )
+		{
+			Args << "-device" << "vmmouse";
+		}
+
+		// Legacy USB_Hub: ensure xHCI exists for virt profiles (audio/other USB)
+		// without duplicating the tablet when Mouse_Type already added one.
+		if( USB_Hub && ! added_xhci )
+		{
+			Args << "-device" << "qemu-xhci,id=aqemu_usb_hub";
+			added_xhci = true;
+			// Very old configs with USB_Hub but Mouse_Type still ps2 after a bad load:
+			// do not auto-add a second tablet here ? Mouse_Type is authoritative.
+		}
 	}
 	
 	// Set the initial graphical resolution and depth
@@ -7064,15 +7426,22 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		// Local profile: avoid compression overhead on localhost
 		spiceArgs << "image-compression=off";
 		spiceArgs << "playback-compression=off";
+		if( SPICE_Agent_Mouse == "on" )
+			spiceArgs << "agent-mouse=on";
+		else if( SPICE_Agent_Mouse == "off" )
+			spiceArgs << "agent-mouse=off";
 		Args << "-spice" << spiceArgs.join( "," );
 
-		// Always advertise VNC as fallback for client when spice-gtk is absent
-		if( Embedded_Display_Port >= 0 )
+		// VNC for LibVNC client ? bind a free TCP port (not a fixed display index)
+		if( Embedded_VNC_Port <= 0 )
 		{
-			int vnc_disp = ( Settings.value( "First_VNC_Port", "5910" ).toString().toInt() - 5900 )
-			               + Embedded_Display_Port;
-			if( vnc_disp >= 1 && vnc_disp < 59636 )
-				Args << "-vnc" << ":" + QString::number( vnc_disp );
+			const int first_vnc = Settings.value( "First_VNC_Port", "5910" ).toString().toInt();
+			Embedded_VNC_Port = Find_Free_TCP_Port( (quint16)qMax( 5901, first_vnc ) );
+		}
+		if( Embedded_VNC_Port >= 5901 )
+		{
+			const int vnc_disp = Embedded_VNC_Port - 5900;
+			Args << "-vnc" << QString( "127.0.0.1:%1" ).arg( vnc_disp );
 		}
 	}
 	else if( SPICE.Use_SPICE() )
@@ -7193,6 +7562,11 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		{
 			spiceArgs << "disable-ticketing";
 		}
+
+		if( SPICE_Agent_Mouse == "on" )
+			spiceArgs << "agent-mouse=on";
+		else if( SPICE_Agent_Mouse == "off" )
+			spiceArgs << "agent-mouse=off";
 		
 		// Add to args
 		Args << "-spice" << spiceArgs.join( "," );
@@ -7468,13 +7842,15 @@ QStringList Virtual_Machine::Build_Native_Device_Args( VM_Native_Storage_Device 
 	if (device.Get_Interface() == VM::DI_Virtio_SCSI) {
 	    QString devtype =
 		(device.Get_Media() == VM::DM_CD_ROM ? "scsi-cd" : "scsi-hd");
-	    args << "-device" << devtype + ",drive=" + vsname;
+	    const int boot_idx = Bootindex_For( *this,
+		device.Get_Media() == VM::DM_CD_ROM ? VM::Boot_From_CDROM : VM::Boot_From_HDD );
+	    args << "-device" << devtype + ",bus=aq-vscsi.0,drive=" + vsname + ",bootindex=" + QString::number( boot_idx );
 	}
 	else if( device.Get_Interface() == VM::DI_Virtio && virt_arch_blk &&
 			 ( ! device.Use_Media() || device.Get_Media() == VM::DM_Disk ) )
 	{
-		// Prefer this disk over PXE in UEFI (kiosk uses VARS boot order instead)
-		args << "-device" << "virtio-blk-pci,drive=" + vsname + ",bootindex=1";
+		const int boot_idx = Bootindex_For( *this, VM::Boot_From_HDD );
+		args << "-device" << "virtio-blk-pci,drive=" + vsname + ",bootindex=" + QString::number( boot_idx );
 	}
 	args << "-drive" << driveStr;
 	return args;
@@ -7512,6 +7888,25 @@ bool Virtual_Machine::Start_impl()
 {
 	QEMU_Stderr_History.clear();
 	QEMU_Stdout_History.clear();
+
+	// Drop ports from a previous run so we allocate fresh free ones
+	QMP_Port = 0;
+	Embedded_Spice_Port = 0;
+	Embedded_VNC_Port = 0;
+
+	// Kill a leftover QEMU child if AQEMU thinks the VM is off but the process lives
+	QEMU_Kill_Target_Pid = 0; // cancel any pending Force_Kill from a prior Stop
+	if( QEMU_Process && QEMU_Process->state() != QProcess::NotRunning )
+	{
+		AQWarning( "bool Virtual_Machine::Start_impl()",
+		           "Previous QEMU process still running ? terminating it before restart" );
+		QEMU_Process->kill();
+		QEMU_Process->waitForFinished( 3000 );
+	}
+
+	// Also kill orphan qemu-system-* processes that still hold this VM's disks
+	// (e.g. after monitor quit failed and AQEMU lost the child handle).
+	Kill_Orphan_QEMU_Using_Disks();
 
     delete QEMU_Error_Win;
     QEMU_Error_Win = new Error_Log_Window();
@@ -7778,11 +8173,118 @@ void Virtual_Machine::Pause()
 void Virtual_Machine::Stop()
 {
 	if( State == VM::VMS_Saved )
+	{
 		Set_State( VM::VMS_Power_Off, true );
-	else if( QMP && QMP->Is_Connected() )
+		return;
+	}
+
+	if( QMP && QMP->Is_Connected() )
 		QMP->Quit_QEMU();
 	else
 		Send_Emulator_Command( "quit\n" );
+
+	// Monitor/QMP quit often fails (socket not connected) and left orphan QEMU
+	// processes that kept the disk locked ? force-kill after a short grace period.
+	// Track the PID so a later Start() cannot be killed by this timer.
+	QEMU_Kill_Target_Pid = ( QEMU_Process && QEMU_Process->state() != QProcess::NotRunning )
+	                       ? QEMU_Process->processId()
+	                       : 0;
+	if( QEMU_Kill_Target_Pid > 0 )
+		QTimer::singleShot( 1200, this, SLOT(Force_Kill_QEMU()) );
+}
+
+void Virtual_Machine::Force_Kill_QEMU()
+{
+	if( ! QEMU_Process || QEMU_Kill_Target_Pid <= 0 )
+		return;
+
+	// A new QEMU may have started since Stop() ? never kill that process.
+	if( QEMU_Process->state() == QProcess::NotRunning ||
+	    QEMU_Process->processId() != QEMU_Kill_Target_Pid )
+	{
+		QEMU_Kill_Target_Pid = 0;
+		return;
+	}
+
+	AQWarning( "Virtual_Machine::Force_Kill_QEMU()",
+	           "QEMU still running after quit ? terminating process" );
+	// Never waitForFinished here ? it freezes the UI / session teardown.
+	QEMU_Process->terminate();
+	QTimer::singleShot( 2000, this, SLOT(Force_Kill_QEMU_Hard()) );
+}
+
+void Virtual_Machine::Force_Kill_QEMU_Hard()
+{
+	if( ! QEMU_Process || QEMU_Kill_Target_Pid <= 0 )
+		return;
+
+	if( QEMU_Process->state() == QProcess::NotRunning ||
+	    QEMU_Process->processId() != QEMU_Kill_Target_Pid )
+	{
+		QEMU_Kill_Target_Pid = 0;
+		return;
+	}
+
+	AQWarning( "Virtual_Machine::Force_Kill_QEMU_Hard()",
+	           "QEMU did not exit after terminate ? killing process" );
+	QEMU_Process->kill();
+	QEMU_Kill_Target_Pid = 0;
+	// State / session exit come from QEMU_Finished when the process actually dies.
+}
+
+void Virtual_Machine::Kill_Orphan_QEMU_Using_Disks()
+{
+	// Collect disk paths this VM uses so we can kill stray qemu processes
+	// that still have the image open (common after a failed quit on Windows).
+	QStringList disks;
+	auto add_disk = [ &disks ]( const QString &path )
+	{
+		const QString n = QDir::toNativeSeparators( path.trimmed() );
+		if( ! n.isEmpty() && ! disks.contains( n, Qt::CaseInsensitive ) )
+			disks << n;
+	};
+
+	if( HDA.Get_Enabled() ) add_disk( HDA.Get_File_Name() );
+	if( HDB.Get_Enabled() ) add_disk( HDB.Get_File_Name() );
+	if( HDC.Get_Enabled() ) add_disk( HDC.Get_File_Name() );
+	if( HDD.Get_Enabled() ) add_disk( HDD.Get_File_Name() );
+	for( int i = 0; i < Storage_Devices.count(); ++i )
+	{
+		const QString p = Storage_Devices[i].Get_File_Path();
+		if( ! p.isEmpty() ) add_disk( p );
+	}
+
+	if( disks.isEmpty() )
+		return;
+
+#ifdef Q_OS_WIN32
+	// PowerShell: find qemu-system-* whose CommandLine mentions any of our disks
+	QStringList escaped;
+	for( const QString &d : disks )
+	{
+		QString e = d;
+		e.replace( '\'', "''" );
+		escaped << e;
+	}
+
+	const QString ps =
+		"$disks=@('" + escaped.join( "','" ) + "');"
+		"Get-CimInstance Win32_Process -Filter \"Name like 'qemu-system%'\" | ForEach-Object {"
+		"  $cl=$_.CommandLine; if(-not $cl){return};"
+		"  foreach($d in $disks){ if($cl -like ('*'+$d+'*')){ Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue; break } }"
+		"}";
+
+	QProcess killer;
+	killer.start( "powershell", QStringList() << "-NoProfile" << "-Command" << ps );
+	killer.waitForFinished( 8000 );
+	if( killer.exitCode() != 0 )
+	{
+		AQWarning( "Virtual_Machine::Kill_Orphan_QEMU_Using_Disks()",
+		           "Orphan QEMU cleanup returned " + QString::number( killer.exitCode() ) );
+	}
+#else
+	Q_UNUSED( disks );
+#endif
 }
 
 void Virtual_Machine::Shutdown()
@@ -8238,6 +8740,9 @@ QString Virtual_Machine::Get_State_Text() const
 
 void Virtual_Machine::Set_State( VM::VM_State s, bool real_poewer_off )
 {
+	if( State == s )
+		return;
+
 	if( State == VM::VMS_Saved && s == VM::VMS_Power_Off )
 	{
 		if( ! real_poewer_off ) return;
@@ -8388,7 +8893,66 @@ const QString &Virtual_Machine::Get_Video_Card() const
 
 void Virtual_Machine::Set_Video_Card( const QString &card )
 {
-	Video_Card = card;
+	Video_Card = System_Info::Sanitize_Video_Card( Computer_Type, card, Machine_Type );
+}
+
+const QString &Virtual_Machine::Get_Display_Resolution() const
+{
+	return Display_Resolution;
+}
+
+void Virtual_Machine::Set_Display_Resolution( const QString &res )
+{
+	Display_Resolution = res.trimmed().isEmpty() ? QStringLiteral( "native" ) : res.trimmed();
+}
+
+const QString &Virtual_Machine::Get_Mouse_Type() const
+{
+	return Mouse_Type;
+}
+
+void Virtual_Machine::Set_Mouse_Type( const QString &type )
+{
+	const QString t = type.trimmed().toLower();
+	Mouse_Type = t.isEmpty() ? QStringLiteral( "ps2" ) : t;
+}
+
+const QString &Virtual_Machine::Get_Mouse_USB_Controller() const
+{
+	return Mouse_USB_Controller;
+}
+
+void Virtual_Machine::Set_Mouse_USB_Controller( const QString &ctrl )
+{
+	const QString c = ctrl.trimmed().toLower();
+	Mouse_USB_Controller = c.isEmpty() ? QStringLiteral( "auto" ) : c;
+}
+
+int Virtual_Machine::Get_Mouse_USB_Version() const
+{
+	return Mouse_USB_Version;
+}
+
+void Virtual_Machine::Set_Mouse_USB_Version( int ver )
+{
+	if( ver == 1 || ver == 2 )
+		Mouse_USB_Version = ver;
+	else
+		Mouse_USB_Version = 0;
+}
+
+const QString &Virtual_Machine::Get_SPICE_Agent_Mouse() const
+{
+	return SPICE_Agent_Mouse;
+}
+
+void Virtual_Machine::Set_SPICE_Agent_Mouse( const QString &mode )
+{
+	const QString m = mode.trimmed().toLower();
+	if( m == "on" || m == "off" )
+		SPICE_Agent_Mouse = m;
+	else
+		SPICE_Agent_Mouse = QStringLiteral( "default" );
 }
 
 const QString &Virtual_Machine::Get_Additional_Args() const
@@ -9646,33 +10210,13 @@ void Virtual_Machine::Parse_StdErr()
 	// FIXME in monitor tcp mode no possible get error strings
 	QString convOutput = QEMU_Process->readAllStandardError();
 	QEMU_Stderr_History.append( convOutput );
-	
+
 	emit Clean_Console( convOutput );
 	emit Ready_StdErr( convOutput );
-	//Last_Output.append( convOutput );
-	Show_QEMU_Error( convOutput );
-	
-	/* FIXME
-	QStringList splitOutput = convOutput.split( "[K" );
-	
-	if( splitOutput.last() == splitOutput.first() )
-	{
-		emit Clean_Console( convOutput.trimmed() );
-		emit Ready_StdErr( convOutput.simplified() );
-		Last_Output.append( convOutput.simplified() );
-	}
-	else
-	{
-		if( ! splitOutput.last().isEmpty() )
-		{
-			QString cleanOutput = splitOutput.last().remove( QRegExp("\[[KD].") );
-			emit Clean_Console( cleanOutput.trimmed() );
-			emit Ready_StdErr( cleanOutput.simplified() );
-			Last_Output.append( convOutput.simplified() );
-		}
-	}
-	
-	Output_Parts = Last_Output.split( "(qemu)" );*/
+
+	// Do not pop the error dialog on every stderr chunk while QEMU is running.
+	// Modern QEMU prints non-fatal warnings here. The dialog is shown from
+	// QEMU_Finished() when the process exits with an error.
 }
 
 void Virtual_Machine::Send_Emulator_Command( const QString &text )
@@ -9744,9 +10288,15 @@ void Virtual_Machine::Connect_Embedded_QMP()
 {
 	if( ! QMP || QMP_Port <= 0 )
 		return;
-	if( ! QMP->Connect_To( "127.0.0.1", static_cast<quint16>( QMP_Port ) ) )
-		AQWarning( "Virtual_Machine::Connect_Embedded_QMP()",
-		           QString( "QMP connect to 127.0.0.1:%1 failed (retry from session UI)." ).arg( QMP_Port ) );
+
+	for( int attempt = 0; attempt < 5; ++attempt )
+	{
+		if( QMP->Connect_To( "127.0.0.1", static_cast<quint16>( QMP_Port ) ) )
+			return;
+		QThread::msleep( 300 );
+	}
+	AQWarning( "Virtual_Machine::Connect_Embedded_QMP()",
+	           QString( "QMP connect to 127.0.0.1:%1 failed (retry from session UI)." ).arg( QMP_Port ) );
 }
 
 void Virtual_Machine::QEMU_Finished( int exitCode, QProcess::ExitStatus exitStatus )
@@ -9796,6 +10346,7 @@ void Virtual_Machine::QEMU_Finished( int exitCode, QProcess::ExitStatus exitStat
 	}
 	QMP_Port = 0;
 	Embedded_Spice_Port = 0;
+	Embedded_VNC_Port = 0;
 }
 
 void Virtual_Machine::Resume_Finished( const QString &returned_text )

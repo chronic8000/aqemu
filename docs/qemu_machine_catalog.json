@@ -1,0 +1,4157 @@
+{
+  "generated_utc": "2026-07-19T14:05:17Z",
+  "host": "nt win32",
+  "qemu_dir": "C:\\Program Files\\qemu",
+  "binary_count": 28,
+  "machine_count": 480,
+  "curated_operating_systems": {
+    "Microsoft": [
+      "MS-DOS",
+      "PC DOS",
+      "DR-DOS",
+      "Windows 1.x",
+      "Windows 2.x",
+      "Windows 3.x",
+      "Windows 95",
+      "Windows 98",
+      "Windows ME",
+      "Windows NT 3.x",
+      "Windows NT 4.0",
+      "Windows 2000",
+      "Windows XP",
+      "Windows Vista",
+      "Windows 7",
+      "Windows 8",
+      "Windows 8.1",
+      "Windows 10",
+      "Windows 11",
+      "Windows Server 2000",
+      "Windows Server 2003",
+      "Windows Server 2008",
+      "Windows Server 2012",
+      "Windows Server 2016",
+      "Windows Server 2019",
+      "Windows Server 2022",
+      "Windows Server 2025"
+    ],
+    "Linux": [
+      "Generic Linux",
+      "Ubuntu",
+      "Debian",
+      "Fedora",
+      "Red Hat Enterprise Linux",
+      "Rocky Linux",
+      "AlmaLinux",
+      "SUSE Linux",
+      "openSUSE",
+      "Arch Linux",
+      "Gentoo",
+      "Slackware",
+      "Kali Linux",
+      "Linux Mint",
+      "Alpine Linux",
+      "Tiny Core Linux"
+    ],
+    "BSD": [
+      "FreeBSD",
+      "OpenBSD",
+      "NetBSD",
+      "DragonFly BSD"
+    ],
+    "Apple": [
+      "Mac OS 7",
+      "Mac OS 8",
+      "Mac OS 9",
+      "Mac OS X 10.0\u201310.4 (PPC)",
+      "Mac OS X 10.5\u201310.6",
+      "macOS 10.12+",
+      "Darwin"
+    ],
+    "Sun": [
+      "Solaris x86",
+      "Solaris SPARC",
+      "OpenSolaris",
+      "illumos",
+      "OmniOS"
+    ],
+    "SGI": [
+      "IRIX 5.x",
+      "IRIX 6.x"
+    ],
+    "IBM": [
+      "AIX",
+      "OS/2",
+      "eComStation",
+      "ArcaOS"
+    ],
+    "HP": [
+      "HP-UX"
+    ],
+    "DEC": [
+      "Tru64 UNIX",
+      "OpenVMS"
+    ],
+    "Other": [
+      "ReactOS",
+      "Haiku",
+      "BeOS",
+      "KolibriOS",
+      "SerenityOS",
+      "TempleOS",
+      "MenuetOS",
+      "MorphOS",
+      "AmigaOS",
+      "RISC OS",
+      "Android",
+      "ChromeOS",
+      "Other"
+    ]
+  },
+  "curated_architectures": {
+    "Mainstream": [
+      "x86",
+      "x86-64",
+      "ARM",
+      "ARM64 / AArch64",
+      "RISC-V 32",
+      "RISC-V 64"
+    ],
+    "PowerPC": [
+      "PowerPC 32",
+      "PowerPC 64",
+      "PowerPC 64 LE"
+    ],
+    "MIPS": [
+      "MIPS",
+      "MIPS64",
+      "MIPSEL",
+      "MIPS64EL"
+    ],
+    "SPARC": [
+      "SPARC32",
+      "SPARC64"
+    ],
+    "IBM": [
+      "s390x"
+    ],
+    "DEC": [
+      "Alpha"
+    ],
+    "HP": [
+      "PA-RISC"
+    ],
+    "Motorola": [
+      "m68k"
+    ],
+    "Embedded": [
+      "AVR",
+      "MicroBlaze",
+      "OpenRISC",
+      "Xtensa",
+      "RX",
+      "TriCore",
+      "SH4",
+      "LoongArch"
+    ]
+  },
+  "binaries": [
+    {
+      "target": "aarch64",
+      "path": "C:\\Program Files\\qemu\\qemu-system-aarch64.exe",
+      "arch_label": "ARM64 / AArch64",
+      "machines": [
+        {
+          "name": "xlnx-versal-virt",
+          "description": "AMD Versal Virtual development board (alias of amd-versal-virt)",
+          "display_name": "AMD Versal Virtual development board",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "amd-versal-virt",
+          "description": "AMD Versal Virtual development board",
+          "display_name": "AMD Versal Virtual development board",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "amd-versal2-virt",
+          "description": "AMD Versal Gen 2 Virtual development board",
+          "display_name": "AMD Versal Gen 2 Virtual development board",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "ast1030-evb",
+          "description": "Aspeed AST1030 MiniBMC (Cortex-M4)",
+          "display_name": "Aspeed AST1030 MiniBMC (Cortex-M4)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "ast1060-evb",
+          "description": "Aspeed AST1060 Platform Root of Trust (Cortex-M4)",
+          "display_name": "Aspeed AST1060 Platform Root of Trust (Cortex-M4)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "ast2500-evb",
+          "description": "Aspeed AST2500 EVB (ARM1176)",
+          "display_name": "Aspeed AST2500 EVB (ARM1176)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "ast2600-evb",
+          "description": "Aspeed AST2600 EVB (Cortex-A7)",
+          "display_name": "Aspeed AST2600 EVB (Cortex-A7)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "ast2700a1-evb",
+          "description": "Aspeed AST2700 A1 EVB (Cortex-A35)",
+          "display_name": "Aspeed AST2700 A1 EVB (Cortex-A35)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "ast2700-evb",
+          "description": "Aspeed AST2700 A2 EVB (Cortex-A35) (alias of ast2700a2-evb)",
+          "display_name": "Aspeed AST2700 A2 EVB (Cortex-A35)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "ast2700a2-evb",
+          "description": "Aspeed AST2700 A2 EVB (Cortex-A35)",
+          "display_name": "Aspeed AST2700 A2 EVB (Cortex-A35)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "ast2700fc",
+          "description": "ast2700 full core support",
+          "display_name": "ast2700 full core support",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "b-l475e-iot01a",
+          "description": "B-L475E-IOT01A Discovery Kit (Cortex-M4)",
+          "display_name": "B-L475E-IOT01A Discovery Kit (Cortex-M4)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "bletchley-bmc",
+          "description": "Facebook Bletchley BMC (Cortex-A7)",
+          "display_name": "Facebook Bletchley BMC (Cortex-A7)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "bpim2u",
+          "description": "Bananapi M2U (Cortex-A7)",
+          "display_name": "Bananapi M2U (Cortex-A7)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "canon-a1100",
+          "description": "Canon PowerShot A1100 IS (ARM946)",
+          "display_name": "Canon PowerShot A1100 IS (ARM946)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "catalina-bmc",
+          "description": "Facebook Catalina BMC (Cortex-A7)",
+          "display_name": "Facebook Catalina BMC (Cortex-A7)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "collie",
+          "description": "Sharp SL-5500 (Collie) PDA (SA-1110)",
+          "display_name": "Sharp SL-5500 (Collie) PDA (SA-1110)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "cubieboard",
+          "description": "cubietech cubieboard (Cortex-A8)",
+          "display_name": "cubietech cubieboard (Cortex-A8)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "emcraft-sf2",
+          "description": "SmartFusion2 SOM kit from Emcraft (M2S010)",
+          "display_name": "SmartFusion2 SOM kit from Emcraft (M2S010)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "fby35-bmc",
+          "description": "Facebook fby35 BMC (Cortex-A7)",
+          "display_name": "Facebook fby35 BMC (Cortex-A7)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "fby35",
+          "description": "Meta Platforms fby35 (deprecated)",
+          "display_name": "Meta Platforms fby35 (deprecated)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "fp5280g2-bmc",
+          "description": "Inspur FP5280G2 BMC (ARM1176) (deprecated)",
+          "display_name": "Inspur FP5280G2 BMC (ARM1176) (deprecated)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "fuji-bmc",
+          "description": "Facebook Fuji BMC (Cortex-A7)",
+          "display_name": "Facebook Fuji BMC (Cortex-A7)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "g220a-bmc",
+          "description": "Bytedance G220A BMC (ARM1176)",
+          "display_name": "Bytedance G220A BMC (ARM1176)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "gb200nvl-bmc",
+          "description": "Nvidia GB200NVL BMC (Cortex-A7)",
+          "display_name": "Nvidia GB200NVL BMC (Cortex-A7)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "imx25-pdk",
+          "description": "ARM i.MX25 PDK board (ARM926)",
+          "display_name": "ARM i.MX25 PDK board (ARM926)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "imx8mm-evk",
+          "description": "NXP i.MX 8MM EVK Board",
+          "display_name": "NXP i.MX 8MM EVK Board",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "imx8mp-evk",
+          "description": "NXP i.MX 8M Plus EVK Board",
+          "display_name": "NXP i.MX 8M Plus EVK Board",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "integratorcp",
+          "description": "ARM Integrator/CP (ARM926EJ-S)",
+          "display_name": "ARM Integrator/CP (ARM926EJ-S)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "kudo-bmc",
+          "description": "Kudo BMC (Cortex-A9)",
+          "display_name": "Kudo BMC (Cortex-A9)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "kzm",
+          "description": "ARM KZM Emulation Baseboard (ARM1136)",
+          "display_name": "ARM KZM Emulation Baseboard (ARM1136)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "lm3s6965evb",
+          "description": "Stellaris LM3S6965EVB (Cortex-M3)",
+          "display_name": "Stellaris LM3S6965EVB (Cortex-M3)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "lm3s811evb",
+          "description": "Stellaris LM3S811EVB (Cortex-M3)",
+          "display_name": "Stellaris LM3S811EVB (Cortex-M3)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "max78000fthr",
+          "description": "MAX78000FTHR Board (Cortex-M4 / (Unimplemented) RISC-V)",
+          "display_name": "MAX78000FTHR Board (Cortex-M4 / (Unimplemented) RISC-V)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "mcimx6ul-evk",
+          "description": "Freescale i.MX6UL Evaluation Kit (Cortex-A7)",
+          "display_name": "Freescale i.MX6UL Evaluation Kit (Cortex-A7)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "mcimx7d-sabre",
+          "description": "Freescale i.MX7 DUAL SABRE (Cortex-A7)",
+          "display_name": "Freescale i.MX7 DUAL SABRE (Cortex-A7)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "microbit",
+          "description": "BBC micro:bit (Cortex-M0)",
+          "display_name": "BBC micro:bit (Cortex-M0)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "mori-bmc",
+          "description": "Mori BMC (Cortex-A9)",
+          "display_name": "Mori BMC (Cortex-A9)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "mps2-an385",
+          "description": "ARM MPS2 with AN385 FPGA image for Cortex-M3",
+          "display_name": "ARM MPS2 with AN385 FPGA image for Cortex-M3",
+          "group": "Game Consoles",
+          "hidden": false
+        },
+        {
+          "name": "mps2-an386",
+          "description": "ARM MPS2 with AN386 FPGA image for Cortex-M4",
+          "display_name": "ARM MPS2 with AN386 FPGA image for Cortex-M4",
+          "group": "Game Consoles",
+          "hidden": false
+        },
+        {
+          "name": "mps2-an500",
+          "description": "ARM MPS2 with AN500 FPGA image for Cortex-M7",
+          "display_name": "ARM MPS2 with AN500 FPGA image for Cortex-M7",
+          "group": "Game Consoles",
+          "hidden": false
+        },
+        {
+          "name": "mps2-an505",
+          "description": "ARM MPS2 with AN505 FPGA image for Cortex-M33",
+          "display_name": "ARM MPS2 with AN505 FPGA image for Cortex-M33",
+          "group": "Game Consoles",
+          "hidden": false
+        },
+        {
+          "name": "mps2-an511",
+          "description": "ARM MPS2 with AN511 DesignStart FPGA image for Cortex-M3",
+          "display_name": "ARM MPS2 with AN511 DesignStart FPGA image for Cortex-M3",
+          "group": "Game Consoles",
+          "hidden": false
+        },
+        {
+          "name": "mps2-an521",
+          "description": "ARM MPS2 with AN521 FPGA image for dual Cortex-M33",
+          "display_name": "ARM MPS2 with AN521 FPGA image for dual Cortex-M33",
+          "group": "Game Consoles",
+          "hidden": false
+        },
+        {
+          "name": "mps3-an524",
+          "description": "ARM MPS3 with AN524 FPGA image for dual Cortex-M33",
+          "display_name": "ARM MPS3 with AN524 FPGA image for dual Cortex-M33",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "mps3-an536",
+          "description": "ARM MPS3 with AN536 FPGA image for Cortex-R52",
+          "display_name": "ARM MPS3 with AN536 FPGA image for Cortex-R52",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "mps3-an547",
+          "description": "ARM MPS3 with AN547 FPGA image for Cortex-M55",
+          "display_name": "ARM MPS3 with AN547 FPGA image for Cortex-M55",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "musca-a",
+          "description": "ARM Musca-A board (dual Cortex-M33)",
+          "display_name": "ARM Musca-A board (dual Cortex-M33)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "musca-b1",
+          "description": "ARM Musca-B1 board (dual Cortex-M33)",
+          "display_name": "ARM Musca-B1 board (dual Cortex-M33)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "musicpal",
+          "description": "Marvell 88w8618 / MusicPal (ARM926EJ-S)",
+          "display_name": "Marvell 88w8618 / MusicPal (ARM926EJ-S)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "netduino2",
+          "description": "Netduino 2 Machine (Cortex-M3)",
+          "display_name": "Netduino 2",
+          "group": "Embedded",
+          "hidden": false
+        },
+        {
+          "name": "netduinoplus2",
+          "description": "Netduino Plus 2 Machine (Cortex-M4)",
+          "display_name": "Netduino Plus 2",
+          "group": "Embedded",
+          "hidden": false
+        },
+        {
+          "name": "none",
+          "description": "empty machine",
+          "display_name": "Empty Machine (none)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "npcm750-evb",
+          "description": "Nuvoton NPCM750 Evaluation Board (Cortex-A9)",
+          "display_name": "Nuvoton NPCM750 Evaluation Board (Cortex-A9)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "npcm845-evb",
+          "description": "Nuvoton NPCM845 Evaluation Board (Cortex-A35)",
+          "display_name": "Nuvoton NPCM845 Evaluation Board (Cortex-A35)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "nuri",
+          "description": "Samsung NURI board (Exynos4210)",
+          "display_name": "Samsung NURI board (Exynos4210)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "olimex-stm32-h405",
+          "description": "Olimex STM32-H405 (Cortex-M4)",
+          "display_name": "Olimex STM32-H405 (Cortex-M4)",
+          "group": "Embedded",
+          "hidden": false
+        },
+        {
+          "name": "orangepi-pc",
+          "description": "Orange Pi PC (Cortex-A7)",
+          "display_name": "Orange Pi PC (Cortex-A7)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "palmetto-bmc",
+          "description": "OpenPOWER Palmetto BMC (ARM926EJ-S)",
+          "display_name": "OpenPOWER Palmetto BMC (ARM926EJ-S)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "qcom-dc-scm-v1-bmc",
+          "description": "Qualcomm DC-SCM V1 BMC (Cortex A7) (deprecated)",
+          "display_name": "Qualcomm DC-SCM V1 BMC (Cortex A7) (deprecated)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "qcom-firework-bmc",
+          "description": "Qualcomm DC-SCM V1/Firework BMC (Cortex A7) (deprecated)",
+          "display_name": "Qualcomm DC-SCM V1/Firework BMC (Cortex A7) (deprecated)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "quanta-gbs-bmc",
+          "description": "Quanta GBS (Cortex-A9)",
+          "display_name": "Quanta GBS (Cortex-A9)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "quanta-gsj",
+          "description": "Quanta GSJ (Cortex-A9)",
+          "display_name": "Quanta GSJ (Cortex-A9)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "quanta-q71l-bmc",
+          "description": "Quanta-Q71l BMC (ARM926EJ-S)",
+          "display_name": "Quanta-Q71l BMC (ARM926EJ-S)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "rainier-bmc",
+          "description": "IBM Rainier BMC (Cortex-A7)",
+          "display_name": "IBM Rainier BMC (Cortex-A7)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "raspi0",
+          "description": "Raspberry Pi Zero (revision 1.2)",
+          "display_name": "Raspberry Pi Zero",
+          "group": "Raspberry Pi",
+          "hidden": false
+        },
+        {
+          "name": "raspi1ap",
+          "description": "Raspberry Pi A+ (revision 1.1)",
+          "display_name": "Raspberry Pi 1",
+          "group": "Raspberry Pi",
+          "hidden": false
+        },
+        {
+          "name": "raspi2b",
+          "description": "Raspberry Pi 2B (revision 1.1)",
+          "display_name": "Raspberry Pi 2",
+          "group": "Raspberry Pi",
+          "hidden": false
+        },
+        {
+          "name": "raspi3ap",
+          "description": "Raspberry Pi 3A+ (revision 1.0)",
+          "display_name": "Raspberry Pi 3A+",
+          "group": "Raspberry Pi",
+          "hidden": false
+        },
+        {
+          "name": "raspi3b",
+          "description": "Raspberry Pi 3B (revision 1.2)",
+          "display_name": "Raspberry Pi 3",
+          "group": "Raspberry Pi",
+          "hidden": false
+        },
+        {
+          "name": "raspi4b",
+          "description": "Raspberry Pi 4B (revision 1.5)",
+          "display_name": "Raspberry Pi 4",
+          "group": "Raspberry Pi",
+          "hidden": false
+        },
+        {
+          "name": "realview-eb",
+          "description": "ARM RealView Emulation Baseboard (ARM926EJ-S)",
+          "display_name": "ARM RealView Emulation Baseboard (ARM926EJ-S)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "realview-eb-mpcore",
+          "description": "ARM RealView Emulation Baseboard (ARM11MPCore)",
+          "display_name": "ARM RealView Emulation Baseboard (ARM11MPCore)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "realview-pb-a8",
+          "description": "ARM RealView Platform Baseboard for Cortex-A8",
+          "display_name": "ARM RealView Platform Baseboard for Cortex-A8",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "realview-pbx-a9",
+          "description": "ARM RealView Platform Baseboard Explore for Cortex-A9",
+          "display_name": "ARM RealView Platform Baseboard Explore for Cortex-A9",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "romulus-bmc",
+          "description": "OpenPOWER Romulus BMC (ARM1176)",
+          "display_name": "OpenPOWER Romulus BMC (ARM1176)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "sabrelite",
+          "description": "Freescale i.MX6 Quad SABRE Lite Board (Cortex-A9)",
+          "display_name": "Freescale i.MX6 Quad SABRE Lite Board (Cortex-A9)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "sbsa-ref",
+          "description": "QEMU 'SBSA Reference' ARM Virtual Machine",
+          "display_name": "SBSA Reference Platform",
+          "group": "ARM Virtual Platforms",
+          "hidden": false
+        },
+        {
+          "name": "smdkc210",
+          "description": "Samsung SMDKC210 board (Exynos4210)",
+          "display_name": "Samsung SMDKC210 board (Exynos4210)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "sonorapass-bmc",
+          "description": "OCP SonoraPass BMC (ARM1176) (deprecated)",
+          "display_name": "OCP SonoraPass BMC (ARM1176) (deprecated)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "stm32vldiscovery",
+          "description": "ST STM32VLDISCOVERY (Cortex-M3)",
+          "display_name": "STM32 VL Discovery",
+          "group": "Embedded",
+          "hidden": false
+        },
+        {
+          "name": "supermicrox11-bmc",
+          "description": "Supermicro X11 BMC (ARM926EJ-S)",
+          "display_name": "Supermicro X11 BMC (ARM926EJ-S)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "sx1",
+          "description": "Siemens SX1 (OMAP310) V2",
+          "display_name": "Siemens SX1 (OMAP310) V2",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "sx1-v1",
+          "description": "Siemens SX1 (OMAP310) V1",
+          "display_name": "Siemens SX1 (OMAP310) V1",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "tiogapass-bmc",
+          "description": "Facebook Tiogapass BMC (ARM1176)",
+          "display_name": "Facebook Tiogapass BMC (ARM1176)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "versatileab",
+          "description": "ARM Versatile/AB (ARM926EJ-S)",
+          "display_name": "ARM Versatile/AB (ARM926EJ-S)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "versatilepb",
+          "description": "ARM Versatile/PB (ARM926EJ-S)",
+          "display_name": "ARM Versatile/PB (ARM926EJ-S)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "vexpress-a15",
+          "description": "ARM Versatile Express for Cortex-A15",
+          "display_name": "ARM Versatile Express for Cortex-A15",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "vexpress-a9",
+          "description": "ARM Versatile Express for Cortex-A9",
+          "display_name": "ARM Versatile Express for Cortex-A9",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "virt-10.0",
+          "description": "QEMU 10.0 ARM Virtual Machine",
+          "display_name": "QEMU 10.0 ARM Virtual Machine",
+          "group": "Other Platforms",
+          "hidden": true
+        },
+        {
+          "name": "virt-10.1",
+          "description": "QEMU 10.1 ARM Virtual Machine",
+          "display_name": "QEMU 10.1 ARM Virtual Machine",
+          "group": "Other Platforms",
+          "hidden": true
+        },
+        {
+          "name": "virt-10.2",
+          "description": "QEMU 10.2 ARM Virtual Machine",
+          "display_name": "QEMU 10.2 ARM Virtual Machine",
+          "group": "Other Platforms",
+          "hidden": true
+        },
+        {
+          "name": "virt-11.0",
+          "description": "QEMU 11.0 ARM Virtual Machine",
+          "display_name": "QEMU 11.0 ARM Virtual Machine",
+          "group": "Other Platforms",
+          "hidden": true
+        },
+        {
+          "name": "virt",
+          "description": "QEMU 11.1 ARM Virtual Machine (alias of virt-11.1)",
+          "display_name": "ARM64 / AArch64 Virtual Machine",
+          "group": "ARM Virtual Platforms",
+          "hidden": false
+        },
+        {
+          "name": "virt-11.1",
+          "description": "QEMU 11.1 ARM Virtual Machine",
+          "display_name": "QEMU 11.1 ARM Virtual Machine",
+          "group": "Other Platforms",
+          "hidden": true
+        },
+        {
+          "name": "virt-5.2",
+          "description": "QEMU 5.2 ARM Virtual Machine (deprecated)",
+          "display_name": "QEMU 5.2 ARM Virtual Machine (deprecated)",
+          "group": "Other Platforms",
+          "hidden": true
+        },
+        {
+          "name": "virt-6.0",
+          "description": "QEMU 6.0 ARM Virtual Machine (deprecated)",
+          "display_name": "QEMU 6.0 ARM Virtual Machine (deprecated)",
+          "group": "Other Platforms",
+          "hidden": true
+        },
+        {
+          "name": "virt-6.1",
+          "description": "QEMU 6.1 ARM Virtual Machine (deprecated)",
+          "display_name": "QEMU 6.1 ARM Virtual Machine (deprecated)",
+          "group": "Other Platforms",
+          "hidden": true
+        },
+        {
+          "name": "virt-6.2",
+          "description": "QEMU 6.2 ARM Virtual Machine (deprecated)",
+          "display_name": "QEMU 6.2 ARM Virtual Machine (deprecated)",
+          "group": "Other Platforms",
+          "hidden": true
+        },
+        {
+          "name": "virt-7.0",
+          "description": "QEMU 7.0 ARM Virtual Machine (deprecated)",
+          "display_name": "QEMU 7.0 ARM Virtual Machine (deprecated)",
+          "group": "Other Platforms",
+          "hidden": true
+        },
+        {
+          "name": "virt-7.1",
+          "description": "QEMU 7.1 ARM Virtual Machine (deprecated)",
+          "display_name": "QEMU 7.1 ARM Virtual Machine (deprecated)",
+          "group": "Other Platforms",
+          "hidden": true
+        },
+        {
+          "name": "virt-7.2",
+          "description": "QEMU 7.2 ARM Virtual Machine (deprecated)",
+          "display_name": "QEMU 7.2 ARM Virtual Machine (deprecated)",
+          "group": "Other Platforms",
+          "hidden": true
+        },
+        {
+          "name": "virt-8.0",
+          "description": "QEMU 8.0 ARM Virtual Machine (deprecated)",
+          "display_name": "QEMU 8.0 ARM Virtual Machine (deprecated)",
+          "group": "Other Platforms",
+          "hidden": true
+        },
+        {
+          "name": "virt-8.1",
+          "description": "QEMU 8.1 ARM Virtual Machine (deprecated)",
+          "display_name": "QEMU 8.1 ARM Virtual Machine (deprecated)",
+          "group": "Other Platforms",
+          "hidden": true
+        },
+        {
+          "name": "virt-8.2",
+          "description": "QEMU 8.2 ARM Virtual Machine",
+          "display_name": "QEMU 8.2 ARM Virtual Machine",
+          "group": "Other Platforms",
+          "hidden": true
+        },
+        {
+          "name": "virt-9.0",
+          "description": "QEMU 9.0 ARM Virtual Machine",
+          "display_name": "QEMU 9.0 ARM Virtual Machine",
+          "group": "Other Platforms",
+          "hidden": true
+        },
+        {
+          "name": "virt-9.1",
+          "description": "QEMU 9.1 ARM Virtual Machine",
+          "display_name": "QEMU 9.1 ARM Virtual Machine",
+          "group": "Other Platforms",
+          "hidden": true
+        },
+        {
+          "name": "virt-9.2",
+          "description": "QEMU 9.2 ARM Virtual Machine",
+          "display_name": "QEMU 9.2 ARM Virtual Machine",
+          "group": "Other Platforms",
+          "hidden": true
+        },
+        {
+          "name": "witherspoon-bmc",
+          "description": "OpenPOWER Witherspoon BMC (ARM1176)",
+          "display_name": "OpenPOWER Witherspoon BMC (ARM1176)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "xilinx-zynq-a9",
+          "description": "Xilinx Zynq 7000 Platform Baseboard for Cortex-A9",
+          "display_name": "Xilinx Zynq 7000 Platform Baseboard for Cortex-A9",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "xlnx-zcu102",
+          "description": "Xilinx ZynqMP ZCU102 board with 4xA53s and 2xR5Fs based on the value of smp",
+          "display_name": "Xilinx ZynqMP ZCU102 board with 4xA53s and 2xR5Fs based on the value of smp",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "yosemitev2-bmc",
+          "description": "Facebook YosemiteV2 BMC (ARM1176)",
+          "display_name": "Facebook YosemiteV2 BMC (ARM1176)",
+          "group": "Other Platforms",
+          "hidden": false
+        }
+      ],
+      "cpus": [],
+      "version_line": "QEMU emulator version 11.0.50 (v11.0.0-12631-g54e84cdc7a)"
+    },
+    {
+      "target": "alpha",
+      "path": "C:\\Program Files\\qemu\\qemu-system-alpha.exe",
+      "arch_label": "Alpha",
+      "machines": [
+        {
+          "name": "clipper",
+          "description": "Alpha DP264/CLIPPER (default)",
+          "display_name": "Alpha Clipper",
+          "group": "DEC",
+          "hidden": false
+        },
+        {
+          "name": "none",
+          "description": "empty machine",
+          "display_name": "Empty Machine (none)",
+          "group": "DEC",
+          "hidden": false
+        }
+      ],
+      "cpus": [],
+      "version_line": "QEMU emulator version 11.0.50 (v11.0.0-12631-g54e84cdc7a)"
+    },
+    {
+      "target": "arm",
+      "path": "C:\\Program Files\\qemu\\qemu-system-arm.exe",
+      "arch_label": "ARM",
+      "machines": [
+        {
+          "name": "ast1030-evb",
+          "description": "Aspeed AST1030 MiniBMC (Cortex-M4)",
+          "display_name": "Aspeed AST1030 MiniBMC (Cortex-M4)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "ast1060-evb",
+          "description": "Aspeed AST1060 Platform Root of Trust (Cortex-M4)",
+          "display_name": "Aspeed AST1060 Platform Root of Trust (Cortex-M4)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "ast2500-evb",
+          "description": "Aspeed AST2500 EVB (ARM1176)",
+          "display_name": "Aspeed AST2500 EVB (ARM1176)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "ast2600-evb",
+          "description": "Aspeed AST2600 EVB (Cortex-A7)",
+          "display_name": "Aspeed AST2600 EVB (Cortex-A7)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "b-l475e-iot01a",
+          "description": "B-L475E-IOT01A Discovery Kit (Cortex-M4)",
+          "display_name": "B-L475E-IOT01A Discovery Kit (Cortex-M4)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "bletchley-bmc",
+          "description": "Facebook Bletchley BMC (Cortex-A7)",
+          "display_name": "Facebook Bletchley BMC (Cortex-A7)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "bpim2u",
+          "description": "Bananapi M2U (Cortex-A7)",
+          "display_name": "Bananapi M2U (Cortex-A7)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "canon-a1100",
+          "description": "Canon PowerShot A1100 IS (ARM946)",
+          "display_name": "Canon PowerShot A1100 IS (ARM946)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "catalina-bmc",
+          "description": "Facebook Catalina BMC (Cortex-A7)",
+          "display_name": "Facebook Catalina BMC (Cortex-A7)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "collie",
+          "description": "Sharp SL-5500 (Collie) PDA (SA-1110)",
+          "display_name": "Sharp SL-5500 (Collie) PDA (SA-1110)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "cubieboard",
+          "description": "cubietech cubieboard (Cortex-A8)",
+          "display_name": "cubietech cubieboard (Cortex-A8)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "emcraft-sf2",
+          "description": "SmartFusion2 SOM kit from Emcraft (M2S010)",
+          "display_name": "SmartFusion2 SOM kit from Emcraft (M2S010)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "fby35-bmc",
+          "description": "Facebook fby35 BMC (Cortex-A7)",
+          "display_name": "Facebook fby35 BMC (Cortex-A7)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "fby35",
+          "description": "Meta Platforms fby35 (deprecated)",
+          "display_name": "Meta Platforms fby35 (deprecated)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "fp5280g2-bmc",
+          "description": "Inspur FP5280G2 BMC (ARM1176) (deprecated)",
+          "display_name": "Inspur FP5280G2 BMC (ARM1176) (deprecated)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "fuji-bmc",
+          "description": "Facebook Fuji BMC (Cortex-A7)",
+          "display_name": "Facebook Fuji BMC (Cortex-A7)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "g220a-bmc",
+          "description": "Bytedance G220A BMC (ARM1176)",
+          "display_name": "Bytedance G220A BMC (ARM1176)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "gb200nvl-bmc",
+          "description": "Nvidia GB200NVL BMC (Cortex-A7)",
+          "display_name": "Nvidia GB200NVL BMC (Cortex-A7)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "imx25-pdk",
+          "description": "ARM i.MX25 PDK board (ARM926)",
+          "display_name": "ARM i.MX25 PDK board (ARM926)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "integratorcp",
+          "description": "ARM Integrator/CP (ARM926EJ-S)",
+          "display_name": "ARM Integrator/CP (ARM926EJ-S)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "kudo-bmc",
+          "description": "Kudo BMC (Cortex-A9)",
+          "display_name": "Kudo BMC (Cortex-A9)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "kzm",
+          "description": "ARM KZM Emulation Baseboard (ARM1136)",
+          "display_name": "ARM KZM Emulation Baseboard (ARM1136)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "lm3s6965evb",
+          "description": "Stellaris LM3S6965EVB (Cortex-M3)",
+          "display_name": "Stellaris LM3S6965EVB (Cortex-M3)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "lm3s811evb",
+          "description": "Stellaris LM3S811EVB (Cortex-M3)",
+          "display_name": "Stellaris LM3S811EVB (Cortex-M3)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "max78000fthr",
+          "description": "MAX78000FTHR Board (Cortex-M4 / (Unimplemented) RISC-V)",
+          "display_name": "MAX78000FTHR Board (Cortex-M4 / (Unimplemented) RISC-V)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "mcimx6ul-evk",
+          "description": "Freescale i.MX6UL Evaluation Kit (Cortex-A7)",
+          "display_name": "Freescale i.MX6UL Evaluation Kit (Cortex-A7)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "mcimx7d-sabre",
+          "description": "Freescale i.MX7 DUAL SABRE (Cortex-A7)",
+          "display_name": "Freescale i.MX7 DUAL SABRE (Cortex-A7)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "microbit",
+          "description": "BBC micro:bit (Cortex-M0)",
+          "display_name": "BBC micro:bit (Cortex-M0)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "mori-bmc",
+          "description": "Mori BMC (Cortex-A9)",
+          "display_name": "Mori BMC (Cortex-A9)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "mps2-an385",
+          "description": "ARM MPS2 with AN385 FPGA image for Cortex-M3",
+          "display_name": "ARM MPS2 with AN385 FPGA image for Cortex-M3",
+          "group": "Game Consoles",
+          "hidden": false
+        },
+        {
+          "name": "mps2-an386",
+          "description": "ARM MPS2 with AN386 FPGA image for Cortex-M4",
+          "display_name": "ARM MPS2 with AN386 FPGA image for Cortex-M4",
+          "group": "Game Consoles",
+          "hidden": false
+        },
+        {
+          "name": "mps2-an500",
+          "description": "ARM MPS2 with AN500 FPGA image for Cortex-M7",
+          "display_name": "ARM MPS2 with AN500 FPGA image for Cortex-M7",
+          "group": "Game Consoles",
+          "hidden": false
+        },
+        {
+          "name": "mps2-an505",
+          "description": "ARM MPS2 with AN505 FPGA image for Cortex-M33",
+          "display_name": "ARM MPS2 with AN505 FPGA image for Cortex-M33",
+          "group": "Game Consoles",
+          "hidden": false
+        },
+        {
+          "name": "mps2-an511",
+          "description": "ARM MPS2 with AN511 DesignStart FPGA image for Cortex-M3",
+          "display_name": "ARM MPS2 with AN511 DesignStart FPGA image for Cortex-M3",
+          "group": "Game Consoles",
+          "hidden": false
+        },
+        {
+          "name": "mps2-an521",
+          "description": "ARM MPS2 with AN521 FPGA image for dual Cortex-M33",
+          "display_name": "ARM MPS2 with AN521 FPGA image for dual Cortex-M33",
+          "group": "Game Consoles",
+          "hidden": false
+        },
+        {
+          "name": "mps3-an524",
+          "description": "ARM MPS3 with AN524 FPGA image for dual Cortex-M33",
+          "display_name": "ARM MPS3 with AN524 FPGA image for dual Cortex-M33",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "mps3-an536",
+          "description": "ARM MPS3 with AN536 FPGA image for Cortex-R52",
+          "display_name": "ARM MPS3 with AN536 FPGA image for Cortex-R52",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "mps3-an547",
+          "description": "ARM MPS3 with AN547 FPGA image for Cortex-M55",
+          "display_name": "ARM MPS3 with AN547 FPGA image for Cortex-M55",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "musca-a",
+          "description": "ARM Musca-A board (dual Cortex-M33)",
+          "display_name": "ARM Musca-A board (dual Cortex-M33)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "musca-b1",
+          "description": "ARM Musca-B1 board (dual Cortex-M33)",
+          "display_name": "ARM Musca-B1 board (dual Cortex-M33)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "musicpal",
+          "description": "Marvell 88w8618 / MusicPal (ARM926EJ-S)",
+          "display_name": "Marvell 88w8618 / MusicPal (ARM926EJ-S)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "netduino2",
+          "description": "Netduino 2 Machine (Cortex-M3)",
+          "display_name": "Netduino 2",
+          "group": "Embedded",
+          "hidden": false
+        },
+        {
+          "name": "netduinoplus2",
+          "description": "Netduino Plus 2 Machine (Cortex-M4)",
+          "display_name": "Netduino Plus 2",
+          "group": "Embedded",
+          "hidden": false
+        },
+        {
+          "name": "none",
+          "description": "empty machine",
+          "display_name": "Empty Machine (none)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "npcm750-evb",
+          "description": "Nuvoton NPCM750 Evaluation Board (Cortex-A9)",
+          "display_name": "Nuvoton NPCM750 Evaluation Board (Cortex-A9)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "nuri",
+          "description": "Samsung NURI board (Exynos4210)",
+          "display_name": "Samsung NURI board (Exynos4210)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "olimex-stm32-h405",
+          "description": "Olimex STM32-H405 (Cortex-M4)",
+          "display_name": "Olimex STM32-H405 (Cortex-M4)",
+          "group": "Embedded",
+          "hidden": false
+        },
+        {
+          "name": "orangepi-pc",
+          "description": "Orange Pi PC (Cortex-A7)",
+          "display_name": "Orange Pi PC (Cortex-A7)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "palmetto-bmc",
+          "description": "OpenPOWER Palmetto BMC (ARM926EJ-S)",
+          "display_name": "OpenPOWER Palmetto BMC (ARM926EJ-S)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "qcom-dc-scm-v1-bmc",
+          "description": "Qualcomm DC-SCM V1 BMC (Cortex A7) (deprecated)",
+          "display_name": "Qualcomm DC-SCM V1 BMC (Cortex A7) (deprecated)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "qcom-firework-bmc",
+          "description": "Qualcomm DC-SCM V1/Firework BMC (Cortex A7) (deprecated)",
+          "display_name": "Qualcomm DC-SCM V1/Firework BMC (Cortex A7) (deprecated)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "quanta-gbs-bmc",
+          "description": "Quanta GBS (Cortex-A9)",
+          "display_name": "Quanta GBS (Cortex-A9)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "quanta-gsj",
+          "description": "Quanta GSJ (Cortex-A9)",
+          "display_name": "Quanta GSJ (Cortex-A9)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "quanta-q71l-bmc",
+          "description": "Quanta-Q71l BMC (ARM926EJ-S)",
+          "display_name": "Quanta-Q71l BMC (ARM926EJ-S)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "rainier-bmc",
+          "description": "IBM Rainier BMC (Cortex-A7)",
+          "display_name": "IBM Rainier BMC (Cortex-A7)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "raspi0",
+          "description": "Raspberry Pi Zero (revision 1.2)",
+          "display_name": "Raspberry Pi Zero",
+          "group": "Raspberry Pi",
+          "hidden": false
+        },
+        {
+          "name": "raspi1ap",
+          "description": "Raspberry Pi A+ (revision 1.1)",
+          "display_name": "Raspberry Pi 1",
+          "group": "Raspberry Pi",
+          "hidden": false
+        },
+        {
+          "name": "raspi2b",
+          "description": "Raspberry Pi 2B (revision 1.1)",
+          "display_name": "Raspberry Pi 2",
+          "group": "Raspberry Pi",
+          "hidden": false
+        },
+        {
+          "name": "realview-eb",
+          "description": "ARM RealView Emulation Baseboard (ARM926EJ-S)",
+          "display_name": "ARM RealView Emulation Baseboard (ARM926EJ-S)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "realview-eb-mpcore",
+          "description": "ARM RealView Emulation Baseboard (ARM11MPCore)",
+          "display_name": "ARM RealView Emulation Baseboard (ARM11MPCore)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "realview-pb-a8",
+          "description": "ARM RealView Platform Baseboard for Cortex-A8",
+          "display_name": "ARM RealView Platform Baseboard for Cortex-A8",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "realview-pbx-a9",
+          "description": "ARM RealView Platform Baseboard Explore for Cortex-A9",
+          "display_name": "ARM RealView Platform Baseboard Explore for Cortex-A9",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "romulus-bmc",
+          "description": "OpenPOWER Romulus BMC (ARM1176)",
+          "display_name": "OpenPOWER Romulus BMC (ARM1176)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "sabrelite",
+          "description": "Freescale i.MX6 Quad SABRE Lite Board (Cortex-A9)",
+          "display_name": "Freescale i.MX6 Quad SABRE Lite Board (Cortex-A9)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "smdkc210",
+          "description": "Samsung SMDKC210 board (Exynos4210)",
+          "display_name": "Samsung SMDKC210 board (Exynos4210)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "sonorapass-bmc",
+          "description": "OCP SonoraPass BMC (ARM1176) (deprecated)",
+          "display_name": "OCP SonoraPass BMC (ARM1176) (deprecated)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "stm32vldiscovery",
+          "description": "ST STM32VLDISCOVERY (Cortex-M3)",
+          "display_name": "STM32 VL Discovery",
+          "group": "Embedded",
+          "hidden": false
+        },
+        {
+          "name": "supermicrox11-bmc",
+          "description": "Supermicro X11 BMC (ARM926EJ-S)",
+          "display_name": "Supermicro X11 BMC (ARM926EJ-S)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "sx1",
+          "description": "Siemens SX1 (OMAP310) V2",
+          "display_name": "Siemens SX1 (OMAP310) V2",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "sx1-v1",
+          "description": "Siemens SX1 (OMAP310) V1",
+          "display_name": "Siemens SX1 (OMAP310) V1",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "tiogapass-bmc",
+          "description": "Facebook Tiogapass BMC (ARM1176)",
+          "display_name": "Facebook Tiogapass BMC (ARM1176)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "versatileab",
+          "description": "ARM Versatile/AB (ARM926EJ-S)",
+          "display_name": "ARM Versatile/AB (ARM926EJ-S)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "versatilepb",
+          "description": "ARM Versatile/PB (ARM926EJ-S)",
+          "display_name": "ARM Versatile/PB (ARM926EJ-S)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "vexpress-a15",
+          "description": "ARM Versatile Express for Cortex-A15",
+          "display_name": "ARM Versatile Express for Cortex-A15",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "vexpress-a9",
+          "description": "ARM Versatile Express for Cortex-A9",
+          "display_name": "ARM Versatile Express for Cortex-A9",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "virt-10.0",
+          "description": "QEMU 10.0 ARM Virtual Machine",
+          "display_name": "QEMU 10.0 ARM Virtual Machine",
+          "group": "Other Platforms",
+          "hidden": true
+        },
+        {
+          "name": "virt-10.1",
+          "description": "QEMU 10.1 ARM Virtual Machine",
+          "display_name": "QEMU 10.1 ARM Virtual Machine",
+          "group": "Other Platforms",
+          "hidden": true
+        },
+        {
+          "name": "virt-10.2",
+          "description": "QEMU 10.2 ARM Virtual Machine",
+          "display_name": "QEMU 10.2 ARM Virtual Machine",
+          "group": "Other Platforms",
+          "hidden": true
+        },
+        {
+          "name": "virt-11.0",
+          "description": "QEMU 11.0 ARM Virtual Machine",
+          "display_name": "QEMU 11.0 ARM Virtual Machine",
+          "group": "Other Platforms",
+          "hidden": true
+        },
+        {
+          "name": "virt",
+          "description": "QEMU 11.1 ARM Virtual Machine (alias of virt-11.1)",
+          "display_name": "ARM Virtual Machine",
+          "group": "ARM Virtual Platforms",
+          "hidden": false
+        },
+        {
+          "name": "virt-11.1",
+          "description": "QEMU 11.1 ARM Virtual Machine",
+          "display_name": "QEMU 11.1 ARM Virtual Machine",
+          "group": "Other Platforms",
+          "hidden": true
+        },
+        {
+          "name": "virt-5.2",
+          "description": "QEMU 5.2 ARM Virtual Machine (deprecated)",
+          "display_name": "QEMU 5.2 ARM Virtual Machine (deprecated)",
+          "group": "Other Platforms",
+          "hidden": true
+        },
+        {
+          "name": "virt-6.0",
+          "description": "QEMU 6.0 ARM Virtual Machine (deprecated)",
+          "display_name": "QEMU 6.0 ARM Virtual Machine (deprecated)",
+          "group": "Other Platforms",
+          "hidden": true
+        },
+        {
+          "name": "virt-6.1",
+          "description": "QEMU 6.1 ARM Virtual Machine (deprecated)",
+          "display_name": "QEMU 6.1 ARM Virtual Machine (deprecated)",
+          "group": "Other Platforms",
+          "hidden": true
+        },
+        {
+          "name": "virt-6.2",
+          "description": "QEMU 6.2 ARM Virtual Machine (deprecated)",
+          "display_name": "QEMU 6.2 ARM Virtual Machine (deprecated)",
+          "group": "Other Platforms",
+          "hidden": true
+        },
+        {
+          "name": "virt-7.0",
+          "description": "QEMU 7.0 ARM Virtual Machine (deprecated)",
+          "display_name": "QEMU 7.0 ARM Virtual Machine (deprecated)",
+          "group": "Other Platforms",
+          "hidden": true
+        },
+        {
+          "name": "virt-7.1",
+          "description": "QEMU 7.1 ARM Virtual Machine (deprecated)",
+          "display_name": "QEMU 7.1 ARM Virtual Machine (deprecated)",
+          "group": "Other Platforms",
+          "hidden": true
+        },
+        {
+          "name": "virt-7.2",
+          "description": "QEMU 7.2 ARM Virtual Machine (deprecated)",
+          "display_name": "QEMU 7.2 ARM Virtual Machine (deprecated)",
+          "group": "Other Platforms",
+          "hidden": true
+        },
+        {
+          "name": "virt-8.0",
+          "description": "QEMU 8.0 ARM Virtual Machine (deprecated)",
+          "display_name": "QEMU 8.0 ARM Virtual Machine (deprecated)",
+          "group": "Other Platforms",
+          "hidden": true
+        },
+        {
+          "name": "virt-8.1",
+          "description": "QEMU 8.1 ARM Virtual Machine (deprecated)",
+          "display_name": "QEMU 8.1 ARM Virtual Machine (deprecated)",
+          "group": "Other Platforms",
+          "hidden": true
+        },
+        {
+          "name": "virt-8.2",
+          "description": "QEMU 8.2 ARM Virtual Machine",
+          "display_name": "QEMU 8.2 ARM Virtual Machine",
+          "group": "Other Platforms",
+          "hidden": true
+        },
+        {
+          "name": "virt-9.0",
+          "description": "QEMU 9.0 ARM Virtual Machine",
+          "display_name": "QEMU 9.0 ARM Virtual Machine",
+          "group": "Other Platforms",
+          "hidden": true
+        },
+        {
+          "name": "virt-9.1",
+          "description": "QEMU 9.1 ARM Virtual Machine",
+          "display_name": "QEMU 9.1 ARM Virtual Machine",
+          "group": "Other Platforms",
+          "hidden": true
+        },
+        {
+          "name": "virt-9.2",
+          "description": "QEMU 9.2 ARM Virtual Machine",
+          "display_name": "QEMU 9.2 ARM Virtual Machine",
+          "group": "Other Platforms",
+          "hidden": true
+        },
+        {
+          "name": "witherspoon-bmc",
+          "description": "OpenPOWER Witherspoon BMC (ARM1176)",
+          "display_name": "OpenPOWER Witherspoon BMC (ARM1176)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "xilinx-zynq-a9",
+          "description": "Xilinx Zynq 7000 Platform Baseboard for Cortex-A9",
+          "display_name": "Xilinx Zynq 7000 Platform Baseboard for Cortex-A9",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "yosemitev2-bmc",
+          "description": "Facebook YosemiteV2 BMC (ARM1176)",
+          "display_name": "Facebook YosemiteV2 BMC (ARM1176)",
+          "group": "Other Platforms",
+          "hidden": false
+        }
+      ],
+      "cpus": [],
+      "version_line": "QEMU emulator version 11.0.50 (v11.0.0-12631-g54e84cdc7a)"
+    },
+    {
+      "target": "avr",
+      "path": "C:\\Program Files\\qemu\\qemu-system-avr.exe",
+      "arch_label": "AVR",
+      "machines": [
+        {
+          "name": "2009",
+          "description": "Arduino Duemilanove (ATmega168) (alias of arduino-duemilanove)",
+          "display_name": "Arduino Duemilanove (ATmega168)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "arduino-duemilanove",
+          "description": "Arduino Duemilanove (ATmega168)",
+          "display_name": "Arduino Duemilanove",
+          "group": "Embedded",
+          "hidden": false
+        },
+        {
+          "name": "mega2560",
+          "description": "Arduino Mega 2560 (ATmega2560) (alias of arduino-mega-2560-v3)",
+          "display_name": "Arduino Mega 2560 (ATmega2560)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "mega",
+          "description": "Arduino Mega (ATmega1280) (alias of arduino-mega)",
+          "display_name": "Arduino Mega (ATmega1280)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "arduino-mega",
+          "description": "Arduino Mega (ATmega1280)",
+          "display_name": "Arduino Mega",
+          "group": "Embedded",
+          "hidden": false
+        },
+        {
+          "name": "uno",
+          "description": "Arduino UNO (ATmega328P) (alias of arduino-uno)",
+          "display_name": "Arduino UNO (ATmega328P)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "arduino-uno",
+          "description": "Arduino UNO (ATmega328P)",
+          "display_name": "Arduino UNO (ATmega328P)",
+          "group": "Embedded",
+          "hidden": false
+        },
+        {
+          "name": "none",
+          "description": "empty machine",
+          "display_name": "Empty Machine (none)",
+          "group": "Other Platforms",
+          "hidden": false
+        }
+      ],
+      "cpus": [],
+      "version_line": "QEMU emulator version 11.0.50 (v11.0.0-12631-g54e84cdc7a)"
+    },
+    {
+      "target": "hppa",
+      "path": "C:\\Program Files\\qemu\\qemu-system-hppa.exe",
+      "arch_label": "PA-RISC",
+      "machines": [
+        {
+          "name": "715",
+          "description": "HP 715/64 workstation",
+          "display_name": "HP 715/64 workstation",
+          "group": "HP",
+          "hidden": false
+        },
+        {
+          "name": "A400",
+          "description": "HP A400-44 server",
+          "display_name": "HP A400-44 server",
+          "group": "HP",
+          "hidden": false
+        },
+        {
+          "name": "B160L",
+          "description": "HP B160L workstation (default)",
+          "display_name": "HP B160L workstation (default)",
+          "group": "HP",
+          "hidden": false
+        },
+        {
+          "name": "C3700",
+          "description": "HP C3700 workstation",
+          "display_name": "HP C3700 workstation",
+          "group": "HP",
+          "hidden": false
+        },
+        {
+          "name": "none",
+          "description": "empty machine",
+          "display_name": "Empty Machine (none)",
+          "group": "HP",
+          "hidden": false
+        }
+      ],
+      "cpus": [],
+      "version_line": "QEMU emulator version 11.0.50 (v11.0.0-12631-g54e84cdc7a)"
+    },
+    {
+      "target": "i386",
+      "path": "C:\\Program Files\\qemu\\qemu-system-i386.exe",
+      "arch_label": "x86",
+      "machines": [
+        {
+          "name": "microvm",
+          "description": "microvm (i386)",
+          "display_name": "MicroVM",
+          "group": "IBM PC Compatible",
+          "hidden": false
+        },
+        {
+          "name": "pc-i440fx-9.2",
+          "description": "Standard PC (i440FX + PIIX, 1996)",
+          "display_name": "Standard PC (i440FX + PIIX, 1996)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-i440fx-9.1",
+          "description": "Standard PC (i440FX + PIIX, 1996)",
+          "display_name": "Standard PC (i440FX + PIIX, 1996)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-i440fx-9.0",
+          "description": "Standard PC (i440FX + PIIX, 1996)",
+          "display_name": "Standard PC (i440FX + PIIX, 1996)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-i440fx-8.2",
+          "description": "Standard PC (i440FX + PIIX, 1996)",
+          "display_name": "Standard PC (i440FX + PIIX, 1996)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-i440fx-8.1",
+          "description": "Standard PC (i440FX + PIIX, 1996) (deprecated)",
+          "display_name": "Standard PC (i440FX + PIIX, 1996) (deprecated)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-i440fx-8.0",
+          "description": "Standard PC (i440FX + PIIX, 1996) (deprecated)",
+          "display_name": "Standard PC (i440FX + PIIX, 1996) (deprecated)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-i440fx-7.2",
+          "description": "Standard PC (i440FX + PIIX, 1996) (deprecated)",
+          "display_name": "Standard PC (i440FX + PIIX, 1996) (deprecated)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-i440fx-7.1",
+          "description": "Standard PC (i440FX + PIIX, 1996) (deprecated)",
+          "display_name": "Standard PC (i440FX + PIIX, 1996) (deprecated)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-i440fx-7.0",
+          "description": "Standard PC (i440FX + PIIX, 1996) (deprecated)",
+          "display_name": "Standard PC (i440FX + PIIX, 1996) (deprecated)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-i440fx-6.2",
+          "description": "Standard PC (i440FX + PIIX, 1996) (deprecated)",
+          "display_name": "Standard PC (i440FX + PIIX, 1996) (deprecated)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-i440fx-6.1",
+          "description": "Standard PC (i440FX + PIIX, 1996) (deprecated)",
+          "display_name": "Standard PC (i440FX + PIIX, 1996) (deprecated)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-i440fx-6.0",
+          "description": "Standard PC (i440FX + PIIX, 1996) (deprecated)",
+          "display_name": "Standard PC (i440FX + PIIX, 1996) (deprecated)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-i440fx-5.2",
+          "description": "Standard PC (i440FX + PIIX, 1996) (deprecated)",
+          "display_name": "Standard PC (i440FX + PIIX, 1996) (deprecated)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc",
+          "description": "Standard PC (i440FX + PIIX, 1996) (alias of pc-i440fx-11.1)",
+          "display_name": "PC (i440FX)",
+          "group": "IBM PC Compatible",
+          "hidden": false
+        },
+        {
+          "name": "pc-i440fx-11.1",
+          "description": "Standard PC (i440FX + PIIX, 1996) (default)",
+          "display_name": "Standard PC (i440FX + PIIX, 1996) (default)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-i440fx-11.0",
+          "description": "Standard PC (i440FX + PIIX, 1996)",
+          "display_name": "Standard PC (i440FX + PIIX, 1996)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-i440fx-10.2",
+          "description": "Standard PC (i440FX + PIIX, 1996)",
+          "display_name": "Standard PC (i440FX + PIIX, 1996)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-i440fx-10.1",
+          "description": "Standard PC (i440FX + PIIX, 1996)",
+          "display_name": "Standard PC (i440FX + PIIX, 1996)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-i440fx-10.0",
+          "description": "Standard PC (i440FX + PIIX, 1996)",
+          "display_name": "Standard PC (i440FX + PIIX, 1996)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-q35-9.2",
+          "description": "Standard PC (Q35 + ICH9, 2009)",
+          "display_name": "Standard PC (Q35 + ICH9, 2009)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-q35-9.1",
+          "description": "Standard PC (Q35 + ICH9, 2009)",
+          "display_name": "Standard PC (Q35 + ICH9, 2009)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-q35-9.0",
+          "description": "Standard PC (Q35 + ICH9, 2009)",
+          "display_name": "Standard PC (Q35 + ICH9, 2009)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-q35-8.2",
+          "description": "Standard PC (Q35 + ICH9, 2009)",
+          "display_name": "Standard PC (Q35 + ICH9, 2009)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-q35-8.1",
+          "description": "Standard PC (Q35 + ICH9, 2009) (deprecated)",
+          "display_name": "Standard PC (Q35 + ICH9, 2009) (deprecated)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-q35-8.0",
+          "description": "Standard PC (Q35 + ICH9, 2009) (deprecated)",
+          "display_name": "Standard PC (Q35 + ICH9, 2009) (deprecated)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-q35-7.2",
+          "description": "Standard PC (Q35 + ICH9, 2009) (deprecated)",
+          "display_name": "Standard PC (Q35 + ICH9, 2009) (deprecated)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-q35-7.1",
+          "description": "Standard PC (Q35 + ICH9, 2009) (deprecated)",
+          "display_name": "Standard PC (Q35 + ICH9, 2009) (deprecated)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-q35-7.0",
+          "description": "Standard PC (Q35 + ICH9, 2009) (deprecated)",
+          "display_name": "Standard PC (Q35 + ICH9, 2009) (deprecated)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-q35-6.2",
+          "description": "Standard PC (Q35 + ICH9, 2009) (deprecated)",
+          "display_name": "Standard PC (Q35 + ICH9, 2009) (deprecated)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-q35-6.1",
+          "description": "Standard PC (Q35 + ICH9, 2009) (deprecated)",
+          "display_name": "Standard PC (Q35 + ICH9, 2009) (deprecated)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-q35-6.0",
+          "description": "Standard PC (Q35 + ICH9, 2009) (deprecated)",
+          "display_name": "Standard PC (Q35 + ICH9, 2009) (deprecated)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-q35-5.2",
+          "description": "Standard PC (Q35 + ICH9, 2009) (deprecated)",
+          "display_name": "Standard PC (Q35 + ICH9, 2009) (deprecated)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "q35",
+          "description": "Standard PC (Q35 + ICH9, 2009) (alias of pc-q35-11.1)",
+          "display_name": "PC (Q35)",
+          "group": "IBM PC Compatible",
+          "hidden": false
+        },
+        {
+          "name": "pc-q35-11.1",
+          "description": "Standard PC (Q35 + ICH9, 2009)",
+          "display_name": "Standard PC (Q35 + ICH9, 2009)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-q35-11.0",
+          "description": "Standard PC (Q35 + ICH9, 2009)",
+          "display_name": "Standard PC (Q35 + ICH9, 2009)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-q35-10.2",
+          "description": "Standard PC (Q35 + ICH9, 2009)",
+          "display_name": "Standard PC (Q35 + ICH9, 2009)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-q35-10.1",
+          "description": "Standard PC (Q35 + ICH9, 2009)",
+          "display_name": "Standard PC (Q35 + ICH9, 2009)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-q35-10.0",
+          "description": "Standard PC (Q35 + ICH9, 2009)",
+          "display_name": "Standard PC (Q35 + ICH9, 2009)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "isapc",
+          "description": "ISA-only PC",
+          "display_name": "Legacy ISA PC",
+          "group": "IBM PC Compatible",
+          "hidden": false
+        },
+        {
+          "name": "none",
+          "description": "empty machine",
+          "display_name": "Empty Machine (none)",
+          "group": "Other Platforms",
+          "hidden": false
+        }
+      ],
+      "cpus": [],
+      "version_line": "QEMU emulator version 11.0.50 (v11.0.0-12631-g54e84cdc7a)"
+    },
+    {
+      "target": "loongarch64",
+      "path": "C:\\Program Files\\qemu\\qemu-system-loongarch64.exe",
+      "arch_label": "LoongArch",
+      "machines": [
+        {
+          "name": "none",
+          "description": "empty machine",
+          "display_name": "Empty Machine (none)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "virt",
+          "description": "QEMU LoongArch Virtual Machine (default)",
+          "display_name": "LoongArch Virtual Machine",
+          "group": "Other Platforms",
+          "hidden": false
+        }
+      ],
+      "cpus": [],
+      "version_line": "QEMU emulator version 11.0.50 (v11.0.0-12631-g54e84cdc7a)"
+    },
+    {
+      "target": "m68k",
+      "path": "C:\\Program Files\\qemu\\qemu-system-m68k.exe",
+      "arch_label": "m68k",
+      "machines": [
+        {
+          "name": "an5206",
+          "description": "Arnewsh 5206",
+          "display_name": "Arnewsh 5206",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "mcf5208evb",
+          "description": "MCF5208EVB (default)",
+          "display_name": "MCF5208EVB (default)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "next-cube",
+          "description": "NeXT Cube",
+          "display_name": "NeXT Cube",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "none",
+          "description": "empty machine",
+          "display_name": "Empty Machine (none)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "q800",
+          "description": "Macintosh Quadra 800",
+          "display_name": "Macintosh Quadra 800",
+          "group": "Apple Macintosh",
+          "hidden": false
+        },
+        {
+          "name": "virt-10.0",
+          "description": "QEMU 10.0 M68K Virtual Machine",
+          "display_name": "QEMU 10.0 M68K Virtual Machine",
+          "group": "Other Platforms",
+          "hidden": true
+        },
+        {
+          "name": "virt-10.1",
+          "description": "QEMU 10.1 M68K Virtual Machine",
+          "display_name": "QEMU 10.1 M68K Virtual Machine",
+          "group": "Other Platforms",
+          "hidden": true
+        },
+        {
+          "name": "virt-10.2",
+          "description": "QEMU 10.2 M68K Virtual Machine",
+          "display_name": "QEMU 10.2 M68K Virtual Machine",
+          "group": "Other Platforms",
+          "hidden": true
+        },
+        {
+          "name": "virt-11.0",
+          "description": "QEMU 11.0 M68K Virtual Machine",
+          "display_name": "QEMU 11.0 M68K Virtual Machine",
+          "group": "Other Platforms",
+          "hidden": true
+        },
+        {
+          "name": "virt",
+          "description": "QEMU 11.1 M68K Virtual Machine (alias of virt-11.1)",
+          "display_name": "m68k Virtual Machine",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "virt-11.1",
+          "description": "QEMU 11.1 M68K Virtual Machine",
+          "display_name": "QEMU 11.1 M68K Virtual Machine",
+          "group": "Other Platforms",
+          "hidden": true
+        },
+        {
+          "name": "virt-6.0",
+          "description": "QEMU 6.0 M68K Virtual Machine (deprecated)",
+          "display_name": "QEMU 6.0 M68K Virtual Machine (deprecated)",
+          "group": "Other Platforms",
+          "hidden": true
+        },
+        {
+          "name": "virt-6.1",
+          "description": "QEMU 6.1 M68K Virtual Machine (deprecated)",
+          "display_name": "QEMU 6.1 M68K Virtual Machine (deprecated)",
+          "group": "Other Platforms",
+          "hidden": true
+        },
+        {
+          "name": "virt-6.2",
+          "description": "QEMU 6.2 M68K Virtual Machine (deprecated)",
+          "display_name": "QEMU 6.2 M68K Virtual Machine (deprecated)",
+          "group": "Other Platforms",
+          "hidden": true
+        },
+        {
+          "name": "virt-7.0",
+          "description": "QEMU 7.0 M68K Virtual Machine (deprecated)",
+          "display_name": "QEMU 7.0 M68K Virtual Machine (deprecated)",
+          "group": "Other Platforms",
+          "hidden": true
+        },
+        {
+          "name": "virt-7.1",
+          "description": "QEMU 7.1 M68K Virtual Machine (deprecated)",
+          "display_name": "QEMU 7.1 M68K Virtual Machine (deprecated)",
+          "group": "Other Platforms",
+          "hidden": true
+        },
+        {
+          "name": "virt-7.2",
+          "description": "QEMU 7.2 M68K Virtual Machine (deprecated)",
+          "display_name": "QEMU 7.2 M68K Virtual Machine (deprecated)",
+          "group": "Other Platforms",
+          "hidden": true
+        },
+        {
+          "name": "virt-8.0",
+          "description": "QEMU 8.0 M68K Virtual Machine (deprecated)",
+          "display_name": "QEMU 8.0 M68K Virtual Machine (deprecated)",
+          "group": "Other Platforms",
+          "hidden": true
+        },
+        {
+          "name": "virt-8.1",
+          "description": "QEMU 8.1 M68K Virtual Machine (deprecated)",
+          "display_name": "QEMU 8.1 M68K Virtual Machine (deprecated)",
+          "group": "Other Platforms",
+          "hidden": true
+        },
+        {
+          "name": "virt-8.2",
+          "description": "QEMU 8.2 M68K Virtual Machine",
+          "display_name": "QEMU 8.2 M68K Virtual Machine",
+          "group": "Other Platforms",
+          "hidden": true
+        },
+        {
+          "name": "virt-9.0",
+          "description": "QEMU 9.0 M68K Virtual Machine",
+          "display_name": "QEMU 9.0 M68K Virtual Machine",
+          "group": "Other Platforms",
+          "hidden": true
+        },
+        {
+          "name": "virt-9.1",
+          "description": "QEMU 9.1 M68K Virtual Machine",
+          "display_name": "QEMU 9.1 M68K Virtual Machine",
+          "group": "Other Platforms",
+          "hidden": true
+        },
+        {
+          "name": "virt-9.2",
+          "description": "QEMU 9.2 M68K Virtual Machine",
+          "display_name": "QEMU 9.2 M68K Virtual Machine",
+          "group": "Other Platforms",
+          "hidden": true
+        }
+      ],
+      "cpus": [],
+      "version_line": "QEMU emulator version 11.0.50 (v11.0.0-12631-g54e84cdc7a)"
+    },
+    {
+      "target": "microblaze",
+      "path": "C:\\Program Files\\qemu\\qemu-system-microblaze.exe",
+      "arch_label": "MicroBlaze",
+      "machines": [
+        {
+          "name": "none",
+          "description": "empty machine",
+          "display_name": "Empty Machine (none)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "petalogix-ml605",
+          "description": "PetaLogix linux refdesign for xilinx ml605 (little endian)",
+          "display_name": "PetaLogix linux refdesign for xilinx ml605 (little endian)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "xlnx-zynqmp-pmu",
+          "description": "Xilinx ZynqMP PMU machine (little endian)",
+          "display_name": "Xilinx ZynqMP PMU machine (little endian)",
+          "group": "Other Platforms",
+          "hidden": false
+        }
+      ],
+      "cpus": [],
+      "version_line": "QEMU emulator version 11.0.50 (v11.0.0-12631-g54e84cdc7a)"
+    },
+    {
+      "target": "mips",
+      "path": "C:\\Program Files\\qemu\\qemu-system-mips.exe",
+      "arch_label": "MIPS",
+      "machines": [
+        {
+          "name": "malta",
+          "description": "MIPS Malta Core LV (default)",
+          "display_name": "MIPS Malta",
+          "group": "MIPS",
+          "hidden": false
+        },
+        {
+          "name": "none",
+          "description": "empty machine",
+          "display_name": "Empty Machine (none)",
+          "group": "Other Platforms",
+          "hidden": false
+        }
+      ],
+      "cpus": [],
+      "version_line": "QEMU emulator version 11.0.50 (v11.0.0-12631-g54e84cdc7a)"
+    },
+    {
+      "target": "mips64",
+      "path": "C:\\Program Files\\qemu\\qemu-system-mips64.exe",
+      "arch_label": "MIPS64",
+      "machines": [
+        {
+          "name": "magnum",
+          "description": "MIPS Magnum",
+          "display_name": "SGI Magnum",
+          "group": "Silicon Graphics",
+          "hidden": false
+        },
+        {
+          "name": "malta",
+          "description": "MIPS Malta Core LV (default)",
+          "display_name": "MIPS Malta",
+          "group": "MIPS",
+          "hidden": false
+        },
+        {
+          "name": "none",
+          "description": "empty machine",
+          "display_name": "Empty Machine (none)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "pica61",
+          "description": "Acer Pica 61",
+          "display_name": "Acer Pica 61",
+          "group": "Other Platforms",
+          "hidden": false
+        }
+      ],
+      "cpus": [],
+      "version_line": "QEMU emulator version 11.0.50 (v11.0.0-12631-g54e84cdc7a)"
+    },
+    {
+      "target": "mips64el",
+      "path": "C:\\Program Files\\qemu\\qemu-system-mips64el.exe",
+      "arch_label": "MIPS64EL",
+      "machines": [
+        {
+          "name": "boston",
+          "description": "MIPS Boston",
+          "display_name": "MIPS Boston",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "fuloong2e",
+          "description": "Fuloong 2e mini pc",
+          "display_name": "Fuloong 2E",
+          "group": "MIPS",
+          "hidden": false
+        },
+        {
+          "name": "loongson3-virt",
+          "description": "Loongson-3 Virtualization Platform",
+          "display_name": "Loongson 3 Virtual",
+          "group": "MIPS",
+          "hidden": false
+        },
+        {
+          "name": "magnum",
+          "description": "MIPS Magnum",
+          "display_name": "SGI Magnum",
+          "group": "Silicon Graphics",
+          "hidden": false
+        },
+        {
+          "name": "malta",
+          "description": "MIPS Malta Core LV (default)",
+          "display_name": "MIPS Malta",
+          "group": "MIPS",
+          "hidden": false
+        },
+        {
+          "name": "none",
+          "description": "empty machine",
+          "display_name": "Empty Machine (none)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "pica61",
+          "description": "Acer Pica 61",
+          "display_name": "Acer Pica 61",
+          "group": "Other Platforms",
+          "hidden": false
+        }
+      ],
+      "cpus": [],
+      "version_line": "QEMU emulator version 11.0.50 (v11.0.0-12631-g54e84cdc7a)"
+    },
+    {
+      "target": "mipsel",
+      "path": "C:\\Program Files\\qemu\\qemu-system-mipsel.exe",
+      "arch_label": "MIPSEL",
+      "machines": [
+        {
+          "name": "malta",
+          "description": "MIPS Malta Core LV (default)",
+          "display_name": "MIPS Malta",
+          "group": "MIPS",
+          "hidden": false
+        },
+        {
+          "name": "none",
+          "description": "empty machine",
+          "display_name": "Empty Machine (none)",
+          "group": "Other Platforms",
+          "hidden": false
+        }
+      ],
+      "cpus": [],
+      "version_line": "QEMU emulator version 11.0.50 (v11.0.0-12631-g54e84cdc7a)"
+    },
+    {
+      "target": "or1k",
+      "path": "C:\\Program Files\\qemu\\qemu-system-or1k.exe",
+      "arch_label": "OpenRISC",
+      "machines": [
+        {
+          "name": "none",
+          "description": "empty machine",
+          "display_name": "Empty Machine (none)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "or1k-sim",
+          "description": "or1k simulation (default)",
+          "display_name": "or1k simulation (default)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "virt",
+          "description": "or1k virtual machine",
+          "display_name": "OpenRISC Virtual Machine",
+          "group": "Other Platforms",
+          "hidden": false
+        }
+      ],
+      "cpus": [],
+      "version_line": "QEMU emulator version 11.0.50 (v11.0.0-12631-g54e84cdc7a)"
+    },
+    {
+      "target": "ppc",
+      "path": "C:\\Program Files\\qemu\\qemu-system-ppc.exe",
+      "arch_label": "PowerPC 32",
+      "machines": [
+        {
+          "name": "40p",
+          "description": "IBM RS/6000 7020 (40p)",
+          "display_name": "IBM RS/6000 7020 (40p)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "amigaone",
+          "description": "Eyetech AmigaOne/Mai Logic Teron",
+          "display_name": "Eyetech AmigaOne/Mai Logic Teron",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "bamboo",
+          "description": "bamboo",
+          "display_name": "bamboo",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "g3beige",
+          "description": "Heathrow based PowerMac (default)",
+          "display_name": "Power Macintosh G3 (Beige)",
+          "group": "Apple Macintosh",
+          "hidden": false
+        },
+        {
+          "name": "mac99",
+          "description": "Mac99 based PowerMac",
+          "display_name": "Macintosh (Mac99)",
+          "group": "Apple Macintosh",
+          "hidden": false
+        },
+        {
+          "name": "mpc8544ds",
+          "description": "mpc8544ds",
+          "display_name": "mpc8544ds",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "none",
+          "description": "empty machine",
+          "display_name": "Empty Machine (none)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "pegasos1",
+          "description": "Genesi/bPlan Pegasos I",
+          "display_name": "Genesi/bPlan Pegasos I",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "pegasos2",
+          "description": "Genesi/bPlan Pegasos II",
+          "display_name": "Genesi/bPlan Pegasos II",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "ppce500",
+          "description": "generic paravirt e500 platform",
+          "display_name": "generic paravirt e500 platform",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "ppe42_machine",
+          "description": "PPE42 Test Machine",
+          "display_name": "PPE42 Test Machine",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "sam460ex",
+          "description": "aCube Sam460ex",
+          "display_name": "aCube Sam460ex",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "virtex-ml507",
+          "description": "Xilinx Virtex ML507 reference design",
+          "display_name": "Xilinx Virtex ML507 reference design",
+          "group": "Other Platforms",
+          "hidden": false
+        }
+      ],
+      "cpus": [],
+      "version_line": "QEMU emulator version 11.0.50 (v11.0.0-12631-g54e84cdc7a)"
+    },
+    {
+      "target": "ppc64",
+      "path": "C:\\Program Files\\qemu\\qemu-system-ppc64.exe",
+      "arch_label": "PowerPC 64",
+      "machines": [
+        {
+          "name": "40p",
+          "description": "IBM RS/6000 7020 (40p)",
+          "display_name": "IBM RS/6000 7020 (40p)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "amigaone",
+          "description": "Eyetech AmigaOne/Mai Logic Teron",
+          "display_name": "Eyetech AmigaOne/Mai Logic Teron",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "bamboo",
+          "description": "bamboo",
+          "display_name": "bamboo",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "g3beige",
+          "description": "Heathrow based PowerMac",
+          "display_name": "Power Macintosh G3 (Beige)",
+          "group": "Apple Macintosh",
+          "hidden": false
+        },
+        {
+          "name": "mac99",
+          "description": "Mac99 based PowerMac",
+          "display_name": "Macintosh (Mac99)",
+          "group": "Apple Macintosh",
+          "hidden": false
+        },
+        {
+          "name": "mpc8544ds",
+          "description": "mpc8544ds",
+          "display_name": "mpc8544ds",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "none",
+          "description": "empty machine",
+          "display_name": "Empty Machine (none)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "pegasos1",
+          "description": "Genesi/bPlan Pegasos I",
+          "display_name": "Genesi/bPlan Pegasos I",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "pegasos2",
+          "description": "Genesi/bPlan Pegasos II",
+          "display_name": "Genesi/bPlan Pegasos II",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "powernv",
+          "description": "IBM PowerNV (Non-Virtualized) POWER10 (alias of powernv10)",
+          "display_name": "IBM PowerNV",
+          "group": "IBM Power",
+          "hidden": false
+        },
+        {
+          "name": "powernv10",
+          "description": "IBM PowerNV (Non-Virtualized) POWER10",
+          "display_name": "IBM PowerNV POWER10",
+          "group": "IBM Power",
+          "hidden": false
+        },
+        {
+          "name": "powernv",
+          "description": "IBM PowerNV (Non-Virtualized) POWER10 Rainier (alias of powernv10-rainier)",
+          "display_name": "IBM PowerNV",
+          "group": "IBM Power",
+          "hidden": false
+        },
+        {
+          "name": "powernv10-rainier",
+          "description": "IBM PowerNV (Non-Virtualized) POWER10 Rainier",
+          "display_name": "IBM PowerNV (Non-Virtualized) POWER10 Rainier",
+          "group": "IBM Power",
+          "hidden": false
+        },
+        {
+          "name": "powernv11",
+          "description": "IBM PowerNV (Non-Virtualized) Power11",
+          "display_name": "IBM PowerNV (Non-Virtualized) Power11",
+          "group": "IBM Power",
+          "hidden": false
+        },
+        {
+          "name": "powernv8",
+          "description": "IBM PowerNV (Non-Virtualized) POWER8",
+          "display_name": "IBM PowerNV POWER8",
+          "group": "IBM Power",
+          "hidden": false
+        },
+        {
+          "name": "powernv9",
+          "description": "IBM PowerNV (Non-Virtualized) POWER9",
+          "display_name": "IBM PowerNV POWER9",
+          "group": "IBM Power",
+          "hidden": false
+        },
+        {
+          "name": "ppce500",
+          "description": "generic paravirt e500 platform",
+          "display_name": "generic paravirt e500 platform",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "ppe42_machine",
+          "description": "PPE42 Test Machine",
+          "display_name": "PPE42 Test Machine",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "pseries-10.0",
+          "description": "pSeries Logical Partition (PAPR compliant)",
+          "display_name": "pSeries Logical Partition (PAPR compliant)",
+          "group": "IBM Power",
+          "hidden": true
+        },
+        {
+          "name": "pseries-10.1",
+          "description": "pSeries Logical Partition (PAPR compliant)",
+          "display_name": "pSeries Logical Partition (PAPR compliant)",
+          "group": "IBM Power",
+          "hidden": true
+        },
+        {
+          "name": "pseries-10.2",
+          "description": "pSeries Logical Partition (PAPR compliant)",
+          "display_name": "pSeries Logical Partition (PAPR compliant)",
+          "group": "IBM Power",
+          "hidden": true
+        },
+        {
+          "name": "pseries-11.0",
+          "description": "pSeries Logical Partition (PAPR compliant)",
+          "display_name": "pSeries Logical Partition (PAPR compliant)",
+          "group": "IBM Power",
+          "hidden": true
+        },
+        {
+          "name": "pseries",
+          "description": "pSeries Logical Partition (PAPR compliant) (alias of pseries-11.1)",
+          "display_name": "IBM pSeries",
+          "group": "IBM Power",
+          "hidden": false
+        },
+        {
+          "name": "pseries-11.1",
+          "description": "pSeries Logical Partition (PAPR compliant) (default)",
+          "display_name": "pSeries Logical Partition (PAPR compliant) (default)",
+          "group": "IBM Power",
+          "hidden": true
+        },
+        {
+          "name": "pseries-5.2",
+          "description": "pSeries Logical Partition (PAPR compliant) (deprecated)",
+          "display_name": "pSeries Logical Partition (PAPR compliant) (deprecated)",
+          "group": "IBM Power",
+          "hidden": true
+        },
+        {
+          "name": "pseries-6.0",
+          "description": "pSeries Logical Partition (PAPR compliant) (deprecated)",
+          "display_name": "pSeries Logical Partition (PAPR compliant) (deprecated)",
+          "group": "IBM Power",
+          "hidden": true
+        },
+        {
+          "name": "pseries-6.1",
+          "description": "pSeries Logical Partition (PAPR compliant) (deprecated)",
+          "display_name": "pSeries Logical Partition (PAPR compliant) (deprecated)",
+          "group": "IBM Power",
+          "hidden": true
+        },
+        {
+          "name": "pseries-6.2",
+          "description": "pSeries Logical Partition (PAPR compliant) (deprecated)",
+          "display_name": "pSeries Logical Partition (PAPR compliant) (deprecated)",
+          "group": "IBM Power",
+          "hidden": true
+        },
+        {
+          "name": "pseries-7.0",
+          "description": "pSeries Logical Partition (PAPR compliant) (deprecated)",
+          "display_name": "pSeries Logical Partition (PAPR compliant) (deprecated)",
+          "group": "IBM Power",
+          "hidden": true
+        },
+        {
+          "name": "pseries-7.1",
+          "description": "pSeries Logical Partition (PAPR compliant) (deprecated)",
+          "display_name": "pSeries Logical Partition (PAPR compliant) (deprecated)",
+          "group": "IBM Power",
+          "hidden": true
+        },
+        {
+          "name": "pseries-7.2",
+          "description": "pSeries Logical Partition (PAPR compliant) (deprecated)",
+          "display_name": "pSeries Logical Partition (PAPR compliant) (deprecated)",
+          "group": "IBM Power",
+          "hidden": true
+        },
+        {
+          "name": "pseries-8.0",
+          "description": "pSeries Logical Partition (PAPR compliant) (deprecated)",
+          "display_name": "pSeries Logical Partition (PAPR compliant) (deprecated)",
+          "group": "IBM Power",
+          "hidden": true
+        },
+        {
+          "name": "pseries-8.1",
+          "description": "pSeries Logical Partition (PAPR compliant) (deprecated)",
+          "display_name": "pSeries Logical Partition (PAPR compliant) (deprecated)",
+          "group": "IBM Power",
+          "hidden": true
+        },
+        {
+          "name": "pseries-8.2",
+          "description": "pSeries Logical Partition (PAPR compliant)",
+          "display_name": "pSeries Logical Partition (PAPR compliant)",
+          "group": "IBM Power",
+          "hidden": true
+        },
+        {
+          "name": "pseries-9.0",
+          "description": "pSeries Logical Partition (PAPR compliant)",
+          "display_name": "pSeries Logical Partition (PAPR compliant)",
+          "group": "IBM Power",
+          "hidden": true
+        },
+        {
+          "name": "pseries-9.1",
+          "description": "pSeries Logical Partition (PAPR compliant)",
+          "display_name": "pSeries Logical Partition (PAPR compliant)",
+          "group": "IBM Power",
+          "hidden": true
+        },
+        {
+          "name": "pseries-9.2",
+          "description": "pSeries Logical Partition (PAPR compliant)",
+          "display_name": "pSeries Logical Partition (PAPR compliant)",
+          "group": "IBM Power",
+          "hidden": true
+        },
+        {
+          "name": "sam460ex",
+          "description": "aCube Sam460ex",
+          "display_name": "aCube Sam460ex",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "virtex-ml507",
+          "description": "Xilinx Virtex ML507 reference design",
+          "display_name": "Xilinx Virtex ML507 reference design",
+          "group": "Other Platforms",
+          "hidden": false
+        }
+      ],
+      "cpus": [],
+      "version_line": "QEMU emulator version 11.0.50 (v11.0.0-12631-g54e84cdc7a)"
+    },
+    {
+      "target": "riscv32",
+      "path": "C:\\Program Files\\qemu\\qemu-system-riscv32.exe",
+      "arch_label": "RISC-V 32",
+      "machines": [
+        {
+          "name": "none",
+          "description": "empty machine",
+          "display_name": "Empty Machine (none)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "opentitan",
+          "description": "RISC-V Board compatible with OpenTitan",
+          "display_name": "OpenTitan",
+          "group": "RISC-V",
+          "hidden": false
+        },
+        {
+          "name": "sifive_e",
+          "description": "RISC-V Board compatible with SiFive E SDK",
+          "display_name": "SiFive E Series",
+          "group": "RISC-V",
+          "hidden": false
+        },
+        {
+          "name": "sifive_u",
+          "description": "RISC-V Board compatible with SiFive U SDK",
+          "display_name": "SiFive U Series",
+          "group": "RISC-V",
+          "hidden": false
+        },
+        {
+          "name": "spike",
+          "description": "RISC-V Spike board (default)",
+          "display_name": "RISC-V Spike",
+          "group": "RISC-V",
+          "hidden": false
+        },
+        {
+          "name": "virt",
+          "description": "RISC-V VirtIO board",
+          "display_name": "RISC-V 32 Virtual Machine",
+          "group": "RISC-V",
+          "hidden": false
+        }
+      ],
+      "cpus": [],
+      "version_line": "QEMU emulator version 11.0.50 (v11.0.0-12631-g54e84cdc7a)"
+    },
+    {
+      "target": "riscv64",
+      "path": "C:\\Program Files\\qemu\\qemu-system-riscv64.exe",
+      "arch_label": "RISC-V 64",
+      "machines": [
+        {
+          "name": "boston-aia",
+          "description": "MIPS Boston-aia",
+          "display_name": "MIPS Boston-aia",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "none",
+          "description": "empty machine",
+          "display_name": "Empty Machine (none)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "shakti_c",
+          "description": "RISC-V Board compatible with Shakti SDK",
+          "display_name": "RISC-V Board compatible with Shakti SDK",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "sifive_e",
+          "description": "RISC-V Board compatible with SiFive E SDK",
+          "display_name": "SiFive E Series",
+          "group": "RISC-V",
+          "hidden": false
+        },
+        {
+          "name": "sifive_u",
+          "description": "RISC-V Board compatible with SiFive U SDK",
+          "display_name": "SiFive U Series",
+          "group": "RISC-V",
+          "hidden": false
+        },
+        {
+          "name": "spike",
+          "description": "RISC-V Spike board (default)",
+          "display_name": "RISC-V Spike",
+          "group": "RISC-V",
+          "hidden": false
+        },
+        {
+          "name": "virt",
+          "description": "RISC-V VirtIO board",
+          "display_name": "RISC-V 64 Virtual Machine",
+          "group": "RISC-V",
+          "hidden": false
+        },
+        {
+          "name": "xiangshan-kunminghu",
+          "description": "RISC-V Board compatible with the Xiangshan Kunminghu FPGA prototype platform",
+          "display_name": "RISC-V Board compatible with the Xiangshan Kunminghu FPGA prototype platform",
+          "group": "Other Platforms",
+          "hidden": false
+        }
+      ],
+      "cpus": [],
+      "version_line": "QEMU emulator version 11.0.50 (v11.0.0-12631-g54e84cdc7a)"
+    },
+    {
+      "target": "rx",
+      "path": "C:\\Program Files\\qemu\\qemu-system-rx.exe",
+      "arch_label": "RX",
+      "machines": [
+        {
+          "name": "gdbsim-r5f562n7",
+          "description": "gdb simulator (R5F562N7 MCU and external RAM)",
+          "display_name": "gdb simulator (R5F562N7 MCU and external RAM)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "gdbsim-r5f562n8",
+          "description": "gdb simulator (R5F562N8 MCU and external RAM)",
+          "display_name": "gdb simulator (R5F562N8 MCU and external RAM)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "none",
+          "description": "empty machine",
+          "display_name": "Empty Machine (none)",
+          "group": "Other Platforms",
+          "hidden": false
+        }
+      ],
+      "cpus": [],
+      "version_line": "QEMU emulator version 11.0.50 (v11.0.0-12631-g54e84cdc7a)"
+    },
+    {
+      "target": "s390x",
+      "path": "C:\\Program Files\\qemu\\qemu-system-s390x.exe",
+      "arch_label": "s390x",
+      "machines": [
+        {
+          "name": "none",
+          "description": "empty machine",
+          "display_name": "Empty Machine (none)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "s390-ccw-virtio",
+          "description": "Virtual s390x machine (version 11.1) (alias of s390-ccw-virtio-11.1)",
+          "display_name": "IBM Z (s390-ccw-virtio)",
+          "group": "IBM Mainframe",
+          "hidden": false
+        },
+        {
+          "name": "s390-ccw-virtio-5.2",
+          "description": "Virtual s390x machine (version 5.2) (deprecated)",
+          "display_name": "Virtual s390x machine (version 5.2) (deprecated)",
+          "group": "IBM Mainframe",
+          "hidden": true
+        },
+        {
+          "name": "s390-ccw-virtio-6.0",
+          "description": "Virtual s390x machine (version 6.0) (deprecated)",
+          "display_name": "Virtual s390x machine (version 6.0) (deprecated)",
+          "group": "IBM Mainframe",
+          "hidden": true
+        },
+        {
+          "name": "s390-ccw-virtio-6.1",
+          "description": "Virtual s390x machine (version 6.1) (deprecated)",
+          "display_name": "Virtual s390x machine (version 6.1) (deprecated)",
+          "group": "IBM Mainframe",
+          "hidden": true
+        },
+        {
+          "name": "s390-ccw-virtio-6.2",
+          "description": "Virtual s390x machine (version 6.2) (deprecated)",
+          "display_name": "Virtual s390x machine (version 6.2) (deprecated)",
+          "group": "IBM Mainframe",
+          "hidden": true
+        },
+        {
+          "name": "s390-ccw-virtio-7.0",
+          "description": "Virtual s390x machine (version 7.0) (deprecated)",
+          "display_name": "Virtual s390x machine (version 7.0) (deprecated)",
+          "group": "IBM Mainframe",
+          "hidden": true
+        },
+        {
+          "name": "s390-ccw-virtio-7.1",
+          "description": "Virtual s390x machine (version 7.1) (deprecated)",
+          "display_name": "Virtual s390x machine (version 7.1) (deprecated)",
+          "group": "IBM Mainframe",
+          "hidden": true
+        },
+        {
+          "name": "s390-ccw-virtio-7.2",
+          "description": "Virtual s390x machine (version 7.2) (deprecated)",
+          "display_name": "Virtual s390x machine (version 7.2) (deprecated)",
+          "group": "IBM Mainframe",
+          "hidden": true
+        },
+        {
+          "name": "s390-ccw-virtio-8.0",
+          "description": "Virtual s390x machine (version 8.0) (deprecated)",
+          "display_name": "Virtual s390x machine (version 8.0) (deprecated)",
+          "group": "IBM Mainframe",
+          "hidden": true
+        },
+        {
+          "name": "s390-ccw-virtio-8.1",
+          "description": "Virtual s390x machine (version 8.1) (deprecated)",
+          "display_name": "Virtual s390x machine (version 8.1) (deprecated)",
+          "group": "IBM Mainframe",
+          "hidden": true
+        },
+        {
+          "name": "s390-ccw-virtio-8.2",
+          "description": "Virtual s390x machine (version 8.2)",
+          "display_name": "Virtual s390x machine (version 8.2)",
+          "group": "IBM Mainframe",
+          "hidden": true
+        },
+        {
+          "name": "s390-ccw-virtio-9.0",
+          "description": "Virtual s390x machine (version 9.0)",
+          "display_name": "Virtual s390x machine (version 9.0)",
+          "group": "IBM Mainframe",
+          "hidden": true
+        },
+        {
+          "name": "s390-ccw-virtio-9.1",
+          "description": "Virtual s390x machine (version 9.1)",
+          "display_name": "Virtual s390x machine (version 9.1)",
+          "group": "IBM Mainframe",
+          "hidden": true
+        },
+        {
+          "name": "s390-ccw-virtio-9.2",
+          "description": "Virtual s390x machine (version 9.2)",
+          "display_name": "Virtual s390x machine (version 9.2)",
+          "group": "IBM Mainframe",
+          "hidden": true
+        }
+      ],
+      "cpus": [],
+      "version_line": "QEMU emulator version 11.0.50 (v11.0.0-12631-g54e84cdc7a)"
+    },
+    {
+      "target": "sh4",
+      "path": "C:\\Program Files\\qemu\\qemu-system-sh4.exe",
+      "arch_label": "SH4",
+      "machines": [
+        {
+          "name": "none",
+          "description": "empty machine",
+          "display_name": "Empty Machine (none)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "r2d",
+          "description": "r2d-plus board",
+          "display_name": "r2d-plus board",
+          "group": "Other Platforms",
+          "hidden": false
+        }
+      ],
+      "cpus": [],
+      "version_line": "QEMU emulator version 11.0.50 (v11.0.0-12631-g54e84cdc7a)"
+    },
+    {
+      "target": "sh4eb",
+      "path": "C:\\Program Files\\qemu\\qemu-system-sh4eb.exe",
+      "arch_label": "SH4",
+      "machines": [
+        {
+          "name": "none",
+          "description": "empty machine",
+          "display_name": "Empty Machine (none)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "r2d",
+          "description": "r2d-plus board",
+          "display_name": "r2d-plus board",
+          "group": "Other Platforms",
+          "hidden": false
+        }
+      ],
+      "cpus": [],
+      "version_line": "QEMU emulator version 11.0.50 (v11.0.0-12631-g54e84cdc7a)"
+    },
+    {
+      "target": "sparc",
+      "path": "C:\\Program Files\\qemu\\qemu-system-sparc.exe",
+      "arch_label": "SPARC32",
+      "machines": [
+        {
+          "name": "LX",
+          "description": "Sun4m platform, SPARCstation LX",
+          "display_name": "Sun4m platform, SPARCstation LX",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "SPARCClassic",
+          "description": "Sun4m platform, SPARCClassic",
+          "display_name": "Sun4m platform, SPARCClassic",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "SPARCbook",
+          "description": "Sun4m platform, SPARCbook",
+          "display_name": "Sun4m platform, SPARCbook",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "SS-10",
+          "description": "Sun4m platform, SPARCstation 10",
+          "display_name": "Sun4m platform, SPARCstation 10",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "SS-20",
+          "description": "Sun4m platform, SPARCstation 20",
+          "display_name": "Sun4m platform, SPARCstation 20",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "SS-4",
+          "description": "Sun4m platform, SPARCstation 4",
+          "display_name": "Sun4m platform, SPARCstation 4",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "SS-5",
+          "description": "Sun4m platform, SPARCstation 5 (default)",
+          "display_name": "Sun4m platform, SPARCstation 5 (default)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "SS-600MP",
+          "description": "Sun4m platform, SPARCserver 600MP",
+          "display_name": "Sun4m platform, SPARCserver 600MP",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "Voyager",
+          "description": "Sun4m platform, SPARCstation Voyager",
+          "display_name": "Sun4m platform, SPARCstation Voyager",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "leon3_generic",
+          "description": "Leon-3 generic",
+          "display_name": "Leon-3 generic",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "none",
+          "description": "empty machine",
+          "display_name": "Empty Machine (none)",
+          "group": "Other Platforms",
+          "hidden": false
+        }
+      ],
+      "cpus": [],
+      "version_line": "QEMU emulator version 11.0.50 (v11.0.0-12631-g54e84cdc7a)"
+    },
+    {
+      "target": "sparc64",
+      "path": "C:\\Program Files\\qemu\\qemu-system-sparc64.exe",
+      "arch_label": "SPARC64",
+      "machines": [
+        {
+          "name": "niagara",
+          "description": "Sun4v platform, Niagara",
+          "display_name": "Sun Niagara",
+          "group": "Sun Microsystems",
+          "hidden": false
+        },
+        {
+          "name": "none",
+          "description": "empty machine",
+          "display_name": "Empty Machine (none)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "sun4u",
+          "description": "Sun4u platform (default)",
+          "display_name": "Sun UltraSPARC (sun4u)",
+          "group": "Sun Microsystems",
+          "hidden": false
+        },
+        {
+          "name": "sun4v",
+          "description": "Sun4v platform",
+          "display_name": "Sun Niagara (sun4v)",
+          "group": "Sun Microsystems",
+          "hidden": false
+        }
+      ],
+      "cpus": [],
+      "version_line": "QEMU emulator version 11.0.50 (v11.0.0-12631-g54e84cdc7a)"
+    },
+    {
+      "target": "tricore",
+      "path": "C:\\Program Files\\qemu\\qemu-system-tricore.exe",
+      "arch_label": "TriCore",
+      "machines": [
+        {
+          "name": "KIT_AURIX_TC277_TRB",
+          "description": "Infineon AURIX TriBoard TC277 (D-Step)",
+          "display_name": "Infineon AURIX TriBoard TC277 (D-Step)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "none",
+          "description": "empty machine",
+          "display_name": "Empty Machine (none)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "tricore_testboard",
+          "description": "a minimal TriCore board",
+          "display_name": "a minimal TriCore board",
+          "group": "Other Platforms",
+          "hidden": false
+        }
+      ],
+      "cpus": [],
+      "version_line": "QEMU emulator version 11.0.50 (v11.0.0-12631-g54e84cdc7a)"
+    },
+    {
+      "target": "x86_64",
+      "path": "C:\\Program Files\\qemu\\qemu-system-x86_64.exe",
+      "arch_label": "x86-64",
+      "machines": [
+        {
+          "name": "microvm",
+          "description": "microvm (i386)",
+          "display_name": "MicroVM",
+          "group": "IBM PC Compatible",
+          "hidden": false
+        },
+        {
+          "name": "pc-i440fx-9.2",
+          "description": "Standard PC (i440FX + PIIX, 1996)",
+          "display_name": "Standard PC (i440FX + PIIX, 1996)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-i440fx-9.1",
+          "description": "Standard PC (i440FX + PIIX, 1996)",
+          "display_name": "Standard PC (i440FX + PIIX, 1996)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-i440fx-9.0",
+          "description": "Standard PC (i440FX + PIIX, 1996)",
+          "display_name": "Standard PC (i440FX + PIIX, 1996)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-i440fx-8.2",
+          "description": "Standard PC (i440FX + PIIX, 1996)",
+          "display_name": "Standard PC (i440FX + PIIX, 1996)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-i440fx-8.1",
+          "description": "Standard PC (i440FX + PIIX, 1996) (deprecated)",
+          "display_name": "Standard PC (i440FX + PIIX, 1996) (deprecated)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-i440fx-8.0",
+          "description": "Standard PC (i440FX + PIIX, 1996) (deprecated)",
+          "display_name": "Standard PC (i440FX + PIIX, 1996) (deprecated)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-i440fx-7.2",
+          "description": "Standard PC (i440FX + PIIX, 1996) (deprecated)",
+          "display_name": "Standard PC (i440FX + PIIX, 1996) (deprecated)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-i440fx-7.1",
+          "description": "Standard PC (i440FX + PIIX, 1996) (deprecated)",
+          "display_name": "Standard PC (i440FX + PIIX, 1996) (deprecated)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-i440fx-7.0",
+          "description": "Standard PC (i440FX + PIIX, 1996) (deprecated)",
+          "display_name": "Standard PC (i440FX + PIIX, 1996) (deprecated)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-i440fx-6.2",
+          "description": "Standard PC (i440FX + PIIX, 1996) (deprecated)",
+          "display_name": "Standard PC (i440FX + PIIX, 1996) (deprecated)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-i440fx-6.1",
+          "description": "Standard PC (i440FX + PIIX, 1996) (deprecated)",
+          "display_name": "Standard PC (i440FX + PIIX, 1996) (deprecated)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-i440fx-6.0",
+          "description": "Standard PC (i440FX + PIIX, 1996) (deprecated)",
+          "display_name": "Standard PC (i440FX + PIIX, 1996) (deprecated)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-i440fx-5.2",
+          "description": "Standard PC (i440FX + PIIX, 1996) (deprecated)",
+          "display_name": "Standard PC (i440FX + PIIX, 1996) (deprecated)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc",
+          "description": "Standard PC (i440FX + PIIX, 1996) (alias of pc-i440fx-11.1)",
+          "display_name": "PC (i440FX)",
+          "group": "IBM PC Compatible",
+          "hidden": false
+        },
+        {
+          "name": "pc-i440fx-11.1",
+          "description": "Standard PC (i440FX + PIIX, 1996) (default)",
+          "display_name": "Standard PC (i440FX + PIIX, 1996) (default)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-i440fx-11.0",
+          "description": "Standard PC (i440FX + PIIX, 1996)",
+          "display_name": "Standard PC (i440FX + PIIX, 1996)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-i440fx-10.2",
+          "description": "Standard PC (i440FX + PIIX, 1996)",
+          "display_name": "Standard PC (i440FX + PIIX, 1996)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-i440fx-10.1",
+          "description": "Standard PC (i440FX + PIIX, 1996)",
+          "display_name": "Standard PC (i440FX + PIIX, 1996)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-i440fx-10.0",
+          "description": "Standard PC (i440FX + PIIX, 1996)",
+          "display_name": "Standard PC (i440FX + PIIX, 1996)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-q35-9.2",
+          "description": "Standard PC (Q35 + ICH9, 2009)",
+          "display_name": "Standard PC (Q35 + ICH9, 2009)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-q35-9.1",
+          "description": "Standard PC (Q35 + ICH9, 2009)",
+          "display_name": "Standard PC (Q35 + ICH9, 2009)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-q35-9.0",
+          "description": "Standard PC (Q35 + ICH9, 2009)",
+          "display_name": "Standard PC (Q35 + ICH9, 2009)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-q35-8.2",
+          "description": "Standard PC (Q35 + ICH9, 2009)",
+          "display_name": "Standard PC (Q35 + ICH9, 2009)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-q35-8.1",
+          "description": "Standard PC (Q35 + ICH9, 2009) (deprecated)",
+          "display_name": "Standard PC (Q35 + ICH9, 2009) (deprecated)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-q35-8.0",
+          "description": "Standard PC (Q35 + ICH9, 2009) (deprecated)",
+          "display_name": "Standard PC (Q35 + ICH9, 2009) (deprecated)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-q35-7.2",
+          "description": "Standard PC (Q35 + ICH9, 2009) (deprecated)",
+          "display_name": "Standard PC (Q35 + ICH9, 2009) (deprecated)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-q35-7.1",
+          "description": "Standard PC (Q35 + ICH9, 2009) (deprecated)",
+          "display_name": "Standard PC (Q35 + ICH9, 2009) (deprecated)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-q35-7.0",
+          "description": "Standard PC (Q35 + ICH9, 2009) (deprecated)",
+          "display_name": "Standard PC (Q35 + ICH9, 2009) (deprecated)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-q35-6.2",
+          "description": "Standard PC (Q35 + ICH9, 2009) (deprecated)",
+          "display_name": "Standard PC (Q35 + ICH9, 2009) (deprecated)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-q35-6.1",
+          "description": "Standard PC (Q35 + ICH9, 2009) (deprecated)",
+          "display_name": "Standard PC (Q35 + ICH9, 2009) (deprecated)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-q35-6.0",
+          "description": "Standard PC (Q35 + ICH9, 2009) (deprecated)",
+          "display_name": "Standard PC (Q35 + ICH9, 2009) (deprecated)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-q35-5.2",
+          "description": "Standard PC (Q35 + ICH9, 2009) (deprecated)",
+          "display_name": "Standard PC (Q35 + ICH9, 2009) (deprecated)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "q35",
+          "description": "Standard PC (Q35 + ICH9, 2009) (alias of pc-q35-11.1)",
+          "display_name": "PC (Q35)",
+          "group": "IBM PC Compatible",
+          "hidden": false
+        },
+        {
+          "name": "pc-q35-11.1",
+          "description": "Standard PC (Q35 + ICH9, 2009)",
+          "display_name": "Standard PC (Q35 + ICH9, 2009)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-q35-11.0",
+          "description": "Standard PC (Q35 + ICH9, 2009)",
+          "display_name": "Standard PC (Q35 + ICH9, 2009)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-q35-10.2",
+          "description": "Standard PC (Q35 + ICH9, 2009)",
+          "display_name": "Standard PC (Q35 + ICH9, 2009)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-q35-10.1",
+          "description": "Standard PC (Q35 + ICH9, 2009)",
+          "display_name": "Standard PC (Q35 + ICH9, 2009)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "pc-q35-10.0",
+          "description": "Standard PC (Q35 + ICH9, 2009)",
+          "display_name": "Standard PC (Q35 + ICH9, 2009)",
+          "group": "IBM PC Compatible",
+          "hidden": true
+        },
+        {
+          "name": "isapc",
+          "description": "ISA-only PC",
+          "display_name": "Legacy ISA PC",
+          "group": "IBM PC Compatible",
+          "hidden": false
+        },
+        {
+          "name": "none",
+          "description": "empty machine",
+          "display_name": "Empty Machine (none)",
+          "group": "Other Platforms",
+          "hidden": false
+        }
+      ],
+      "cpus": [],
+      "version_line": "QEMU emulator version 11.0.50 (v11.0.0-12631-g54e84cdc7a)"
+    },
+    {
+      "target": "xtensa",
+      "path": "C:\\Program Files\\qemu\\qemu-system-xtensa.exe",
+      "arch_label": "Xtensa",
+      "machines": [
+        {
+          "name": "kc705",
+          "description": "kc705 EVB (dc232b)",
+          "display_name": "kc705 EVB (dc232b)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "kc705-nommu",
+          "description": "kc705 noMMU EVB (de212)",
+          "display_name": "kc705 noMMU EVB (de212)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "lx200",
+          "description": "lx200 EVB (dc232b)",
+          "display_name": "lx200 EVB (dc232b)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "lx200-nommu",
+          "description": "lx200 noMMU EVB (de212)",
+          "display_name": "lx200 noMMU EVB (de212)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "lx60",
+          "description": "lx60 EVB (dc232b)",
+          "display_name": "lx60 EVB (dc232b)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "lx60-nommu",
+          "description": "lx60 noMMU EVB (de212)",
+          "display_name": "lx60 noMMU EVB (de212)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "ml605",
+          "description": "ml605 EVB (dc232b)",
+          "display_name": "ml605 EVB (dc232b)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "ml605-nommu",
+          "description": "ml605 noMMU EVB (de212)",
+          "display_name": "ml605 noMMU EVB (de212)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "none",
+          "description": "empty machine",
+          "display_name": "Empty Machine (none)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "sim",
+          "description": "sim machine (dc232b) (default)",
+          "display_name": "sim machine (dc232b) (default)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "virt",
+          "description": "virt machine (dc232b)",
+          "display_name": "Xtensa Virtual Machine",
+          "group": "Other Platforms",
+          "hidden": false
+        }
+      ],
+      "cpus": [],
+      "version_line": "QEMU emulator version 11.0.50 (v11.0.0-12631-g54e84cdc7a)"
+    },
+    {
+      "target": "xtensaeb",
+      "path": "C:\\Program Files\\qemu\\qemu-system-xtensaeb.exe",
+      "arch_label": "Xtensa",
+      "machines": [
+        {
+          "name": "kc705",
+          "description": "kc705 EVB (fsf)",
+          "display_name": "kc705 EVB (fsf)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "kc705-nommu",
+          "description": "kc705 noMMU EVB (fsf)",
+          "display_name": "kc705 noMMU EVB (fsf)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "lx200",
+          "description": "lx200 EVB (fsf)",
+          "display_name": "lx200 EVB (fsf)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "lx200-nommu",
+          "description": "lx200 noMMU EVB (fsf)",
+          "display_name": "lx200 noMMU EVB (fsf)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "lx60",
+          "description": "lx60 EVB (fsf)",
+          "display_name": "lx60 EVB (fsf)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "lx60-nommu",
+          "description": "lx60 noMMU EVB (fsf)",
+          "display_name": "lx60 noMMU EVB (fsf)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "ml605",
+          "description": "ml605 EVB (fsf)",
+          "display_name": "ml605 EVB (fsf)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "ml605-nommu",
+          "description": "ml605 noMMU EVB (fsf)",
+          "display_name": "ml605 noMMU EVB (fsf)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "none",
+          "description": "empty machine",
+          "display_name": "Empty Machine (none)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "sim",
+          "description": "sim machine (fsf) (default)",
+          "display_name": "sim machine (fsf) (default)",
+          "group": "Other Platforms",
+          "hidden": false
+        },
+        {
+          "name": "virt",
+          "description": "virt machine (fsf)",
+          "display_name": "Xtensa Virtual Machine",
+          "group": "Other Platforms",
+          "hidden": false
+        }
+      ],
+      "cpus": [],
+      "version_line": "QEMU emulator version 11.0.50 (v11.0.0-12631-g54e84cdc7a)"
+    }
+  ],
+  "wizard_platforms": [
+    {
+      "group": "IBM PC Compatible",
+      "display": "PC (i440FX)",
+      "notes": "",
+      "available": true,
+      "qemu_target": "x86_64",
+      "qemu_machine": "pc"
+    },
+    {
+      "group": "IBM PC Compatible",
+      "display": "PC (Q35)",
+      "notes": "",
+      "available": true,
+      "qemu_target": "x86_64",
+      "qemu_machine": "q35"
+    },
+    {
+      "group": "IBM PC Compatible",
+      "display": "Modern UEFI PC",
+      "notes": "Uses Q35 + UEFI firmware profile",
+      "available": true,
+      "qemu_target": "x86_64",
+      "qemu_machine": "q35"
+    },
+    {
+      "group": "IBM PC Compatible",
+      "display": "Legacy BIOS PC",
+      "notes": "Uses classic i440FX + SeaBIOS",
+      "available": true,
+      "qemu_target": "x86_64",
+      "qemu_machine": "pc"
+    },
+    {
+      "group": "IBM PC Compatible",
+      "display": "Legacy ISA PC",
+      "notes": "",
+      "available": true,
+      "qemu_target": "x86_64",
+      "qemu_machine": "isapc"
+    },
+    {
+      "group": "ARM Virtual Platforms",
+      "display": "ARM Virt",
+      "notes": "",
+      "available": true,
+      "qemu_target": "aarch64",
+      "qemu_machine": "virt"
+    },
+    {
+      "group": "ARM Virtual Platforms",
+      "display": "SBSA Reference Platform",
+      "notes": "",
+      "available": true,
+      "qemu_target": "aarch64",
+      "qemu_machine": "sbsa-ref"
+    },
+    {
+      "group": "ARM Virtual Platforms",
+      "display": "Generic ARM Board",
+      "notes": "",
+      "available": true,
+      "qemu_target": "arm",
+      "qemu_machine": "virt"
+    },
+    {
+      "group": "Raspberry Pi",
+      "display": "Raspberry Pi 1",
+      "notes": "",
+      "available": true,
+      "qemu_target": "aarch64",
+      "qemu_machine": "raspi1ap"
+    },
+    {
+      "group": "Raspberry Pi",
+      "display": "Raspberry Pi 2",
+      "notes": "",
+      "available": true,
+      "qemu_target": "aarch64",
+      "qemu_machine": "raspi2b"
+    },
+    {
+      "group": "Raspberry Pi",
+      "display": "Raspberry Pi 3",
+      "notes": "",
+      "available": true,
+      "qemu_target": "aarch64",
+      "qemu_machine": "raspi3b"
+    },
+    {
+      "group": "Raspberry Pi",
+      "display": "Raspberry Pi 4",
+      "notes": "",
+      "available": true,
+      "qemu_target": "aarch64",
+      "qemu_machine": "raspi4b"
+    },
+    {
+      "group": "Apple Macintosh",
+      "display": "Power Macintosh G3",
+      "notes": "",
+      "available": true,
+      "qemu_target": "ppc64",
+      "qemu_machine": "g3beige"
+    },
+    {
+      "group": "Apple Macintosh",
+      "display": "Macintosh (Mac99)",
+      "notes": "",
+      "available": true,
+      "qemu_target": "ppc64",
+      "qemu_machine": "mac99"
+    },
+    {
+      "group": "Apple Macintosh",
+      "display": "Macintosh Quadra 800",
+      "notes": "",
+      "available": true,
+      "qemu_target": "m68k",
+      "qemu_machine": "q800"
+    },
+    {
+      "group": "Sun Microsystems",
+      "display": "SPARCstation (sun4m)",
+      "notes": "",
+      "available": false,
+      "qemu_target": "",
+      "qemu_machine": ""
+    },
+    {
+      "group": "Sun Microsystems",
+      "display": "UltraSPARC (sun4u)",
+      "notes": "",
+      "available": true,
+      "qemu_target": "sparc64",
+      "qemu_machine": "sun4u"
+    },
+    {
+      "group": "Sun Microsystems",
+      "display": "Sun Niagara",
+      "notes": "",
+      "available": true,
+      "qemu_target": "sparc64",
+      "qemu_machine": "niagara"
+    },
+    {
+      "group": "Silicon Graphics",
+      "display": "SGI Indy",
+      "notes": "",
+      "available": false,
+      "qemu_target": "",
+      "qemu_machine": ""
+    },
+    {
+      "group": "Silicon Graphics",
+      "display": "SGI Magnum",
+      "notes": "",
+      "available": true,
+      "qemu_target": "mips64el",
+      "qemu_machine": "magnum"
+    },
+    {
+      "group": "DEC",
+      "display": "Alpha Clipper",
+      "notes": "",
+      "available": true,
+      "qemu_target": "alpha",
+      "qemu_machine": "clipper"
+    },
+    {
+      "group": "DEC",
+      "display": "Alpha SX164",
+      "notes": "",
+      "available": false,
+      "qemu_target": "",
+      "qemu_machine": ""
+    },
+    {
+      "group": "DEC",
+      "display": "Alpha LX164",
+      "notes": "",
+      "available": false,
+      "qemu_target": "",
+      "qemu_machine": ""
+    },
+    {
+      "group": "DEC",
+      "display": "Alpha DP264",
+      "notes": "",
+      "available": false,
+      "qemu_target": "",
+      "qemu_machine": ""
+    },
+    {
+      "group": "HP",
+      "display": "HP PA-RISC B160L",
+      "notes": "",
+      "available": false,
+      "qemu_target": "",
+      "qemu_machine": ""
+    },
+    {
+      "group": "HP",
+      "display": "HP PA-RISC C3700",
+      "notes": "",
+      "available": false,
+      "qemu_target": "",
+      "qemu_machine": ""
+    },
+    {
+      "group": "IBM Power",
+      "display": "IBM pSeries",
+      "notes": "",
+      "available": true,
+      "qemu_target": "ppc64",
+      "qemu_machine": "pseries"
+    },
+    {
+      "group": "IBM Power",
+      "display": "IBM PowerNV",
+      "notes": "",
+      "available": true,
+      "qemu_target": "ppc64",
+      "qemu_machine": "powernv"
+    },
+    {
+      "group": "IBM Power",
+      "display": "POWER8 (PowerNV)",
+      "notes": "",
+      "available": true,
+      "qemu_target": "ppc64",
+      "qemu_machine": "powernv8"
+    },
+    {
+      "group": "IBM Power",
+      "display": "POWER9 (PowerNV)",
+      "notes": "",
+      "available": true,
+      "qemu_target": "ppc64",
+      "qemu_machine": "powernv9"
+    },
+    {
+      "group": "IBM Power",
+      "display": "POWER10 (PowerNV)",
+      "notes": "",
+      "available": true,
+      "qemu_target": "ppc64",
+      "qemu_machine": "powernv10"
+    },
+    {
+      "group": "IBM Mainframe",
+      "display": "IBM Z (s390-ccw-virtio)",
+      "notes": "",
+      "available": true,
+      "qemu_target": "s390x",
+      "qemu_machine": "s390-ccw-virtio"
+    },
+    {
+      "group": "MIPS",
+      "display": "MIPS Malta",
+      "notes": "",
+      "available": true,
+      "qemu_target": "mips64el",
+      "qemu_machine": "malta"
+    },
+    {
+      "group": "MIPS",
+      "display": "Fuloong 2E",
+      "notes": "",
+      "available": true,
+      "qemu_target": "mips64el",
+      "qemu_machine": "fuloong2e"
+    },
+    {
+      "group": "MIPS",
+      "display": "Loongson 3 Virtual",
+      "notes": "",
+      "available": true,
+      "qemu_target": "mips64el",
+      "qemu_machine": "loongson3-virt"
+    },
+    {
+      "group": "RISC-V",
+      "display": "RISC-V Virt",
+      "notes": "",
+      "available": true,
+      "qemu_target": "riscv64",
+      "qemu_machine": "virt"
+    },
+    {
+      "group": "RISC-V",
+      "display": "RISC-V Spike",
+      "notes": "",
+      "available": true,
+      "qemu_target": "riscv64",
+      "qemu_machine": "spike"
+    },
+    {
+      "group": "RISC-V",
+      "display": "SiFive E Series",
+      "notes": "",
+      "available": true,
+      "qemu_target": "riscv64",
+      "qemu_machine": "sifive_e"
+    },
+    {
+      "group": "RISC-V",
+      "display": "SiFive U Series",
+      "notes": "",
+      "available": true,
+      "qemu_target": "riscv64",
+      "qemu_machine": "sifive_u"
+    },
+    {
+      "group": "RISC-V",
+      "display": "OpenTitan",
+      "notes": "",
+      "available": true,
+      "qemu_target": "riscv32",
+      "qemu_machine": "opentitan"
+    },
+    {
+      "group": "Embedded",
+      "display": "Arduino Mega",
+      "notes": "",
+      "available": true,
+      "qemu_target": "avr",
+      "qemu_machine": "arduino-mega"
+    },
+    {
+      "group": "Embedded",
+      "display": "Arduino Duemilanove",
+      "notes": "",
+      "available": true,
+      "qemu_target": "avr",
+      "qemu_machine": "arduino-duemilanove"
+    },
+    {
+      "group": "Embedded",
+      "display": "STM32 VL Discovery",
+      "notes": "",
+      "available": true,
+      "qemu_target": "arm",
+      "qemu_machine": "stm32vldiscovery"
+    },
+    {
+      "group": "Embedded",
+      "display": "Netduino 2",
+      "notes": "",
+      "available": true,
+      "qemu_target": "arm",
+      "qemu_machine": "netduino2"
+    },
+    {
+      "group": "Generic",
+      "display": "Generic Virtual Machine",
+      "notes": "Prefer aarch64/riscv virt when multiple",
+      "available": true,
+      "qemu_target": "aarch64",
+      "qemu_machine": "virt"
+    },
+    {
+      "group": "Generic",
+      "display": "Empty Machine",
+      "notes": "",
+      "available": true,
+      "qemu_target": "x86_64",
+      "qemu_machine": "none"
+    },
+    {
+      "group": "Generic",
+      "display": "Custom Machine",
+      "notes": "User picks any probed machine",
+      "available": false,
+      "qemu_target": "",
+      "qemu_machine": ""
+    },
+    {
+      "group": "Generic",
+      "display": "Import Existing QEMU Command Line",
+      "notes": "Paste -M / full argv later",
+      "available": false,
+      "qemu_target": "",
+      "qemu_machine": ""
+    }
+  ]
+}

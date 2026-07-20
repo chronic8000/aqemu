@@ -52,7 +52,7 @@ void Convert_HDD_Thread::run()
 	QProcess *proc = new QProcess();
 	
 	QSettings settings;
-	proc->start( settings.value("QEMU-IMG_Path", "qemu-img").toString(), Arguments );
+	proc->start( Get_QEMU_IMG_Path(), Arguments );
 	
 	if( ! proc->waitForStarted(2000) )
 		AQError( "void Convert_HDD_Thread::run()", "Cannot Start qemu-img!" );
@@ -247,7 +247,7 @@ bool Convert_HDD_Image_Window::Get_QEMU_IMG_Info()
 	// Start process
 	QSettings settings;
 	QProcess *qemuImgProc = new QProcess( this );
-	qemuImgProc->start( settings.value("QEMU-IMG_Path", "qemu-img").toString(), QStringList("-h") );
+	qemuImgProc->start( Get_QEMU_IMG_Path(), QStringList("-h") );
 	
 	if( ! qemuImgProc->waitForStarted(2000) )
 		AQError( "bool Convert_HDD_Image_Window::Get_QEMU_IMG_Info()",

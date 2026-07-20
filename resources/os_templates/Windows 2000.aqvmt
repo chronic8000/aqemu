@@ -7,7 +7,7 @@
         <Icon_Path>:/images/default_windows.png</Icon_Path>
         <Screenshot_Path></Screenshot_Path>
         <Machine_Name>Windows 2000</Machine_Name>
-        <Computer_Type>qemu-system-x86</Computer_Type>
+        <Computer_Type>qemu-system-i386</Computer_Type>
         <Machine_Type></Machine_Type>
         <CPU_Type></CPU_Type>
         <SMP_CPU_Count>1</SMP_CPU_Count>

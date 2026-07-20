@@ -44,12 +44,20 @@ MachineView::MachineView( QWidget *parent, Virtual_Machine* cur_vm ) : QScrollAr
 	fullscreenEnabled = false;
 	showSplash( true );
 	setFrameShape( QFrame::NoFrame );
-	Scaling = false;
+	setAlignment( Qt::AlignCenter );
+	setWidgetResizable( false );
+	// Session / embed mode: scale guest to fit window (aspect preserved in VncView)
+	Scaling = true;
 	Reinit_Timer = new QTimer( this );
 	VNC_Connected = false;
 	Init_Count = 0;
 	VNC_Width = 0;
 	VNC_Height = 0;
+
+	QPalette p = palette();
+	p.setColor( QPalette::Window, QColor( 32, 32, 32 ) );
+	setPalette( p );
+	setAutoFillBackground( true );
 }
 
 void MachineView::on_MouseEnteredFromTheLeft()
@@ -159,12 +167,6 @@ void MachineView::connectView()
 	
 	connect( View, SIGNAL(framebufferSizeChanged(int, int)),
 			 this, SLOT(newViewSize(int, int)) );
-	
-
-    connect(View,SIGNAL(MouseEnteredFromTheLeft()),this,SLOT(on_MouseEnteredFromTheLeft()));
-    connect(View,SIGNAL(MouseEnteredFromTheRight()),this,SLOT(on_MouseEnteredFromTheRight()));
-    connect(View,SIGNAL(MouseEnteredFromTheTop()),this,SLOT(on_MouseEnteredFromTheTop()));
-    connect(View,SIGNAL(MouseEnteredFromTheBottom()),this,SLOT(on_MouseEnteredFromTheBottom()));
 }
 
 void MachineView::Check_Connection()
@@ -232,11 +234,19 @@ void MachineView::reinitVNC()
 void MachineView::disconnectVNC()
 {
 	stop_reinit = true;
-	
+
 	disconnect( Reinit_Timer, SIGNAL(timeout()),
 				this, SLOT(reinitVNC()) );
-	
+
 	Reinit_Timer->stop();
+
+	// Must actually tear down the RFB thread — previously this only stopped
+	// the reinit timer, leaving VNC running until process exit → AppHang.
+	if( View )
+		View->startQuitting();
+
+	VNC_Connected = false;
+	showSplash( true );
 }
 
 void MachineView::VNC_Connected_OK()

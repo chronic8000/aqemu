@@ -48,6 +48,7 @@ class Network_Card_Widget;
 class Block_VM_Changed_Signals;
 class VM_Session_Widget;
 class QStackedWidget;
+class QTimer;
 
 class Main_Window: public QMainWindow
 {
@@ -92,6 +93,7 @@ class Main_Window: public QMainWindow
 		void Show_State_Current( Virtual_Machine *vmvm );
 		void Set_Widgets_State( bool enabled );
 		void VM_Changed();
+		void Update_Mouse_Options_Enabled();
 		void Update_Emulator_Control( Virtual_Machine *cur_vm );
 		
         void SB_VNC_Display_changed(int);
@@ -193,11 +195,14 @@ class Main_Window: public QMainWindow
 		void on_TB_PFlash_File_Browse_clicked();
 
 		void Enter_Session_Mode( Virtual_Machine *vm );
+		void Enter_Session_Mode_Preparing( Virtual_Machine *vm );
 		void Exit_Session_Mode();
 		void On_Session_Exit_View();
 		void On_Session_Request_Stop();
 		void On_Session_Request_Shutdown();
 		void On_Session_Request_Reset();
+		void On_Session_Request_Pause();
+		void On_Session_Request_Save();
 		
 	protected:
 		void closeEvent( QCloseEvent *event );
@@ -232,6 +237,12 @@ class Main_Window: public QMainWindow
         void Update_Machine_Accelerators();
         void Update_Accelerator_Options();
         void Update_Computer_Types();
+		void Fill_Display_Resolution_Combo();
+		void Update_Display_Resolution_Enabled();
+		void Apply_Display_Resolution_To_Ui( const QString &res );
+		void Fill_Mouse_Combos();
+		void Apply_Mouse_Settings_To_Ui( const Virtual_Machine *vm );
+		void Schedule_Auto_Save();
 		
 		QString Get_Storage_Device_Info_String( const QString &path );
 		
@@ -304,6 +315,7 @@ class Main_Window: public QMainWindow
 		bool Session_Mode_Active;
 
         bool block_VM_changed_signals;
+		QTimer *Auto_Save_Timer;
 };
 
 #endif

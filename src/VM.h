@@ -36,11 +36,13 @@
 
 class AQEMU_Service;
 class Emulator_Control_Window;
+class VM_Session_Widget;
 
 // Vitrual Machine
 class Virtual_Machine: public QObject
 {
     friend class AQEMU_Service;
+    friend class VM_Session_Widget;
 
 	Q_OBJECT
 
@@ -164,12 +166,36 @@ class Virtual_Machine: public QObject
 		
 		const QList<VM::Boot_Order> &Get_Boot_Order_List() const;
 		void Set_Boot_Order_List( QList<VM::Boot_Order> &list );
+
+		/** Filtered BIOS boot letters for current media (e.g. "adc"). Empty if nothing bootable. */
+		QString Get_X86_Boot_Order_Letters() const;
 		
 		bool Get_Show_Boot_Menu() const;
 		void Set_Show_Boot_Menu( bool use );
 		
 		const QString &Get_Video_Card() const;
 		void Set_Video_Card( const QString &card );
+
+		/** VirtIO-GPU EDID size: "native", "auto", or "WxH" (e.g. "1280x720"). */
+		const QString &Get_Display_Resolution() const;
+		void Set_Display_Resolution( const QString &res );
+
+		/** Pointer device: ps2 | usb-tablet | usb-mouse | usb-wacom-tablet |
+		 *  virtio-tablet-pci | virtio-mouse-pci | vmmouse */
+		const QString &Get_Mouse_Type() const;
+		void Set_Mouse_Type( const QString &type );
+
+		/** USB controller for usb-* pointers: auto | uhci | xhci | none */
+		const QString &Get_Mouse_USB_Controller() const;
+		void Set_Mouse_USB_Controller( const QString &ctrl );
+
+		/** usb-tablet/usb-mouse usb_version property: 0=default, 1, or 2 */
+		int Get_Mouse_USB_Version() const;
+		void Set_Mouse_USB_Version( int ver );
+
+		/** SPICE agent-mouse: default | on | off */
+		const QString &Get_SPICE_Agent_Mouse() const;
+		void Set_SPICE_Agent_Mouse( const QString &mode );
 		
 		VM::Sound_Cards Get_Audio_Cards() const;
 		void Set_Audio_Cards( VM::Sound_Cards card );
@@ -452,6 +478,7 @@ class Virtual_Machine: public QObject
 		void Set_Embedded_Display_Port( int port );
 
 		int Get_Embedded_Spice_Port() const { return Embedded_Spice_Port; }
+		int Get_Embedded_VNC_Port() const { return Embedded_VNC_Port; }
 		int Get_QMP_Port() const { return QMP_Port; }
 		class QMP_Client *Get_QMP() const { return QMP; }
 		
@@ -482,6 +509,9 @@ class Virtual_Machine: public QObject
 		void QEMU_Started();
 		void QEMU_Finished( int exitCode, QProcess::ExitStatus exitStatus );
 		void Connect_Embedded_QMP();
+		void Force_Kill_QEMU();
+		void Force_Kill_QEMU_Hard();
+		void Kill_Orphan_QEMU_Using_Disks();
 		
 		void Resume_Finished( const QString &neturned_text );
 		void Suspend_Finished( const QString &neturned_text );
@@ -501,6 +531,7 @@ class Virtual_Machine: public QObject
         bool Start_impl();
 
 		QProcess *QEMU_Process;
+		qint64 QEMU_Kill_Target_Pid;
 
 		QTcpSocket *Monitor_Socket; // Used for "-monitor tcp" connection type
 		bool Use_Monitor_TCP; // This value set in VM start time and no changes after
@@ -540,6 +571,11 @@ class Virtual_Machine: public QObject
 		QList<VM::Boot_Order> Boot_Order_List; // New boot order
 		bool Show_Boot_Menu; // Enable interactive boot menu
         QString Video_Card; // std vga, cirus logic
+		QString Display_Resolution; // virtio-gpu EDID: native|auto|WxH
+		QString Mouse_Type; // ps2|usb-tablet|usb-mouse|...
+		QString Mouse_USB_Controller; // auto|uhci|xhci|none
+		int Mouse_USB_Version; // 0=default, 1, 2
+		QString SPICE_Agent_Mouse; // default|on|off
 		VM::Sound_Cards Audio_Card; // sb16, es1370
 		bool Remove_RAM_Size_Limitation; // true - limitation off
 		int Memory_Size; // RAM Size
@@ -660,8 +696,9 @@ class Virtual_Machine: public QObject
 		// VNC Port for Embedded Display
 		int Embedded_Display_Port;
 
-		// Embedded session (SPICE / QMP)
+		// Embedded session (SPICE / VNC / QMP)
 		int Embedded_Spice_Port;
+		int Embedded_VNC_Port;
 		int QMP_Port;
 		class QMP_Client *QMP;
 		

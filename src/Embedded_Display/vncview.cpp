@@ -25,6 +25,8 @@
 #include "krdc_debug.h"
 
 #include <QApplication>
+#include <QCoreApplication>
+#include <QEventLoop>
 #include <QImage>
 #include <QPainter>
 #include <QMouseEvent>
@@ -134,6 +136,12 @@ void VncView::scaleResize(int w, int h)
 
     qCDebug(KRDC) << w << h;
     if (m_scale) {
+        if (m_frame.isNull() || m_frame.width() <= 0 || m_frame.height() <= 0 || w <= 0 || h <= 0) {
+            m_verticalFactor = 1.0;
+            m_horizontalFactor = 1.0;
+            return;
+        }
+
         m_verticalFactor = (qreal) h / m_frame.height();
         m_horizontalFactor = (qreal) w / m_frame.width();
 
@@ -145,8 +153,8 @@ void VncView::scaleResize(int w, int h)
         m_verticalFactor = m_horizontalFactor = qMin(m_verticalFactor, m_horizontalFactor);
 #endif
 
-        const qreal newW = m_frame.width() * m_horizontalFactor;
-        const qreal newH = m_frame.height() * m_verticalFactor;
+        const int newW = qMax(1, qRound(m_frame.width() * m_horizontalFactor));
+        const int newH = qMax(1, qRound(m_frame.height() * m_verticalFactor));
         setMaximumSize(newW, newH); //This is a hack to force Qt to center the view in the scroll area
         resize(newW, newH);
     }
@@ -168,14 +176,12 @@ void VncView::startQuitting()
 
     m_quitFlag = true;
 
+    // Ask the RFB thread to leave its loop. Keep signal connections alive
+    // so any in-flight BlockingQueuedConnection emit can complete — otherwise
+    // wait() deadlocks the GUI (Windows AppHang on exit).
     vncThread.stop();
 
     unpressModifiers();
-
-    // Disconnect all signals so that we don't get any more callbacks from the client thread
-    vncThread.disconnect();
-
-    vncThread.quit();
 
 #ifdef LIBSSH_FOUND
     if (m_sshTunnelThread) {
@@ -184,18 +190,19 @@ void VncView::startQuitting()
     }
 #endif
 
-    const bool quitSuccess = vncThread.wait(500);
-    if (!quitSuccess) {
-        // happens when vncThread wants to call a slot via BlockingQueuedConnection,
-        // needs an event loop in this thread so execution continues after 'emit'
-        QEventLoop loop;
-        if (!loop.processEvents()) {
-            qCDebug(KRDC) << "BUG: deadlocked, but no events to deliver?";
-        }
-        vncThread.wait(500);
+    // Drain blocked imageUpdated/gotCut slots while waiting for the thread.
+    for( int i = 0; i < 100; ++i ) // up to ~10s
+    {
+        if( vncThread.wait( 100 ) )
+            break;
+        QCoreApplication::processEvents( QEventLoop::AllEvents, 100 );
     }
 
-    qCDebug(KRDC) << "Quit VNC thread success:" << quitSuccess;
+    vncThread.disconnect();
+    vncThread.quit();
+    vncThread.wait( 1000 );
+
+    qCDebug(KRDC) << "Quit VNC thread done";
 
     setStatus(Disconnected);
 }
@@ -509,10 +516,11 @@ void VncView::enableScaling(bool scale)
     } else {
         m_verticalFactor = 1.0;
         m_horizontalFactor = 1.0;
-
-        setMaximumSize(m_frame.width(), m_frame.height()); //This is a hack to force Qt to center the view in the scroll area
-        setMinimumSize(m_frame.width(), m_frame.height());
-        resize(m_frame.width(), m_frame.height());
+        const int w = qMax(1, m_frame.width());
+        const int h = qMax(1, m_frame.height());
+        setMaximumSize(w, h); //This is a hack to force Qt to center the view in the scroll area
+        setMinimumSize(w, h);
+        resize(w, h);
     }
 }
 
@@ -635,19 +643,72 @@ void VncView::keyEventHandler(QKeyEvent *e)
     if (e->isAutoRepeat() && (e->type() == QEvent::KeyRelease))
         return;
 
-// parts of this code are based on https://github.com/veyon/veyon/blob/master/core/src/VncView.cpp
-    rfbKeySym k = e->nativeVirtualKey();
+    // RFB keys are X11 keysyms. On Linux/X11, nativeVirtualKey() already returns
+    // those. On Windows/macOS it returns OS virtual-key codes (e.g. VK_RETURN=0x0D
+    // instead of XK_Return=0xFF0D) — digits work by accident, Enter/Tab/arrows fail.
+    // Mapping based on Veyon VncView.cpp.
+    rfbKeySym k = 0;
 
-    // we do not handle Key_Backtab separately as the Shift-modifier
-    // is already enabled
-    if (e->key() == Qt::Key_Backtab) {
+#ifdef Q_OS_LINUX
+    k = e->nativeVirtualKey();
+    if (e->key() == Qt::Key_Backtab)
         k = XK_Tab;
+#else
+    switch (e->key()) {
+    case Qt::Key_Shift:        k = XK_Shift_L; break;
+    case Qt::Key_Control:      k = XK_Control_L; break;
+    case Qt::Key_Meta:         k = XK_Super_L; break;
+    case Qt::Key_Alt:          k = XK_Alt_L; break;
+    case Qt::Key_AltGr:        k = XK_ISO_Level3_Shift; break;
+    case Qt::Key_Escape:       k = XK_Escape; break;
+    case Qt::Key_Tab:          k = XK_Tab; break;
+    case Qt::Key_Backtab:      k = XK_Tab; break;
+    case Qt::Key_Backspace:    k = XK_BackSpace; break;
+    case Qt::Key_Return:       k = XK_Return; break;
+    case Qt::Key_Enter:        k = XK_KP_Enter; break;
+    case Qt::Key_Insert:       k = XK_Insert; break;
+    case Qt::Key_Delete:       k = XK_Delete; break;
+    case Qt::Key_Pause:        k = XK_Pause; break;
+    case Qt::Key_Print:        k = XK_Print; break;
+    case Qt::Key_Home:         k = XK_Home; break;
+    case Qt::Key_End:          k = XK_End; break;
+    case Qt::Key_Left:         k = XK_Left; break;
+    case Qt::Key_Up:           k = XK_Up; break;
+    case Qt::Key_Right:        k = XK_Right; break;
+    case Qt::Key_Down:         k = XK_Down; break;
+    case Qt::Key_PageUp:       k = XK_Prior; break;
+    case Qt::Key_PageDown:     k = XK_Next; break;
+    case Qt::Key_CapsLock:     k = XK_Caps_Lock; break;
+    case Qt::Key_NumLock:      k = XK_Num_Lock; break;
+    case Qt::Key_ScrollLock:   k = XK_Scroll_Lock; break;
+    case Qt::Key_Super_L:      k = XK_Super_L; break;
+    case Qt::Key_Super_R:      k = XK_Super_R; break;
+    case Qt::Key_Menu:         k = XK_Menu; break;
+    case Qt::Key_Space:        k = XK_space; break;
+    default:
+        if (e->key() >= Qt::Key_F1 && e->key() <= Qt::Key_F35)
+            k = XK_F1 + (e->key() - Qt::Key_F1);
+        break;
     }
+
+    if (k == 0) {
+        const QString text = e->text();
+        if (!text.isEmpty()) {
+            const QChar ch = text.at(0);
+            const ushort u = ch.unicode();
+            if (u > 0 && u <= 0x00FF)
+                k = u;
+            else if (u >= 0x0100)
+                k = 0x01000000 | u;
+        }
+    }
+#endif
 
     const bool pressed = (e->type() == QEvent::KeyPress);
 
-    // handle modifiers
-    if (k == XK_Shift_L || k == XK_Control_L || k == XK_Meta_L || k == XK_Alt_L) {
+    // Track modifiers so unpressModifiers() can release them on focus loss
+    if (k == XK_Shift_L || k == XK_Control_L || k == XK_Meta_L || k == XK_Alt_L ||
+        k == XK_Super_L || k == XK_Super_R) {
         if (pressed) {
             m_mods[k] = true;
         } else if (m_mods.contains(k)) {

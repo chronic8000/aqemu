@@ -15,7 +15,7 @@ OPTION( UPDATE_TRANSLATIONS "Update source translation files (WARNING: make clea
 OPTION( INSTALL_MAN "Install MAN page file" "ON" )
 OPTION( PI5_OPTIMIZATIONS "Enable compiler and linker optimizations for Raspberry Pi 5" OFF )
 OPTION( AQEMU_BUNDLE_QEMU "Prefer/copy QEMU from AQEMU_QEMU_PREFIX into the build tree" OFF )
-OPTION( AQEMU_WITH_SPICE_GTK "Build SPICE client widget via spice-gtk (Linux/Pi; optional on Windows)" OFF )
+OPTION( AQEMU_WITH_SPICE_GTK "Build embedded SPICE client via spice-client-glib (Linux/Pi/Windows)" OFF )
 SET( AQEMU_QEMU_PREFIX "${CMAKE_SOURCE_DIR}/third_party/qemu-install" CACHE PATH "Prefix of a built QEMU bundle (bin/qemu-system-*)" )
 
 # Debug mode
@@ -221,7 +221,17 @@ FIND_PACKAGE( Qt5DBus )
 
 # Embedded VNC display
 IF( NOT WITHOUT_EMBEDDED_DISPLAY )
-	FIND_PACKAGE( LibVNCServer REQUIRED )
+	# Prefer WinLibs-built static LibVNC (no GnuTLS) over MSYS2 packages
+	IF( EXISTS "${CMAKE_SOURCE_DIR}/third_party/libvnc-install/include/rfb/rfbclient.h" )
+		SET( LIBVNCCLIENT_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/third_party/libvnc-install/include" CACHE PATH "" FORCE )
+		SET( LIBVNCSERVER_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/third_party/libvnc-install/include" CACHE PATH "" FORCE )
+		SET( LIBVNCCLIENT_LIBRARIES "${CMAKE_SOURCE_DIR}/third_party/libvnc-install/lib/libvncclient.a" CACHE FILEPATH "" FORCE )
+		SET( LIBVNCSERVER_LIBRARIES "${CMAKE_SOURCE_DIR}/third_party/libvnc-install/lib/libvncserver.a" CACHE FILEPATH "" FORCE )
+		SET( LIBVNCSERVER_FOUND TRUE CACHE INTERNAL "" FORCE )
+		MESSAGE( STATUS "Using vendored LibVNCClient: ${LIBVNCCLIENT_LIBRARIES}" )
+	ELSE()
+		FIND_PACKAGE( LibVNCServer REQUIRED )
+	ENDIF()
 	
 	SET( aqemu_headers ${aqemu_headers} src/Embedded_Display/Machine_View.h src/Embedded_Display/remoteview.h
 										src/Embedded_Display/vncclientthread.h src/Embedded_Display/vncview.h )
@@ -270,17 +280,98 @@ TARGET_LINK_LIBRARIES( aqemu
 
 # Embedded VNC display
 IF( NOT WITHOUT_EMBEDDED_DISPLAY )
+	IF( EXISTS "${CMAKE_SOURCE_DIR}/third_party/libvnc-install/include/rfb/rfbclient.h" )
+		TARGET_INCLUDE_DIRECTORIES( aqemu PRIVATE "${CMAKE_SOURCE_DIR}/third_party/libvnc-install/include" )
+		IF( EXISTS "${CMAKE_SOURCE_DIR}/third_party/zlib-install/include/zlib.h" )
+			TARGET_INCLUDE_DIRECTORIES( aqemu PRIVATE "${CMAKE_SOURCE_DIR}/third_party/zlib-install/include" )
+		ENDIF()
+	ELSEIF( EXISTS "${CMAKE_SOURCE_DIR}/third_party/libvnc_inc/rfb/rfbclient.h" )
+		TARGET_INCLUDE_DIRECTORIES( aqemu PRIVATE "${CMAKE_SOURCE_DIR}/third_party/libvnc_inc" )
+	ELSE()
+		TARGET_INCLUDE_DIRECTORIES( aqemu PRIVATE ${LIBVNCCLIENT_INCLUDE_DIR} ${LIBVNCSERVER_INCLUDE_DIR} )
+	ENDIF()
 	TARGET_LINK_LIBRARIES( aqemu ${LIBVNCCLIENT_LIBRARIES} )
+	# Static libvncclient needs zlib (and ws2_32 on Windows)
+	IF( EXISTS "${CMAKE_SOURCE_DIR}/third_party/zlib-install/lib/libzlibstatic.a" )
+		TARGET_LINK_LIBRARIES( aqemu "${CMAKE_SOURCE_DIR}/third_party/zlib-install/lib/libzlibstatic.a" )
+	ENDIF()
+	IF( WIN32 )
+		TARGET_LINK_LIBRARIES( aqemu ws2_32 )
+	ENDIF()
 ENDIF( NOT WITHOUT_EMBEDDED_DISPLAY )
 
-# Optional spice-gtk client
+# Optional spice-client-glib (Qt paints frames; no GtkWidget embed)
+# Windows (WinLibs UCRT): install MSYS2 ucrt64 packages and point pkg-config at them:
+#   pacman -S mingw-w64-ucrt-x86_64-spice-gtk mingw-w64-ucrt-x86_64-pkgconf
+#   set PKG_CONFIG_PATH=C:/msys64/ucrt64/lib/pkgconfig
 IF( AQEMU_WITH_SPICE_GTK )
 	FIND_PACKAGE( PkgConfig REQUIRED )
-	PKG_CHECK_MODULES( SPICE_GTK REQUIRED spice-client-gtk-3.0 )
-	TARGET_INCLUDE_DIRECTORIES( aqemu PRIVATE ${SPICE_GTK_INCLUDE_DIRS} )
-	TARGET_LINK_LIBRARIES( aqemu ${SPICE_GTK_LIBRARIES} )
-	ADD_DEFINITIONS( -DAQEMU_HAVE_SPICE_GTK )
-	MESSAGE( STATUS "SPICE-GTK client enabled" )
+	# Prefer glib-only module; fall back to spice-client-gtk-3.0 (pulls glib as dep)
+	PKG_CHECK_MODULES( SPICE_GLIB spice-client-glib-2.0 )
+	IF( NOT SPICE_GLIB_FOUND )
+		PKG_CHECK_MODULES( SPICE_GLIB REQUIRED spice-client-gtk-3.0 )
+	ENDIF()
+	TARGET_INCLUDE_DIRECTORIES( aqemu PRIVATE ${SPICE_GLIB_INCLUDE_DIRS} )
+	TARGET_COMPILE_OPTIONS( aqemu PRIVATE ${SPICE_GLIB_CFLAGS_OTHER} )
+	# Link by absolute path — do NOT add MSYS2 lib/ via LINK_DIRECTORIES
+	# (that pulls the wrong mingw CRT when building with WinLibs).
+	SET( _spice_libs_abs "" )
+	FOREACH( _l ${SPICE_GLIB_LIBRARIES} )
+		IF( IS_ABSOLUTE "${_l}" )
+			LIST( APPEND _spice_libs_abs "${_l}" )
+		ELSE()
+			SET( _fl "_spice_find_${_l}" )
+			FIND_LIBRARY( ${_fl} NAMES "${_l}" PATHS ${SPICE_GLIB_LIBRARY_DIRS} NO_DEFAULT_PATH )
+			IF( ${_fl} )
+				LIST( APPEND _spice_libs_abs "${${_fl}}" )
+			ELSE()
+				LIST( APPEND _spice_libs_abs "${_l}" )
+			ENDIF()
+		ENDIF()
+	ENDFOREACH()
+	TARGET_LINK_LIBRARIES( aqemu ${_spice_libs_abs} )
+	# New name + legacy alias used by existing #ifdefs
+	ADD_DEFINITIONS( -DAQEMU_HAVE_SPICE_GLIB -DAQEMU_HAVE_SPICE_GTK )
+	MESSAGE( STATUS "SPICE client (spice-client-glib) enabled" )
+
+	IF( WIN32 )
+		# Resolve ucrt64 bin dir from pkg-config -L flags or default MSYS2 path
+		SET( _spice_bin_dir "" )
+		FOREACH( _libdir ${SPICE_GLIB_LIBRARY_DIRS} )
+			GET_FILENAME_COMPONENT( _cand "${_libdir}/../bin" ABSOLUTE )
+			IF( EXISTS "${_cand}" )
+				SET( _spice_bin_dir "${_cand}" )
+				BREAK()
+			ENDIF()
+		ENDFOREACH()
+		IF( NOT _spice_bin_dir AND EXISTS "C:/msys64/ucrt64/bin" )
+			SET( _spice_bin_dir "C:/msys64/ucrt64/bin" )
+		ENDIF()
+		IF( _spice_bin_dir )
+			FILE( GLOB _spice_seed "${_spice_bin_dir}/libspice-client-glib-*.dll" )
+			LIST( GET _spice_seed 0 _spice_seed_dll )
+			GET_FILENAME_COMPONENT( _spice_seed_name "${_spice_seed_dll}" NAME )
+			# Also seed QEMU's spice-server DLL (bundled QEMU is linked against it on Windows)
+			SET( _spice_extra_seeds "${_spice_seed_name}" )
+			IF( EXISTS "${_spice_bin_dir}/libspice-server-1.dll" )
+				LIST( APPEND _spice_extra_seeds "libspice-server-1.dll" )
+			ENDIF()
+			FOREACH( _seed ${_spice_extra_seeds} )
+				ADD_CUSTOM_COMMAND( TARGET aqemu POST_BUILD
+					COMMAND ${CMAKE_COMMAND} -E echo "Copying SPICE runtime DLLs (seed ${_seed}) from ${_spice_bin_dir}"
+					COMMAND powershell -NoProfile -ExecutionPolicy Bypass
+						-File "${CMAKE_SOURCE_DIR}/resources/cmake/CopySpiceRuntime.ps1"
+						-BinDir "${_spice_bin_dir}"
+						-DestDir "$<TARGET_FILE_DIR:aqemu>"
+						-SeedDll "${_seed}"
+					COMMENT "Bundle SPICE runtime DLLs (${_seed})"
+				)
+			ENDFOREACH()
+			MESSAGE( STATUS "Will copy SPICE DLLs from ${_spice_bin_dir} next to aqemu" )
+		ELSE()
+			MESSAGE( WARNING "SPICE enabled but could not locate ucrt64 bin for DLL copy" )
+		ENDIF()
+	ENDIF( WIN32 )
 ENDIF( AQEMU_WITH_SPICE_GTK )
 
 # Bundle QEMU binaries next to aqemu when requested

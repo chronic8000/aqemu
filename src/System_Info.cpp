@@ -557,17 +557,23 @@ bool System_Info::Update_VM_Computers_List()
 	Video_Card_x86 << Device_Map( QObject::tr("No Video Card"), "-nographic" );
 	Video_Card_x86 << Device_Map( QObject::tr("Standard VGA"), "-std-vga" );
 	
-	// Sound Cards
+	// Sound Cards — full modern x86 set
 	Audio_Card_x86.Audio_PC_Speaker = true;
 	Audio_Card_x86.Audio_sb16 = true;
 	Audio_Card_x86.Audio_Adlib = true;
 	Audio_Card_x86.Audio_es1370 = true;
+	Audio_Card_x86.Audio_GUS = true;
+	Audio_Card_x86.Audio_AC97 = true;
+	Audio_Card_x86.Audio_HDA = true;
+	Audio_Card_x86.Audio_cs4231a = true;
 	Audio_Card_x86.Audio_VirtIO = true;
 	Audio_Card_x86.Audio_USB = true;
 	
 	Audio_Card_PPC.Audio_sb16 = true;
 	Audio_Card_PPC.Audio_Adlib = true;
 	Audio_Card_PPC.Audio_es1370 = true;
+	Audio_Card_PPC.Audio_AC97 = true;
+	Audio_Card_PPC.Audio_HDA = true;
 	Audio_Card_PPC.Audio_VirtIO = true;
 	Audio_Card_PPC.Audio_USB = true;
 	
@@ -890,6 +896,17 @@ bool System_Info::Update_VM_Computers_List()
 		new_ad.Audio_Card_List.Audio_VirtIO = true;
 		new_ad.Audio_Card_List.Audio_USB = true;
 		new_ad.Audio_Card_List.Audio_HDA = true;
+		new_ad.Audio_Card_List.Audio_AC97 = true;
+		new_ad.Audio_Card_List.Audio_es1370 = true;
+		if( QString( target_templates[tx].binary_name ).contains( "x86" ) ||
+		    QString( target_templates[tx].binary_name ).contains( "i386" ) )
+		{
+			new_ad.Audio_Card_List.Audio_PC_Speaker = true;
+			new_ad.Audio_Card_List.Audio_sb16 = true;
+			new_ad.Audio_Card_List.Audio_Adlib = true;
+			new_ad.Audio_Card_List.Audio_GUS = true;
+			new_ad.Audio_Card_List.Audio_cs4231a = true;
+		}
 		new_ad.PSO_SMP_Count = 255;
 		new_ad.PSO_Initial_Graphic_Mode = true;
 		new_ad.PSO_PFlash = true;
@@ -1315,57 +1332,324 @@ QString System_Info::Find_IMG( const QStringList &paths )
 	return "";
 }
 
+namespace {
+
+enum Video_Arch_Family
+{
+	VAF_X86,
+	VAF_VIRT,
+	VAF_SPARC,
+	VAF_PPC,
+	VAF_MIPS,
+	VAF_S390,
+	VAF_OTHER
+};
+
+Video_Arch_Family Get_Video_Arch_Family( const QString &computer_type )
+{
+	const QString bin = computer_type.toLower();
+
+	if( bin.contains( "aarch64" ) || bin.contains( "qemu-system-arm" ) ||
+	    bin.contains( "riscv" ) || bin.contains( "loongarch" ) )
+		return VAF_VIRT;
+	if( bin.contains( "x86_64" ) || bin.contains( "i386" ) || bin == "qemu-system-x86" )
+		return VAF_X86;
+	if( bin.contains( "sparc" ) )
+		return VAF_SPARC;
+	if( bin.contains( "ppc" ) )
+		return VAF_PPC;
+	if( bin.contains( "mips" ) )
+		return VAF_MIPS;
+	if( bin.contains( "s390" ) )
+		return VAF_S390;
+	return VAF_OTHER;
+}
+
+QString Normalize_Video_Alias( const QString &name )
+{
+	const QString n = name.trimmed().toLower();
+	if( n.isEmpty() || n == "default" )
+		return QString();
+	if( n == "cirrus-vga" || n == "cirrusvga" || n == "cirrus_vga" )
+		return "cirrus";
+	if( n == "std-vga" || n == "stdvga" || n == "std_vga" || n == "-std-vga" )
+		return "std";
+	if( n == "-nographic" || n == "nographic" )
+		return "none";
+	if( n == "virtio-gpu" )
+		return "virtio-gpu-pci";
+	return name.trimmed();
+}
+
+bool Is_Video_Card_Allowed( Video_Arch_Family fam, const QString &raw_name )
+{
+	const QString name = Normalize_Video_Alias( raw_name );
+	if( name.isEmpty() )
+		return true;
+
+	switch( fam )
+	{
+		case VAF_X86:
+			return name == "std" || name == "cirrus" || name == "vmware" ||
+			       name == "qxl" || name == "virtio" || name == "xenfb" || name == "none";
+		case VAF_VIRT:
+			return name == "virtio-gpu-pci" || name == "virtio-gpu-gl-pci" ||
+			       name == "ramfb" || name == "none";
+		case VAF_SPARC:
+			return name == "cg3" || name == "tcx" || name == "std" || name == "none";
+		case VAF_PPC:
+			return name == "std" || name == "vmware" || name == "none";
+		case VAF_MIPS:
+			return name == "std" || name == "vmware" || name == "none";
+		case VAF_S390:
+			return name == "virtio-gpu-pci" || name == "none";
+		default:
+			return name == "std" || name == "cirrus" || name == "vmware" ||
+			       name == "qxl" || name == "virtio" || name == "none";
+	}
+}
+
+QString Default_Video_For_Family( Video_Arch_Family fam )
+{
+	switch( fam )
+	{
+		case VAF_X86: return "cirrus";
+		case VAF_VIRT: return "virtio-gpu-pci";
+		case VAF_SPARC: return "cg3";
+		case VAF_PPC: return "std";
+		case VAF_MIPS: return "std";
+		case VAF_S390: return "none";
+		default: return "std";
+	}
+}
+
+QList<Device_Map> Default_Video_List_For_Family( Video_Arch_Family fam )
+{
+	QList<Device_Map> list;
+	auto add = [&]( const QString &caption, const QString &qemu_name ) {
+		list << Device_Map( caption, qemu_name );
+	};
+
+	switch( fam )
+	{
+		case VAF_X86:
+			add( QObject::tr("Cirrus CLGD 5446"), "cirrus" );
+			add( QObject::tr("StdVGA (VESA 2.0)"), "std" );
+			add( QObject::tr("VMWare Video Card"), "vmware" );
+			add( QObject::tr("QXL"), "qxl" );
+			add( QObject::tr("VirtIO VGA"), "virtio" );
+			break;
+		case VAF_VIRT:
+			add( QObject::tr("VirtIO GPU (PCI)"), "virtio-gpu-pci" );
+			add( QObject::tr("VirtIO GPU GL (PCI)"), "virtio-gpu-gl-pci" );
+			add( QObject::tr("ramfb (simple framebuffer)"), "ramfb" );
+			break;
+		case VAF_SPARC:
+			add( QObject::tr("CG3 Framebuffer"), "cg3" );
+			add( QObject::tr("TCX Framebuffer"), "tcx" );
+			add( QObject::tr("Standard VGA"), "std" );
+			break;
+		case VAF_PPC:
+			add( QObject::tr("Standard VGA"), "std" );
+			add( QObject::tr("VMWare Video Card"), "vmware" );
+			break;
+		case VAF_MIPS:
+			add( QObject::tr("Standard VGA"), "std" );
+			add( QObject::tr("VMWare Video Card"), "vmware" );
+			break;
+		case VAF_S390:
+			add( QObject::tr("VirtIO GPU (PCI)"), "virtio-gpu-pci" );
+			break;
+		default:
+			add( QObject::tr("Standard VGA"), "std" );
+			add( QObject::tr("Cirrus CLGD 5446"), "cirrus" );
+			break;
+	}
+
+	add( QObject::tr("None"), "none" );
+	return list;
+}
+
+bool List_Has_Video( const QList<Device_Map> &list, const QString &qemu_name )
+{
+	for( int i = 0; i < list.count(); ++i )
+		if( list[i].QEMU_Name == qemu_name )
+			return true;
+	return false;
+}
+
+QString Map_Cross_Arch_Video( Video_Arch_Family fam, const QString &name,
+                              const QString &machine_type )
+{
+	const QString n = Normalize_Video_Alias( name );
+	if( n.isEmpty() )
+		return QString();
+
+	if( fam == VAF_X86 )
+	{
+		if( n == "cg3" || n == "tcx" || n == "virtio-gpu-pci" ||
+		    n == "virtio-gpu-gl-pci" || n == "ramfb" )
+		{
+			const QString machine = machine_type.toLower();
+			if( machine == "pc" || machine == "isapc" || machine.isEmpty() )
+				return "cirrus";
+			return "std";
+		}
+	}
+	else if( fam == VAF_VIRT )
+	{
+		if( n == "std" || n == "cirrus" || n == "vmware" || n == "qxl" ||
+		    n == "virtio" || n == "xenfb" || n == "cg3" || n == "tcx" )
+			return "virtio-gpu-pci";
+	}
+	else if( fam == VAF_SPARC )
+	{
+		if( n == "cirrus" || n == "vmware" || n == "qxl" || n == "virtio" ||
+		    n == "virtio-gpu-pci" || n == "virtio-gpu-gl-pci" || n == "ramfb" )
+			return "cg3";
+	}
+	else if( fam == VAF_PPC || fam == VAF_MIPS )
+	{
+		if( n == "cg3" || n == "tcx" || n == "virtio-gpu-pci" ||
+		    n == "virtio-gpu-gl-pci" || n == "ramfb" )
+			return "std";
+	}
+
+	return n;
+}
+
+} // namespace
+
+void System_Info::Filter_Video_Card_List( Available_Devices &dev )
+{
+	const Video_Arch_Family fam = Get_Video_Arch_Family( dev.System.QEMU_Name );
+	QList<Device_Map> filtered;
+
+	for( int i = 0; i < dev.Video_Card_List.count(); ++i )
+	{
+		const QString qemu_name = Normalize_Video_Alias( dev.Video_Card_List[i].QEMU_Name );
+		if( qemu_name.isEmpty() )
+			continue;
+		if( Is_Video_Card_Allowed( fam, qemu_name ) )
+		{
+			Device_Map entry = dev.Video_Card_List[i];
+			entry.QEMU_Name = qemu_name;
+			if( ! List_Has_Video( filtered, qemu_name ) )
+				filtered << entry;
+		}
+	}
+
+	if( fam == VAF_VIRT )
+	{
+		QList<Device_Map> virt_list;
+		if( List_Has_Video( filtered, "virtio-gpu-pci" ) )
+			virt_list = filtered;
+		else
+			virt_list = Default_Video_List_For_Family( VAF_VIRT );
+
+		filtered.clear();
+		for( int i = 0; i < virt_list.count(); ++i )
+		{
+			const QString n = virt_list[i].QEMU_Name;
+			if( n == "virtio-gpu-gl-pci" )
+				continue;
+			if( ! List_Has_Video( filtered, n ) )
+				filtered << virt_list[i];
+		}
+		if( List_Has_Video( virt_list, "virtio-gpu-gl-pci" ) )
+			filtered.insert( 1, Device_Map( QObject::tr("VirtIO GPU GL (PCI)"), "virtio-gpu-gl-pci" ) );
+	}
+	else if( filtered.isEmpty() )
+	{
+		filtered = Default_Video_List_For_Family( fam );
+	}
+
+	if( ! List_Has_Video( filtered, "none" ) )
+		filtered << Device_Map( QObject::tr("None"), "none" );
+
+	dev.Video_Card_List = filtered;
+}
+
+QString System_Info::Default_Video_Card( const QString &computer_type )
+{
+	return Default_Video_For_Family( Get_Video_Arch_Family( computer_type ) );
+}
+
+bool System_Info::Uses_Device_Based_Video( const QString &computer_type )
+{
+	return Get_Video_Arch_Family( computer_type ) == VAF_VIRT ||
+	       Get_Video_Arch_Family( computer_type ) == VAF_S390;
+}
+
+QString System_Info::Sanitize_Video_Card( const QString &computer_type, const QString &video_card,
+                                          const QString &machine_type )
+{
+	const Video_Arch_Family fam = Get_Video_Arch_Family( computer_type );
+	QString name = Normalize_Video_Alias( video_card );
+
+	if( name.isEmpty() )
+		return Default_Video_For_Family( fam );
+
+	name = Map_Cross_Arch_Video( fam, name, machine_type );
+
+	if( Is_Video_Card_Allowed( fam, name ) )
+		return name;
+
+	return Default_Video_For_Family( fam );
+}
+
 void System_Info::Normalize_Virt_Arch_Devices( Available_Devices &dev )
 {
 	const QString bin = dev.System.QEMU_Name;
-	if( ! ( bin.contains( "aarch64", Qt::CaseInsensitive ) ||
-			bin.contains( "qemu-system-arm", Qt::CaseInsensitive ) ||
-			bin.contains( "riscv", Qt::CaseInsensitive ) ) )
+	const QString bin_l = bin.toLower();
+	auto &audio = dev.Audio_Card_List;
+
+	const bool is_x86 = bin_l.contains( "x86_64" ) || bin_l.contains( "i386" );
+	const bool is_virtish = bin_l.contains( "aarch64" ) || bin_l.contains( "qemu-system-arm" ) ||
+	                        bin_l.contains( "riscv" ) || bin_l.contains( "loongarch" );
+	const bool is_ppc = bin_l.contains( "ppc" );
+	const bool is_sparc = bin_l.contains( "sparc" );
+	const bool is_mips = bin_l.contains( "mips" );
+
+	// Always offer modern audio backends that QEMU ships for PCI guests
+	audio.Audio_VirtIO = true;
+	audio.Audio_USB = true;
+	audio.Audio_HDA = true;
+
+	if( is_x86 )
+	{
+		audio.Audio_PC_Speaker = true;
+		audio.Audio_sb16 = true;
+		audio.Audio_Adlib = true;
+		audio.Audio_es1370 = true;
+		audio.Audio_GUS = true;
+		audio.Audio_AC97 = true;
+		audio.Audio_cs4231a = true;
+	}
+	else if( is_virtish )
+	{
+		audio.Audio_AC97 = true;
+		audio.Audio_es1370 = true;
+	}
+	else if( is_ppc )
+	{
+		audio.Audio_sb16 = true;
+		audio.Audio_Adlib = true;
+		audio.Audio_es1370 = true;
+		audio.Audio_AC97 = true;
+	}
+	else if( is_sparc || is_mips )
+	{
+		audio.Audio_AC97 = true;
+		audio.Audio_es1370 = true;
+	}
+	// other obscure targets: keep modern VirtIO/USB/HDA from above; ISA/PCI extras only if probe set them
+
+	Filter_Video_Card_List( dev );
+
+	if( ! is_virtish )
 		return;
-	
-	dev.Audio_Card_List.Audio_VirtIO = true;
-	dev.Audio_Card_List.Audio_USB = true;
-	dev.Audio_Card_List.Audio_HDA = true;
-	
-	bool has_virtio_gpu = false;
-	for( int i = 0; i < dev.Video_Card_List.count(); ++i )
-	{
-		if( dev.Video_Card_List[i].QEMU_Name == "virtio-gpu-pci" )
-		{
-			has_virtio_gpu = true;
-			break;
-		}
-	}
-	if( ! has_virtio_gpu )
-	{
-		QList<Device_Map> cleaned;
-		cleaned << Device_Map( QObject::tr("VirtIO GPU (PCI)"), "virtio-gpu-pci" )
-		        << Device_Map( QObject::tr("ramfb (simple framebuffer)"), "ramfb" )
-		        << Device_Map( QObject::tr("None"), "none" );
-		for( int i = 0; i < dev.Video_Card_List.count(); ++i )
-		{
-			const QString n = dev.Video_Card_List[i].QEMU_Name;
-			if( n == "virtio-gpu-pci" || n == "ramfb" || n == "none" || n == "virtio-gpu-gl-pci" )
-				continue;
-			// Never offer x86 -vga names (std/cirrus/virtio) — they break aarch64
-		}
-		dev.Video_Card_List = cleaned;
-	}
-	else
-	{
-		// Strip unsafe -vga aliases even when virtio-gpu is already present
-		QList<Device_Map> cleaned;
-		for( int i = 0; i < dev.Video_Card_List.count(); ++i )
-		{
-			const QString n = dev.Video_Card_List[i].QEMU_Name;
-			if( n == "std" || n == "cirrus" || n == "virtio" || n == "vmware" || n == "qxl" )
-				continue;
-			cleaned << dev.Video_Card_List[i];
-		}
-		if( ! cleaned.isEmpty() )
-			dev.Video_Card_List = cleaned;
-	}
-	
+
 	bool has_virt = false;
 	for( int i = 0; i < dev.Machine_List.count(); ++i )
 	{
@@ -2154,19 +2438,41 @@ Available_Devices System_Info::Get_Emulator_Info( const QString &path, bool *ok,
 	}
 	while( ! tmp.isNull() );
 	
-	// Modern QEMU: detect VirtIO / USB / HDA audio from -device help
+	// Modern QEMU: detect audio devices from -device help ( -soundhw is gone )
 	args_list.clear();
 	args_list << "-device" << "help";
 	QString device_help_str = Get_Emulator_Output( path, args_list );
-	if( device_help_str.contains( "virtio-sound", Qt::CaseInsensitive ) ||
-		device_help_str.contains( "virtio-snd", Qt::CaseInsensitive ) )
-		tmp_dev.Audio_Card_List.Audio_VirtIO = true;
-	if( device_help_str.contains( "usb-audio", Qt::CaseInsensitive ) )
-		tmp_dev.Audio_Card_List.Audio_USB = true;
-	if( device_help_str.contains( "intel-hda", Qt::CaseInsensitive ) )
-		tmp_dev.Audio_Card_List.Audio_HDA = true;
+	{
+		const QString dh = device_help_str;
+		auto has = [&]( const char *token ) -> bool {
+			return dh.contains( QLatin1String( token ), Qt::CaseInsensitive );
+		};
+		if( has( "virtio-sound" ) || has( "virtio-snd" ) )
+			tmp_dev.Audio_Card_List.Audio_VirtIO = true;
+		if( has( "usb-audio" ) )
+			tmp_dev.Audio_Card_List.Audio_USB = true;
+		if( has( "intel-hda" ) || has( "ich9-intel-hda" ) || has( "hda-duplex" ) )
+			tmp_dev.Audio_Card_List.Audio_HDA = true;
+		if( has( "\"AC97\"" ) || has( "name \"AC97\"" ) || has( "alias \"ac97\"" ) ||
+		    dh.contains( QRegExp( "\\bAC97\\b" ) ) )
+			tmp_dev.Audio_Card_List.Audio_AC97 = true;
+		if( has( "\"ES1370\"" ) || has( "alias \"es1370\"" ) || dh.contains( QRegExp( "\\bES1370\\b" ) ) )
+			tmp_dev.Audio_Card_List.Audio_es1370 = true;
+		if( has( "\"sb16\"" ) || has( "name \"sb16\"" ) )
+			tmp_dev.Audio_Card_List.Audio_sb16 = true;
+		if( has( "\"adlib\"" ) || has( "name \"adlib\"" ) )
+			tmp_dev.Audio_Card_List.Audio_Adlib = true;
+		if( has( "\"gus\"" ) || has( "name \"gus\"" ) )
+			tmp_dev.Audio_Card_List.Audio_GUS = true;
+		if( has( "\"cs4231a\"" ) || has( "name \"cs4231a\"" ) )
+			tmp_dev.Audio_Card_List.Audio_cs4231a = true;
+		if( has( "isa-pcspk" ) || has( "pcspk" ) )
+			tmp_dev.Audio_Card_List.Audio_PC_Speaker = true;
+	}
 	
-	// Ensure common aarch64/virt choices always exist in lists (host is Linux-only)
+	// Ensure System.QEMU_Name for Normalize (probe may not have set it yet)
+	if( tmp_dev.System.QEMU_Name.isEmpty() )
+		tmp_dev.System.QEMU_Name = internalName;
 	auto ensure_cpu = [&]( const QString &name, const QString &caption ) {
 		for( int i = 0; i < tmp_dev.CPU_List.count(); ++i )
 			if( tmp_dev.CPU_List[i].QEMU_Name == name ) return;
@@ -2177,26 +2483,10 @@ Available_Devices System_Info::Get_Emulator_Info( const QString &path, bool *ok,
 			if( tmp_dev.Machine_List[i].QEMU_Name == name ) return;
 		tmp_dev.Machine_List.prepend( Device_Map( caption, name ) );
 	};
-	auto ensure_video = [&]( const QString &name, const QString &caption ) {
-		for( int i = 0; i < tmp_dev.Video_Card_List.count(); ++i )
-			if( tmp_dev.Video_Card_List[i].QEMU_Name == name ) return;
-		tmp_dev.Video_Card_List.prepend( Device_Map( caption, name ) );
-	};
 	
 	if( internalName.contains( "aarch64" ) || internalName.contains( "arm" ) ||
 		internalName.contains( "riscv" ) )
 	{
-		// -vga does not list VirtIO GPU on aarch64; rebuild from modern devices
-		tmp_dev.Video_Card_List.clear();
-		tmp_dev.Video_Card_List << Device_Map( QObject::tr("VirtIO GPU (PCI)"), "virtio-gpu-pci" );
-		if( device_help_str.contains( "virtio-gpu-gl-pci", Qt::CaseInsensitive ) )
-			tmp_dev.Video_Card_List << Device_Map( QObject::tr("VirtIO GPU GL (PCI)"), "virtio-gpu-gl-pci" );
-		tmp_dev.Video_Card_List << Device_Map( QObject::tr("ramfb (simple framebuffer)"), "ramfb" );
-		tmp_dev.Video_Card_List << Device_Map( QObject::tr("None"), "none" );
-		if( device_help_str.contains( "\"VGA\"", Qt::CaseInsensitive ) ||
-			device_help_str.contains( "name \"VGA\"", Qt::CaseInsensitive ) )
-			tmp_dev.Video_Card_List << Device_Map( QObject::tr("Standard VGA (PCI)"), "std" );
-		
 		ensure_machine( "virt", QObject::tr("Generic Virtual Machine (virt)") );
 		ensure_cpu( "max", QObject::tr("Max CPU") );
 		#ifndef Q_OS_WIN32
@@ -2204,14 +2494,10 @@ Available_Devices System_Info::Get_Emulator_Info( const QString &path, bool *ok,
 		#endif
 	}
 	
-	// Ensure aarch64/virt targets always expose modern audio options even if probing failed
-	if( internalName.contains( "aarch64" ) || internalName.contains( "arm" ) )
-	{
-		tmp_dev.Audio_Card_List.Audio_VirtIO = true;
-		tmp_dev.Audio_Card_List.Audio_USB = true;
-		tmp_dev.Audio_Card_List.Audio_HDA = true;
-	}
+	// Per-architecture video whitelist (strips cg3/tcx from x86, std/cirrus from aarch64, etc.)
+	Filter_Video_Card_List( tmp_dev );
 	
+	// Ensure all architectures expose usable audio (probe + defaults), including x86
 	Normalize_Virt_Arch_Devices( tmp_dev );
 	
 	// Get Network Card Models
@@ -3205,7 +3491,12 @@ bool System_Info::Auto_Find_And_Save_Emulators()
 	#endif
 	
 	QSettings Settings;
-	if( Settings.value("QEMU-IMG_Path", "").toString().isEmpty() )
+	QString curImg = Settings.value("QEMU-IMG_Path", "").toString().trimmed();
+	bool needImg = curImg.isEmpty() ||
+				   curImg == "qemu-img" ||
+				   curImg == "qemu-img.exe" ||
+				   ! QFile::exists( curImg );
+	if( needImg )
 	{
 		for( int ix = 0; ix < paths.count(); ++ix )
 		{

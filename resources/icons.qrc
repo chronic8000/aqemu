@@ -72,5 +72,6 @@
         <file alias="shutdown.png">icons/oxygen/shutdown.png</file>
         <file alias="save-state.png">icons/oxygen/save-state.png</file>
         <file alias="reboot.png">icons/oxygen/reboot.png</file>
+        <file alias="wizard_trees.json">wizard_trees.json</file>
     </qresource>
 </RCC>
