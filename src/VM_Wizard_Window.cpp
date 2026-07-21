@@ -704,10 +704,13 @@ void VM_Wizard_Window::Apply_Guest_Hardware_To_New_VM()
 
 		if( legacy_win )
 		{
-			// Absolute USB tablet + UHCI works with SPICE/VNC; USB 1.1 for Win9x stack.
-			New_VM->Set_Mouse_Type( QStringLiteral( "usb-tablet" ) );
+			// PS/2 is reliable for Win9x splash/GUI. USB tablet often hangs PnP
+			// until the guest USB stack is happy — switch to tablet later if needed.
+			New_VM->Set_Mouse_Type( QStringLiteral( "ps2" ) );
 			New_VM->Set_Mouse_USB_Controller( QStringLiteral( "uhci" ) );
 			New_VM->Set_Mouse_USB_Version( 1 );
+			New_VM->Set_Video_Card( QStringLiteral( "cirrus" ) );
+			New_VM->Use_ACPI( false );
 		}
 		else if( modern_need_tablet )
 		{
@@ -1839,16 +1842,17 @@ void VM_Wizard_Window::Update_Finish_Page_Guidance()
 		if( CH_Win11_Already_Installed->isChecked() )
 		{
 			help = tr( "<p><b>Windows 11 ARM - ready to boot</b><br>"
-				"Defaults match the win11-pi5-kiosk QEMU profile (virt + VirtIO disk/net/GPU, UEFI, USB audio). "
-				"You can change any of these later in the main window.</p>" );
+				"Defaults match the BVM/kiosk QEMU profile (virt + VirtIO disk/net/GPU, UEFI, USB audio). "
+				"Lifecycle mode is set to <b>Normal</b>. "
+				"Use the Windows 11 ARM buttons on the VM page if you need Install or First boot profiles later.</p>" );
 		}
 		else
 		{
 			help = tr( "<p><b>Windows 11 ARM - install checklist</b></p><ol>"
-				"<li>Start the VM (boots the ISO under UEFI).</li>"
-				"<li>Install Windows onto the VirtIO disk.</li>"
-				"<li>After install, remove or uncheck the CD-ROM / set boot order to Hard Disk.</li>"
-				"<li>Start again for daily use.</li>"
+				"<li>Lifecycle is set to <b>Install Windows</b> (ramfb + USB installer ISO).</li>"
+				"<li>Start the VM and complete Windows Setup.</li>"
+				"<li>After Setup finishes, click <b>First boot</b> (ramfb, no ISO) or <b>Normal</b> (virtio-gpu) on the VM page.</li>"
+				"<li>Use <b>Normal</b> for everyday use.</li>"
 				"</ol>"
 				"<p>All machine/CPU/device options remain editable in the main GUI after creation.</p>" );
 		}
@@ -1889,6 +1893,7 @@ void VM_Wizard_Window::Apply_Windows11_ARM_Profile( bool simulate )
 	New_VM->Set_Machine_Type( "virt" );
 	New_VM->Set_Video_Card( "virtio-gpu-pci" );
 	// Fixed EDID size — Win11 ARM often cannot change resolution in-guest; 720p is a good TCG default.
+	// Install mode overrides video to ramfb below.
 	New_VM->Set_Display_Resolution( QStringLiteral( "1280x720" ) );
 	New_VM->Set_SMP_CPU_Count( 4 );
 	New_VM->Set_Memory_Size( 8192 );
@@ -1948,6 +1953,8 @@ void VM_Wizard_Window::Apply_Windows11_ARM_Profile( bool simulate )
 		b.Enabled = true;
 		boot << b;
 		New_VM->Set_Boot_Order_List( boot );
+		New_VM->Set_Win11_Lifecycle_Mode( VM::Win11_Normal );
+		New_VM->Set_Video_Card( "virtio-gpu-pci" );
 	}
 	else if( ! Edit_Win11_ISO->text().isEmpty() )
 	{
@@ -1964,6 +1971,9 @@ void VM_Wizard_Window::Apply_Windows11_ARM_Profile( bool simulate )
 		bhdd.Enabled = true;
 		boot << bhdd;
 		New_VM->Set_Boot_Order_List( boot );
+		New_VM->Set_Win11_Lifecycle_Mode( VM::Win11_Install );
+		// BVM firstboot: ramfb only during install
+		New_VM->Set_Video_Card( "ramfb" );
 		
 		if( CH_Win11_VirtIO_ISO->isChecked() && ! Edit_Win11_VirtIO_ISO->text().isEmpty() )
 		{

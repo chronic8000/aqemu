@@ -185,6 +185,29 @@ class VM
 		enum Boot_Device { Boot_From_FDA, Boot_From_FDB, Boot_From_CDROM, Boot_From_HDD,
 						   Boot_From_Network1, Boot_From_Network2,
 						   Boot_From_Network3, Boot_From_Network4, Boot_None };
+
+		// Windows 11 ARM lifecycle (BVM-style install / first-boot / normal)
+		enum Win11_Lifecycle_Mode { Win11_Normal = 0, Win11_Install = 1, Win11_First_Boot = 2 };
+
+		static QString Win11_Lifecycle_To_String( Win11_Lifecycle_Mode mode )
+		{
+			switch( mode )
+			{
+				case Win11_Install: return QStringLiteral( "install" );
+				case Win11_First_Boot: return QStringLiteral( "first_boot" );
+				case Win11_Normal:
+				default: return QStringLiteral( "normal" );
+			}
+		}
+
+		static Win11_Lifecycle_Mode String_To_Win11_Lifecycle( const QString &s )
+		{
+			const QString t = s.trimmed().toLower();
+			if( t == QLatin1String( "install" ) ) return Win11_Install;
+			if( t == QLatin1String( "first_boot" ) || t == QLatin1String( "firstboot" ) )
+				return Win11_First_Boot;
+			return Win11_Normal;
+		}
 		
 		// Boot Order
 		struct Boot_Order

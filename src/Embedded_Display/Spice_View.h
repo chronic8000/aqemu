@@ -24,10 +24,12 @@ class QEvent;
 struct _SpiceSession;
 struct _SpiceDisplayChannel;
 struct _SpiceInputsChannel;
+struct _SpiceMainChannel;
 struct _SpiceChannel;
 typedef struct _SpiceSession SpiceSession;
 typedef struct _SpiceDisplayChannel SpiceDisplayChannel;
 typedef struct _SpiceInputsChannel SpiceInputsChannel;
+typedef struct _SpiceMainChannel SpiceMainChannel;
 typedef struct _SpiceChannel SpiceChannel;
 #endif
 
@@ -72,6 +74,7 @@ class Spice_View : public Guest_Display_View
 		                              int stride, int shmid, void *imgdata, void *user );
 		static void On_Primary_Destroy( SpiceChannel *channel, void *user );
 		static void On_Invalidate( SpiceChannel *channel, int x, int y, int w, int h, void *user );
+		static void On_Mouse_Mode( void *main, void *pspec, void *user );
 
 		void Attach_Channel( SpiceChannel *channel );
 		void Detach_Channel( SpiceChannel *channel );
@@ -80,6 +83,10 @@ class Spice_View : public Guest_Display_View
 		void Copy_Rect_From_Primary( int x, int y, int w, int h );
 		void Emit_Connected_Once();
 		void Handle_Channel_Event( SpiceChannel *channel, int event );
+		void Refresh_Mouse_Mode();
+		void Send_Pointer( const QPoint &guest_pos, bool have_pos );
+		void Set_Mouse_Captured( bool captured );
+		void Warp_Pointer_To_Center();
 
 		QPoint Guest_From_Widget( const QPoint &widget_pos ) const;
 		QRectF Scaled_Dest_Rect() const;
@@ -97,6 +104,7 @@ class Spice_View : public Guest_Display_View
 		int Port;
 		bool Connected_Flag;
 		bool Connected_Emitted;
+		bool Error_Emitted;
 
 		QImage Frame;
 		QByteArray Primary_Bytes;
@@ -110,8 +118,14 @@ class Spice_View : public Guest_Display_View
 		SpiceSession *Session;
 		SpiceDisplayChannel *Display;
 		SpiceInputsChannel *Inputs;
+		SpiceMainChannel *Main;
 		int Button_Mask;
 		int Display_Id;
+		bool Client_Mouse_Mode; // absolute (tablet); false = relative PS/2 server mode
+		bool Mouse_Captured;    // grab active (server mode only)
+		bool Ignore_Warp_Event; // skip synthetic move after QCursor::setPos
+		QPoint Last_Guest_Pos;
+		bool Have_Last_Guest_Pos;
 #endif
 };
 

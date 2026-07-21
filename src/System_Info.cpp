@@ -1708,16 +1708,18 @@ Available_Devices System_Info::Get_Emulator_Info( const QString &path, bool *ok,
 	rx = QRegExp( ".*-cpu\\s.*" );
 	if( rx.exactMatch(all_help) ) scan_CPU_List = true;
 	
-	// -smp FIXME PSO_SMP_Count use base emulator settings
+	// -smp — any target that advertises -smp supports multi-CPU (incl. aarch64).
 	rx = QRegExp( ".*-smp\\s.*" );
 	if( rx.exactMatch(all_help) )
 	{
 		// New Style?
 		rx = QRegExp( ".*-smp\\s+.*\\[(.*)\\].*" );
-		
-		if( internalName == "qemu-system-x86_64" ) tmp_dev.PSO_SMP_Count = 255;
-		else if( internalName == "qemu-system-sparc" ) tmp_dev.PSO_SMP_Count = 4;
-		
+
+		if( internalName == "qemu-system-sparc" )
+			tmp_dev.PSO_SMP_Count = 4;
+		else
+			tmp_dev.PSO_SMP_Count = 255;
+
 		if( rx.exactMatch(all_help) )
 		{
 			if( rx.capturedTexts().count() > 1 )

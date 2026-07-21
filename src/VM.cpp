@@ -245,6 +245,7 @@ Virtual_Machine::Virtual_Machine( const Virtual_Machine &vm )
 	this->VirtIO_RNG = vm.Use_VirtIO_RNG();
 	this->VirtIO_Balloon = vm.Use_VirtIO_Balloon();
 	this->VirtIO_Keyboard = vm.Use_VirtIO_Keyboard();
+	this->Win11_Lifecycle_Mode = vm.Get_Win11_Lifecycle_Mode();
 	
 	this->Enable_KVM = vm.Use_KVM();
 	this->KVM_IRQChip = vm.Use_KVM_IRQChip();
@@ -456,6 +457,7 @@ void Virtual_Machine::Shared_Constructor()
 	VirtIO_RNG = false;
 	VirtIO_Balloon = false;
 	VirtIO_Keyboard = false;
+	Win11_Lifecycle_Mode = VM::Win11_Normal;
 	
 	Enable_KVM = true;
 	KVM_IRQChip = false;
@@ -570,6 +572,7 @@ bool Virtual_Machine::operator==( const Virtual_Machine &vm ) const
 		this->VirtIO_RNG == vm.Use_VirtIO_RNG() &&
 		this->VirtIO_Balloon == vm.Use_VirtIO_Balloon() &&
 		this->VirtIO_Keyboard == vm.Use_VirtIO_Keyboard() &&
+		this->Win11_Lifecycle_Mode == vm.Get_Win11_Lifecycle_Mode() &&
 		this->Enable_KVM == vm.Use_KVM() &&
 		this->KVM_IRQChip == vm.Use_KVM_IRQChip() &&
 		this->No_KVM_Pit == vm.Use_No_KVM_Pit() &&
@@ -707,207 +710,156 @@ bool Virtual_Machine::operator!=( const Virtual_Machine &v1 ) const
 
 Virtual_Machine &Virtual_Machine::operator=( const Virtual_Machine &vm )
 {
-	QEMU_Process = new QProcess();
-	QEMU_Kill_Target_Pid = 0;
-	Monitor_Socket = new QTcpSocket( this );
-	Use_Monitor_TCP = false;
-	Monitor_Hostname = "localhost";
-	Monitor_Port = 26000;
-    delete Emu_Ctl;
-	Emu_Ctl = new Emulator_Control_Window();
+	// IMPORTANT: Do not recreate or wipe runtime objects (QEMU_Process, Emu_Ctl,
+	// Monitor_Socket, QMP). Apply/auto-save uses operator= to copy *settings*
+	// from a temporary UI VM onto the live VM. Recreating those objects leaked
+	// QProcesses/sockets and caused heap corruption / crashes on Start.
+
+	if( this == &vm )
+		return *this;
+
 	VM_XML_File_Path = vm.Get_VM_XML_File_Path();
-	State = vm.Get_State();
-	Build_QEMU_Args_for_Script_Mode = false;
-	Build_QEMU_Args_for_Tab_Info = false;
 	UID = vm.Get_UID();
-	Embedded_Display_Port = -1;
-	Embedded_Spice_Port = 0;
-	Embedded_VNC_Port = 0;
-	QMP_Port = 0;
-	QMP = nullptr;
-	
-	// Accel
+
+	// Keep live process/session state; UI temp VMs are always Power_Off.
+	// State is updated only via Set_State() from QEMU lifecycle.
+
+	Icon_Path = vm.Get_Icon_Path();
+	Screenshot_Path = vm.Get_Screenshot_Path();
+
 	Machine_Accelerator = vm.Get_Machine_Accelerator();
 	Current_Emulator = vm.Get_Emulator();
-	
-	QObject::connect( Emu_Ctl, SIGNAL(Ready_Read_Command(QString)),
-					  this, SLOT(Execute_Emu_Ctl_Command(QString)) );
-	
-	QObject::connect( QEMU_Process, SIGNAL(readyReadStandardError()),
-					  this, SLOT(Parse_StdErr()) );
-	
-	QObject::connect( QEMU_Process, SIGNAL(readyReadStandardOutput()),
-					  this, SLOT(Parse_StdOut()) );
 
-	QObject::connect( Monitor_Socket, SIGNAL(readyRead()),
-					  this, SLOT(Parse_StdOut()) );
-	
-	QObject::connect( QEMU_Process, SIGNAL(started()),
-					  this, SLOT(QEMU_Started()) );
-	
-	QObject::connect( QEMU_Process, SIGNAL(finished(int,QProcess::ExitStatus)),
-					  this, SLOT(QEMU_Finished(int,QProcess::ExitStatus)) );
-	
-	this->Icon_Path = vm.Get_Icon_Path();
-	this->Screenshot_Path = vm.Get_Screenshot_Path();
-	
-	// General Tab
-	this->Machine_Name = vm.Get_Machine_Name();
-	this->Computer_Type = vm.Get_Computer_Type();
-    this->Machine_Accelerator = vm.Get_Machine_Accelerator();
-	this->Machine_Type = vm.Get_Machine_Type();
-	this->CPU_Type = vm.Get_CPU_Type();
-	this->SMP = vm.Get_SMP();
-	this->Keyboard_Layout = vm.Get_Keyboard_Layout();
-	this->Boot_Order_List = vm.Get_Boot_Order_List();
-	this->Show_Boot_Menu = vm.Get_Show_Boot_Menu();
-    this->Video_Card = vm.Get_Video_Card();
-	this->Display_Resolution = vm.Get_Display_Resolution();
-	this->Mouse_Type = vm.Get_Mouse_Type();
-	this->Mouse_USB_Controller = vm.Get_Mouse_USB_Controller();
-	this->Mouse_USB_Version = vm.Get_Mouse_USB_Version();
-	this->SPICE_Agent_Mouse = vm.Get_SPICE_Agent_Mouse();
-	this->Audio_Card = vm.Get_Audio_Cards();
-	this->Memory_Size = vm.Get_Memory_Size();
-	this->Remove_RAM_Size_Limitation = vm.Get_Remove_RAM_Size_Limitation();
-	this->Fullscreen = vm.Use_Fullscreen_Mode();
-	this->Win2K_Hack = vm.Use_Win2K_Hack();
-	this->Local_Time = vm.Use_Local_Time();
-	this->Check_FDD_Boot_Sector = vm.Use_Check_FDD_Boot_Sector();
-	this->ACPI = vm.Use_ACPI();
-	this->Snapshot_Mode = vm.Use_Snapshot_Mode();
-	this->Start_CPU = vm.Use_Start_CPU();
-	this->No_Reboot = vm.Use_No_Reboot();
-	this->No_Shutdown = vm.Use_No_Shutdown();
-	
-	// FDD/CD/DVD Tab
-	this->FD0 = vm.Get_FD0();
-	this->FD1 = vm.Get_FD1();
-	this->CD_ROM = vm.Get_CD_ROM();
-	
-	// HDD Tab
-	this->HDA = vm.Get_HDA();
-	this->HDB = vm.Get_HDB();
-	this->HDC = vm.Get_HDC();
-	this->HDD = vm.Get_HDD();
-	
-	// Snapshots
-	this->Set_Snapshots( vm.Get_Snapshots() );
-	
-	// Storage Devices
-	this->Set_Storage_Devices_List( vm.Get_Storage_Devices_List() );
-	
-	// Shared Folders
-	this->Set_Shared_Folders_List( vm.Get_Shared_Folders_List() );
+	Machine_Name = vm.Get_Machine_Name();
+	Computer_Type = vm.Get_Computer_Type();
+	Machine_Type = vm.Get_Machine_Type();
+	CPU_Type = vm.Get_CPU_Type();
+	SMP = vm.Get_SMP();
+	Keyboard_Layout = vm.Get_Keyboard_Layout();
+	Boot_Order_List = vm.Get_Boot_Order_List();
+	Show_Boot_Menu = vm.Get_Show_Boot_Menu();
+	Video_Card = vm.Get_Video_Card();
+	Display_Resolution = vm.Get_Display_Resolution();
+	Mouse_Type = vm.Get_Mouse_Type();
+	Mouse_USB_Controller = vm.Get_Mouse_USB_Controller();
+	Mouse_USB_Version = vm.Get_Mouse_USB_Version();
+	SPICE_Agent_Mouse = vm.Get_SPICE_Agent_Mouse();
+	Audio_Card = vm.Get_Audio_Cards();
+	Memory_Size = vm.Get_Memory_Size();
+	Remove_RAM_Size_Limitation = vm.Get_Remove_RAM_Size_Limitation();
+	Fullscreen = vm.Use_Fullscreen_Mode();
+	Win2K_Hack = vm.Use_Win2K_Hack();
+	Local_Time = vm.Use_Local_Time();
+	Check_FDD_Boot_Sector = vm.Use_Check_FDD_Boot_Sector();
+	ACPI = vm.Use_ACPI();
+	Snapshot_Mode = vm.Use_Snapshot_Mode();
+	Start_CPU = vm.Use_Start_CPU();
+	No_Reboot = vm.Use_No_Reboot();
+	No_Shutdown = vm.Use_No_Shutdown();
 
-	// Network Tab
-	this->Use_Network = vm.Get_Use_Network();
-    this->Native_Network = vm.Use_Native_Network();
-	this->Use_Redirections = vm.Get_Use_Redirections();
-	
-	this->Network_Cards.clear();
+	FD0 = vm.Get_FD0();
+	FD1 = vm.Get_FD1();
+	CD_ROM = vm.Get_CD_ROM();
+
+	HDA = vm.Get_HDA();
+	HDB = vm.Get_HDB();
+	HDC = vm.Get_HDC();
+	HDD = vm.Get_HDD();
+
+	Set_Snapshots( vm.Get_Snapshots() );
+	Set_Storage_Devices_List( vm.Get_Storage_Devices_List() );
+	Set_Shared_Folders_List( vm.Get_Shared_Folders_List() );
+
+	Use_Network = vm.Get_Use_Network();
+	Native_Network = vm.Use_Native_Network();
+	Use_Redirections = vm.Get_Use_Redirections();
+
+	Network_Cards.clear();
 	for( int nx = 0; nx < vm.Get_Network_Cards_Count(); nx++ )
-	{
-		VM_Net_Card n_card = vm.Get_Network_Card( nx );
-		
-		this->Network_Cards.append( VM_Net_Card(n_card) );
-	}
-	
-	// Nativ
-	this->Network_Cards_Nativ.clear();
-	this->Network_Cards_Nativ = vm.Get_Network_Cards_Nativ();
-	
-	this->Network_Redirections.clear();
+		Network_Cards.append( VM_Net_Card( vm.Get_Network_Card( nx ) ) );
+
+	Network_Cards_Nativ = vm.Get_Network_Cards_Nativ();
+
+	Network_Redirections.clear();
 	for( int rx = 0; rx < vm.Get_Network_Redirections_Count(); rx++ )
-	{
-		VM_Redirection n_redir = vm.Get_Network_Redirection( rx );
-		
-		this->Network_Redirections.append( VM_Redirection(n_redir) );
-	}
-	
-	this->SMB_Directory = vm.Get_SMB_Directory();
-	this->TFTP_Prefix = vm.Get_TFTP_Prefix();
-	
-	// Port tab
-	this->Serial_Ports = vm.Get_Serial_Ports();
-	this->Parallel_Ports = vm.Get_Parallel_Ports();
-	
-	this->USB_Ports.clear();
+		Network_Redirections.append( VM_Redirection( vm.Get_Network_Redirection( rx ) ) );
+
+	SMB_Directory = vm.Get_SMB_Directory();
+	TFTP_Prefix = vm.Get_TFTP_Prefix();
+
+	Serial_Ports = vm.Get_Serial_Ports();
+	Parallel_Ports = vm.Get_Parallel_Ports();
+
+	USB_Ports.clear();
 	for( int ux = 0; ux < vm.Get_USB_Ports().count(); ++ux )
-	{
-		this->USB_Ports.append( VM_USB(vm.Get_USB_Ports()[ux]) );
-	}
-	this->USB_Hub = vm.Use_USB_Hub();
-	
-	// Other Tab
-	this->Linux_Boot = vm.Get_Use_Linux_Boot();
-	this->bzImage_Path = vm.Get_bzImage_Path();
-	this->Initrd_Path = vm.Get_Initrd_Path();
-	this->Kernel_ComLine = vm.Get_Kernel_ComLine();
-	
-	this->Additional_Args = vm.Get_Additional_Args();
-	this->Only_User_Args = vm.Get_Only_User_Args();
-	this->Use_User_Emulator_Binary = vm.Get_Use_User_Emulator_Binary();
-	
-	this->Use_ROM_File = vm.Get_Use_ROM_File();
-	this->ROM_File = vm.Get_ROM_File();
-	
-	this->MTDBlock = vm.Use_MTDBlock_File();
-	this->MTDBlock_File = vm.Get_MTDBlock_File();
-	
-	this->SecureDigital = vm.Use_SecureDigital_File();
-	this->SecureDigital_File = vm.Get_SecureDigital_File();
-	
-	this->PFlash = vm.Use_PFlash_File();
-	this->PFlash_File = vm.Get_PFlash_File();
-	
-	this->UEFI = vm.Use_UEFI();
-	this->UEFI_CODE_File = vm.Get_UEFI_CODE_File();
-	this->UEFI_VARS_File = vm.Get_UEFI_VARS_File();
-	this->VirtIO_RNG = vm.Use_VirtIO_RNG();
-	this->VirtIO_Balloon = vm.Use_VirtIO_Balloon();
-	this->VirtIO_Keyboard = vm.Use_VirtIO_Keyboard();
-	
-	this->Enable_KVM = vm.Use_KVM();
-	this->KVM_IRQChip = vm.Use_KVM_IRQChip();
-	this->No_KVM_Pit = vm.Use_No_KVM_Pit();
-	this->KVM_No_Pit_Reinjection = vm.Use_KVM_No_Pit_Reinjection();
-	this->KVM_Nesting = vm.Use_KVM_Nesting();
-	this->KVM_Shadow_Memory = vm.Use_KVM_Shadow_Memory();
-	this->KVM_Shadow_Memory_Size = vm.Get_KVM_Shadow_Memory_Size();
-	
-	this->Init_Graphic_Mode = vm.Get_Init_Graphic_Mode();
-	
-	this->No_Frame = vm.Use_No_Frame();
-	this->Alt_Grab = vm.Use_Alt_Grab();
-	this->No_Quit = vm.Use_No_Quit();
-	this->Portrait = vm.Use_Portrait();
-	this->Show_Cursor = vm.Use_Show_Cursor();
-	this->Curses = vm.Use_Curses();
-	this->RTC_TD_Hack = vm.Use_RTC_TD_Hack();
-	
-	this->Start_Date = vm.Use_Start_Date();
-	this->Start_DateTime = vm.Get_Start_Date();
-	
-	this->SPICE = vm.Get_SPICE();
-	
-	this->VNC = vm.Use_VNC();
-	this->VNC_Socket_Mode = vm.Get_VNC_Socket_Mode();
-	this->VNC_Unix_Socket_Path = vm.Get_VNC_Unix_Socket_Path();
-	this->VNC_Display_Number = vm.Get_VNC_Display_Number();
-	this->VNC_Password = vm.Use_VNC_Password();
-	this->VNC_TLS = vm.Use_VNC_TLS();
-	this->VNC_x509 = vm.Use_VNC_x509();
-	this->VNC_x509_Folder_Path = vm.Get_VNC_x509_Folder_Path();
-	this->VNC_x509verify = vm.Use_VNC_x509verify();
-	this->VNC_x509verify_Folder_Path = vm.Get_VNC_x509verify_Folder_Path();
-	
-	this->Load_VM_Window = nullptr;
-	this->Save_VM_Window = nullptr;
-	this->Load_Mode = false;
-	
-    Update_Current_Emulator_Devices();
-	
+		USB_Ports.append( VM_USB( vm.Get_USB_Ports()[ux] ) );
+	USB_Hub = vm.Use_USB_Hub();
+
+	Linux_Boot = vm.Get_Use_Linux_Boot();
+	bzImage_Path = vm.Get_bzImage_Path();
+	Initrd_Path = vm.Get_Initrd_Path();
+	Kernel_ComLine = vm.Get_Kernel_ComLine();
+
+	Additional_Args = vm.Get_Additional_Args();
+	Only_User_Args = vm.Get_Only_User_Args();
+	Use_User_Emulator_Binary = vm.Get_Use_User_Emulator_Binary();
+
+	Use_ROM_File = vm.Get_Use_ROM_File();
+	ROM_File = vm.Get_ROM_File();
+
+	MTDBlock = vm.Use_MTDBlock_File();
+	MTDBlock_File = vm.Get_MTDBlock_File();
+
+	SecureDigital = vm.Use_SecureDigital_File();
+	SecureDigital_File = vm.Get_SecureDigital_File();
+
+	PFlash = vm.Use_PFlash_File();
+	PFlash_File = vm.Get_PFlash_File();
+
+	UEFI = vm.Use_UEFI();
+	UEFI_CODE_File = vm.Get_UEFI_CODE_File();
+	UEFI_VARS_File = vm.Get_UEFI_VARS_File();
+	VirtIO_RNG = vm.Use_VirtIO_RNG();
+	VirtIO_Balloon = vm.Use_VirtIO_Balloon();
+	VirtIO_Keyboard = vm.Use_VirtIO_Keyboard();
+	Win11_Lifecycle_Mode = vm.Get_Win11_Lifecycle_Mode();
+
+	Enable_KVM = vm.Use_KVM();
+	KVM_IRQChip = vm.Use_KVM_IRQChip();
+	No_KVM_Pit = vm.Use_No_KVM_Pit();
+	KVM_No_Pit_Reinjection = vm.Use_KVM_No_Pit_Reinjection();
+	KVM_Nesting = vm.Use_KVM_Nesting();
+	KVM_Shadow_Memory = vm.Use_KVM_Shadow_Memory();
+	KVM_Shadow_Memory_Size = vm.Get_KVM_Shadow_Memory_Size();
+
+	Init_Graphic_Mode = vm.Get_Init_Graphic_Mode();
+
+	No_Frame = vm.Use_No_Frame();
+	Alt_Grab = vm.Use_Alt_Grab();
+	No_Quit = vm.Use_No_Quit();
+	Portrait = vm.Use_Portrait();
+	Show_Cursor = vm.Use_Show_Cursor();
+	Curses = vm.Use_Curses();
+	RTC_TD_Hack = vm.Use_RTC_TD_Hack();
+
+	Start_Date = vm.Use_Start_Date();
+	Start_DateTime = vm.Get_Start_Date();
+
+	SPICE = vm.Get_SPICE();
+
+	VNC = vm.Use_VNC();
+	VNC_Socket_Mode = vm.Get_VNC_Socket_Mode();
+	VNC_Unix_Socket_Path = vm.Get_VNC_Unix_Socket_Path();
+	VNC_Display_Number = vm.Get_VNC_Display_Number();
+	VNC_Password = vm.Use_VNC_Password();
+	VNC_TLS = vm.Use_VNC_TLS();
+	VNC_x509 = vm.Use_VNC_x509();
+	VNC_x509_Folder_Path = vm.Get_VNC_x509_Folder_Path();
+	VNC_x509verify = vm.Use_VNC_x509verify();
+	VNC_x509verify_Folder_Path = vm.Get_VNC_x509verify_Folder_Path();
+
+	Update_Current_Emulator_Devices();
+
 	return *this;
 }
 
@@ -3062,6 +3014,11 @@ bool Virtual_Machine::Create_VM_File( const QString &file_name, bool template_mo
 	VM_Element.appendChild( Dom_Element );
 	Dom_Text = New_Dom_Document.createTextNode( VirtIO_Keyboard ? "true" : "false" );
 	Dom_Element.appendChild( Dom_Text );
+
+	Dom_Element = New_Dom_Document.createElement( "Win11_Lifecycle_Mode" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( VM::Win11_Lifecycle_To_String( Win11_Lifecycle_Mode ) );
+	Dom_Element.appendChild( Dom_Text );
 	
 	// Additional Arguments
 	Dom_Element = New_Dom_Document.createElement( "Additional_Args" );
@@ -4784,6 +4741,13 @@ bool Virtual_Machine::Load_VM( const QString &file_name )
 			VirtIO_RNG = (Child_Element.firstChildElement("Use_VirtIO_RNG").text() == "true" );
 			VirtIO_Balloon = (Child_Element.firstChildElement("Use_VirtIO_Balloon").text() == "true" );
 			VirtIO_Keyboard = (Child_Element.firstChildElement("Use_VirtIO_Keyboard").text() == "true" );
+			{
+				const QString mode_txt = Child_Element.firstChildElement( "Win11_Lifecycle_Mode" ).text();
+				if( ! mode_txt.isEmpty() )
+					Win11_Lifecycle_Mode = VM::String_To_Win11_Lifecycle( mode_txt );
+				else
+					Win11_Lifecycle_Mode = VM::Win11_Normal;
+			}
 			
 			// Enable KVM
 			Enable_KVM = ! (Child_Element.firstChildElement("Enable_KVM").text() == "false" );
@@ -5536,7 +5500,15 @@ static int Bootindex_For( const Virtual_Machine &vm, VM::Boot_Device want )
 			return idx;
 		++idx;
 	}
-	return 1;
+	// Not in the enabled boot order ? omit bootindex (do not reuse 1).
+	return 0;
+}
+
+static QString With_Bootindex( const QString &device_args, int boot_idx )
+{
+	if( boot_idx > 0 )
+		return device_args + ",bootindex=" + QString::number( boot_idx );
+	return device_args;
 }
 
 QString Virtual_Machine::Get_X86_Boot_Order_Letters() const
@@ -5722,8 +5694,8 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	}
 	
 	// CPU Model
-	// TCG on aarch64: pauth-impdef=on is the big win (Linaro / virtio-win docs).
-	// Pi kiosk uses -cpu host under KVM ? not available for aarch64 on x86 Windows.
+	// TCG aarch64 / Win11 ARM: -cpu max,pauth-impdef=on (PAuth without full crypto cost).
+	// KVM on ARM hosts: -cpu host. Bare -cpu max without pauth-impdef is too slow under TCG.
 	{
 		QString cpu_arg;
 		if( Current_Emulator_Devices.CPU_List.count() > 1 &&
@@ -5735,12 +5707,12 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 				 Computer_Type.contains( "qemu-system-arm", Qt::CaseInsensitive ) )
 		{
 			#ifdef Q_OS_WIN32
-			cpu_arg = "max";
+			cpu_arg = QStringLiteral( "max,pauth-impdef=on" );
 			#else
 			if( Machine_Accelerator == VM::KVM )
-				cpu_arg = "host";
+				cpu_arg = QStringLiteral( "host" );
 			else
-				cpu_arg = "max";
+				cpu_arg = QStringLiteral( "max,pauth-impdef=on" );
 			#endif
 		}
 
@@ -5754,11 +5726,15 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			#else
 			const bool tcg_guest = aarch64 && Machine_Accelerator != VM::KVM;
 			#endif
-			if( tcg_guest &&
-				( cpu_arg == "max" || cpu_arg.startsWith( "max," ) ) &&
-				! cpu_arg.contains( "pauth-impdef" ) )
+			// Under TCG, promote bare "max" / "neoverse-n1" to max+pauth-impdef.
+			if( tcg_guest )
 			{
-				cpu_arg += ",pauth-impdef=on";
+				if( cpu_arg == QLatin1String( "max" ) ||
+					cpu_arg == QLatin1String( "neoverse-n1" ) )
+					cpu_arg = QStringLiteral( "max,pauth-impdef=on" );
+				else if( cpu_arg.startsWith( QLatin1String( "max," ) ) &&
+						 ! cpu_arg.contains( QLatin1String( "pauth-impdef" ) ) )
+					cpu_arg += QStringLiteral( ",pauth-impdef=on" );
 			}
 			Args << "-cpu" << cpu_arg;
 		}
@@ -5848,7 +5824,15 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		Args << "-k" << Get_Keyboard_Layout();
 	
 	// Video ? architecture-aware: device-based (virtio-gpu) vs legacy -vga.
+	// Win11 ARM lifecycle (BVM): install/first_boot = ramfb only; normal = virtio-gpu only.
 	QString effective_video = System_Info::Sanitize_Video_Card( Computer_Type, Video_Card, Machine_Type );
+	const bool win11_early_display =
+		is_virt_arch &&
+		( Win11_Lifecycle_Mode == VM::Win11_Install ||
+		  Win11_Lifecycle_Mode == VM::Win11_First_Boot );
+	if( win11_early_display )
+		effective_video = QStringLiteral( "ramfb" );
+
 	const bool device_based_video = System_Info::Uses_Device_Based_Video( Computer_Type ) ||
 	                                effective_video == "virtio-gpu-pci" || effective_video == "virtio-gpu-gl-pci" ||
 	                                effective_video == "ramfb";
@@ -5863,8 +5847,8 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			Args << "-device" << "virtio-gpu-gl-pci";
 		else
 		{
-			// VirtIO-GPU with EDID. Fixed xres/yres come from Display_Resolution
-			// (native = host screen, WxH = fixed, auto = omit size and let guest pick).
+			// VirtIO-GPU with EDID. Do NOT auto-add ramfb here (BVM normal/boot mode):
+			// combining ramfb + virtio-gpu causes "Display output is not active" reboot loops.
 			QString virtio = QStringLiteral( "virtio-gpu-pci,edid=on,max_outputs=1" );
 			const QString mode = Display_Resolution.trimmed().toLower();
 			int rw = 0, rh = 0;
@@ -5923,11 +5907,17 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	if( ! effective_machine.isEmpty() )
 		props << effective_machine;
 
-	// GICv3+ for modern aarch64 guests (Win11 ARM / Linux); ignored on non-virt boards
+	// GICv3 + ITS + highmem for modern aarch64 guests (Win11 ARM / Linux virt).
+	// Explicit gic-version=3 (not max) so TCG on x86 never silently falls back to GICv2.
 	if( is_virt_arch &&
 		( Computer_Type.contains( "aarch64", Qt::CaseInsensitive ) ||
-		  Computer_Type.contains( "qemu-system-arm", Qt::CaseInsensitive ) ) )
-		props << "gic-version=max";
+		  Computer_Type.contains( "qemu-system-arm", Qt::CaseInsensitive ) ) &&
+		effective_machine.contains( QLatin1String( "virt" ), Qt::CaseInsensitive ) )
+	{
+		props << QStringLiteral( "gic-version=3" );
+		props << QStringLiteral( "highmem=on" );
+		props << QStringLiteral( "its=on" );
+	}
 
 	bool use_separate_tcg_accel = false;
 	#ifdef Q_OS_WIN32
@@ -6117,7 +6107,18 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	}
 	
 	// CD-ROM
-	if( CD_ROM.Get_Enabled() )
+	bool attach_cdrom = CD_ROM.Get_Enabled();
+	if( is_virt_arch )
+	{
+		// BVM firstboot attaches installer ISO; first_boot/normal omit it.
+		if( Win11_Lifecycle_Mode == VM::Win11_First_Boot )
+			attach_cdrom = false;
+		else if( Win11_Lifecycle_Mode == VM::Win11_Install &&
+				 QFile::exists( CD_ROM.Get_File_Name() ) )
+			attach_cdrom = true;
+	}
+
+	if( attach_cdrom )
     {
         if( CD_ROM.Get_Native_Mode() )
         {
@@ -6131,23 +6132,28 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		}
 		else if( is_virt_arch )
 		{
-			// UEFI virt: scsi-cd with bootindex from boot order (not IDE)
+			// UEFI virt + Windows ARM: present ISO as USB mass storage (BVM / virtio-win).
 			if( QFile::exists(CD_ROM.Get_File_Name()) || Build_QEMU_Args_for_Tab_Info )
 			{
-				has_virt_scsi = true;
 				const int cd_boot = Bootindex_For( *this, VM::Boot_From_CDROM );
-				// cache=unsafe is ideal for read-only ISOs (host page cache, no flush tax)
-				const QString drive = QString( "file=%1,if=none,id=aqemu-cdrom,format=raw,media=cdrom,readonly=on,cache=unsafe,aio=threads" )
+				// Match virtio-win QEMU ARM guide: usb-storage + media=cdrom.
+				const QString drive = QString(
+					"file=%1,if=none,id=aqemu-cdrom,format=raw,media=cdrom,readonly=on,cache=unsafe,aio=threads" )
 					.arg( CD_ROM.Get_File_Name() );
+				const QString usb_dev = With_Bootindex(
+					QStringLiteral( "usb-storage,bus=aqemu_iso_xhci.0,drive=aqemu-cdrom" ),
+					cd_boot );
 				if( Build_QEMU_Args_for_Script_Mode )
 				{
-					StorageArgs << "-device" << QString( "scsi-cd,bus=aq-vscsi.0,drive=aqemu-cdrom,bootindex=%1" ).arg( cd_boot );
+					StorageArgs << "-device" << "qemu-xhci,id=aqemu_iso_xhci";
 					StorageArgs << "-drive" << "\"" + drive + "\"";
+					StorageArgs << "-device" << usb_dev;
 				}
 				else
 				{
-					StorageArgs << "-device" << QString( "scsi-cd,bus=aq-vscsi.0,drive=aqemu-cdrom,bootindex=%1" ).arg( cd_boot );
+					StorageArgs << "-device" << "qemu-xhci,id=aqemu_iso_xhci";
 					StorageArgs << "-drive" << drive;
+					StorageArgs << "-device" << usb_dev;
 				}
 			}
 		}
@@ -6211,7 +6217,8 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 					QString drive = QString( "file=%1,if=none,id=aqhd0,cache=none,aio=threads" )
 						.arg( HDA.Get_File_Name() );
 					#endif
-					const QString virtio_dev = QString( "virtio-blk-pci,drive=aqhd0,bootindex=%1" ).arg( hdd_boot );
+					const QString virtio_dev = With_Bootindex(
+						QStringLiteral( "virtio-blk-pci,drive=aqhd0" ), hdd_boot );
 					if( Build_QEMU_Args_for_Script_Mode )
 					{
 						StorageArgs << "-device" << virtio_dev;
@@ -7309,6 +7316,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 
 		bool added_xhci = false;
 		bool added_uhci = false;
+		QString usb_bus; // e.g. aqemu_mouse_xhci.0
 
 		auto ensure_usb_controller = [ & ]()
 		{
@@ -7330,6 +7338,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			{
 				Args << "-device" << "qemu-xhci,id=aqemu_mouse_xhci";
 				added_xhci = true;
+				usb_bus = QStringLiteral( "aqemu_mouse_xhci.0" );
 			}
 			else if( ctrl == "uhci" && ! added_uhci )
 			{
@@ -7349,7 +7358,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			QStringList props;
 			props << "id=aqemu_mouse";
 			if( added_xhci )
-				props << "bus=aqemu_mouse_xhci.0";
+				props << "bus=" + usb_bus;
 			if( ( mt == "usb-tablet" || mt == "usb-mouse" ) &&
 			    ( Mouse_USB_Version == 1 || Mouse_USB_Version == 2 ) )
 			{
@@ -7378,8 +7387,25 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		{
 			Args << "-device" << "qemu-xhci,id=aqemu_usb_hub";
 			added_xhci = true;
+			usb_bus = QStringLiteral( "aqemu_usb_hub.0" );
 			// Very old configs with USB_Hub but Mouse_Type still ps2 after a bad load:
 			// do not auto-add a second tablet here ? Mouse_Type is authoritative.
+		}
+
+		// aarch64/virt has no PS/2; Win11 installer needs usb-kbd before virtio drivers.
+		const bool need_usb_kbd =
+			Computer_Type.contains( "aarch64", Qt::CaseInsensitive ) ||
+			Computer_Type.contains( "qemu-system-arm", Qt::CaseInsensitive ) ||
+			Machine_Type.contains( "virt", Qt::CaseInsensitive );
+		if( need_usb_kbd )
+		{
+			if( ! added_xhci )
+			{
+				Args << "-device" << "qemu-xhci,id=aqemu_kbd_xhci";
+				usb_bus = QStringLiteral( "aqemu_kbd_xhci.0" );
+				added_xhci = true;
+			}
+			Args << "-device" << ( "usb-kbd,bus=" + usb_bus );
 		}
 	}
 	
@@ -7844,13 +7870,15 @@ QStringList Virtual_Machine::Build_Native_Device_Args( VM_Native_Storage_Device 
 		(device.Get_Media() == VM::DM_CD_ROM ? "scsi-cd" : "scsi-hd");
 	    const int boot_idx = Bootindex_For( *this,
 		device.Get_Media() == VM::DM_CD_ROM ? VM::Boot_From_CDROM : VM::Boot_From_HDD );
-	    args << "-device" << devtype + ",bus=aq-vscsi.0,drive=" + vsname + ",bootindex=" + QString::number( boot_idx );
+	    args << "-device" << With_Bootindex(
+		devtype + ",bus=aq-vscsi.0,drive=" + vsname, boot_idx );
 	}
 	else if( device.Get_Interface() == VM::DI_Virtio && virt_arch_blk &&
 			 ( ! device.Use_Media() || device.Get_Media() == VM::DM_Disk ) )
 	{
 		const int boot_idx = Bootindex_For( *this, VM::Boot_From_HDD );
-		args << "-device" << "virtio-blk-pci,drive=" + vsname + ",bootindex=" + QString::number( boot_idx );
+		args << "-device" << With_Bootindex(
+			"virtio-blk-pci,drive=" + vsname, boot_idx );
 	}
 	args << "-drive" << driveStr;
 	return args;
@@ -8086,6 +8114,14 @@ bool Virtual_Machine::Start_impl()
         AQDebug( "bool Virtual_Machine::Start()",
                  QString( "Starting: \"%1\" %2" ).arg( bin_path, qemu_args.join( " " ) ) );
         QEMU_Process->start( bin_path, qemu_args );
+		if( ! QEMU_Process->waitForStarted( 15000 ) )
+		{
+			AQGraphic_Error( "bool Virtual_Machine::Start()", tr( "Error!" ),
+			                 tr( "Failed to start QEMU:\n%1" )
+			                     .arg( QEMU_Process->errorString() ), false );
+			Start_Snapshot_Tag = "";
+			return false;
+		}
     }
 
     // Do NOT Start CPU
@@ -9849,6 +9885,16 @@ bool Virtual_Machine::Use_VirtIO_Keyboard() const
 void Virtual_Machine::Use_VirtIO_Keyboard( bool use )
 {
 	VirtIO_Keyboard = use;
+}
+
+VM::Win11_Lifecycle_Mode Virtual_Machine::Get_Win11_Lifecycle_Mode() const
+{
+	return Win11_Lifecycle_Mode;
+}
+
+void Virtual_Machine::Set_Win11_Lifecycle_Mode( VM::Win11_Lifecycle_Mode mode )
+{
+	Win11_Lifecycle_Mode = mode;
 }
 
 bool Virtual_Machine::Use_KVM() const

@@ -16,6 +16,8 @@
 #include <QMainWindow>
 #include <QMenuBar>
 #include <QApplication>
+#include <QTcpSocket>
+#include <QHostAddress>
 
 #include "VM.h"
 #include "QMP_Client.h"
@@ -76,6 +78,9 @@ VM_Session_Widget::VM_Session_Widget( QWidget *parent )
 	, Toolbar_Hide_Timer( new QTimer( this ) )
 	, Toolbar_Show_Timer( new QTimer( this ) )
 	, Drive_Poll_Timer( new QTimer( this ) )
+	, Display_Connect_Timer( new QTimer( this ) )
+	, Display_Connect_Attempts( 0 )
+	, Display_Connect_In_Progress( false )
 	, Fullscreen_Active( false )
 	, Fullscreen_Toolbar_Visible( false )
 	, Main_Chrome_Hidden( false )
@@ -96,6 +101,9 @@ VM_Session_Widget::VM_Session_Widget( QWidget *parent )
 	Build_Toolbar();
 	Main_Layout->addWidget( Toolbar );
 	Main_Layout->addWidget( Stack, 1 );
+
+	Display_Connect_Timer->setSingleShot( true );
+	connect( Display_Connect_Timer, SIGNAL(timeout()), this, SLOT(Try_Connect_Display()) );
 
 	Toolbar_Hide_Timer->setSingleShot( true );
 	Toolbar_Hide_Timer->setInterval( kToolbarHideMs );
@@ -436,6 +444,9 @@ void VM_Session_Widget::Attach_VM( Virtual_Machine *vm, QMP_Client *qmp,
 	Spice_Port = spice_port;
 	Vnc_Port = vnc_port;
 	Backend = Pick_Backend( preferred_backend );
+	Display_Connect_Attempts = 0;
+	Display_Connect_In_Progress = false;
+	Display_Connect_Timer->stop();
 
 	if( QMP_Client *q = Active_QMP() )
 	{
@@ -462,37 +473,11 @@ void VM_Session_Widget::Attach_VM( Virtual_Machine *vm, QMP_Client *qmp,
 		return;
 	}
 
-	if( Backend == "spice" && Spice_Port > 0 && Spice && Spice->Spice_Available() )
-	{
-		Stack->setCurrentWidget( Spice );
-		Spice->Connect_To( Host, Spice_Port );
-	}
-	else
-	{
-#ifdef VNC_DISPLAY
-		Backend = "vnc";
-		if( Vnc && Vnc_Port > 0 )
-		{
-			Placeholder->setText( tr( "Connecting VNC display on %1:%2…" )
-				.arg( Host ).arg( Vnc_Port ) );
-			Stack->setCurrentWidget( Vnc );
-			Vnc->Set_VNC_URL( Host, Vnc_Port );
-			Vnc->Set_Scaling( true );
-			Vnc->initView();
-			connect( Vnc, SIGNAL(Connected()), this, SLOT(On_Display_Connected()), Qt::UniqueConnection );
-		}
-		else
-#endif
-		{
-			Placeholder->setText( tr(
-				"QEMU is running headless (SPICE %1 / VNC %2).\n"
-				"Build with LibVNC (drop WITHOUT_EMBEDDED_DISPLAY) or spice-gtk "
-				"(-DAQEMU_WITH_SPICE_GTK=ON) to embed the guest display.\n"
-				"Use Exit View to return to the VM list; the guest keeps running." )
-				.arg( Spice_Port ).arg( Vnc_Port ) );
-			Stack->setCurrentWidget( Placeholder );
-		}
-	}
+	// Wait until QEMU is actually listening — early SPICE connect causes
+	// "incomplete link header" and a broken VNC fallback popup.
+	Placeholder->setText( tr( "Waiting for guest display…" ) );
+	Stack->setCurrentWidget( Placeholder );
+	Schedule_Display_Connect( 250 );
 
 	if( ! Fullscreen_Active )
 		Set_Toolbar_In_Layout();
@@ -500,9 +485,90 @@ void VM_Session_Widget::Attach_VM( Virtual_Machine *vm, QMP_Client *qmp,
 	Update_Media_Actions();
 }
 
+bool VM_Session_Widget::Tcp_Port_Is_Open( const QString &host, int port ) const
+{
+	if( port <= 0 )
+		return false;
+	QTcpSocket sock;
+	sock.connectToHost( host, static_cast<quint16>( port ) );
+	const bool ok = sock.waitForConnected( 200 );
+	if( ok )
+		sock.disconnectFromHost();
+	return ok;
+}
+
+void VM_Session_Widget::Schedule_Display_Connect( int delay_ms )
+{
+	Display_Connect_Timer->stop();
+	Display_Connect_Timer->start( qMax( 50, delay_ms ) );
+}
+
+void VM_Session_Widget::Try_Connect_Display()
+{
+	if( ! VM )
+		return;
+
+	const bool want_spice = ( Backend == "spice" && Spice_Port > 0 && Spice && Spice->Spice_Available() );
+	const int port = want_spice ? Spice_Port : Vnc_Port;
+	if( port <= 0 )
+		return;
+
+	if( ! Tcp_Port_Is_Open( Host, port ) )
+	{
+		++Display_Connect_Attempts;
+		if( Display_Connect_Attempts < 40 )
+		{
+			Placeholder->setText( tr( "Waiting for guest display… (%1)" )
+				.arg( Display_Connect_Attempts ) );
+			Stack->setCurrentWidget( Placeholder );
+			Schedule_Display_Connect( 400 );
+			return;
+		}
+		Placeholder->setText( tr(
+			"Guest display did not open on %1:%2.\n"
+			"QEMU may still be starting, or SPICE/VNC failed to bind." )
+			.arg( Host ).arg( port ) );
+		Stack->setCurrentWidget( Placeholder );
+		return;
+	}
+
+	Display_Connect_In_Progress = true;
+
+	if( want_spice )
+	{
+		Stack->setCurrentWidget( Spice );
+		Spice->Connect_To( Host, Spice_Port );
+		return;
+	}
+
+#ifdef VNC_DISPLAY
+	if( Vnc && Vnc_Port > 0 )
+	{
+		Backend = "vnc";
+		Placeholder->setText( tr( "Connecting VNC display on %1:%2…" )
+			.arg( Host ).arg( Vnc_Port ) );
+		Stack->setCurrentWidget( Vnc );
+		Vnc->Set_VNC_URL( Host, Vnc_Port );
+		Vnc->Set_Scaling( true );
+		Vnc->initView();
+		connect( Vnc, SIGNAL(Connected()), this, SLOT(On_Display_Connected()), Qt::UniqueConnection );
+		return;
+	}
+#endif
+
+	Placeholder->setText( tr(
+		"QEMU is running headless (SPICE %1 / VNC %2).\n"
+		"Build with LibVNC or spice-client-glib to embed the guest display." )
+		.arg( Spice_Port ).arg( Vnc_Port ) );
+	Stack->setCurrentWidget( Placeholder );
+}
+
 void VM_Session_Widget::Detach()
 {
 	Drive_Poll_Timer->stop();
+	Display_Connect_Timer->stop();
+	Display_Connect_In_Progress = false;
+	Display_Connect_Attempts = 0;
 	Last_Drive_IO.clear();
 	Toolbar_Show_Timer->stop();
 	Toolbar_Hide_Timer->stop();
@@ -635,24 +701,32 @@ void VM_Session_Widget::On_Block_Stats( const QJsonArray &stats )
 
 void VM_Session_Widget::On_Display_Connected()
 {
+	Display_Connect_In_Progress = false;
+	Display_Connect_Attempts = 0;
 	Placeholder->setText( tr( "Connected." ) );
 }
 
 void VM_Session_Widget::On_Display_Error( const QString &msg )
 {
 	AQWarning( "VM_Session_Widget", msg );
-#ifdef VNC_DISPLAY
-	if( Backend == "spice" && Vnc_Port > 0 && Vnc )
+
+	// Retry SPICE — QEMU often accepts TCP before the SPICE handshake is ready.
+	if( Backend == "spice" && Spice_Port > 0 && Spice && Spice->Spice_Available()
+	    && Display_Connect_Attempts < 40 )
 	{
-		Backend = "vnc";
-		Stack->setCurrentWidget( Vnc );
-		Vnc->Set_VNC_URL( Host, Vnc_Port );
-		Vnc->Set_Scaling( true );
-		Vnc->initView();
+		++Display_Connect_Attempts;
+		if( Spice )
+			Spice->Disconnect();
+		Placeholder->setText( tr( "Retrying guest display… (%1)" )
+			.arg( Display_Connect_Attempts ) );
+		Stack->setCurrentWidget( Placeholder );
+		Schedule_Display_Connect( 500 );
 		return;
 	}
-#endif
-	Placeholder->setText( tr( "Display error: %1" ).arg( msg ) );
+
+	Display_Connect_In_Progress = false;
+	Placeholder->setText( tr( "Display error: %1\nWaiting / retry from Start if the guest is still booting." )
+		.arg( msg ) );
 	Stack->setCurrentWidget( Placeholder );
 }
 

@@ -387,6 +387,9 @@ class Virtual_Machine: public QObject
 		
 		bool Use_VirtIO_Keyboard() const;
 		void Use_VirtIO_Keyboard( bool use );
+
+		VM::Win11_Lifecycle_Mode Get_Win11_Lifecycle_Mode() const;
+		void Set_Win11_Lifecycle_Mode( VM::Win11_Lifecycle_Mode mode );
 		
 		bool Use_KVM() const;
 		void Use_KVM( bool use );
@@ -655,6 +658,8 @@ class Virtual_Machine: public QObject
 		bool VirtIO_RNG;
 		bool VirtIO_Balloon;
 		bool VirtIO_Keyboard;
+
+		VM::Win11_Lifecycle_Mode Win11_Lifecycle_Mode;
 		
 		bool Enable_KVM;
 		bool KVM_IRQChip;

@@ -94,6 +94,8 @@ class Main_Window: public QMainWindow
 		void Set_Widgets_State( bool enabled );
 		void VM_Changed();
 		void Update_Mouse_Options_Enabled();
+		void Sync_Mouse_Pointer_Mode_From_Type();
+		void On_Mouse_Pointer_Mode_Changed();
 		void Update_Emulator_Control( Virtual_Machine *cur_vm );
 		
         void SB_VNC_Display_changed(int);
@@ -152,6 +154,11 @@ class Main_Window: public QMainWindow
 		
 		void on_CH_Local_Time_toggled( bool on );
 		void on_Button_VirtIO_Defaults_clicked();
+		void on_Button_Win11_Install_clicked();
+		void on_Button_Win11_First_Boot_clicked();
+		void on_Button_Win11_Normal_clicked();
+		void Apply_Win11_Lifecycle_Mode( VM::Win11_Lifecycle_Mode mode );
+		void Update_Win11_Lifecycle_Ui();
 		
 		// Memory
 		void on_Memory_Size_valueChanged( int value );
@@ -235,6 +242,7 @@ class Main_Window: public QMainWindow
 		void Update_Recent_Floppy_Images_List();
         void Computer_Type_Changed();
         void Update_Machine_Accelerators();
+        void Enforce_Accel_Honesty();
         void Update_Accelerator_Options();
         void Update_Computer_Types();
 		void Fill_Display_Resolution_Combo();
@@ -242,6 +250,7 @@ class Main_Window: public QMainWindow
 		void Apply_Display_Resolution_To_Ui( const QString &res );
 		void Fill_Mouse_Combos();
 		void Apply_Mouse_Settings_To_Ui( const Virtual_Machine *vm );
+		static bool Mouse_Type_Is_Seamless( const QString &mouse_type );
 		void Schedule_Auto_Save();
 		
 		QString Get_Storage_Device_Info_String( const QString &path );

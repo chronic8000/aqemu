@@ -15,6 +15,7 @@
 #include <QTimer>
 #include <QVBoxLayout>
 #include <QApplication>
+#include <QCursor>
 #include <cstring>
 
 #include "Utils.h"
@@ -32,7 +33,8 @@ namespace {
 static void Quiet_GSpice_Log( const gchar *domain, GLogLevelFlags flags,
                               const gchar *message, gpointer )
 {
-	if( message && ( strstr( message, "gl-scanout" ) || strstr( message, "UsbDk" ) ) )
+	if( message && ( strstr( message, "gl-scanout" ) || strstr( message, "UsbDk" )
+	                 || strstr( message, "incomplete link header" ) ) )
 		return;
 	g_log_default_handler( domain, flags, message, nullptr );
 }
@@ -76,6 +78,7 @@ Spice_View::Spice_View( QWidget *parent )
 	, Port( 0 )
 	, Connected_Flag( false )
 	, Connected_Emitted( false )
+	, Error_Emitted( false )
 	, Primary_Width( 0 )
 	, Primary_Height( 0 )
 	, Primary_Stride( 0 )
@@ -85,8 +88,13 @@ Spice_View::Spice_View( QWidget *parent )
 	, Session( nullptr )
 	, Display( nullptr )
 	, Inputs( nullptr )
+	, Main( nullptr )
 	, Button_Mask( 0 )
 	, Display_Id( 0 )
+	, Client_Mouse_Mode( false )
+	, Mouse_Captured( false )
+	, Ignore_Warp_Event( false )
+	, Have_Last_Guest_Pos( false )
 #endif
 {
 	setFocusPolicy( Qt::StrongFocus );
@@ -151,6 +159,10 @@ void Spice_View::Connect_To( const QString &host, int port )
 	Disconnect();
 
 #if defined(AQEMU_HAVE_SPICE_GLIB) || defined(AQEMU_HAVE_SPICE_GTK)
+	Connected_Flag = false;
+	Connected_Emitted = false;
+	Error_Emitted = false;
+
 	Status->show();
 	Status->setText( tr( "SPICE: connecting to %1:%2 …" ).arg( host ).arg( port ) );
 
@@ -172,7 +184,11 @@ void Spice_View::Connect_To( const QString &host, int port )
 		Status->setText( tr( "SPICE session connect failed." ) );
 		Connected_Flag = false;
 		g_clear_object( &Session );
-		emit Connection_Error( tr( "spice_session_connect failed" ) );
+		if( ! Error_Emitted )
+		{
+			Error_Emitted = true;
+			emit Connection_Error( tr( "spice_session_connect failed" ) );
+		}
 		return;
 	}
 
@@ -206,13 +222,19 @@ void Spice_View::Disconnect()
 	}
 	Display = nullptr;
 	Inputs = nullptr;
+	Main = nullptr;
 	Primary_Data = nullptr;
 	Button_Mask = 0;
+	Client_Mouse_Mode = false;
+	Set_Mouse_Captured( false );
+	Ignore_Warp_Event = false;
+	Have_Last_Guest_Pos = false;
 #endif
 
 	const bool was = Connected_Flag;
 	Connected_Flag = false;
 	Connected_Emitted = false;
+	Error_Emitted = false;
 	Primary_Width = Primary_Height = Primary_Stride = 0;
 	Primary_Bytes.clear();
 	Frame = QImage();
@@ -283,6 +305,90 @@ void Spice_View::On_Invalidate( SpiceChannel *, int x, int y, int w, int h, void
 	static_cast<Spice_View *>( user )->Copy_Invalidate( x, y, w, h );
 }
 
+void Spice_View::On_Mouse_Mode( void *, void *, void *user )
+{
+	static_cast<Spice_View *>( user )->Refresh_Mouse_Mode();
+}
+
+void Spice_View::Refresh_Mouse_Mode()
+{
+	if( ! Main )
+		return;
+
+	gint mode = 0;
+	g_object_get( Main, "mouse-mode", &mode, nullptr );
+	// CLIENT = absolute (usb-tablet); SERVER = relative (PS/2)
+	const bool client = ( mode & SPICE_MOUSE_MODE_CLIENT ) != 0;
+	if( client != Client_Mouse_Mode )
+	{
+		Client_Mouse_Mode = client;
+		Have_Last_Guest_Pos = false;
+		if( Client_Mouse_Mode )
+			Set_Mouse_Captured( false );
+		AQDebug( "Spice_View::Refresh_Mouse_Mode()",
+		         Client_Mouse_Mode ? "client/absolute (seamless)" : "server/relative (click to capture)" );
+	}
+	else
+	{
+		Client_Mouse_Mode = client;
+	}
+}
+
+void Spice_View::Set_Mouse_Captured( bool captured )
+{
+	if( captured == Mouse_Captured )
+		return;
+
+	Mouse_Captured = captured;
+	Have_Last_Guest_Pos = false;
+	Ignore_Warp_Event = false;
+
+	if( Mouse_Captured )
+	{
+		grabMouse();
+		setFocus( Qt::MouseFocusReason );
+		Set_Local_Cursor_Hidden( true );
+		Warp_Pointer_To_Center();
+	}
+	else
+	{
+		releaseMouse();
+		// Keep host cursor hidden only while hovering in absolute mode.
+		if( ! Client_Mouse_Mode )
+			Set_Local_Cursor_Hidden( false );
+	}
+}
+
+void Spice_View::Warp_Pointer_To_Center()
+{
+	const QPoint center = mapToGlobal( QPoint( width() / 2, height() / 2 ) );
+	Ignore_Warp_Event = true;
+	QCursor::setPos( center );
+	Have_Last_Guest_Pos = false;
+}
+
+void Spice_View::Send_Pointer( const QPoint &guest_pos, bool have_pos )
+{
+	if( ! Inputs || ! Connected_Flag )
+		return;
+
+	if( Client_Mouse_Mode )
+	{
+		if( ! have_pos )
+			return;
+		spice_inputs_channel_position( Inputs, guest_pos.x(), guest_pos.y(),
+		                               Display_Id, Button_Mask );
+		Last_Guest_Pos = guest_pos;
+		Have_Last_Guest_Pos = true;
+		return;
+	}
+
+	// Relative / server mode without capture: do not drive the guest from
+	// unconstrained host motion (cursor escapes the window before corners).
+	if( ! Mouse_Captured )
+		return;
+}
+
 void Spice_View::Attach_Channel( SpiceChannel *channel )
 {
 	g_signal_connect( channel, "channel-event",
@@ -305,9 +411,17 @@ void Spice_View::Attach_Channel( SpiceChannel *channel )
 		Inputs = SPICE_INPUTS_CHANNEL( channel );
 		spice_channel_connect( channel );
 	}
+	else if( SPICE_IS_MAIN_CHANNEL( channel ) )
+	{
+		Main = SPICE_MAIN_CHANNEL( channel );
+		g_signal_connect( channel, "notify::mouse-mode",
+		                  G_CALLBACK( Spice_View::On_Mouse_Mode ), this );
+		spice_channel_connect( channel );
+		Refresh_Mouse_Mode();
+	}
 	else
 	{
-		// Main / cursor / playback / etc. — open so the session completes.
+		// Cursor / playback / etc. — open so the session completes.
 		spice_channel_connect( channel );
 	}
 }
@@ -318,6 +432,12 @@ void Spice_View::Detach_Channel( SpiceChannel *channel )
 		Display = nullptr;
 	if( channel == SPICE_CHANNEL( Inputs ) )
 		Inputs = nullptr;
+	if( channel == SPICE_CHANNEL( Main ) )
+	{
+		Main = nullptr;
+		Client_Mouse_Mode = false;
+		Have_Last_Guest_Pos = false;
+	}
 }
 
 void Spice_View::Handle_Channel_Event( SpiceChannel *channel, int event )
@@ -333,7 +453,12 @@ void Spice_View::Handle_Channel_Event( SpiceChannel *channel, int event )
 			Connected_Flag = false;
 			Status->show();
 			Status->setText( tr( "SPICE channel error (%1)" ).arg( event ) );
-			emit Connection_Error( tr( "SPICE channel error %1" ).arg( event ) );
+			// Debounce: one error per Connect_To attempt (channels fire many events).
+			if( ! Error_Emitted )
+			{
+				Error_Emitted = true;
+				emit Connection_Error( tr( "SPICE channel error %1" ).arg( event ) );
+			}
 			break;
 		default:
 			break;
@@ -645,14 +770,26 @@ void Spice_View::showEvent( QShowEvent *event )
 void Spice_View::enterEvent( QEvent *event )
 {
 	Guest_Display_View::enterEvent( event );
+#if defined(AQEMU_HAVE_SPICE_GLIB) || defined(AQEMU_HAVE_SPICE_GTK)
+	Have_Last_Guest_Pos = false; // avoid a huge relative jump on enter
+	// Absolute: hide host cursor (guest draws it). Relative uncaptured: keep arrow so
+	// the user can click to grab. Captured: already blank.
+	if( Connected_Flag && ( Client_Mouse_Mode || Mouse_Captured ) )
+		Set_Local_Cursor_Hidden( true );
+#else
 	if( Connected_Flag )
 		Set_Local_Cursor_Hidden( true );
+#endif
 }
 
 void Spice_View::leaveEvent( QEvent *event )
 {
 	Guest_Display_View::leaveEvent( event );
-	// Restore host cursor when leaving the guest pane (toolbar, etc.).
+#if defined(AQEMU_HAVE_SPICE_GLIB) || defined(AQEMU_HAVE_SPICE_GTK)
+	// Keep blank cursor while grabbed — leave events still fire with grabMouse().
+	if( Mouse_Captured )
+		return;
+#endif
 	Set_Local_Cursor_Hidden( false );
 }
 
@@ -661,11 +798,30 @@ void Spice_View::mouseMoveEvent( QMouseEvent *event )
 #if defined(AQEMU_HAVE_SPICE_GLIB) || defined(AQEMU_HAVE_SPICE_GTK)
 	if( Inputs && Connected_Flag )
 	{
-		const QPoint g = Guest_From_Widget( event->pos() );
-		if( g.x() >= 0 )
+		Button_Mask = Qt_Buttons_To_Mask( event->buttons() );
+
+		if( Client_Mouse_Mode )
 		{
-			Button_Mask = Qt_Buttons_To_Mask( event->buttons() );
-			spice_inputs_channel_position( Inputs, g.x(), g.y(), Display_Id, Button_Mask );
+			const QPoint g = Guest_From_Widget( event->pos() );
+			Send_Pointer( g, g.x() >= 0 );
+		}
+		else if( Mouse_Captured )
+		{
+			if( Ignore_Warp_Event )
+			{
+				Ignore_Warp_Event = false;
+				Guest_Display_View::mouseMoveEvent( event );
+				return;
+			}
+
+			const QPoint center( width() / 2, height() / 2 );
+			const int dx = event->pos().x() - center.x();
+			const int dy = event->pos().y() - center.y();
+			if( dx != 0 || dy != 0 )
+			{
+				spice_inputs_channel_motion( Inputs, dx, dy, Button_Mask );
+				Warp_Pointer_To_Center();
+			}
 		}
 	}
 #endif
@@ -678,11 +834,31 @@ void Spice_View::mousePressEvent( QMouseEvent *event )
 #if defined(AQEMU_HAVE_SPICE_GLIB) || defined(AQEMU_HAVE_SPICE_GTK)
 	if( Inputs && Connected_Flag )
 	{
-		const QPoint g = Guest_From_Widget( event->pos() );
+		// Relative mode: middle-click releases capture (does not go to guest).
+		if( ! Client_Mouse_Mode && Mouse_Captured
+		    && event->button() == Qt::MiddleButton )
+		{
+			Set_Mouse_Captured( false );
+			event->accept();
+			return;
+		}
+
+		// Relative mode: first click in the guest pane captures the mouse.
+		if( ! Client_Mouse_Mode && ! Mouse_Captured )
+		{
+			const QPoint g = Guest_From_Widget( event->pos() );
+			if( g.x() >= 0 )
+				Set_Mouse_Captured( true );
+		}
+
 		Button_Mask = Qt_Buttons_To_Mask( event->buttons() );
-		if( g.x() >= 0 )
-			spice_inputs_channel_position( Inputs, g.x(), g.y(), Display_Id, Button_Mask );
-		Send_Mouse_Buttons( Qt_Button_To_Spice( event->button() ), true );
+		if( Client_Mouse_Mode )
+		{
+			const QPoint g = Guest_From_Widget( event->pos() );
+			Send_Pointer( g, g.x() >= 0 );
+		}
+		if( Client_Mouse_Mode || Mouse_Captured )
+			Send_Mouse_Buttons( Qt_Button_To_Spice( event->button() ), true );
 	}
 #endif
 	Guest_Display_View::mousePressEvent( event );
@@ -693,11 +869,23 @@ void Spice_View::mouseReleaseEvent( QMouseEvent *event )
 #if defined(AQEMU_HAVE_SPICE_GLIB) || defined(AQEMU_HAVE_SPICE_GTK)
 	if( Inputs && Connected_Flag )
 	{
+		// Middle was used only to release capture — no guest button event.
+		if( ! Client_Mouse_Mode && event->button() == Qt::MiddleButton
+		    && ! Mouse_Captured )
+		{
+			event->accept();
+			Guest_Display_View::mouseReleaseEvent( event );
+			return;
+		}
+
 		Button_Mask = Qt_Buttons_To_Mask( event->buttons() );
-		Send_Mouse_Buttons( Qt_Button_To_Spice( event->button() ), false );
-		const QPoint g = Guest_From_Widget( event->pos() );
-		if( g.x() >= 0 )
-			spice_inputs_channel_position( Inputs, g.x(), g.y(), Display_Id, Button_Mask );
+		if( Client_Mouse_Mode || Mouse_Captured )
+			Send_Mouse_Buttons( Qt_Button_To_Spice( event->button() ), false );
+		if( Client_Mouse_Mode )
+		{
+			const QPoint g = Guest_From_Widget( event->pos() );
+			Send_Pointer( g, g.x() >= 0 );
+		}
 	}
 #endif
 	Guest_Display_View::mouseReleaseEvent( event );
@@ -722,6 +910,14 @@ void Spice_View::wheelEvent( QWheelEvent *event )
 void Spice_View::keyPressEvent( QKeyEvent *event )
 {
 #if defined(AQEMU_HAVE_SPICE_GLIB) || defined(AQEMU_HAVE_SPICE_GTK)
+	// Escape releases mouse capture in relative mode (does not go to guest).
+	if( Inputs && Connected_Flag && Mouse_Captured && ! Client_Mouse_Mode
+	    && event->key() == Qt::Key_Escape && ! event->isAutoRepeat() )
+	{
+		Set_Mouse_Captured( false );
+		event->accept();
+		return;
+	}
 	if( Inputs && Connected_Flag && ! event->isAutoRepeat() )
 	{
 		Send_Key( event, true );

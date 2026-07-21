@@ -899,19 +899,19 @@
                   </widget>
                  </item>
                  <item row="5" column="0">
-                  <widget class="QLabel" name="Label_Mouse_Type">
+                  <widget class="QLabel" name="Label_Mouse_Pointer_Mode">
                    <property name="text">
-                    <string>&amp;Mouse:</string>
+                    <string>Pointer mode:</string>
                    </property>
                    <property name="buddy">
-                    <cstring>CB_Mouse_Type</cstring>
+                    <cstring>CB_Mouse_Pointer_Mode</cstring>
                    </property>
                   </widget>
                  </item>
                  <item row="5" column="1" colspan="2">
-                  <widget class="QComboBox" name="CB_Mouse_Type">
+                  <widget class="QComboBox" name="CB_Mouse_Pointer_Mode">
                    <property name="toolTip">
-                    <string>Guest pointer device. USB Tablet (absolute) is recommended for remote/embedded displays so the cursor tracks without grab. PS/2 is relative (needs grab). VirtIO needs guest drivers. VMware mouse needs the vmware VGA + guest tools.</string>
+                    <string>Seamless: absolute tablet — host and guest cursors stay aligned, no grab. Relative: PS/2-style mouse — click the guest display to capture, middle-click or Escape to release. Use Relative for Windows 9x and other guests without a tablet driver.</string>
                    </property>
                    <property name="sizeAdjustPolicy">
                     <enum>QComboBox::AdjustToMinimumContentsLength</enum>
@@ -919,6 +919,26 @@
                   </widget>
                  </item>
                  <item row="6" column="0">
+                  <widget class="QLabel" name="Label_Mouse_Type">
+                   <property name="text">
+                    <string>&amp;Mouse device:</string>
+                   </property>
+                   <property name="buddy">
+                    <cstring>CB_Mouse_Type</cstring>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="6" column="1" colspan="2">
+                  <widget class="QComboBox" name="CB_Mouse_Type">
+                   <property name="toolTip">
+                    <string>QEMU pointer hardware. Usually set automatically by Pointer mode. USB Tablet = seamless. PS/2 = relative capture. VirtIO needs guest drivers. VMware mouse needs vmware VGA + guest tools.</string>
+                   </property>
+                   <property name="sizeAdjustPolicy">
+                    <enum>QComboBox::AdjustToMinimumContentsLength</enum>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="7" column="0">
                   <widget class="QLabel" name="Label_Mouse_USB_Controller">
                    <property name="text">
                     <string>USB controller:</string>
@@ -928,7 +948,7 @@
                    </property>
                   </widget>
                  </item>
-                 <item row="6" column="1" colspan="2">
+                 <item row="7" column="1" colspan="2">
                   <widget class="QComboBox" name="CB_Mouse_USB_Controller">
                    <property name="toolTip">
                     <string>Controller used when Mouse is a USB device. Auto picks UHCI (-usb) for PC machines and xHCI for virt/ARM. Win98 usually wants UHCI.</string>
@@ -938,7 +958,7 @@
                    </property>
                   </widget>
                  </item>
-                 <item row="7" column="0">
+                 <item row="8" column="0">
                   <widget class="QLabel" name="Label_Mouse_USB_Version">
                    <property name="text">
                     <string>USB version:</string>
@@ -948,7 +968,7 @@
                    </property>
                   </widget>
                  </item>
-                 <item row="7" column="1" colspan="2">
+                 <item row="8" column="1" colspan="2">
                   <widget class="QComboBox" name="CB_Mouse_USB_Version">
                    <property name="toolTip">
                     <string>usb_version property for usb-tablet / usb-mouse. USB 1.1 often works better with Windows 98.</string>
@@ -958,7 +978,7 @@
                    </property>
                   </widget>
                  </item>
-                 <item row="8" column="0">
+                 <item row="9" column="0">
                   <widget class="QLabel" name="Label_SPICE_Agent_Mouse">
                    <property name="text">
                     <string>SPICE agent mouse:</string>
@@ -968,10 +988,10 @@
                    </property>
                   </widget>
                  </item>
-                 <item row="8" column="1" colspan="2">
+                 <item row="9" column="1" colspan="2">
                   <widget class="QComboBox" name="CB_SPICE_Agent_Mouse">
                    <property name="toolTip">
-                    <string>QEMU -spice agent-mouse=on|off. Uses the SPICE vdagent in the guest when available. Leave Default unless you know you need it. Win98 has no vdagent — use USB Tablet instead.</string>
+                    <string>QEMU -spice agent-mouse=on|off. Uses the SPICE vdagent in the guest when available. Leave Default unless you know you need it. Win98 has no vdagent — use Relative pointer mode instead.</string>
                    </property>
                    <property name="sizeAdjustPolicy">
                     <enum>QComboBox::AdjustToMinimumContentsLength</enum>
@@ -1550,6 +1570,98 @@
                   </size>
                  </property>
                 </spacer>
+               </item>
+              </layout>
+             </widget>
+            </item>
+            <item>
+             <spacer name="verticalSpacer_win11_lifecycle">
+              <property name="orientation">
+               <enum>Qt::Vertical</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>20</width>
+                <height>16</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+            <item>
+             <widget class="Highlighted_Label" name="label_win11_lifecycle">
+              <property name="text">
+               <string>Windows 11 ARM</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QWidget" name="GB_Win11_Lifecycle" native="true">
+              <layout class="QVBoxLayout" name="verticalLayout_win11_lifecycle">
+               <property name="leftMargin">
+                <number>24</number>
+               </property>
+               <property name="topMargin">
+                <number>6</number>
+               </property>
+               <property name="rightMargin">
+                <number>6</number>
+               </property>
+               <property name="bottomMargin">
+                <number>6</number>
+               </property>
+               <item>
+                <widget class="QLabel" name="Label_Win11_Lifecycle_Status">
+                 <property name="text">
+                  <string>Mode: Normal</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <layout class="QHBoxLayout" name="horizontalLayout_win11_lifecycle_buttons">
+                 <item>
+                  <widget class="QPushButton" name="Button_Win11_Install">
+                   <property name="toolTip">
+                    <string>Install profile (BVM firstboot): ramfb only, USB installer ISO, CD boot first.</string>
+                   </property>
+                   <property name="text">
+                    <string>Install Windows</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QPushButton" name="Button_Win11_First_Boot">
+                   <property name="toolTip">
+                    <string>First boot / OOBE debug (BVM boot-ramfb): ramfb only, no installer ISO, HDD boot.</string>
+                   </property>
+                   <property name="text">
+                    <string>First boot</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QPushButton" name="Button_Win11_Normal">
+                   <property name="toolTip">
+                    <string>Daily use (BVM boot): virtio-gpu only, no installer ISO, HDD boot.</string>
+                   </property>
+                   <property name="text">
+                    <string>Normal</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <spacer name="horizontalSpacer_win11_lifecycle">
+                   <property name="orientation">
+                    <enum>Qt::Horizontal</enum>
+                   </property>
+                   <property name="sizeHint" stdset="0">
+                    <size>
+                     <width>40</width>
+                     <height>20</height>
+                    </size>
+                   </property>
+                  </spacer>
+                 </item>
+                </layout>
                </item>
               </layout>
              </widget>
@@ -3277,6 +3389,9 @@
             <property name="enabled">
              <bool>false</bool>
             </property>
+            <property name="visible">
+             <bool>false</bool>
+            </property>
             <property name="sizePolicy">
              <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
               <horstretch>0</horstretch>
@@ -3297,11 +3412,8 @@
             <property name="enabled">
              <bool>false</bool>
             </property>
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
+            <property name="visible">
+             <bool>false</bool>
             </property>
             <property name="text">
              <string>&amp;Discard Changes</string>

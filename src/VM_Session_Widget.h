@@ -72,6 +72,9 @@ class VM_Session_Widget : public QWidget
 		void On_Exit_View();
 		void On_Display_Connected();
 		void On_Display_Error( const QString &msg );
+		void Try_Connect_Display();
+		void Schedule_Display_Connect( int delay_ms );
+		bool Tcp_Port_Is_Open( const QString &host, int port ) const;
 		void On_Toolbar_Hide_Timeout();
 		void On_Toolbar_Show_Timeout();
 		void On_QMP_Connected();
@@ -137,6 +140,9 @@ class VM_Session_Widget : public QWidget
 		QTimer *Toolbar_Hide_Timer;
 		QTimer *Toolbar_Show_Timer;
 		QTimer *Drive_Poll_Timer;
+		QTimer *Display_Connect_Timer;
+		int Display_Connect_Attempts;
+		bool Display_Connect_In_Progress;
 		QHash<QString, qint64> Last_Drive_IO;
 		bool Fullscreen_Active;
 		bool Fullscreen_Toolbar_Visible;

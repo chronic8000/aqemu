@@ -31,6 +31,8 @@
 #include <QValidator>
 #include <QPainter>
 #include <QStandardItem>
+#include <QStandardItemModel>
+#include <QSysInfo>
 #include <QAbstractItemView>
 #include <QComboBox>
 #include <QTimer>
@@ -147,6 +149,7 @@ Main_Window::Main_Window( QWidget *parent )
 	fixComboElide( ui.CB_CPU_Type_Main );
 	fixComboElide( ui.CB_Video_Card );
 	fixComboElide( ui.CB_Display_Resolution );
+	fixComboElide( ui.CB_Mouse_Pointer_Mode );
 	fixComboElide( ui.CB_Mouse_Type );
 	fixComboElide( ui.CB_Mouse_USB_Controller );
 	fixComboElide( ui.CB_Mouse_USB_Version );
@@ -160,6 +163,10 @@ Main_Window::Main_Window( QWidget *parent )
 	Update_Display_Resolution_Enabled();
 	Fill_Mouse_Combos();
 	Update_Mouse_Options_Enabled();
+
+	// Settings auto-save on change — Apply/Cancel are unused.
+	ui.Button_Apply->hide();
+	ui.Button_Cancel->hide();
 
     ui.Tabs->setCurrentIndex(0);
     ui.Use_Linux_Boot_Widget->setEnabled(false);
@@ -453,10 +460,14 @@ void Main_Window::Connect_Signals()
 	connect( ui.CB_Keyboard_Layout, SIGNAL(currentIndexChanged(int)),
 			 this, SLOT(VM_Changed()) );
 
+	connect( ui.CB_Mouse_Pointer_Mode, SIGNAL(currentIndexChanged(int)),
+			 this, SLOT(On_Mouse_Pointer_Mode_Changed()) );
 	connect( ui.CB_Mouse_Type, SIGNAL(currentIndexChanged(int)),
 			 this, SLOT(VM_Changed()) );
 	connect( ui.CB_Mouse_Type, SIGNAL(currentIndexChanged(int)),
 			 this, SLOT(Update_Mouse_Options_Enabled()) );
+	connect( ui.CB_Mouse_Type, SIGNAL(currentIndexChanged(int)),
+			 this, SLOT(Sync_Mouse_Pointer_Mode_From_Type()) );
 	connect( ui.CB_Mouse_USB_Controller, SIGNAL(currentIndexChanged(int)),
 			 this, SLOT(VM_Changed()) );
 	connect( ui.CB_Mouse_USB_Version, SIGNAL(currentIndexChanged(int)),
@@ -508,6 +519,12 @@ void Main_Window::Connect_Signals()
 
 	connect( ui.Button_VirtIO_Defaults, SIGNAL(clicked()),
 			 this, SLOT(on_Button_VirtIO_Defaults_clicked()) );
+	connect( ui.Button_Win11_Install, SIGNAL(clicked()),
+			 this, SLOT(on_Button_Win11_Install_clicked()) );
+	connect( ui.Button_Win11_First_Boot, SIGNAL(clicked()),
+			 this, SLOT(on_Button_Win11_First_Boot_clicked()) );
+	connect( ui.Button_Win11_Normal, SIGNAL(clicked()),
+			 this, SLOT(on_Button_Win11_Normal_clicked()) );
 
 	connect( ui.CH_Fullscreen, SIGNAL(clicked()),
 			 this, SLOT(VM_Changed()) );
@@ -792,6 +809,15 @@ Available_Devices Main_Window::Get_Current_Machine_Devices( bool *ok ) const
 		return Available_Devices();
 	}
 
+	// UI not ready yet (startup / empty combo) — not an error.
+	if( ui.CB_Computer_Type->count() <= 0 ||
+		ui.CB_Computer_Type->currentIndex() < 0 ||
+		ui.CB_Computer_Type->currentText().isEmpty() )
+	{
+		*ok = false;
+		return Available_Devices();
+	}
+
 	// Find current device
 	for( QMap<QString, Available_Devices>::const_iterator ix = allDevList.constBegin(); ix != allDevList.constEnd(); ++ix )
 	{
@@ -799,6 +825,15 @@ Available_Devices Main_Window::Get_Current_Machine_Devices( bool *ok ) const
         {
 			*ok = true;
 			Available_Devices d = ix.value();
+			if( System_Info::Emulator_QEMU_2_0.contains( ix.key() ) )
+			{
+				const Available_Devices &fb = System_Info::Emulator_QEMU_2_0[ ix.key() ];
+				d.PSO_SMP_Count = qMax( d.PSO_SMP_Count, fb.PSO_SMP_Count );
+				d.PSO_SMP_Cores = d.PSO_SMP_Cores || fb.PSO_SMP_Cores;
+				d.PSO_SMP_Threads = d.PSO_SMP_Threads || fb.PSO_SMP_Threads;
+				d.PSO_SMP_Sockets = d.PSO_SMP_Sockets || fb.PSO_SMP_Sockets;
+				d.PSO_SMP_MaxCPUs = d.PSO_SMP_MaxCPUs || fb.PSO_SMP_MaxCPUs;
+			}
 			System_Info::Normalize_Virt_Arch_Devices( d );
 			return d;
 		}
@@ -831,6 +866,10 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
 
 	// UID
 	tmp_vm->Set_UID( old_vm->Get_UID() );
+
+	// Preserve runtime/state fields the UI does not edit
+	tmp_vm->Set_State( old_vm->Get_State() );
+	tmp_vm->Set_Snapshots( old_vm->Get_Snapshots() );
 
 	// Machine Name
 	if( ui.Edit_Machine_Name->text().isEmpty() )
@@ -871,8 +910,14 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
         return false;
     }
 
-    // Machine Accelerator
-    tmp_vm->Set_Machine_Accelerator( VM::String_To_Accel( ui.CB_Machine_Accelerator->currentText() ) );
+    // Machine Accelerator (prefer UserRole id over translated text)
+	{
+		const QVariant accel_data = ui.CB_Machine_Accelerator->currentData( Qt::UserRole );
+		if( accel_data.isValid() && ! accel_data.toString().isEmpty() )
+			tmp_vm->Set_Machine_Accelerator( VM::String_To_Accel( accel_data.toString() ) );
+		else
+			tmp_vm->Set_Machine_Accelerator( VM::String_To_Accel( ui.CB_Machine_Accelerator->currentText() ) );
+	}
 
 	// Computer Type
 	tmp_vm->Set_Computer_Type( curComp.System.QEMU_Name );
@@ -1155,6 +1200,7 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
 	tmp_vm->Use_VirtIO_Balloon( old_vm->Use_VirtIO_Balloon() );
 	tmp_vm->Use_VirtIO_Keyboard( old_vm->Use_VirtIO_Keyboard() );
 	tmp_vm->Use_USB_Hub( old_vm->Use_USB_Hub() );
+	tmp_vm->Set_Win11_Lifecycle_Mode( old_vm->Get_Win11_Lifecycle_Mode() );
 
 	// Additional QEMU Arguments
 	tmp_vm->Set_Additional_Args( ui_ao.Edit_Additional_Args->toPlainText() );
@@ -1484,9 +1530,12 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 	}
 
     int found = false;
+	const QString want_accel = VM::Accel_To_String( tmp_vm->Get_Machine_Accelerator() ).toLower();
 	for( int ix = 0; ix < ui.CB_Machine_Accelerator->count(); ix++ )
 	{
-		if( ui.CB_Machine_Accelerator->itemText(ix).toLower() == VM::Accel_To_String(tmp_vm->Get_Machine_Accelerator()).toLower() )
+		const QString id = ui.CB_Machine_Accelerator->itemData( ix, Qt::UserRole ).toString().toLower();
+		const QString caption = ui.CB_Machine_Accelerator->itemText( ix ).toLower();
+		if( id == want_accel || caption == want_accel )
 		{
 			ui.CB_Machine_Accelerator->setCurrentIndex( ix );
             found = true;
@@ -1499,6 +1548,8 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
     	ui.CB_Machine_Accelerator->setCurrentIndex( 0 );
     }
 
+	Enforce_Accel_Honesty();
+
 	/*if( ui.CB_Machine_Accelerator->count() <= 0 )
 	{
 		AQError( "void Main_Window::Update_VM_Ui()",
@@ -1508,6 +1559,15 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 
 	// Get current VM devices
 	Available_Devices curComp = tmp_vm->Get_Emulator().Get_Devices()[ tmp_vm->Get_Computer_Type() ];
+	if( System_Info::Emulator_QEMU_2_0.contains( tmp_vm->Get_Computer_Type() ) )
+	{
+		const Available_Devices &fb = System_Info::Emulator_QEMU_2_0[ tmp_vm->Get_Computer_Type() ];
+		curComp.PSO_SMP_Count = qMax( curComp.PSO_SMP_Count, fb.PSO_SMP_Count );
+		curComp.PSO_SMP_Cores = curComp.PSO_SMP_Cores || fb.PSO_SMP_Cores;
+		curComp.PSO_SMP_Threads = curComp.PSO_SMP_Threads || fb.PSO_SMP_Threads;
+		curComp.PSO_SMP_Sockets = curComp.PSO_SMP_Sockets || fb.PSO_SMP_Sockets;
+		curComp.PSO_SMP_MaxCPUs = curComp.PSO_SMP_MaxCPUs || fb.PSO_SMP_MaxCPUs;
+	}
 	System_Info::Normalize_Virt_Arch_Devices( curComp );
 
 	if( curComp.System.QEMU_Name.isEmpty() )
@@ -1592,11 +1652,6 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 
 	Apply_Display_Resolution_To_Ui( tmp_vm->Get_Display_Resolution() );
 	Update_Display_Resolution_Enabled();
-
-	// Count CPU's
-	ui.CB_CPU_Count->setEditText( QString::number(tmp_vm->Get_SMP_CPU_Count()) );
-    SMP_Settings->Set_Values( tmp_vm->Get_SMP(), curComp.PSO_SMP_Count, curComp.PSO_SMP_Cores,
-							 curComp.PSO_SMP_Threads, curComp.PSO_SMP_Sockets, curComp.PSO_SMP_MaxCPUs );
 
 	// Keyboard Layout
 	int lang_index = ui.CB_Keyboard_Layout->findText( tmp_vm->Get_Keyboard_Layout() );
@@ -1902,7 +1957,13 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
     {
     	Update_Info_Text();
     }
+	Update_Win11_Lifecycle_Ui();
 	Update_Disabled_Controls(); // FIXME
+
+	// CPU count AFTER Update_Disabled_Controls — that rebuilds the combo and used to wipe this to 1.
+	ui.CB_CPU_Count->setEditText( QString::number( tmp_vm->Get_SMP_CPU_Count() ) );
+	SMP_Settings->Set_Values( tmp_vm->Get_SMP(), curComp.PSO_SMP_Count, curComp.PSO_SMP_Cores,
+							  curComp.PSO_SMP_Threads, curComp.PSO_SMP_Sockets, curComp.PSO_SMP_MaxCPUs );
 
     /* TODO: POST 0.9.1
     QString info_text = tr("Machine:") + " " + tmp_vm->Get_Machine_Name();
@@ -1947,9 +2008,13 @@ void Main_Window::Update_Disabled_Controls()
 
 	// Apply emulator
 
-	// CPU
+	// CPU — preserve the user's/current value across rebuild (clear() resets to "1").
 	disconnect( ui.CB_CPU_Count, SIGNAL(editTextChanged(const QString &)),
 				this, SLOT(Validate_CPU_Count(const QString&)) );
+	disconnect( ui.CB_CPU_Count, SIGNAL(editTextChanged(const QString &)),
+				this, SLOT(VM_Changed()) );
+
+	const QString keep_cpu = ui.CB_CPU_Count->currentText().trimmed();
 
 	ui.CB_CPU_Count->clear();
 
@@ -1971,8 +2036,15 @@ void Main_Window::Update_Disabled_Controls()
 		ui.TB_Show_SMP_Settings_Window->setEnabled( true );
 	}
 
+	if( ! keep_cpu.isEmpty() )
+		ui.CB_CPU_Count->setEditText( keep_cpu );
+	else if( ui.CB_CPU_Count->count() > 0 )
+		ui.CB_CPU_Count->setCurrentIndex( 0 );
+
 	connect( ui.CB_CPU_Count, SIGNAL(editTextChanged(const QString &)),
 			 this, SLOT(Validate_CPU_Count(const QString&)) );
+	connect( ui.CB_CPU_Count, SIGNAL(editTextChanged(const QString &)),
+			 this, SLOT(VM_Changed()) );
 	/*
 	SMP_Settings
 
@@ -2614,15 +2686,24 @@ void Main_Window::Apply_Display_Resolution_To_Ui( const QString &res )
 
 void Main_Window::Fill_Mouse_Combos()
 {
+	ui.CB_Mouse_Pointer_Mode->blockSignals( true );
+	ui.CB_Mouse_Pointer_Mode->clear();
+	ui.CB_Mouse_Pointer_Mode->addItem(
+		tr( "Seamless (absolute — no grab)" ), QStringLiteral( "seamless" ) );
+	ui.CB_Mouse_Pointer_Mode->addItem(
+		tr( "Relative (click to capture)" ), QStringLiteral( "relative" ) );
+	ui.CB_Mouse_Pointer_Mode->setCurrentIndex( 0 );
+	ui.CB_Mouse_Pointer_Mode->blockSignals( false );
+
 	ui.CB_Mouse_Type->blockSignals( true );
 	ui.CB_Mouse_Type->clear();
-	ui.CB_Mouse_Type->addItem( tr( "PS/2 mouse (relative, default)" ), QStringLiteral( "ps2" ) );
-	ui.CB_Mouse_Type->addItem( tr( "USB Tablet (absolute — best for SPICE/VNC)" ), QStringLiteral( "usb-tablet" ) );
+	ui.CB_Mouse_Type->addItem( tr( "PS/2 mouse (relative)" ), QStringLiteral( "ps2" ) );
+	ui.CB_Mouse_Type->addItem( tr( "USB Tablet (seamless)" ), QStringLiteral( "usb-tablet" ) );
 	ui.CB_Mouse_Type->addItem( tr( "USB Mouse (relative)" ), QStringLiteral( "usb-mouse" ) );
-	ui.CB_Mouse_Type->addItem( tr( "USB Wacom Tablet" ), QStringLiteral( "usb-wacom-tablet" ) );
-	ui.CB_Mouse_Type->addItem( tr( "VirtIO Tablet (absolute)" ), QStringLiteral( "virtio-tablet-pci" ) );
+	ui.CB_Mouse_Type->addItem( tr( "USB Wacom Tablet (seamless)" ), QStringLiteral( "usb-wacom-tablet" ) );
+	ui.CB_Mouse_Type->addItem( tr( "VirtIO Tablet (seamless)" ), QStringLiteral( "virtio-tablet-pci" ) );
 	ui.CB_Mouse_Type->addItem( tr( "VirtIO Mouse (relative)" ), QStringLiteral( "virtio-mouse-pci" ) );
-	ui.CB_Mouse_Type->addItem( tr( "VMware mouse (vmmouse)" ), QStringLiteral( "vmmouse" ) );
+	ui.CB_Mouse_Type->addItem( tr( "VMware mouse (seamless)" ), QStringLiteral( "vmmouse" ) );
 	ui.CB_Mouse_Type->setCurrentIndex( 0 );
 	ui.CB_Mouse_Type->blockSignals( false );
 
@@ -2650,6 +2731,59 @@ void Main_Window::Fill_Mouse_Combos()
 	ui.CB_SPICE_Agent_Mouse->addItem( tr( "Off (agent-mouse=off)" ), QStringLiteral( "off" ) );
 	ui.CB_SPICE_Agent_Mouse->setCurrentIndex( 0 );
 	ui.CB_SPICE_Agent_Mouse->blockSignals( false );
+}
+
+bool Main_Window::Mouse_Type_Is_Seamless( const QString &mouse_type )
+{
+	const QString mt = mouse_type.trimmed().toLower();
+	return mt == QStringLiteral( "usb-tablet" )
+	    || mt == QStringLiteral( "usb-wacom-tablet" )
+	    || mt == QStringLiteral( "virtio-tablet-pci" )
+	    || mt == QStringLiteral( "virtio-tablet" )
+	    || mt == QStringLiteral( "vmmouse" )
+	    || mt.contains( QStringLiteral( "tablet" ) );
+}
+
+void Main_Window::Sync_Mouse_Pointer_Mode_From_Type()
+{
+	const QString mt = ui.CB_Mouse_Type->currentData( Qt::UserRole ).toString();
+	const QString mode = Mouse_Type_Is_Seamless( mt )
+		? QStringLiteral( "seamless" )
+		: QStringLiteral( "relative" );
+
+	ui.CB_Mouse_Pointer_Mode->blockSignals( true );
+	const int ix = ui.CB_Mouse_Pointer_Mode->findData( mode );
+	if( ix >= 0 )
+		ui.CB_Mouse_Pointer_Mode->setCurrentIndex( ix );
+	ui.CB_Mouse_Pointer_Mode->blockSignals( false );
+}
+
+void Main_Window::On_Mouse_Pointer_Mode_Changed()
+{
+	const QString mode = ui.CB_Mouse_Pointer_Mode->currentData( Qt::UserRole ).toString();
+	const QString mt = ui.CB_Mouse_Type->currentData( Qt::UserRole ).toString();
+	const bool want_seamless = ( mode == QStringLiteral( "seamless" ) );
+	const bool is_seamless = Mouse_Type_Is_Seamless( mt );
+
+	if( want_seamless == is_seamless )
+	{
+		VM_Changed();
+		return;
+	}
+
+	// Switch to a sensible default device for the chosen mode.
+	const QString next = want_seamless
+		? QStringLiteral( "usb-tablet" )
+		: QStringLiteral( "ps2" );
+
+	ui.CB_Mouse_Type->blockSignals( true );
+	const int ix = ui.CB_Mouse_Type->findData( next );
+	if( ix >= 0 )
+		ui.CB_Mouse_Type->setCurrentIndex( ix );
+	ui.CB_Mouse_Type->blockSignals( false );
+
+	Update_Mouse_Options_Enabled();
+	VM_Changed();
 }
 
 void Main_Window::Update_Mouse_Options_Enabled()
@@ -2680,6 +2814,7 @@ void Main_Window::Apply_Mouse_Settings_To_Ui( const Virtual_Machine *vm )
 	set_combo( ui.CB_Mouse_USB_Controller, vm->Get_Mouse_USB_Controller() );
 	set_combo( ui.CB_Mouse_USB_Version, vm->Get_Mouse_USB_Version() );
 	set_combo( ui.CB_SPICE_Agent_Mouse, vm->Get_SPICE_Agent_Mouse() );
+	Sync_Mouse_Pointer_Mode_From_Type();
 }
 
 void Main_Window::Update_Display_Resolution_Enabled()
@@ -2979,6 +3114,13 @@ QString Main_Window::Get_Current_Binary_Name()
 
 bool Main_Window::Boot_Is_Correct( Virtual_Machine *tmp_vm )
 {
+	if( tmp_vm == NULL )
+	{
+		AQError( "bool Main_Window::Boot_Is_Correct( Virtual_Machine *tmp_vm )",
+				 "tmp_vm == NULL" );
+		return false;
+	}
+
 	// Floppy A
 	if( tmp_vm->Get_FD0().Get_Enabled() )
 	{
@@ -3746,10 +3888,15 @@ bool Main_Window::Save_Or_Discard(bool forced)
 		*cur_vm = tmp_vm;
 
 		cur_vm->Save_VM();
+		// Refresh UI from the saved VM (CPU count must survive Update_Disabled_Controls).
 		Update_VM_Ui();
 
 		connect( cur_vm, SIGNAL(State_Changed(Virtual_Machine*, VM::VM_State)),
 				 this, SLOT(VM_State_Changed(Virtual_Machine*, VM::VM_State)) );
+	}
+	else if( Auto_Save_Timer )
+	{
+		Auto_Save_Timer->stop();
 	}
 
     return true;
@@ -3761,6 +3908,12 @@ void Main_Window::on_actionPower_On_triggered()
         return;
 
     Virtual_Machine *cur_vm = Get_Current_VM();
+	if( cur_vm == NULL )
+	{
+		AQError( "void Main_Window::on_actionPower_On_triggered()",
+				 "cur_vm == NULL" );
+		return;
+	}
 
 	if( ! Boot_Is_Correct(cur_vm) ) return;
 
@@ -4516,6 +4669,8 @@ void Main_Window::Computer_Type_Changed()
 	Update_Display_Resolution_Enabled();
 
 	// Other Options
+	Update_Win11_Lifecycle_Ui();
+	Enforce_Accel_Honesty();
 	Update_Disabled_Controls();
 }
 
@@ -4563,15 +4718,109 @@ void Main_Window::Update_Machine_Accelerators()
 {
     ui.CB_Machine_Accelerator->blockSignals(true);
 	ui.CB_Machine_Accelerator->clear();
-    ui.CB_Machine_Accelerator->addItem( tr("TCG") );
-	ui.CB_Machine_Accelerator->addItem( tr("KVM") );
-	ui.CB_Machine_Accelerator->addItem( tr("XEN") );
+	ui.CB_Machine_Accelerator->addItem( tr("TCG"), QStringLiteral( "tcg" ) );
+	ui.CB_Machine_Accelerator->addItem( tr("KVM"), QStringLiteral( "kvm" ) );
+	ui.CB_Machine_Accelerator->addItem( tr("XEN"), QStringLiteral( "xen" ) );
     ui.CB_Machine_Accelerator->blockSignals(false);
+	Enforce_Accel_Honesty();
+}
+
+void Main_Window::Enforce_Accel_Honesty()
+{
+	const QString host = QSysInfo::currentCpuArchitecture().toLower();
+	bool ok = false;
+	const Available_Devices dev = Get_Current_Machine_Devices( &ok );
+	const QString guest = ok ? dev.System.QEMU_Name.toLower() : QString();
+
+	auto *model = qobject_cast<QStandardItemModel *>( ui.CB_Machine_Accelerator->model() );
+	ui.CB_Machine_Accelerator->blockSignals( true );
+
+	// Guest binary unknown (startup / no VM selected): keep all accelerators selectable.
+	if( guest.isEmpty() )
+	{
+		for( int i = 0; i < ui.CB_Machine_Accelerator->count(); ++i )
+		{
+			if( model )
+			{
+				QStandardItem *item = model->item( i );
+				if( item )
+					item->setFlags( Qt::ItemIsEnabled | Qt::ItemIsSelectable );
+			}
+		}
+		ui.CB_Machine_Accelerator->setToolTip( QString() );
+		ui.CB_Machine_Accelerator->blockSignals( false );
+		Update_Accelerator_Options();
+		return;
+	}
+
+	const bool host_x86 =
+		host.contains( QLatin1String( "x86" ) ) ||
+		host == QLatin1String( "amd64" ) ||
+		host == QLatin1String( "i386" );
+	const bool host_arm =
+		host.contains( QLatin1String( "arm" ) ) ||
+		host.contains( QLatin1String( "aarch64" ) );
+
+	const bool guest_x86 =
+		guest.contains( QLatin1String( "x86_64" ) ) ||
+		guest.contains( QLatin1String( "i386" ) );
+	const bool guest_arm =
+		guest.contains( QLatin1String( "aarch64" ) ) ||
+		guest.contains( QLatin1String( "qemu-system-arm" ) ) ||
+		( guest.contains( QLatin1String( "arm" ) ) &&
+		  ! guest.contains( QLatin1String( "x86" ) ) );
+
+	const bool is_native =
+		( host_x86 && guest_x86 ) ||
+		( host_arm && guest_arm );
+
+	int tcg_index = -1;
+	for( int i = 0; i < ui.CB_Machine_Accelerator->count(); ++i )
+	{
+		const QString id = ui.CB_Machine_Accelerator->itemData( i, Qt::UserRole ).toString().toLower();
+		if( id == QLatin1String( "tcg" ) )
+			tcg_index = i;
+
+		const bool native_only =
+			( id == QLatin1String( "kvm" ) || id == QLatin1String( "xen" ) );
+
+		if( model )
+		{
+			QStandardItem *item = model->item( i );
+			if( ! item )
+				continue;
+			if( ! is_native && native_only )
+				item->setFlags( item->flags() & ~( Qt::ItemIsEnabled | Qt::ItemIsSelectable ) );
+			else
+				item->setFlags( Qt::ItemIsEnabled | Qt::ItemIsSelectable );
+		}
+	}
+
+	if( ! is_native )
+	{
+		if( tcg_index >= 0 )
+			ui.CB_Machine_Accelerator->setCurrentIndex( tcg_index );
+		ui.CB_Machine_Accelerator->setToolTip(
+			tr( "Cross-architecture emulation: native acceleration (KVM / WHPX / HVF) "
+				"cannot run this guest on this host. Using software translation (TCG)." ) );
+	}
+	else
+	{
+		ui.CB_Machine_Accelerator->setToolTip(
+			tr( "On Windows x86 hosts, KVM maps to WHPX/HAX with TCG fallback when available." ) );
+	}
+
+	ui.CB_Machine_Accelerator->blockSignals( false );
+	Update_Accelerator_Options();
 }
 
 void Main_Window::Update_Accelerator_Options()
 {
-    if (ui.CB_Machine_Accelerator->currentText() == "KVM" )
+	const QString id = ui.CB_Machine_Accelerator->currentData( Qt::UserRole ).toString().toLower();
+	const bool is_kvm =
+		( id == QLatin1String( "kvm" ) ) ||
+		( ui.CB_Machine_Accelerator->currentText().compare( QLatin1String( "KVM" ), Qt::CaseInsensitive ) == 0 );
+    if ( is_kvm )
         ui.TB_Show_Accelerator_Options_Window->setEnabled(true);
     else
         ui.TB_Show_Accelerator_Options_Window->setEnabled(false);
@@ -4945,6 +5194,177 @@ void Main_Window::on_Button_VirtIO_Defaults_clicked()
 	VM_Changed();
 }
 
+void Main_Window::on_Button_Win11_Install_clicked()
+{
+	Apply_Win11_Lifecycle_Mode( VM::Win11_Install );
+}
+
+void Main_Window::on_Button_Win11_First_Boot_clicked()
+{
+	Apply_Win11_Lifecycle_Mode( VM::Win11_First_Boot );
+}
+
+void Main_Window::on_Button_Win11_Normal_clicked()
+{
+	Apply_Win11_Lifecycle_Mode( VM::Win11_Normal );
+}
+
+void Main_Window::Update_Win11_Lifecycle_Ui()
+{
+	const bool aarch64 =
+		ui.CB_Computer_Type->currentText().contains( "AArch64", Qt::CaseInsensitive ) ||
+		ui.CB_Computer_Type->currentText().contains( "aarch64", Qt::CaseInsensitive ) ||
+		ui.CB_Computer_Type->currentData().toString().contains( "aarch64", Qt::CaseInsensitive );
+
+	ui.label_win11_lifecycle->setVisible( aarch64 );
+	ui.GB_Win11_Lifecycle->setVisible( aarch64 );
+	ui.verticalSpacer_win11_lifecycle->changeSize(
+		20, aarch64 ? 16 : 0, QSizePolicy::Minimum, aarch64 ? QSizePolicy::Fixed : QSizePolicy::Ignored );
+	ui.verticalSpacer_win11_lifecycle->invalidate();
+
+	if( ! aarch64 )
+		return;
+
+	Virtual_Machine *vm = Get_Current_VM();
+	const VM::Win11_Lifecycle_Mode mode =
+		vm ? vm->Get_Win11_Lifecycle_Mode() : VM::Win11_Normal;
+
+	QString status;
+	switch( mode )
+	{
+		case VM::Win11_Install:
+			status = tr( "Mode: Install Windows" );
+			break;
+		case VM::Win11_First_Boot:
+			status = tr( "Mode: First boot" );
+			break;
+		case VM::Win11_Normal:
+		default:
+			status = tr( "Mode: Normal" );
+			break;
+	}
+	ui.Label_Win11_Lifecycle_Status->setText( status );
+}
+
+void Main_Window::Apply_Win11_Lifecycle_Mode( VM::Win11_Lifecycle_Mode mode )
+{
+	Virtual_Machine *vm = Get_Current_VM();
+	if( ! vm )
+		return;
+
+	bool ok = false;
+	Available_Devices cur = Get_Current_Machine_Devices( &ok );
+	if( ! ok ) return;
+
+	vm->Set_Win11_Lifecycle_Mode( mode );
+
+	// Shared VirtIO / Win11 ARM baseline (same spirit as Apply VirtIO defaults)
+	for( int i = 0; i < cur.Machine_List.count(); ++i )
+	{
+		if( cur.Machine_List[i].QEMU_Name == "virt" )
+		{
+			ui.CB_Machine_Type_Main->setCurrentIndex( i );
+			break;
+		}
+	}
+
+	ui.CB_Disk_Interface->setCurrentIndex( 0 ); // VirtIO
+	ui.CH_sb16->setChecked( false );
+	ui.CH_es1370->setChecked( false );
+	ui.CH_Adlib->setChecked( false );
+	ui.CH_AC97->setChecked( false );
+	ui.CH_GUS->setChecked( false );
+	ui.CH_PCSPK->setChecked( false );
+	ui.CH_HDA->setChecked( false );
+	ui.CH_cs4231a->setChecked( false );
+	ui.CH_VirtIO_Sound->setChecked( false );
+	ui.CH_USB_Audio->setChecked( true );
+
+	QList<VM_Net_Card> nets;
+	if( Old_Network_Settings_Widget->Get_Network_Cards( nets ) && nets.count() > 0 )
+	{
+		nets[0].Set_Card_Model( "virtio-net-pci" );
+		Old_Network_Settings_Widget->Set_Network_Cards( nets );
+	}
+
+	vm->Use_USB_Hub( true );
+	vm->Set_Mouse_Type( QStringLiteral( "usb-tablet" ) );
+	vm->Set_Mouse_USB_Controller( QStringLiteral( "xhci" ) );
+	vm->Use_VirtIO_RNG( true );
+	vm->Use_VirtIO_Balloon( true );
+	vm->Use_VirtIO_Keyboard( true );
+	vm->Use_UEFI( true );
+
+	const int mouse_ix = ui.CB_Mouse_Type->findData( "usb-tablet" );
+	if( mouse_ix >= 0 )
+		ui.CB_Mouse_Type->setCurrentIndex( mouse_ix );
+	else
+	{
+		const int by_text = ui.CB_Mouse_Type->findText( "usb-tablet", Qt::MatchContains );
+		if( by_text >= 0 )
+			ui.CB_Mouse_Type->setCurrentIndex( by_text );
+	}
+
+	QList<VM::Boot_Order> boot;
+	VM::Boot_Order b;
+
+	if( mode == VM::Win11_Install )
+	{
+		const int vix = ui.CB_Video_Card->findData( "ramfb" );
+		if( vix >= 0 )
+			ui.CB_Video_Card->setCurrentIndex( vix );
+
+		if( ui.Memory_Size->value() > 8192 )
+			ui.Memory_Size->setValue( 8192 );
+
+		// Keep ISO path; ensure CD is enabled for install
+		if( ! Dev_Manager->CD_ROM.Get_File_Name().isEmpty() )
+			Dev_Manager->CD_ROM.Set_Enabled( true );
+
+		b.Type = VM::Boot_From_CDROM;
+		b.Enabled = true;
+		boot << b;
+		b.Type = VM::Boot_From_HDD;
+		b.Enabled = true;
+		boot << b;
+		Boot_Order_List = boot;
+		Set_Boot_Order( Boot_Order_List );
+	}
+	else if( mode == VM::Win11_First_Boot )
+	{
+		const int vix = ui.CB_Video_Card->findData( "ramfb" );
+		if( vix >= 0 )
+			ui.CB_Video_Card->setCurrentIndex( vix );
+
+		// Keep path but detach ISO for this phase
+		Dev_Manager->CD_ROM.Set_Enabled( false );
+
+		b.Type = VM::Boot_From_HDD;
+		b.Enabled = true;
+		boot << b;
+		Boot_Order_List = boot;
+		Set_Boot_Order( Boot_Order_List );
+	}
+	else // Normal
+	{
+		const int vix = ui.CB_Video_Card->findData( "virtio-gpu-pci" );
+		if( vix >= 0 )
+			ui.CB_Video_Card->setCurrentIndex( vix );
+
+		Dev_Manager->CD_ROM.Set_Enabled( false );
+
+		b.Type = VM::Boot_From_HDD;
+		b.Enabled = true;
+		boot << b;
+		Boot_Order_List = boot;
+		Set_Boot_Order( Boot_Order_List );
+	}
+
+	Update_Win11_Lifecycle_Ui();
+	Update_Display_Resolution_Enabled();
+	on_Button_Apply_clicked();
+}
+
 void Main_Window::on_Tabs_currentChanged( int index )
 {
 	if( index == 2 ) Dev_Manager->Update_List_Mode();
@@ -5007,6 +5427,12 @@ void Main_Window::on_Button_Apply_clicked()
 	ui.Machines_List->currentItem()->setText( cur_vm->Get_Machine_Name() );
 
 	Update_Info_Text();
+
+	// Keep CPU / other fields in sync with what we just saved.
+	{
+		Block_VM_Changed_Signals bvmcs( this );
+		ui.CB_CPU_Count->setEditText( QString::number( cur_vm->Get_SMP_CPU_Count() ) );
+	}
 
 	// For VM Changes Signals
 	ui.Button_Apply->setEnabled( false );
