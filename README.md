@@ -1,331 +1,169 @@
 # AQEMU
 
-**Qt5 GUI frontend for QEMU** — maintained by **[Chronic Engineering](https://github.com/chronic8000/aqemu)**.
+<p align="center">
+  <img src="resources/icons/aqemu_logo.png" alt="AQEMU logo" width="280"/>
+</p>
 
-This fork targets **Linux** (including **Raspberry Pi 5** / Debian) and **Windows** hosts for multi-arch VMs (including Windows 11 ARM under TCG, classic PowerPC Mac guests, and experimental Intel macOS via user-supplied OpenCore).
+<p align="center">
+  <b>A modern QEMU frontend for Windows and Linux</b><br/>
+  Maintained by <a href="https://github.com/chronic8000">Chronic Engineering</a>
+</p>
+
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--2.0-blue.svg" alt="License: GPL-2.0"/></a>
+  <a href="https://github.com/chronic8000/aqemu/releases"><img src="https://img.shields.io/badge/releases-GitHub-black.svg" alt="Releases"/></a>
+  <a href="PRIVACY.md"><img src="https://img.shields.io/badge/privacy-policy-lightgrey.svg" alt="Privacy"/></a>
+</p>
+
+---
+
+## This project was picked up — it is active again
+
+AQEMU began as Andrey Rijov’s (RDron) Qt frontend for QEMU, later carried in the community by Tobias Gläßer (Qt5 / 0.9.x). Development slowed; the historical trees people still find online include:
+
+- Earlier community GitHub: [tobimensch/aqemu](https://github.com/tobimensch/aqemu) *(upstream history — not this project’s homepage)*
+- Older SourceForge project pages *(archive / third-party — not ours)*
+
+**Chronic Engineering** has forked and revived the code here:
+
+**https://github.com/chronic8000/aqemu**
+
+This repository is the **current** source of truth: Windows + Linux hosts, embedded SPICE sessions, Windows 11 ARM workflows, classic PowerPC Mac guests, experimental Intel macOS (user-supplied OpenCore), optional WSL/KVM launch, and packaging aimed at GitHub Releases and the **Microsoft Store**.
+
+We keep credit for the original authors. We do **not** claim their old websites, donation campaigns, or SourceForge listings.
 
 | | |
 |--|--|
-| **License** | [GNU GPLv2](LICENSE) (same as upstream; also in [`COPYING`](COPYING)) |
-| **Source** | https://github.com/chronic8000/aqemu |
-| **Privacy** | [PRIVACY.md](PRIVACY.md) (for Microsoft Store / distribution listings) |
+| **Current home** | https://github.com/chronic8000/aqemu |
+| **Issues** | https://github.com/chronic8000/aqemu/issues |
+| **License** | [GNU GPLv2](LICENSE) |
+| **Privacy** | [PRIVACY.md](PRIVACY.md) |
 | **Authors** | [AUTHORS](AUTHORS) |
-
-**Supported host builds:** Linux (Debian/Ubuntu/Pi) and Windows. **macOS is not a supported host** — do not expect AQEMU itself to build or run on Mac. Classic Mac OS / Intel macOS as **QEMU guests** are available in the New VM wizard when you supply your own media.
 
 ---
 
-## License & distribution (Microsoft Store ready)
+## What AQEMU does
 
-AQEMU is **free software** under the **GNU General Public License version 2**. You may run, share, and modify it under that license. Pre-built Windows packages (GitHub Releases, itch, **Microsoft Store**, etc.) may be offered **for a fee**; the GPL allows selling binaries. Anyone who receives a binary is entitled to the **corresponding source** — this public repository is that source.
+AQEMU is a **Qt5 GUI** that configures and starts **QEMU** virtual machines. On supported hosts it can:
 
-- Full license text: [`LICENSE`](LICENSE) / [`COPYING`](COPYING)
-- In-app: **Help → About** (credits, legal notes) and **License** tab (GPLv2 text)
+- Discover installed `qemu-system-*` binaries and machine/CPU/device lists  
+- Guide **Windows 11 ARM** setups (VirtIO / UEFI-oriented defaults)  
+- Offer **classic Mac OS (PowerPC)** and **experimental Intel macOS** guest profiles  
+- Run guests in an **embedded session** (`-display none` + localhost SPICE/QMP)  
+- Optionally launch Linux QEMU via **WSL/KVM** on Windows when `/dev/kvm` works  
+- Force **pure TCG** for Win9x / pre-ME guests that break under WHPX  
 
-### What this project does *not* ship
+**Host support:** Windows and Linux (including Raspberry Pi 5).  
+**Not supported as a host:** macOS (building/running AQEMU *on* a Mac is out of scope).  
+macOS / classic Mac as **guests** are supported only when **you** supply the media.
 
-AQEMU does **not** include:
+---
 
-- Microsoft Windows installation ISOs or product keys  
-- Apple macOS / OS X / recovery / BaseSystem images  
-- OpenCore disk images  
-- An Apple SMC **OSK** string (never pre-filled)
+## License (Store / paid builds)
 
-Wizard and VM settings require **you** to point at files you obtained lawfully. That keeps AQEMU a configuration frontend, not a redistributor of proprietary OS media.
+Licensed under **GNU GPL version 2**. You may charge for pre-built installers (Store, itch, Releases). Anyone who gets a binary is entitled to the matching source — **this repo**.
+
+Full text: [`LICENSE`](LICENSE) (also [`COPYING`](COPYING)). In-app: **Help → About**.
+
+### We do not ship
+
+- Windows install ISOs or product keys  
+- Apple OS / recovery / BaseSystem images  
+- OpenCore images  
+- An Apple SMC **OSK** (never pre-filled)
+
+Point the UI at files you obtained lawfully.
 
 ### Trademarks
 
-Microsoft, Windows, Apple, macOS, and related names are trademarks of their respective owners. AQEMU is an independent QEMU frontend and is **not** affiliated with or endorsed by Microsoft, Apple, or the QEMU project.
-
-### Credits
-
-- **Current maintainers:** Chronic Engineering  
-- **Prior maintainer:** Tobias Gläßer (0.9.0+ community)  
-- **Original author:** Andrey Rijov (RDron)  
+Microsoft, Windows, Apple, macOS, and related names belong to their owners. AQEMU is independent and not endorsed by Microsoft, Apple, or the QEMU project.
 
 ---
 
-## Key Features
+## Install
 
-- **Pi 5 tuning**: `-mcpu=cortex-a76`, 64KB page load alignment, Wayland Qt platform
-- **Windows 11 ARM wizard**: guided profile aligned with [win11-pi5-kiosk](https://github.com/chronic8000/win11-pi5-kiosk)
-- **Classic Mac (PPC)** and **experimental Intel macOS** guest profiles (user-supplied media / OpenCore / OSK)
-- **Optional WSL/KVM launch** on Windows when `/dev/kvm` is available (Linux QEMU inside WSL; SPICE/QMP on localhost)
-- **Full QEMU arch coverage**: discovers `qemu-system-*`, probes machines/CPUs/devices
-- **TCG-friendly aarch64 defaults** on Windows hosts; **Force pure TCG** for Win9x / pre-ME guests
-- **Embedded session**: QEMU runs headless (`-display none`) with localhost **SPICE** + **QMP**; AQEMU owns the window
-- **Mouse / pointer settings** per VM (PS/2, USB tablet/mouse, VirtIO, VMware mouse, USB controller/version, SPICE agent-mouse)
-- **Bundled QEMU**: optional git submodule + build scripts
-- **Automated QEMU install on Linux** via `pkexec apt-get install -y qemu-system qemu-utils`
+### GitHub Releases
+
+https://github.com/chronic8000/aqemu/releases
+
+**Windows:** unzip the portable build and run `aqemu.exe`. Install [QEMU for Windows](https://www.qemu.org/download/#windows) (or use a bundled build) and set paths in First Start / Settings.
+
+**Raspberry Pi / Debian:** install the `.deb` from Releases, or build below.
+
+**Microsoft Store:** when published, the listing will use this repo for source and [PRIVACY.md](PRIVACY.md) for the privacy URL.
 
 ---
 
-## Install from GitHub Releases
+## Build (short)
 
-Download assets from the [Releases](https://github.com/chronic8000/aqemu/releases) page.
-
-A **Microsoft Store** listing (when published) will install a packaged Windows build from the same GPLv2 source; the Store privacy policy URL will point at [PRIVACY.md](PRIVACY.md) on this repository.
-
-### Raspberry Pi (`.deb`)
+### Linux
 
 ```bash
 sudo apt update
-sudo apt install ./aqemu_0.9.8_arm64.deb
-aqemu
-```
+sudo apt install -y build-essential cmake ninja-build pkg-config \
+  qtbase5-dev libqt5widgets5 libvncserver-dev extra-cmake-modules \
+  libspice-client-glib-2.0-dev qemu-system qemu-utils
 
-### Windows (portable zip)
-
-1. Install [QEMU for Windows](https://www.qemu.org/download/#windows) (include the `qemu-system-*` binaries you need, plus EDK2/OVMF or AAVMF firmware as required), **or** build the bundled submodule (below).
-2. Unzip `aqemu-*-win64.zip` and run `aqemu.exe`.
-
----
-
-## CMake options
-
-| Option | Default | Meaning |
-|--------|---------|---------|
-| `WITHOUT_EMBEDDED_DISPLAY` | OFF | Disable LibVNC embedded viewer |
-| `AQEMU_WITH_SPICE_GTK` | OFF | Enable spice-client-glib embedded SPICE viewer (recommended) |
-| `AQEMU_BUNDLE_QEMU` | OFF | Copy `qemu-system-*` from `AQEMU_QEMU_PREFIX` next to `aqemu` |
-| `AQEMU_QEMU_PREFIX` | `third_party/qemu-install` | Path to a QEMU install tree |
-| `PI5_OPTIMIZATIONS` | OFF | Cortex-A76 + 64KB page alignment (Pi 5) |
-| `DEBUG` | OFF | Debug symbols / verbose build |
-
-Runtime defaults (new installs): `Embedded_Session=yes`, `Embedded_Display_Backend=spice`.
-
----
-
-## Build — Linux (Debian / Ubuntu / desktop)
-
-### Dependencies
-
-```bash
-sudo apt update
-sudo apt install -y \
-  build-essential cmake ninja-build pkg-config \
-  qtbase5-dev libqt5widgets5 \
-  libvncserver-dev extra-cmake-modules \
-  libspice-client-glib-2.0-dev \
-  qemu-system qemu-utils
-```
-
-Optional (bundled QEMU from submodule):
-
-```bash
-sudo apt install -y libspice-server-dev ninja-build
-```
-
-### Configure & build
-
-```bash
 git clone --recursive https://github.com/chronic8000/aqemu.git
-cd aqemu
-mkdir -p build && cd build
-
-cmake -G Ninja \
-  -DAQEMU_WITH_SPICE_GTK=ON \
-  ..
-
-ninja
-./aqemu
+cd aqemu && mkdir build && cd build
+cmake -G Ninja -DAQEMU_WITH_SPICE_GTK=ON ..
+ninja && ./aqemu
 ```
 
-Without SPICE viewer (VNC fallback only):
+### Raspberry Pi 5
+
+Same as Linux, plus:
 
 ```bash
-cmake -DAQEMU_WITH_SPICE_GTK=OFF ..
+cmake -G Ninja -DPI5_OPTIMIZATIONS=ON -DAQEMU_WITH_SPICE_GTK=ON ..
 ```
 
-Without any embedded display:
+Prefer Wayland: `QT_QPA_PLATFORM=wayland aqemu`
 
-```bash
-cmake -DWITHOUT_EMBEDDED_DISPLAY=ON ..
-```
+### Windows (Win64)
 
----
-
-## Build — Raspberry Pi 5
-
-Same stack as Debian, plus Pi 5 flags and Wayland Qt:
-
-```bash
-sudo apt update
-sudo apt install -y \
-  build-essential cmake ninja-build pkg-config \
-  qtbase5-dev libqt5widgets5 qtwayland5 \
-  libvncserver-dev extra-cmake-modules \
-  libspice-client-glib-2.0-dev \
-  qemu-system qemu-utils
-
-mkdir -p build && cd build
-cmake -G Ninja \
-  -DPI5_OPTIMIZATIONS=ON \
-  -DAQEMU_WITH_SPICE_GTK=ON \
-  ..
-ninja
-cpack   # produces aqemu_*_arm64.deb
-```
-
-Wayland:
-
-```bash
-QT_QPA_PLATFORM=wayland aqemu
-# safer mouse grab if needed:
-QT_QPA_PLATFORM=xcb aqemu
-```
-
----
-
-## Build — Windows (Win64)
-
-The supported Windows toolchain is **WinLibs UCRT MinGW** + **Qt 5.15** for AQEMU, with **MSYS2 ucrt64** packages only for SPICE (linked by absolute path so CRTs do not mix).
-
-### 1. Install toolchain & Qt
-
-1. **WinLibs** MinGW-w64 UCRT (POSIX threads) — e.g. via winget `BrechtSanders.WinLibs.POSIX.UCRT`, or from [winlibs.com](https://winlibs.com/).
-2. **Qt 5.15** with the matching MinGW kit (example path used below: `C:\Qt\5.15.2\mingw81_64`).
-3. **CMake** and **Ninja** on `PATH`.
-4. Put WinLibs `mingw64\bin` on `PATH` ahead of other MinGW installs.
-
-### 2. Optional: LibVNC (embedded VNC fallback)
-
-If `third_party/libvnc-install` exists, CMake uses it automatically. Otherwise install a system LibVNCServer, or disable VNC:
-
-```text
--DWITHOUT_EMBEDDED_DISPLAY=ON
-```
-
-Vendored layout (when present):
-
-- `third_party/libvnc-install/include/rfb/rfbclient.h`
-- `third_party/libvnc-install/lib/libvncclient.a`
-- `third_party/zlib-install/lib/libzlibstatic.a` (if needed)
-
-### 3. SPICE client (recommended)
-
-In an **MSYS2 UCRT64** shell:
-
-```bash
-pacman -S --needed \
-  mingw-w64-ucrt-x86_64-spice-gtk \
-  mingw-w64-ucrt-x86_64-pkgconf
-```
-
-AQEMU must see those `.pc` files without linking against MSYS2’s full lib path (wrong CRT vs WinLibs):
+Toolchain: **WinLibs UCRT MinGW** + **Qt 5.15**. SPICE libs from **MSYS2 ucrt64** via `PKG_CONFIG_PATH` only (do not mix CRTs).
 
 ```powershell
 $env:PKG_CONFIG_PATH = "C:\msys64\ucrt64\lib\pkgconfig"
-# ensure pkgconf.exe from ucrt64\bin is findable, or set:
-# $env:PKG_CONFIG = "C:\msys64\ucrt64\bin\pkgconf.exe"
-```
-
-On a successful build, `CopySpiceRuntime.ps1` copies SPICE DLLs (and `libspice-server-1.dll` when present) next to `aqemu.exe`.
-
-### 4. Configure & build AQEMU
-
-From **PowerShell** (example paths — adjust to your WinLibs + Qt install):
-
-```powershell
 cd C:\path\to\aqemu
-mkdir build_win -Force
-cd build_win
-
+mkdir build_win -Force; cd build_win
 cmake -G Ninja `
   -DCMAKE_PREFIX_PATH="C:/Qt/5.15.2/mingw81_64" `
   -DAQEMU_WITH_SPICE_GTK=ON `
-  -DWITHOUT_EMBEDDED_DISPLAY=OFF `
   ..
-
 ninja
 .\aqemu.exe
 ```
 
-Close `aqemu.exe` before rebuilding (Windows locks the EXE while it runs).
+Close `aqemu.exe` before rebuilding.
 
-### 5. QEMU for Windows guests
+### Useful CMake options
 
-Either:
+| Option | Default | Meaning |
+|--------|---------|---------|
+| `AQEMU_WITH_SPICE_GTK` | OFF | spice-client-glib embedded viewer |
+| `WITHOUT_EMBEDDED_DISPLAY` | OFF | Disable LibVNC viewer |
+| `AQEMU_BUNDLE_QEMU` | OFF | Copy `qemu-system-*` from `AQEMU_QEMU_PREFIX` |
+| `PI5_OPTIMIZATIONS` | OFF | Cortex-A76 + 64KB alignment |
 
-- Install [QEMU for Windows](https://www.qemu.org/download/#windows) and point AQEMU at it in First Start / Settings, **or**
-- Build/bundle the submodule (next section).
-
----
-
-## Bundled QEMU (submodule)
-
-Upstream QEMU is vendored as `third_party/qemu` (pinned release; see `third_party/README.md`, currently **v11.0.2**).
-
-```bash
-git submodule update --init --depth 1 third_party/qemu
-```
-
-### Linux / Pi
-
-```bash
-# apt: libspice-server-dev ninja-build (recommended)
-scripts/build_qemu_linux.sh
-cmake -DAQEMU_BUNDLE_QEMU=ON \
-      -DAQEMU_QEMU_PREFIX=$PWD/third_party/qemu-install \
-      -DAQEMU_WITH_SPICE_GTK=ON \
-      ..
-```
-
-### Windows
-
-Prefer a **pure MSYS2 MinGW64** QEMU build (same CRT as QEMU’s glib/spice deps):
-
-```bash
-# Inside MSYS2 MinGW64, after packages + optional scripts/fix_msys2_gcc_admin.ps1
-scripts/build_qemu_windows_msys.sh
-```
-
-Also available: `scripts/build_qemu_windows.ps1`, `scripts/build_qemu_windows.sh`, `scripts/build_qemu_windows_winlibs.sh`.
-
-Then configure AQEMU with:
-
-```text
--DAQEMU_BUNDLE_QEMU=ON
--DAQEMU_QEMU_PREFIX=<repo>/third_party/qemu-install
-```
-
-**Do not** mix WinLibs gcc with MSYS2 headers when compiling QEMU. Details: `third_party/README.md`.
-
-Install trees `third_party/qemu-build*` / `qemu-install` are gitignored.
+Optional vendored QEMU: see `third_party/README.md` and `scripts/build_qemu_*.sh`.
 
 ---
 
-## Troubleshooting
+## Credits
 
-### Wayland / embedded display (Linux / Pi)
+- **Current maintainers:** Chronic Engineering  
+- **Prior community maintainer:** Tobias Gläßer (0.9.0+)  
+- **Original author:** Andrey Rijov (RDron)  
 
-```bash
-QT_QPA_PLATFORM=wayland aqemu
-QT_QPA_PLATFORM=xcb aqemu
-```
+Contributor names remain in **Help → About → Thanks To**.
 
-### Polkit / QEMU missing on Linux
+---
 
-```bash
-sudo apt install -y qemu-system qemu-utils
-```
+## Troubleshooting (quick)
 
-### Windows 11 ARM performance
-
-On an **x86_64 Windows host**, aarch64 guests use **TCG only** (no KVM/WHPX for ARM). Expect much slower than Pi + KVM. Use 4+ vCPUs.
-
-### Embedded session / no guest picture
-
-AQEMU starts QEMU with `-display none`. Without LibVNC or spice-client-glib, the session toolbar still works (CD/FD via QMP); use **Exit View** to return to the VM list while the guest keeps running.
-
-### Win98 / stuck mouse cursor
-
-On **General → Mouse**, use **USB Tablet** with **UHCI** and **USB 1.1**. Absolute tablet tracking is required for SPICE/VNC-style displays.
-
-### Windows SPICE link / CRT errors
-
-Build AQEMU with **WinLibs**, take SPICE only from **MSYS2 ucrt64** via `PKG_CONFIG_PATH`, and link by absolute `.dll.a` paths (CMake already does this). Do not add `C:\msys64\ucrt64\lib` as a global link directory.
-
-### QEMU won’t die on Stop
-
-AQEMU force-terminates leftover `qemu-system-*` after a failed monitor quit and clears orphans that still hold the disk before Start. If a guest disk stays locked, end stray `qemu-system-*` in Task Manager once, then restart AQEMU.
+- **Win11 ARM on x86 Windows hosts** runs under **TCG only** — expect slow guests; use 4+ vCPUs.  
+- **Embedded session** uses `-display none`; SPICE/LibVNC show the guest inside AQEMU.  
+- **Win9x mouse:** General → Mouse → USB Tablet + UHCI + USB 1.1.  
+- **Stuck QEMU on Windows:** Task Manager → end stray `qemu-system-*`, then restart AQEMU.
