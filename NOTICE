@@ -1,0 +1,15 @@
+AQEMU — Copyright notices
+=========================
+
+AQEMU is free software licensed under the GNU General Public License,
+version 2. See LICENSE and COPYING for the full license text.
+
+Copyright holders include (non-exhaustive; see source file headers and AUTHORS):
+
+  Copyright (C) 2008-2010 Andrey Rijov
+  Copyright (C) 2016 Tobias Gläßer
+  Copyright (C) Chronic Engineering and contributors to
+                https://github.com/chronic8000/aqemu
+
+Third-party components (Qt, QEMU, SPICE, LibVNC, docopt, etc.) remain under
+their own licenses as documented in their respective trees.

@@ -37,9 +37,58 @@ About_Window::About_Window( QWidget *parent ): QDialog( parent )
 	// Minimum Size
 	resize( width(), minimumSizeHint().height() );
 
+	const QString version_line =
+		QStringLiteral( "%1 (%2)" )
+			.arg( QStringLiteral( CURRENT_AQEMU_VERSION ),
+			      QStringLiteral( CURRENT_AQEMU_RELEASE_DATE ) );
+
+	// About HTML (set in code so maintainers / links stay easy to update)
+	ui.About_Text->setTextFormat( Qt::RichText );
+	ui.About_Text->setOpenExternalLinks( true );
+	ui.About_Text->setText( tr(
+		"<div style='font-family:monospace; font-size:10pt;'>"
+		"<p align='center'><span style='font-weight:600; color:#3c6e05;'>a frontend for QEMU</span></p>"
+		"<p><span style='font-weight:600; color:#3c6e05;'>Version</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"
+		"<span style='font-weight:600;'>%1</span>"
+		"&nbsp;&nbsp;&nbsp;&nbsp;<span style='font-weight:600; color:#3c6e05;'>License:</span> "
+		"<span style='font-weight:600;'>GNU GPLv2</span></p>"
+		"<p></p>"
+		"<p><span style='font-weight:600; color:#3c6e05;'>Current maintainers</span>&nbsp;&nbsp;"
+		"<span style='font-weight:600;'>Chronic Engineering</span></p>"
+		"<p><span style='font-weight:600; color:#3c6e05;'>Prior maintainer</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"
+		"<span style='font-weight:600;'>Tobias Gläßer</span> (0.9.0 and later community builds)</p>"
+		"<p><span style='font-weight:600; color:#3c6e05;'>Original author</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"
+		"<span style='font-weight:600;'>Andrey Rijov (a.k.a. RDron)</span></p>"
+		"<p></p>"
+		"<p><span style='font-weight:600; color:#3c6e05;'>Github</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"
+		"<a href='https://github.com/chronic8000/aqemu/'>https://github.com/chronic8000/aqemu/</a></p>"
+		"<p><span style='font-weight:600; color:#3c6e05;'>Git repository</span>&nbsp;&nbsp;&nbsp;"
+		"<a href='https://github.com/chronic8000/aqemu.git'>https://github.com/chronic8000/aqemu.git</a></p>"
+		"<p><span style='font-weight:600; color:#3c6e05;'>Issue tracker</span>&nbsp;&nbsp;&nbsp;&nbsp;"
+		"<a href='https://github.com/chronic8000/aqemu/issues/'>https://github.com/chronic8000/aqemu/issues/</a></p>"
+		"<p><span style='font-weight:600; color:#3c6e05;'>Upstream (historical)</span>&nbsp;"
+		"<a href='https://github.com/tobimensch/aqemu/'>tobimensch/aqemu</a> · "
+		"<a href='https://sourceforge.net/projects/aqemu/'>SourceForge</a></p>"
+		"<p></p>"
+		"<p align='center'><span style='font-weight:600; color:#3c6e05;'>Supported QEMU versions:</span> "
+		"<span style='font-weight:600;'>2.0 and up</span></p>"
+		"<p></p>"
+		"<p style='font-size:9pt;'><b>Legal notes</b><br>"
+		"AQEMU is free software under the GNU General Public License version 2. "
+		"Source corresponding to distributed binaries is available from the GitHub repository above.<br><br>"
+		"AQEMU does not ship Microsoft Windows installation media, Apple operating system images, "
+		"OpenCore builds, or an Apple SMC OSK. You must supply any such files yourself from lawful sources.<br><br>"
+		"Microsoft, Windows, Apple, macOS, and related names are trademarks of their respective owners. "
+		"AQEMU is an independent QEMU frontend and is not affiliated with or endorsed by those parties."
+		"</p></div>"
+		).arg( version_line ) );
+
 	// Thanks HTML Text
 	ui.Edit_Thanks_To_Text->setHtml( tr(
-	"<b>Developers:</b>\n"
+	"<b>Current maintainers:</b>\n"
+	"<br>Chronic Engineering\n"
+
+	"<br><br><b>Original / prior developers:</b>\n"
 	"<br>Andrey Rijov (aka RDron) - Original Author (Up until version 0.8.2)\n"
 	"<br>Tobias Gläßer - Maintainer/Developer (Version 0.9.0 and up)\n"
 
@@ -83,8 +132,6 @@ About_Window::About_Window( QWidget *parent ): QDialog( parent )
 	linksFilePath = QDir::toNativeSeparators( logFileDir.absolutePath() + "/links.html" );
 	
 	Show_Links_File();
-    
-    ui.About_Text->setText(ui.About_Text->text().replace("$VERSION_DATE_DO_NOT_TRANSLATE",QString(CURRENT_AQEMU_VERSION)+" ("+QString(CURRENT_AQEMU_RELEASE_DATE)+")"));
 
     ui.Tabs->setCurrentIndex(0);
 }

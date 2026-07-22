@@ -1,2 +1,17 @@
-Andrey Rijov <ANDronR@gmail.com> ( Original Author, Developer, Author )
-Tobias Gläßer                    ( Maintainer, Developer, from version 0.9.0 and up )
+# AUTHORS
+
+## Current maintainers
+
+Chronic Engineering — https://github.com/chronic8000/aqemu
+
+## Original / prior developers
+
+- Andrey Rijov (aka RDron) — original author (through version 0.8.2)
+- Tobias Gläßer — maintainer / developer (version 0.9.0 and later community builds)
+
+## Contributors
+
+See Help → About → “Thanks To” in the application, and the project Git history.
+
+AQEMU is free software under the GNU General Public License, version 2.
+See the files `LICENSE` and `COPYING`.

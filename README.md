@@ -1,8 +1,47 @@
-# AQEMU (Raspberry Pi 5, Wayland & Windows)
+# AQEMU
 
-AQEMU is a Qt5 GUI frontend for QEMU. This fork targets **Linux** (including **Raspberry Pi 5** / Raspbian Trixie) and **Windows** hosts for multi-arch VMs (including Windows 11 ARM under TCG).
+**Qt5 GUI frontend for QEMU** — maintained by **[Chronic Engineering](https://github.com/chronic8000/aqemu)**.
 
-**Supported host builds:** Linux (Debian/Ubuntu/Pi) and Windows. **macOS is not a supported host** — do not expect AQEMU itself to build or run on Mac. macOS / classic Mac OS as **QEMU guests** are still available in the New VM wizard.
+This fork targets **Linux** (including **Raspberry Pi 5** / Debian) and **Windows** hosts for multi-arch VMs (including Windows 11 ARM under TCG, classic PowerPC Mac guests, and experimental Intel macOS via user-supplied OpenCore).
+
+| | |
+|--|--|
+| **License** | [GNU GPLv2](LICENSE) (same as upstream; also in [`COPYING`](COPYING)) |
+| **Source** | https://github.com/chronic8000/aqemu |
+| **Privacy** | [PRIVACY.md](PRIVACY.md) (for Microsoft Store / distribution listings) |
+| **Authors** | [AUTHORS](AUTHORS) |
+
+**Supported host builds:** Linux (Debian/Ubuntu/Pi) and Windows. **macOS is not a supported host** — do not expect AQEMU itself to build or run on Mac. Classic Mac OS / Intel macOS as **QEMU guests** are available in the New VM wizard when you supply your own media.
+
+---
+
+## License & distribution (Microsoft Store ready)
+
+AQEMU is **free software** under the **GNU General Public License version 2**. You may run, share, and modify it under that license. Pre-built Windows packages (GitHub Releases, itch, **Microsoft Store**, etc.) may be offered **for a fee**; the GPL allows selling binaries. Anyone who receives a binary is entitled to the **corresponding source** — this public repository is that source.
+
+- Full license text: [`LICENSE`](LICENSE) / [`COPYING`](COPYING)
+- In-app: **Help → About** (credits, legal notes) and **License** tab (GPLv2 text)
+
+### What this project does *not* ship
+
+AQEMU does **not** include:
+
+- Microsoft Windows installation ISOs or product keys  
+- Apple macOS / OS X / recovery / BaseSystem images  
+- OpenCore disk images  
+- An Apple SMC **OSK** string (never pre-filled)
+
+Wizard and VM settings require **you** to point at files you obtained lawfully. That keeps AQEMU a configuration frontend, not a redistributor of proprietary OS media.
+
+### Trademarks
+
+Microsoft, Windows, Apple, macOS, and related names are trademarks of their respective owners. AQEMU is an independent QEMU frontend and is **not** affiliated with or endorsed by Microsoft, Apple, or the QEMU project.
+
+### Credits
+
+- **Current maintainers:** Chronic Engineering  
+- **Prior maintainer:** Tobias Gläßer (0.9.0+ community)  
+- **Original author:** Andrey Rijov (RDron)  
 
 ---
 
@@ -10,8 +49,10 @@ AQEMU is a Qt5 GUI frontend for QEMU. This fork targets **Linux** (including **R
 
 - **Pi 5 tuning**: `-mcpu=cortex-a76`, 64KB page load alignment, Wayland Qt platform
 - **Windows 11 ARM wizard**: guided profile aligned with [win11-pi5-kiosk](https://github.com/chronic8000/win11-pi5-kiosk)
+- **Classic Mac (PPC)** and **experimental Intel macOS** guest profiles (user-supplied media / OpenCore / OSK)
+- **Optional WSL/KVM launch** on Windows when `/dev/kvm` is available (Linux QEMU inside WSL; SPICE/QMP on localhost)
 - **Full QEMU arch coverage**: discovers `qemu-system-*`, probes machines/CPUs/devices
-- **TCG-friendly aarch64 defaults** on Windows hosts
+- **TCG-friendly aarch64 defaults** on Windows hosts; **Force pure TCG** for Win9x / pre-ME guests
 - **Embedded session**: QEMU runs headless (`-display none`) with localhost **SPICE** + **QMP**; AQEMU owns the window
 - **Mouse / pointer settings** per VM (PS/2, USB tablet/mouse, VirtIO, VMware mouse, USB controller/version, SPICE agent-mouse)
 - **Bundled QEMU**: optional git submodule + build scripts
@@ -23,6 +64,8 @@ AQEMU is a Qt5 GUI frontend for QEMU. This fork targets **Linux** (including **R
 
 Download assets from the [Releases](https://github.com/chronic8000/aqemu/releases) page.
 
+A **Microsoft Store** listing (when published) will install a packaged Windows build from the same GPLv2 source; the Store privacy policy URL will point at [PRIVACY.md](PRIVACY.md) on this repository.
+
 ### Raspberry Pi (`.deb`)
 
 ```bash
@@ -33,7 +76,7 @@ aqemu
 
 ### Windows (portable zip)
 
-1. Install [QEMU for Windows](https://www.qemu.org/download/#windows) (include `qemu-system-aarch64` and EDK2 firmware), **or** build the bundled submodule (below).
+1. Install [QEMU for Windows](https://www.qemu.org/download/#windows) (include the `qemu-system-*` binaries you need, plus EDK2/OVMF or AAVMF firmware as required), **or** build the bundled submodule (below).
 2. Unzip `aqemu-*-win64.zip` and run `aqemu.exe`.
 
 ---
