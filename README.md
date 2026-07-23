@@ -17,9 +17,21 @@
   <a href="PRIVACY.md"><img src="https://img.shields.io/badge/privacy-policy-lightgrey.svg" alt="Privacy"/></a>
 </p>
 
+<p align="center">
+  <img src="screenshots/macos-sonoma-about.png" alt="macOS Sonoma running in AQEMU — About This Mac" width="920"/>
+</p>
+
+<p align="center">
+  <i>macOS Sonoma 14 in AQEMU — real guest desktop, About This Mac, host-matching resolution.</i>
+</p>
+
 ---
 
 ## Screenshots
+
+**macOS Sonoma** (Intel guest via OpenCore + WSL/KVM on Windows) — the shot above, full desktop:
+
+![macOS Sonoma About This Mac in AQEMU](screenshots/macos-sonoma-about.png)
 
 **Windows 11 ARM** running *inside* AQEMU on a Windows host — embedded SPICE session, full toolbar, guest progressing through setup:
 
@@ -44,7 +56,7 @@ AQEMU started with **Andrey Rijov (RDron)**, then the community era under **Tobi
 
 ### https://github.com/chronic8000/aqemu
 
-New hosts. New wizards. Embedded SPICE. Win11 ARM. Win9x done properly. Classic Mac + experimental Intel macOS. Optional WSL/KVM. Vendored **QEMU 11.0.2**. Heading for GitHub Releases and the **Microsoft Store**.
+New hosts. New wizards. Embedded SPICE. Win11 ARM. Win9x done properly. Classic Mac + experimental Intel macOS. Optional WSL/KVM. Vendored **QEMU 11.0.2**. Heading for the **Microsoft Store**.
 
 We keep the original authors’ names. We do **not** inherit their old donation pages, crowdfunding, or SourceForge homepage.
 
