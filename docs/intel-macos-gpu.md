@@ -2,7 +2,18 @@
 
 ## Defaults (everyone)
 
-Intel macOS VMs default to **VMware SVGA** (`vmware-svga` with 128 MB VRAM). This works on Windows, WSL/KVM, and Linux without a passthrough GPU. It is software-accelerated guest graphics — not Metal.
+Intel macOS VMs default to **VMware SVGA** (`vmware-svga`) and **Native (host screen)** resolution.
+
+On each start, AQEMU patches OpenCore’s `UEFI → Output → Resolution` inside the prepared OpenCore BOOT image to match:
+
+- **Native** — primary monitor **physical** pixels (`logical size × devicePixelRatio`), clamped to 1024×768 … 4096×2160  
+- Or an explicit preset (1080p / 1440p / 4K UHD / 4K DCI)
+
+macOS **System Settings → Displays** often still shows a single “Unknown Display” mode; that is normal. The OpenCore patch is what actually sets the framebuffer.
+
+VRAM uses 128 MB VRAM, or 256 MB when the target is ≥ 2560×1440.
+
+Change **Resolution** on the General tab, Apply/auto-save, then **fully reboot** the guest (not just log out).
 
 ## Metal / AMD GPU passthrough
 

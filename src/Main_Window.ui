@@ -689,7 +689,7 @@
                     </sizepolicy>
                    </property>
                    <property name="toolTip">
-                    <string>Guest display size for VirtIO GPU (EDID). Lower resolutions are faster on ARM/TCG. Windows on ARM often cannot change this from inside the guest.</string>
+                    <string>Guest display size. VirtIO GPU: EDID xres/yres. Intel macOS: patches OpenCore Resolution on start (Native = host physical pixels, up to 4096×2160).</string>
                    </property>
                    <property name="sizeAdjustPolicy">
                     <enum>QComboBox::AdjustToMinimumContentsLength</enum>

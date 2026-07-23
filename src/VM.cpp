@@ -6057,23 +6057,22 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 
 			if( mode.isEmpty() || mode == "native" )
 			{
-				if( QGuiApplication::primaryScreen() )
+				int nrw = 0, nrh = 0;
+				if( AQ_Resolve_Display_Size( QStringLiteral( "native" ), &nrw, &nrh ) )
 				{
-					const QSize sz = QGuiApplication::primaryScreen()->size();
-					rw = sz.width();
-					rh = sz.height();
-					have_size = ( rw >= 640 && rh >= 480 );
+					rw = nrw;
+					rh = nrh;
+					have_size = true;
 				}
 			}
 			else if( mode != "auto" )
 			{
-				const QStringList parts = mode.split( QLatin1Char( 'x' ) );
-				if( parts.size() == 2 )
+				int nrw = 0, nrh = 0;
+				if( AQ_Resolve_Display_Size( mode, &nrw, &nrh ) )
 				{
-					bool okw = false, okh = false;
-					rw = parts.at( 0 ).toInt( &okw );
-					rh = parts.at( 1 ).toInt( &okh );
-					have_size = okw && okh && rw >= 640 && rh >= 480;
+					rw = nrw;
+					rh = nrh;
+					have_size = true;
 				}
 			}
 
@@ -6108,8 +6107,14 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		           effective_video == QLatin1String( "std" ) ) )
 		{
 			// std VGA tops out ~2560x1440. vmware-svga + large VRAM unlocks 4K modes.
+			// Guest mode list comes from OpenCore Resolution (patched below), not xres/yres.
+			int vram_mb = 128;
+			int rw = 0, rh = 0;
+			if( AQ_Resolve_Display_Size( Display_Resolution, &rw, &rh ) &&
+			    ( rw * rh ) >= ( 2560 * 1440 ) )
+				vram_mb = 256;
 			Args << "-vga" << "none";
-			Args << "-device" << "vmware-svga,vgamem_mb=128";
+			Args << "-device" << QStringLiteral( "vmware-svga,vgamem_mb=%1" ).arg( vram_mb );
 		}
 		else
 			Args << "-vga" << effective_video;
@@ -6474,6 +6479,38 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 				{
 					oc_file = prepared;
 					mac_oc_has_partition_dxe = true;
+				}
+			}
+
+			// Match host / chosen resolution into OpenCore (macOS Displays menu is mostly useless).
+			if( ! Build_QEMU_Args_for_Tab_Info && QFile::exists( oc_file ) )
+			{
+				int rw = 0, rh = 0;
+				QString res_mode = Display_Resolution.trimmed();
+				if( res_mode.isEmpty() || res_mode.compare( QLatin1String( "auto" ), Qt::CaseInsensitive ) == 0 )
+					res_mode = QStringLiteral( "native" );
+				if( AQ_Resolve_Display_Size( res_mode, &rw, &rh ) )
+				{
+					const QString wxh = QStringLiteral( "%1x%2" ).arg( rw ).arg( rh );
+					const QString lower_oc = oc_file.toLower();
+					const bool looks_fat =
+						lower_oc.endsWith( QLatin1String( ".img" ) ) ||
+						lower_oc.endsWith( QLatin1String( ".raw" ) ) ||
+						lower_oc.contains( QLatin1String( "_opencore_boot" ) );
+					if( looks_fat )
+					{
+						if( ! AQ_Patch_OpenCore_FAT_Resolution( oc_file, wxh ) )
+						{
+							AQWarning( "Virtual_Machine::Build_QEMU_Args()",
+								QStringLiteral( "Could not patch OpenCore Resolution to %1 in %2" )
+									.arg( wxh, oc_file ) );
+						}
+						else
+						{
+							AQDebug( "Virtual_Machine::Build_QEMU_Args()",
+								QStringLiteral( "OpenCore Resolution set to %1" ).arg( wxh ) );
+						}
+					}
 				}
 			}
 

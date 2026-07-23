@@ -2887,6 +2887,8 @@ void Main_Window::Fill_Display_Resolution_Combo()
 	ui.CB_Display_Resolution->addItem( QStringLiteral( "1600 × 900" ), QStringLiteral( "1600x900" ) );
 	ui.CB_Display_Resolution->addItem( QStringLiteral( "1920 × 1080" ), QStringLiteral( "1920x1080" ) );
 	ui.CB_Display_Resolution->addItem( QStringLiteral( "2560 × 1440" ), QStringLiteral( "2560x1440" ) );
+	ui.CB_Display_Resolution->addItem( QStringLiteral( "3840 × 2160 (4K UHD)" ), QStringLiteral( "3840x2160" ) );
+	ui.CB_Display_Resolution->addItem( QStringLiteral( "4096 × 2160 (4K DCI)" ), QStringLiteral( "4096x2160" ) );
 	ui.CB_Display_Resolution->setCurrentIndex( 0 );
 	ui.CB_Display_Resolution->blockSignals( false );
 }
@@ -3055,10 +3057,24 @@ void Main_Window::Update_Display_Resolution_Enabled()
 	}
 
 	const bool virtio = video.contains( QStringLiteral( "virtio-gpu" ), Qt::CaseInsensitive );
+	Virtual_Machine *vm = Get_Current_VM();
+	const bool intel_mac = vm && vm->Use_Intel_MacOS_Profile();
+	const bool mac_vga = intel_mac && (
+		video.contains( QStringLiteral( "vmware" ), Qt::CaseInsensitive ) ||
+		video.contains( QStringLiteral( "std" ), Qt::CaseInsensitive ) ||
+		video.isEmpty() );
 	// Respect parent tab enablement (disabled while VM is running).
 	const bool parent_ok = ui.Tab_General->isEnabled();
-	ui.CB_Display_Resolution->setEnabled( virtio && parent_ok );
-	ui.Label_Display_Resolution->setEnabled( virtio && parent_ok );
+	const bool enable = ( virtio || mac_vga ) && parent_ok;
+	ui.CB_Display_Resolution->setEnabled( enable );
+	ui.Label_Display_Resolution->setEnabled( enable );
+	if( intel_mac )
+	{
+		ui.CB_Display_Resolution->setToolTip( tr(
+			"Intel macOS: AQEMU patches OpenCore UEFI Resolution to this size on start "
+			"(System Settings rarely lists modes). Native uses your host physical pixels "
+			"(DPI-aware), up to 4096×2160. Reboot the guest after changing." ) );
+	}
 }
 
 void Main_Window::VM_Changed()
