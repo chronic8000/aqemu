@@ -150,6 +150,7 @@ SET( aqemu_sources
 	src/VM.cpp
 	src/VM_Devices.cpp
 	src/VM_Wizard_Window.cpp
+	src/WSL_Launch.cpp
 	src/VNC_Password_Window.cpp
 	src/QMP_Client.cpp
 	src/Embedded_Display/Guest_Display_View.cpp
@@ -406,6 +407,16 @@ IF( AQEMU_BUNDLE_QEMU )
 		MESSAGE( STATUS "Will copy QEMU binaries from ${_qemu_bin_dir} next to aqemu" )
 	ENDIF()
 ENDIF( AQEMU_BUNDLE_QEMU )
+
+# OpenPartitionDxe.efi — LongQT OpenCore ISO enables it in config but omits the file.
+IF( EXISTS "${CMAKE_SOURCE_DIR}/third_party/opencore/OpenPartitionDxe.efi" )
+	ADD_CUSTOM_COMMAND( TARGET aqemu POST_BUILD
+		COMMAND ${CMAKE_COMMAND} -E copy_if_different
+			"${CMAKE_SOURCE_DIR}/third_party/opencore/OpenPartitionDxe.efi"
+			"$<TARGET_FILE_DIR:aqemu>/OpenPartitionDxe.efi"
+		COMMENT "Bundle OpenPartitionDxe.efi for Intel macOS OpenCore patch"
+	)
+ENDIF()
 
 # Install files
 INSTALL( TARGETS aqemu DESTINATION bin )

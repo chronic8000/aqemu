@@ -63,6 +63,7 @@ class VM_Session_Widget : public QWidget
 		void On_Change_FD1();
 		void On_Eject_FD1();
 		void On_CAD();
+		void On_Shift_F10();
 		void On_Fullscreen();
 		void On_Pause();
 		void On_Save();
@@ -71,6 +72,7 @@ class VM_Session_Widget : public QWidget
 		void On_Reset();
 		void On_Exit_View();
 		void On_Display_Connected();
+		void On_Display_Disconnected();
 		void On_Display_Error( const QString &msg );
 		void Try_Connect_Display();
 		void Schedule_Display_Connect( int delay_ms );

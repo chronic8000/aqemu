@@ -117,6 +117,7 @@ VM_Session_Widget::VM_Session_Widget( QWidget *parent )
 	connect( Drive_Poll_Timer, SIGNAL(timeout()), this, SLOT(On_Drive_Poll()) );
 
 	connect( Spice, SIGNAL(Connected()), this, SLOT(On_Display_Connected()) );
+	connect( Spice, SIGNAL(Disconnected()), this, SLOT(On_Display_Disconnected()) );
 	connect( Spice, SIGNAL(Connection_Error(QString)), this, SLOT(On_Display_Error(QString)) );
 }
 
@@ -168,11 +169,16 @@ void VM_Session_Widget::Build_Toolbar()
 
 	// Guest / display
 	Add_Toolbar_Action( QIcon( ":/key.png" ), tr( "Send Ctrl+Alt+Del" ), SLOT(On_CAD()) );
+	Add_Toolbar_Action( QIcon( ":/key.png" ),
+	                    tr( "Send Shift+F10 (Windows Setup / OOBE command prompt)" ),
+	                    SLOT(On_Shift_F10()) );
 	Act_Fullscreen = Add_Toolbar_Action( QIcon( ":/fullscreen.png" ),
 	                                     tr( "Fullscreen — hold mouse at top center to show toolbar" ),
 	                                     SLOT(On_Fullscreen()) );
 	Toolbar->addSeparator();
-	Add_Toolbar_Action( QIcon( ":/exit.png" ), tr( "Exit session view (guest keeps running)" ), SLOT(On_Exit_View()) );
+	Add_Toolbar_Action( QIcon( ":/exit.png" ),
+	                    tr( "Back to VM list (guest keeps running — use Connect to return)" ),
+	                    SLOT(On_Exit_View()) );
 
 	// Drive activity lights (PCem / 86Box style) — right side
 	QWidget *spacer = new QWidget( Toolbar );
@@ -706,6 +712,26 @@ void VM_Session_Widget::On_Display_Connected()
 	Placeholder->setText( tr( "Connected." ) );
 }
 
+void VM_Session_Widget::On_Display_Disconnected()
+{
+	Display_Connect_In_Progress = false;
+	Placeholder->setText( tr(
+		"Guest display closed.\n\n"
+		"If Windows shut down, QEMU should stop shortly and return you to the VM list.\n"
+		"Otherwise use the exit button (far right) to go back to the VM list — "
+		"the guest keeps running and you can Connect again." ) );
+	Stack->setCurrentWidget( Placeholder );
+
+	// Guest ACPI power-off often drops SPICE before QEMU's process exit is
+	// delivered. If the VM is already marked off, leave session immediately.
+	if( VM && ( VM->Get_State() == VM::VMS_Power_Off ||
+	            VM->Get_State() == VM::VMS_Saved ||
+	            VM->Get_State() == VM::VMS_In_Error ) )
+	{
+		emit Exit_Session_View();
+	}
+}
+
 void VM_Session_Widget::On_Display_Error( const QString &msg )
 {
 	AQWarning( "VM_Session_Widget", msg );
@@ -1015,6 +1041,17 @@ void VM_Session_Widget::On_Eject_FD1()
 void VM_Session_Widget::On_CAD()
 {
 	Send_CAD_To_Guest();
+}
+
+void VM_Session_Widget::On_Shift_F10()
+{
+	if( Spice && Backend == "spice" && Spice->Is_Connected() )
+	{
+		Spice->Send_Shift_F10();
+		return;
+	}
+	// HMP fallback (VNC / no SPICE inputs channel)
+	Send_Monitor( "sendkey shift-f10" );
 }
 
 void VM_Session_Widget::On_Fullscreen()

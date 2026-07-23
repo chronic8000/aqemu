@@ -599,7 +599,7 @@ bool System_Info::Update_VM_Computers_List()
 	CPU_x86_64_v0_10_0 << Device_Map( QObject::tr("QEMU 64Bit"), "qemu64" );
 	
 	auto ad = Available_Devices();
-	ad.System = Device_Map( "IBM PC 64Bit", "qemu-system-x86_64" );
+	ad.System = Device_Map( "x86_64 (PC)", "qemu-system-x86_64" );
 	ad.CPU_List += CPU_x86_64_v0_10_0;
 	ad.Machine_List += Machine_x86;
 	ad.Network_Card_List += Network_Card_v0_10_0;
@@ -734,7 +734,7 @@ bool System_Info::Update_VM_Computers_List()
 	System_Info::Emulator_QEMU_2_0[ "qemu-system-microblaze" ] = ad;
 	
 	ad = Available_Devices();
-	ad.System = Device_Map( "Power PC 32Bit", "qemu-system-ppc" );
+	ad.System = Device_Map( "PowerPC 32", "qemu-system-ppc" );
 	
 	CPU_PPC.insert( 121, Device_Map(QObject::tr("e500v1"), "e500v1") );
 	ad.CPU_List += CPU_PPC;
@@ -756,7 +756,7 @@ bool System_Info::Update_VM_Computers_List()
 	System_Info::Emulator_QEMU_2_0[ "qemu-system-ppc" ] = ad;
 	
 	ad = Available_Devices();
-	ad.System = Device_Map( "Power PC EMB 32Bit", "qemu-system-ppcemb" );
+	ad.System = Device_Map( "PowerPC EMB 32", "qemu-system-ppcemb" );
 	ad.CPU_List += CPU_PPC;
 	ad.Machine_List += Machine_PPC_0_10_0;
 	ad.Network_Card_List += Network_Card_PPC;
@@ -766,7 +766,7 @@ bool System_Info::Update_VM_Computers_List()
 	System_Info::Emulator_QEMU_2_0[ "qemu-system-ppcemb" ] = ad;
 	
 	ad = Available_Devices();
-	ad.System = Device_Map( "Power PC 64Bit", "qemu-system-ppc64" );
+	ad.System = Device_Map( "PowerPC 64", "qemu-system-ppc64" );
 	
 	QList<Device_Map> CPU_PPC_64 = CPU_PPC;
 	CPU_PPC_64 << Device_Map( "620", "620" );
@@ -814,7 +814,7 @@ bool System_Info::Update_VM_Computers_List()
 	System_Info::Emulator_QEMU_2_0[ "qemu-system-sh4eb" ] = ad;
 	
 	ad = Available_Devices();
-	ad.System = Device_Map( "Sparc 32Bit", "qemu-system-sparc" );
+	ad.System = Device_Map( "SPARC 32", "qemu-system-sparc" );
 	//ad.CPU_List = CPU_Sparc; // FIXME sparc CPU's...
 	
 	ad.Machine_List += Machine_Sparc;
@@ -832,7 +832,7 @@ bool System_Info::Update_VM_Computers_List()
 	System_Info::Emulator_QEMU_2_0[ "qemu-system-sparc" ] = ad;
 	
 	ad = Available_Devices();
-	ad.System = Device_Map( "Sparc 64Bit", "qemu-system-sparc64" );
+	ad.System = Device_Map( "SPARC 64", "qemu-system-sparc64" );
 	//ad.CPU_List = CPU_Sparc; // FIXME sparc CPU's...
 	ad.Machine_List << Device_Map( QObject::tr("Sun4u"), "sun4u" );
 	ad.Machine_List << Device_Map( QObject::tr("Sun4v"), "sun4v" );
@@ -852,8 +852,8 @@ bool System_Info::Update_VM_Computers_List()
 	};
 	
 	AQEMU_Target_Template target_templates[] = {
-		{ "qemu-system-i386", "IBM PC 32Bit" },
-		{ "qemu", "IBM PC 32Bit" },
+		{ "qemu-system-i386", "x86 (i386 PC)" },
+		{ "qemu", "x86 (i386 PC)" },
 		{ "qemu-system-aarch64", "AArch64 (ARM 64-bit)" },
 		{ "qemu-system-riscv64", "RISC-V 64-bit" },
 		{ "qemu-system-riscv32", "RISC-V 32-bit" },

@@ -157,8 +157,12 @@ class Main_Window: public QMainWindow
 		void on_Button_Win11_Install_clicked();
 		void on_Button_Win11_First_Boot_clicked();
 		void on_Button_Win11_Normal_clicked();
+		void on_Button_Win11_Repair_clicked();
 		void Apply_Win11_Lifecycle_Mode( VM::Win11_Lifecycle_Mode mode );
 		void Update_Win11_Lifecycle_Ui();
+		void Update_Intel_MacOS_Settings_Ui();
+		void on_TB_Intel_Mac_OpenCore_Browse_Main_clicked();
+		void on_TB_Intel_Mac_Recovery_Browse_Main_clicked();
 		
 		// Memory
 		void on_Memory_Size_valueChanged( int value );
@@ -210,6 +214,8 @@ class Main_Window: public QMainWindow
 		void On_Session_Request_Reset();
 		void On_Session_Request_Pause();
 		void On_Session_Request_Save();
+		void on_actionConnect_Session_triggered();
+		void Update_Connect_Action();
 		
 	protected:
 		void closeEvent( QCloseEvent *event );
@@ -322,6 +328,7 @@ class Main_Window: public QMainWindow
 		Virtual_Machine *Session_VM;
 		QString Idle_Window_Title;
 		bool Session_Mode_Active;
+		bool Session_User_Detached;
 
         bool block_VM_changed_signals;
 		QTimer *Auto_Save_Timer;

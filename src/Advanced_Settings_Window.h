@@ -29,6 +29,10 @@
 #include "ui_Advanced_Settings_Window.h"
 
 class Settings_Widget;
+class QCheckBox;
+class QLineEdit;
+class QLabel;
+class QToolButton;
 
 class Advanced_Settings_Window: public QDialog
 {
@@ -66,6 +70,7 @@ class Advanced_Settings_Window: public QDialog
 		void on_Button_CDROM_Add_clicked();
 		void on_Button_CDROM_Edit_clicked();
 		void on_Button_CDROM_Delete_clicked();
+		void on_TB_WSL_Probe_clicked();
 		
 		bool Load_Emulators_Info();
 		bool Save_Emulators_Info();
@@ -79,6 +84,12 @@ class Advanced_Settings_Window: public QDialog
         Settings_Widget* settings_widget;
 		
 		QList<Emulator> Emulators;
+
+		QCheckBox *CH_WSL_Launch_Enabled;
+		QLineEdit *Edit_WSL_Distro;
+		QLineEdit *Edit_WSL_Qemu_Binary;
+		QLabel *Label_WSL_KVM_Status;
+		QToolButton *TB_WSL_Probe;
 };
 
 #endif

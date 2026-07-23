@@ -85,6 +85,11 @@ class VM_Wizard_Window: public QDialog
 		void Win11_Existing_Disk_Browse_Clicked();
 		void Win11_VirtIO_ISO_Browse_Clicked();
 		void Win11_VirtIO_ISO_Toggled( bool on );
+
+		void Intel_Mac_OpenCore_Browse_Clicked();
+		void Intel_Mac_Disk_Browse_Clicked();
+		void Intel_Mac_Recovery_Browse_Clicked();
+		void Intel_Mac_New_Disk_Toggled( bool on );
 		
 	private:
         void applyTemplate();
@@ -94,6 +99,11 @@ class VM_Wizard_Window: public QDialog
 		void Apply_Windows11_ARM_Profile( bool simulate );
 		void Apply_AArch64_Generic_Profile( bool simulate );
 		void Build_Windows11_ARM_Page();
+		bool Is_Intel_MacOS_Template() const;
+		void Apply_Intel_MacOS_Profile( bool simulate );
+		void Build_Intel_MacOS_Page();
+		void Show_Intel_MacOS_Page();
+		void Probe_WSL_For_Intel_Mac_Page();
 		void Update_Finish_Page_Guidance();
 
 		// Three-path wizard
@@ -146,6 +156,21 @@ class VM_Wizard_Window: public QDialog
 		QLabel *Label_Win11_UEFI_Status;
 		QLabel *Label_Win11_Finish_Help;
 
+		// Intel macOS guided page (created in code)
+		QWidget *Intel_MacOS_Page;
+		QRadioButton *RB_Intel_Mac_New_Disk;
+		QRadioButton *RB_Intel_Mac_Existing_Disk;
+		QLineEdit *Edit_Intel_Mac_Existing_Disk;
+		QToolButton *TB_Intel_Mac_Disk_Browse;
+		QLineEdit *Edit_Intel_Mac_OpenCore;
+		QToolButton *TB_Intel_Mac_OpenCore_Browse;
+		QLineEdit *Edit_Intel_Mac_Recovery;
+		QToolButton *TB_Intel_Mac_Recovery_Browse;
+		QLineEdit *Edit_Intel_Mac_OSK;
+		QCheckBox *CH_Intel_Mac_Supply_Files;
+		QCheckBox *CH_Intel_Mac_Prefer_WSL;
+		QLabel *Label_Intel_Mac_UEFI_Status;
+
 		// Three-path pages
 		QWidget *Creation_Method_Page;
 		QWidget *OS_Tree_Page;
@@ -174,8 +199,11 @@ class VM_Wizard_Window: public QDialog
 		VM::Sound_Cards Guest_Sound;
 		QString Guest_Compat_Tip;
 		QLabel *Label_Guest_Compat_Tip;
+		QLabel *Label_Arch_Summary;
 		bool Guest_Suggest_Win2K_Hack;
 
+		void Apply_Sound_Preset( const QString &preset );
+		void Update_Architecture_Page_Chrome();
 		void Update_Guest_Compat_Tip();
 		void Apply_Guest_Hardware_To_New_VM();
 };

@@ -1766,7 +1766,7 @@ const QString &VM_Native_Storage_Device::Get_File_Path() const
 
 void VM_Native_Storage_Device::Set_File_Path( const QString &path )
 {
-	File_Path = path;
+	File_Path = AQ_Normalize_File_Path( path );
 }
 
 bool VM_Native_Storage_Device::Use_Interface() const
@@ -2077,8 +2077,8 @@ const QString &VM_Storage_Device::Get_File_Name() const
 
 void VM_Storage_Device::Set_File_Name( const QString &file_name )
 {
-	File_Name = file_name;
-    Native_Device.Set_File_Path( file_name );
+	File_Name = AQ_Normalize_File_Path( file_name );
+    Native_Device.Set_File_Path( File_Name );
 }
 
 bool VM_Storage_Device::Get_Native_Mode() const
