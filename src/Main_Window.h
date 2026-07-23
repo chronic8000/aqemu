@@ -161,8 +161,12 @@ class Main_Window: public QMainWindow
 		void Apply_Win11_Lifecycle_Mode( VM::Win11_Lifecycle_Mode mode );
 		void Update_Win11_Lifecycle_Ui();
 		void Update_Intel_MacOS_Settings_Ui();
+		void Update_Intel_Mac_GPU_Passthrough_Ui();
 		void on_TB_Intel_Mac_OpenCore_Browse_Main_clicked();
 		void on_TB_Intel_Mac_Recovery_Browse_Main_clicked();
+		void on_TB_Intel_Mac_GPU_Refresh_clicked();
+		void on_TB_Intel_Mac_GPU_ROM_Browse_clicked();
+		void on_CB_Intel_Mac_GPU_currentIndexChanged( int index );
 		
 		// Memory
 		void on_Memory_Size_valueChanged( int value );

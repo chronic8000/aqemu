@@ -84,6 +84,7 @@ QMap<QString, Available_Devices> System_Info::Emulator_QEMU_2_0;
 
 QList<VM_USB> System_Info::All_Host_USB;
 QList<VM_USB> System_Info::Used_Host_USB;
+QList<Host_GPU> System_Info::All_Host_GPU;
 
 Main_Window::Main_Window( QWidget *parent )
 	: QMainWindow( parent )
@@ -548,7 +549,21 @@ void Main_Window::Connect_Signals()
 	connect( ui.Edit_Intel_Mac_OSK_Main, SIGNAL(textEdited(const QString &)),
 			 this, SLOT(VM_Changed()) );
 	connect( ui.CH_Intel_Mac_WSL_Main, SIGNAL(toggled(bool)),
+			 this, SLOT(Update_Intel_Mac_GPU_Passthrough_Ui()) );
+	connect( ui.CH_Intel_Mac_WSL_Main, SIGNAL(toggled(bool)),
 			 this, SLOT(VM_Changed()) );
+	connect( ui.CH_Intel_Mac_GPU_Passthrough, SIGNAL(toggled(bool)),
+			 this, SLOT(VM_Changed()) );
+	connect( ui.Edit_Intel_Mac_GPU_Audio, SIGNAL(textEdited(const QString &)),
+			 this, SLOT(VM_Changed()) );
+	connect( ui.Edit_Intel_Mac_GPU_ROM, SIGNAL(textEdited(const QString &)),
+			 this, SLOT(VM_Changed()) );
+	connect( ui.TB_Intel_Mac_GPU_Refresh, SIGNAL(clicked()),
+			 this, SLOT(on_TB_Intel_Mac_GPU_Refresh_clicked()) );
+	connect( ui.TB_Intel_Mac_GPU_ROM_Browse, SIGNAL(clicked()),
+			 this, SLOT(on_TB_Intel_Mac_GPU_ROM_Browse_clicked()) );
+	connect( ui.CB_Intel_Mac_GPU, SIGNAL(currentIndexChanged(int)),
+			 this, SLOT(on_CB_Intel_Mac_GPU_currentIndexChanged(int)) );
 
 	connect( ui.CH_Fullscreen, SIGNAL(clicked()),
 			 this, SLOT(VM_Changed()) );
@@ -1265,6 +1280,25 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
 		tmp_vm->Use_Apple_SMC( tmp_vm->Use_Intel_MacOS_Profile() && ! osk.trimmed().isEmpty() );
 		tmp_vm->Use_Launch_Via_WSL( wsl );
 
+		if( ui.GB_Intel_Mac_GPU_Passthrough->isVisible() )
+		{
+			const bool can_pass = ui.CH_Intel_Mac_GPU_Passthrough->isEnabled();
+			tmp_vm->Use_GPU_Passthrough( can_pass && ui.CH_Intel_Mac_GPU_Passthrough->isChecked() );
+			tmp_vm->Set_GPU_PCI_Address( ui.CB_Intel_Mac_GPU->currentData().toString() );
+			tmp_vm->Set_GPU_Audio_PCI_Address( ui.Edit_Intel_Mac_GPU_Audio->text() );
+			tmp_vm->Set_GPU_ROM_File( ui.Edit_Intel_Mac_GPU_ROM->text() );
+			tmp_vm->Use_GPU_Passthrough_Multifunction( true );
+		}
+		else
+		{
+			// No AMD on this host — preserve settings from another machine / prior save
+			tmp_vm->Use_GPU_Passthrough( old_vm->Use_GPU_Passthrough() );
+			tmp_vm->Set_GPU_PCI_Address( old_vm->Get_GPU_PCI_Address() );
+			tmp_vm->Set_GPU_Audio_PCI_Address( old_vm->Get_GPU_Audio_PCI_Address() );
+			tmp_vm->Set_GPU_ROM_File( old_vm->Get_GPU_ROM_File() );
+			tmp_vm->Use_GPU_Passthrough_Multifunction( old_vm->Use_GPU_Passthrough_Multifunction() );
+		}
+
 		// Keep Advanced Options widgets in sync
 		ui_ao.Edit_Apple_SMC_OSK->setText( osk );
 		ui_ao.Edit_OpenCore_Boot_Path->setText( oc );
@@ -1842,7 +1876,16 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 	ui.Edit_Intel_Mac_Recovery_Main->setText( tmp_vm->Get_Mac_Recovery_Image_Path() );
 	ui.Edit_Intel_Mac_OSK_Main->setText( tmp_vm->Get_Apple_SMC_OSK() );
 	ui.CH_Intel_Mac_WSL_Main->setChecked( tmp_vm->Use_Launch_Via_WSL() );
+	ui.CH_Intel_Mac_GPU_Passthrough->setChecked( tmp_vm->Use_GPU_Passthrough() );
+	ui.Edit_Intel_Mac_GPU_Audio->setText( tmp_vm->Get_GPU_Audio_PCI_Address() );
+	ui.Edit_Intel_Mac_GPU_ROM->setText( tmp_vm->Get_GPU_ROM_File() );
 	Update_Intel_MacOS_Settings_Ui();
+	// Select saved GPU BDF after combo is populated
+	{
+		const int ix = ui.CB_Intel_Mac_GPU->findData( tmp_vm->Get_GPU_PCI_Address() );
+		if( ix >= 0 )
+			ui.CB_Intel_Mac_GPU->setCurrentIndex( ix );
+	}
 
 	// Repair blank/generic icons for Intel macOS VMs created before macOS icon support
 	if( tmp_vm->Use_Intel_MacOS_Profile() )
@@ -5531,6 +5574,102 @@ void Main_Window::Update_Intel_MacOS_Settings_Ui()
 	ui.verticalSpacer_intel_macos->changeSize(
 		20, show ? 16 : 0, QSizePolicy::Minimum, show ? QSizePolicy::Fixed : QSizePolicy::Ignored );
 	ui.verticalSpacer_intel_macos->invalidate();
+
+	if( show )
+		Update_Intel_Mac_GPU_Passthrough_Ui();
+	else
+		ui.GB_Intel_Mac_GPU_Passthrough->setVisible( false );
+}
+
+void Main_Window::Update_Intel_Mac_GPU_Passthrough_Ui()
+{
+	System_Info::Update_Host_GPU();
+	const bool has_amd = System_Info::Has_AMD_Display_GPU();
+	ui.GB_Intel_Mac_GPU_Passthrough->setVisible( has_amd );
+	if( ! has_amd )
+		return;
+
+	const bool can_pass = System_Info::Host_Supports_PCI_Passthrough() &&
+	                      ! ui.CH_Intel_Mac_WSL_Main->isChecked();
+
+	ui.CH_Intel_Mac_GPU_Passthrough->setEnabled( can_pass );
+	ui.CB_Intel_Mac_GPU->setEnabled( can_pass );
+	ui.Edit_Intel_Mac_GPU_Audio->setEnabled( can_pass );
+	ui.Edit_Intel_Mac_GPU_ROM->setEnabled( can_pass );
+	ui.TB_Intel_Mac_GPU_ROM_Browse->setEnabled( can_pass );
+	ui.TB_Intel_Mac_GPU_Refresh->setEnabled( true );
+
+	const QString saved_bdf = ui.CB_Intel_Mac_GPU->currentData().toString();
+	ui.CB_Intel_Mac_GPU->blockSignals( true );
+	ui.CB_Intel_Mac_GPU->clear();
+	const QList<Host_GPU> &gpus = System_Info::Get_Host_GPU_List();
+	for( int i = 0; i < gpus.count(); ++i )
+	{
+		if( ! gpus[i].Is_Display || gpus[i].Vendor != QLatin1String( "AMD" ) )
+			continue;
+		const QString label = gpus[i].PCI_Address.isEmpty()
+			? gpus[i].Name
+			: QString( "%1 (%2)" ).arg( gpus[i].Name, gpus[i].PCI_Address );
+		ui.CB_Intel_Mac_GPU->addItem( label, gpus[i].PCI_Address );
+	}
+	const int restore = ui.CB_Intel_Mac_GPU->findData( saved_bdf );
+	if( restore >= 0 )
+		ui.CB_Intel_Mac_GPU->setCurrentIndex( restore );
+	else if( ui.CB_Intel_Mac_GPU->count() > 0 )
+		ui.CB_Intel_Mac_GPU->setCurrentIndex( 0 );
+	ui.CB_Intel_Mac_GPU->blockSignals( false );
+
+	if( can_pass )
+	{
+		ui.Label_Intel_Mac_GPU_Status->setText( tr(
+			"Native Linux VFIO available. Keep passthrough off until macOS is installed; "
+			"then bind the AMD GPU to vfio-pci and enable this option." ) );
+	}
+	else
+	{
+#ifdef Q_OS_WIN32
+		ui.Label_Intel_Mac_GPU_Status->setText( tr(
+			"AMD GPU detected. Metal passthrough needs QEMU on bare-metal Linux with VFIO — "
+			"WSLg can accelerate Linux apps but cannot PCIe-assign this GPU into the guest. "
+			"Software VMware SVGA remains the working default here." ) );
+#else
+		ui.Label_Intel_Mac_GPU_Status->setText( tr(
+			"AMD GPU detected, but PCIe passthrough is not available in this environment "
+			"(WSL or no host PCI). Use bare-metal Linux for Metal." ) );
+#endif
+		ui.CH_Intel_Mac_GPU_Passthrough->setChecked( false );
+	}
+}
+
+void Main_Window::on_TB_Intel_Mac_GPU_Refresh_clicked()
+{
+	Update_Intel_Mac_GPU_Passthrough_Ui();
+	VM_Changed();
+}
+
+void Main_Window::on_TB_Intel_Mac_GPU_ROM_Browse_clicked()
+{
+	QString file = QFileDialog::getOpenFileName( this, tr( "Select GPU ROM / VBIOS" ),
+		Get_Last_Dir_Path( ui.Edit_Intel_Mac_GPU_ROM->text() ),
+		tr( "ROM (*.rom *.bin);;All Files (*)" ) );
+	if( file.isEmpty() )
+		return;
+	ui.Edit_Intel_Mac_GPU_ROM->setText( QDir::toNativeSeparators( file ) );
+	VM_Changed();
+}
+
+void Main_Window::on_CB_Intel_Mac_GPU_currentIndexChanged( int index )
+{
+	if( index < 0 )
+		return;
+	const QString bdf = ui.CB_Intel_Mac_GPU->itemData( index ).toString();
+	if( ui.Edit_Intel_Mac_GPU_Audio->text().trimmed().isEmpty() && ! bdf.isEmpty() )
+	{
+		const QString audio = System_Info::Suggest_AMD_Audio_For( bdf );
+		if( ! audio.isEmpty() )
+			ui.Edit_Intel_Mac_GPU_Audio->setText( audio );
+	}
+	VM_Changed();
 }
 
 void Main_Window::on_TB_Intel_Mac_OpenCore_Browse_Main_clicked()

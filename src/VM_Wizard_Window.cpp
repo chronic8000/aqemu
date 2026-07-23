@@ -936,7 +936,10 @@ void VM_Wizard_Window::Build_Intel_MacOS_Page()
 	QLabel *intro = new QLabel( tr(
 		"<b>Intel macOS (experimental)</b> — AQEMU does not ship OpenCore, OVMF, OSK, or Apple OS images. "
 		"Uses <code>qemu-system-x86_64</code> + <code>q35</code> + OVMF. "
-		"OpenCore <b>.iso</b> files attach as CD/DVD." ) );
+		"OpenCore <b>.iso</b> files attach as CD/DVD.<br/>"
+		"Default display is VMware SVGA (software). "
+		"<b>AMD Metal</b> passthrough appears only when an AMD GPU is detected, and only works on "
+		"bare-metal Linux with VFIO — not Windows/WSL. Install macOS first, then enable passthrough." ) );
 	intro->setWordWrap( true );
 	intro->setSizePolicy( QSizePolicy::Preferred, QSizePolicy::Minimum );
 	mainLay->addWidget( intro );
@@ -2401,7 +2404,7 @@ void VM_Wizard_Window::Apply_Intel_MacOS_Profile( bool simulate )
 	New_VM->Set_SMP_CPU_Count( 2 );
 	if( New_VM->Get_Memory_Size() < 4096 )
 		New_VM->Set_Memory_Size( 4096 );
-	New_VM->Set_Video_Card( QString() ); // machine/VGA defaults; avoid cirrus for OpenCore
+	New_VM->Set_Video_Card( QStringLiteral( "vmware" ) ); // vmware-svga — HiDPI/4K friendly vs std VGA
 	New_VM->Use_USB_Hub( true );
 	New_VM->Set_Mouse_Type( QStringLiteral( "usb-tablet" ) );
 	New_VM->Set_Mouse_USB_Controller( QStringLiteral( "xhci" ) );

@@ -26,6 +26,23 @@
 #include "Utils.h"
 #include "VM_Devices.h"
 
+/** Host PCI display / HDMI-audio GPU info for AMD Metal / VFIO UI. */
+class Host_GPU
+{
+	public:
+		Host_GPU();
+
+		QString Name;
+		QString Vendor;       // "AMD", "NVIDIA", "Intel", "Other"
+		QString PCI_Address;  // BB:DD.F (empty on Windows when unknown)
+		QString Vendor_ID;    // e.g. "1002"
+		QString Device_ID;
+		bool Is_Display;
+		bool Is_Audio;
+		QString IOMMU_Group;
+		QString Driver;
+};
+
 class System_Info
 {
 	public:
@@ -56,6 +73,15 @@ class System_Info
 		static bool Add_To_Used_USB_List( const VM_USB &device );
 		static bool Delete_From_Used_USB_List( const VM_USB &device );
 		static bool Update_Host_USB();
+
+		static bool Update_Host_GPU();
+		static const QList<Host_GPU> &Get_Host_GPU_List();
+		static bool Has_AMD_Display_GPU();
+		/** Native Linux with PCI (not Windows, not WSL). Required for vfio-pci into QEMU. */
+		static bool Host_Supports_PCI_Passthrough();
+		static bool Host_Is_WSL();
+		/** Suggest AMD HDMI audio BDF for a display GPU (same slot .1 or IOMMU group). */
+		static QString Suggest_AMD_Audio_For( const QString &display_pci_address );
 		
 		static void Get_Free_Memory_Size( int &allRAM, int &freeRAM );
 		
@@ -70,10 +96,16 @@ class System_Info
 		static bool Scan_USB_Sys( QList<VM_USB> &list );
 		static bool Scan_USB_Proc( QList<VM_USB> &list );
 		static bool Read_SysFS_File( const QString &path, QString &data );
+		static bool Scan_Host_GPU_Sysfs( QList<Host_GPU> &list );
 		#endif
+		#ifdef Q_OS_WIN32
+		static bool Scan_Host_GPU_Windows( QList<Host_GPU> &list );
+		#endif
+		static QString Vendor_Name_From_ID( const QString &vendor_id );
 		
 		static QList<VM_USB> All_Host_USB;
 		static QList<VM_USB> Used_Host_USB;
+		static QList<Host_GPU> All_Host_GPU;
 };
 
 #endif

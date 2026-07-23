@@ -254,6 +254,11 @@ Virtual_Machine::Virtual_Machine( const Virtual_Machine &vm )
 	this->OpenCore_Boot_Path = vm.Get_OpenCore_Boot_Path();
 	this->Mac_Recovery_Image_Path = vm.Get_Mac_Recovery_Image_Path();
 	this->Launch_Via_WSL = vm.Use_Launch_Via_WSL();
+	this->GPU_Passthrough = vm.Use_GPU_Passthrough();
+	this->GPU_PCI_Address = vm.Get_GPU_PCI_Address();
+	this->GPU_Audio_PCI_Address = vm.Get_GPU_Audio_PCI_Address();
+	this->GPU_ROM_File = vm.Get_GPU_ROM_File();
+	this->GPU_Passthrough_Multifunction = vm.Use_GPU_Passthrough_Multifunction();
 
 	this->Enable_KVM = vm.Use_KVM();
 	this->KVM_IRQChip = vm.Use_KVM_IRQChip();
@@ -473,6 +478,11 @@ void Virtual_Machine::Shared_Constructor()
 	OpenCore_Boot_Path = "";
 	Mac_Recovery_Image_Path = "";
 	Launch_Via_WSL = false;
+	GPU_Passthrough = false;
+	GPU_PCI_Address = "";
+	GPU_Audio_PCI_Address = "";
+	GPU_ROM_File = "";
+	GPU_Passthrough_Multifunction = true;
 
 	Enable_KVM = true;
 	KVM_IRQChip = false;
@@ -595,6 +605,11 @@ bool Virtual_Machine::operator==( const Virtual_Machine &vm ) const
 		this->OpenCore_Boot_Path == vm.Get_OpenCore_Boot_Path() &&
 		this->Mac_Recovery_Image_Path == vm.Get_Mac_Recovery_Image_Path() &&
 		this->Launch_Via_WSL == vm.Use_Launch_Via_WSL() &&
+		this->GPU_Passthrough == vm.Use_GPU_Passthrough() &&
+		this->GPU_PCI_Address == vm.Get_GPU_PCI_Address() &&
+		this->GPU_Audio_PCI_Address == vm.Get_GPU_Audio_PCI_Address() &&
+		this->GPU_ROM_File == vm.Get_GPU_ROM_File() &&
+		this->GPU_Passthrough_Multifunction == vm.Use_GPU_Passthrough_Multifunction() &&
 		this->Enable_KVM == vm.Use_KVM() &&
 		this->KVM_IRQChip == vm.Use_KVM_IRQChip() &&
 		this->No_KVM_Pit == vm.Use_No_KVM_Pit() &&
@@ -852,6 +867,11 @@ Virtual_Machine &Virtual_Machine::operator=( const Virtual_Machine &vm )
 	OpenCore_Boot_Path = vm.Get_OpenCore_Boot_Path();
 	Mac_Recovery_Image_Path = vm.Get_Mac_Recovery_Image_Path();
 	Launch_Via_WSL = vm.Use_Launch_Via_WSL();
+	GPU_Passthrough = vm.Use_GPU_Passthrough();
+	GPU_PCI_Address = vm.Get_GPU_PCI_Address();
+	GPU_Audio_PCI_Address = vm.Get_GPU_Audio_PCI_Address();
+	GPU_ROM_File = vm.Get_GPU_ROM_File();
+	GPU_Passthrough_Multifunction = vm.Use_GPU_Passthrough_Multifunction();
 
 	Enable_KVM = vm.Use_KVM();
 	KVM_IRQChip = vm.Use_KVM_IRQChip();
@@ -3083,6 +3103,31 @@ bool Virtual_Machine::Create_VM_File( const QString &file_name, bool template_mo
 	VM_Element.appendChild( Dom_Element );
 	Dom_Text = New_Dom_Document.createTextNode( Launch_Via_WSL ? "true" : "false" );
 	Dom_Element.appendChild( Dom_Text );
+
+	Dom_Element = New_Dom_Document.createElement( "GPU_Passthrough" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( GPU_Passthrough ? "true" : "false" );
+	Dom_Element.appendChild( Dom_Text );
+
+	Dom_Element = New_Dom_Document.createElement( "GPU_PCI_Address" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( GPU_PCI_Address );
+	Dom_Element.appendChild( Dom_Text );
+
+	Dom_Element = New_Dom_Document.createElement( "GPU_Audio_PCI_Address" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( GPU_Audio_PCI_Address );
+	Dom_Element.appendChild( Dom_Text );
+
+	Dom_Element = New_Dom_Document.createElement( "GPU_ROM_File" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( GPU_ROM_File );
+	Dom_Element.appendChild( Dom_Text );
+
+	Dom_Element = New_Dom_Document.createElement( "GPU_Passthrough_Multifunction" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( GPU_Passthrough_Multifunction ? "true" : "false" );
+	Dom_Element.appendChild( Dom_Text );
 	
 	// Additional Arguments
 	Dom_Element = New_Dom_Document.createElement( "Additional_Args" );
@@ -4819,6 +4864,14 @@ bool Virtual_Machine::Load_VM( const QString &file_name )
 			OpenCore_Boot_Path = AQ_Normalize_File_Path( Child_Element.firstChildElement( "OpenCore_Boot_Path" ).text() );
 			Mac_Recovery_Image_Path = AQ_Normalize_File_Path( Child_Element.firstChildElement( "Mac_Recovery_Image_Path" ).text() );
 			Launch_Via_WSL = ( Child_Element.firstChildElement( "Launch_Via_WSL" ).text() == "true" );
+			GPU_Passthrough = ( Child_Element.firstChildElement( "GPU_Passthrough" ).text() == "true" );
+			GPU_PCI_Address = Child_Element.firstChildElement( "GPU_PCI_Address" ).text().trimmed();
+			GPU_Audio_PCI_Address = Child_Element.firstChildElement( "GPU_Audio_PCI_Address" ).text().trimmed();
+			GPU_ROM_File = AQ_Normalize_File_Path( Child_Element.firstChildElement( "GPU_ROM_File" ).text() );
+			{
+				const QString mf = Child_Element.firstChildElement( "GPU_Passthrough_Multifunction" ).text();
+				GPU_Passthrough_Multifunction = ( mf.isEmpty() || mf == QLatin1String( "true" ) );
+			}
 			
 			// Enable KVM
 			Enable_KVM = ! (Child_Element.firstChildElement("Enable_KVM").text() == "false" );
@@ -6044,6 +6097,20 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	{
 		if( effective_video == "none" )
 			Args << "-vga" << "none";
+		else if( Intel_MacOS_Profile && GPU_Passthrough && ! GPU_PCI_Address.trimmed().isEmpty() )
+		{
+			// Real AMD dGPU via VFIO — no emulated VGA.
+			Args << "-vga" << "none";
+		}
+		else if( Intel_MacOS_Profile &&
+		         ( effective_video == QLatin1String( "vmware" ) ||
+		           effective_video == QLatin1String( "vmware-svga" ) ||
+		           effective_video == QLatin1String( "std" ) ) )
+		{
+			// std VGA tops out ~2560x1440. vmware-svga + large VRAM unlocks 4K modes.
+			Args << "-vga" << "none";
+			Args << "-device" << "vmware-svga,vgamem_mb=128";
+		}
 		else
 			Args << "-vga" << effective_video;
 	}
@@ -7641,6 +7708,29 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	if( Intel_MacOS_Profile )
 		Args << "-smbios" << "type=2";
 
+	// AMD GPU VFIO passthrough (Metal) — native Linux only; gated at Start_vm()
+	if( Intel_MacOS_Profile && GPU_Passthrough && ! GPU_PCI_Address.trimmed().isEmpty() )
+	{
+		QString gpu_dev = QStringLiteral( "vfio-pci,host=%1" ).arg( GPU_PCI_Address.trimmed() );
+		if( GPU_Passthrough_Multifunction )
+			gpu_dev += QLatin1String( ",multifunction=on" );
+		const QString rom = AQ_Normalize_File_Path( GPU_ROM_File );
+		if( ! rom.isEmpty() )
+		{
+			if( Build_QEMU_Args_for_Script_Mode )
+				gpu_dev += QStringLiteral( ",romfile=\"%1\"" ).arg( rom );
+			else
+				gpu_dev += QStringLiteral( ",romfile=%1" ).arg( rom );
+		}
+		Args << "-device" << gpu_dev;
+
+		QString audio_bdf = GPU_Audio_PCI_Address.trimmed();
+		if( audio_bdf.isEmpty() )
+			audio_bdf = System_Info::Suggest_AMD_Audio_For( GPU_PCI_Address );
+		if( ! audio_bdf.isEmpty() )
+			Args << "-device" << QStringLiteral( "vfio-pci,host=%1" ).arg( audio_bdf );
+	}
+
 	// Recovery / installer is attached earlier with OpenCore on AHCI
 	// (ide-hd for MIST APM+HFS; ide-cd for true ISO9660).
 	
@@ -8322,6 +8412,32 @@ bool Virtual_Machine::Start_impl()
 			return false;
 		}
 		Use_Apple_SMC_Flag = true;
+
+		if( GPU_Passthrough )
+		{
+			const bool via_wsl = Launch_Via_WSL;
+#ifdef Q_OS_WIN32
+			const bool host_ok = false;
+#else
+			const bool host_ok = System_Info::Host_Supports_PCI_Passthrough();
+#endif
+			if( via_wsl || ! host_ok )
+			{
+				AQGraphic_Warning( tr( "AMD GPU passthrough" ),
+					tr( "GPU passthrough (Metal) needs QEMU on bare-metal Linux with VFIO.\n\n"
+					    "WSLg can accelerate Linux apps, but cannot PCIe-assign a dGPU into the "
+					    "macOS guest. Disable GPU passthrough or run AQEMU on native Linux with "
+					    "an AMD GPU bound to vfio-pci." ) );
+				return false;
+			}
+			if( GPU_PCI_Address.trimmed().isEmpty() )
+			{
+				AQGraphic_Warning( tr( "AMD GPU passthrough" ),
+					tr( "GPU passthrough is enabled but no PCI address is set.\n"
+					    "Select an AMD GPU in the Intel macOS settings." ) );
+				return false;
+			}
+		}
 	}
 
 	#ifdef Q_OS_WIN32
@@ -10487,6 +10603,56 @@ bool Virtual_Machine::Use_Launch_Via_WSL() const
 void Virtual_Machine::Use_Launch_Via_WSL( bool use )
 {
 	Launch_Via_WSL = use;
+}
+
+bool Virtual_Machine::Use_GPU_Passthrough() const
+{
+	return GPU_Passthrough;
+}
+
+void Virtual_Machine::Use_GPU_Passthrough( bool use )
+{
+	GPU_Passthrough = use;
+}
+
+const QString &Virtual_Machine::Get_GPU_PCI_Address() const
+{
+	return GPU_PCI_Address;
+}
+
+void Virtual_Machine::Set_GPU_PCI_Address( const QString &bdf )
+{
+	GPU_PCI_Address = bdf.trimmed();
+}
+
+const QString &Virtual_Machine::Get_GPU_Audio_PCI_Address() const
+{
+	return GPU_Audio_PCI_Address;
+}
+
+void Virtual_Machine::Set_GPU_Audio_PCI_Address( const QString &bdf )
+{
+	GPU_Audio_PCI_Address = bdf.trimmed();
+}
+
+const QString &Virtual_Machine::Get_GPU_ROM_File() const
+{
+	return GPU_ROM_File;
+}
+
+void Virtual_Machine::Set_GPU_ROM_File( const QString &path )
+{
+	GPU_ROM_File = AQ_Normalize_File_Path( path );
+}
+
+bool Virtual_Machine::Use_GPU_Passthrough_Multifunction() const
+{
+	return GPU_Passthrough_Multifunction;
+}
+
+void Virtual_Machine::Use_GPU_Passthrough_Multifunction( bool use )
+{
+	GPU_Passthrough_Multifunction = use;
 }
 
 bool Virtual_Machine::Use_KVM() const
