@@ -24,7 +24,7 @@
 #ifndef UTILS_H
 #define UTILS_H
 
-#define CURRENT_AQEMU_VERSION "0.9.8"
+#define CURRENT_AQEMU_VERSION "0.9.9"
 #define CURRENT_AQEMU_RELEASE_DATE "2026-07-17"
 
 #include <functional>
