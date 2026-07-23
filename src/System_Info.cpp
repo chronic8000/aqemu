@@ -25,8 +25,12 @@
 #include <QRegExp>
 #include <QProcess>
 #include <QFile>
+#include <QFileInfo>
 #include <QDir>
 #include <QTextStream>
+#include <QJsonDocument>
+#include <QJsonArray>
+#include <QJsonObject>
 
 #include "Utils.h"
 #include "System_Info.h"
@@ -3363,6 +3367,283 @@ bool System_Info::Update_Host_USB()
 }
 
 #endif // Q_OS_WIN32
+
+Host_GPU::Host_GPU()
+	: Is_Display( false )
+	, Is_Audio( false )
+{
+}
+
+QString System_Info::Vendor_Name_From_ID( const QString &vendor_id )
+{
+	const QString v = vendor_id.toLower().trimmed();
+	if( v == QLatin1String( "1002" ) || v == QLatin1String( "0x1002" ) )
+		return QStringLiteral( "AMD" );
+	if( v == QLatin1String( "10de" ) || v == QLatin1String( "0x10de" ) )
+		return QStringLiteral( "NVIDIA" );
+	if( v == QLatin1String( "8086" ) || v == QLatin1String( "0x8086" ) )
+		return QStringLiteral( "Intel" );
+	return QStringLiteral( "Other" );
+}
+
+bool System_Info::Host_Is_WSL()
+{
+#ifdef Q_OS_WIN32
+	return false; // AQEMU itself is a native Windows process; WSL is a launch backend
+#else
+	if( QFile::exists( QStringLiteral( "/proc/sys/fs/binfmt_misc/WSLInterop" ) ) )
+		return true;
+	QFile ver( QStringLiteral( "/proc/version" ) );
+	if( ver.open( QIODevice::ReadOnly | QIODevice::Text ) )
+	{
+		const QByteArray line = ver.readAll().toLower();
+		if( line.contains( "microsoft" ) || line.contains( "wsl" ) )
+			return true;
+	}
+	return false;
+#endif
+}
+
+bool System_Info::Host_Supports_PCI_Passthrough()
+{
+#ifdef Q_OS_WIN32
+	return false;
+#else
+	if( Host_Is_WSL() )
+		return false;
+	return QDir( QStringLiteral( "/sys/bus/pci/devices" ) ).exists();
+#endif
+}
+
+const QList<Host_GPU> &System_Info::Get_Host_GPU_List()
+{
+	if( All_Host_GPU.isEmpty() )
+		Update_Host_GPU();
+	return All_Host_GPU;
+}
+
+bool System_Info::Has_AMD_Display_GPU()
+{
+	const QList<Host_GPU> &list = Get_Host_GPU_List();
+	for( int i = 0; i < list.count(); ++i )
+	{
+		if( list[i].Is_Display && list[i].Vendor == QLatin1String( "AMD" ) )
+			return true;
+	}
+	return false;
+}
+
+QString System_Info::Suggest_AMD_Audio_For( const QString &display_pci_address )
+{
+	const QString bdf = display_pci_address.trimmed();
+	if( bdf.isEmpty() )
+		return QString();
+
+	const QList<Host_GPU> &list = Get_Host_GPU_List();
+	QString display_group;
+	for( int i = 0; i < list.count(); ++i )
+	{
+		if( list[i].PCI_Address == bdf && list[i].Is_Display )
+		{
+			display_group = list[i].IOMMU_Group;
+			break;
+		}
+	}
+
+	// Prefer function .1 on the same slot (typical AMD HDMI audio)
+	QRegExp re( QStringLiteral( "^([0-9a-fA-F]{2}:[0-9a-fA-F]{2})\\.([0-9a-fA-F])$" ) );
+	QString sibling;
+	if( re.exactMatch( bdf ) )
+		sibling = re.cap( 1 ) + QLatin1String( ".1" );
+
+	for( int i = 0; i < list.count(); ++i )
+	{
+		if( ! list[i].Is_Audio || list[i].Vendor != QLatin1String( "AMD" ) )
+			continue;
+		if( ! sibling.isEmpty() && list[i].PCI_Address == sibling )
+			return list[i].PCI_Address;
+	}
+	if( ! display_group.isEmpty() )
+	{
+		for( int i = 0; i < list.count(); ++i )
+		{
+			if( list[i].Is_Audio && list[i].Vendor == QLatin1String( "AMD" ) &&
+			    list[i].IOMMU_Group == display_group )
+				return list[i].PCI_Address;
+		}
+	}
+	return QString();
+}
+
+#ifdef Q_OS_LINUX
+bool System_Info::Scan_Host_GPU_Sysfs( QList<Host_GPU> &list )
+{
+	list.clear();
+	QDir dir( QStringLiteral( "/sys/bus/pci/devices" ) );
+	if( ! dir.exists() )
+		return false;
+
+	const QStringList entries = dir.entryList( QDir::Dirs | QDir::NoDotAndDotDot );
+	for( int i = 0; i < entries.count(); ++i )
+	{
+		const QString full = entries[i]; // 0000:01:00.0
+		const QString base = QStringLiteral( "/sys/bus/pci/devices/" ) + full + QLatin1Char( '/' );
+
+		QString class_str;
+		if( ! Read_SysFS_File( base + QLatin1String( "class" ), class_str ) )
+			continue;
+		class_str = class_str.trimmed().toLower();
+		if( class_str.startsWith( QLatin1String( "0x" ) ) )
+			class_str = class_str.mid( 2 );
+		bool ok = false;
+		const quint32 class_val = class_str.toUInt( &ok, 16 );
+		if( ! ok )
+			continue;
+		const quint32 base_class = ( class_val >> 16 ) & 0xff;
+		const quint32 sub_class = ( class_val >> 8 ) & 0xff;
+		const bool is_display = ( base_class == 0x03 ); // VGA / 3D / display
+		const bool is_audio = ( base_class == 0x04 && sub_class == 0x03 ); // HD Audio
+		if( ! is_display && ! is_audio )
+			continue;
+
+		QString vendor_str, device_str;
+		Read_SysFS_File( base + QLatin1String( "vendor" ), vendor_str );
+		Read_SysFS_File( base + QLatin1String( "device" ), device_str );
+		vendor_str = vendor_str.trimmed().toLower();
+		device_str = device_str.trimmed().toLower();
+		if( vendor_str.startsWith( QLatin1String( "0x" ) ) )
+			vendor_str = vendor_str.mid( 2 );
+		if( device_str.startsWith( QLatin1String( "0x" ) ) )
+			device_str = device_str.mid( 2 );
+
+		Host_GPU gpu;
+		gpu.Vendor_ID = vendor_str;
+		gpu.Device_ID = device_str;
+		gpu.Vendor = Vendor_Name_From_ID( vendor_str );
+		gpu.Is_Display = is_display;
+		gpu.Is_Audio = is_audio;
+
+		// Strip domain prefix 0000:
+		gpu.PCI_Address = full;
+		if( gpu.PCI_Address.count( QLatin1Char( ':' ) ) >= 2 )
+			gpu.PCI_Address = gpu.PCI_Address.section( QLatin1Char( ':' ), 1 );
+
+		QFile uevent( base + QLatin1String( "uevent" ) );
+		if( uevent.open( QIODevice::ReadOnly | QIODevice::Text ) )
+		{
+			while( ! uevent.atEnd() )
+			{
+				const QByteArray line = uevent.readLine().trimmed();
+				if( line.startsWith( "DRIVER=" ) )
+					gpu.Driver = QString::fromUtf8( line.mid( 7 ) );
+			}
+		}
+
+		QFileInfo iommu( base + QLatin1String( "iommu_group" ) );
+		if( iommu.exists() )
+			gpu.IOMMU_Group = iommu.symLinkTarget().section( QLatin1Char( '/' ), -1 );
+
+		if( is_display )
+			gpu.Name = QString( "%1 GPU [%2:%3] @ %4" )
+				.arg( gpu.Vendor ).arg( vendor_str ).arg( device_str ).arg( gpu.PCI_Address );
+		else
+			gpu.Name = QString( "%1 HDMI Audio [%2:%3] @ %4" )
+				.arg( gpu.Vendor ).arg( vendor_str ).arg( device_str ).arg( gpu.PCI_Address );
+
+		list << gpu;
+	}
+	return ! list.isEmpty();
+}
+#endif
+
+#ifdef Q_OS_WIN32
+bool System_Info::Scan_Host_GPU_Windows( QList<Host_GPU> &list )
+{
+	list.clear();
+	QProcess proc;
+	proc.start( QStringLiteral( "powershell.exe" ), QStringList()
+		<< QStringLiteral( "-NoProfile" )
+		<< QStringLiteral( "-NonInteractive" )
+		<< QStringLiteral( "-Command" )
+		<< QStringLiteral(
+			"Get-CimInstance Win32_VideoController | "
+			"Select-Object Name,PNPDeviceID | ConvertTo-Json -Compress" ) );
+	if( ! proc.waitForFinished( 15000 ) )
+		return false;
+
+	const QByteArray out = proc.readAllStandardOutput().trimmed();
+	if( out.isEmpty() )
+		return false;
+
+	QJsonParseError err;
+	const QJsonDocument doc = QJsonDocument::fromJson( out, &err );
+	if( err.error != QJsonParseError::NoError )
+		return false;
+
+	QJsonArray arr;
+	if( doc.isArray() )
+		arr = doc.array();
+	else if( doc.isObject() )
+		arr.append( doc.object() );
+	else
+		return false;
+
+	for( int i = 0; i < arr.count(); ++i )
+	{
+		const QJsonObject o = arr[i].toObject();
+		const QString name = o.value( QStringLiteral( "Name" ) ).toString();
+		const QString pnp = o.value( QStringLiteral( "PNPDeviceID" ) ).toString();
+		if( name.isEmpty() )
+			continue;
+
+		Host_GPU gpu;
+		gpu.Is_Display = true;
+		gpu.Is_Audio = false;
+		gpu.Name = name;
+
+		QRegExp ven( QStringLiteral( "VEN_([0-9A-Fa-f]{4})" ) );
+		QRegExp dev( QStringLiteral( "DEV_([0-9A-Fa-f]{4})" ) );
+		if( ven.indexIn( pnp ) >= 0 )
+			gpu.Vendor_ID = ven.cap( 1 ).toLower();
+		if( dev.indexIn( pnp ) >= 0 )
+			gpu.Device_ID = dev.cap( 1 ).toLower();
+		gpu.Vendor = Vendor_Name_From_ID( gpu.Vendor_ID );
+		if( gpu.Vendor == QLatin1String( "Other" ) )
+		{
+			const QString nl = name.toLower();
+			if( nl.contains( "amd" ) || nl.contains( "radeon" ) || nl.contains( "rx " ) )
+				gpu.Vendor = QStringLiteral( "AMD" );
+			else if( nl.contains( "nvidia" ) || nl.contains( "geforce" ) || nl.contains( "rtx" ) )
+				gpu.Vendor = QStringLiteral( "NVIDIA" );
+			else if( nl.contains( "intel" ) )
+				gpu.Vendor = QStringLiteral( "Intel" );
+		}
+		list << gpu;
+	}
+	return ! list.isEmpty();
+}
+#endif
+
+bool System_Info::Update_Host_GPU()
+{
+	QList<Host_GPU> list;
+#ifdef Q_OS_LINUX
+	if( Scan_Host_GPU_Sysfs( list ) )
+	{
+		All_Host_GPU = list;
+		return true;
+	}
+#endif
+#ifdef Q_OS_WIN32
+	if( Scan_Host_GPU_Windows( list ) )
+	{
+		All_Host_GPU = list;
+		return true;
+	}
+#endif
+	All_Host_GPU = list;
+	return false;
+}
 
 bool System_Info::Auto_Find_And_Save_Emulators()
 {

@@ -1,3 +1,17 @@
+2026-07-23 Chronic Engineering — Intel macOS AMD GPU passthrough UI + software defaults
+
+	Conditional AMD Metal / VFIO UI (community)
+	* Detect host GPUs (Linux sysfs; Windows Win32_VideoController).
+	* Hide AMD passthrough controls when no AMD display GPU is present.
+	* Grey out when AMD is present but host cannot VFIO (Windows/WSL); enable on
+	  bare-metal Linux. Passthrough stays off by default (install with software VGA).
+	* Persist GPU_Passthrough / PCI BDFs / optional ROM; emit vfio-pci (+ HDMI audio).
+	* Refuse start when passthrough is on under Windows/WSL — WSLg ≠ PCIe assignment.
+	* Docs: docs/intel-macos-gpu.md
+
+	Software path (global default)
+	* Intel macOS continues to use vmware-svga,vgamem_mb=128 when not passthrough.
+
 2026-07-23 Chronic Engineering — Intel macOS on Windows (WSL/KVM) + installer pipeline
 
 	Intel macOS guest support (OpenCore + AppleSMC OSK)

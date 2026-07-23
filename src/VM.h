@@ -414,6 +414,18 @@ class Virtual_Machine: public QObject
 		/** Launch this VM via wsl.exe + Linux QEMU (KVM) on Windows. */
 		bool Use_Launch_Via_WSL() const;
 		void Use_Launch_Via_WSL( bool use );
+
+		/** AMD GPU VFIO passthrough for Intel macOS Metal (native Linux only). */
+		bool Use_GPU_Passthrough() const;
+		void Use_GPU_Passthrough( bool use );
+		const QString &Get_GPU_PCI_Address() const;
+		void Set_GPU_PCI_Address( const QString &bdf );
+		const QString &Get_GPU_Audio_PCI_Address() const;
+		void Set_GPU_Audio_PCI_Address( const QString &bdf );
+		const QString &Get_GPU_ROM_File() const;
+		void Set_GPU_ROM_File( const QString &path );
+		bool Use_GPU_Passthrough_Multifunction() const;
+		void Use_GPU_Passthrough_Multifunction( bool use );
 		
 		bool Use_KVM() const;
 		void Use_KVM( bool use );
@@ -692,6 +704,12 @@ class Virtual_Machine: public QObject
 		QString OpenCore_Boot_Path;
 		QString Mac_Recovery_Image_Path;
 		bool Launch_Via_WSL;
+
+		bool GPU_Passthrough;
+		QString GPU_PCI_Address;
+		QString GPU_Audio_PCI_Address;
+		QString GPU_ROM_File;
+		bool GPU_Passthrough_Multifunction;
 
 		bool Enable_KVM;
 		bool KVM_IRQChip;
