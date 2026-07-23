@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>553</width>
-    <height>463</height>
+    <height>1180</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -84,7 +84,621 @@
         </property>
        </widget>
       </item>
-      <item row="7" column="0">
+      <item row="7" column="0" colspan="2">
+       <widget class="QCheckBox" name="CH_Pass_Through_Gamepads">
+        <property name="toolTip">
+         <string>Pass through connected Xbox, PlayStation, Nintendo, and other USB game controllers into the guest via QEMU usb-host (vendor/product ID). Requires a QEMU build with USB host support. On Windows, AQEMU enumerates PnP USB devices.</string>
+        </property>
+        <property name="text">
+         <string>Pass through Xbox / USB game controllers</string>
+        </property>
+       </widget>
+      </item>
+      <item row="8" column="0" colspan="2">
+       <layout class="QHBoxLayout" name="HL_Gamepads">
+        <item>
+         <widget class="QListWidget" name="LW_Gamepads">
+          <property name="toolTip">
+           <string>Leave all unchecked to pass through every detected gamepad. Check specific controllers to limit passthrough.</string>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>16777215</width>
+            <height>72</height>
+           </size>
+          </property>
+          <property name="selectionMode">
+           <enum>QAbstractItemView::NoSelection</enum>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QToolButton" name="TB_Refresh_Gamepads">
+          <property name="toolTip">
+           <string>Rescan host USB for game controllers</string>
+          </property>
+          <property name="text">
+           <string>Refresh</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item row="9" column="0" colspan="2">
+       <widget class="QCheckBox" name="CH_Emulate_USB_Gamepad">
+        <property name="toolTip">
+         <string>Add QEMU's emulated usb-gamepad device (maps a host joystick/gamepad into the guest as USB HID). Not present in every QEMU build — if Start fails, use USB passthrough above instead. Best for guests that expect a generic USB gamepad rather than an Xbox XInput device.</string>
+        </property>
+        <property name="text">
+         <string>Emulate USB gamepad (usb-gamepad / host SDL)</string>
+        </property>
+       </widget>
+      </item>
+      <item row="10" column="0">
+       <widget class="QCheckBox" name="CH_VirtIO_Balloon">
+        <property name="toolTip">
+         <string>Paravirtual memory balloon (-device virtio-balloon-pci). Lets the guest return unused RAM to the host.</string>
+        </property>
+        <property name="text">
+         <string>VirtIO balloon</string>
+        </property>
+       </widget>
+      </item>
+      <item row="10" column="1">
+       <widget class="QCheckBox" name="CH_VirtIO_RNG">
+        <property name="toolTip">
+         <string>Paravirtual entropy device (-device virtio-rng-pci). Speeds up guest boot when entropy is scarce.</string>
+        </property>
+        <property name="text">
+         <string>VirtIO RNG</string>
+        </property>
+       </widget>
+      </item>
+      <item row="11" column="0">
+       <widget class="QCheckBox" name="CH_VirtIO_Keyboard">
+        <property name="toolTip">
+         <string>Add virtio-keyboard-pci (useful on aarch64 virt / modern guests).</string>
+        </property>
+        <property name="text">
+         <string>VirtIO keyboard</string>
+        </property>
+       </widget>
+      </item>
+      <item row="11" column="1">
+       <widget class="QCheckBox" name="CH_No_Defaults">
+        <property name="toolTip">
+         <string>Pass -nodefaults so QEMU does not create default devices. You must define video, network, serial, etc. yourself (Additional Args / Device Manager). Useful for bare boards and custom machines.</string>
+        </property>
+        <property name="text">
+         <string>No default devices (-nodefaults)</string>
+        </property>
+       </widget>
+      </item>
+      <item row="12" column="0">
+       <widget class="QLabel" name="Label_RTC_Clock">
+        <property name="text">
+         <string>Guest RTC clock:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="12" column="1">
+       <widget class="QComboBox" name="CB_RTC_Clock">
+        <property name="toolTip">
+         <string>-rtc clock=… — host tracks the host clock; vm isolates the guest; rt uses a realtime clock independent of host suspension.</string>
+        </property>
+        <item>
+         <property name="text">
+          <string>host (default)</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>vm (isolate from host)</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>rt (realtime)</string>
+         </property>
+        </item>
+       </widget>
+      </item>
+      <item row="13" column="0">
+       <widget class="QCheckBox" name="CH_IOThread">
+        <property name="toolTip">
+         <string>Creates -object iothread,id=aq-iothread0 and attaches it to virtio-blk devices for better disk I/O on SMP hosts (qemu-doc / modern -drive+device).</string>
+        </property>
+        <property name="text">
+         <string>IOThread for VirtIO disks</string>
+        </property>
+       </widget>
+      </item>
+      <item row="13" column="1">
+       <widget class="QCheckBox" name="CH_Modern_Netdev">
+        <property name="toolTip">
+         <string>Emit modern -netdev + -device for user/tap/bridge instead of legacy -net (recommended). Uncheck only if an old QEMU needs -net.</string>
+        </property>
+        <property name="text">
+         <string>Modern -netdev networking</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item row="14" column="0">
+       <widget class="QLabel" name="Label_UUID">
+        <property name="text">
+         <string>UUID (-uuid):</string>
+        </property>
+       </widget>
+      </item>
+      <item row="14" column="1">
+       <widget class="QLineEdit" name="Edit_UUID">
+        <property name="placeholderText">
+         <string>optional — e.g. 123e4567-e89b-12d3-a456-426614174000</string>
+        </property>
+       </widget>
+      </item>
+      <item row="15" column="0">
+       <widget class="QLabel" name="Label_BIOS">
+        <property name="text">
+         <string>BIOS (-bios):</string>
+        </property>
+       </widget>
+      </item>
+      <item row="15" column="1">
+       <widget class="QLineEdit" name="Edit_BIOS_File">
+        <property name="toolTip">
+         <string>Optional firmware image. Leave empty for SeaBIOS / machine default. UEFI still uses the OVMF paths below when enabled.</string>
+        </property>
+        <property name="placeholderText">
+         <string>optional path to BIOS / board firmware</string>
+        </property>
+       </widget>
+      </item>
+      <item row="16" column="0">
+       <widget class="QLabel" name="Label_Mem_Path">
+        <property name="text">
+         <string>mem-path:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="16" column="1">
+       <layout class="QHBoxLayout" name="HL_Mem_Path">
+        <item>
+         <widget class="QLineEdit" name="Edit_Mem_Path">
+          <property name="toolTip">
+           <string>-mem-path for hugepages / file-backed guest RAM (Linux hosts).</string>
+          </property>
+          <property name="placeholderText">
+           <string>optional e.g. /dev/hugepages</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QCheckBox" name="CH_Mem_Prealloc">
+          <property name="toolTip">
+           <string>-mem-prealloc — allocate guest RAM immediately</string>
+          </property>
+          <property name="text">
+           <string>prealloc</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item row="17" column="0">
+       <widget class="QLabel" name="Label_Machine_Extra">
+        <property name="text">
+         <string>Extra -machine props:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="17" column="1">
+       <widget class="QLineEdit" name="Edit_Machine_Extra_Props">
+        <property name="toolTip">
+         <string>Comma-separated properties appended to -machine (e.g. gic-version=host,usb=off). See qemu-system-ARCH -M help.</string>
+        </property>
+        <property name="placeholderText">
+         <string>e.g. usb=off,vmport=off</string>
+        </property>
+       </widget>
+      </item>
+      <item row="18" column="0">
+       <widget class="QCheckBox" name="CH_NUMA">
+        <property name="toolTip">
+         <string>Emit -numa node,nodeid=N,mem=… splitting guest RAM across nodes (qemu-doc NUMA).</string>
+        </property>
+        <property name="text">
+         <string>NUMA nodes:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="18" column="1">
+       <layout class="QHBoxLayout" name="HL_NUMA">
+        <item>
+         <widget class="QSpinBox" name="SB_NUMA_Nodes">
+          <property name="toolTip">
+           <string>Number of NUMA nodes (2–8)</string>
+          </property>
+          <property name="minimum">
+           <number>2</number>
+          </property>
+          <property name="maximum">
+           <number>8</number>
+          </property>
+          <property name="value">
+           <number>2</number>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QCheckBox" name="CH_NUMA_Memdev">
+          <property name="toolTip">
+           <string>Use -object memory-backend-ram + -numa node,memdev=… (preferred on modern QEMU)</string>
+          </property>
+          <property name="text">
+           <string>memdev backends</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item row="19" column="0">
+       <widget class="QLabel" name="Label_Watchdog">
+        <property name="text">
+         <string>Watchdog:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="19" column="1">
+       <layout class="QHBoxLayout" name="HL_Watchdog">
+        <item>
+         <widget class="QComboBox" name="CB_Watchdog_Model">
+          <property name="toolTip">
+           <string>-watchdog MODEL (empty = disabled)</string>
+          </property>
+          <item>
+           <property name="text">
+            <string>(off)</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>i6300esb</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>ib700</string>
+           </property>
+          </item>
+         </widget>
+        </item>
+        <item>
+         <widget class="QComboBox" name="CB_Watchdog_Action">
+          <property name="toolTip">
+           <string>-watchdog-action</string>
+          </property>
+          <item>
+           <property name="text">
+            <string>reset</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>shutdown</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>poweroff</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>pause</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>debug</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>none</string>
+           </property>
+          </item>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item row="20" column="0">
+       <widget class="QLabel" name="Label_TPM">
+        <property name="text">
+         <string>TPM:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="20" column="1">
+       <layout class="QHBoxLayout" name="HL_TPM">
+        <item>
+         <widget class="QComboBox" name="CB_TPM_Type">
+          <item>
+           <property name="text">
+            <string>none</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>emulator (swtpm socket)</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>passthrough</string>
+           </property>
+          </item>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLineEdit" name="Edit_TPM_Path">
+          <property name="placeholderText">
+           <string>socket or /dev/tpm0</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item row="21" column="0">
+       <widget class="QCheckBox" name="CH_Secret_Object">
+        <property name="toolTip">
+         <string>-object secret,id=… for LUKS/encrypted disks or TLS material</string>
+        </property>
+        <property name="text">
+         <string>Secret object</string>
+        </property>
+       </widget>
+      </item>
+      <item row="21" column="1">
+       <layout class="QHBoxLayout" name="HL_Secret">
+        <item>
+         <widget class="QLineEdit" name="Edit_Secret_ID">
+          <property name="placeholderText">
+           <string>id (sec0)</string>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>80</width>
+            <height>16777215</height>
+           </size>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLineEdit" name="Edit_Secret_File">
+          <property name="placeholderText">
+           <string>file= path (preferred)</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLineEdit" name="Edit_Secret_Data">
+          <property name="echoMode">
+           <enum>QLineEdit::Password</enum>
+          </property>
+          <property name="placeholderText">
+           <string>or data=</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item row="22" column="0">
+       <widget class="QLabel" name="Label_Incoming">
+        <property name="text">
+         <string>-incoming:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="22" column="1">
+       <widget class="QLineEdit" name="Edit_Incoming_URI">
+        <property name="toolTip">
+         <string>Migration listen URI, e.g. tcp:0:4444 or defer. Leave empty for normal start.</string>
+        </property>
+        <property name="placeholderText">
+         <string>e.g. tcp:0:4444</string>
+        </property>
+       </widget>
+      </item>
+      <item row="23" column="0">
+       <widget class="QCheckBox" name="CH_Modern_Chardev">
+        <property name="toolTip">
+         <string>Serial ports use -chardev + -serial chardev:id (modern) instead of legacy -serial backends</string>
+        </property>
+        <property name="text">
+         <string>Modern -chardev serial</string>
+        </property>
+       </widget>
+      </item>
+      <item row="23" column="1">
+       <layout class="QHBoxLayout" name="HL_Blockdev">
+        <item>
+         <widget class="QCheckBox" name="CH_Use_Blockdev">
+          <property name="toolTip">
+           <string>VirtIO/NVMe native disks use -blockdev file+format nodes instead of -drive (qemu-doc block graph)</string>
+          </property>
+          <property name="text">
+           <string>Modern -blockdev disks</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="TB_Edit_Blockdev_Graph">
+          <property name="toolTip">
+           <string>Edit extra -blockdev nodes (NBD, backing chains, filters…)</string>
+          </property>
+          <property name="text">
+           <string>Graph…</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item row="24" column="0">
+       <widget class="QCheckBox" name="CH_SMBIOS_Type0">
+        <property name="toolTip">
+         <string>-smbios type=0 (BIOS vendor/version/date)</string>
+        </property>
+        <property name="text">
+         <string>SMBIOS type 0</string>
+        </property>
+       </widget>
+      </item>
+      <item row="24" column="1">
+       <layout class="QHBoxLayout" name="HL_SMBIOS0">
+        <item>
+         <widget class="QLineEdit" name="Edit_SMBIOS_Vendor">
+          <property name="placeholderText">
+           <string>vendor</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLineEdit" name="Edit_SMBIOS_Version">
+          <property name="placeholderText">
+           <string>version</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLineEdit" name="Edit_SMBIOS_Date">
+          <property name="placeholderText">
+           <string>date MM/DD/YYYY</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item row="25" column="0">
+       <widget class="QCheckBox" name="CH_SMBIOS_Type1">
+        <property name="toolTip">
+         <string>-smbios type=1 (system manufacturer/product/serial; uses UUID if set)</string>
+        </property>
+        <property name="text">
+         <string>SMBIOS type 1</string>
+        </property>
+       </widget>
+      </item>
+      <item row="25" column="1">
+       <layout class="QHBoxLayout" name="HL_SMBIOS1">
+        <item>
+         <widget class="QLineEdit" name="Edit_SMBIOS_Manufacturer">
+          <property name="placeholderText">
+           <string>manufacturer</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLineEdit" name="Edit_SMBIOS_Product">
+          <property name="placeholderText">
+           <string>product</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLineEdit" name="Edit_SMBIOS_Type1_Version">
+          <property name="placeholderText">
+           <string>version</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLineEdit" name="Edit_SMBIOS_Serial">
+          <property name="placeholderText">
+           <string>serial</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item row="26" column="0">
+       <widget class="QLabel" name="Label_SMBIOS_File">
+        <property name="text">
+         <string>SMBIOS file:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="26" column="1">
+       <widget class="QLineEdit" name="Edit_SMBIOS_File">
+        <property name="toolTip">
+         <string>-smbios file=binary (optional; in addition to type 0/1)</string>
+        </property>
+        <property name="placeholderText">
+         <string>path to SMBIOS binary blob</string>
+        </property>
+       </widget>
+      </item>
+      <item row="27" column="0">
+       <widget class="QLabel" name="Label_FW_CFG">
+        <property name="text">
+         <string>-fw_cfg:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="27" column="1">
+       <widget class="QPlainTextEdit" name="Edit_FW_CFG_Lines">
+        <property name="toolTip">
+         <string>One entry per line, e.g. name=opt/org.aqemu/test,string=hello or name=opt/ovmf/…,file=/path</string>
+        </property>
+        <property name="placeholderText">
+         <string>name=opt/org.aqemu/test,string=hello</string>
+        </property>
+        <property name="maximumBlockCount">
+         <number>64</number>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>16777215</width>
+          <height>72</height>
+         </size>
+        </property>
+       </widget>
+      </item>
+      <item row="28" column="0">
+       <widget class="QLabel" name="Label_ICount">
+        <property name="text">
+         <string>-icount / -sandbox:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="28" column="1">
+       <layout class="QHBoxLayout" name="HL_ICount_Sandbox">
+        <item>
+         <widget class="QLineEdit" name="Edit_ICount">
+          <property name="toolTip">
+           <string>-icount (empty = off). Examples: auto, shift=7</string>
+          </property>
+          <property name="placeholderText">
+           <string>icount e.g. auto</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLineEdit" name="Edit_Sandbox">
+          <property name="toolTip">
+           <string>-sandbox (empty = off). Example: on</string>
+          </property>
+          <property name="placeholderText">
+           <string>sandbox e.g. on</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item row="29" column="0">
        <widget class="QCheckBox" name="CH_Start_Date">
         <property name="sizePolicy">
          <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
@@ -97,7 +711,7 @@
         </property>
        </widget>
       </item>
-      <item row="7" column="1">
+      <item row="29" column="1">
        <widget class="QDateTimeEdit" name="DTE_Start_Date">
         <property name="enabled">
          <bool>false</bool>

@@ -77,6 +77,10 @@ void Add_New_Device_Window::Set_Device( const VM_Native_Storage_Device &dev )
         case VM::DI_Virtio_SCSI:
 			ui.CB_Interface->setCurrentIndex( 7 );
 			break;
+
+		case VM::DI_NVMe:
+			ui.CB_Interface->setCurrentIndex( 8 );
+			break;
 			
 		default:
             AQError( "void Add_New_Device_Window::Set_Device( const VM_Native_Storage_Device &dev )",
@@ -394,6 +398,10 @@ void Add_New_Device_Window::done(int r)
 			
 		    case 7:
                 Device.Set_Interface( VM::DI_Virtio_SCSI );
+			    break;
+
+		    case 8:
+			    Device.Set_Interface( VM::DI_NVMe );
 			    break;
 
 		    default:

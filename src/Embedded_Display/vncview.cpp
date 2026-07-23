@@ -241,12 +241,12 @@ bool VncView::start()
 
     vncThread.setHost(vncHost);
     vncThread.setPort(vncPort);
-    RemoteView::Quality quality;
-#ifdef QTONLY
-    quality = (RemoteView::Quality)((QCoreApplication::arguments().count() > 2) ?
-        QCoreApplication::arguments().at(2).toInt() : 2);
-#else
-    quality = m_hostPreferences->quality();
+    // Always High quality for AQEMU embedded VNC. The old QTONLY default (2=Low)
+    // used heavy encodings that shred VGA text mode (SeaBIOS / XP setup flicker).
+    RemoteView::Quality quality = RemoteView::High;
+#ifndef QTONLY
+    if( m_hostPreferences )
+        quality = m_hostPreferences->quality();
 #endif
 
     vncThread.setQuality(quality);
@@ -425,7 +425,7 @@ void VncView::updateImage(int x, int y, int w, int h)
 {
 //     qCDebug(KRDC) << "got update" << width() << height();
 
-    m_frame = vncThread.image();
+    m_frame = vncThread.image(); // already a deep copy from setImage()
 
     if (!m_initDone) {
         if (!vncThread.username().isEmpty()) {
@@ -482,7 +482,13 @@ void VncView::updateImage(int x, int y, int w, int h)
         }
     }
 
-    repaint(QRectF(x * m_horizontalFactor, y * m_verticalFactor, w * m_horizontalFactor, h * m_verticalFactor).toAlignedRect());
+    // Scaled dirty-rect updates leave strip/ghost artifacts (XP text mode).
+    // Full widget repaint matches Spice_View and keeps the frame coherent.
+    if( m_scale )
+        update();
+    else
+        repaint(QRectF(x * m_horizontalFactor, y * m_verticalFactor,
+                       w * m_horizontalFactor, h * m_verticalFactor).toAlignedRect());
 }
 
 void VncView::setViewOnly(bool viewOnly)
@@ -543,12 +549,23 @@ void VncView::paintEvent(QPaintEvent *event)
     event->accept();
 
     QPainter painter(this);
-    painter.setRenderHint(QPainter::SmoothPixmapTransform);
+    // Smooth scaling blurs VGA text and leaves ghost strips; nearest-neighbor
+    // keeps SeaBIOS / XP setup glyphs readable.
+    painter.setRenderHint( QPainter::SmoothPixmapTransform, false );
 
-    const QRectF dstRect = event->rect();
-    const QRectF srcRect(dstRect.x() / m_horizontalFactor, dstRect.y() / m_verticalFactor,
-                         dstRect.width() / m_horizontalFactor, dstRect.height() / m_verticalFactor);
-    painter.drawImage(dstRect, m_frame, srcRect);
+    if( m_scale )
+    {
+        // Always draw the full guest frame when scaled (partial dirty rects
+        // mis-align under non-integer factors).
+        painter.drawImage( rect(), m_frame, m_frame.rect() );
+    }
+    else
+    {
+        const QRectF dstRect = event->rect();
+        const QRectF srcRect( dstRect.x() / m_horizontalFactor, dstRect.y() / m_verticalFactor,
+                              dstRect.width() / m_horizontalFactor, dstRect.height() / m_verticalFactor );
+        painter.drawImage( dstRect, m_frame, srcRect );
+    }
 
     RemoteView::paintEvent(event);
 }

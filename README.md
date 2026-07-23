@@ -7,11 +7,13 @@
 <p align="center">
   <b>The QEMU frontend that refused to stay dead.</b><br/>
   Everything QEMU can do — in a modern GUI — with embedded SPICE, guided wizards, and optional QEMU <b>11.0.2</b> built in.<br/>
+  <b>v1.0.0 — curtain time.</b> We need your bug reports.<br/>
   Maintained by <a href="https://github.com/chronic8000">Chronic Engineering</a>
 </p>
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--2.0-blue.svg" alt="License: GPL-2.0"/></a>
+  <a href="https://github.com/chronic8000/aqemu/releases/tag/v1.0.0"><img src="https://img.shields.io/badge/release-v1.0.0-brightgreen.svg" alt="v1.0.0"/></a>
   <a href="https://github.com/chronic8000/aqemu/releases"><img src="https://img.shields.io/badge/QEMU-11.0.2%20bundle-orange.svg" alt="QEMU 11.0.2"/></a>
   <a href="https://github.com/chronic8000/aqemu"><img src="https://img.shields.io/badge/host-Windows%20%7C%20Linux%20%7C%20Pi%205-success.svg" alt="Hosts"/></a>
   <a href="PRIVACY.md"><img src="https://img.shields.io/badge/privacy-policy-lightgrey.svg" alt="Privacy"/></a>
@@ -27,6 +29,20 @@
 
 ---
 
+## Help us test 1.0.0
+
+This is the first **1.x** line we are pushing hard for outside testers. If you run odd guests, weird hosts, or find a wizard default that lies — **open an issue**.
+
+| | |
+|--|--|
+| **Download** | [v1.0.0 Windows portable](https://github.com/chronic8000/aqemu/releases/tag/v1.0.0) |
+| **File bugs** | [Issues](https://github.com/chronic8000/aqemu/issues) — OS host, guest, QEMU path, and the exact error help a lot |
+| **What we care about** | Install wizards, embedded SPICE, Win9x/XP TCG, Win11 ARM, Intel macOS, Solaris x86, AIX/pseries, migrate/QMP tools |
+
+We keep shipping free GitHub zips while the **Microsoft Store** listing works through certification. Store = auto-updates later; GitHub = grab the zip yourself when we cut a new tag.
+
+---
+
 ## This project is alive again
 
 AQEMU started with **Andrey Rijov (RDron)**, then the community era under **Tobias Gläßer** (Qt5 / 0.9.x). Development went quiet. People still bump into old trees online:
@@ -38,7 +54,7 @@ AQEMU started with **Andrey Rijov (RDron)**, then the community era under **Tobi
 
 ### https://github.com/chronic8000/aqemu
 
-New hosts. New wizards. Embedded SPICE. Win11 ARM. Win9x done properly. Classic Mac + experimental Intel macOS. Optional WSL/KVM. Vendored **QEMU 11.0.2**. Free GitHub Release zips for now; **Microsoft Store** (with updates) when certification clears.
+New hosts. New wizards. Embedded SPICE. Win11 ARM. Win9x done properly. Classic Mac + experimental Intel macOS. Solaris / AIX / OS/2 profiles. Optional WSL/KVM. Vendored **QEMU 11.0.2**. Free GitHub Release zips for now; **Microsoft Store** (with updates) when certification clears.
 
 We keep the original authors’ names. We do **not** inherit their old donation pages, crowdfunding, or SourceForge homepage.
 
@@ -50,6 +66,18 @@ We keep the original authors’ names. We do **not** inherit their old donation 
 | **License** | [GNU GPLv2](LICENSE) |
 | **Privacy** | [PRIVACY.md](PRIVACY.md) |
 | **Authors** | [AUTHORS](AUTHORS) |
+
+---
+
+## What’s new in 1.0.0
+
+- **CLI parity** in Advanced Options — NUMA, watchdog, TPM, secret objects, `-incoming`, SMBIOS, `fw_cfg`, audiodev, icount/sandbox, richer chardev / blockdev hooks
+- **Blockdev graph** editor and **migrate progress / cancel** via QMP
+- **Smoother VM start** — busy dialog, async QMP (UI no longer freezes waiting on connect)
+- **Guest recipes** — Solaris 11.4 x86 (known-good QEMU flags), AIX on `ppc64`/`pseries` (TCG-only on Windows; no PC floppy/IDE), stronger OS/2 / ReactOS / Win9x / XP defaults
+- **Windows host fixes** — do not pass WHPX/HAX to non-x86 guests; quoted Additional Args; `qemu-img` VMDK size parse; quieter false startup noise
+
+Full notes: [`CHANGELOG`](CHANGELOG).
 
 ---
 
@@ -87,6 +115,17 @@ On **Raspberry Pi 5 / Linux aarch64** hosts, the same profile can lean on **KVM*
 | **Windows 11 ARM** | Dedicated wizard + lifecycle modes, VirtIO, UEFI, embedded SPICE |
 
 From **Win9x setup screens** to **Windows 11 ARM “Almost there”** — same app, same session chrome.
+
+---
+
+## Unix & other heavy guests
+
+| Guest | Notes |
+|-------|--------|
+| **Solaris 11.4 x86** | Text installer ISO, `pc` + `usb=off`, e1000, IDE, WHPX/KVM on Windows; install can sit at 99% for a long time while the disk grows |
+| **AIX (POWER)** | `qemu-system-ppc64` + `pseries` + POWER8, **TCG only** on x86 hosts (very slow). Virtio-SCSI. VMware VMDKs often fail under SLOF (`E3403 Bad executable`) — prefer a real AIX install ISO |
+| **OS/2 / eComStation / ReactOS** | Proven IDE / ACPI-off / Force TCG style defaults in the wizard |
+| **Linux / BSD / Haiku / …** | Full arch + machine pickers; VirtIO where it makes sense |
 
 ---
 
@@ -151,6 +190,8 @@ Details: [`third_party/README.md`](third_party/README.md).
 - **Windows 11 ARM** guided install / first boot / normal modes
 - **Force pure TCG** for pre-ME Windows that WHPX breaks
 - **Classic PPC Mac** + **experimental Intel macOS** profiles
+- **Solaris / AIX / OS/2 / ReactOS** wizard defaults that match real QEMU recipes
+- **Advanced QEMU options** — NUMA, TPM, migrate, SMBIOS, fw_cfg, blockdev graph, …
 - **WSL/KVM launch** path on Windows (probe `/dev/kvm` in Settings)
 - **Pi 5** optimizations (`-mcpu=cortex-a76`, 64KB page alignment, Wayland)
 - **Mouse/pointer** controls (PS/2, USB tablet, VirtIO, VMware mouse, USB controller version)
@@ -168,10 +209,11 @@ We **never** ship:
 - Apple OS / recovery / BaseSystem  
 - OpenCore images  
 - A default Apple **OSK**
+- IBM AIX / Oracle Solaris media
 
 You point at files you obtained lawfully.
 
-**Trademarks:** Microsoft, Windows, Apple, macOS, etc. belong to their owners. AQEMU is independent and not endorsed by Microsoft, Apple, or the QEMU project.
+**Trademarks:** Microsoft, Windows, Apple, macOS, IBM, Oracle, etc. belong to their owners. AQEMU is independent and not endorsed by Microsoft, Apple, IBM, Oracle, or the QEMU project.
 
 ---
 
@@ -187,7 +229,7 @@ Until the **Microsoft Store** listing is live, you can grab a free Windows porta
 
 **Windows (portable zip):**
 
-1. Download `aqemu-*-win64.zip` from Releases
+1. Download `aqemu-1.0.0-win64.zip` from [Releases](https://github.com/chronic8000/aqemu/releases/tag/v1.0.0)
 2. Unzip anywhere and run `aqemu.exe` (QEMU 11.0.2 binaries + UEFI firmware are bundled in the zip)
 3. Complete **First Start** if prompted
 
@@ -271,8 +313,10 @@ Full contributor list: **Help → About → Thanks To**.
 - **Win95/98 splash freeze** → enable **Force pure TCG**  
 - **Classic Mac won’t start** → install `qemu-system-ppc` and attach your own ISO/HDD  
 - **Intel macOS** → your OpenCore + OVMF + OSK; empty OSK refuses to start (by design)  
+- **Solaris 11.4 “stuck”** → often still installing; watch the disk image grow; use text ISO + WHPX/KVM  
+- **AIX on Windows** → PPC is TCG-only; dead keyboard at OF prompt usually means console was forced to serial VTY while you typed in the VGA window  
+- **AIX `E3403 Bad executable`** → disk is not a QEMU/SLOF-bootable AIX image (common with VMware VMDKs)  
 - **Guest disk locked on Windows** → end stray `qemu-system-*` in Task Manager, restart AQEMU  
+- **Clipboard host↔guest** → real sync needs SPICE + `spice-vdagent` *in the guest*; AIX/SLOF and many vintage guests will not do that  
 
----
-
-**AQEMU is not abandonware anymore.** Clone it, build it, boot something ridiculous, and open an issue when QEMU can do it but the GUI can’t — yet.
+Questions and patches: [GitHub Issues](https://github.com/chronic8000/aqemu/issues) / PRs welcome.

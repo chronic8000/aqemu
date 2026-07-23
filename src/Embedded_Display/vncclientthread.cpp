@@ -420,7 +420,10 @@ VncClientThread::ColorDepth VncClientThread::colorDepth() const
 void VncClientThread::setImage(const QImage &img)
 {
     QMutexLocker locker(&mutex);
-    m_image = img;
+    // Deep copy: QImage(cl->frameBuffer, ...) shares the live RFB buffer.
+    // Without copy(), the GUI paints while HandleRFBServerMessage mutates
+    // memory → flickering / partial SeaBIOS / XP text-mode blackouts.
+    m_image = img.isNull() ? img : img.copy();
 }
 
 const QImage VncClientThread::image(int x, int y, int w, int h)

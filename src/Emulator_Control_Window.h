@@ -72,6 +72,7 @@ class Emulator_Control_Window: public QMainWindow
 		void on_actionSave_VM_triggered();
 		void on_actionManage_Snapshots_triggered();
 		void on_actionCommit_triggered();
+		void on_actionMigrate_triggered();
 		void on_actionPause_VM_triggered();
 		void on_actionPower_Off_triggered();
 		void on_actionReset_VM_triggered();

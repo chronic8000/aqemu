@@ -28,36 +28,59 @@ from typing import Dict, List, Optional, Set, Tuple
 # ---------------------------------------------------------------------------
 
 CURATED_OPERATING_SYSTEMS = {
-    "Microsoft": [
-        "MS-DOS", "PC DOS", "DR-DOS",
-        "Windows 1.x", "Windows 2.x", "Windows 3.x",
-        "Windows 95", "Windows 98", "Windows ME",
-        "Windows NT 3.x", "Windows NT 4.0", "Windows 2000",
-        "Windows XP", "Windows Vista", "Windows 7", "Windows 8", "Windows 8.1",
-        "Windows 10", "Windows 11",
-        "Windows Server 2000", "Windows Server 2003", "Windows Server 2008",
-        "Windows Server 2012", "Windows Server 2016", "Windows Server 2019",
-        "Windows Server 2022", "Windows Server 2025",
+    'Apple': [
+        'Darwin', 'Mac OS 6', 'Mac OS 7', 'Mac OS 8',
+        'Mac OS 9', 'Mac OS X Intel', 'Mac OS X PPC', 'macOS',
+        'NeXTSTEP', 'OPENSTEP',
     ],
-    "Linux": [
-        "Generic Linux", "Ubuntu", "Debian", "Fedora", "Red Hat Enterprise Linux",
-        "Rocky Linux", "AlmaLinux", "SUSE Linux", "openSUSE", "Arch Linux",
-        "Gentoo", "Slackware", "Kali Linux", "Linux Mint", "Alpine Linux",
-        "Tiny Core Linux",
+    'BSD': [
+        'DragonFly BSD', 'FreeBSD', 'GhostBSD', 'NetBSD',
+        'OpenBSD',
     ],
-    "BSD": ["FreeBSD", "OpenBSD", "NetBSD", "DragonFly BSD"],
-    "Apple": [
-        "Mac OS 7", "Mac OS 8", "Mac OS 9",
-        "Mac OS X 10.0–10.4 (PPC)", "Mac OS X 10.5–10.6", "macOS 10.12+", "Darwin",
+    'DEC': [
+        'OpenVMS', 'Tru64 UNIX',
     ],
-    "Sun": ["Solaris x86", "Solaris SPARC", "OpenSolaris", "illumos", "OmniOS"],
-    "SGI": ["IRIX 5.x", "IRIX 6.x"],
-    "IBM": ["AIX", "OS/2", "eComStation", "ArcaOS"],
-    "HP": ["HP-UX"],
-    "DEC": ["Tru64 UNIX", "OpenVMS"],
-    "Other": [
-        "ReactOS", "Haiku", "BeOS", "KolibriOS", "SerenityOS", "TempleOS",
-        "MenuetOS", "MorphOS", "AmigaOS", "RISC OS", "Android", "ChromeOS", "Other",
+    'HP': [
+        'HP-UX',
+    ],
+    'IBM': [
+        'AIX', 'ArcaOS', 'eComStation', 'Linux on IBM Z',
+        'OS/2',
+    ],
+    'Linux': [
+        'AlmaLinux', 'Alpine Linux', 'Arch Linux', 'CentOS Stream',
+        'Debian', 'elementary OS', 'Fedora', 'Generic Linux',
+        'Gentoo', 'Kali Linux', 'Linux Mint', 'NixOS',
+        'openSUSE', 'Pop!_OS', 'RHEL', 'Rocky Linux',
+        'Slackware', 'SUSE Linux', 'Tiny Core Linux', 'Ubuntu',
+        'Void Linux',
+    ],
+    'Microsoft': [
+        'DR-DOS', 'FreeDOS', 'MS-DOS', 'PC DOS',
+        'Windows 1.x', 'Windows 2.x', 'Windows 3.x', 'Windows 95',
+        'Windows 98', 'Windows ME', 'Windows NT 3.x', 'Windows NT 4.0',
+        'Windows 2000', 'Windows XP', 'Windows Vista', 'Windows 7',
+        'Windows 8', 'Windows 8.1', 'Windows 10', 'Windows 11',
+        'Windows Server 2000', 'Windows Server 2003', 'Windows Server 2008', 'Windows Server 2012',
+        'Windows Server 2016', 'Windows Server 2019', 'Windows Server 2022', 'Windows Server 2025',
+    ],
+    'Other': [
+        '9front', 'AmigaOS', 'Android', 'BeOS',
+        'Chrome OS Flex', 'ChromeOS', 'Fuchsia', 'Haiku',
+        'KolibriOS', 'MenuetOS', 'Minix', 'MorphOS',
+        'Other', 'Plan 9', 'QNX', 'ReactOS',
+        'Redox OS', 'RISC OS', 'SerenityOS', 'SteamOS',
+        'TempleOS',
+    ],
+    'SCO': [
+        'OpenServer', 'UnixWare',
+    ],
+    'SGI': [
+        'IRIX 5.x', 'IRIX 6.x',
+    ],
+    'Sun': [
+        'illumos', 'OmniOS', 'OpenSolaris', 'Solaris SPARC',
+        'Solaris x86', 'Solaris x86 (32-bit)',
     ],
 }
 

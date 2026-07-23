@@ -284,7 +284,7 @@ class VM
 		};
 		
 		// Storage Device Interfaces
-		enum Device_Interface { DI_IDE, DI_SCSI, DI_SD, DI_MTD, DI_Floppy, DI_PFlash, DI_Virtio, DI_Virtio_SCSI };
+		enum Device_Interface { DI_IDE, DI_SCSI, DI_SD, DI_MTD, DI_Floppy, DI_PFlash, DI_Virtio, DI_Virtio_SCSI, DI_NVMe };
 		
 		// Storage Device Media
 		enum Device_Media { DM_Disk, DM_CD_ROM };

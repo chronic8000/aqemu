@@ -2304,7 +2304,7 @@ VM::Device_Size VM_HDD::String_to_Device_Size( const QString &size ) const
 		return zero_size;
 	}
 
-	// Accept "40G", "40 G", "40GiB", "2.5M", etc.
+	// Accept "40G", "40 G", "40GiB", "2.5M", and bare byte counts ("21474836480").
 	QString s = size.trimmed();
 	int paren = s.indexOf( '(' );
 	if( paren > 0 )
@@ -2313,6 +2313,37 @@ VM::Device_Size VM_HDD::String_to_Device_Size( const QString &size ) const
 	s.replace( "GiB", "G", Qt::CaseInsensitive );
 	s.replace( "MiB", "M", Qt::CaseInsensitive );
 	s.replace( "KiB", "K", Qt::CaseInsensitive );
+	s.replace( "bytes", "", Qt::CaseInsensitive );
+
+	// Bare integer → bytes; pick the largest whole unit that divides evenly.
+	{
+		bool ok_bytes = false;
+		const qulonglong bytes = s.toULongLong( &ok_bytes );
+		if( ok_bytes && ! s.contains( QRegExp( "[KMGkmg]" ) ) )
+		{
+			if( bytes >= ( 1024ull * 1024ull * 1024ull ) && ( bytes % ( 1024ull * 1024ull * 1024ull ) ) == 0 )
+			{
+				hd_size.Size = double( bytes / ( 1024ull * 1024ull * 1024ull ) );
+				hd_size.Suffix = VM::Size_Suf_Gb;
+				return hd_size;
+			}
+			if( bytes >= ( 1024ull * 1024ull ) && ( bytes % ( 1024ull * 1024ull ) ) == 0 )
+			{
+				hd_size.Size = double( bytes / ( 1024ull * 1024ull ) );
+				hd_size.Suffix = VM::Size_Suf_Mb;
+				return hd_size;
+			}
+			if( bytes >= 1024ull && ( bytes % 1024ull ) == 0 )
+			{
+				hd_size.Size = double( bytes / 1024ull );
+				hd_size.Suffix = VM::Size_Suf_Kb;
+				return hd_size;
+			}
+			hd_size.Size = double( bytes ) / ( 1024.0 * 1024.0 * 1024.0 );
+			hd_size.Suffix = VM::Size_Suf_Gb;
+			return hd_size;
+		}
+	}
 	
 	QRegExp RegInfo = QRegExp( "^([\\d]+(?:[.,][\\d]+)?)([KMGkmg]).*" );
 	

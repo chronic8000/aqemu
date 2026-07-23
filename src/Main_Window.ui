@@ -1465,6 +1465,102 @@
                  </property>
                 </widget>
                </item>
+               <item row="4" column="0">
+                <widget class="QLabel" name="Label_Audiodev_Backend">
+                 <property name="text">
+                  <string>-audiodev:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="4" column="1" colspan="2">
+                <layout class="QHBoxLayout" name="HL_Audiodev">
+                 <item>
+                  <widget class="QComboBox" name="CB_Audiodev_Backend">
+                   <property name="toolTip">
+                    <string>Per-VM host audio backend for -audiodev. “(global)” uses Advanced Settings.</string>
+                   </property>
+                   <item>
+                    <property name="text">
+                     <string>(global)</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>sdl</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>dsound</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>wasapi</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>pa</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>pipewire</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>alsa</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>oss</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>coreaudio</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>wav</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>none</string>
+                    </property>
+                   </item>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QLabel" name="Label_Audiodev_Timer">
+                   <property name="text">
+                    <string>timer-period µs:</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QSpinBox" name="SB_Audiodev_Timer_Period">
+                   <property name="toolTip">
+                    <string>Optional -audiodev timer-period (0 = omit / QEMU default)</string>
+                   </property>
+                   <property name="minimum">
+                    <number>0</number>
+                   </property>
+                   <property name="maximum">
+                    <number>1000000</number>
+                   </property>
+                   <property name="singleStep">
+                    <number>100</number>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </item>
               </layout>
              </widget>
             </item>
@@ -1516,7 +1612,7 @@
                <item>
                 <widget class="QComboBox" name="CB_Disk_Interface">
                  <property name="toolTip">
-                  <string>QEMU drive interface for the primary hard disk. VirtIO is recommended for Windows 11 ARM and modern Linux guests.</string>
+                  <string>QEMU drive interface for the primary hard disk. VirtIO is recommended for Windows 11 ARM and modern Linux. NVMe is required for SteamOS recovery installs.</string>
                  </property>
                  <property name="sizeAdjustPolicy">
                   <enum>QComboBox::AdjustToContents</enum>
@@ -1544,6 +1640,11 @@
                  <item>
                   <property name="text">
                    <string>SD</string>
+                  </property>
+                 </item>
+                 <item>
+                  <property name="text">
+                   <string>NVMe</string>
                   </property>
                  </item>
                 </widget>
@@ -2320,12 +2421,134 @@
            </attribute>
            <layout class="QVBoxLayout" name="verticalLayout_8">
             <item>
+             <widget class="QGroupBox" name="GB_Guest_Display_Mode">
+              <property name="title">
+               <string>How to show this VM</string>
+              </property>
+              <property name="toolTip">
+               <string>Applies to every virtual machine. Takes effect the next time you Start the guest.</string>
+              </property>
+              <layout class="QVBoxLayout" name="verticalLayout_Guest_Display_Mode">
+               <property name="spacing">
+                <number>8</number>
+               </property>
+               <item>
+                <widget class="QRadioButton" name="RB_Display_Auto">
+                 <property name="toolTip">
+                  <string>DOS / Win9x / XP-family → separate QEMU window. Other VMs → embedded AQEMU viewer.</string>
+                 </property>
+                 <property name="text">
+                  <string>Auto — separate window for legacy guests, embedded for others</string>
+                 </property>
+                 <property name="checked">
+                  <bool>true</bool>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QRadioButton" name="RB_Display_Embedded">
+                 <property name="toolTip">
+                  <string>Guest opens inside AQEMU (SPICE/VNC session). Use this to leave a separate SDL window.</string>
+                 </property>
+                 <property name="text">
+                  <string>Embedded in AQEMU — SPICE / VNC session viewer</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QRadioButton" name="RB_Display_Native">
+                 <property name="toolTip">
+                  <string>Guest opens in a separate QEMU SDL/GTK window. Works for any VM.</string>
+                 </property>
+                 <property name="text">
+                  <string>Separate QEMU window — SDL / GTK</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QRadioButton" name="RB_Display_Nographic">
+                 <property name="toolTip">
+                  <string>Pass -nographic (serial console only; no graphical frontend). Same as qemu-system-ARCH -nographic.</string>
+                 </property>
+                 <property name="text">
+                  <string>No graphics (-nographic) — serial console</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <layout class="QHBoxLayout" name="HL_Display_Backend">
+                 <item>
+                  <widget class="QLabel" name="Label_Display_Backend">
+                   <property name="text">
+                    <string>QEMU -display backend:</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QComboBox" name="CB_Display_Backend">
+                   <property name="toolTip">
+                    <string>When using a separate QEMU window (or -display none), choose the frontend. Default picks sdl/gtk automatically.</string>
+                   </property>
+                   <item>
+                    <property name="text">
+                     <string>default (auto sdl/gtk)</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>sdl</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>gtk</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>none</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>curses</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>egl-headless</string>
+                    </property>
+                   </item>
+                  </widget>
+                 </item>
+                </layout>
+               </item>
+               <item>
+                <widget class="QLabel" name="Label_Display_Window_Mode_Hint">
+                 <property name="wordWrap">
+                  <bool>true</bool>
+                 </property>
+                 <property name="styleSheet">
+                  <string notr="true">color: palette(mid); margin-top: 2px;</string>
+                 </property>
+                 <property name="text">
+                  <string>Applies on the next Start. VNC Remote / SPICE Remote below are optional for external clients. Network disks: in Device Manager set file to iscsi://…, rbd:…, nbd:…, gluster…, or ssh://…</string>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </widget>
+            </item>
+            <item>
              <widget class="QTabWidget" name="TabWidget_Display">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
                 <horstretch>0</horstretch>
                 <verstretch>0</verstretch>
                </sizepolicy>
+              </property>
+              <property name="toolTip">
+               <string>Optional remote and QEMU-window tweaks. The Guest display setting above chooses embedded vs separate window for all VMs.</string>
               </property>
               <property name="tabPosition">
                <enum>QTabWidget::North</enum>
@@ -2652,6 +2875,16 @@
                 <string>QEMU Window</string>
                </attribute>
                <layout class="QVBoxLayout" name="verticalLayout_3">
+                <item>
+                 <widget class="QLabel" name="Label_QEMU_Window_Note">
+                  <property name="wordWrap">
+                   <bool>true</bool>
+                  </property>
+                  <property name="text">
+                   <string>These options apply when Guest display is set to a separate QEMU window (or Auto for legacy guests). Use the control at the top of the Display tab to switch back to Embedded in AQEMU.</string>
+                  </property>
+                 </widget>
+                </item>
                 <item>
                  <widget class="QCheckBox" name="CH_No_Frame">
                   <property name="text">
@@ -3693,6 +3926,7 @@
      <string>&amp;Help</string>
     </property>
     <addaction name="actionAbout_AQEMU"/>
+    <addaction name="actionQEMU_Help_Browser"/>
     <addaction name="actionAbout_Qt"/>
    </widget>
    <widget class="QMenu" name="menuFile">
@@ -3786,6 +4020,14 @@
    </property>
    <property name="shortcut">
     <string>F1</string>
+   </property>
+  </action>
+  <action name="actionQEMU_Help_Browser">
+   <property name="text">
+    <string>QEMU Help &amp;Browser…</string>
+   </property>
+   <property name="toolTip">
+    <string>Probe -M / -cpu / -device / -netdev help from your installed QEMU (same as the CLI)</string>
    </property>
   </action>
   <action name="actionAbout_Qt">

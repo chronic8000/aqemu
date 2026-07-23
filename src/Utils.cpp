@@ -33,6 +33,8 @@
 #include <QCoreApplication>
 #include <QSettings>
 #include <QRegExp>
+#include <QRegularExpression>
+#include <QHash>
 #include <QProcess>
 #include <QProcessEnvironment>
 #include <QStringList>
@@ -1571,6 +1573,99 @@ bool AQ_Should_Prefer_Native_Accelerator( const QString &guest_target )
 		return false;
 #endif
 	return true;
+}
+
+QStringList AQ_QEMU_List_Display_Backends( const QString &qemu_binary )
+{
+	static QHash<QString, QStringList> cache;
+	const QString key = QDir::toNativeSeparators( qemu_binary );
+	if( key.isEmpty() || ! QFile::exists( key ) )
+		return QStringList();
+	if( cache.contains( key ) )
+		return cache.value( key );
+
+	QProcess p;
+	p.setProcessChannelMode( QProcess::MergedChannels );
+	p.start( key, QStringList() << QStringLiteral( "-display" ) << QStringLiteral( "help" ) );
+	if( ! p.waitForFinished( 5000 ) )
+	{
+		p.kill();
+		p.waitForFinished( 1000 );
+		cache.insert( key, QStringList() );
+		return QStringList();
+	}
+
+	QStringList backends;
+	const QString out = QString::fromLocal8Bit( p.readAll() );
+	const QStringList lines = out.split( QRegularExpression( QStringLiteral( "[\\r\\n]+" ) ),
+	                                     QString::SkipEmptyParts );
+	bool in_list = false;
+	for( int i = 0; i < lines.count(); ++i )
+	{
+		const QString line = lines.at( i ).trimmed();
+		if( line.contains( QLatin1String( "Available display" ), Qt::CaseInsensitive ) )
+		{
+			in_list = true;
+			continue;
+		}
+		if( ! in_list )
+			continue;
+		if( line.startsWith( QLatin1String( "Some display" ), Qt::CaseInsensitive ) ||
+		    line.startsWith( QLatin1String( "For a short" ), Qt::CaseInsensitive ) )
+			break;
+		// Backend names are single tokens: none, gtk, sdl, …
+		if( QRegularExpression( QStringLiteral( "^[A-Za-z0-9_-]+$" ) ).match( line ).hasMatch() )
+			backends << line.toLower();
+	}
+	cache.insert( key, backends );
+	return backends;
+}
+
+QString AQ_QEMU_Pick_Native_Display( const QString &qemu_binary )
+{
+	const QStringList backends = AQ_QEMU_List_Display_Backends( qemu_binary );
+	if( backends.contains( QLatin1String( "sdl" ) ) )
+		return QStringLiteral( "sdl" );
+	if( backends.contains( QLatin1String( "gtk" ) ) )
+		return QStringLiteral( "gtk" );
+	return QString();
+}
+
+QString AQ_Find_QEMU_Binary_With_Native_Display( const QString &system_name,
+                                                 const QString &preferred_path )
+{
+	QString exe = system_name.trimmed();
+	if( exe.isEmpty() )
+		exe = QStringLiteral( "qemu-system-i386" );
+	if( ! exe.endsWith( QLatin1String( ".exe" ), Qt::CaseInsensitive ) )
+	{
+#ifdef Q_OS_WIN32
+		exe += QLatin1String( ".exe" );
+#endif
+	}
+
+	QStringList candidates;
+	if( ! preferred_path.trimmed().isEmpty() )
+		candidates << QDir::toNativeSeparators( preferred_path );
+
+#ifdef Q_OS_WIN32
+	candidates << QDir::toNativeSeparators(
+		QStringLiteral( "C:/Program Files/qemu/" ) + exe );
+	candidates << QDir::toNativeSeparators(
+		QStringLiteral( "C:/Program Files (x86)/qemu/" ) + exe );
+#endif
+
+	const QString app_dir = QCoreApplication::applicationDirPath();
+	if( ! app_dir.isEmpty() )
+		candidates << QDir::toNativeSeparators( app_dir + QLatin1Char( '/' ) + exe );
+
+	for( int i = 0; i < candidates.count(); ++i )
+	{
+		const QString c = candidates.at( i );
+		if( QFile::exists( c ) && ! AQ_QEMU_Pick_Native_Display( c ).isEmpty() )
+			return c;
+	}
+	return preferred_path;
 }
 
 static QString First_Existing_Path( const QStringList &candidates )

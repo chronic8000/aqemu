@@ -97,6 +97,9 @@ SET( aqemu_headers
 	src/VM_Wizard_Window.h
 	src/VNC_Password_Window.h
 	src/QMP_Client.h
+	src/QEMU_Help_Browser.h
+	src/Blockdev_Graph_Window.h
+	src/Migrate_Progress_Dialog.h
 	src/Embedded_Display/Guest_Display_View.h
 	src/Embedded_Display/Spice_View.h
 	src/VM_Session_Widget.h
@@ -153,6 +156,9 @@ SET( aqemu_sources
 	src/WSL_Launch.cpp
 	src/VNC_Password_Window.cpp
 	src/QMP_Client.cpp
+	src/QEMU_Help_Browser.cpp
+	src/Blockdev_Graph_Window.cpp
+	src/Migrate_Progress_Dialog.cpp
 	src/Embedded_Display/Guest_Display_View.cpp
 	src/Embedded_Display/Spice_View.cpp
 	src/VM_Session_Widget.cpp
@@ -504,7 +510,7 @@ ENDIF( INSTALL_MAN )
 # CPack Packaging Configuration
 SET( CPACK_GENERATOR "DEB" )
 SET( CPACK_PACKAGE_NAME "aqemu" )
-SET( CPACK_PACKAGE_VERSION "0.9.9" )
+SET( CPACK_PACKAGE_VERSION "1.0.0" )
 SET( CPACK_PACKAGE_CONTACT "chronic8000" )
 SET( CPACK_PACKAGE_DESCRIPTION_SUMMARY "AQEMU is a graphical user interface for the QEMU emulator." )
 SET( CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON )

@@ -22,6 +22,7 @@
 ****************************************************************************/
 
 #include <QList>
+#include <QSet>
 #include <QObject>
 #include <QString>
 #include <QDir>
@@ -101,6 +102,7 @@ Virtual_Machine::Virtual_Machine( const Virtual_Machine &vm )
 	Embedded_VNC_Port = 0;
 	QMP_Port = 0;
 	QMP = nullptr;
+	QMP_Connect_Attempts = 0;
 	
 	// Accel
 	Machine_Accelerator = vm.Get_Machine_Accelerator();
@@ -248,6 +250,50 @@ Virtual_Machine::Virtual_Machine( const Virtual_Machine &vm )
 	this->VirtIO_Keyboard = vm.Use_VirtIO_Keyboard();
 	this->Win11_Lifecycle_Mode = vm.Get_Win11_Lifecycle_Mode();
 	this->Force_TCG = vm.Use_Force_TCG();
+	this->Pass_Through_Gamepads = vm.Use_Pass_Through_Gamepads();
+	this->Gamepad_Filter_IDs = vm.Get_Gamepad_Filter_IDs();
+	this->Emulate_USB_Gamepad = vm.Use_Emulate_USB_Gamepad();
+	this->No_Defaults = vm.Use_No_Defaults();
+	this->RTC_Clock = vm.Get_RTC_Clock();
+	this->Display_Backend = vm.Get_Display_Backend();
+	this->Use_IOThread_Flag = vm.Use_IOThread();
+	this->Mem_Path = vm.Get_Mem_Path();
+	this->Mem_Prealloc = vm.Use_Mem_Prealloc();
+	this->UUID = vm.Get_UUID();
+	this->BIOS_File = vm.Get_BIOS_File();
+	this->Machine_Extra_Props = vm.Get_Machine_Extra_Props();
+	this->Modern_Netdev = vm.Use_Modern_Netdev();
+	this->Use_NUMA_Flag = vm.Use_NUMA();
+	this->NUMA_Nodes = vm.Get_NUMA_Nodes();
+	this->Watchdog_Model = vm.Get_Watchdog_Model();
+	this->Watchdog_Action = vm.Get_Watchdog_Action();
+	this->TPM_Type = vm.Get_TPM_Type();
+	this->TPM_Path = vm.Get_TPM_Path();
+	this->Use_Secret_Object_Flag = vm.Use_Secret_Object();
+	this->Secret_ID = vm.Get_Secret_ID();
+	this->Secret_Data = vm.Get_Secret_Data();
+	this->Secret_File = vm.Get_Secret_File();
+	this->Incoming_URI = vm.Get_Incoming_URI();
+	this->Modern_Chardev = vm.Use_Modern_Chardev();
+	this->Use_Blockdev_Flag = vm.Use_Blockdev();
+	this->Blockdev_Extra_Lines = vm.Get_Blockdev_Extra_Lines();
+	this->Use_SMBIOS_Type0_Flag = vm.Use_SMBIOS_Type0();
+	this->SMBIOS_Vendor = vm.Get_SMBIOS_Vendor();
+	this->SMBIOS_Version = vm.Get_SMBIOS_Version();
+	this->SMBIOS_Date = vm.Get_SMBIOS_Date();
+	this->Use_SMBIOS_Type1_Flag = vm.Use_SMBIOS_Type1();
+	this->SMBIOS_Manufacturer = vm.Get_SMBIOS_Manufacturer();
+	this->SMBIOS_Product = vm.Get_SMBIOS_Product();
+	this->SMBIOS_Type1_Version = vm.Get_SMBIOS_Type1_Version();
+	this->SMBIOS_Serial = vm.Get_SMBIOS_Serial();
+	this->SMBIOS_File = vm.Get_SMBIOS_File();
+	this->FW_CFG_Lines = vm.Get_FW_CFG_Lines();
+	this->Audiodev_Backend = vm.Get_Audiodev_Backend();
+	this->Audiodev_Timer_Period = vm.Get_Audiodev_Timer_Period();
+	this->Use_NUMA_Memdev_Flag = vm.Use_NUMA_Memdev();
+	this->ICount = vm.Get_ICount();
+	this->Sandbox = vm.Get_Sandbox();
+	this->Display_Window_Mode = vm.Get_Display_Window_Mode();
 	this->Intel_MacOS_Profile = vm.Use_Intel_MacOS_Profile();
 	this->Use_Apple_SMC_Flag = vm.Use_Apple_SMC();
 	this->Apple_SMC_OSK = vm.Get_Apple_SMC_OSK();
@@ -472,6 +518,50 @@ void Virtual_Machine::Shared_Constructor()
 	VirtIO_Keyboard = false;
 	Win11_Lifecycle_Mode = VM::Win11_Normal;
 	Force_TCG = false;
+	Pass_Through_Gamepads = false;
+	Gamepad_Filter_IDs.clear();
+	Emulate_USB_Gamepad = false;
+	No_Defaults = false;
+	RTC_Clock = QStringLiteral( "host" );
+	Display_Backend.clear();
+	Use_IOThread_Flag = false;
+	Mem_Path.clear();
+	Mem_Prealloc = false;
+	UUID.clear();
+	BIOS_File.clear();
+	Machine_Extra_Props.clear();
+	Modern_Netdev = true;
+	Use_NUMA_Flag = false;
+	NUMA_Nodes = 2;
+	Watchdog_Model.clear();
+	Watchdog_Action = QStringLiteral( "reset" );
+	TPM_Type = QStringLiteral( "none" );
+	TPM_Path.clear();
+	Use_Secret_Object_Flag = false;
+	Secret_ID = QStringLiteral( "sec0" );
+	Secret_Data.clear();
+	Secret_File.clear();
+	Incoming_URI.clear();
+	Modern_Chardev = false;
+	Use_Blockdev_Flag = false;
+	Blockdev_Extra_Lines.clear();
+	Use_SMBIOS_Type0_Flag = false;
+	SMBIOS_Vendor.clear();
+	SMBIOS_Version.clear();
+	SMBIOS_Date.clear();
+	Use_SMBIOS_Type1_Flag = false;
+	SMBIOS_Manufacturer.clear();
+	SMBIOS_Product.clear();
+	SMBIOS_Type1_Version.clear();
+	SMBIOS_Serial.clear();
+	SMBIOS_File.clear();
+	FW_CFG_Lines.clear();
+	Audiodev_Backend.clear();
+	Audiodev_Timer_Period = 0;
+	Use_NUMA_Memdev_Flag = false;
+	ICount.clear();
+	Sandbox.clear();
+	Display_Window_Mode = QStringLiteral( "auto" );
 	Intel_MacOS_Profile = false;
 	Use_Apple_SMC_Flag = false;
 	Apple_SMC_OSK = "";
@@ -523,6 +613,7 @@ void Virtual_Machine::Shared_Constructor()
 	Embedded_VNC_Port = 0;
 	QMP_Port = 0;
 	QMP = nullptr;
+	QMP_Connect_Attempts = 0;
 	
 	Template_Opts = Create_Template_Window::Template_Save_Default;
 	
@@ -599,6 +690,50 @@ bool Virtual_Machine::operator==( const Virtual_Machine &vm ) const
 		this->VirtIO_Keyboard == vm.Use_VirtIO_Keyboard() &&
 		this->Win11_Lifecycle_Mode == vm.Get_Win11_Lifecycle_Mode() &&
 		this->Force_TCG == vm.Use_Force_TCG() &&
+		this->Pass_Through_Gamepads == vm.Use_Pass_Through_Gamepads() &&
+		this->Gamepad_Filter_IDs == vm.Get_Gamepad_Filter_IDs() &&
+		this->Emulate_USB_Gamepad == vm.Use_Emulate_USB_Gamepad() &&
+		this->No_Defaults == vm.Use_No_Defaults() &&
+		this->RTC_Clock == vm.Get_RTC_Clock() &&
+		this->Display_Backend == vm.Get_Display_Backend() &&
+		this->Use_IOThread_Flag == vm.Use_IOThread() &&
+		this->Mem_Path == vm.Get_Mem_Path() &&
+		this->Mem_Prealloc == vm.Use_Mem_Prealloc() &&
+		this->UUID == vm.Get_UUID() &&
+		this->BIOS_File == vm.Get_BIOS_File() &&
+		this->Machine_Extra_Props == vm.Get_Machine_Extra_Props() &&
+		this->Modern_Netdev == vm.Use_Modern_Netdev() &&
+		this->Use_NUMA_Flag == vm.Use_NUMA() &&
+		this->NUMA_Nodes == vm.Get_NUMA_Nodes() &&
+		this->Watchdog_Model == vm.Get_Watchdog_Model() &&
+		this->Watchdog_Action == vm.Get_Watchdog_Action() &&
+		this->TPM_Type == vm.Get_TPM_Type() &&
+		this->TPM_Path == vm.Get_TPM_Path() &&
+		this->Use_Secret_Object_Flag == vm.Use_Secret_Object() &&
+		this->Secret_ID == vm.Get_Secret_ID() &&
+		this->Secret_Data == vm.Get_Secret_Data() &&
+		this->Secret_File == vm.Get_Secret_File() &&
+		this->Incoming_URI == vm.Get_Incoming_URI() &&
+		this->Modern_Chardev == vm.Use_Modern_Chardev() &&
+		this->Use_Blockdev_Flag == vm.Use_Blockdev() &&
+		this->Blockdev_Extra_Lines == vm.Get_Blockdev_Extra_Lines() &&
+		this->Use_SMBIOS_Type0_Flag == vm.Use_SMBIOS_Type0() &&
+		this->SMBIOS_Vendor == vm.Get_SMBIOS_Vendor() &&
+		this->SMBIOS_Version == vm.Get_SMBIOS_Version() &&
+		this->SMBIOS_Date == vm.Get_SMBIOS_Date() &&
+		this->Use_SMBIOS_Type1_Flag == vm.Use_SMBIOS_Type1() &&
+		this->SMBIOS_Manufacturer == vm.Get_SMBIOS_Manufacturer() &&
+		this->SMBIOS_Product == vm.Get_SMBIOS_Product() &&
+		this->SMBIOS_Type1_Version == vm.Get_SMBIOS_Type1_Version() &&
+		this->SMBIOS_Serial == vm.Get_SMBIOS_Serial() &&
+		this->SMBIOS_File == vm.Get_SMBIOS_File() &&
+		this->FW_CFG_Lines == vm.Get_FW_CFG_Lines() &&
+		this->Audiodev_Backend == vm.Get_Audiodev_Backend() &&
+		this->Audiodev_Timer_Period == vm.Get_Audiodev_Timer_Period() &&
+		this->Use_NUMA_Memdev_Flag == vm.Use_NUMA_Memdev() &&
+		this->ICount == vm.Get_ICount() &&
+		this->Sandbox == vm.Get_Sandbox() &&
+		this->Display_Window_Mode == vm.Get_Display_Window_Mode() &&
 		this->Intel_MacOS_Profile == vm.Use_Intel_MacOS_Profile() &&
 		this->Use_Apple_SMC_Flag == vm.Use_Apple_SMC() &&
 		this->Apple_SMC_OSK == vm.Get_Apple_SMC_OSK() &&
@@ -861,6 +996,50 @@ Virtual_Machine &Virtual_Machine::operator=( const Virtual_Machine &vm )
 	VirtIO_Keyboard = vm.Use_VirtIO_Keyboard();
 	Win11_Lifecycle_Mode = vm.Get_Win11_Lifecycle_Mode();
 	Force_TCG = vm.Use_Force_TCG();
+	Pass_Through_Gamepads = vm.Use_Pass_Through_Gamepads();
+	Gamepad_Filter_IDs = vm.Get_Gamepad_Filter_IDs();
+	Emulate_USB_Gamepad = vm.Use_Emulate_USB_Gamepad();
+	No_Defaults = vm.Use_No_Defaults();
+	RTC_Clock = vm.Get_RTC_Clock();
+	Display_Backend = vm.Get_Display_Backend();
+	Use_IOThread_Flag = vm.Use_IOThread();
+	Mem_Path = vm.Get_Mem_Path();
+	Mem_Prealloc = vm.Use_Mem_Prealloc();
+	UUID = vm.Get_UUID();
+	BIOS_File = vm.Get_BIOS_File();
+	Machine_Extra_Props = vm.Get_Machine_Extra_Props();
+	Modern_Netdev = vm.Use_Modern_Netdev();
+	Use_NUMA_Flag = vm.Use_NUMA();
+	NUMA_Nodes = vm.Get_NUMA_Nodes();
+	Watchdog_Model = vm.Get_Watchdog_Model();
+	Watchdog_Action = vm.Get_Watchdog_Action();
+	TPM_Type = vm.Get_TPM_Type();
+	TPM_Path = vm.Get_TPM_Path();
+	Use_Secret_Object_Flag = vm.Use_Secret_Object();
+	Secret_ID = vm.Get_Secret_ID();
+	Secret_Data = vm.Get_Secret_Data();
+	Secret_File = vm.Get_Secret_File();
+	Incoming_URI = vm.Get_Incoming_URI();
+	Modern_Chardev = vm.Use_Modern_Chardev();
+	Use_Blockdev_Flag = vm.Use_Blockdev();
+	Blockdev_Extra_Lines = vm.Get_Blockdev_Extra_Lines();
+	Use_SMBIOS_Type0_Flag = vm.Use_SMBIOS_Type0();
+	SMBIOS_Vendor = vm.Get_SMBIOS_Vendor();
+	SMBIOS_Version = vm.Get_SMBIOS_Version();
+	SMBIOS_Date = vm.Get_SMBIOS_Date();
+	Use_SMBIOS_Type1_Flag = vm.Use_SMBIOS_Type1();
+	SMBIOS_Manufacturer = vm.Get_SMBIOS_Manufacturer();
+	SMBIOS_Product = vm.Get_SMBIOS_Product();
+	SMBIOS_Type1_Version = vm.Get_SMBIOS_Type1_Version();
+	SMBIOS_Serial = vm.Get_SMBIOS_Serial();
+	SMBIOS_File = vm.Get_SMBIOS_File();
+	FW_CFG_Lines = vm.Get_FW_CFG_Lines();
+	Audiodev_Backend = vm.Get_Audiodev_Backend();
+	Audiodev_Timer_Period = vm.Get_Audiodev_Timer_Period();
+	Use_NUMA_Memdev_Flag = vm.Use_NUMA_Memdev();
+	ICount = vm.Get_ICount();
+	Sandbox = vm.Get_Sandbox();
+	Display_Window_Mode = vm.Get_Display_Window_Mode();
 	Intel_MacOS_Profile = vm.Use_Intel_MacOS_Profile();
 	Use_Apple_SMC_Flag = vm.Use_Apple_SMC();
 	Apple_SMC_OSK = vm.Get_Apple_SMC_OSK();
@@ -996,13 +1175,24 @@ bool Virtual_Machine::Create_VM_File( const QString &file_name, bool template_mo
 
     QSettings settings;
     QString data_folder = settings.value("AQEMU_Data_Folder", "").toString();
-    if ( ! data_folder.isEmpty() )
+    if ( ! data_folder.isEmpty() && ! Icon_Path.startsWith( QLatin1String( ":/" ) ) )
     {
-        if ( Icon_Path.startsWith( data_folder ) ) //save relative path if possible
-            Dom_Text = New_Dom_Document.createTextNode( QString(Icon_Path).replace(data_folder, "") );
-        else    
-    	    Dom_Text = New_Dom_Document.createTextNode( Icon_Path );
+		const QString native_icon = QDir::toNativeSeparators( Icon_Path );
+		const QString native_data = QDir::toNativeSeparators( data_folder );
+		if( native_icon.startsWith( native_data, Qt::CaseInsensitive ) )
+		{
+			QString rel = native_icon.mid( native_data.size() );
+			while( rel.startsWith( QLatin1Char( '\\' ) ) || rel.startsWith( QLatin1Char( '/' ) ) )
+				rel.remove( 0, 1 );
+			Dom_Text = New_Dom_Document.createTextNode( QDir::fromNativeSeparators( rel ) );
+		}
+		else
+			Dom_Text = New_Dom_Document.createTextNode( Icon_Path );
     }
+	else
+	{
+		Dom_Text = New_Dom_Document.createTextNode( Icon_Path );
+	}
 	Dom_Element.appendChild( Dom_Text );
 	
 	// Screenshot Path
@@ -3074,6 +3264,211 @@ bool Virtual_Machine::Create_VM_File( const QString &file_name, bool template_mo
 	Dom_Text = New_Dom_Document.createTextNode( Force_TCG ? "true" : "false" );
 	Dom_Element.appendChild( Dom_Text );
 
+	Dom_Element = New_Dom_Document.createElement( "Pass_Through_Gamepads" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( Pass_Through_Gamepads ? "true" : "false" );
+	Dom_Element.appendChild( Dom_Text );
+
+	Dom_Element = New_Dom_Document.createElement( "Emulate_USB_Gamepad" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( Emulate_USB_Gamepad ? "true" : "false" );
+	Dom_Element.appendChild( Dom_Text );
+
+	Dom_Element = New_Dom_Document.createElement( "No_Defaults" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( No_Defaults ? "true" : "false" );
+	Dom_Element.appendChild( Dom_Text );
+
+	Dom_Element = New_Dom_Document.createElement( "RTC_Clock" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( RTC_Clock.isEmpty() ? "host" : RTC_Clock );
+	Dom_Element.appendChild( Dom_Text );
+
+	Dom_Element = New_Dom_Document.createElement( "Gamepad_Filter_IDs" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( Gamepad_Filter_IDs.join( "," ) );
+	Dom_Element.appendChild( Dom_Text );
+
+	Dom_Element = New_Dom_Document.createElement( "Display_Backend" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( Display_Backend );
+	Dom_Element.appendChild( Dom_Text );
+
+	Dom_Element = New_Dom_Document.createElement( "Use_IOThread" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( Use_IOThread_Flag ? "true" : "false" );
+	Dom_Element.appendChild( Dom_Text );
+
+	Dom_Element = New_Dom_Document.createElement( "Mem_Path" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( Mem_Path );
+	Dom_Element.appendChild( Dom_Text );
+
+	Dom_Element = New_Dom_Document.createElement( "Mem_Prealloc" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( Mem_Prealloc ? "true" : "false" );
+	Dom_Element.appendChild( Dom_Text );
+
+	Dom_Element = New_Dom_Document.createElement( "UUID" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( UUID );
+	Dom_Element.appendChild( Dom_Text );
+
+	Dom_Element = New_Dom_Document.createElement( "BIOS_File" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( BIOS_File );
+	Dom_Element.appendChild( Dom_Text );
+
+	Dom_Element = New_Dom_Document.createElement( "Machine_Extra_Props" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( Machine_Extra_Props );
+	Dom_Element.appendChild( Dom_Text );
+
+	Dom_Element = New_Dom_Document.createElement( "Modern_Netdev" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( Modern_Netdev ? "true" : "false" );
+	Dom_Element.appendChild( Dom_Text );
+
+	Dom_Element = New_Dom_Document.createElement( "Use_NUMA" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( Use_NUMA_Flag ? "true" : "false" );
+	Dom_Element.appendChild( Dom_Text );
+
+	Dom_Element = New_Dom_Document.createElement( "NUMA_Nodes" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( QString::number( NUMA_Nodes ) );
+	Dom_Element.appendChild( Dom_Text );
+
+	Dom_Element = New_Dom_Document.createElement( "Watchdog_Model" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( Watchdog_Model );
+	Dom_Element.appendChild( Dom_Text );
+
+	Dom_Element = New_Dom_Document.createElement( "Watchdog_Action" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( Watchdog_Action );
+	Dom_Element.appendChild( Dom_Text );
+
+	Dom_Element = New_Dom_Document.createElement( "TPM_Type" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( TPM_Type );
+	Dom_Element.appendChild( Dom_Text );
+
+	Dom_Element = New_Dom_Document.createElement( "TPM_Path" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( TPM_Path );
+	Dom_Element.appendChild( Dom_Text );
+
+	Dom_Element = New_Dom_Document.createElement( "Use_Secret_Object" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( Use_Secret_Object_Flag ? "true" : "false" );
+	Dom_Element.appendChild( Dom_Text );
+
+	Dom_Element = New_Dom_Document.createElement( "Secret_ID" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( Secret_ID );
+	Dom_Element.appendChild( Dom_Text );
+
+	Dom_Element = New_Dom_Document.createElement( "Secret_Data" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( Secret_Data );
+	Dom_Element.appendChild( Dom_Text );
+
+	Dom_Element = New_Dom_Document.createElement( "Secret_File" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( Secret_File );
+	Dom_Element.appendChild( Dom_Text );
+
+	Dom_Element = New_Dom_Document.createElement( "Incoming_URI" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( Incoming_URI );
+	Dom_Element.appendChild( Dom_Text );
+
+	Dom_Element = New_Dom_Document.createElement( "Modern_Chardev" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( Modern_Chardev ? "true" : "false" );
+	Dom_Element.appendChild( Dom_Text );
+
+	Dom_Element = New_Dom_Document.createElement( "Use_Blockdev" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( Use_Blockdev_Flag ? "true" : "false" );
+	Dom_Element.appendChild( Dom_Text );
+	Dom_Element = New_Dom_Document.createElement( "Blockdev_Extra_Lines" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( Blockdev_Extra_Lines );
+	Dom_Element.appendChild( Dom_Text );
+	Dom_Element = New_Dom_Document.createElement( "Use_SMBIOS_Type0" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( Use_SMBIOS_Type0_Flag ? "true" : "false" );
+	Dom_Element.appendChild( Dom_Text );
+	Dom_Element = New_Dom_Document.createElement( "SMBIOS_Vendor" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( SMBIOS_Vendor );
+	Dom_Element.appendChild( Dom_Text );
+	Dom_Element = New_Dom_Document.createElement( "SMBIOS_Version" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( SMBIOS_Version );
+	Dom_Element.appendChild( Dom_Text );
+	Dom_Element = New_Dom_Document.createElement( "SMBIOS_Date" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( SMBIOS_Date );
+	Dom_Element.appendChild( Dom_Text );
+	Dom_Element = New_Dom_Document.createElement( "Use_SMBIOS_Type1" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( Use_SMBIOS_Type1_Flag ? "true" : "false" );
+	Dom_Element.appendChild( Dom_Text );
+	Dom_Element = New_Dom_Document.createElement( "SMBIOS_Manufacturer" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( SMBIOS_Manufacturer );
+	Dom_Element.appendChild( Dom_Text );
+	Dom_Element = New_Dom_Document.createElement( "SMBIOS_Product" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( SMBIOS_Product );
+	Dom_Element.appendChild( Dom_Text );
+	Dom_Element = New_Dom_Document.createElement( "SMBIOS_Type1_Version" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( SMBIOS_Type1_Version );
+	Dom_Element.appendChild( Dom_Text );
+	Dom_Element = New_Dom_Document.createElement( "SMBIOS_Serial" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( SMBIOS_Serial );
+	Dom_Element.appendChild( Dom_Text );
+	Dom_Element = New_Dom_Document.createElement( "SMBIOS_File" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( SMBIOS_File );
+	Dom_Element.appendChild( Dom_Text );
+	Dom_Element = New_Dom_Document.createElement( "FW_CFG_Lines" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( FW_CFG_Lines );
+	Dom_Element.appendChild( Dom_Text );
+	Dom_Element = New_Dom_Document.createElement( "Audiodev_Backend" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( Audiodev_Backend );
+	Dom_Element.appendChild( Dom_Text );
+	Dom_Element = New_Dom_Document.createElement( "Audiodev_Timer_Period" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( QString::number( Audiodev_Timer_Period ) );
+	Dom_Element.appendChild( Dom_Text );
+	Dom_Element = New_Dom_Document.createElement( "Use_NUMA_Memdev" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( Use_NUMA_Memdev_Flag ? "true" : "false" );
+	Dom_Element.appendChild( Dom_Text );
+	Dom_Element = New_Dom_Document.createElement( "ICount" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( ICount );
+	Dom_Element.appendChild( Dom_Text );
+	Dom_Element = New_Dom_Document.createElement( "Sandbox" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( Sandbox );
+	Dom_Element.appendChild( Dom_Text );
+
+
+	Dom_Element = New_Dom_Document.createElement( "Display_Window_Mode" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode(
+		Display_Window_Mode.trimmed().isEmpty() ? QStringLiteral( "auto" ) : Display_Window_Mode.trimmed() );
+	Dom_Element.appendChild( Dom_Text );
+
 	Dom_Element = New_Dom_Document.createElement( "Intel_MacOS_Profile" );
 	VM_Element.appendChild( Dom_Element );
 	Dom_Text = New_Dom_Document.createTextNode( Intel_MacOS_Profile ? "true" : "false" );
@@ -3849,29 +4244,39 @@ bool Virtual_Machine::Load_VM( const QString &file_name )
 
             if ( ! Icon_Path.startsWith(":/") )
             {
+				QSettings settings;
+				const QString data_folder = settings.value( "AQEMU_Data_Folder", "" ).toString();
 
-                //correct absolute paths saved by old versions
-		        QStringList dataDirs;
-		        dataDirs << "/usr/share/aqemu/"
+				// Remap old Linux install prefixes onto the current data folder.
+				QStringList dataDirs;
+				dataDirs << "/usr/share/aqemu/"
 				         << "/usr/share/apps/aqemu/"
 				         << "/usr/local/share/aqemu/";
 
-                QSettings settings;    
-                bool abs_found = false;
-                for ( int i = 0; i < dataDirs.count(); i++ )
-                {
-                    if ( Icon_Path.startsWith(dataDirs.at(i)) )
-                    {
-                        Icon_Path.replace(dataDirs.at(i),settings.value( "AQEMU_Data_Folder","").toString());
-                        abs_found = true;
-                        break;
-                    }
-                }
+				bool remapped = false;
+				for( int i = 0; i < dataDirs.count(); i++ )
+				{
+					if( Icon_Path.startsWith( dataDirs.at( i ) ) )
+					{
+						Icon_Path.replace( dataDirs.at( i ), data_folder );
+						remapped = true;
+						break;
+					}
+				}
 
-                if ( ! abs_found )
-                {
-                    Icon_Path = settings.value( "AQEMU_Data_Folder","").toString() + Icon_Path;
-                }
+				if( ! remapped )
+				{
+					const QFileInfo icon_fi( Icon_Path );
+					// Absolute paths (esp. Windows C:/...) must not be prefixed —
+					// old code did data_folder + absolute and blanked the list icon.
+					if( ! icon_fi.isAbsolute() )
+					{
+						if( data_folder.isEmpty() )
+							Icon_Path = icon_fi.filePath();
+						else
+							Icon_Path = QDir( data_folder ).filePath( Icon_Path );
+					}
+				}
             }
 
 			// Screenshot Path
@@ -4858,6 +5263,82 @@ bool Virtual_Machine::Load_VM( const QString &file_name )
 					Win11_Lifecycle_Mode = VM::Win11_Normal;
 			}
 			Force_TCG = ( Child_Element.firstChildElement( "Force_TCG" ).text() == "true" );
+			Pass_Through_Gamepads = ( Child_Element.firstChildElement( "Pass_Through_Gamepads" ).text() == "true" );
+			Emulate_USB_Gamepad = ( Child_Element.firstChildElement( "Emulate_USB_Gamepad" ).text() == "true" );
+			No_Defaults = ( Child_Element.firstChildElement( "No_Defaults" ).text() == "true" );
+			{
+				const QString clk = Child_Element.firstChildElement( "RTC_Clock" ).text().trimmed().toLower();
+				RTC_Clock = clk.isEmpty() ? QStringLiteral( "host" ) : clk;
+			}
+			{
+				const QString filt = Child_Element.firstChildElement( "Gamepad_Filter_IDs" ).text().trimmed();
+				Gamepad_Filter_IDs = filt.isEmpty() ? QStringList() : filt.split( QLatin1Char( ',' ), QString::SkipEmptyParts );
+			}
+			Display_Backend = Child_Element.firstChildElement( "Display_Backend" ).text().trimmed().toLower();
+			Use_IOThread_Flag = ( Child_Element.firstChildElement( "Use_IOThread" ).text() == "true" );
+			Mem_Path = Child_Element.firstChildElement( "Mem_Path" ).text();
+			Mem_Prealloc = ( Child_Element.firstChildElement( "Mem_Prealloc" ).text() == "true" );
+			UUID = Child_Element.firstChildElement( "UUID" ).text().trimmed();
+			BIOS_File = Child_Element.firstChildElement( "BIOS_File" ).text();
+			Machine_Extra_Props = Child_Element.firstChildElement( "Machine_Extra_Props" ).text().trimmed();
+			{
+				const QString mn = Child_Element.firstChildElement( "Modern_Netdev" ).text();
+				Modern_Netdev = ( mn.isEmpty() || mn == "true" );
+			}
+			Use_NUMA_Flag = ( Child_Element.firstChildElement( "Use_NUMA" ).text() == "true" );
+			{
+				bool ok = false;
+				int n = Child_Element.firstChildElement( "NUMA_Nodes" ).text().toInt( &ok );
+				NUMA_Nodes = ( ok && n >= 2 ) ? n : 2;
+			}
+			Watchdog_Model = Child_Element.firstChildElement( "Watchdog_Model" ).text().trimmed();
+			{
+				const QString wa = Child_Element.firstChildElement( "Watchdog_Action" ).text().trimmed();
+				Watchdog_Action = wa.isEmpty() ? QStringLiteral( "reset" ) : wa;
+			}
+			{
+				const QString tt = Child_Element.firstChildElement( "TPM_Type" ).text().trimmed().toLower();
+				TPM_Type = tt.isEmpty() ? QStringLiteral( "none" ) : tt;
+			}
+			TPM_Path = Child_Element.firstChildElement( "TPM_Path" ).text();
+			Use_Secret_Object_Flag = ( Child_Element.firstChildElement( "Use_Secret_Object" ).text() == "true" );
+			{
+				const QString sid = Child_Element.firstChildElement( "Secret_ID" ).text().trimmed();
+				Secret_ID = sid.isEmpty() ? QStringLiteral( "sec0" ) : sid;
+			}
+			Secret_Data = Child_Element.firstChildElement( "Secret_Data" ).text();
+			Secret_File = Child_Element.firstChildElement( "Secret_File" ).text();
+			Incoming_URI = Child_Element.firstChildElement( "Incoming_URI" ).text().trimmed();
+			Modern_Chardev = ( Child_Element.firstChildElement( "Modern_Chardev" ).text() == "true" );
+			Use_Blockdev_Flag = ( Child_Element.firstChildElement( "Use_Blockdev" ).text() == "true" );
+			Blockdev_Extra_Lines = Child_Element.firstChildElement( "Blockdev_Extra_Lines" ).text();
+			Use_SMBIOS_Type0_Flag = ( Child_Element.firstChildElement( "Use_SMBIOS_Type0" ).text() == "true" );
+			SMBIOS_Vendor = Child_Element.firstChildElement( "SMBIOS_Vendor" ).text();
+			SMBIOS_Version = Child_Element.firstChildElement( "SMBIOS_Version" ).text();
+			SMBIOS_Date = Child_Element.firstChildElement( "SMBIOS_Date" ).text();
+			Use_SMBIOS_Type1_Flag = ( Child_Element.firstChildElement( "Use_SMBIOS_Type1" ).text() == "true" );
+			SMBIOS_Manufacturer = Child_Element.firstChildElement( "SMBIOS_Manufacturer" ).text();
+			SMBIOS_Product = Child_Element.firstChildElement( "SMBIOS_Product" ).text();
+			SMBIOS_Type1_Version = Child_Element.firstChildElement( "SMBIOS_Type1_Version" ).text();
+			SMBIOS_Serial = Child_Element.firstChildElement( "SMBIOS_Serial" ).text();
+			SMBIOS_File = Child_Element.firstChildElement( "SMBIOS_File" ).text().trimmed();
+			FW_CFG_Lines = Child_Element.firstChildElement( "FW_CFG_Lines" ).text();
+			Audiodev_Backend = Child_Element.firstChildElement( "Audiodev_Backend" ).text().trimmed();
+			{
+				bool ok = false;
+				const int tp = Child_Element.firstChildElement( "Audiodev_Timer_Period" ).text().toInt( &ok );
+				Audiodev_Timer_Period = ok ? tp : 0;
+			}
+			Use_NUMA_Memdev_Flag = ( Child_Element.firstChildElement( "Use_NUMA_Memdev" ).text() == "true" );
+			ICount = Child_Element.firstChildElement( "ICount" ).text().trimmed();
+			Sandbox = Child_Element.firstChildElement( "Sandbox" ).text().trimmed();
+			{
+				const QString dwm = Child_Element.firstChildElement( "Display_Window_Mode" ).text().trimmed().toLower();
+				if( dwm == QLatin1String( "embedded" ) || dwm == QLatin1String( "native" ) )
+					Display_Window_Mode = dwm;
+				else
+					Display_Window_Mode = QStringLiteral( "auto" );
+			}
 			Intel_MacOS_Profile = ( Child_Element.firstChildElement( "Intel_MacOS_Profile" ).text() == "true" );
 			Use_Apple_SMC_Flag = ( Child_Element.firstChildElement( "Use_Apple_SMC" ).text() == "true" );
 			Apple_SMC_OSK = Child_Element.firstChildElement( "Apple_SMC_OSK" ).text();
@@ -5100,6 +5581,8 @@ VM_Native_Storage_Device Virtual_Machine::Load_VM_Native_Storage_Device( const Q
 		tmp_device.Set_Interface( VM::DI_Virtio );
 	else if( interface_str == "Virtio_SCSI" )
 		tmp_device.Set_Interface( VM::DI_Virtio_SCSI );
+	else if( interface_str == "NVMe" || interface_str == "nvme" )
+		tmp_device.Set_Interface( VM::DI_NVMe );
 	else if( interface_str == "" ) ; // No Value
 	else
 	{
@@ -5114,7 +5597,7 @@ VM_Native_Storage_Device Virtual_Machine::Load_VM_Native_Storage_Device( const Q
 	tmp_device.Set_Bus( Second_Element.firstChildElement("Bus").text().toInt() );
 	
 	// Unit
-	tmp_device.Set_Bus( Second_Element.firstChildElement("Unit").text().toInt() );
+	tmp_device.Set_Unit( Second_Element.firstChildElement("Unit").text().toInt() );
 	
 	// Use Index
 	tmp_device.Use_Index( Second_Element.firstChildElement("Use_Index").text() == "true" );
@@ -5126,17 +5609,19 @@ VM_Native_Storage_Device Virtual_Machine::Load_VM_Native_Storage_Device( const Q
 	tmp_device.Use_Media( Second_Element.firstChildElement("Use_Media").text() == "true" );
 	
 	// Media
-	QString media_str = Second_Element.firstChildElement( "Media" ).text();
+	QString media_str = Second_Element.firstChildElement( "Media" ).text().trimmed();
 	
-	if( media_str == "Disk" )
-		tmp_device.Set_Index( VM::DM_Disk );
-	else if( media_str == "CD_ROM" )
-		tmp_device.Set_Index( VM::DM_CD_ROM );
-	else if( media_str == "" ) ; // No value
+	if( media_str.isEmpty() || media_str.compare( QLatin1String( "Disk" ), Qt::CaseInsensitive ) == 0 )
+		tmp_device.Set_Media( VM::DM_Disk );
+	else if( media_str.compare( QLatin1String( "CD_ROM" ), Qt::CaseInsensitive ) == 0 ||
+	         media_str.compare( QLatin1String( "CDROM" ), Qt::CaseInsensitive ) == 0 ||
+	         media_str.compare( QLatin1String( "CD-ROM" ), Qt::CaseInsensitive ) == 0 )
+		tmp_device.Set_Media( VM::DM_CD_ROM );
 	else
 	{
-        AQError( "VM_Native_Storage_Device Virtual_Machine::Load_VM_Native_Storage_Device( const QDomElement &Second_Element ) const",
-				 "Storage Device Media Default Section!" );
+		AQWarning( "VM_Native_Storage_Device Virtual_Machine::Load_VM_Native_Storage_Device( const QDomElement &Second_Element ) const",
+		           QStringLiteral( "Unknown Media \"%1\" — treating as Disk" ).arg( media_str ) );
+		tmp_device.Set_Media( VM::DM_Disk );
 	}
 	
 	// Use hdachs
@@ -5288,6 +5773,13 @@ void Virtual_Machine::Save_VM_Native_Storage_Device( QDomDocument &New_Dom_Docum
 			Sec_Element = New_Dom_Document.createElement( "Interface" );
 			Dom_Element.appendChild( Sec_Element );
 			Dom_Text = New_Dom_Document.createTextNode( "Virtio_SCSI" );
+			Sec_Element.appendChild( Dom_Text );
+			break;
+
+		case VM::DI_NVMe:
+			Sec_Element = New_Dom_Document.createElement( "Interface" );
+			Dom_Element.appendChild( Sec_Element );
+			Dom_Text = New_Dom_Document.createTextNode( "NVMe" );
 			Sec_Element.appendChild( Dom_Text );
 			break;
 			
@@ -5681,7 +6173,55 @@ static QString Build_X86_Boot_Arg( const Virtual_Machine &vm, bool show_menu )
 
 QStringList Virtual_Machine::Build_QEMU_Args()
 {
+	// Existing XP/.aqemu files may still have cirrus + SMP=2; force proven defaults.
+	Ensure_Windows_XP_Family_Defaults();
+	// OS/2 Warp: VirtIO/ACPI → LVM.DLL Error 9; force IDE + TCG defaults.
+	Ensure_OS2_Family_Defaults();
+	// ReactOS: wiki QEMU profile (IDE / std / AC97 / e1000).
+	Ensure_ReactOS_Defaults();
+
 	QStringList Args;
+
+	if( No_Defaults )
+		Args << "-nodefaults";
+
+	if( Use_IOThread_Flag )
+		Args << "-object" << "iothread,id=aq-iothread0";
+
+	if( Use_Secret_Object_Flag )
+	{
+		QString sid = Secret_ID.trimmed().isEmpty() ? QStringLiteral( "sec0" ) : Secret_ID.trimmed();
+		QString sobj = QStringLiteral( "secret,id=" ) + sid;
+		if( ! Secret_File.trimmed().isEmpty() )
+		{
+			if( Build_QEMU_Args_for_Script_Mode )
+				sobj += QStringLiteral( ",file=\"" ) + Secret_File + QStringLiteral( "\"" );
+			else
+				sobj += QStringLiteral( ",file=" ) + Secret_File;
+		}
+		else if( ! Secret_Data.isEmpty() )
+		{
+			// data= is plain text; prefer file= for production secrets
+			QString d = Secret_Data;
+			d.replace( QLatin1Char( ',' ), QLatin1String( ",," ) );
+			sobj += QStringLiteral( ",data=" ) + d;
+		}
+		Args << "-object" << sobj;
+	}
+
+	// Extra user-defined -blockdev nodes (graph editor)
+	{
+		const QStringList bd_lines = Blockdev_Extra_Lines.split( QLatin1Char( '\n' ), QString::SkipEmptyParts );
+		for( const QString &raw : bd_lines )
+		{
+			const QString line = raw.trimmed();
+			if( line.isEmpty() || line.startsWith( QLatin1Char( '#' ) ) ) continue;
+			Args << "-blockdev" << line;
+		}
+	}
+
+	if( ! Incoming_URI.trimmed().isEmpty() )
+		Args << "-incoming" << Incoming_URI.trimmed();
 
 	// Introducing a second argument collector for the Storage-part,
 	// because the new 'Virtio_SCSI' generated argument list requires the
@@ -5693,10 +6233,23 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	// arguments where appended ...
 	QStringList StorageArgs;
 
-	const bool embedded_session =
+	// Win9x/XP text-mode setup needs QEMU's own SDL/GTK window. Bundled QEMU
+	// is often headless-only (-display none + VNC); Prefer_Native_VGA_Window
+	// skips the embed path (Start_impl selects an SDL-capable binary).
+	const bool force_nographic =
+		Display_Backend.trimmed().toLower() == QLatin1String( "nographic" );
+	const bool native_vga_window =
+		! force_nographic &&
 		! Build_QEMU_Args_for_Tab_Info &&
 		! Build_QEMU_Args_for_Script_Mode &&
-		Settings.value( "Embedded_Session", "yes" ).toString() == "yes";
+		Prefer_Native_VGA_Window();
+
+	const bool embedded_session =
+		! force_nographic &&
+		! Build_QEMU_Args_for_Tab_Info &&
+		! Build_QEMU_Args_for_Script_Mode &&
+		Settings.value( "Embedded_Session", "yes" ).toString() == "yes" &&
+		! native_vga_window;
 
 	if( embedded_session )
 	{
@@ -5784,7 +6337,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	// SMP Mode
 	int smp_count = SMP.SMP_Count;
 	if( smp_count < 1 ) smp_count = 1;
-	// Win95/98 Force_TCG: single CPU only (SMP hangs or destabilizes 9x).
+	// Win95/98/XP Force_TCG: single CPU only (SMP hangs or destabilizes legacy).
 	if( Force_TCG )
 		smp_count = 1;
 	// aarch64 under TCG with 1 vCPU is unusably slow; match kiosk default of 4
@@ -5862,10 +6415,17 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 
 		if( Force_TCG )
 		{
-			const QString c = cpu_arg.trimmed().toLower();
-			if( c.isEmpty() || c == QLatin1String( "max" ) || c == QLatin1String( "host" ) ||
-				c.startsWith( QLatin1String( "qemu64" ) ) || c.startsWith( QLatin1String( "qemu32" ) ) )
-				cpu_arg = QStringLiteral( "pentium2" );
+			// pentium2 is x86-only — never rewrite POWER/SPARC/etc CPUs.
+			const bool is_x86_guest =
+				Computer_Type.contains( QLatin1String( "x86_64" ), Qt::CaseInsensitive ) ||
+				Computer_Type.contains( QLatin1String( "i386" ), Qt::CaseInsensitive );
+			if( is_x86_guest )
+			{
+				const QString c = cpu_arg.trimmed().toLower();
+				if( c.isEmpty() || c == QLatin1String( "max" ) || c == QLatin1String( "host" ) ||
+					c.startsWith( QLatin1String( "qemu64" ) ) || c.startsWith( QLatin1String( "qemu32" ) ) )
+					cpu_arg = QStringLiteral( "pentium2" );
+			}
 		}
 
 		if( Intel_MacOS_Profile )
@@ -5963,7 +6523,12 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			audiodev_backend = "pa";
 		#endif
 		
-		Args << "-audiodev" << ( audiodev_backend + ",id=snd0" );
+		if( ! Audiodev_Backend.trimmed().isEmpty() )
+			audiodev_backend = Audiodev_Backend.trimmed();
+		QString audiodev_arg = audiodev_backend + ",id=snd0";
+		if( Audiodev_Timer_Period > 0 )
+			audiodev_arg += QStringLiteral( ",timer-period=%1" ).arg( Audiodev_Timer_Period );
+		Args << "-audiodev" << audiodev_arg;
 		
 		if( Audio_Card.Audio_VirtIO )
 			Args << "-device" << "virtio-sound-pci,audiodev=snd0";
@@ -6014,6 +6579,12 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		Computer_Type.contains( "aarch64", Qt::CaseInsensitive ) ||
 		Computer_Type.contains( "qemu-system-arm", Qt::CaseInsensitive ) ||
 		Computer_Type.contains( "riscv", Qt::CaseInsensitive );
+	// pSeries / PowerNV / s390 have no ISA floppy or IDE buses (unlike pc/q35).
+	const bool no_pc_fdd_ide =
+		is_virt_arch ||
+		effective_machine.contains( QLatin1String( "pseries" ), Qt::CaseInsensitive ) ||
+		effective_machine.contains( QLatin1String( "powernv" ), Qt::CaseInsensitive ) ||
+		Computer_Type.contains( QLatin1String( "s390" ), Qt::CaseInsensitive );
 	if( effective_machine.isEmpty() && is_virt_arch )
 		effective_machine = "virt";
 	
@@ -6036,6 +6607,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 
 	const bool device_based_video = System_Info::Uses_Device_Based_Video( Computer_Type ) ||
 	                                effective_video == "virtio-gpu-pci" || effective_video == "virtio-gpu-gl-pci" ||
+	                                effective_video == "virtio-vga-gl" ||
 	                                effective_video == "ramfb";
 
 	if( device_based_video )
@@ -6046,6 +6618,8 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			Args << "-device" << "ramfb";
 		else if( effective_video == "virtio-gpu-gl-pci" )
 			Args << "-device" << "virtio-gpu-gl-pci";
+		else if( effective_video == "virtio-vga-gl" )
+			Args << "-device" << "virtio-vga-gl";
 		else
 		{
 			// VirtIO-GPU with EDID. Do NOT auto-add ramfb here (BVM normal/boot mode):
@@ -6142,6 +6716,9 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 
 	bool use_separate_tcg_accel = false;
 	bool legacy_force_tcg = Force_TCG && ! is_virt_arch;
+	const bool is_x86_guest =
+		Computer_Type.contains( QLatin1String( "x86_64" ), Qt::CaseInsensitive ) ||
+		Computer_Type.contains( QLatin1String( "i386" ), Qt::CaseInsensitive );
 	#ifdef Q_OS_WIN32
 	if( Launch_Via_WSL && ! is_virt_arch )
 	{
@@ -6155,7 +6732,11 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	else if( is_virt_arch )
 		use_separate_tcg_accel = true;
 	else if( legacy_force_tcg )
-		// Win95/98: WHPX hangs at splash; pure single-thread TCG is required.
+		// Win95/98: WHPX hangs at splash. XP: WHPX disables SMM → black text mode.
+		use_separate_tcg_accel = true;
+	else if( ! is_x86_guest )
+		// WHPX/HAX only accelerate x86 guests. ppc64/sparc/mips/etc must use TCG
+		// (otherwise QEMU prints "invalid accelerator whpx/hax" then may fail RAM setup).
 		use_separate_tcg_accel = true;
 	else if( Machine_Accelerator == VM::KVM || Machine_Accelerator == VM::TCG )
 		// Prefer Hyper-V WHPX (or HAX) for x86; fall back to TCG. Pure TCG makes
@@ -6180,6 +6761,17 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 
 	if( Current_Emulator_Devices.PSO_KVM_Shadow_Memory && KVM_Shadow_Memory )
 		props << "kvm_shadow_mem=" + QString::number( KVM_Shadow_Memory_Size * 1024 );
+
+	if( ! Machine_Extra_Props.trimmed().isEmpty() )
+	{
+		const QStringList extra = Machine_Extra_Props.split( QLatin1Char( ',' ), QString::SkipEmptyParts );
+		for( int ei = 0; ei < extra.count(); ++ei )
+		{
+			const QString p = extra[ei].trimmed();
+			if( ! p.isEmpty() )
+				props << p;
+		}
+	}
 
 	Args << props.join(",");
 
@@ -6210,6 +6802,39 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	
 	// Memory
 	Args << "-m" << QString::number( Memory_Size, 10 );
+	if( ! Mem_Path.trimmed().isEmpty() )
+	{
+		if( Build_QEMU_Args_for_Script_Mode )
+			Args << "-mem-path" << "\"" + Mem_Path + "\"";
+		else
+			Args << "-mem-path" << Mem_Path;
+		if( Mem_Prealloc )
+			Args << "-mem-prealloc";
+	}
+	if( ! UUID.trimmed().isEmpty() )
+		Args << "-uuid" << UUID.trimmed();
+
+	// NUMA (equal split of -m across nodes)
+	if( Use_NUMA_Flag && NUMA_Nodes >= 2 && Memory_Size > 0 )
+	{
+		const int nodes = qMin( NUMA_Nodes, 8 );
+		const int per = Memory_Size / nodes;
+		int rem = Memory_Size - ( per * nodes );
+		for( int ni = 0; ni < nodes; ++ni )
+		{
+			int mb = per + ( ni == 0 ? rem : 0 );
+			if( Use_NUMA_Memdev_Flag )
+			{
+				const QString mid = QStringLiteral( "aqmem%1" ).arg( ni );
+				Args << "-object" << QStringLiteral( "memory-backend-ram,id=%1,size=%2M" ).arg( mid ).arg( mb );
+				Args << "-numa" << QStringLiteral( "node,nodeid=%1,memdev=%2" ).arg( ni ).arg( mid );
+			}
+			else
+			{
+				Args << "-numa" << QStringLiteral( "node,nodeid=%1,mem=%2" ).arg( ni ).arg( mb );
+			}
+		}
+	}
 	
 	// full screen (skip for embedded session ? AQEMU owns the chrome)
 	if( Fullscreen && ! embedded_session )
@@ -6275,7 +6900,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			}
             StorageArgs << Build_Native_Device_Args( FD0.Get_Native_Device(), Build_QEMU_Args_for_Tab_Info );
 		}
-		else if( ! is_virt_arch && embedded_session )
+		else if( ! no_pc_fdd_ide && embedded_session )
 		{
 			// x86 embedded: keep stable id for QMP hotswap
 			if( QFile::exists(FD0.Get_File_Name()) || Build_QEMU_Args_for_Tab_Info )
@@ -6284,7 +6909,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			else
 				StorageArgs << "-drive" << "if=floppy,index=0,format=raw,id=aqemu-fd0,file.driver=null-co,file.size=1474560";
 		}
-		else if( ! is_virt_arch )
+		else if( ! no_pc_fdd_ide )
 		{
 			if( QFile::exists(FD0.Get_File_Name()) || Build_QEMU_Args_for_Tab_Info )
 			{
@@ -6299,9 +6924,9 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 							QString("Image \"%1\" doesn't exists!").arg(FD0.Get_File_Name()) );
 			}
 		}
-		// virt arch: classic floppy not supported ? skip
+		// virt/pseries/etc: classic floppy not supported — skip
 	}
-	else if( ! is_virt_arch && embedded_session )
+	else if( ! no_pc_fdd_ide && embedded_session )
 	{
 		StorageArgs << "-drive" << "if=floppy,index=0,format=raw,id=aqemu-fd0,file.driver=null-co,file.size=1474560";
 	}
@@ -6319,7 +6944,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			}
             StorageArgs << Build_Native_Device_Args( FD1.Get_Native_Device(), Build_QEMU_Args_for_Tab_Info );
 		}
-		else if( ! is_virt_arch && embedded_session )
+		else if( ! no_pc_fdd_ide && embedded_session )
 		{
 			if( QFile::exists(FD1.Get_File_Name()) || Build_QEMU_Args_for_Tab_Info )
 				StorageArgs << "-drive" << QString( "file=%1,if=floppy,index=1,format=raw,id=aqemu-fd1" )
@@ -6327,7 +6952,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			else
 				StorageArgs << "-drive" << "if=floppy,index=1,format=raw,id=aqemu-fd1,file.driver=null-co,file.size=1474560";
 		}
-        else if( ! is_virt_arch )
+        else if( ! no_pc_fdd_ide )
 		{
 			if( QFile::exists(FD1.Get_File_Name()) || Build_QEMU_Args_for_Tab_Info )
 			{
@@ -6343,7 +6968,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			}
 		}
 	}
-	else if( ! is_virt_arch && embedded_session )
+	else if( ! no_pc_fdd_ide && embedded_session )
 	{
 		StorageArgs << "-drive" << "if=floppy,index=1,format=raw,id=aqemu-fd1,file.driver=null-co,file.size=1474560";
 	}
@@ -6416,6 +7041,19 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 				}
 			}
 		}
+		else if( no_pc_fdd_ide && ! is_virt_arch )
+		{
+			// pSeries / PowerNV: no IDE — present CD on virtio-scsi when a real ISO is set.
+			if( QFile::exists( CD_ROM.Get_File_Name() ) || Build_QEMU_Args_for_Tab_Info )
+			{
+				has_virt_scsi = true;
+				const QString drive = QString(
+					"file=%1,if=none,id=aqemu-cdrom,format=raw,media=cdrom,readonly=on,cache=unsafe,aio=threads" )
+					.arg( CD_ROM.Get_File_Name() );
+				StorageArgs << "-drive" << drive;
+				StorageArgs << "-device" << "scsi-cd,drive=aqemu-cdrom,bus=aq-vscsi.0";
+			}
+		}
 		else if( embedded_session )
 		{
 			if( QFile::exists(CD_ROM.Get_File_Name()) || Build_QEMU_Args_for_Tab_Info )
@@ -6445,7 +7083,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			}
 		}
 	}
-	else if( ! is_virt_arch && embedded_session && ! mac_recovery_active )
+	else if( ! no_pc_fdd_ide && embedded_session && ! mac_recovery_active )
 	{
 		StorageArgs << "-drive" << "if=ide,index=2,media=cdrom,readonly=on,format=raw,id=aqemu-cdrom,cache=unsafe,aio=threads,file.driver=null-co";
 		ide_index_2_used = true;
@@ -6874,6 +7512,12 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 						nic_str += "channel";
 						u_port_dev = true;
 						break;
+
+					// -net bridge[,vlan=n][,name=str][,br=bridge][,helper=helper]
+                    case VM::Net_Mode_Native_Bridge:
+						nic_str += "bridge";
+						u_vlan = u_name = u_bridge = u_helper = true;
+						break;
 						
 					// -net tap[,vlan=n][,name=str][,fd=h][,ifname=name][,script=file][,downscript=dfile]
                     //                 [,helper=helper][,sndbuf=nbytes][,vnet_hdr=on|off][,vhost=on|off][,vhostfd=h]
@@ -7084,9 +7728,60 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 				if( Network_Cards_Nativ[nc].Use_VHostFd() && u_vhostfd && Current_Emulator_Devices.PSO_Net_vhostfd )
 					nic_str += ",vhostfd=" + QString::number( Network_Cards_Nativ[nc].Get_VHostFd() );
 				
-				// Add to Args
-				Args << "-net";
-				Args << nic_str;
+				// Add to Args — modern -netdev+device when enabled (qemu-doc § Network)
+				const VM::Network_Mode_Nativ ntype = Network_Cards_Nativ[nc].Get_Network_Type();
+				const bool can_modern =
+					Modern_Netdev &&
+					( ntype == VM::Net_Mode_Native_User ||
+					  ntype == VM::Net_Mode_Native_TAP ||
+					  ntype == VM::Net_Mode_Native_Bridge );
+				if( can_modern )
+				{
+					const QString nid = QStringLiteral( "aqnet%1" ).arg( nc );
+					QString nd = nic_str;
+					// nic_str is like "user,..." or "tap,..." without type prefix issues — already has type
+					const int comma = nd.indexOf( QLatin1Char( ',' ) );
+					QString ntype_s = comma > 0 ? nd.left( comma ) : nd;
+					QString rest = comma > 0 ? nd.mid( comma + 1 ) : QString();
+					QString netdev = ntype_s + QStringLiteral( ",id=" ) + nid;
+					if( ! rest.isEmpty() )
+					{
+						// strip NIC-only props that don't belong on netdev
+						QStringList parts = rest.split( QLatin1Char( ',' ) );
+						QStringList keep;
+						for( int pi = 0; pi < parts.count(); ++pi )
+						{
+							const QString &p = parts[pi];
+							if( p.startsWith( QLatin1String( "model=" ) ) ||
+							    p.startsWith( QLatin1String( "macaddr=" ) ) ||
+							    p.startsWith( QLatin1String( "vectors=" ) ) ||
+							    p.startsWith( QLatin1String( "addr=" ) ) )
+								continue;
+							if( p.startsWith( QLatin1String( "vlan=" ) ) )
+								continue; // vlan is legacy -net
+							keep << p;
+						}
+						if( ! keep.isEmpty() )
+							netdev += QLatin1Char( ',' ) + keep.join( QLatin1Char( ',' ) );
+					}
+					Args << "-netdev" << netdev;
+
+					QString model = Network_Cards_Nativ[nc].Get_Card_Model();
+					if( model.isEmpty() )
+						model = QStringLiteral( "virtio-net-pci" );
+					if( model == QLatin1String( "virtio" ) || model == QLatin1String( "virtio-net" ) )
+						model = QStringLiteral( "virtio-net-pci" );
+					QString nic_dev = model + QStringLiteral( ",netdev=" ) + nid;
+					if( Network_Cards_Nativ[nc].Use_MAC_Address() &&
+					    ! Network_Cards_Nativ[nc].Get_MAC_Address().isEmpty() )
+						nic_dev += QStringLiteral( ",mac=" ) + Network_Cards_Nativ[nc].Get_MAC_Address();
+					Args << "-device" << nic_dev;
+				}
+				else
+				{
+					Args << "-net";
+					Args << nic_str;
+				}
 			}
 		}
 		else
@@ -7312,6 +8007,101 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	for( int ix = 0; ix < Serial_Ports.count(); ix++ )
 	{
 		if( Serial_Ports[ix].Get_Port_Redirection() == VM::PR_Default ) continue;
+
+		// Modern -chardev path (qemu-doc Character devices)
+		if( Modern_Chardev )
+		{
+			const QString cid = QStringLiteral( "aqchr%1" ).arg( ix );
+			QString cdev;
+			const VM::Port_Redirection pr = Serial_Ports[ix].Get_Port_Redirection();
+			const QString params = Serial_Ports[ix].Get_Parametrs_Line();
+			switch( pr )
+			{
+				case VM::PR_null: cdev = QStringLiteral( "null,id=" ) + cid; break;
+				case VM::PR_stdio: cdev = QStringLiteral( "stdio,id=" ) + cid; break;
+				case VM::PR_pty: cdev = QStringLiteral( "pty,id=" ) + cid; break;
+				case VM::PR_file:
+					cdev = QStringLiteral( "file,id=" ) + cid + QStringLiteral( ",path=" ) + params;
+					break;
+				case VM::PR_pipe:
+					cdev = QStringLiteral( "pipe,id=" ) + cid + QStringLiteral( ",path=" ) + params;
+					break;
+				case VM::PR_tcp:
+					cdev = QStringLiteral( "socket,id=" ) + cid + QStringLiteral( ",host=," )
+					       + QStringLiteral( "port=" ) + params + QStringLiteral( ",server=on,wait=off" );
+					// params often "host:port" — if contains ':', split
+					if( params.contains( QLatin1Char( ':' ) ) )
+					{
+						const QString host = params.section( QLatin1Char( ':' ), 0, 0 );
+						const QString port = params.section( QLatin1Char( ':' ), 1 );
+						cdev = QStringLiteral( "socket,id=" ) + cid + QStringLiteral( ",host=" )
+						       + host + QStringLiteral( ",port=" ) + port + QStringLiteral( ",server=on,wait=off" );
+					}
+					break;
+				case VM::PR_unix:
+					cdev = QStringLiteral( "socket,id=" ) + cid + QStringLiteral( ",path=" )
+					       + params + QStringLiteral( ",server=on,wait=off" );
+					break;
+				case VM::PR_vc:
+					cdev = QStringLiteral( "vc,id=" ) + cid;
+					if( ! params.isEmpty() ) cdev += QLatin1Char( ',' ) + params;
+					break;
+				case VM::PR_udp:
+					cdev = QStringLiteral( "udp,id=" ) + cid;
+					if( ! params.isEmpty() )
+					{
+						// params: host:port[@localaddr:localport] or raw chardev props
+						if( params.contains( QLatin1Char( '=' ) ) )
+							cdev += QLatin1Char( ',' ) + params;
+						else
+						{
+							const QString host = params.section( QLatin1Char( ':' ), 0, 0 );
+							const QString port = params.section( QLatin1Char( ':' ), 1 );
+							cdev += QStringLiteral( ",host=" ) + host + QStringLiteral( ",port=" ) + port;
+						}
+					}
+					break;
+				case VM::PR_telnet:
+					if( params.contains( QLatin1Char( ':' ) ) )
+					{
+						const QString host = params.section( QLatin1Char( ':' ), 0, 0 );
+						const QString port = params.section( QLatin1Char( ':' ), 1 );
+						cdev = QStringLiteral( "socket,id=" ) + cid + QStringLiteral( ",host=" )
+						       + host + QStringLiteral( ",port=" ) + port
+						       + QStringLiteral( ",server=on,wait=off,telnet=on" );
+					}
+					else
+						cdev = QStringLiteral( "socket,id=" ) + cid + QStringLiteral( ",host=,port=" )
+						       + params + QStringLiteral( ",server=on,wait=off,telnet=on" );
+					break;
+				case VM::PR_none:
+					cdev = QStringLiteral( "null,id=" ) + cid;
+					break;
+				case VM::PR_dev:
+				case VM::PR_com:
+					cdev = QStringLiteral( "serial,id=" ) + cid + QStringLiteral( ",path=" ) + params;
+					break;
+				case VM::PR_msmouse:
+					cdev = QStringLiteral( "msmouse,id=" ) + cid;
+					break;
+				case VM::PR_braille:
+					cdev = QStringLiteral( "braille,id=" ) + cid;
+					break;
+				case VM::PR_mon:
+					// Mux monitor onto this chardev after create — fall back to legacy
+					cdev.clear();
+					break;
+				default:
+					cdev.clear();
+					break;
+			}
+			if( ! cdev.isEmpty() )
+			{
+				Args << "-chardev" << cdev;
+				Args << "-serial" << QStringLiteral( "chardev:" ) + cid;
+				continue;
+			}
+		}
 		
 		Args << "-serial";
 		
@@ -7472,7 +8262,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	}
 	else
 	{
-		if( USB_Ports.count() > 0 )
+		if( USB_Ports.count() > 0 || Pass_Through_Gamepads || Emulate_USB_Gamepad )
 		{
 			bool usb_ehci_arg_added = false; // USB 2.0 controller
 			bool usb_xhci_arg_added = false; // USB 3.0 controller
@@ -7481,11 +8271,38 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			
 			if( Build_QEMU_Args_for_Tab_Info == false ) System_Info::Update_Host_USB();
 			QList<VM_USB> all_usb = System_Info::Get_All_Host_USB();
+
+			// Auto-attach Xbox / USB gamepads when enabled (local list — do not mutate USB_Ports)
+			QList<VM_USB> ports = USB_Ports;
+			if( Pass_Through_Gamepads )
+			{
+				QList<VM_USB> pads = System_Info::Get_Host_Gamepads();
+				QSet<QString> already;
+				QSet<QString> allow;
+				for( int fi = 0; fi < Gamepad_Filter_IDs.count(); ++fi )
+					allow.insert( Gamepad_Filter_IDs[fi].trimmed().toLower() );
+				for( int ux = 0; ux < ports.count(); ++ux )
+				{
+					already.insert( ports[ux].Get_Vendor_ID().toLower() + QLatin1Char( ':' ) +
+					                ports[ux].Get_Product_ID().toLower() );
+				}
+				for( int pi = 0; pi < pads.count(); ++pi )
+				{
+					const QString key = pads[pi].Get_Vendor_ID().toLower() + QLatin1Char( ':' ) +
+					                    pads[pi].Get_Product_ID().toLower();
+					if( ! allow.isEmpty() && ! allow.contains( key ) )
+						continue;
+					if( already.contains( key ) )
+						continue;
+					already.insert( key );
+					ports.append( pads[pi] );
+				}
+			}
 			
 			// Add usb
-			for( int ux = 0; ux < USB_Ports.count(); ux++ )
+			for( int ux = 0; ux < ports.count(); ux++ )
 			{
-				if( USB_Ports[ux].Get_Use_Host_Device() )
+				if( ports[ux].Get_Use_Host_Device() )
 				{
 					// Compare VM USB device and Host USB Device
 					// Find device by Vendor and Product ID's
@@ -7494,9 +8311,10 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 					
 					for( int ix = 0; ix < all_usb.count(); ix++ )
 					{
-						if( all_usb[ix].Get_Vendor_ID() == USB_Ports[ux].Get_Vendor_ID() &&
-							all_usb[ix].Get_Product_ID() == USB_Ports[ux].Get_Product_ID() &&
-							all_usb[ix].Get_Serial_Number() == USB_Ports[ux].Get_Serial_Number() )
+						if( all_usb[ix].Get_Vendor_ID() == ports[ux].Get_Vendor_ID() &&
+							all_usb[ix].Get_Product_ID() == ports[ux].Get_Product_ID() &&
+							( ports[ux].Get_Serial_Number().isEmpty() ||
+							  all_usb[ix].Get_Serial_Number() == ports[ux].Get_Serial_Number() ) )
 						{
 							usb_cmpr = true;
 							current_USB_Device = all_usb[ ix ];
@@ -7504,15 +8322,23 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 							break;
 						}
 					}
+
+					// Gamepad auto-pass: trust enumerated VID/PID even if serial differs
+					if( ! usb_cmpr && Pass_Through_Gamepads &&
+					    System_Info::Is_Likely_Gamepad( ports[ux] ) )
+					{
+						usb_cmpr = true;
+						current_USB_Device = ports[ux];
+					}
 					
 					// Error! Not Found
 					if( Build_QEMU_Args_for_Tab_Info == false && usb_cmpr == false )
 					{
 						AQGraphic_Warning( tr("Warning!"),
-										   tr("USB Device %1 %2 (%3 %4) Not Found!").arg(USB_Ports[ux].Get_Manufacturer_Name())
-																					.arg(USB_Ports[ux].Get_Product_Name())
-																					.arg(USB_Ports[ux].Get_Vendor_ID())
-																					.arg(USB_Ports[ux].Get_Product_ID()) );
+										   tr("USB Device %1 %2 (%3 %4) Not Found!").arg(ports[ux].Get_Manufacturer_Name())
+																					.arg(ports[ux].Get_Product_Name())
+																					.arg(ports[ux].Get_Vendor_ID())
+																					.arg(ports[ux].Get_Product_ID()) );
 						
 						continue;
 					}
@@ -7575,24 +8401,40 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 						{
 							usbControllerID = "usb.0";
 						}
+
+						const QString id_style = Settings.value("USB_ID_Style","").toString();
+						const bool no_bus_path =
+							current_USB_Device.Get_Bus().isEmpty() ||
+							( current_USB_Device.Get_Addr().isEmpty() &&
+							  current_USB_Device.Get_DevPath().isEmpty() );
+						// Windows PnP enum has VID/PID only — force vendorid style.
+						const bool use_vid_pid =
+							id_style == "VendorProduct" || no_bus_path;
+
+						auto hex_id = []( QString id ) -> QString {
+							id = id.trimmed().toLower();
+							if( id.startsWith( QLatin1String( "0x" ) ) )
+								return id;
+							return QLatin1String( "0x" ) + id;
+						};
 						
 						
 						// Add USB devices
-						if( Settings.value("USB_ID_Style","").toString() == "BusAddr" )
+						if( use_vid_pid )
+						{
+							Args << "-device"
+								 << QString( "usb-host,bus=%1,vendorid=%2,productid=%3" )
+									.arg( usbControllerID )
+									.arg( hex_id( current_USB_Device.Get_Vendor_ID() ) )
+									.arg( hex_id( current_USB_Device.Get_Product_ID() ) );
+						}
+						else if( id_style == "BusAddr" )
 						{
 							Args << "-device"
 								 << QString( "usb-host,bus=%1,hostbus=%2,hostaddr=%3" )
 									.arg( usbControllerID )
 									.arg( current_USB_Device.Get_Bus() )
 									.arg( current_USB_Device.Get_Addr() );
-						}
-						else if( Settings.value("USB_ID_Style","").toString() == "VendorProduct" )
-						{
-							Args << "-device"
-								 << QString( "usb-host,bus=%1,vendorid=%2,productid=%3" )
-									.arg( usbControllerID )
-									.arg( current_USB_Device.Get_Vendor_ID() )
-									.arg( current_USB_Device.Get_Product_ID() );
 						}
 						else // Bus.Path
 						{
@@ -7609,7 +8451,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 					// QEMU USB Devices
 					bool usb_k, usb_m, usb_t, usb_wt, usb_b;
 					usb_k = usb_m = usb_t = usb_wt = usb_b = false;
-					USB_Ports[ux].Get_USB_QEMU_Devices( usb_k, usb_m, usb_t, usb_wt, usb_b );
+					ports[ux].Get_USB_QEMU_Devices( usb_k, usb_m, usb_t, usb_wt, usb_b );
 					
 					if( usb_k ) Args << "-usbdevice" << "keyboard";
 					else if( usb_m ) Args << "-usbdevice" << "mouse";
@@ -7626,6 +8468,14 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		}
 	}
 	
+	// Emulated USB gamepad (QEMU usb-gamepad — maps host joystick when supported)
+	if( Emulate_USB_Gamepad )
+	{
+		if( ! Args.contains( QStringLiteral( "-usb" ) ) )
+			Args << "-usb";
+		Args << "-device" << "usb-gamepad";
+	}
+
 	// Other Tab
 	if( Linux_Boot )
 	{
@@ -7679,6 +8529,13 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		rtc_list << "base=" + Start_DateTime.toString( "yyyy-MM-ddTHH:mm:ss" ); // QEMU Format
     else
         rtc_list << "base=utc";
+	{
+		const QString clk = RTC_Clock.trimmed().toLower();
+		if( clk == QLatin1String( "vm" ) || clk == QLatin1String( "rt" ) )
+			rtc_list.last() += ",clock=" + clk;
+		else if( ! clk.isEmpty() && clk != QLatin1String( "host" ) )
+			rtc_list.last() += ",clock=" + clk;
+	}
 	if( Current_Emulator_Devices.PSO_RTC_TD_Hack && RTC_TD_Hack )
 	    rtc_list.last() += ",driftfix=slew";
 
@@ -7935,9 +8792,104 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		else
 			Args << "-name" << Machine_Name;
 	}	
+	// Watchdog (qemu-doc)
+	if( ! Watchdog_Model.trimmed().isEmpty() )
+	{
+		Args << "-watchdog" << Watchdog_Model.trimmed();
+		const QString act = Watchdog_Action.trimmed().isEmpty()
+			? QStringLiteral( "reset" ) : Watchdog_Action.trimmed();
+		Args << "-watchdog-action" << act;
+	}
+
+	// TPM
+	{
+		const QString tt = TPM_Type.trimmed().toLower();
+		if( tt == QLatin1String( "emulator" ) )
+		{
+			QString path = TPM_Path.trimmed().isEmpty()
+				? QStringLiteral( "/tmp/aqemu-swtpm.sock" ) : TPM_Path.trimmed();
+			Args << "-chardev" << QStringLiteral( "socket,id=chrtpm,path=" ) + path;
+			Args << "-tpmdev" << QStringLiteral( "emulator,id=tpm0,chardev=chrtpm" );
+			Args << "-device" << "tpm-tis,tpmdev=tpm0";
+		}
+		else if( tt == QLatin1String( "passthrough" ) && ! TPM_Path.trimmed().isEmpty() )
+		{
+			Args << "-tpmdev" << QStringLiteral( "passthrough,id=tpm0,path=" ) + TPM_Path.trimmed();
+			Args << "-device" << "tpm-tis,tpmdev=tpm0";
+		}
+	}
+
+	// SMBIOS (qemu-doc)
+	if( ! SMBIOS_File.trimmed().isEmpty() )
+	{
+		if( Build_QEMU_Args_for_Script_Mode )
+			Args << "-smbios" << "file=\"" + SMBIOS_File + "\"";
+		else
+			Args << "-smbios" << QStringLiteral( "file=" ) + SMBIOS_File;
+	}
+	if( Use_SMBIOS_Type0_Flag )
+	{
+		QStringList parts;
+		parts << QStringLiteral( "type=0" );
+		if( ! SMBIOS_Vendor.trimmed().isEmpty() )
+			parts << QStringLiteral( "vendor=" ) + SMBIOS_Vendor.trimmed();
+		if( ! SMBIOS_Version.trimmed().isEmpty() )
+			parts << QStringLiteral( "version=" ) + SMBIOS_Version.trimmed();
+		if( ! SMBIOS_Date.trimmed().isEmpty() )
+			parts << QStringLiteral( "date=" ) + SMBIOS_Date.trimmed();
+		Args << "-smbios" << parts.join( QLatin1Char( ',' ) );
+	}
+	if( Use_SMBIOS_Type1_Flag )
+	{
+		QStringList parts;
+		parts << QStringLiteral( "type=1" );
+		if( ! SMBIOS_Manufacturer.trimmed().isEmpty() )
+			parts << QStringLiteral( "manufacturer=" ) + SMBIOS_Manufacturer.trimmed();
+		if( ! SMBIOS_Product.trimmed().isEmpty() )
+			parts << QStringLiteral( "product=" ) + SMBIOS_Product.trimmed();
+		if( ! SMBIOS_Type1_Version.trimmed().isEmpty() )
+			parts << QStringLiteral( "version=" ) + SMBIOS_Type1_Version.trimmed();
+		if( ! SMBIOS_Serial.trimmed().isEmpty() )
+			parts << QStringLiteral( "serial=" ) + SMBIOS_Serial.trimmed();
+		if( ! UUID.trimmed().isEmpty() )
+			parts << QStringLiteral( "uuid=" ) + UUID.trimmed();
+		Args << "-smbios" << parts.join( QLatin1Char( ',' ) );
+	}
+
+	// fw_cfg (one entry per line)
+	{
+		const QStringList lines = FW_CFG_Lines.split( QLatin1Char( '\n' ), QString::SkipEmptyParts );
+		for( const QString &raw : lines )
+		{
+			const QString line = raw.trimmed();
+			if( line.isEmpty() || line.startsWith( QLatin1Char( '#' ) ) ) continue;
+			Args << "-fw_cfg" << line;
+		}
+	}
+
+	// Instruction counter / sandbox
+	if( ! ICount.trimmed().isEmpty() )
+		Args << "-icount" << ICount.trimmed();
+	if( ! Sandbox.trimmed().isEmpty() )
+		Args << "-sandbox" << Sandbox.trimmed();
+
+	// BIOS (SeaBIOS alternative / board firmware)
+	if( ! BIOS_File.trimmed().isEmpty() )
+	{
+		if( Build_QEMU_Args_for_Script_Mode )
+			Args << "-bios" << "\"" + BIOS_File + "\"";
+		else
+			Args << "-bios" << BIOS_File;
+	}
+
 	// SPICE
 	// FIXME. VNC and SPICE together?
-	if( embedded_session )
+	const QString disp_backend = Display_Backend.trimmed().toLower();
+	if( force_nographic )
+	{
+		Args << "-nographic";
+	}
+	else if( embedded_session )
 	{
 		// Headless: no QEMU SDL/GTK chrome ? AQEMU owns the window
 		Args << "-display" << "none";
@@ -7966,6 +8918,30 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			const int vnc_disp = Embedded_VNC_Port - 5900;
 			Args << "-vnc" << QString( "127.0.0.1:%1" ).arg( vnc_disp );
 		}
+	}
+	else if( native_vga_window ||
+	         ( ! disp_backend.isEmpty() &&
+	           disp_backend != QLatin1String( "nographic" ) &&
+	           ! SPICE.Use_SPICE() && ! VNC ) )
+	{
+		QString disp = disp_backend;
+		if( disp.isEmpty() || disp == QLatin1String( "auto" ) || disp == QLatin1String( "default" ) )
+		{
+			QString system_name = Current_Emulator_Devices.System.QEMU_Name;
+			if( system_name.isEmpty() )
+				system_name = Computer_Type;
+			const QString preferred = Get_Current_Emulator_Binary_Path( system_name );
+			const QString found = AQ_Find_QEMU_Binary_With_Native_Display( system_name, preferred );
+			disp = AQ_QEMU_Pick_Native_Display( found );
+			if( disp.isEmpty() )
+				disp = QStringLiteral( "sdl" );
+		}
+		if( disp == QLatin1String( "none" ) || disp == QLatin1String( "curses" ) ||
+		    disp == QLatin1String( "sdl" ) || disp == QLatin1String( "gtk" ) ||
+		    disp == QLatin1String( "egl-headless" ) || disp == QLatin1String( "spice-app" ) )
+			Args << "-display" << disp;
+		else
+			Args << "-display" << QStringLiteral( "sdl" );
 	}
 	else if( SPICE.Use_SPICE() )
 	{
@@ -8170,8 +9146,41 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	{
 		QString tmp_str = Additional_Args;
 		tmp_str.replace( "\n", " " );
-		QStringList ad_args = tmp_str.split( " ", QString::SkipEmptyParts );
-		
+		// Respect "..." / '...' so values with spaces (e.g. -prom-env "boot-command=boot disk:")
+		// are not split into bogus args like "disk:" (QEMU: Unknown protocol 'disk').
+		QStringList ad_args;
+		QString cur;
+		QChar quote;
+		bool in_quote = false;
+		for( int i = 0; i < tmp_str.size(); ++i )
+		{
+			const QChar c = tmp_str.at( i );
+			if( in_quote )
+			{
+				if( c == quote )
+					in_quote = false;
+				else
+					cur += c;
+			}
+			else if( c == QLatin1Char( '"' ) || c == QLatin1Char( '\'' ) )
+			{
+				in_quote = true;
+				quote = c;
+			}
+			else if( c.isSpace() )
+			{
+				if( ! cur.isEmpty() )
+				{
+					ad_args << cur;
+					cur.clear();
+				}
+			}
+			else
+				cur += c;
+		}
+		if( ! cur.isEmpty() )
+			ad_args << cur;
+
 		for( int ix = 0; ix < ad_args.count(); ix++ )
 			Args << ad_args[ ix ];
 	}
@@ -8263,6 +9272,11 @@ QStringList Virtual_Machine::Build_Native_Device_Args( VM_Native_Storage_Device 
 			case VM::DI_Virtio_SCSI:
 				opt << "if=none,id=" + vsname;
 				break;
+
+			case VM::DI_NVMe:
+				// SteamOS installer expects /dev/nvme0n1 — needs -device nvme + serial
+				opt << "if=none,id=" + vsname;
+				break;
 				
 			default:
                 AQError( "QStringList Virtual_Machine::Build_Native_Device_Args( VM_Native_Storage_Device device, bool Build_QEMU_Args_for_Script_Mode )",
@@ -8318,6 +9332,32 @@ QStringList Virtual_Machine::Build_Native_Device_Args( VM_Native_Storage_Device 
 		else opt << "snapshot=off";
 	}
 	
+	// Network block protocols (qemu-doc: iscsi://, rbd:, nbd:, gluster://, ssh://)
+	{
+		const QString fp = device.Get_File_Path();
+		const bool net_proto =
+			fp.startsWith( QLatin1String( "iscsi://" ), Qt::CaseInsensitive ) ||
+			fp.startsWith( QLatin1String( "rbd:" ), Qt::CaseInsensitive ) ||
+			fp.startsWith( QLatin1String( "nbd:" ), Qt::CaseInsensitive ) ||
+			fp.startsWith( QLatin1String( "nbd+" ), Qt::CaseInsensitive ) ||
+			fp.startsWith( QLatin1String( "gluster" ), Qt::CaseInsensitive ) ||
+			fp.startsWith( QLatin1String( "ssh://" ), Qt::CaseInsensitive );
+		if( net_proto )
+		{
+			bool has_fmt = false;
+			for( int oi = 0; oi < opt.count(); ++oi )
+			{
+				if( opt[oi].startsWith( QLatin1String( "format=" ) ) )
+				{
+					has_fmt = true;
+					break;
+				}
+			}
+			if( ! has_fmt )
+				opt << "format=raw";
+		}
+	}
+
 	// Cache ? on Windows, cache=none with qcow2 fails ("Image is not in qcow2 format")
 	if( device.Use_Cache() )
 	{
@@ -8370,12 +9410,75 @@ QStringList Virtual_Machine::Build_Native_Device_Args( VM_Native_Storage_Device 
 	    args << "-device" << With_Bootindex(
 		devtype + ",bus=aq-vscsi.0,drive=" + vsname, boot_idx );
 	}
+	else if( device.Get_Interface() == VM::DI_NVMe &&
+			 ( ! device.Use_Media() || device.Get_Media() == VM::DM_Disk ) )
+	{
+		const int boot_idx = Bootindex_For( *this, VM::Boot_From_HDD );
+		// serial= is required by some guests (SteamOS recovery looks for NVMe)
+		args << "-device" << With_Bootindex(
+			"nvme,drive=" + vsname + ",serial=aqemu-nvme0", boot_idx );
+	}
 	else if( device.Get_Interface() == VM::DI_Virtio && virt_arch_blk &&
 			 ( ! device.Use_Media() || device.Get_Media() == VM::DM_Disk ) )
 	{
 		const int boot_idx = Bootindex_For( *this, VM::Boot_From_HDD );
-		args << "-device" << With_Bootindex(
-			"virtio-blk-pci,drive=" + vsname, boot_idx );
+		QString vblk = QStringLiteral( "virtio-blk-pci,drive=" ) + vsname;
+		if( Use_IOThread_Flag )
+			vblk += QStringLiteral( ",iothread=aq-iothread0" );
+		args << "-device" << With_Bootindex( vblk, boot_idx );
+	}
+	if( Use_Blockdev_Flag && device.Use_File_Path() &&
+	    ( device.Get_Interface() == VM::DI_Virtio ||
+	      device.Get_Interface() == VM::DI_NVMe ||
+	      device.Get_Interface() == VM::DI_Virtio_SCSI ) )
+	{
+		const QString fp = device.Get_File_Path();
+		const bool net_proto =
+			fp.startsWith( QLatin1String( "iscsi://" ), Qt::CaseInsensitive ) ||
+			fp.startsWith( QLatin1String( "rbd:" ), Qt::CaseInsensitive ) ||
+			fp.startsWith( QLatin1String( "nbd:" ), Qt::CaseInsensitive ) ||
+			fp.startsWith( QLatin1String( "nbd+" ), Qt::CaseInsensitive ) ||
+			fp.startsWith( QLatin1String( "gluster" ), Qt::CaseInsensitive ) ||
+			fp.startsWith( QLatin1String( "ssh://" ), Qt::CaseInsensitive );
+		if( ! net_proto )
+		{
+			// Modern -blockdev graph (qemu-doc): file node + format node
+			const QString node = QStringLiteral( "aqbd-" ) + vsname;
+			const QString file_node = node + QStringLiteral( "-file" );
+			QString file_bd = QStringLiteral( "driver=file,node-name=" ) + file_node +
+			                  QStringLiteral( ",filename=" ) + fp;
+			QString fmt = QStringLiteral( "raw" );
+			if( fp.endsWith( QLatin1String( ".qcow2" ), Qt::CaseInsensitive ) )
+				fmt = QStringLiteral( "qcow2" );
+			QString fmt_bd = QStringLiteral( "driver=" ) + fmt + QStringLiteral( ",node-name=" ) +
+			                 node + QStringLiteral( ",file=" ) + file_node;
+			QStringList bd_args;
+			bd_args << "-blockdev" << file_bd;
+			bd_args << "-blockdev" << fmt_bd;
+			if( args.isEmpty() )
+			{
+				if( device.Get_Interface() == VM::DI_NVMe )
+					args << "-device" << QStringLiteral( "nvme,drive=%1,serial=aqemu-nvme0" ).arg( node );
+				else
+				{
+					QString vblk = QStringLiteral( "virtio-blk-pci,drive=" ) + node;
+					if( Use_IOThread_Flag )
+						vblk += QStringLiteral( ",iothread=aq-iothread0" );
+					args << "-device" << vblk;
+				}
+			}
+			else
+			{
+				for( int ai = 0; ai < args.count(); ++ai )
+				{
+					if( args[ai].contains( QStringLiteral( "drive=" ) + vsname ) )
+						args[ai].replace( QStringLiteral( "drive=" ) + vsname,
+						                  QStringLiteral( "drive=" ) + node );
+				}
+			}
+			bd_args << args;
+			return bd_args;
+		}
 	}
 	args << "-drive" << driveStr;
 	return args;
@@ -8416,6 +9519,7 @@ bool Virtual_Machine::Start_impl()
 
 	// Drop ports from a previous run so we allocate fresh free ones
 	QMP_Port = 0;
+	QMP_Connect_Attempts = 0;
 	Embedded_Spice_Port = 0;
 	Embedded_VNC_Port = 0;
 
@@ -8672,14 +9776,28 @@ bool Virtual_Machine::Start_impl()
             }
         }
 
-        // Check path
-        if( bin_path.isEmpty() )
-        {
-            AQGraphic_Error( "bool Virtual_Machine::Start()", tr("Error!"),
-                             tr("Cannot start emulator! Binary path is empty!"), false );
-            Start_Snapshot_Tag = "";
-            return false;
-        }
+		// Check path
+		if( bin_path.isEmpty() )
+		{
+			AQGraphic_Error( "bool Virtual_Machine::Start()", tr("Error!"),
+			                 tr("Cannot start emulator! Binary path is empty!"), false );
+			Start_Snapshot_Tag = "";
+			return false;
+		}
+
+		// XP/9x text-mode: prefer a QEMU build with SDL/GTK (bundled is often headless).
+		if( Prefer_Native_VGA_Window() )
+		{
+			const QString with_ui = AQ_Find_QEMU_Binary_With_Native_Display( find_name, bin_path );
+			if( ! with_ui.isEmpty() && QFile::exists( with_ui ) )
+			{
+				if( with_ui != bin_path )
+					AQDebug( "bool Virtual_Machine::Start()",
+					         QString( "Legacy VGA: using SDL/GTK QEMU \"%1\" (was \"%2\")" )
+					             .arg( with_ui, bin_path ) );
+				bin_path = with_ui;
+			}
+		}
 
 #ifdef Q_OS_WIN32
 		if( Launch_Via_WSL )
@@ -8942,7 +10060,7 @@ void Virtual_Machine::Kill_Orphan_QEMU_Using_Disks()
 
 	QProcess killer;
 	killer.start( "powershell", QStringList() << "-NoProfile" << "-Command" << ps );
-	killer.waitForFinished( 8000 );
+	killer.waitForFinished( 2500 );
 	if( killer.exitCode() != 0 )
 	{
 		AQWarning( "Virtual_Machine::Kill_Orphan_QEMU_Using_Disks()",
@@ -8951,6 +10069,9 @@ void Virtual_Machine::Kill_Orphan_QEMU_Using_Disks()
 
 	// Launch-via-WSL: Linux qemu-system often survives after wsl.exe is killed.
 	// Match on file basenames (paths differ: D:\… vs /mnt/d/…).
+	if( ! Launch_Via_WSL )
+		return;
+
 	QStringList basenames;
 	for( const QString &d : disks )
 	{
@@ -8991,7 +10112,7 @@ void Virtual_Machine::Kill_Orphan_QEMU_Using_Disks()
 		                                << QStringLiteral( "bash" )
 		                                << QStringLiteral( "-lc" )
 		                                << sh );
-		wsl_killer.waitForFinished( 10000 );
+		wsl_killer.waitForFinished( 4000 );
 	}
 #else
 	Q_UNUSED( disks );
@@ -9605,6 +10726,217 @@ const QString &Virtual_Machine::Get_Video_Card() const
 void Virtual_Machine::Set_Video_Card( const QString &card )
 {
 	Video_Card = System_Info::Sanitize_Video_Card( Computer_Type, card, Machine_Type );
+}
+
+bool Virtual_Machine::Is_Legacy_Windows_Text_Mode_Guest() const
+{
+	const QString n = Machine_Name;
+	static const char *const needles[] = {
+		"Windows XP", "Windows 2000", "Windows 95", "Windows 98", "Windows ME",
+		"Windows NT", "Windows 3.", "Windows 1.", "Windows 2.",
+		"MS-DOS", "PC DOS", "DR-DOS",
+		"Server 2000", "Server 2003",
+		"OS/2", "OS2", "eComStation", "ArcaOS",
+		"ReactOS"
+	};
+	for( size_t i = 0; i < sizeof( needles ) / sizeof( needles[0] ); ++i )
+	{
+		if( n.contains( QLatin1String( needles[i] ), Qt::CaseInsensitive ) )
+			return true;
+	}
+	return false;
+}
+
+bool Virtual_Machine::Is_Windows_XP_Family() const
+{
+	const QString n = Machine_Name;
+	return n.contains( QLatin1String( "Windows XP" ), Qt::CaseInsensitive ) ||
+	       n.contains( QLatin1String( "Windows 2000" ), Qt::CaseInsensitive ) ||
+	       n.contains( QLatin1String( "Server 2000" ), Qt::CaseInsensitive ) ||
+	       n.contains( QLatin1String( "Server 2003" ), Qt::CaseInsensitive );
+}
+
+bool Virtual_Machine::Prefer_Native_VGA_Window() const
+{
+	const QString mode = Display_Window_Mode.trimmed().toLower();
+	bool want = false;
+	if( mode == QLatin1String( "native" ) )
+		want = true;
+	else if( mode == QLatin1String( "embedded" ) )
+		want = false;
+	else
+		// auto: legacy DOS/Win9x/XP text-mode guests need SDL/GTK
+		want = Is_Legacy_Windows_Text_Mode_Guest();
+
+	if( ! want )
+		return false;
+
+	QString system_name = Current_Emulator_Devices.System.QEMU_Name;
+	if( system_name.isEmpty() )
+		system_name = Computer_Type;
+	if( system_name.isEmpty() )
+		system_name = QStringLiteral( "qemu-system-i386" );
+
+	const QString preferred = Get_Current_Emulator_Binary_Path( system_name );
+	const QString found = AQ_Find_QEMU_Binary_With_Native_Display( system_name, preferred );
+	return ! AQ_QEMU_Pick_Native_Display( found ).isEmpty();
+}
+
+void Virtual_Machine::Ensure_Windows_XP_Family_Defaults()
+{
+	if( ! Is_Windows_XP_Family() )
+		return;
+
+	// Match wizard + proven Windows_XP.aqemu settings.
+	if( Video_Card.compare( QLatin1String( "std" ), Qt::CaseInsensitive ) != 0 )
+		Set_Video_Card( QStringLiteral( "std" ) );
+
+	if( SMP.SMP_Count != 1 )
+		Set_SMP_CPU_Count( 1 );
+
+	if( CPU_Type.trimmed().isEmpty() ||
+	    CPU_Type.contains( QLatin1String( "host" ), Qt::CaseInsensitive ) ||
+	    CPU_Type.contains( QLatin1String( "max" ), Qt::CaseInsensitive ) ||
+	    CPU_Type.contains( QLatin1String( "qemu64" ), Qt::CaseInsensitive ) ||
+	    CPU_Type.contains( QLatin1String( "qemu32" ), Qt::CaseInsensitive ) )
+		Set_CPU_Type( QStringLiteral( "pentium3" ) );
+
+	Use_ACPI( false );
+	Use_Check_FDD_Boot_Sector( false );
+
+	// WHPX (and HVF/NVMM) disable SMM. QEMU 9.1+ then hides VGA text RAM
+	// (0xa0000) → XP setup blacks out after "inspecting hardware" over VNC/SPICE
+	// (gitlab.com/qemu-project/qemu/-/issues/2608). Pure TCG keeps SMM/text mode.
+	Use_Force_TCG( true );
+	Set_Machine_Accelerator( VM::TCG );
+
+	if( Mouse_Type.trimmed().isEmpty() ||
+	    Mouse_Type.contains( QLatin1String( "tablet" ), Qt::CaseInsensitive ) ||
+	    Mouse_Type.contains( QLatin1String( "virtio" ), Qt::CaseInsensitive ) )
+	{
+		Set_Mouse_Type( QStringLiteral( "ps2" ) );
+		Set_Mouse_USB_Controller( QStringLiteral( "uhci" ) );
+		Set_Mouse_USB_Version( 1 );
+	}
+
+	// XP setup has no VirtIO drivers — disk must be IDE or setup sees "no hard disks".
+	if( HDA.Get_Enabled() )
+	{
+		VM_Native_Storage_Device native = HDA.Get_Native_Device();
+		native.Use_Interface( true );
+		native.Set_Interface( VM::DI_IDE );
+		if( ! native.Use_File_Path() || native.Get_File_Path().trimmed().isEmpty() )
+		{
+			native.Use_File_Path( true );
+			native.Set_File_Path( HDA.Get_File_Name() );
+		}
+		HDA.Set_Native_Device( native );
+	}
+
+	const QString vapic = QStringLiteral( "-global apic.vapic=off" );
+	QString args = Additional_Args.trimmed();
+	if( ! args.contains( QLatin1String( "apic.vapic=off" ), Qt::CaseInsensitive ) )
+	{
+		if( args.isEmpty() )
+			Set_Additional_Args( vapic );
+		else
+			Set_Additional_Args( args + QLatin1Char( ' ' ) + vapic );
+	}
+}
+
+void Virtual_Machine::Ensure_OS2_Family_Defaults()
+{
+	const QString n = Machine_Name;
+	const bool os2 =
+		n.contains( QLatin1String( "OS/2" ), Qt::CaseInsensitive ) ||
+		n.contains( QLatin1String( "OS2" ), Qt::CaseInsensitive ) ||
+		n.contains( QLatin1String( "eComStation" ), Qt::CaseInsensitive ) ||
+		n.contains( QLatin1String( "ArcaOS" ), Qt::CaseInsensitive );
+	if( ! os2 )
+		return;
+
+	Use_ACPI( false );
+	Use_Check_FDD_Boot_Sector( false );
+	Use_Force_TCG( true );
+	Set_Machine_Accelerator( VM::TCG );
+	if( SMP.SMP_Count != 1 )
+		Set_SMP_CPU_Count( 1 );
+	if( CPU_Type.trimmed().isEmpty() ||
+	    CPU_Type.contains( QLatin1String( "host" ), Qt::CaseInsensitive ) ||
+	    CPU_Type.contains( QLatin1String( "max" ), Qt::CaseInsensitive ) )
+		Set_CPU_Type( QStringLiteral( "pentium3" ) );
+	Set_Mouse_Type( QStringLiteral( "ps2" ) );
+	if( Video_Card.trimmed().isEmpty() )
+		Set_Video_Card( QStringLiteral( "cirrus" ) );
+
+	// LVM.DLL Error 9 during Warp install is typical with VirtIO disks.
+	if( HDA.Get_Enabled() )
+	{
+		VM_Native_Storage_Device native = HDA.Get_Native_Device();
+		native.Use_Interface( true );
+		native.Set_Interface( VM::DI_IDE );
+		if( ! native.Use_File_Path() || native.Get_File_Path().trimmed().isEmpty() )
+		{
+			native.Use_File_Path( true );
+			native.Set_File_Path( HDA.Get_File_Name() );
+		}
+		HDA.Set_Native_Device( native );
+	}
+}
+
+void Virtual_Machine::Ensure_ReactOS_Defaults()
+{
+	if( ! Machine_Name.contains( QLatin1String( "ReactOS" ), Qt::CaseInsensitive ) )
+		return;
+
+	// Official wiki install line: qemu-system-i386, IDE drives, ~1G RAM.
+	Use_Check_FDD_Boot_Sector( false );
+	Use_Local_Time( true );
+	Use_Force_TCG( true );
+	Set_Machine_Accelerator( VM::TCG );
+	if( SMP.SMP_Count != 1 )
+		Set_SMP_CPU_Count( 1 );
+	if( CPU_Type.trimmed().isEmpty() ||
+	    CPU_Type.contains( QLatin1String( "host" ), Qt::CaseInsensitive ) ||
+	    CPU_Type.contains( QLatin1String( "max" ), Qt::CaseInsensitive ) )
+		Set_CPU_Type( QStringLiteral( "pentium3" ) );
+	if( Machine_Type.trimmed().isEmpty() )
+		Set_Machine_Type( QStringLiteral( "pc" ) );
+	// std = Bochs VESA; cirrus needs a separate NT driver (wiki CL-54xx page).
+	Set_Video_Card( QStringLiteral( "std" ) );
+	Set_Mouse_Type( QStringLiteral( "usb-tablet" ) );
+	Set_Mouse_USB_Controller( QStringLiteral( "uhci" ) );
+	Set_Mouse_USB_Version( 1 );
+	Use_USB_Hub( true );
+	if( Memory_Size < 1024 )
+		Set_Memory_Size( 1024 );
+
+	// Single AC97 only — HDA / multiple cards can prevent boot (Installing ReactOS wiki).
+	VM::Sound_Cards audio;
+	audio.Audio_AC97 = true;
+	Set_Audio_Cards( audio );
+
+	if( HDA.Get_Enabled() )
+	{
+		// Plain -hda matching reactos.org/wiki/QEMU. Native -drive options
+		// (especially discard=unmap) have left the qcow2 at ~200KB after
+		// "successful" format, then setup hits a breakpoint ASSERT.
+		VM_Native_Storage_Device blank;
+		HDA.Set_Native_Device( blank );
+	}
+
+	// Prefer e1000 (inbox since 0.4.12); leave other cards alone if user set one.
+	if( Network_Cards.count() > 0 )
+	{
+		const QString m = Network_Cards[0].Get_Card_Model();
+		if( m.isEmpty() ||
+		    m.contains( QLatin1String( "virtio" ), Qt::CaseInsensitive ) )
+		{
+			VM_Net_Card card = Network_Cards[0];
+			card.Set_Card_Model( QStringLiteral( "e1000" ) );
+			Set_VM_Network_Card( 0, card );
+		}
+	}
 }
 
 const QString &Virtual_Machine::Get_Display_Resolution() const
@@ -10582,6 +11914,230 @@ void Virtual_Machine::Use_Force_TCG( bool use )
 	Force_TCG = use;
 }
 
+bool Virtual_Machine::Use_Pass_Through_Gamepads() const
+{
+	return Pass_Through_Gamepads;
+}
+
+void Virtual_Machine::Use_Pass_Through_Gamepads( bool use )
+{
+	Pass_Through_Gamepads = use;
+}
+
+const QStringList &Virtual_Machine::Get_Gamepad_Filter_IDs() const
+{
+	return Gamepad_Filter_IDs;
+}
+
+void Virtual_Machine::Set_Gamepad_Filter_IDs( const QStringList &ids )
+{
+	Gamepad_Filter_IDs = ids;
+}
+
+bool Virtual_Machine::Use_Emulate_USB_Gamepad() const
+{
+	return Emulate_USB_Gamepad;
+}
+
+void Virtual_Machine::Use_Emulate_USB_Gamepad( bool use )
+{
+	Emulate_USB_Gamepad = use;
+}
+
+bool Virtual_Machine::Use_No_Defaults() const
+{
+	return No_Defaults;
+}
+
+void Virtual_Machine::Use_No_Defaults( bool use )
+{
+	No_Defaults = use;
+}
+
+const QString &Virtual_Machine::Get_RTC_Clock() const
+{
+	return RTC_Clock;
+}
+
+void Virtual_Machine::Set_RTC_Clock( const QString &clock )
+{
+	RTC_Clock = clock.trimmed().toLower();
+	if( RTC_Clock.isEmpty() )
+		RTC_Clock = QStringLiteral( "host" );
+}
+
+const QString &Virtual_Machine::Get_Display_Backend() const
+{
+	return Display_Backend;
+}
+
+void Virtual_Machine::Set_Display_Backend( const QString &backend )
+{
+	Display_Backend = backend.trimmed().toLower();
+}
+
+bool Virtual_Machine::Use_IOThread() const
+{
+	return Use_IOThread_Flag;
+}
+
+void Virtual_Machine::Use_IOThread( bool use )
+{
+	Use_IOThread_Flag = use;
+}
+
+const QString &Virtual_Machine::Get_Mem_Path() const
+{
+	return Mem_Path;
+}
+
+void Virtual_Machine::Set_Mem_Path( const QString &path )
+{
+	Mem_Path = path;
+}
+
+bool Virtual_Machine::Use_Mem_Prealloc() const
+{
+	return Mem_Prealloc;
+}
+
+void Virtual_Machine::Use_Mem_Prealloc( bool use )
+{
+	Mem_Prealloc = use;
+}
+
+const QString &Virtual_Machine::Get_UUID() const
+{
+	return UUID;
+}
+
+void Virtual_Machine::Set_UUID( const QString &uuid )
+{
+	UUID = uuid.trimmed();
+}
+
+const QString &Virtual_Machine::Get_BIOS_File() const
+{
+	return BIOS_File;
+}
+
+void Virtual_Machine::Set_BIOS_File( const QString &path )
+{
+	BIOS_File = path;
+}
+
+const QString &Virtual_Machine::Get_Machine_Extra_Props() const
+{
+	return Machine_Extra_Props;
+}
+
+void Virtual_Machine::Set_Machine_Extra_Props( const QString &props )
+{
+	Machine_Extra_Props = props.trimmed();
+}
+
+bool Virtual_Machine::Use_Modern_Netdev() const
+{
+	return Modern_Netdev;
+}
+
+void Virtual_Machine::Use_Modern_Netdev( bool use )
+{
+	Modern_Netdev = use;
+}
+
+bool Virtual_Machine::Use_NUMA() const { return Use_NUMA_Flag; }
+void Virtual_Machine::Use_NUMA( bool use ) { Use_NUMA_Flag = use; }
+int Virtual_Machine::Get_NUMA_Nodes() const { return NUMA_Nodes; }
+void Virtual_Machine::Set_NUMA_Nodes( int nodes ) { NUMA_Nodes = qMax( 2, nodes ); }
+
+const QString &Virtual_Machine::Get_Watchdog_Model() const { return Watchdog_Model; }
+void Virtual_Machine::Set_Watchdog_Model( const QString &model ) { Watchdog_Model = model.trimmed(); }
+const QString &Virtual_Machine::Get_Watchdog_Action() const { return Watchdog_Action; }
+void Virtual_Machine::Set_Watchdog_Action( const QString &action )
+{
+	Watchdog_Action = action.trimmed().isEmpty() ? QStringLiteral( "reset" ) : action.trimmed();
+}
+
+const QString &Virtual_Machine::Get_TPM_Type() const { return TPM_Type; }
+void Virtual_Machine::Set_TPM_Type( const QString &type )
+{
+	TPM_Type = type.trimmed().toLower();
+	if( TPM_Type.isEmpty() ) TPM_Type = QStringLiteral( "none" );
+}
+const QString &Virtual_Machine::Get_TPM_Path() const { return TPM_Path; }
+void Virtual_Machine::Set_TPM_Path( const QString &path ) { TPM_Path = path; }
+
+bool Virtual_Machine::Use_Secret_Object() const { return Use_Secret_Object_Flag; }
+void Virtual_Machine::Use_Secret_Object( bool use ) { Use_Secret_Object_Flag = use; }
+const QString &Virtual_Machine::Get_Secret_ID() const { return Secret_ID; }
+void Virtual_Machine::Set_Secret_ID( const QString &id )
+{
+	Secret_ID = id.trimmed().isEmpty() ? QStringLiteral( "sec0" ) : id.trimmed();
+}
+const QString &Virtual_Machine::Get_Secret_Data() const { return Secret_Data; }
+void Virtual_Machine::Set_Secret_Data( const QString &data ) { Secret_Data = data; }
+const QString &Virtual_Machine::Get_Secret_File() const { return Secret_File; }
+void Virtual_Machine::Set_Secret_File( const QString &path ) { Secret_File = path; }
+
+const QString &Virtual_Machine::Get_Incoming_URI() const { return Incoming_URI; }
+void Virtual_Machine::Set_Incoming_URI( const QString &uri ) { Incoming_URI = uri.trimmed(); }
+
+bool Virtual_Machine::Use_Modern_Chardev() const { return Modern_Chardev; }
+void Virtual_Machine::Use_Modern_Chardev( bool use ) { Modern_Chardev = use; }
+bool Virtual_Machine::Use_Blockdev() const { return Use_Blockdev_Flag; }
+void Virtual_Machine::Use_Blockdev( bool use ) { Use_Blockdev_Flag = use; }
+const QString &Virtual_Machine::Get_Blockdev_Extra_Lines() const { return Blockdev_Extra_Lines; }
+void Virtual_Machine::Set_Blockdev_Extra_Lines( const QString &lines ) { Blockdev_Extra_Lines = lines; }
+
+bool Virtual_Machine::Use_SMBIOS_Type0() const { return Use_SMBIOS_Type0_Flag; }
+void Virtual_Machine::Use_SMBIOS_Type0( bool use ) { Use_SMBIOS_Type0_Flag = use; }
+const QString &Virtual_Machine::Get_SMBIOS_Vendor() const { return SMBIOS_Vendor; }
+void Virtual_Machine::Set_SMBIOS_Vendor( const QString &v ) { SMBIOS_Vendor = v; }
+const QString &Virtual_Machine::Get_SMBIOS_Version() const { return SMBIOS_Version; }
+void Virtual_Machine::Set_SMBIOS_Version( const QString &v ) { SMBIOS_Version = v; }
+const QString &Virtual_Machine::Get_SMBIOS_Date() const { return SMBIOS_Date; }
+void Virtual_Machine::Set_SMBIOS_Date( const QString &v ) { SMBIOS_Date = v; }
+bool Virtual_Machine::Use_SMBIOS_Type1() const { return Use_SMBIOS_Type1_Flag; }
+void Virtual_Machine::Use_SMBIOS_Type1( bool use ) { Use_SMBIOS_Type1_Flag = use; }
+const QString &Virtual_Machine::Get_SMBIOS_Manufacturer() const { return SMBIOS_Manufacturer; }
+void Virtual_Machine::Set_SMBIOS_Manufacturer( const QString &v ) { SMBIOS_Manufacturer = v; }
+const QString &Virtual_Machine::Get_SMBIOS_Product() const { return SMBIOS_Product; }
+void Virtual_Machine::Set_SMBIOS_Product( const QString &v ) { SMBIOS_Product = v; }
+const QString &Virtual_Machine::Get_SMBIOS_Type1_Version() const { return SMBIOS_Type1_Version; }
+void Virtual_Machine::Set_SMBIOS_Type1_Version( const QString &v ) { SMBIOS_Type1_Version = v; }
+const QString &Virtual_Machine::Get_SMBIOS_Serial() const { return SMBIOS_Serial; }
+void Virtual_Machine::Set_SMBIOS_Serial( const QString &v ) { SMBIOS_Serial = v; }
+const QString &Virtual_Machine::Get_SMBIOS_File() const { return SMBIOS_File; }
+void Virtual_Machine::Set_SMBIOS_File( const QString &path ) { SMBIOS_File = path.trimmed(); }
+const QString &Virtual_Machine::Get_FW_CFG_Lines() const { return FW_CFG_Lines; }
+void Virtual_Machine::Set_FW_CFG_Lines( const QString &lines ) { FW_CFG_Lines = lines; }
+const QString &Virtual_Machine::Get_Audiodev_Backend() const { return Audiodev_Backend; }
+void Virtual_Machine::Set_Audiodev_Backend( const QString &backend ) { Audiodev_Backend = backend.trimmed(); }
+int Virtual_Machine::Get_Audiodev_Timer_Period() const { return Audiodev_Timer_Period; }
+void Virtual_Machine::Set_Audiodev_Timer_Period( int us ) { Audiodev_Timer_Period = us < 0 ? 0 : us; }
+bool Virtual_Machine::Use_NUMA_Memdev() const { return Use_NUMA_Memdev_Flag; }
+void Virtual_Machine::Use_NUMA_Memdev( bool use ) { Use_NUMA_Memdev_Flag = use; }
+const QString &Virtual_Machine::Get_ICount() const { return ICount; }
+void Virtual_Machine::Set_ICount( const QString &icount ) { ICount = icount.trimmed(); }
+const QString &Virtual_Machine::Get_Sandbox() const { return Sandbox; }
+void Virtual_Machine::Set_Sandbox( const QString &sandbox ) { Sandbox = sandbox.trimmed(); }
+
+
+const QString &Virtual_Machine::Get_Display_Window_Mode() const
+{
+	return Display_Window_Mode;
+}
+
+void Virtual_Machine::Set_Display_Window_Mode( const QString &mode )
+{
+	const QString m = mode.trimmed().toLower();
+	if( m == QLatin1String( "embedded" ) || m == QLatin1String( "native" ) )
+		Display_Window_Mode = m;
+	else
+		Display_Window_Mode = QStringLiteral( "auto" );
+}
+
 bool Virtual_Machine::Use_Intel_MacOS_Profile() const
 {
 	return Intel_MacOS_Profile;
@@ -11118,7 +12674,8 @@ void Virtual_Machine::QEMU_Started()
 	{
 		if( ! QMP )
 			QMP = new QMP_Client( this );
-		// Brief delay so QEMU binds the QMP server
+		QMP_Connect_Attempts = 0;
+		// Brief delay so QEMU binds the QMP server (non-blocking retries)
 		QTimer::singleShot( 400, this, SLOT(Connect_Embedded_QMP()) );
 	}
 
@@ -11130,14 +12687,24 @@ void Virtual_Machine::Connect_Embedded_QMP()
 	if( ! QMP || QMP_Port <= 0 )
 		return;
 
-	for( int attempt = 0; attempt < 5; ++attempt )
+	if( QMP->Is_Connected() )
 	{
-		if( QMP->Connect_To( "127.0.0.1", static_cast<quint16>( QMP_Port ) ) )
-			return;
-		QThread::msleep( 300 );
+		QMP_Connect_Attempts = 0;
+		return;
 	}
-	AQWarning( "Virtual_Machine::Connect_Embedded_QMP()",
-	           QString( "QMP connect to 127.0.0.1:%1 failed (retry from session UI)." ).arg( QMP_Port ) );
+
+	if( QMP_Connect_Attempts >= 20 )
+	{
+		AQWarning( "Virtual_Machine::Connect_Embedded_QMP()",
+		           QString( "QMP connect to 127.0.0.1:%1 failed (retry from session UI)." ).arg( QMP_Port ) );
+		QMP_Connect_Attempts = 0;
+		return;
+	}
+
+	++QMP_Connect_Attempts;
+	if( ! QMP->Is_Connecting() )
+		QMP->Connect_Async( QStringLiteral( "127.0.0.1" ), static_cast<quint16>( QMP_Port ) );
+	QTimer::singleShot( 300, this, SLOT(Connect_Embedded_QMP()) );
 }
 
 void Virtual_Machine::QEMU_Finished( int exitCode, QProcess::ExitStatus exitStatus )

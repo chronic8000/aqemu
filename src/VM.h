@@ -176,6 +176,39 @@ class Virtual_Machine: public QObject
 		const QString &Get_Video_Card() const;
 		void Set_Video_Card( const QString &card );
 
+		/**
+		 * Heuristic from Machine_Name: Win9x through XP/2003 (text-mode setup
+		 * guests). Used to prefer VNC over SPICE in the embedded session.
+		 */
+		bool Is_Legacy_Windows_Text_Mode_Guest() const;
+
+		/** Win2000 / XP / Server 2000 / 2003 — std VGA, 1 CPU, vapic=off. */
+		bool Is_Windows_XP_Family() const;
+
+		/**
+		 * True when we should open QEMU's own SDL/GTK window instead of
+		 * embedded VNC/SPICE (VGA text mode is unreliable over RFB/SPICE).
+		 */
+		bool Prefer_Native_VGA_Window() const;
+
+		/**
+		 * Apply proven XP-family defaults in-memory (std VGA, 1×pentium3,
+		 * FDD boot check off, ACPI off, apic.vapic=off). Safe to call every start.
+		 */
+		void Ensure_Windows_XP_Family_Defaults();
+
+		/**
+		 * OS/2 / eComStation / ArcaOS: IDE disk, ACPI off, TCG, pentium3.
+		 * VirtIO disks cause LVM.DLL Error 9 during Warp install.
+		 */
+		void Ensure_OS2_Family_Defaults();
+
+		/**
+		 * ReactOS: match reactos.org/wiki/QEMU — IDE, std VGA, AC97, e1000,
+		 * usb-tablet, 1GB RAM. VirtIO disks are invisible to setup.
+		 */
+		void Ensure_ReactOS_Defaults();
+
 		/** VirtIO-GPU EDID size: "native", "auto", or "WxH" (e.g. "1280x720"). */
 		const QString &Get_Display_Resolution() const;
 		void Set_Display_Resolution( const QString &res );
@@ -394,6 +427,158 @@ class Virtual_Machine: public QObject
 		/** Win95/98 and earlier: force pure TCG (no WHPX/KVM) + safe CPU. */
 		bool Use_Force_TCG() const;
 		void Use_Force_TCG( bool use );
+
+		/** Pass through host Xbox / USB game controllers via usb-host. */
+		bool Use_Pass_Through_Gamepads() const;
+		void Use_Pass_Through_Gamepads( bool use );
+
+		/** Empty = all detected pads; otherwise VID:PID keys (lowercase, e.g. 045e:028e). */
+		const QStringList &Get_Gamepad_Filter_IDs() const;
+		void Set_Gamepad_Filter_IDs( const QStringList &ids );
+
+		/** Emulate a USB HID gamepad from the host (QEMU usb-gamepad) when available. */
+		bool Use_Emulate_USB_Gamepad() const;
+		void Use_Emulate_USB_Gamepad( bool use );
+
+		/** Don't create default devices (-nodefaults). */
+		bool Use_No_Defaults() const;
+		void Use_No_Defaults( bool use );
+
+		/** Guest RTC clock source: host | vm | rt (empty = host). */
+		const QString &Get_RTC_Clock() const;
+		void Set_RTC_Clock( const QString &clock );
+
+
+		/** QEMU -display backend: empty=policy, sdl|gtk|none|curses|nographic */
+		const QString &Get_Display_Backend() const;
+		void Set_Display_Backend( const QString &backend );
+
+		/** Emit -object iothread and attach to virtio block devices. */
+		bool Use_IOThread() const;
+		void Use_IOThread( bool use );
+
+		/** -mem-path / optional -mem-prealloc (hugepages / pinned RAM). */
+		const QString &Get_Mem_Path() const;
+		void Set_Mem_Path( const QString &path );
+		bool Use_Mem_Prealloc() const;
+		void Use_Mem_Prealloc( bool use );
+
+		/** Guest UUID (-uuid). Empty = omit. */
+		const QString &Get_UUID() const;
+		void Set_UUID( const QString &uuid );
+
+		/** Legacy BIOS image (-bios). Empty = SeaBIOS/default. */
+		const QString &Get_BIOS_File() const;
+		void Set_BIOS_File( const QString &path );
+
+		/** Extra -machine properties (e.g. gic-version=host,highmem=on). */
+		const QString &Get_Machine_Extra_Props() const;
+		void Set_Machine_Extra_Props( const QString &props );
+
+		/** Prefer modern -netdev + -device over legacy -net for native cards. */
+		bool Use_Modern_Netdev() const;
+		void Use_Modern_Netdev( bool use );
+
+
+		/** -numa node topology (simple equal-RAM split across N nodes). */
+		bool Use_NUMA() const;
+		void Use_NUMA( bool use );
+		int Get_NUMA_Nodes() const;
+		void Set_NUMA_Nodes( int nodes );
+
+		/** Watchdog device model (empty = off). e.g. i6300esb, ib700 */
+		const QString &Get_Watchdog_Model() const;
+		void Set_Watchdog_Model( const QString &model );
+		const QString &Get_Watchdog_Action() const;
+		void Set_Watchdog_Action( const QString &action );
+
+		/** TPM: none | emulator | passthrough */
+		const QString &Get_TPM_Type() const;
+		void Set_TPM_Type( const QString &type );
+		const QString &Get_TPM_Path() const;
+		void Set_TPM_Path( const QString &path );
+
+		/** -object secret,id=… for encrypted disks / TLS material */
+		bool Use_Secret_Object() const;
+		void Use_Secret_Object( bool use );
+		const QString &Get_Secret_ID() const;
+		void Set_Secret_ID( const QString &id );
+		const QString &Get_Secret_Data() const;
+		void Set_Secret_Data( const QString &data );
+		const QString &Get_Secret_File() const;
+		void Set_Secret_File( const QString &path );
+
+		/** -incoming URI for migration listen (e.g. tcp:0:4444) */
+		const QString &Get_Incoming_URI() const;
+		void Set_Incoming_URI( const QString &uri );
+
+		/** Prefer -chardev + -serial chardev:id over legacy -serial backends */
+		bool Use_Modern_Chardev() const;
+		void Use_Modern_Chardev( bool use );
+
+		/** Prefer -blockdev + -device for native virtio/nvme disks */
+		bool Use_Blockdev() const;
+		void Use_Blockdev( bool use );
+
+		/** Extra -blockdev lines (one argument per line, no -blockdev flag). */
+		const QString &Get_Blockdev_Extra_Lines() const;
+		void Set_Blockdev_Extra_Lines( const QString &lines );
+
+
+		/** -smbios type=0 / type=1 / file= (empty fields omitted). */
+		bool Use_SMBIOS_Type0() const;
+		void Use_SMBIOS_Type0( bool use );
+		const QString &Get_SMBIOS_Vendor() const;
+		void Set_SMBIOS_Vendor( const QString &v );
+		const QString &Get_SMBIOS_Version() const;
+		void Set_SMBIOS_Version( const QString &v );
+		const QString &Get_SMBIOS_Date() const;
+		void Set_SMBIOS_Date( const QString &v );
+		bool Use_SMBIOS_Type1() const;
+		void Use_SMBIOS_Type1( bool use );
+		const QString &Get_SMBIOS_Manufacturer() const;
+		void Set_SMBIOS_Manufacturer( const QString &v );
+		const QString &Get_SMBIOS_Product() const;
+		void Set_SMBIOS_Product( const QString &v );
+		const QString &Get_SMBIOS_Type1_Version() const;
+		void Set_SMBIOS_Type1_Version( const QString &v );
+		const QString &Get_SMBIOS_Serial() const;
+		void Set_SMBIOS_Serial( const QString &v );
+		const QString &Get_SMBIOS_File() const;
+		void Set_SMBIOS_File( const QString &path );
+
+		/** Extra -fw_cfg lines (one per line: name=X,file=Y or name=X,string=Z). */
+		const QString &Get_FW_CFG_Lines() const;
+		void Set_FW_CFG_Lines( const QString &lines );
+
+		/** Per-VM -audiodev backend (empty = use Advanced Settings global). */
+		const QString &Get_Audiodev_Backend() const;
+		void Set_Audiodev_Backend( const QString &backend );
+		/** Optional timer-period=N microseconds for -audiodev (0 = omit). */
+		int Get_Audiodev_Timer_Period() const;
+		void Set_Audiodev_Timer_Period( int us );
+
+		/** Prefer -object memory-backend-ram + -numa node,memdev=… */
+		bool Use_NUMA_Memdev() const;
+		void Use_NUMA_Memdev( bool use );
+
+		/** -icount (empty = off). e.g. auto or shift=7 */
+		const QString &Get_ICount() const;
+		void Set_ICount( const QString &icount );
+
+		/** -sandbox (empty = off). e.g. on */
+		const QString &Get_Sandbox() const;
+		void Set_Sandbox( const QString &sandbox );
+
+
+
+
+		/**
+		 * Guest display chrome: "auto" (legacy → QEMU SDL/GTK window; else embed),
+		 * "embedded" (AQEMU SPICE/VNC session), "native" (always QEMU SDL/GTK).
+		 */
+		const QString &Get_Display_Window_Mode() const;
+		void Set_Display_Window_Mode( const QString &mode );
 
 		/** Experimental Intel macOS (OpenCore + Apple SMC + q35). */
 		bool Use_Intel_MacOS_Profile() const;
@@ -697,6 +882,50 @@ class Virtual_Machine: public QObject
 
 		VM::Win11_Lifecycle_Mode Win11_Lifecycle_Mode;
 		bool Force_TCG;
+		bool Pass_Through_Gamepads;
+		QStringList Gamepad_Filter_IDs;
+		bool Emulate_USB_Gamepad;
+		bool No_Defaults;
+		QString RTC_Clock; // host | vm | rt
+		QString Display_Backend; // empty | sdl | gtk | none | curses | nographic
+		bool Use_IOThread_Flag;
+		QString Mem_Path;
+		bool Mem_Prealloc;
+		QString UUID;
+		QString BIOS_File;
+		QString Machine_Extra_Props;
+		bool Modern_Netdev;
+		bool Use_NUMA_Flag;
+		int NUMA_Nodes;
+		QString Watchdog_Model;
+		QString Watchdog_Action;
+		QString TPM_Type;
+		QString TPM_Path;
+		bool Use_Secret_Object_Flag;
+		QString Secret_ID;
+		QString Secret_Data;
+		QString Secret_File;
+		QString Incoming_URI;
+		bool Modern_Chardev;
+		bool Use_Blockdev_Flag;
+		QString Blockdev_Extra_Lines;
+		bool Use_SMBIOS_Type0_Flag;
+		QString SMBIOS_Vendor;
+		QString SMBIOS_Version;
+		QString SMBIOS_Date;
+		bool Use_SMBIOS_Type1_Flag;
+		QString SMBIOS_Manufacturer;
+		QString SMBIOS_Product;
+		QString SMBIOS_Type1_Version;
+		QString SMBIOS_Serial;
+		QString SMBIOS_File;
+		QString FW_CFG_Lines;
+		QString Audiodev_Backend;
+		int Audiodev_Timer_Period;
+		bool Use_NUMA_Memdev_Flag;
+		QString ICount;
+		QString Sandbox;
+		QString Display_Window_Mode; // auto | embedded | native
 
 		bool Intel_MacOS_Profile;
 		bool Use_Apple_SMC_Flag;
@@ -755,6 +984,7 @@ class Virtual_Machine: public QObject
 		int Embedded_Spice_Port;
 		int Embedded_VNC_Port;
 		int QMP_Port;
+		int QMP_Connect_Attempts;
 		class QMP_Client *QMP;
 		
 		// Additional Windows

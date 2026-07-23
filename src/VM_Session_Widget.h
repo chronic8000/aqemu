@@ -66,6 +66,7 @@ class VM_Session_Widget : public QWidget
 		void On_Shift_F10();
 		void On_Fullscreen();
 		void On_Pause();
+		void On_Migrate();
 		void On_Save();
 		void On_Power_Off();
 		void On_Shutdown();

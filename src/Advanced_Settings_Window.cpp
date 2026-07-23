@@ -352,6 +352,8 @@ Advanced_Settings_Window::Advanced_Settings_Window( QWidget *parent )
 	
 	// Screenshot for OS Logo
 	ui.CH_Screenshot_for_OS_Logo->setChecked( Settings.value("Use_Screenshot_for_OS_Logo", "yes").toString() == "yes" );
+
+	ui.CH_Minimize_To_Tray->setChecked( Settings.value( "Minimize_To_Tray", "no" ).toString() == "yes" );
 	
 	Load_Templates();
 	
@@ -753,6 +755,9 @@ void Advanced_Settings_Window::done(int r)
 	    // Screenshot for OS Logo
 	    if( ui.CH_Screenshot_for_OS_Logo->isChecked() ) Settings.setValue( "Use_Screenshot_for_OS_Logo", "yes" );
 	    else Settings.setValue( "Use_Screenshot_for_OS_Logo", "no" );
+
+	    Settings.setValue( "Minimize_To_Tray",
+	                       ui.CH_Minimize_To_Tray->isChecked() ? "yes" : "no" );
 	    /*
 	    // 64x64 Icons
 	    if( ui.CH_64_Icons->isChecked() ) Settings.setValue( "64x64_Icons", "yes" );

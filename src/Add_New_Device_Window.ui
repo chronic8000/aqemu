@@ -36,6 +36,12 @@
        <property name="enabled">
         <bool>false</bool>
        </property>
+       <property name="toolTip">
+        <string>Disk image path, or a network URI from the QEMU docs: iscsi://host/iqn/lun, rbd:pool/image, nbd:host:port, gluster://…, ssh://user@host/path</string>
+       </property>
+       <property name="placeholderText">
+        <string>file path or iscsi:// / rbd: / nbd: / ssh://</string>
+       </property>
       </widget>
      </item>
      <item>
@@ -104,6 +110,11 @@
      <item>
       <property name="text">
        <string>virtio-scsi</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>nvme</string>
       </property>
      </item>
     </widget>

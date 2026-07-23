@@ -1,3 +1,16 @@
+2026-07-23 Chronic Engineering — AQEMU 1.0.0
+
+	* Version bump to 1.0.0 — first public “curtain” release for community testing.
+	* QEMU CLI parity waves: Advanced Options for NUMA, watchdog, TPM, secrets,
+	  incoming migrate, SMBIOS, fw_cfg, audiodev, icount/sandbox, richer chardev.
+	* Blockdev graph editor + migrate progress/cancel (QMP) UI.
+	* VM-start UX: busy dialog, async QMP connect (no UI freeze).
+	* Guest profile polish: Solaris 11.4 x86 recipe, AIX/pseries (no WHPX/floppy/IDE),
+	  OS/2 / ReactOS / Win9x / XP proven defaults in the wizard.
+	* Windows: pure TCG for non-x86 guests (ppc64 etc.); quoted Additional Args;
+	  qemu-img VMDK size parse fix; quieter startup / clearer breadcrumbs.
+	* README refreshed for testers; Windows portable zip = AQEMU + QEMU 11.0.2.
+
 2026-07-23 Chronic Engineering — AQEMU 0.9.9 Windows release
 
 	* Version bump to 0.9.9.

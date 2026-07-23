@@ -1352,6 +1352,16 @@ with embedded display</string>
         <number>0</number>
        </property>
        <item>
+        <widget class="QCheckBox" name="CH_Minimize_To_Tray">
+         <property name="toolTip">
+          <string>When the main window is minimized, hide it and show a tray icon. Double-click the icon to restore.</string>
+         </property>
+         <property name="text">
+          <string>Minimize AQEMU to the system tray</string>
+         </property>
+        </widget>
+       </item>
+       <item>
         <layout class="QVBoxLayout" name="verticalLayout_4">
          <item>
           <widget class="QGroupBox" name="startstopqemu_GroupBox">
