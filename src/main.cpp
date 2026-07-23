@@ -105,6 +105,7 @@ AQEMU_Main::AQEMU_Main()
     settings = nullptr;
     application = nullptr;
     window = nullptr;
+    settings_loaded = false;
 }
 
 AQEMU_Main::~AQEMU_Main()
@@ -162,16 +163,6 @@ static void AQEMU_Qt_Message_Handler( QtMsgType type, const QMessageLogContext &
 
     if( type == QtFatalMsg )
         abort();
-}
-
-static void AQEMU_Startup_Log( const char *stage )
-{
-    std::cout << "[AQEMU] " << stage << std::endl;
-    std::cout.flush();
-    Append_Run_Log_Line(
-        QString( "[%1] Startup: %2" )
-            .arg( QDateTime::currentDateTime().toString( "yyyy.MM.dd hh:mm:ss zzz" ),
-                  QString::fromLatin1( stage ) ) );
 }
 
 int AQEMU_Main::main(int argc, char *argv[])
@@ -269,6 +260,13 @@ int AQEMU_Main::main(int argc, char *argv[])
 
 int AQEMU_Main::load_settings()
 {
+    if( settings_loaded )
+    {
+        AQEMU_Startup_Log( "settings: already loaded (skip)" );
+        return 0;
+    }
+
+    AQEMU_Startup_Log( "settings: init" );
     init_qsettings();
 
     log_settings();
@@ -277,6 +275,7 @@ int AQEMU_Main::load_settings()
 
     // Init emulators settings "data base"
     System_Info::Update_VM_Computers_List();
+    AQEMU_Startup_Log( "settings: VM computer list ready" );
 
     int ret = root_warning();
     if ( ret != 0 )
@@ -286,19 +285,27 @@ int AQEMU_Main::load_settings()
 
     ret = find_data_folders();
     if ( ret != 0 )
+    {
+        AQEMU_Startup_Log( "settings: data folder lookup failed" );
         return ret;
+    }
+    AQEMU_Startup_Log( "settings: data folders ok" );
 
     register_qresource();
 
     first_start_wizard();
+    AQEMU_Startup_Log( "settings: first-start wizard done" );
 
     load_language();
 
     vm_dir_exists_or_create();
+    AQEMU_Startup_Log( "settings: VM directory ready" );
 
     // Check QEMU and KVM Versions
     Update_Emulators_List(); // FIXME
+    AQEMU_Startup_Log( "settings: emulators list updated" );
 
+    settings_loaded = true;
     return 0;
 }
 
@@ -393,70 +400,75 @@ void AQEMU_Main::init_qsettings()
 
 void AQEMU_Main::upgrade_settings()
 {
-    // This is an Upgrade of AQEMU? Find Previous Config...
-    //FIXME if( QFile::exists(QDir::homePath() + "/.config/aqemu/AQEMU.conf") )
-    if( QFile::exists(settings->fileName()) )
-    {
-        QString conf_ver = settings->value( "AQEMU_Config_Version", CURRENT_AQEMU_VERSION ).toString();
+	// Upgrade AQEMU settings when the config file already exists.
+	if( ! QFile::exists( settings->fileName() ) )
+	{
+		settings->setValue( QStringLiteral( "AQEMU_Config_Version" ), CURRENT_AQEMU_VERSION );
+		AQEMU_Startup_Log( "settings: created new config" );
+		return;
+	}
 
-        if( conf_ver == "0.5" )
-        {
-            AQDebug( "int main( int argc, char *argv[] )",
-                     "AQEMU Config Version: 0.5\nRun Firt Start Wizard" );
+	const QString conf_ver =
+		settings->value( QStringLiteral( "AQEMU_Config_Version" ), CURRENT_AQEMU_VERSION )
+			.toString();
 
-            settings->setValue( "First_Start", "yes" );
-            settings->setValue( "AQEMU_Config_Version", CURRENT_AQEMU_VERSION );
-        }
-        else if( conf_ver == "0.7.2" || conf_ver == "0.7.3" || conf_ver == "0.8" )
-        {
-            AQDebug( "int main( int argc, char *argv[] )",
-                     "AQEMU Config Version: 0.7.X\nStart Emulators Search..." );
+	if( conf_ver == QLatin1String( CURRENT_AQEMU_VERSION ) )
+	{
+		AQDebug( "AQEMU_Main::upgrade_settings()",
+			 QStringLiteral( "AQEMU Config Version: %1" ).arg( CURRENT_AQEMU_VERSION ) );
+		AQEMU_Startup_Log(
+			QByteArray( "settings: config version " ) + CURRENT_AQEMU_VERSION );
+		return;
+	}
 
-            QMessageBox::information( NULL, QObject::tr("AQEMU emulators search"),
-                                      QObject::tr("AQEMU will search for emulators after uptating. Please wait."),
-                                      QMessageBox::Ok );
+	if( conf_ver == QLatin1String( "0.5" ) )
+	{
+		AQDebug( "AQEMU_Main::upgrade_settings()",
+			 "AQEMU Config Version: 0.5 — re-run First Start Wizard" );
+		settings->setValue( QStringLiteral( "First_Start" ), QStringLiteral( "yes" ) );
+		settings->setValue( QStringLiteral( "AQEMU_Config_Version" ), CURRENT_AQEMU_VERSION );
+		settings->sync();
+		AQEMU_Startup_Log( "settings: upgraded from 0.5" );
+		return;
+	}
 
-            First_Start_Wizard *first_start_win = new First_Start_Wizard( NULL );
+	if( conf_ver == QLatin1String( "0.7.2" ) || conf_ver == QLatin1String( "0.7.3" ) ||
+	    conf_ver == QLatin1String( "0.8" ) )
+	{
+		AQDebug( "AQEMU_Main::upgrade_settings()",
+			 "AQEMU Config Version: 0.7.x/0.8 — searching for emulators" );
 
-            if( first_start_win->Find_Emulators() )
-                AQDebug( "int main( int argc, char *argv[] )",
-                         "Find Emulators and Save Settings Complete" );
-            else
-                AQGraphic_Error( "int main( int argc, char *argv[] )", QObject::tr("Error!"),
-                                 QObject::tr("Cannot Find any Emulators installed in your OS! You should choose them In Advanced Settings!"), false );
+		QMessageBox::information( NULL, QObject::tr( "AQEMU emulators search" ),
+			QObject::tr( "AQEMU will search for emulators after updating. Please wait." ),
+			QMessageBox::Ok );
 
-            delete first_start_win;
+		First_Start_Wizard *first_start_win = new First_Start_Wizard( NULL );
+		if( first_start_win->Find_Emulators() )
+			AQDebug( "AQEMU_Main::upgrade_settings()",
+				 "Find Emulators and Save Settings Complete" );
+		else
+			AQGraphic_Error( "AQEMU_Main::upgrade_settings()", QObject::tr( "Error!" ),
+				QObject::tr( "Cannot Find any Emulators installed in your OS! "
+					     "You should choose them In Advanced Settings!" ),
+				false );
+		delete first_start_win;
 
-            settings->setValue( "AQEMU_Config_Version", CURRENT_AQEMU_VERSION );
-        }
-        else if( conf_ver == CURRENT_AQEMU_VERSION )
-        {
-            AQDebug( "int main( int argc, char *argv[] )",
-                     QString("AQEMU Config Version: %1").arg(CURRENT_AQEMU_VERSION) );
-        }
-        else
-        {
-            // Remove Old Config!
-            //FIXME if( QFile::copy(QDir::homePath() + "/.config/aqemu/AQEMU.conf",
-            //	QDir::homePath() + "/.config/aqemu/AQEMU.conf.bak") )
-            if( QFile::copy(settings->fileName(), settings->fileName() + ".bak") )
-            {
-                AQWarning( "int main( int argc, char *argv[] )",
-                           "AQEMU Configuration File No Version 0.5. File Saved: AQEMU.conf.bak" );
+		settings->setValue( QStringLiteral( "AQEMU_Config_Version" ), CURRENT_AQEMU_VERSION );
+		settings->sync();
+		AQEMU_Startup_Log( "settings: upgraded from 0.7/0.8" );
+		return;
+	}
 
-                settings->clear();
-                settings->sync();
-
-                settings->setValue( "AQEMU_Config_Version", CURRENT_AQEMU_VERSION );
-            }
-            else AQError( "int main( int argc, char *argv[] )", "Cannot Save Old Version AQEMU Configuration File!" );
-        }
-    }
-    else
-    {
-        // Config File Not Found. This is the First Install
-        settings->setValue( "AQEMU_Config_Version", CURRENT_AQEMU_VERSION );
-    }
+	// Normal minor upgrade (e.g. 0.9.8 → 0.9.9): keep user settings, stamp new version.
+	// Do NOT wipe the config — that old branch treated every unknown version as broken.
+	AQEMU_Startup_Log(
+		QByteArray( "settings: upgrading " ) + conf_ver.toUtf8() +
+		" -> " + CURRENT_AQEMU_VERSION );
+	AQDebug( "AQEMU_Main::upgrade_settings()",
+		 QStringLiteral( "Upgrading AQEMU config %1 → %2 (settings preserved)" )
+			 .arg( conf_ver, QStringLiteral( CURRENT_AQEMU_VERSION ) ) );
+	settings->setValue( QStringLiteral( "AQEMU_Config_Version" ), CURRENT_AQEMU_VERSION );
+	settings->sync();
 }
 
 int AQEMU_Main::find_data_folders()

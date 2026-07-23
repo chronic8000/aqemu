@@ -183,7 +183,9 @@ bool AQEMU_Service::call(const QString& command, const QList<QVariant>& params, 
             std::cerr << qPrintable(result) << std::endl;
             return false;
         }
-        std::cout << qPrintable(result) << std::endl;
+        // GUI mode: don't spam "No VMs running." on idle startup status probes.
+        if( !( main_window && result == QLatin1String( "No VMs running." ) ) )
+            std::cout << qPrintable(result) << std::endl;
     }
     return true;
 #else

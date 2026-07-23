@@ -62,6 +62,7 @@ class AQEMU_Main : public QObject
         QSettings* settings;
         QApplication* application;
         Main_Window* window;
+        bool settings_loaded;
 };
 
 #endif

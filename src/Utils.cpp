@@ -88,6 +88,17 @@ void AQDebugStdCout(const QString& s)
     std::cout << s.toLatin1().constData() << std::endl;
 }
 
+void AQEMU_Startup_Log( const char *stage )
+{
+	if( ! stage )
+		return;
+	std::cout << "[AQEMU] " << stage << std::endl;
+	std::cout.flush();
+#ifdef Q_OS_WIN32
+	if( Console_HANDLE != INVALID_HANDLE_VALUE )
+		SetConsoleTextAttribute( Console_HANDLE, 7 );
+#endif
+}
 
 void AQDebug( const QString &sender, const QString &mes )
 {
