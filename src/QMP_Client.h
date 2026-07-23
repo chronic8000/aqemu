@@ -21,6 +21,7 @@ class QMP_Client : public QObject
 		bool Connect_To( const QString &host, quint16 port );
 		void Disconnect();
 		bool Is_Connected() const;
+		bool Is_Connecting() const;
 
 		bool Send_Command( const QString &execute, const QJsonObject &arguments = QJsonObject() );
 		bool Change_Medium( const QString &device_id, const QString &file_path );
@@ -31,6 +32,12 @@ class QMP_Client : public QObject
 		bool Query_Block();
 		bool Query_Blockstats();
 		bool Human_Monitor( const QString &command_line );
+		/** Outgoing migration: uri e.g. tcp:host:port. Optional blk/inc for storage migration. */
+		bool Migrate( const QString &uri, bool blk = false, bool inc = false );
+		bool Query_Migrate();
+		bool Migrate_Cancel();
+		/** Non-blocking connect (no waitForConnected). Capabilities still async. */
+		void Connect_Async( const QString &host, quint16 port );
 
 		quint16 Port() const { return Port_; }
 

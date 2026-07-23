@@ -73,6 +73,9 @@ class System_Info
 		static bool Add_To_Used_USB_List( const VM_USB &device );
 		static bool Delete_From_Used_USB_List( const VM_USB &device );
 		static bool Update_Host_USB();
+		/** True if USB device looks like an Xbox / PlayStation / Nintendo / generic gamepad. */
+		static bool Is_Likely_Gamepad( const VM_USB &device );
+		static QList<VM_USB> Get_Host_Gamepads();
 
 		static bool Update_Host_GPU();
 		static const QList<Host_GPU> &Get_Host_GPU_List();

@@ -24,8 +24,8 @@
 #ifndef UTILS_H
 #define UTILS_H
 
-#define CURRENT_AQEMU_VERSION "0.9.9"
-#define CURRENT_AQEMU_RELEASE_DATE "2026-07-17"
+#define CURRENT_AQEMU_VERSION "1.0.0"
+#define CURRENT_AQEMU_RELEASE_DATE "2026-07-23"
 
 #include <functional>
 #include <QString>
@@ -183,6 +183,21 @@ bool AQ_Guest_Matches_Host_Architecture( const QString &guest_target );
  * Forces TCG for cross-arch guests and for i386 guests on Windows.
  */
 bool AQ_Should_Prefer_Native_Accelerator( const QString &guest_target );
+
+/**
+ * Probe `qemu -display help` (cached). Returns backends like "sdl", "gtk".
+ */
+QStringList AQ_QEMU_List_Display_Backends( const QString &qemu_binary );
+
+/** Prefer "sdl", else "gtk", else empty (headless-only build). */
+QString AQ_QEMU_Pick_Native_Display( const QString &qemu_binary );
+
+/**
+ * Prefer preferred_path if it has sdl/gtk; else common install locations
+ * (e.g. Program Files\\qemu\\qemu-system-i386.exe).
+ */
+QString AQ_Find_QEMU_Binary_With_Native_Display( const QString &system_name,
+                                                 const QString &preferred_path );
 
 #endif
 

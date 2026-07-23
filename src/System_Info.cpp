@@ -31,6 +31,7 @@
 #include <QJsonDocument>
 #include <QJsonArray>
 #include <QJsonObject>
+#include <QSet>
 
 #include "Utils.h"
 #include "System_Info.h"
@@ -1382,6 +1383,10 @@ QString Normalize_Video_Alias( const QString &name )
 		return "none";
 	if( n == "virtio-gpu" )
 		return "virtio-gpu-pci";
+	if( n == "virtio-vga-gl" || n == "virtio_vga_gl" )
+		return "virtio-vga-gl";
+	if( n == "virtio-vga" )
+		return "virtio";
 	return name.trimmed();
 }
 
@@ -1395,7 +1400,8 @@ bool Is_Video_Card_Allowed( Video_Arch_Family fam, const QString &raw_name )
 	{
 		case VAF_X86:
 			return name == "std" || name == "cirrus" || name == "vmware" ||
-			       name == "qxl" || name == "virtio" || name == "xenfb" || name == "none";
+			       name == "qxl" || name == "virtio" || name == "virtio-vga-gl" ||
+			       name == "xenfb" || name == "none";
 		case VAF_VIRT:
 			return name == "virtio-gpu-pci" || name == "virtio-gpu-gl-pci" ||
 			       name == "ramfb" || name == "none";
@@ -1442,6 +1448,7 @@ QList<Device_Map> Default_Video_List_For_Family( Video_Arch_Family fam )
 			add( QObject::tr("VMWare Video Card"), "vmware" );
 			add( QObject::tr("QXL"), "qxl" );
 			add( QObject::tr("VirtIO VGA"), "virtio" );
+			add( QObject::tr("VirtIO VGA (GL / OpenGL)"), "virtio-vga-gl" );
 			break;
 		case VAF_VIRT:
 			add( QObject::tr("VirtIO GPU (PCI)"), "virtio-gpu-pci" );
@@ -3361,12 +3368,128 @@ QStringList System_Info::Get_Host_CDROM_List()
 
 bool System_Info::Update_Host_USB()
 {
-	AQDebug( "System_Info::Update_Host_USB()",
-			 "Not implemented!" );
-	return false;
+	All_Host_USB.clear();
+
+	// Enumerate present USB PnP devices via PowerShell (SetupAPI-free, works on Win10+)
+	QProcess ps;
+	ps.setProgram( QStringLiteral( "powershell.exe" ) );
+	ps.setArguments( QStringList()
+		<< QStringLiteral( "-NoProfile" )
+		<< QStringLiteral( "-ExecutionPolicy" ) << QStringLiteral( "Bypass" )
+		<< QStringLiteral( "-Command" )
+		<< QStringLiteral(
+			"Get-PnpDevice -PresentOnly -ErrorAction SilentlyContinue | "
+			"Where-Object { $_.InstanceId -match 'USB\\\\VID_' } | "
+			"ForEach-Object { "
+			"  if ($_.InstanceId -match 'VID_([0-9A-Fa-f]{4}).*PID_([0-9A-Fa-f]{4})') { "
+			"    $vid=$matches[1].ToLower(); $pid=$matches[2].ToLower(); "
+			"    $name=($_.FriendlyName -replace '[\\|\\r\\n]',' '); "
+			"    Write-Output ($vid + '|' + $pid + '|' + $name) "
+			"  } "
+			"}"
+		) );
+	ps.setProcessChannelMode( QProcess::MergedChannels );
+	ps.start();
+	if( ! ps.waitForFinished( 15000 ) )
+	{
+		AQError( "System_Info::Update_Host_USB()", "PowerShell USB enumeration timed out" );
+		return false;
+	}
+
+	const QString out = QString::fromLocal8Bit( ps.readAllStandardOutput() );
+	QSet<QString> seen;
+	const QStringList lines = out.split( QRegExp( "[\\r\\n]+" ), QString::SkipEmptyParts );
+	for( int i = 0; i < lines.count(); ++i )
+	{
+		const QStringList parts = lines[i].split( QLatin1Char( '|' ) );
+		if( parts.size() < 2 )
+			continue;
+		const QString vid = parts[0].trimmed().toLower();
+		const QString pid = parts[1].trimmed().toLower();
+		if( vid.size() != 4 || pid.size() != 4 )
+			continue;
+		const QString key = vid + QLatin1Char( ':' ) + pid;
+		if( seen.contains( key ) )
+			continue;
+		seen.insert( key );
+
+		VM_USB u;
+		u.Set_Use_Host_Device( true );
+		u.Set_Vendor_ID( vid );
+		u.Set_Product_ID( pid );
+		u.Set_Manufacturer_Name( QStringLiteral( "USB" ) );
+		u.Set_Product_Name( parts.size() >= 3 ? parts[2].trimmed() : key );
+		u.Set_Speed( QStringLiteral( "480" ) );
+		All_Host_USB << u;
+	}
+
+	if( All_Host_USB.isEmpty() )
+	{
+		AQDebug( "System_Info::Update_Host_USB()",
+			 "No USB PnP devices found (or PowerShell blocked)." );
+		return false;
+	}
+	return true;
 }
 
 #endif // Q_OS_WIN32
+
+bool System_Info::Is_Likely_Gamepad( const VM_USB &device )
+{
+	const QString vid = device.Get_Vendor_ID().toLower().trimmed();
+	const QString name = ( device.Get_Manufacturer_Name() + QLatin1Char( ' ' ) +
+	                       device.Get_Product_Name() ).toLower();
+
+	const bool name_looks_like_pad =
+		name.contains( QLatin1String( "xbox" ) ) ||
+		name.contains( QLatin1String( "gamepad" ) ) ||
+		name.contains( QLatin1String( "controller" ) ) ||
+		name.contains( QLatin1String( "dualshock" ) ) ||
+		name.contains( QLatin1String( "dualsense" ) ) ||
+		name.contains( QLatin1String( "joy-con" ) ) ||
+		name.contains( QLatin1String( "joystick" ) ) ||
+		name.contains( QLatin1String( "game pad" ) );
+
+	// Broad vendors also make keyboards/mice — require a pad-like name.
+	if( vid == QLatin1String( "046d" ) || // Logitech
+	    vid == QLatin1String( "1532" ) || // Razer
+	    vid == QLatin1String( "0079" ) )  // DragonRise / generic HID
+		return name_looks_like_pad;
+
+	// Dedicated controller vendors (Xbox / Sony / Nintendo / etc.)
+	static const char *const kVids[] = {
+		"045e", // Microsoft Xbox
+		"054c", // Sony
+		"057e", // Nintendo
+		"2dc8", // 8BitDo
+		"0e6f", // PDP
+		"24c6", // PowerA / Thrustmaster
+		"146b", // Bigben
+		"0f0d", // Hori
+		"2f24", // Guillemot / Thrustmaster
+		nullptr
+	};
+	for( int i = 0; kVids[i]; ++i )
+	{
+		if( vid == QLatin1String( kVids[i] ) )
+			return true;
+	}
+
+	return name_looks_like_pad;
+}
+
+QList<VM_USB> System_Info::Get_Host_Gamepads()
+{
+	Update_Host_USB();
+	QList<VM_USB> pads;
+	const QList<VM_USB> &all = Get_All_Host_USB();
+	for( int i = 0; i < all.count(); ++i )
+	{
+		if( Is_Likely_Gamepad( all[i] ) )
+			pads << all[i];
+	}
+	return pads;
+}
 
 Host_GPU::Host_GPU()
 	: Is_Display( false )

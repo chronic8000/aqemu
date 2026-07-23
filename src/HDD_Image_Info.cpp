@@ -103,8 +103,23 @@ static QString Normalize_Qemu_Img_Size_Token( QString token )
 	token.replace( "GiB", "G", Qt::CaseInsensitive );
 	token.replace( "MiB", "M", Qt::CaseInsensitive );
 	token.replace( "KiB", "K", Qt::CaseInsensitive );
-	token.replace( "TiB", "G", Qt::CaseInsensitive ); // rare; treat as G scale not ideal but rare
-	// bare "iB" leftovers shouldn't remain after GiB→G
+	token.replace( "TiB", "T", Qt::CaseInsensitive );
+	token.replace( "bytes", "", Qt::CaseInsensitive );
+	// Bare byte count (e.g. VMDK extent "virtual size: 21474836480") → human units
+	bool ok_bytes = false;
+	const qulonglong bytes = token.toULongLong( &ok_bytes );
+	if( ok_bytes && ! token.contains( QRegExp( "[KMGT]" , Qt::CaseInsensitive ) ) )
+	{
+		if( bytes >= ( 1024ull * 1024ull * 1024ull ) && ( bytes % ( 1024ull * 1024ull * 1024ull ) ) == 0 )
+			return QString::number( bytes / ( 1024ull * 1024ull * 1024ull ) ) + QLatin1Char( 'G' );
+		if( bytes >= ( 1024ull * 1024ull ) && ( bytes % ( 1024ull * 1024ull ) ) == 0 )
+			return QString::number( bytes / ( 1024ull * 1024ull ) ) + QLatin1Char( 'M' );
+		if( bytes >= 1024ull && ( bytes % 1024ull ) == 0 )
+			return QString::number( bytes / 1024ull ) + QLatin1Char( 'K' );
+		// Non-aligned: express as fractional GiB for the UI
+		const double gib = double( bytes ) / ( 1024.0 * 1024.0 * 1024.0 );
+		return QString::number( gib, 'f', 2 ) + QLatin1Char( 'G' );
+	}
 	return token;
 }
 
@@ -136,15 +151,32 @@ void HDD_Image_Info::Parse_Info( int exitCode, QProcess::ExitStatus exitStatus )
 	{
 		const QString line = lines.at( i ).trimmed();
 		if( line.startsWith( "image:", Qt::CaseInsensitive ) )
-			image_line = line.mid( 6 ).trimmed();
+		{
+			if( image_line.isEmpty() )
+				image_line = line.mid( 6 ).trimmed();
+		}
 		else if( line.startsWith( "file format:", Qt::CaseInsensitive ) )
-			format = line.mid( QString( "file format:" ).length() ).trimmed();
+		{
+			if( format.isEmpty() )
+				format = line.mid( QString( "file format:" ).length() ).trimmed();
+		}
 		else if( line.startsWith( "virtual size:", Qt::CaseInsensitive ) )
-			virtual_size = Normalize_Qemu_Img_Size_Token( line.mid( QString( "virtual size:" ).length() ) );
+		{
+			// VMDK (and some other formats) repeat "virtual size:" under extents as a
+			// bare byte count — keep the first human-readable summary only.
+			if( virtual_size.isEmpty() )
+				virtual_size = Normalize_Qemu_Img_Size_Token( line.mid( QString( "virtual size:" ).length() ) );
+		}
 		else if( line.startsWith( "disk size:", Qt::CaseInsensitive ) )
-			disk_size = Normalize_Qemu_Img_Size_Token( line.mid( QString( "disk size:" ).length() ) );
+		{
+			if( disk_size.isEmpty() )
+				disk_size = Normalize_Qemu_Img_Size_Token( line.mid( QString( "disk size:" ).length() ) );
+		}
 		else if( line.startsWith( "cluster_size:", Qt::CaseInsensitive ) )
-			cluster_size = line.mid( QString( "cluster_size:" ).length() ).trimmed();
+		{
+			if( cluster_size.isEmpty() )
+				cluster_size = line.mid( QString( "cluster_size:" ).length() ).trimmed();
+		}
 	}
 
 	if( format.isEmpty() || virtual_size.isEmpty() )

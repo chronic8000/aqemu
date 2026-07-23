@@ -7,6 +7,8 @@
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QMessageBox>
+#include <QInputDialog>
+#include <QLineEdit>
 #include <QSettings>
 #include <QMouseEvent>
 #include <QStyle>
@@ -21,6 +23,7 @@
 
 #include "VM.h"
 #include "QMP_Client.h"
+#include "Migrate_Progress_Dialog.h"
 #include "Embedded_Display/Spice_View.h"
 #include "Utils.h"
 
@@ -152,6 +155,7 @@ void VM_Session_Widget::Build_Toolbar()
 	// Runtime power controls (replaces left Tool_Bar_VM_Control in session mode)
 	Act_Pause = Add_Toolbar_Action( QIcon( ":/pause.png" ), tr( "Pause / Resume" ), SLOT(On_Pause()) );
 	Add_Toolbar_Action( QIcon( ":/save-state.png" ), tr( "Save VM state" ), SLOT(On_Save()) );
+	Add_Toolbar_Action( QIcon( ":/preferences-system-network.png" ), tr( "Migrate to URI…" ), SLOT(On_Migrate()) );
 	Add_Toolbar_Action( QIcon( ":/restart.png" ), tr( "Reset guest" ), SLOT(On_Reset()) );
 	Add_Toolbar_Action( QIcon( ":/shutdown.png" ), tr( "ACPI shutdown" ), SLOT(On_Shutdown()) );
 	Add_Toolbar_Action( QIcon( ":/stop.png" ), tr( "Power off" ), SLOT(On_Power_Off()) );
@@ -555,6 +559,7 @@ void VM_Session_Widget::Try_Connect_Display()
 			.arg( Host ).arg( Vnc_Port ) );
 		Stack->setCurrentWidget( Vnc );
 		Vnc->Set_VNC_URL( Host, Vnc_Port );
+		// Scale to fit; deep-copied frames + nearest-neighbor paint handle text mode.
 		Vnc->Set_Scaling( true );
 		Vnc->initView();
 		connect( Vnc, SIGNAL(Connected()), this, SLOT(On_Display_Connected()), Qt::UniqueConnection );
@@ -1074,6 +1079,31 @@ void VM_Session_Widget::On_Pause()
 	else
 		emit Request_Pause();
 	Update_Pause_Action();
+}
+
+void VM_Session_Widget::On_Migrate()
+{
+	QMP_Client *q = Active_QMP();
+	if( ! q || ! q->Is_Connected() )
+	{
+		QMessageBox::warning( this, tr( "Migrate" ),
+		                      tr( "QMP is not connected." ) );
+		return;
+	}
+
+	bool ok = false;
+	const QString uri = QInputDialog::getText(
+		this, tr( "Migrate VM" ),
+		tr( "Destination URI (receiver must use Advanced Options → -incoming):\n"
+		    "Examples: tcp:192.168.1.10:4444" ),
+		QLineEdit::Normal,
+		QStringLiteral( "tcp:127.0.0.1:4444" ),
+		&ok ).trimmed();
+	if( ! ok || uri.isEmpty() )
+		return;
+
+	Migrate_Progress_Dialog dlg( q, uri, this );
+	dlg.exec();
 }
 
 void VM_Session_Widget::On_Save()

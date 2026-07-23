@@ -41,6 +41,8 @@
 #include "Add_New_Device_Window.h"
 #include "SPICE_Settings_Widget.h"
 
+#include <QSystemTrayIcon>
+
 class Ports_Tab_Widget;
 class Device_Manager_Widget;
 class Folder_Sharing_Widget;
@@ -148,6 +150,7 @@ class Main_Window: public QMainWindow
 		void on_TB_Show_Architecture_Options_Window_clicked();
 		void on_TB_Show_Accelerator_Options_Window_clicked();
 		void on_TB_Show_Advanced_Options_Window_clicked();
+		void on_actionQEMU_Help_Browser_triggered();
 		void on_TB_Show_SMP_Settings_Window_clicked();
 		bool Validate_CPU_Count( const QString &text );
 		void Apply_Emulator( int mode );
@@ -195,6 +198,9 @@ class Main_Window: public QMainWindow
 
 		// Advanced
 		void adv_on_CH_Start_Date_toggled( bool on );
+		void Refresh_Gamepad_List( const QStringList &selected_ids );
+		void AO_Refresh_Gamepads_clicked();
+		void AO_Edit_Blockdev_Graph_clicked();
 		
 		// Other Tab
 		void on_TB_VNC_Unix_Socket_Browse_clicked();
@@ -220,9 +226,17 @@ class Main_Window: public QMainWindow
 		void On_Session_Request_Save();
 		void on_actionConnect_Session_triggered();
 		void Update_Connect_Action();
+		void Init_System_Tray();
+		void Update_System_Tray();
+		void On_Tray_Show();
+		void On_Tray_Activated( QSystemTrayIcon::ActivationReason reason );
+		void Hide_To_Tray();
+		void Update_Display_Window_Mode_Hint();
+		void On_Display_Window_Mode_Toggled( bool on );
 		
 	protected:
 		void closeEvent( QCloseEvent *event );
+		void changeEvent( QEvent *event );
 		
 	private:
 		Virtual_Machine *Get_VM_By_UID( const QString &uid );
@@ -284,6 +298,7 @@ class Main_Window: public QMainWindow
         QDialog* Advanced_Options;
         QDialog* Accelerator_Options;
         QDialog* Architecture_Options;
+		QString AO_Blockdev_Extra_Lines;
         Settings_Widget* Display_Settings_Widget;
         Settings_Widget* Media_Settings_Widget;
         Settings_Widget* Network_Settings_Widget;
@@ -333,6 +348,10 @@ class Main_Window: public QMainWindow
 		QString Idle_Window_Title;
 		bool Session_Mode_Active;
 		bool Session_User_Detached;
+
+		QSystemTrayIcon *Tray_Icon;
+		QAction *Act_Tray_Show;
+		QAction *Act_Tray_Quit;
 
         bool block_VM_changed_signals;
 		QTimer *Auto_Save_Timer;

@@ -35,9 +35,15 @@
 #include <QSysInfo>
 #include <QAbstractItemView>
 #include <QComboBox>
+#include <QListWidget>
+#include <QListWidgetItem>
+#include <QSet>
 #include <QTimer>
 #include <QApplication>
 #include <QEventLoop>
+#include <QSystemTrayIcon>
+#include <QMenu>
+#include <QEvent>
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QTextEdit>
@@ -58,6 +64,7 @@
 #include "Folder_Sharing_Widget.h"
 #include "Select_Icon_Window.h"
 #include "About_Window.h"
+#include "QEMU_Help_Browser.h"
 #include "Create_HDD_Image_Window.h"
 #include "Convert_HDD_Image_Window.h"
 #include "VM_Wizard_Window.h"
@@ -75,6 +82,7 @@
 #include "SMP_Settings_Window.h"
 #include "Settings_Widget.h"
 #include "Utils.h"
+#include "Blockdev_Graph_Window.h"
 #include "Service.h"
 #include "No_Boot_Device.h"
 
@@ -94,6 +102,9 @@ Main_Window::Main_Window( QWidget *parent )
 	, Session_VM( nullptr )
 	, Session_Mode_Active( false )
 	, Session_User_Detached( false )
+	, Tray_Icon( nullptr )
+	, Act_Tray_Show( nullptr )
+	, Act_Tray_Quit( nullptr )
 	, Auto_Save_Timer( nullptr )
 {
     Advanced_Options = new QDialog(this);
@@ -139,6 +150,8 @@ Main_Window::Main_Window( QWidget *parent )
 	}
 
     connect(ui_ao.CH_Start_Date,SIGNAL(toggled(bool)),this,SLOT(adv_on_CH_Start_Date_toggled(bool)));
+	connect(ui_ao.TB_Refresh_Gamepads, SIGNAL(clicked()), this, SLOT(AO_Refresh_Gamepads_clicked()));
+	connect(ui_ao.TB_Edit_Blockdev_Graph, SIGNAL(clicked()), this, SLOT(AO_Edit_Blockdev_Graph_clicked()));
 
 	ui_kvm.setupUi( Accelerator_Options );
 	ui_arch.setupUi( Architecture_Options );
@@ -171,6 +184,7 @@ Main_Window::Main_Window( QWidget *parent )
 
 	Fill_Display_Resolution_Combo();
 	Update_Display_Resolution_Enabled();
+	Update_Display_Window_Mode_Hint();
 	Fill_Mouse_Combos();
 	Update_Mouse_Options_Enabled();
 
@@ -326,6 +340,100 @@ Main_Window::Main_Window( QWidget *parent )
     // Signals for watching VM changes
     Connect_Signals();
     block_VM_changed_signals = false;
+
+	Init_System_Tray();
+}
+
+void Main_Window::Init_System_Tray()
+{
+	if( Tray_Icon )
+		return;
+
+	if( ! QSystemTrayIcon::isSystemTrayAvailable() )
+		return;
+
+	Tray_Icon = new QSystemTrayIcon( this );
+	QIcon icon = windowIcon();
+	if( icon.isNull() )
+		icon = QIcon( QStringLiteral( ":/aqemu.png" ) );
+	Tray_Icon->setIcon( icon );
+	Tray_Icon->setToolTip( QStringLiteral( "AQEMU" ) );
+
+	QMenu *menu = new QMenu( this );
+	Act_Tray_Show = menu->addAction( tr( "Show AQEMU" ), this, SLOT(On_Tray_Show()) );
+	menu->addSeparator();
+	Act_Tray_Quit = menu->addAction( tr( "Quit" ), this, SLOT(close()) );
+	Tray_Icon->setContextMenu( menu );
+
+	connect( Tray_Icon, SIGNAL(activated(QSystemTrayIcon::ActivationReason)),
+	         this, SLOT(On_Tray_Activated(QSystemTrayIcon::ActivationReason)) );
+
+	Update_System_Tray();
+}
+
+void Main_Window::Update_System_Tray()
+{
+	if( ! Tray_Icon )
+		return;
+
+	const bool enable = Settings.value( "Minimize_To_Tray", "no" ).toString() == "yes";
+	if( ! enable )
+	{
+		Tray_Icon->hide();
+		if( ! isVisible() )
+			showNormal();
+		return;
+	}
+
+	// Icon stays ready; shown when we actually minimize.
+	if( isMinimized() || ! isVisible() )
+		Tray_Icon->show();
+	else
+		Tray_Icon->hide();
+}
+
+void Main_Window::On_Tray_Show()
+{
+	showNormal();
+	raise();
+	activateWindow();
+	if( Tray_Icon )
+		Tray_Icon->hide();
+}
+
+void Main_Window::On_Tray_Activated( QSystemTrayIcon::ActivationReason reason )
+{
+	if( reason == QSystemTrayIcon::Trigger || reason == QSystemTrayIcon::DoubleClick )
+		On_Tray_Show();
+}
+
+void Main_Window::changeEvent( QEvent *event )
+{
+	QMainWindow::changeEvent( event );
+	if( event->type() != QEvent::WindowStateChange )
+		return;
+	if( Settings.value( "Minimize_To_Tray", "no" ).toString() != "yes" )
+		return;
+	if( ! Tray_Icon )
+		return;
+
+	if( isMinimized() )
+	{
+		QTimer::singleShot( 0, this, SLOT(Hide_To_Tray()) );
+	}
+}
+
+void Main_Window::Hide_To_Tray()
+{
+	if( Settings.value( "Minimize_To_Tray", "no" ).toString() != "yes" )
+		return;
+	if( ! Tray_Icon )
+		return;
+	hide();
+	Tray_Icon->show();
+	Tray_Icon->showMessage( tr( "AQEMU" ),
+	                        tr( "Running in the system tray." ),
+	                        QSystemTrayIcon::Information, 2000 );
 }
 
 void Main_Window::init_dbus()
@@ -647,6 +755,15 @@ void Main_Window::Connect_Signals()
 			 this, SLOT(VM_Changed()) );
 
 	// Advanced Tab
+	connect( ui.RB_Display_Auto, SIGNAL(toggled(bool)),
+			 this, SLOT(On_Display_Window_Mode_Toggled(bool)) );
+	connect( ui.RB_Display_Embedded, SIGNAL(toggled(bool)),
+			 this, SLOT(On_Display_Window_Mode_Toggled(bool)) );
+	connect( ui.RB_Display_Native, SIGNAL(toggled(bool)),
+			 this, SLOT(On_Display_Window_Mode_Toggled(bool)) );
+	connect( ui.RB_Display_Nographic, SIGNAL(toggled(bool)),
+			 this, SLOT(On_Display_Window_Mode_Toggled(bool)) );
+
 	connect( ui.CH_No_Frame, SIGNAL(clicked()),
 			 this, SLOT(VM_Changed()) );
 
@@ -1080,6 +1197,11 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
 	snd_card.Audio_USB = ui.CH_USB_Audio->isChecked();
 
 	tmp_vm->Set_Audio_Cards( snd_card );
+	{
+		const int ai = ui.CB_Audiodev_Backend->currentIndex();
+		tmp_vm->Set_Audiodev_Backend( ai <= 0 ? QString() : ui.CB_Audiodev_Backend->currentText() );
+		tmp_vm->Set_Audiodev_Timer_Period( ui.SB_Audiodev_Timer_Period->value() );
+	}
 
 	// Memory
 	tmp_vm->Set_Memory_Size( ui.Memory_Size->value() );
@@ -1095,6 +1217,72 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
 	tmp_vm->Use_Check_FDD_Boot_Sector( ui_ao.CH_FDD_Boot->isChecked() );
 	tmp_vm->Use_ACPI( ui_ao.CH_ACPI->isChecked() );
 	tmp_vm->Use_Force_TCG( ui_ao.CH_Force_TCG->isChecked() );
+	tmp_vm->Use_Pass_Through_Gamepads( ui_ao.CH_Pass_Through_Gamepads->isChecked() );
+	tmp_vm->Use_Emulate_USB_Gamepad( ui_ao.CH_Emulate_USB_Gamepad->isChecked() );
+	tmp_vm->Use_No_Defaults( ui_ao.CH_No_Defaults->isChecked() );
+	tmp_vm->Use_VirtIO_Balloon( ui_ao.CH_VirtIO_Balloon->isChecked() );
+	tmp_vm->Use_VirtIO_RNG( ui_ao.CH_VirtIO_RNG->isChecked() );
+	tmp_vm->Use_VirtIO_Keyboard( ui_ao.CH_VirtIO_Keyboard->isChecked() );
+	{
+		QStringList ids;
+		for( int i = 0; i < ui_ao.LW_Gamepads->count(); ++i )
+		{
+			QListWidgetItem *it = ui_ao.LW_Gamepads->item( i );
+			if( it && it->checkState() == Qt::Checked )
+				ids << it->data( Qt::UserRole ).toString();
+		}
+		// If none checked but passthrough on → empty filter = all pads
+		tmp_vm->Set_Gamepad_Filter_IDs( ids );
+	}
+	{
+		const int idx = ui_ao.CB_RTC_Clock->currentIndex();
+		if( idx == 1 ) tmp_vm->Set_RTC_Clock( QStringLiteral( "vm" ) );
+		else if( idx == 2 ) tmp_vm->Set_RTC_Clock( QStringLiteral( "rt" ) );
+		else tmp_vm->Set_RTC_Clock( QStringLiteral( "host" ) );
+	}
+	tmp_vm->Use_IOThread( ui_ao.CH_IOThread->isChecked() );
+	tmp_vm->Use_Modern_Netdev( ui_ao.CH_Modern_Netdev->isChecked() );
+	tmp_vm->Set_UUID( ui_ao.Edit_UUID->text() );
+	tmp_vm->Set_BIOS_File( ui_ao.Edit_BIOS_File->text().trimmed() );
+	tmp_vm->Set_Mem_Path( ui_ao.Edit_Mem_Path->text().trimmed() );
+	tmp_vm->Use_Mem_Prealloc( ui_ao.CH_Mem_Prealloc->isChecked() );
+	tmp_vm->Set_Machine_Extra_Props( ui_ao.Edit_Machine_Extra_Props->text() );
+	tmp_vm->Use_NUMA( ui_ao.CH_NUMA->isChecked() );
+	tmp_vm->Set_NUMA_Nodes( ui_ao.SB_NUMA_Nodes->value() );
+	{
+		const int wi = ui_ao.CB_Watchdog_Model->currentIndex();
+		tmp_vm->Set_Watchdog_Model( wi <= 0 ? QString() : ui_ao.CB_Watchdog_Model->currentText() );
+		tmp_vm->Set_Watchdog_Action( ui_ao.CB_Watchdog_Action->currentText() );
+	}
+	{
+		const int ti = ui_ao.CB_TPM_Type->currentIndex();
+		if( ti == 1 ) tmp_vm->Set_TPM_Type( QStringLiteral( "emulator" ) );
+		else if( ti == 2 ) tmp_vm->Set_TPM_Type( QStringLiteral( "passthrough" ) );
+		else tmp_vm->Set_TPM_Type( QStringLiteral( "none" ) );
+		tmp_vm->Set_TPM_Path( ui_ao.Edit_TPM_Path->text().trimmed() );
+	}
+	tmp_vm->Use_Secret_Object( ui_ao.CH_Secret_Object->isChecked() );
+	tmp_vm->Set_Secret_ID( ui_ao.Edit_Secret_ID->text() );
+	tmp_vm->Set_Secret_File( ui_ao.Edit_Secret_File->text().trimmed() );
+	tmp_vm->Set_Secret_Data( ui_ao.Edit_Secret_Data->text() );
+	tmp_vm->Set_Incoming_URI( ui_ao.Edit_Incoming_URI->text() );
+	tmp_vm->Use_Modern_Chardev( ui_ao.CH_Modern_Chardev->isChecked() );
+	tmp_vm->Use_Blockdev( ui_ao.CH_Use_Blockdev->isChecked() );
+	tmp_vm->Set_Blockdev_Extra_Lines( AO_Blockdev_Extra_Lines );
+	tmp_vm->Use_NUMA_Memdev( ui_ao.CH_NUMA_Memdev->isChecked() );
+	tmp_vm->Use_SMBIOS_Type0( ui_ao.CH_SMBIOS_Type0->isChecked() );
+	tmp_vm->Set_SMBIOS_Vendor( ui_ao.Edit_SMBIOS_Vendor->text() );
+	tmp_vm->Set_SMBIOS_Version( ui_ao.Edit_SMBIOS_Version->text() );
+	tmp_vm->Set_SMBIOS_Date( ui_ao.Edit_SMBIOS_Date->text() );
+	tmp_vm->Use_SMBIOS_Type1( ui_ao.CH_SMBIOS_Type1->isChecked() );
+	tmp_vm->Set_SMBIOS_Manufacturer( ui_ao.Edit_SMBIOS_Manufacturer->text() );
+	tmp_vm->Set_SMBIOS_Product( ui_ao.Edit_SMBIOS_Product->text() );
+	tmp_vm->Set_SMBIOS_Type1_Version( ui_ao.Edit_SMBIOS_Type1_Version->text() );
+	tmp_vm->Set_SMBIOS_Serial( ui_ao.Edit_SMBIOS_Serial->text() );
+	tmp_vm->Set_SMBIOS_File( ui_ao.Edit_SMBIOS_File->text().trimmed() );
+	tmp_vm->Set_FW_CFG_Lines( ui_ao.Edit_FW_CFG_Lines->toPlainText() );
+	tmp_vm->Set_ICount( ui_ao.Edit_ICount->text() );
+	tmp_vm->Set_Sandbox( ui_ao.Edit_Sandbox->text() );
 	tmp_vm->Use_Snapshot_Mode( ui.CH_Snapshot->isChecked() );
 	tmp_vm->Use_Start_CPU( ui_ao.CH_Start_CPU->isChecked() );
 	tmp_vm->Use_No_Reboot( ui_ao.CH_No_Reboot->isChecked() );
@@ -1123,6 +1311,7 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
 				case 2: native.Set_Interface( VM::DI_SCSI ); break;
 				case 3: native.Set_Interface( VM::DI_IDE ); break;
 				case 4: native.Set_Interface( VM::DI_SD ); break;
+				case 5: native.Set_Interface( VM::DI_NVMe ); break;
 				default: native.Set_Interface( VM::DI_Virtio ); break;
 			}
 			if( ! native.Use_File_Path() )
@@ -1240,13 +1429,10 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
 	tmp_vm->Use_PFlash_File( ui.CH_PFlash->isChecked() );
 	tmp_vm->Set_PFlash_File( ui.Edit_PFlash_File->text() );
 
-	// UEFI / VirtIO extras (set by Windows 11 ARM wizard; preserve until full UI exists)
+	// UEFI extras (wizard/advanced); VirtIO balloon/RNG/keyboard come from Advanced Options UI above
 	tmp_vm->Use_UEFI( old_vm->Use_UEFI() );
 	tmp_vm->Set_UEFI_CODE_File( old_vm->Get_UEFI_CODE_File() );
 	tmp_vm->Set_UEFI_VARS_File( old_vm->Get_UEFI_VARS_File() );
-	tmp_vm->Use_VirtIO_RNG( old_vm->Use_VirtIO_RNG() );
-	tmp_vm->Use_VirtIO_Balloon( old_vm->Use_VirtIO_Balloon() );
-	tmp_vm->Use_VirtIO_Keyboard( old_vm->Use_VirtIO_Keyboard() );
 	tmp_vm->Use_USB_Hub( old_vm->Use_USB_Hub() );
 	tmp_vm->Set_Win11_Lifecycle_Mode( old_vm->Get_Win11_Lifecycle_Mode() );
 	tmp_vm->Use_Intel_MacOS_Profile( ui_ao.CH_Intel_MacOS_Profile->isChecked() ||
@@ -1380,6 +1566,30 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
 
 	// Show QEMU Window Without a Frame and Window Decorations
 	tmp_vm->Use_No_Frame( ui.CH_No_Frame->isChecked() );
+
+	// Guest display: embedded SPICE/VNC vs separate QEMU SDL/GTK window
+	if( ui.RB_Display_Nographic->isChecked() )
+	{
+		tmp_vm->Set_Display_Window_Mode( QStringLiteral( "native" ) );
+		tmp_vm->Set_Display_Backend( QStringLiteral( "nographic" ) );
+	}
+	else if( ui.RB_Display_Embedded->isChecked() )
+	{
+		tmp_vm->Set_Display_Window_Mode( QStringLiteral( "embedded" ) );
+		tmp_vm->Set_Display_Backend( QString() );
+	}
+	else if( ui.RB_Display_Native->isChecked() )
+	{
+		tmp_vm->Set_Display_Window_Mode( QStringLiteral( "native" ) );
+		const int bi = ui.CB_Display_Backend->currentIndex();
+		static const char *backends[] = { "", "sdl", "gtk", "none", "curses", "egl-headless" };
+		tmp_vm->Set_Display_Backend( bi >= 0 && bi < 6 ? QString::fromLatin1( backends[bi] ) : QString() );
+	}
+	else
+	{
+		tmp_vm->Set_Display_Window_Mode( QStringLiteral( "auto" ) );
+		tmp_vm->Set_Display_Backend( QString() );
+	}
 
 	// Use Ctrl-Alt-Shift to Grab Mouse (Instead of Ctrl-Alt)
 	tmp_vm->Use_Alt_Grab( ui.CH_Alt_Grab->isChecked() );
@@ -1821,10 +2031,23 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 
 	if( tmp_vm->Get_Audio_Cards().Audio_USB ) ui.CH_USB_Audio->setChecked( true );
 	else ui.CH_USB_Audio->setChecked( false );
+	{
+		const QString ab = tmp_vm->Get_Audiodev_Backend();
+		int ai = 0;
+		if( ! ab.isEmpty() )
+		{
+			ai = ui.CB_Audiodev_Backend->findText( ab );
+			if( ai < 0 ) ai = 0;
+		}
+		ui.CB_Audiodev_Backend->setCurrentIndex( ai );
+		ui.SB_Audiodev_Timer_Period->setValue( tmp_vm->Get_Audiodev_Timer_Period() );
+	}
 
 	// Disk bus (HDA)
 	{
-		int disk_idx = 0; // VirtIO default
+		// Default IDE — VirtIO is invisible to XP/OS/2/ReactOS/DOS installers.
+		// (Old default was VirtIO; wizard Apply then rewrote every new VM to VirtIO.)
+		int disk_idx = 3;
 		if( tmp_vm->Get_HDA().Get_Enabled() && tmp_vm->Get_HDA().Get_Native_Mode() )
 		{
 			switch( tmp_vm->Get_HDA().Get_Native_Device().Get_Interface() )
@@ -1834,8 +2057,15 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 				case VM::DI_SCSI: disk_idx = 2; break;
 				case VM::DI_IDE: disk_idx = 3; break;
 				case VM::DI_SD: disk_idx = 4; break;
-				default: disk_idx = 0; break;
+				case VM::DI_NVMe: disk_idx = 5; break;
+				default: disk_idx = 3; break;
 			}
+		}
+		else if( tmp_vm->Get_Computer_Type().contains( QLatin1String( "aarch64" ), Qt::CaseInsensitive ) ||
+		         tmp_vm->Get_Computer_Type().contains( QLatin1String( "qemu-system-arm" ), Qt::CaseInsensitive ) ||
+		         tmp_vm->Get_Machine_Type().compare( QLatin1String( "virt" ), Qt::CaseInsensitive ) == 0 )
+		{
+			disk_idx = 0; // virt machines have no IDE
 		}
 		ui.CB_Disk_Interface->setCurrentIndex( disk_idx );
 	}
@@ -1862,6 +2092,67 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 	ui.CH_Fullscreen->setChecked( tmp_vm->Use_Fullscreen_Mode() );
 	ui_ao.CH_ACPI->setChecked( tmp_vm->Use_ACPI() );
 	ui_ao.CH_Force_TCG->setChecked( tmp_vm->Use_Force_TCG() );
+	ui_ao.CH_Pass_Through_Gamepads->setChecked( tmp_vm->Use_Pass_Through_Gamepads() );
+	ui_ao.CH_Emulate_USB_Gamepad->setChecked( tmp_vm->Use_Emulate_USB_Gamepad() );
+	ui_ao.CH_No_Defaults->setChecked( tmp_vm->Use_No_Defaults() );
+	ui_ao.CH_VirtIO_Balloon->setChecked( tmp_vm->Use_VirtIO_Balloon() );
+	ui_ao.CH_VirtIO_RNG->setChecked( tmp_vm->Use_VirtIO_RNG() );
+	ui_ao.CH_VirtIO_Keyboard->setChecked( tmp_vm->Use_VirtIO_Keyboard() );
+	{
+		const QString clk = tmp_vm->Get_RTC_Clock().trimmed().toLower();
+		if( clk == QLatin1String( "vm" ) ) ui_ao.CB_RTC_Clock->setCurrentIndex( 1 );
+		else if( clk == QLatin1String( "rt" ) ) ui_ao.CB_RTC_Clock->setCurrentIndex( 2 );
+		else ui_ao.CB_RTC_Clock->setCurrentIndex( 0 );
+	}
+	ui_ao.CH_IOThread->setChecked( tmp_vm->Use_IOThread() );
+	ui_ao.CH_Modern_Netdev->setChecked( tmp_vm->Use_Modern_Netdev() );
+	ui_ao.Edit_UUID->setText( tmp_vm->Get_UUID() );
+	ui_ao.Edit_BIOS_File->setText( tmp_vm->Get_BIOS_File() );
+	ui_ao.Edit_Mem_Path->setText( tmp_vm->Get_Mem_Path() );
+	ui_ao.CH_Mem_Prealloc->setChecked( tmp_vm->Use_Mem_Prealloc() );
+	ui_ao.Edit_Machine_Extra_Props->setText( tmp_vm->Get_Machine_Extra_Props() );
+	ui_ao.CH_NUMA->setChecked( tmp_vm->Use_NUMA() );
+	ui_ao.SB_NUMA_Nodes->setValue( tmp_vm->Get_NUMA_Nodes() );
+	{
+		const QString wm = tmp_vm->Get_Watchdog_Model();
+		int wi = 0;
+		if( wm == QLatin1String( "i6300esb" ) ) wi = 1;
+		else if( wm == QLatin1String( "ib700" ) ) wi = 2;
+		ui_ao.CB_Watchdog_Model->setCurrentIndex( wi );
+		const QString wa = tmp_vm->Get_Watchdog_Action();
+		int ai = ui_ao.CB_Watchdog_Action->findText( wa );
+		ui_ao.CB_Watchdog_Action->setCurrentIndex( ai >= 0 ? ai : 0 );
+	}
+	{
+		const QString tt = tmp_vm->Get_TPM_Type();
+		if( tt == QLatin1String( "emulator" ) ) ui_ao.CB_TPM_Type->setCurrentIndex( 1 );
+		else if( tt == QLatin1String( "passthrough" ) ) ui_ao.CB_TPM_Type->setCurrentIndex( 2 );
+		else ui_ao.CB_TPM_Type->setCurrentIndex( 0 );
+		ui_ao.Edit_TPM_Path->setText( tmp_vm->Get_TPM_Path() );
+	}
+	ui_ao.CH_Secret_Object->setChecked( tmp_vm->Use_Secret_Object() );
+	ui_ao.Edit_Secret_ID->setText( tmp_vm->Get_Secret_ID() );
+	ui_ao.Edit_Secret_File->setText( tmp_vm->Get_Secret_File() );
+	ui_ao.Edit_Secret_Data->setText( tmp_vm->Get_Secret_Data() );
+	ui_ao.Edit_Incoming_URI->setText( tmp_vm->Get_Incoming_URI() );
+	ui_ao.CH_Modern_Chardev->setChecked( tmp_vm->Use_Modern_Chardev() );
+	ui_ao.CH_Use_Blockdev->setChecked( tmp_vm->Use_Blockdev() );
+	AO_Blockdev_Extra_Lines = tmp_vm->Get_Blockdev_Extra_Lines();
+	ui_ao.CH_NUMA_Memdev->setChecked( tmp_vm->Use_NUMA_Memdev() );
+	ui_ao.CH_SMBIOS_Type0->setChecked( tmp_vm->Use_SMBIOS_Type0() );
+	ui_ao.Edit_SMBIOS_Vendor->setText( tmp_vm->Get_SMBIOS_Vendor() );
+	ui_ao.Edit_SMBIOS_Version->setText( tmp_vm->Get_SMBIOS_Version() );
+	ui_ao.Edit_SMBIOS_Date->setText( tmp_vm->Get_SMBIOS_Date() );
+	ui_ao.CH_SMBIOS_Type1->setChecked( tmp_vm->Use_SMBIOS_Type1() );
+	ui_ao.Edit_SMBIOS_Manufacturer->setText( tmp_vm->Get_SMBIOS_Manufacturer() );
+	ui_ao.Edit_SMBIOS_Product->setText( tmp_vm->Get_SMBIOS_Product() );
+	ui_ao.Edit_SMBIOS_Type1_Version->setText( tmp_vm->Get_SMBIOS_Type1_Version() );
+	ui_ao.Edit_SMBIOS_Serial->setText( tmp_vm->Get_SMBIOS_Serial() );
+	ui_ao.Edit_SMBIOS_File->setText( tmp_vm->Get_SMBIOS_File() );
+	ui_ao.Edit_FW_CFG_Lines->setPlainText( tmp_vm->Get_FW_CFG_Lines() );
+	ui_ao.Edit_ICount->setText( tmp_vm->Get_ICount() );
+	ui_ao.Edit_Sandbox->setText( tmp_vm->Get_Sandbox() );
+	Refresh_Gamepad_List( tmp_vm->Get_Gamepad_Filter_IDs() );
 
 	ui_ao.CH_Intel_MacOS_Profile->setChecked( tmp_vm->Use_Intel_MacOS_Profile() );
 	ui_ao.Edit_OpenCore_Boot_Path->setText( tmp_vm->Get_OpenCore_Boot_Path() );
@@ -1889,17 +2180,26 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 			ui.CB_Intel_Mac_GPU->setCurrentIndex( ix );
 	}
 
-	// Repair blank/generic icons for Intel macOS VMs created before macOS icon support
-	if( tmp_vm->Use_Intel_MacOS_Profile() )
+	// Repair blank/missing icons for Intel macOS VMs (old absolute paths were
+	// mangled on load by prepending AQEMU_Data_Folder).
+	if( tmp_vm->Use_Intel_MacOS_Profile() ||
+	    tmp_vm->Get_Machine_Name().contains( QLatin1String( "macOS" ), Qt::CaseInsensitive ) ||
+	    tmp_vm->Get_Machine_Name().contains( QLatin1String( "Mac OS" ), Qt::CaseInsensitive ) )
 	{
 		const QString ic = tmp_vm->Get_Icon_Path();
-		if( ic.isEmpty() || ic.endsWith( QLatin1String( "other.png" ) ) )
+		const bool missing =
+			ic.isEmpty() ||
+			ic.endsWith( QLatin1String( "other.png" ) ) ||
+			( ! ic.startsWith( QLatin1String( ":/" ) ) && ! QFile::exists( ic ) ) ||
+			QIcon( ic ).isNull();
+		if( missing )
 		{
-			tmp_vm->Set_Icon_Path( QStringLiteral( ":/default_macos.png" ) );
+			const QString mac_icon = QStringLiteral( ":/default_macos.png" );
+			tmp_vm->Set_Icon_Path( mac_icon );
 			if( ui.Machines_List->currentItem() )
 			{
-				ui.Machines_List->currentItem()->setIcon( QIcon( QStringLiteral( ":/default_macos.png" ) ) );
-				ui.Machines_List->currentItem()->setData( 128, QStringLiteral( ":/default_macos.png" ) );
+				ui.Machines_List->currentItem()->setIcon( QIcon( mac_icon ) );
+				ui.Machines_List->currentItem()->setData( 128, mac_icon );
 			}
 			tmp_vm->Save_VM();
 		}
@@ -1991,6 +2291,36 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 	ui_ao.CH_Use_User_Binary->setChecked( tmp_vm->Get_Use_User_Emulator_Binary() );
 
 	// QEMU Window Option
+
+	// Guest display chrome
+	{
+		const QString m = tmp_vm->Get_Display_Window_Mode().trimmed().toLower();
+		const QString db = tmp_vm->Get_Display_Backend().trimmed().toLower();
+		ui.RB_Display_Auto->blockSignals( true );
+		ui.RB_Display_Embedded->blockSignals( true );
+		ui.RB_Display_Native->blockSignals( true );
+		ui.RB_Display_Nographic->blockSignals( true );
+		if( db == QLatin1String( "nographic" ) )
+			ui.RB_Display_Nographic->setChecked( true );
+		else if( m == QLatin1String( "embedded" ) )
+			ui.RB_Display_Embedded->setChecked( true );
+		else if( m == QLatin1String( "native" ) )
+			ui.RB_Display_Native->setChecked( true );
+		else
+			ui.RB_Display_Auto->setChecked( true );
+		ui.RB_Display_Auto->blockSignals( false );
+		ui.RB_Display_Embedded->blockSignals( false );
+		ui.RB_Display_Native->blockSignals( false );
+		ui.RB_Display_Nographic->blockSignals( false );
+		int bi = 0;
+		if( db == QLatin1String( "sdl" ) ) bi = 1;
+		else if( db == QLatin1String( "gtk" ) ) bi = 2;
+		else if( db == QLatin1String( "none" ) ) bi = 3;
+		else if( db == QLatin1String( "curses" ) ) bi = 4;
+		else if( db == QLatin1String( "egl-headless" ) ) bi = 5;
+		ui.CB_Display_Backend->setCurrentIndex( bi );
+		Update_Display_Window_Mode_Hint();
+	}
 
 	// Show QEMU Window Without a Frame and Window Decorations
 	ui.CH_No_Frame->setChecked( tmp_vm->Use_No_Frame() );
@@ -2471,7 +2801,8 @@ void Main_Window::VM_State_Changed( Virtual_Machine *vm, VM::VM_State s )
 			if( s == VM::VMS_Power_Off || s == VM::VMS_In_Error )
 				Session_User_Detached = false;
 		}
-		else if( s == VM::VMS_Running || s == VM::VMS_Pause )
+		else if( ( s == VM::VMS_Running || s == VM::VMS_Pause ) &&
+		         ! vm->Prefer_Native_VGA_Window() )
 		{
 			// Refresh attach while viewing this VM (e.g. Preparing → Running).
 			// Do not auto-reopen after the user explicitly left with Exit view.
@@ -2520,7 +2851,10 @@ void Main_Window::Enter_Session_Mode( Virtual_Machine *vm )
 	const int vnc_tcp = vm->Get_Embedded_VNC_Port() > 0
 		? vm->Get_Embedded_VNC_Port()
 		: ( vm->Get_Embedded_Display_Port() + Settings.value( "First_VNC_Port", "5910" ).toString().toInt() );
-	const QString backend = Settings.value( "Embedded_Display_Backend", "spice" ).toString();
+	// SPICE often blacks out DOS/Win9x/XP text-mode setup; VNC shows it reliably.
+	QString backend = Settings.value( "Embedded_Display_Backend", "spice" ).toString();
+	if( vm->Is_Legacy_Windows_Text_Mode_Guest() )
+		backend = QStringLiteral( "vnc" );
 
 	Session_Widget->Attach_VM( vm, vm->Get_QMP(),
 	                           QStringLiteral( "127.0.0.1" ),
@@ -2544,7 +2878,9 @@ void Main_Window::Enter_Session_Mode_Preparing( Virtual_Machine *vm )
 	ui.Tool_Bar_VM_Manage->setVisible( false );
 	ui.Tool_Bar_VM_Control->setVisible( false );
 
-	const QString backend = Settings.value( "Embedded_Display_Backend", "spice" ).toString();
+	QString backend = Settings.value( "Embedded_Display_Backend", "spice" ).toString();
+	if( vm->Is_Legacy_Windows_Text_Mode_Guest() )
+		backend = QStringLiteral( "vnc" );
 	// Ports are allocated during Start — show the session shell first so QEMU
 	// does not race ahead of the UI.
 	Session_Widget->Attach_VM( vm, nullptr,
@@ -2599,6 +2935,7 @@ void Main_Window::Update_Connect_Action()
 	const bool can_connect =
 		vm &&
 		Settings.value( "Embedded_Session", "yes" ).toString() == "yes" &&
+		! vm->Prefer_Native_VGA_Window() &&
 		( vm->Get_State() == VM::VMS_Running || vm->Get_State() == VM::VMS_Pause ) &&
 		!( Session_Mode_Active && Session_VM == vm );
 
@@ -3076,6 +3413,42 @@ void Main_Window::Update_Display_Resolution_Enabled()
 			"Intel macOS: AQEMU patches OpenCore UEFI Resolution to this size on start "
 			"(System Settings rarely lists modes). Native uses your host physical pixels "
 			"(DPI-aware), up to 4096×2160. Reboot the guest after changing." ) );
+	}
+}
+
+void Main_Window::On_Display_Window_Mode_Toggled( bool on )
+{
+	if( ! on )
+		return;
+	Update_Display_Window_Mode_Hint();
+	VM_Changed();
+}
+
+void Main_Window::Update_Display_Window_Mode_Hint()
+{
+	if( ! ui.Label_Display_Window_Mode_Hint )
+		return;
+
+	if( ui.RB_Display_Embedded->isChecked() )
+	{
+		ui.Label_Display_Window_Mode_Hint->setText( tr(
+			"Next Start opens the guest inside AQEMU. Use this to leave a separate SDL window." ) );
+	}
+	else if( ui.RB_Display_Nographic->isChecked() )
+	{
+		ui.Label_Display_Window_Mode_Hint->setText( tr(
+			"Next Start uses -nographic (serial console only). Connect via the monitor/serial tab or an external terminal." ) );
+	}
+	else if( ui.RB_Display_Native->isChecked() )
+	{
+		ui.Label_Display_Window_Mode_Hint->setText( tr(
+			"Next Start opens a separate QEMU window. Pick sdl/gtk/none/curses under “QEMU -display backend”." ) );
+	}
+	else
+	{
+		ui.Label_Display_Window_Mode_Hint->setText( tr(
+			"Auto: DOS / Win9x / XP-family get a separate QEMU window; other VMs use the embedded viewer. "
+			"Network disks: Device Manager file path can be iscsi://, rbd:, nbd:, gluster, or ssh://." ) );
 	}
 }
 
@@ -3778,6 +4151,13 @@ void Main_Window::on_actionAbout_AQEMU_triggered()
 	About_Window( this ).exec();
 }
 
+
+void Main_Window::on_actionQEMU_Help_Browser_triggered()
+{
+	QEMU_Help_Browser dlg( this );
+	dlg.exec();
+}
+
 void Main_Window::on_actionAbout_Qt_triggered()
 {
 	QApplication::aboutQt();
@@ -3965,6 +4345,7 @@ void Main_Window::on_actionShow_Advanced_Settings_Window_triggered()
 	if( ad_set.exec() == QDialog::Accepted )
 	{
 		Save_Settings();
+		Update_System_Tray();
 
 		// Use Log
 		if( Settings.value( "Log/Save_In_File", "yes" ).toString() == "yes" )
@@ -4193,12 +4574,19 @@ void Main_Window::on_actionPower_On_triggered()
 	if( ! Boot_Is_Correct(cur_vm) ) return;
 
 	// Show the session window first, then start QEMU (display connects when Running).
-	if( Settings.value( "Embedded_Session", "yes" ).toString() == "yes" )
+	// Legacy Win9x/XP use QEMU's own SDL/GTK window — skip embed (VNC can't do text mode).
+	if( Settings.value( "Embedded_Session", "yes" ).toString() == "yes" &&
+	    ! cur_vm->Prefer_Native_VGA_Window() )
 		Enter_Session_Mode_Preparing( cur_vm );
 
-    if( ! AQEMU_Service::get().call( "start" , cur_vm ) )
+	bool started = false;
+	AQ_Run_With_Busy_Dialog( this, tr( "Starting virtual machine…" ), [ & ]() {
+		started = AQEMU_Service::get().call( "start", cur_vm );
+	} );
+
+	if( ! started )
 	{
-        AQError( "void Main_Window::on_action_Power_On_triggered()", "Cannot Start VM!" );
+		AQError( "void Main_Window::on_action_Power_On_triggered()", "Cannot Start VM!" );
 		if( Session_Mode_Active && Session_VM == cur_vm )
 			Exit_Session_Mode();
 	}
@@ -5305,6 +5693,7 @@ void Main_Window::Discard_Changes(QDialog* dialog)
 
 void Main_Window::on_TB_Show_Advanced_Options_Window_clicked()
 {
+	Refresh_Gamepad_List( Get_Current_VM() ? Get_Current_VM()->Get_Gamepad_Filter_IDs() : QStringList() );
     Discard_Changes ( Advanced_Options );
 }
 
@@ -6034,6 +6423,58 @@ void Main_Window::on_TB_Browse_TFTP_clicked()
 void Main_Window::adv_on_CH_Start_Date_toggled( bool on )
 {
 	if( on ) ui.CH_Local_Time->setChecked( false );
+}
+
+void Main_Window::AO_Refresh_Gamepads_clicked()
+{
+	QStringList selected;
+	for( int i = 0; i < ui_ao.LW_Gamepads->count(); ++i )
+	{
+		QListWidgetItem *it = ui_ao.LW_Gamepads->item( i );
+		if( it && it->checkState() == Qt::Checked )
+			selected << it->data( Qt::UserRole ).toString();
+	}
+	Refresh_Gamepad_List( selected );
+}
+
+void Main_Window::AO_Edit_Blockdev_Graph_clicked()
+{
+	Blockdev_Graph_Window dlg( this );
+	dlg.Set_Lines( AO_Blockdev_Extra_Lines );
+	if( dlg.exec() == QDialog::Accepted )
+		AO_Blockdev_Extra_Lines = dlg.Get_Lines();
+}
+
+void Main_Window::Refresh_Gamepad_List( const QStringList &selected_ids )
+{
+	QSet<QString> selected;
+	for( int i = 0; i < selected_ids.count(); ++i )
+		selected.insert( selected_ids[i].trimmed().toLower() );
+
+	ui_ao.LW_Gamepads->clear();
+	const QList<VM_USB> pads = System_Info::Get_Host_Gamepads();
+	if( pads.isEmpty() )
+	{
+		QListWidgetItem *empty = new QListWidgetItem( tr( "(No USB gamepads detected — plug in and Refresh)" ) );
+		empty->setFlags( Qt::NoItemFlags );
+		ui_ao.LW_Gamepads->addItem( empty );
+		return;
+	}
+
+	for( int i = 0; i < pads.count(); ++i )
+	{
+		const QString vid = pads[i].Get_Vendor_ID().toLower();
+		const QString pid = pads[i].Get_Product_ID().toLower();
+		const QString key = vid + QLatin1Char( ':' ) + pid;
+		const QString label = QStringLiteral( "%1 (%2)" )
+			.arg( pads[i].Get_Product_Name().isEmpty() ? tr( "USB Gamepad" ) : pads[i].Get_Product_Name() )
+			.arg( key );
+		QListWidgetItem *it = new QListWidgetItem( label );
+		it->setFlags( it->flags() | Qt::ItemIsUserCheckable );
+		it->setData( Qt::UserRole, key );
+		it->setCheckState( selected.contains( key ) ? Qt::Checked : Qt::Unchecked );
+		ui_ao.LW_Gamepads->addItem( it );
+	}
 }
 
 void Main_Window::on_TB_VNC_Unix_Socket_Browse_clicked()

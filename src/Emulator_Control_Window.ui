@@ -57,6 +57,8 @@
     <addaction name="separator"/>
     <addaction name="actionCommit"/>
     <addaction name="separator"/>
+    <addaction name="actionMigrate"/>
+    <addaction name="separator"/>
     <addaction name="actionPause_VM"/>
     <addaction name="actionPower_Off"/>
     <addaction name="actionReset_VM"/>
@@ -311,6 +313,14 @@
    </property>
    <property name="text">
     <string>&amp;Commit</string>
+   </property>
+  </action>
+  <action name="actionMigrate">
+   <property name="text">
+    <string>&amp;Migrate…</string>
+   </property>
+   <property name="toolTip">
+    <string>Start outgoing QMP migrate to a URI (e.g. tcp:host:4444)</string>
    </property>
   </action>
   <action name="actionCtrl_Alt_Delete">

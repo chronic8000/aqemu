@@ -47,6 +47,7 @@
 #include "VM_Devices.h"
 #include "Service.h"
 #include "QMP_Client.h"
+#include "Migrate_Progress_Dialog.h"
 
 Emulator_Control_Window::Emulator_Control_Window( QWidget *parent )
 	: QMainWindow( parent )
@@ -779,6 +780,30 @@ void Emulator_Control_Window::on_actionCommit_triggered()
 	emit Ready_Read_Command( "commit all" );
 }
 
+void Emulator_Control_Window::on_actionMigrate_triggered()
+{
+	if( ! Cur_VM || ! Cur_VM->Get_QMP() || ! Cur_VM->Get_QMP()->Is_Connected() )
+	{
+		QMessageBox::warning( this, tr("Migrate"),
+		                      tr("QMP is not connected. Start the VM with AQEMU so migration can be controlled.") );
+		return;
+	}
+
+	bool ok = false;
+	const QString uri = QInputDialog::getText(
+		this, tr("Migrate VM"),
+		tr("Destination URI (receiver must use -incoming):\n"
+		   "Examples: tcp:192.168.1.10:4444  unix:/tmp/migrate.sock"),
+		QLineEdit::Normal,
+		QStringLiteral( "tcp:127.0.0.1:4444" ),
+		&ok ).trimmed();
+	if( ! ok || uri.isEmpty() )
+		return;
+
+	Migrate_Progress_Dialog dlg( Cur_VM->Get_QMP(), uri, this );
+	dlg.exec();
+}
+
 void Emulator_Control_Window::on_actionPause_VM_triggered()
 {
     AQEMU_Service::get().call("pause",Cur_VM);
@@ -1018,16 +1043,19 @@ void Emulator_Control_Window::Delete_USB_From_VM()
 		{
 			if( usb_item->data().toString() == ac_list[ix]->data().toString() )
 			{
-				// Delete from Running VM
-				QString bus_addr; // FIXME = Cur_VM->Get_USB_Bus_Address( usb_item->data().toString() );
+				// Stable id from Add_USB_To_VM (device_add usb-host,...,id=aqusb_VID_PID)
+				const QString id_line = usb_item->data().toString();
+				const QStringList vp = id_line.split( QLatin1Char( ':' ) );
+				if( vp.count() == 2 )
+				{
+					const QString devid = QStringLiteral( "aqusb_%1_%2" )
+						.arg( vp.at( 0 ).toLower(), vp.at( 1 ).toLower() );
+					emit Ready_Read_Command( QStringLiteral( "device_del " ) + devid );
+				}
+				else if( ! id_line.isEmpty() )
+					emit Ready_Read_Command( QStringLiteral( "usb_del " ) + id_line );
 				
-				if( bus_addr.isEmpty() ) return;
-				
-				emit Ready_Read_Command( "usb_del " + bus_addr );
-				
-				// Delete item
 				ui.menuDisconnect->removeAction( usb_item );
-				
 				return;
 			}
 		}
@@ -1070,8 +1098,20 @@ void Emulator_Control_Window::Add_USB_To_VM()
 		
 		ui.menuDisconnect->addAction( dis_act );
 		
-		// Add To Running VM
-		emit Ready_Read_Command( "usb_add host:" + usb_item->data().toString() );
+		// Prefer device_add with a stable id so disconnect can device_del later.
+		const QString id_line = usb_item->data().toString();
+		const QStringList vp = id_line.split( QLatin1Char( ':' ) );
+		if( vp.count() == 2 )
+		{
+			const QString vid = vp.at( 0 ).toLower();
+			const QString pid = vp.at( 1 ).toLower();
+			const QString devid = QStringLiteral( "aqusb_%1_%2" ).arg( vid, pid );
+			emit Ready_Read_Command(
+				QStringLiteral( "device_add usb-host,vendorid=0x%1,productid=0x%2,id=%3" )
+					.arg( vid, pid, devid ) );
+		}
+		else
+			emit Ready_Read_Command( QStringLiteral( "usb_add host:" ) + id_line );
 	}
 	else
 	{
@@ -1154,11 +1194,16 @@ void Emulator_Control_Window::on_actionUSB_Disconnect_All_Devices_triggered()
 		if( ac_list[dx]->data().isNull() == false &&
 			ac_list[dx]->data().isValid() == true )
 		{
-			QString bus_addr; // FIXME = Cur_VM->Get_USB_Bus_Address( ac_list[dx]->data().toString() );
-			
-			if( bus_addr.isEmpty() ) return;
-			
-			emit Ready_Read_Command( "usb_del " + bus_addr );
+			const QString id_line = ac_list[dx]->data().toString();
+			const QStringList vp = id_line.split( QLatin1Char( ':' ) );
+			if( vp.count() == 2 )
+			{
+				const QString devid = QStringLiteral( "aqusb_%1_%2" )
+					.arg( vp.at( 0 ).toLower(), vp.at( 1 ).toLower() );
+				emit Ready_Read_Command( QStringLiteral( "device_del " ) + devid );
+			}
+			else if( ! id_line.isEmpty() )
+				emit Ready_Read_Command( QStringLiteral( "usb_del " ) + id_line );
 		}
 	}
 	

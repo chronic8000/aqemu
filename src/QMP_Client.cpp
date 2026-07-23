@@ -64,6 +64,14 @@ bool QMP_Client::Is_Connected() const
 	return Socket->state() == QAbstractSocket::ConnectedState && Capabilities_Sent;
 }
 
+bool QMP_Client::Is_Connecting() const
+{
+	const QAbstractSocket::SocketState st = Socket->state();
+	if( st == QAbstractSocket::HostLookupState || st == QAbstractSocket::ConnectingState )
+		return true;
+	return st == QAbstractSocket::ConnectedState && ! Capabilities_Sent;
+}
+
 void QMP_Client::On_Connected()
 {
 	AQDebug( "QMP_Client::On_Connected()", "TCP connected, waiting for greeting…" );
@@ -221,4 +229,39 @@ bool QMP_Client::Human_Monitor( const QString &command_line )
 	QJsonObject args;
 	args.insert( "command-line", command_line );
 	return Send_Command( "human-monitor-command", args );
+}
+
+bool QMP_Client::Migrate( const QString &uri, bool blk, bool inc )
+{
+	if( uri.trimmed().isEmpty() )
+		return false;
+	QJsonObject args;
+	args.insert( "uri", uri.trimmed() );
+	if( blk )
+		args.insert( "blk", true );
+	if( inc )
+		args.insert( "inc", true );
+	return Send_Command( "migrate", args );
+}
+
+bool QMP_Client::Query_Migrate()
+{
+	return Send_Command( "query-migrate" );
+}
+
+bool QMP_Client::Migrate_Cancel()
+{
+	return Send_Command( "migrate_cancel" );
+}
+
+void QMP_Client::Connect_Async( const QString &host, quint16 port )
+{
+	if( Is_Connected() || Is_Connecting() )
+		return;
+	if( Socket->state() != QAbstractSocket::UnconnectedState )
+		Disconnect();
+	Port_ = port;
+	Capabilities_Sent = false;
+	Buffer.clear();
+	Socket->connectToHost( host, port );
 }

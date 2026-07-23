@@ -222,12 +222,15 @@ void VM_Wizard_Window::Populate_OS_Tree()
 	if( ! Tree_OS ) return;
 	Tree_OS->clear();
 	QJsonObject os = Wizard_Trees.value( "operating_systems" ).toObject();
-	for( QJsonObject::const_iterator it = os.constBegin(); it != os.constEnd(); ++it )
+	QStringList families = os.keys();
+	families.sort( Qt::CaseInsensitive );
+	for( const QString &fam : families )
 	{
 		QTreeWidgetItem *family = new QTreeWidgetItem( Tree_OS );
-		family->setText( 0, it.key() );
+		family->setText( 0, fam );
 		family->setFlags( family->flags() & ~Qt::ItemIsSelectable );
-		QJsonArray children = it.value().toArray();
+		QJsonArray children = os.value( fam ).toArray();
+		// Keep JSON order (Microsoft is chronological; others are A–Z in the file)
 		for( int i = 0; i < children.size(); ++i )
 		{
 			QTreeWidgetItem *leaf = new QTreeWidgetItem( family );
@@ -373,16 +376,30 @@ bool VM_Wizard_Window::Apply_Selected_Computer_Type( const QString &target )
 	QString qemu_name = "qemu-system-" + target;
 	if( ! All_Systems.contains( qemu_name ) )
 	{
-		// Try match by caption / partial key
+		// Prefer exact qemu-system-<target>; only then fall back to suffix match
 		bool found = false;
+		const QString suffix = QStringLiteral( "qemu-system-" ) + target;
 		for( QMap<QString, Available_Devices>::const_iterator it = All_Systems.constBegin(); it != All_Systems.constEnd(); ++it )
 		{
-			if( it.key().contains( target, Qt::CaseInsensitive ) ||
-			    it.value().System.QEMU_Name.contains( target, Qt::CaseInsensitive ) )
+			if( it.key().compare( suffix, Qt::CaseInsensitive ) == 0 ||
+			    it.value().System.QEMU_Name.compare( suffix, Qt::CaseInsensitive ) == 0 )
 			{
 				qemu_name = it.key();
 				found = true;
 				break;
+			}
+		}
+		if( ! found )
+		{
+			for( QMap<QString, Available_Devices>::const_iterator it = All_Systems.constBegin(); it != All_Systems.constEnd(); ++it )
+			{
+				if( it.key().endsWith( target, Qt::CaseInsensitive ) ||
+				    it.value().System.QEMU_Name.endsWith( target, Qt::CaseInsensitive ) )
+				{
+					qemu_name = it.key();
+					found = true;
+					break;
+				}
 			}
 		}
 		if( ! found )
@@ -396,16 +413,59 @@ bool VM_Wizard_Window::Apply_Selected_Computer_Type( const QString &target )
 
 	Current_Devices = &All_Systems[ qemu_name ];
 	New_VM->Set_Computer_Type( Current_Devices->System.QEMU_Name );
-	Selected_Target = target;
+	// Keep Selected_Target aligned with the resolved binary (not a fuzzy partial)
+	Selected_Target = Current_Devices->System.QEMU_Name;
+	Selected_Target.remove( QStringLiteral( "qemu-system-" ) );
 
-	// Sync combo for Generate path
-	ui.RB_Generate_VM->setChecked( true );
+	// Sync Architecture list label when known
+	{
+		QJsonObject targets = Wizard_Trees.value( "architecture_targets" ).toObject();
+		for( QJsonObject::const_iterator it = targets.constBegin(); it != targets.constEnd(); ++it )
+		{
+			if( it.value().toString() == Selected_Target )
+			{
+				Selected_Arch_Name = it.key();
+				break;
+			}
+		}
+	}
+
+	// Sync combo for Generate path — set Computer Type BEFORE checking Generate,
+	// so on_RB_Generate_VM_toggled cannot stomp a 32-bit OS default with 64-bit.
+	bool matched = false;
 	for( int ix = 0; ix < ui.CB_Computer_Type->count(); ++ix )
 	{
 		if( ui.CB_Computer_Type->itemText(ix) == Current_Devices->System.Caption )
 		{
 			ui.CB_Computer_Type->setCurrentIndex( ix );
+			matched = true;
 			break;
+		}
+	}
+	ui.RB_Generate_VM->setChecked( true );
+	if( ! matched )
+	{
+		// Caption may differ after emulator probe; try QEMU name substring
+		for( int ix = 0; ix < ui.CB_Computer_Type->count(); ++ix )
+		{
+			const QString text = ui.CB_Computer_Type->itemText( ix );
+			if( text.contains( Selected_Target, Qt::CaseInsensitive ) ||
+			    ( Selected_Target == QLatin1String( "i386" ) &&
+			      ( text.contains( QLatin1String( "32Bit" ), Qt::CaseInsensitive ) ||
+			        text.contains( QLatin1String( "i386" ), Qt::CaseInsensitive ) ) ) ||
+			    ( Selected_Target == QLatin1String( "x86_64" ) &&
+			      ( text.contains( QLatin1String( "64Bit" ), Qt::CaseInsensitive ) ||
+			        text.contains( QLatin1String( "x86_64" ), Qt::CaseInsensitive ) ) ) )
+			{
+				// Avoid matching x86_64 when looking for i386 via "x86"
+				if( Selected_Target == QLatin1String( "i386" ) &&
+				    ( text.contains( QLatin1String( "64Bit" ), Qt::CaseInsensitive ) ||
+				      text.contains( QLatin1String( "x86_64" ), Qt::CaseInsensitive ) ) )
+					continue;
+				ui.CB_Computer_Type->setCurrentIndex( ix );
+				matched = true;
+				break;
+			}
 		}
 	}
 	return true;
@@ -625,20 +685,27 @@ void VM_Wizard_Window::Update_Guest_Compat_Tip()
 	const QString archCaption = ui.CB_Computer_Type->currentText();
 	const QString os = Selected_OS_Name;
 
-	const bool legacy_win =
+	const bool legacy_x86_32 =
 		os == "Windows 95" || os == "Windows 98" || os == "Windows ME" ||
 		os == "Windows 1.x" || os == "Windows 2.x" || os == "Windows 3.x" ||
 		os == "Windows NT 3.x" || os == "Windows NT 4.0" ||
 		os == "MS-DOS" || os == "PC DOS" || os == "DR-DOS" ||
-		os == "Windows 2000" || os == "Windows XP" ||
-		os == "Windows Server 2000" || os == "Windows Server 2003";
+		os == "Windows 2000" ||
+		os == "Windows Server 2000" || os == "Windows Server 2003" ||
+		os == "Solaris x86 (32-bit)" || os == "OS/2" || os == "eComStation" ||
+		os == "ArcaOS" || os == "BeOS" ||
+		os == "KolibriOS" || os == "TempleOS" ||
+		os.contains( QLatin1String( "(32-bit)" ) ) ||
+		( os.startsWith( QLatin1String( "Windows XP" ) ) && ! os.contains( QLatin1String( "64-bit" ) ) ) ||
+		( os.startsWith( QLatin1String( "ReactOS" ) ) && ! os.contains( QLatin1String( "64-bit" ) ) );
 
-	if( legacy_win &&
+	if( legacy_x86_32 &&
 	    ( archCaption.contains( "x86_64", Qt::CaseInsensitive ) ||
 	      archCaption.contains( "64Bit", Qt::CaseInsensitive ) ) )
 	{
-		tip += tr( "\n\nWarning: %1 generally cannot run as an x86_64 guest. "
-		           "Prefer x86 (i386 PC)." ).arg( os.isEmpty() ? tr("This OS") : os );
+		tip += tr( "\n\nWarning: %1 is a 32-bit guest. "
+		           "Prefer IBM PC 32Bit / x86 (i386 PC), not 64-bit." )
+			.arg( os.isEmpty() ? tr("This OS") : os );
 	}
 
 	if( tip.isEmpty() )
@@ -676,7 +743,7 @@ void VM_Wizard_Window::Apply_Guest_Hardware_To_New_VM()
 			os == "Windows 1.x" || os == "Windows 2.x" || os == "Windows 3.x" ||
 			os == "Windows NT 3.x" || os == "Windows NT 4.0" ||
 			os == "MS-DOS" || os == "PC DOS" || os == "DR-DOS" ||
-			os == "Windows 2000" || os == "Windows XP" ||
+			os == "Windows 2000" || os.startsWith( QLatin1String( "Windows XP" ) ) ||
 			os == "Windows Server 2000" || os == "Windows Server 2003";
 		// Prior to ME: force pure TCG (WHPX hangs Win98 at splash).
 		const bool force_tcg_legacy =
@@ -688,7 +755,14 @@ void VM_Wizard_Window::Apply_Guest_Hardware_To_New_VM()
 		const bool modern_need_tablet =
 			os.contains( "Windows" ) || os.contains( "Linux" ) || os.contains( "BSD" ) ||
 			os.contains( "Haiku" ) || os.contains( "Ubuntu" ) || os.contains( "ChromeOS" ) ||
+			os.contains( "Chrome OS Flex" ) || os.contains( "SteamOS" ) ||
 			os.contains( "SerenityOS" ) || Selected_Target.contains( "aarch64" );
+
+		const bool xp_family =
+			os == "Windows 2000" || os.startsWith( QLatin1String( "Windows XP" ) ) ||
+			os == "Windows Server 2000" || os == "Windows Server 2003";
+		const bool xp_x64 = os.startsWith( QLatin1String( "Windows XP" ) ) &&
+		                    os.contains( QLatin1String( "64-bit" ) );
 
 		if( legacy_win )
 		{
@@ -697,8 +771,129 @@ void VM_Wizard_Window::Apply_Guest_Hardware_To_New_VM()
 			New_VM->Set_Mouse_Type( QStringLiteral( "ps2" ) );
 			New_VM->Set_Mouse_USB_Controller( QStringLiteral( "uhci" ) );
 			New_VM->Set_Mouse_USB_Version( 1 );
+			// XP text-mode setup: cirrus + SPICE = black after "inspecting hardware".
+			// std VGA + QEMU SDL window (auto display mode) works; Win9x keeps cirrus.
+			New_VM->Set_Video_Card( xp_family ? QStringLiteral( "std" )
+			                                 : QStringLiteral( "cirrus" ) );
+			New_VM->Use_ACPI( false );
+			// Win9x: keep FDD boot check (matches proven Win98 .aqemu); XP/2k: off.
+			New_VM->Use_Check_FDD_Boot_Sector( ! xp_family );
+			New_VM->Set_Display_Window_Mode( xp_family
+				? QStringLiteral( "embedded" )
+				: QStringLiteral( "auto" ) );
+
+			// No inbox VirtIO drivers — IDE or setup reports "no hard disks".
+			VM_HDD hda = New_VM->Get_HDA();
+			if( hda.Get_Enabled() )
+			{
+				VM_Native_Storage_Device native = hda.Get_Native_Device();
+				native.Use_Interface( true );
+				native.Set_Interface( VM::DI_IDE );
+				if( ! native.Use_File_Path() || native.Get_File_Path().trimmed().isEmpty() )
+				{
+					native.Use_File_Path( true );
+					native.Set_File_Path( hda.Get_File_Name() );
+				}
+				hda.Set_Native_Device( native );
+				New_VM->Set_HDA( hda );
+			}
+		}
+		if( xp_family )
+		{
+			// Dual CPU during XP CD setup commonly hangs after hardware inspection.
+			New_VM->Set_SMP_CPU_Count( 1 );
+			New_VM->Set_CPU_Type( xp_x64 ? QStringLiteral( "qemu64" )
+			                            : QStringLiteral( "pentium3" ) );
+			New_VM->Set_Machine_Type( QStringLiteral( "pc" ) );
+			// WHPX disables SMM → QEMU hides VGA text RAM → black XP setup screen.
+			New_VM->Use_Force_TCG( true );
+			New_VM->Set_Machine_Accelerator( VM::TCG );
+			New_VM->Set_Display_Window_Mode( QStringLiteral( "embedded" ) );
+			// QEMU 11+ vapic can BSOD XP; harmless on older QEMU.
+			if( ! New_VM->Get_Additional_Args().contains(
+				QLatin1String( "apic.vapic=off" ), Qt::CaseInsensitive ) )
+			{
+				const QString cur = New_VM->Get_Additional_Args().trimmed();
+				New_VM->Set_Additional_Args( cur.isEmpty()
+					? QStringLiteral( "-global apic.vapic=off" )
+					: ( cur + QLatin1String( " -global apic.vapic=off" ) ) );
+			}
+		}
+
+		const bool os2_family =
+			os == "OS/2" || os == "eComStation" || os == "ArcaOS";
+		if( os2_family )
+		{
+			// OS/2 LVM has no VirtIO; VirtIO + ACPI → "Error 9 returned from LVM.DLL".
+			New_VM->Set_Mouse_Type( QStringLiteral( "ps2" ) );
 			New_VM->Set_Video_Card( QStringLiteral( "cirrus" ) );
 			New_VM->Use_ACPI( false );
+			New_VM->Use_Check_FDD_Boot_Sector( false );
+			New_VM->Set_SMP_CPU_Count( 1 );
+			New_VM->Set_CPU_Type( QStringLiteral( "pentium3" ) );
+			New_VM->Set_Machine_Type( QStringLiteral( "pc" ) );
+			New_VM->Use_Force_TCG( true );
+			New_VM->Set_Machine_Accelerator( VM::TCG );
+			// Match proven OS/2 .aqemu (embedded session works with cirrus).
+			New_VM->Set_Display_Window_Mode( QStringLiteral( "embedded" ) );
+			Guest_NIC_Model = QStringLiteral( "rtl8139" );
+			{
+				VM::Sound_Cards audio;
+				audio.Audio_es1370 = true;
+				New_VM->Set_Audio_Cards( audio );
+			}
+			if( New_VM->Get_Memory_Size() < 512 )
+				New_VM->Set_Memory_Size( 512 );
+			VM_HDD hda = New_VM->Get_HDA();
+			if( hda.Get_Enabled() )
+			{
+				VM_Native_Storage_Device native = hda.Get_Native_Device();
+				native.Use_Interface( true );
+				native.Set_Interface( VM::DI_IDE );
+				if( ! native.Use_File_Path() || native.Get_File_Path().trimmed().isEmpty() )
+				{
+					native.Use_File_Path( true );
+					native.Set_File_Path( hda.Get_File_Name() );
+				}
+				hda.Set_Native_Device( native );
+				New_VM->Set_HDA( hda );
+			}
+		}
+
+		// reactos.org/wiki/QEMU — known-working QEMU profile for current releases.
+		if( os.startsWith( QLatin1String( "ReactOS" ) ) )
+		{
+			New_VM->Set_Machine_Type( QStringLiteral( "pc" ) );
+			New_VM->Set_SMP_CPU_Count( 1 );
+			New_VM->Set_CPU_Type( os.contains( QLatin1String( "64-bit" ) )
+				? QStringLiteral( "qemu64" )
+				: QStringLiteral( "pentium3" ) );
+			New_VM->Use_Force_TCG( true );
+			New_VM->Set_Machine_Accelerator( VM::TCG );
+			New_VM->Use_Local_Time( true );
+			New_VM->Use_Check_FDD_Boot_Sector( false );
+			// Bochs VESA (std) works OOB; Cirrus needs a special NT driver.
+			New_VM->Set_Video_Card( QStringLiteral( "std" ) );
+			New_VM->Set_Display_Window_Mode( QStringLiteral( "native" ) );
+			// Forum/wiki: -usbdevice tablet
+			New_VM->Set_Mouse_Type( QStringLiteral( "usb-tablet" ) );
+			New_VM->Set_Mouse_USB_Controller( QStringLiteral( "uhci" ) );
+			New_VM->Set_Mouse_USB_Version( 1 );
+			New_VM->Use_USB_Hub( true );
+			// AC97 works OOB on 0.4.15+; HDA / multi-audio can break boot.
+			VM::Sound_Cards audio;
+			audio.Audio_AC97 = true;
+			New_VM->Set_Audio_Cards( audio );
+			Guest_NIC_Model = QStringLiteral( "e1000" );
+			if( New_VM->Get_Memory_Size() < 1024 )
+				New_VM->Set_Memory_Size( 1024 );
+			VM_HDD hda = New_VM->Get_HDA();
+			if( hda.Get_Enabled() )
+			{
+				// Classic -hda (no native -drive). Format must persist for setup.
+				hda.Set_Native_Device( VM_Native_Storage_Device() );
+				New_VM->Set_HDA( hda );
+			}
 		}
 		if( force_tcg_legacy )
 		{
@@ -745,6 +940,267 @@ void VM_Wizard_Window::Apply_Guest_Hardware_To_New_VM()
 			New_VM->Set_Mouse_Type( QStringLiteral( "usb-tablet" ) );
 			New_VM->Set_Mouse_USB_Controller( QStringLiteral( "auto" ) );
 			New_VM->Set_Mouse_USB_Version( 0 );
+		}
+
+		const bool chromeos_flex = ( os == QLatin1String( "Chrome OS Flex" ) );
+		const bool steamos = ( os == QLatin1String( "SteamOS" ) );
+		const bool nixos = ( os == QLatin1String( "NixOS" ) );
+		const bool pop_os = ( os == QLatin1String( "Pop!_OS" ) );
+		const bool qnx = ( os == QLatin1String( "QNX" ) );
+		const bool hpux = ( os == QLatin1String( "HP-UX" ) );
+		const bool plan9_family =
+			os == QLatin1String( "Plan 9" ) || os == QLatin1String( "9front" );
+		const bool sco_unix =
+			os == QLatin1String( "OpenServer" ) || os == QLatin1String( "UnixWare" );
+
+		if( chromeos_flex )
+		{
+			// Flex expects a capable GPU; VirtIO VGA works broadly.
+			// virtio-vga-gl needs QEMU GTK/SDL OpenGL (best on Linux/KVM).
+#ifdef Q_OS_WIN32
+			New_VM->Set_Video_Card( QStringLiteral( "virtio" ) );
+#else
+			New_VM->Set_Video_Card( QStringLiteral( "virtio-vga-gl" ) );
+#endif
+			New_VM->Set_Mouse_Type( QStringLiteral( "usb-tablet" ) );
+			New_VM->Use_USB_Hub( true );
+			if( New_VM->Get_Memory_Size() < 4096 )
+				New_VM->Set_Memory_Size( 8192 );
+		}
+
+		if( pop_os )
+		{
+#ifdef Q_OS_WIN32
+			New_VM->Set_Video_Card( QStringLiteral( "virtio" ) );
+#else
+			New_VM->Set_Video_Card( QStringLiteral( "virtio-vga-gl" ) );
+#endif
+			New_VM->Set_Mouse_Type( QStringLiteral( "usb-tablet" ) );
+		}
+
+		if( plan9_family )
+		{
+			New_VM->Set_Video_Card( QStringLiteral( "std" ) );
+			New_VM->Set_Mouse_Type( QStringLiteral( "ps2" ) );
+		}
+
+		if( sco_unix )
+		{
+			New_VM->Set_Video_Card( QStringLiteral( "cirrus" ) );
+			New_VM->Set_Mouse_Type( QStringLiteral( "ps2" ) );
+		}
+
+		const bool aix_ppc = ( os == QLatin1String( "AIX" ) );
+		if( aix_ppc )
+		{
+			// AIX is POWER-only: qemu-system-ppc64 -M pseries, TCG on x86 hosts
+			// (WHPX cannot accelerate ppc). Common recipes: -cpu POWER8, virtio-scsi,
+			// serial console / SLOF prom-env. Extremely slow under TCG.
+			New_VM->Set_Machine_Type( QStringLiteral( "pseries" ) );
+			New_VM->Set_CPU_Type( QStringLiteral( "POWER8" ) );
+			New_VM->Set_SMP_CPU_Count( 1 );
+			New_VM->Use_Force_TCG( false );
+			New_VM->Set_Machine_Accelerator( VM::TCG );
+			New_VM->Set_Video_Card( QStringLiteral( "std" ) );
+			New_VM->Set_Mouse_Type( QStringLiteral( "usb-tablet" ) );
+			New_VM->Set_Display_Window_Mode( QStringLiteral( "native" ) );
+			New_VM->Use_Local_Time( true );
+			New_VM->Use_USB_Hub( true );
+			{
+				VM::Sound_Cards audio; // keep all off — AIX guides omit audio
+				New_VM->Set_Audio_Cards( audio );
+			}
+			Guest_NIC_Model = QStringLiteral( "virtio-net-pci" );
+			if( New_VM->Get_Memory_Size() < 2048 )
+				New_VM->Set_Memory_Size( 2048 );
+			// Do NOT force input/output to /vdevice/vty — that is for -nographic
+			// -serial mon:stdio. With a VGA window, VTY steals the console and the
+			// graphical keyboard appears dead.
+			const QString prom = QStringLiteral( "-prom-env \"boot-command=boot disk:\"" );
+			const QString cur = New_VM->Get_Additional_Args().trimmed();
+			if( ! cur.contains( QLatin1String( "boot-command=" ), Qt::CaseInsensitive ) )
+				New_VM->Set_Additional_Args( cur.isEmpty() ? prom : ( cur + QLatin1Char( ' ' ) + prom ) );
+			New_VM->Set_Machine_Extra_Props( QStringLiteral(
+				"cap-cfpc=broken,cap-ibs=broken,cap-ccf-assist=off" ) );
+			VM_HDD hda = New_VM->Get_HDA();
+			if( hda.Get_Enabled() )
+			{
+				VM_Native_Storage_Device native = hda.Get_Native_Device();
+				native.Use_Interface( true );
+				native.Set_Interface( VM::DI_Virtio_SCSI );
+				native.Use_Cache( true );
+				native.Set_Cache( QStringLiteral( "writeback" ) );
+				if( ! native.Use_File_Path() || native.Get_File_Path().trimmed().isEmpty() )
+				{
+					native.Use_File_Path( true );
+					native.Set_File_Path( hda.Get_File_Name() );
+				}
+				hda.Set_Native_Device( native );
+				New_VM->Set_HDA( hda );
+			}
+		}
+
+		const bool solaris_x86 =
+			os == QLatin1String( "Solaris x86" ) ||
+			os == QLatin1String( "Solaris x86 (32-bit)" ) ||
+			os == QLatin1String( "OpenSolaris" );
+		if( solaris_x86 )
+		{
+			// Match known-working QEMU recipe (r/qemu_kvm / itayemi):
+			// -machine pc,usb=off -device VGA -e1000 -global PIIX4_PM.disable_s3/s4
+			// Install can sit at 99% for 1–2 hours while the disk image keeps growing.
+			New_VM->Set_Video_Card( QStringLiteral( "std" ) );
+			New_VM->Set_Mouse_Type( QStringLiteral( "ps2" ) );
+			New_VM->Set_SMP_CPU_Count( 2 );
+			New_VM->Set_CPU_Type( os.contains( QLatin1String( "32-bit" ) )
+				? QStringLiteral( "qemu32" )
+				: QStringLiteral( "qemu64" ) );
+			New_VM->Set_Machine_Type( QStringLiteral( "pc" ) );
+			New_VM->Set_Machine_Extra_Props( QStringLiteral( "usb=off" ) );
+			New_VM->Use_Force_TCG( false );
+			New_VM->Set_Machine_Accelerator( VM::KVM );
+			New_VM->Set_Display_Window_Mode( QStringLiteral( "native" ) );
+			New_VM->Use_Local_Time( true );
+			New_VM->Use_ACPI( true );
+			New_VM->Use_USB_Hub( false );
+			Guest_NIC_Model = QStringLiteral( "e1000" );
+			{
+				VM::Sound_Cards audio;
+				audio.Audio_sb16 = true; // install recipe; switch to AC97/HDA after pkg update if desired
+				New_VM->Set_Audio_Cards( audio );
+			}
+			const QString piix = QStringLiteral(
+				"-global PIIX4_PM.disable_s3=1 -global PIIX4_PM.disable_s4=1" );
+			const QString cur = New_VM->Get_Additional_Args().trimmed();
+			if( ! cur.contains( QLatin1String( "PIIX4_PM.disable_s3" ), Qt::CaseInsensitive ) )
+				New_VM->Set_Additional_Args( cur.isEmpty() ? piix : ( cur + QLatin1Char( ' ' ) + piix ) );
+			if( os == QLatin1String( "Solaris x86" ) && New_VM->Get_Memory_Size() < 8192 )
+				New_VM->Set_Memory_Size( 8192 );
+			else if( New_VM->Get_Memory_Size() < 4096 )
+				New_VM->Set_Memory_Size( 4096 );
+			VM_HDD hda = New_VM->Get_HDA();
+			if( hda.Get_Enabled() )
+			{
+				VM_Native_Storage_Device native = hda.Get_Native_Device();
+				native.Use_Interface( true );
+				native.Set_Interface( VM::DI_IDE );
+				native.Use_Cache( true );
+				native.Set_Cache( QStringLiteral( "writeback" ) );
+				if( ! native.Use_File_Path() || native.Get_File_Path().trimmed().isEmpty() )
+				{
+					native.Use_File_Path( true );
+					native.Set_File_Path( hda.Get_File_Name() );
+				}
+				hda.Set_Native_Device( native );
+				New_VM->Set_HDA( hda );
+			}
+		}
+
+		if( qnx )
+		{
+			// QNX timers run wild without a VM-locked RTC.
+			const QString rtc = QStringLiteral( "-rtc base=localtime,clock=vm" );
+			const QString cur = New_VM->Get_Additional_Args().trimmed();
+			if( ! cur.contains( QLatin1String( "clock=vm" ), Qt::CaseInsensitive ) )
+				New_VM->Set_Additional_Args( cur.isEmpty() ? rtc : ( cur + QLatin1Char( ' ' ) + rtc ) );
+		}
+
+		if( hpux )
+		{
+			New_VM->Set_Mouse_Type( QStringLiteral( "ps2" ) );
+			const QString scsi = QStringLiteral( "-device lsi53c895a" );
+			const QString cur = New_VM->Get_Additional_Args().trimmed();
+			if( ! cur.contains( QLatin1String( "lsi53c895a" ), Qt::CaseInsensitive ) )
+				New_VM->Set_Additional_Args( cur.isEmpty() ? scsi : ( cur + QLatin1Char( ' ' ) + scsi ) );
+		}
+
+		if( steamos || nixos )
+		{
+			if( steamos )
+			{
+				New_VM->Set_Machine_Type( QStringLiteral( "q35" ) );
+				New_VM->Set_Video_Card( QStringLiteral( "virtio" ) );
+				New_VM->Set_Mouse_Type( QStringLiteral( "usb-tablet" ) );
+				New_VM->Use_USB_Hub( true );
+				New_VM->Use_Pass_Through_Gamepads( true );
+				if( New_VM->Get_Memory_Size() < 4096 )
+					New_VM->Set_Memory_Size( 8192 );
+			}
+			New_VM->Use_UEFI( true );
+
+			// Wire OVMF paths now; VARS file is prepared at Create_VM time.
+			Emulator emul = Get_Default_Emulator();
+			QMap<QString, QString> bins = emul.Get_Binary_Files();
+			QString qemu_bin;
+			if( bins.contains( QStringLiteral( "qemu-system-x86_64" ) ) )
+				qemu_bin = bins[ QStringLiteral( "qemu-system-x86_64" ) ];
+			QString code = Find_UEFI_Firmware_CODE( qemu_bin, QStringLiteral( "x86_64" ) );
+			QString vm_dir = Settings.value( QStringLiteral( "VM_Directory" ), "~" ).toString();
+			QString vm_base = Get_FS_Compatible_VM_Name( ui.Edit_VM_Name->text() );
+			QString vars_dest = vm_dir + vm_base + QStringLiteral( "_VARS.fd" );
+			if( ! code.isEmpty() )
+				New_VM->Set_UEFI_CODE_File( code );
+			New_VM->Set_UEFI_VARS_File( vars_dest );
+		}
+
+		// Always set an explicit HDA bus. If left unset, Main_Window's post-wizard
+		// Apply used to default the combo to VirtIO and rewrite the .aqemu file —
+		// XP/OS/2/ReactOS setup then report "no hard disk".
+		const bool want_nvme_disk = steamos;
+		const bool want_scsi_disk = hpux;
+		const bool want_virtio_scsi_disk = aix_ppc;
+		const bool want_virtio_disk =
+			! want_nvme_disk && ! want_scsi_disk && ! want_virtio_scsi_disk && (
+			Selected_Target.contains( QLatin1String( "aarch64" ) ) ||
+			Selected_Target == QLatin1String( "arm" ) ||
+			Selected_Target == QLatin1String( "s390x" ) ||
+			os.contains( QLatin1String( "Linux" ), Qt::CaseInsensitive ) ||
+			os.contains( QLatin1String( "BSD" ), Qt::CaseInsensitive ) ||
+			os.contains( QLatin1String( "Haiku" ), Qt::CaseInsensitive ) ||
+			os.contains( QLatin1String( "SerenityOS" ), Qt::CaseInsensitive ) ||
+			os.contains( QLatin1String( "ChromeOS" ), Qt::CaseInsensitive ) ||
+			os.contains( QLatin1String( "Chrome OS Flex" ), Qt::CaseInsensitive ) ||
+			os.contains( QLatin1String( "Android" ), Qt::CaseInsensitive ) ||
+			os.contains( QLatin1String( "Fuchsia" ), Qt::CaseInsensitive ) ||
+			os.contains( QLatin1String( "Redox" ), Qt::CaseInsensitive ) ||
+			os.contains( QLatin1String( "NixOS" ), Qt::CaseInsensitive ) ||
+			os.contains( QLatin1String( "Pop!_OS" ), Qt::CaseInsensitive ) ||
+			os.contains( QLatin1String( "CentOS" ), Qt::CaseInsensitive ) ||
+			os.contains( QLatin1String( "elementary" ), Qt::CaseInsensitive ) ||
+			os.startsWith( QLatin1String( "Windows 8" ) ) ||
+			os.startsWith( QLatin1String( "Windows 10" ) ) ||
+			os == QLatin1String( "Windows 11" ) ||
+			os.startsWith( QLatin1String( "Windows Server 201" ) ) ||
+			os.startsWith( QLatin1String( "Windows Server 202" ) ) );
+		VM_HDD hda_bus = New_VM->Get_HDA();
+		if( hda_bus.Get_Enabled() )
+		{
+			VM_Native_Storage_Device native = hda_bus.Get_Native_Device();
+			// Preserve IDE if a legacy/OS2 block already forced it.
+			// AIX already set VirtIO-SCSI above — keep that too.
+			const bool already_ide =
+				native.Use_Interface() && native.Get_Interface() == VM::DI_IDE;
+			const bool already_vscsi =
+				native.Use_Interface() && native.Get_Interface() == VM::DI_Virtio_SCSI;
+			if( ! already_ide && ! already_vscsi )
+			{
+				native.Use_Interface( true );
+				if( want_nvme_disk )
+					native.Set_Interface( VM::DI_NVMe );
+				else if( want_scsi_disk )
+					native.Set_Interface( VM::DI_SCSI );
+				else if( want_virtio_scsi_disk )
+					native.Set_Interface( VM::DI_Virtio_SCSI );
+				else
+					native.Set_Interface( want_virtio_disk ? VM::DI_Virtio : VM::DI_IDE );
+			}
+			if( ! native.Use_File_Path() || native.Get_File_Path().trimmed().isEmpty() )
+			{
+				native.Use_File_Path( true );
+				native.Set_File_Path( hda_bus.Get_File_Name() );
+			}
+			hda_bus.Set_Native_Device( native );
+			New_VM->Set_HDA( hda_bus );
 		}
 	}
 
@@ -815,8 +1271,14 @@ void VM_Wizard_Window::Prefer_Accelerator_For_Target( const QString &target )
 void VM_Wizard_Window::Goto_Hardware_Flow()
 {
 	Three_Path_Active = true;
-	ui.RB_Generate_VM->setChecked( true );
-	on_RB_Generate_VM_toggled( true );
+	// Re-apply OS/platform target so Generate-VM defaults cannot force 64-bit over i386
+	if( ! Selected_Target.isEmpty() )
+		Apply_Selected_Computer_Type( Selected_Target );
+	else
+	{
+		ui.RB_Generate_VM->setChecked( true );
+		on_RB_Generate_VM_toggled( true );
+	}
 	ui.RB_Typical->setChecked( true );
 	Use_Accelerator_Page = true;
 	Prefer_Accelerator_For_Target( Selected_Target );
@@ -2186,6 +2648,26 @@ bool VM_Wizard_Window::Create_New_VM(bool simulate)
 		Apply_AArch64_Generic_Profile( simulate );
 	else if( Three_Path_Active )
 		Apply_Guest_Hardware_To_New_VM();
+
+	// Guests that opted into UEFI need a writable OVMF VARS file
+	if( ! simulate && New_VM->Use_UEFI() )
+	{
+		Emulator emul = Get_Default_Emulator();
+		QMap<QString, QString> bins = emul.Get_Binary_Files();
+		QString qemu_bin = New_VM->Get_Computer_Type();
+		if( bins.contains( qemu_bin ) )
+			qemu_bin = bins[ qemu_bin ];
+		else if( bins.contains( QStringLiteral( "qemu-system-x86_64" ) ) )
+			qemu_bin = bins[ QStringLiteral( "qemu-system-x86_64" ) ];
+		else
+			qemu_bin.clear();
+		const QString vars = New_VM->Get_UEFI_VARS_File();
+		QString arch = Selected_Target;
+		if( arch.isEmpty() && qemu_bin.contains( QLatin1String( "x86_64" ) ) )
+			arch = QStringLiteral( "x86_64" );
+		if( ! vars.isEmpty() && ! qemu_bin.isEmpty() )
+			Prepare_UEFI_VARS_File( vars, qemu_bin, arch );
+	}
 	
     if ( ! simulate )
     {
@@ -2242,6 +2724,48 @@ void VM_Wizard_Window::Update_Finish_Page_Guidance()
 			"<li>AQEMU does not ship Apple OS files or a default OSK.</li>"
 			"<li>On Windows, WHPX is used unless you enable Launch via WSL/KVM.</li>"
 			"</ul>" );
+	}
+	else if( Selected_OS_Name == QLatin1String( "SteamOS" ) )
+	{
+		help = tr( "<p><b>SteamOS (Deck recovery)</b></p><ol>"
+			"<li>Download Valve’s recovery <code>.bz2</code>, extract the raw <code>.img</code>.</li>"
+			"<li>Attach that <code>.img</code> as a second raw disk (Device Manager / HDB) — it is not an ISO.</li>"
+			"<li>Primary disk is <b>NVMe</b> (installer looks for <code>/dev/nvme0n1</code>). UEFI/OVMF is enabled.</li>"
+			"<li>Xbox / USB gamepads are auto-passed through when connected (Advanced Options).</li>"
+			"<li>After install finishes: <b>do not reboot into Gaming Mode</b> — open a terminal "
+			"(Ctrl+Alt+T) and set Plasma on A/B partitions, then reboot.</li>"
+			"<li>Gaming Mode needs the Deck’s AMD GPU; optional AMD GPU passthrough is advanced "
+			"and not required for Plasma desktop.</li>"
+			"</ol>" );
+	}
+	else if( Selected_OS_Name.contains( QLatin1String( "Raspberry Pi" ) ) ||
+	         Selected_OS_Name.contains( QLatin1String( "Arduino" ) ) ||
+	         Selected_OS_Name.contains( QLatin1String( "micro:bit" ) ) ||
+	         Selected_OS_Name == QLatin1String( "NeXT Cube" ) ||
+	         Selected_OS_Name == QLatin1String( "AmigaOne" ) ||
+	         Selected_OS_Name == QLatin1String( "Pegasos II" ) ||
+	         Selected_OS_Name.contains( QLatin1String( "Quadra" ) ) ||
+	         Selected_OS_Name.contains( QLatin1String( "Cubieboard" ) ) ||
+	         Selected_OS_Name.contains( QLatin1String( "Orange Pi" ) ) ||
+	         Selected_OS_Name.startsWith( QLatin1String( "ARM " ) ) )
+	{
+		help = tr( "<p><b>Consoles &amp; Retro (QEMU boards)</b></p><ul>"
+			"<li>These are real QEMU machine models (Pi, micro:bit, Arduino AVR, NeXT, AmigaOne…), "
+			"not MAME arcade/NES/PlayStation emulation.</li>"
+			"<li>Many need firmware, SD images, or ELF/hex binaries instead of a desktop ISO.</li>"
+			"<li>Check that your QEMU build includes the matching <code>qemu-system-*</code> binary "
+			"and <code>-M</code> machine.</li>"
+			"</ul>" );
+	}
+	else if( Selected_OS_Name == QLatin1String( "Chrome OS Flex" ) )
+	{
+		help = tr( "<p><b>Chrome OS Flex</b></p><ol>"
+			"<li>Extract Google’s recovery archive to a raw <code>.bin</code> (not an ISO).</li>"
+			"<li>Attach the <code>.bin</code> as a raw disk (HDB / Device Manager); install onto the VirtIO qcow2.</li>"
+			"<li>Video defaults to VirtIO VGA. On Linux/KVM you can switch to "
+			"<b>VirtIO VGA (GL / OpenGL)</b> for better graphics.</li>"
+			"<li>Google does not officially support Flex in VMs — expect rough edges.</li>"
+			"</ol>" );
 	}
 	else if( ui.RB_Generate_VM->isChecked() &&
 			 ( ui.CB_Computer_Type->currentText().contains( "AArch64", Qt::CaseInsensitive ) ||
@@ -2623,21 +3147,53 @@ void VM_Wizard_Window::on_RB_Generate_VM_toggled( bool on )
 {
 	if( on )
 	{
-		// Make sure a computer type is selected
-		if( (ui.CB_Computer_Type->currentIndex() == -1 || ui.CB_Computer_Type->currentIndex() == 0) && ui.CB_Computer_Type->count() > 0 )
+		if( ui.CB_Computer_Type->count() > 0 )
 		{
-			// Pre-select x86_64 or first item
-			int defaultIndex = 0;
-			for( int ix = 0; ix < ui.CB_Computer_Type->count(); ++ix )
+			int defaultIndex = ui.CB_Computer_Type->currentIndex();
+
+			// Guest OS / Platform / Arch already chose a target — honour it (never force 64-bit)
+			if( ! Selected_Target.isEmpty() )
 			{
-				QString text = ui.CB_Computer_Type->itemText( ix );
-				if( text.contains("x86_64") || text.contains("64Bit") || text.contains("x86_64 (PC)") )
+				const QString qemu_name = QStringLiteral( "qemu-system-" ) + Selected_Target;
+				if( All_Systems.contains( qemu_name ) )
 				{
-					defaultIndex = ix;
-					break;
+					const QString want = All_Systems[ qemu_name ].System.Caption;
+					for( int ix = 0; ix < ui.CB_Computer_Type->count(); ++ix )
+					{
+						if( ui.CB_Computer_Type->itemText( ix ) == want )
+						{
+							defaultIndex = ix;
+							break;
+						}
+					}
 				}
 			}
-			ui.CB_Computer_Type->setCurrentIndex( defaultIndex );
+			else if( defaultIndex < 0 )
+			{
+				// No prior selection: prefer host arch, else first item
+				defaultIndex = 0;
+				const QString host_arch = AQ_Get_Host_CPU_Architecture();
+				for( int ix = 0; ix < ui.CB_Computer_Type->count(); ++ix )
+				{
+					const QString text = ui.CB_Computer_Type->itemText( ix );
+					const QString lower = text.toLower();
+					if( host_arch == QLatin1String( "aarch64" ) &&
+					    ( lower.contains( "aarch64" ) || lower.contains( "arm 64" ) ) )
+					{
+						defaultIndex = ix;
+						break;
+					}
+					if( host_arch == QLatin1String( "x86_64" ) &&
+					    ( lower.contains( "x86_64" ) || text.contains( "64Bit" ) ) )
+					{
+						defaultIndex = ix;
+						break;
+					}
+				}
+			}
+
+			if( defaultIndex >= 0 )
+				ui.CB_Computer_Type->setCurrentIndex( defaultIndex );
 		}
 
 		if( ui.CB_Computer_Type->currentIndex() == -1 )

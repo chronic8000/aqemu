@@ -1,20 +1,5 @@
-# This TODO list was originally created by Andrej Rijov.
-# It looks like those would still be nice to have.
+# Remaining optional polish
 
-* New embedded display
+* Tooltips on remaining dialogs (Emulator Control, wizards, SPICE settings, USB add, …)
 
-* Ability to minimize to tray.
-
-* Update Emulator Control
-
-* Easy USB disconnect support
-
-* Ability save emulator window position and size — DONE (Emulator Control Window geometry in aqemu.cfg)
-
-* Tool tips for all options
-
-* Complete GUI for managing QEMU sound system — PARTIAL: modern -audiodev/-device, VirtIO Sound + USB Audio, aarch64 cards enabled
-
-* Complete windows port — PARTIAL: Windows 11 ARM wizard (UEFI dual-pflash, VirtIO profile) works on Windows and Linux hosts
-
-* Windows 11 ARM guided install wizard — DONE (new disk / existing image, ISO, UEFI auto-detect)
+* Windows packaging: Microsoft Store package; clear leftover Linux-only path FIXMEs
