@@ -27,24 +27,6 @@
 
 ---
 
-## Screenshots
-
-**macOS Sonoma** (Intel guest via OpenCore + WSL/KVM on Windows) — the shot above, full desktop:
-
-![macOS Sonoma About This Mac in AQEMU](screenshots/macos-sonoma-about.png)
-
-**Windows 11 ARM** running *inside* AQEMU on a Windows host — embedded SPICE session, full toolbar, guest progressing through setup:
-
-![Windows 11 ARM setup in AQEMU](screenshots/win11-arm-setup.png)
-
-**Windows 98** install under the same modern UI — classic guests are first-class, not an afterthought:
-
-![Windows 98 Setup in AQEMU](screenshots/win98-setup.png)
-
-More captures live in [`screenshots/`](screenshots/).
-
----
-
 ## This project is alive again
 
 AQEMU started with **Andrey Rijov (RDron)**, then the community era under **Tobias Gläßer** (Qt5 / 0.9.x). Development went quiet. People still bump into old trees online:
@@ -89,7 +71,7 @@ If QEMU can boot it, AQEMU aims to **configure and launch it**. Bring your own I
 
 On a normal **Intel/AMD Windows PC**, an aarch64 guest cannot use WHPX for ARM. AQEMU drives **TCG** with sane defaults (multi-vCPU, VirtIO-oriented Win11 ARM wizard, UEFI/AAVMF discovery, install → first-boot → normal lifecycle).
 
-It is **not as fast as a Pi 5 + KVM** or an ARM laptop. It **is usable**: you can install, update, and work through OOBE in the embedded SPICE view (see screenshot above). Perfect for testing ARM Windows without buying ARM hardware.
+It is **not as fast as a Pi 5 + KVM** or an ARM laptop. It **is usable**: you can install, update, and work through OOBE in the embedded SPICE view (see [Screenshots](#screenshots)). Perfect for testing ARM Windows without buying ARM hardware.
 
 On **Raspberry Pi 5 / Linux aarch64** hosts, the same profile can lean on **KVM** where available — much snappier.
 
@@ -123,11 +105,32 @@ From **Win9x setup screens** to **Windows 11 ARM “Almost there”** — same a
 - `qemu-system-x86_64`, **q35**, dual-pflash **OVMF**, OpenCore as first disk, Apple SMC **only if you paste your own OSK**
 - Optional Recovery/BaseSystem path
 - Native **WHPX** on Windows, or **WSL/KVM** when `/dev/kvm` works (`wsl.exe` + Linux QEMU, SPICE still on localhost)
+- Host-matching resolution via OpenCore; AMD Metal passthrough UI on bare-metal Linux (see [`docs/intel-macos-gpu.md`](docs/intel-macos-gpu.md))
 - **AQEMU does not ship** OpenCore, OVMF bundles as Apple IP, OS images, or a pre-filled OSK
 
 ### Out of scope (for now)
 
 Apple Silicon macOS guests on Snapdragon Windows hosts — not this release’s promise. Everything else QEMU can express stays on the table via architecture / machine pickers.
+
+---
+
+## Screenshots
+
+More of the guest zoo — Win11 ARM and classic Windows under the same session UI. (Sonoma teaser is at the top of this README.)
+
+**Windows 11 ARM** running *inside* AQEMU on a Windows host — embedded SPICE session, full toolbar, guest progressing through setup:
+
+![Windows 11 ARM setup in AQEMU](screenshots/win11-arm-setup.png)
+
+**Windows 98** install under the same modern UI — classic guests are first-class, not an afterthought:
+
+![Windows 98 Setup in AQEMU](screenshots/win98-setup.png)
+
+**Session chrome** — boot console / toolbar while QEMU runs headless behind SPICE:
+
+![AQEMU session UI](screenshots/session-ui-boot-console.png)
+
+More captures live in [`screenshots/`](screenshots/).
 
 ---
 
