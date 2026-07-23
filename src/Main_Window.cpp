@@ -1574,7 +1574,9 @@ bool Main_Window::Load_Virtual_Machines()
 		++real_index;
 	}
 
-    AQEMU_Service::get().call("status");
+	AQEMU_Startup_Log(
+		QByteArray( "VMs loaded: " ) +
+		QByteArray::number( VM_List.count() ) );
 
 	// Set last used vm
 	int cur_row = Settings.value( "Current_VM_Index", 0 ).toInt();

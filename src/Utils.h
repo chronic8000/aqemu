@@ -44,6 +44,9 @@ void AQDebug( const QString &sender, const QString &mes );
 void AQWarning( const QString &sender, const QString &mes );
 void AQError( const QString &sender, const QString &mes );
 
+/** Concise stdout breadcrumb for app startup (always printed). */
+void AQEMU_Startup_Log( const char *stage );
+
 void AQGraphic_Warning( const QString &caption, const QString &mes );
 void AQGraphic_Warning( const QString &sender, const QString &caption, const QString &mes, bool fatal = false );
 void AQGraphic_Error( const QString &sender, const QString &caption, const QString &mes, bool fatal = false );
