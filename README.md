@@ -38,7 +38,7 @@ AQEMU started with **Andrey Rijov (RDron)**, then the community era under **Tobi
 
 ### https://github.com/chronic8000/aqemu
 
-New hosts. New wizards. Embedded SPICE. Win11 ARM. Win9x done properly. Classic Mac + experimental Intel macOS. Optional WSL/KVM. Vendored **QEMU 11.0.2**. Heading for the **Microsoft Store**.
+New hosts. New wizards. Embedded SPICE. Win11 ARM. Win9x done properly. Classic Mac + experimental Intel macOS. Optional WSL/KVM. Vendored **QEMU 11.0.2**. Free GitHub Release zips for now; **Microsoft Store** (with updates) when certification clears.
 
 We keep the original authors’ names. We do **not** inherit their old donation pages, crowdfunding, or SourceForge homepage.
 
@@ -177,15 +177,25 @@ You point at files you obtained lawfully.
 
 ## Install
 
-### Releases
+### GitHub Releases (free portable builds — no auto-updates)
 
 https://github.com/chronic8000/aqemu/releases
 
-1. Grab the Windows zip or Linux/Pi `.deb`
-2. Install or bundle **QEMU** (or use the 11.0.2 submodule build)
-3. Run **First Start**, point at `qemu-system-*`, go
+Until the **Microsoft Store** listing is live, you can grab a free Windows portable zip from GitHub Releases. That is intentional so people who cannot compile from source still have something to run.
 
-**Microsoft Store** (when published): same GPLv2 code; privacy URL → [PRIVACY.md](PRIVACY.md).
+**Important:** GitHub Release builds are **point-in-time downloads**. They do **not** receive automatic updates from GitHub. When a newer zip appears, you install it yourself. Once AQEMU is published on the **Microsoft Store**, that channel is where Windows users should install for **Store-managed updates** (after Microsoft validation / certification). The Store build is the same GPLv2 project; privacy → [PRIVACY.md](PRIVACY.md).
+
+**Windows (portable zip):**
+
+1. Download `aqemu-*-win64.zip` from Releases
+2. Unzip anywhere and run `aqemu.exe` (QEMU 11.0.2 binaries + UEFI firmware are bundled in the zip)
+3. Complete **First Start** if prompted
+
+**Linux / Raspberry Pi:** build from source for now (see below), or use a `.deb` when one is attached to a release.
+
+### Microsoft Store (coming)
+
+Same GPLv2 code, Store updates, privacy URL → [PRIVACY.md](PRIVACY.md). Prefer the Store once it ships if you want ongoing updates without hunting zips.
 
 ---
 

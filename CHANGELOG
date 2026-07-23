@@ -1,3 +1,10 @@
+2026-07-23 Chronic Engineering — AQEMU 0.9.9 Windows release
+
+	* Version bump to 0.9.9.
+	* README: GitHub Releases are free portable builds without auto-updates;
+	  Microsoft Store will be the update channel once published.
+	* Windows portable zip bundles AQEMU + QEMU 11.0.2 + UEFI firmware.
+
 2026-07-23 Chronic Engineering — Intel macOS match host / 4K resolution via OpenCore
 
 	* Enable General → Resolution for Intel macOS (not only VirtIO-GPU).
