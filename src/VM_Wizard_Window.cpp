@@ -2405,6 +2405,7 @@ void VM_Wizard_Window::Apply_Intel_MacOS_Profile( bool simulate )
 	if( New_VM->Get_Memory_Size() < 4096 )
 		New_VM->Set_Memory_Size( 4096 );
 	New_VM->Set_Video_Card( QStringLiteral( "vmware" ) ); // vmware-svga — HiDPI/4K friendly vs std VGA
+	New_VM->Set_Display_Resolution( QStringLiteral( "native" ) ); // match host; OpenCore patched on start
 	New_VM->Use_USB_Hub( true );
 	New_VM->Set_Mouse_Type( QStringLiteral( "usb-tablet" ) );
 	New_VM->Set_Mouse_USB_Controller( QStringLiteral( "xhci" ) );

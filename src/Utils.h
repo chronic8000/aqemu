@@ -104,6 +104,19 @@ qint64 AQ_Apple_HFS_Partition_Offset( const QString &path );
 QString AQ_Ensure_OpenCore_Boot_With_PartitionDxe( const QString &opencore_iso,
                                                    const QString &dest_boot_img );
 
+/**
+ * Resolve Display_Resolution setting to pixel size.
+ * "native" = primary screen physical pixels (logical × devicePixelRatio).
+ * "auto"/empty = false. "WxH" = parsed. Clamped to 1024x768 … 4096x2160.
+ */
+bool AQ_Resolve_Display_Size( const QString &mode, int *out_w, int *out_h );
+
+/**
+ * Patch UEFI/Output/Resolution (and ForceResolution) inside an OpenCore FAT image
+ * (BOOT.img). Uses WSL+mtools on Windows. Returns true on success.
+ */
+bool AQ_Patch_OpenCore_FAT_Resolution( const QString &fat_img, const QString &resolution_wxh );
+
 bool It_Host_Device( const QString &path );
 
 void Check_AQEMU_Permissions();

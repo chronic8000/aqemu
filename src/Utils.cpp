@@ -28,14 +28,18 @@
 #include <QDateTime>
 #include <QMessageBox>
 #include <QApplication>
+#include <QGuiApplication>
+#include <QScreen>
 #include <QCoreApplication>
 #include <QSettings>
 #include <QRegExp>
 #include <QProcess>
+#include <QProcessEnvironment>
 #include <QStringList>
 #include <QTextStream>
 #include <QObject>
 #include <QSysInfo>
+#include <QTemporaryDir>
 
 #include <cmath>
 
@@ -692,6 +696,187 @@ QString AQ_Ensure_OpenCore_Boot_With_PartitionDxe( const QString &opencore_iso,
 #endif
 
 	return QFile::exists( dest ) ? dest : QString();
+}
+
+bool AQ_Resolve_Display_Size( const QString &mode, int *out_w, int *out_h )
+{
+	if( ! out_w || ! out_h )
+		return false;
+	*out_w = 0;
+	*out_h = 0;
+
+	const QString m = mode.trimmed().toLower();
+	if( m.isEmpty() || m == QLatin1String( "auto" ) )
+		return false;
+
+	int rw = 0, rh = 0;
+	if( m == QLatin1String( "native" ) )
+	{
+		QScreen *screen = QGuiApplication::primaryScreen();
+		if( ! screen )
+			return false;
+		const qreal dpr = screen->devicePixelRatio();
+		const QSize logical = screen->size();
+		rw = qRound( logical.width() * dpr );
+		rh = qRound( logical.height() * dpr );
+	}
+	else
+	{
+		const QStringList parts = mode.split( QLatin1Char( 'x' ), QString::SkipEmptyParts );
+		if( parts.size() != 2 )
+			return false;
+		bool okw = false, okh = false;
+		rw = parts.at( 0 ).trimmed().toInt( &okw );
+		rh = parts.at( 1 ).trimmed().toInt( &okh );
+		if( ! okw || ! okh )
+			return false;
+	}
+
+	// Soft clamp — extreme modes often fall back to 1280x800 in macOS guests.
+	if( rw < 1024 ) rw = 1024;
+	if( rh < 768 ) rh = 768;
+	if( rw > 4096 ) rw = 4096;
+	if( rh > 2160 ) rh = 2160;
+
+	*out_w = rw;
+	*out_h = rh;
+	return true;
+}
+
+static bool AQ_Rewrite_OpenCore_Plist_Resolution( const QString &plist_path,
+                                                   const QString &resolution_wxh )
+{
+	QFile f( plist_path );
+	if( ! f.open( QIODevice::ReadOnly ) )
+		return false;
+	QByteArray data = f.readAll();
+	f.close();
+	if( data.isEmpty() )
+		return false;
+
+	const QByteArray res = resolution_wxh.toUtf8();
+	QRegExp re_res( QStringLiteral( "(<key>Resolution</key>\\s*<string>)[^<]*(</string>)" ) );
+	re_res.setMinimal( true );
+	QString text = QString::fromUtf8( data );
+	if( re_res.indexIn( text ) < 0 )
+		return false;
+	{
+		const QString replaced = re_res.cap( 1 ) + QString::fromUtf8( res ) + re_res.cap( 2 );
+		text.replace( re_res.pos( 0 ), re_res.matchedLength(), replaced );
+	}
+
+	// Prefer ForceResolution so OC does not silently pick Max/empty.
+	QRegExp re_force( QStringLiteral(
+		"(<key>ForceResolution</key>\\s*)<(true|false)\\s*/>" ) );
+	re_force.setMinimal( true );
+	if( re_force.indexIn( text ) >= 0 )
+	{
+		const QString replaced = re_force.cap( 1 ) + QStringLiteral( "<true/>" );
+		text.replace( re_force.pos( 0 ), re_force.matchedLength(), replaced );
+	}
+
+	if( ! f.open( QIODevice::WriteOnly | QIODevice::Truncate ) )
+		return false;
+	const QByteArray out = text.toUtf8();
+	const bool ok = f.write( out ) == out.size();
+	f.close();
+	return ok;
+}
+
+bool AQ_Patch_OpenCore_FAT_Resolution( const QString &fat_img, const QString &resolution_wxh )
+{
+	const QString img = AQ_Normalize_File_Path( fat_img );
+	const QString res = resolution_wxh.trimmed();
+	if( img.isEmpty() || res.isEmpty() || ! QFile::exists( img ) )
+		return false;
+
+	const QString stamp = img + QStringLiteral( ".aqemu-resolution" );
+	{
+		QFile sf( stamp );
+		if( sf.open( QIODevice::ReadOnly ) &&
+		    QString::fromUtf8( sf.readAll() ).trimmed() == res )
+			return true;
+	}
+
+#ifdef Q_OS_WIN32
+	QTemporaryDir tmp;
+	if( ! tmp.isValid() )
+		return false;
+	const QString host_plist = tmp.filePath( QStringLiteral( "config.plist" ) );
+	const QString wsl_img = QStringLiteral( "/mnt/%1%2" )
+		.arg( img.at( 0 ).toLower() )
+		.arg( QDir::fromNativeSeparators( img.mid( 2 ) ) );
+	const QString wsl_plist = QStringLiteral( "/mnt/%1%2" )
+		.arg( host_plist.at( 0 ).toLower() )
+		.arg( QDir::fromNativeSeparators( host_plist.mid( 2 ) ) );
+
+	QProcess extract;
+	extract.setProgram( QStringLiteral( "wsl" ) );
+	extract.setArguments( QStringList()
+		<< QStringLiteral( "-e" ) << QStringLiteral( "bash" ) << QStringLiteral( "-lc" )
+		<< QStringLiteral(
+			"set -e; export MTOOLS_SKIP_CHECK=1; "
+			"mcopy -n -i \"%1\" ::/EFI/OC/config.plist \"%2\"" )
+			.arg( wsl_img, wsl_plist ) );
+	extract.start();
+	if( ! extract.waitForFinished( 60000 ) || extract.exitCode() != 0 )
+		return false;
+
+	if( ! AQ_Rewrite_OpenCore_Plist_Resolution( host_plist, res ) )
+		return false;
+
+	QProcess inject;
+	inject.setProgram( QStringLiteral( "wsl" ) );
+	inject.setArguments( QStringList()
+		<< QStringLiteral( "-e" ) << QStringLiteral( "bash" ) << QStringLiteral( "-lc" )
+		<< QStringLiteral(
+			"set -e; export MTOOLS_SKIP_CHECK=1; "
+			"mcopy -o -i \"%1\" \"%2\" ::/EFI/OC/config.plist" )
+			.arg( wsl_img, wsl_plist ) );
+	inject.start();
+	if( ! inject.waitForFinished( 60000 ) || inject.exitCode() != 0 )
+		return false;
+#else
+	QTemporaryDir tmp;
+	if( ! tmp.isValid() )
+		return false;
+	const QString host_plist = tmp.filePath( QStringLiteral( "config.plist" ) );
+	QProcess extract;
+	extract.start( QStringLiteral( "mcopy" ), QStringList()
+		<< QStringLiteral( "-n" ) << QStringLiteral( "-i" ) << img
+		<< QStringLiteral( "::/EFI/OC/config.plist" ) << host_plist );
+	if( ! extract.waitForFinished( 60000 ) || extract.exitCode() != 0 )
+	{
+		// mtools may need MTOOLS_SKIP_CHECK
+		QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+		env.insert( QStringLiteral( "MTOOLS_SKIP_CHECK" ), QStringLiteral( "1" ) );
+		extract.setProcessEnvironment( env );
+		extract.start( QStringLiteral( "mcopy" ), QStringList()
+			<< QStringLiteral( "-n" ) << QStringLiteral( "-i" ) << img
+			<< QStringLiteral( "::/EFI/OC/config.plist" ) << host_plist );
+		if( ! extract.waitForFinished( 60000 ) || extract.exitCode() != 0 )
+			return false;
+	}
+	if( ! AQ_Rewrite_OpenCore_Plist_Resolution( host_plist, res ) )
+		return false;
+	QProcess inject;
+	QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+	env.insert( QStringLiteral( "MTOOLS_SKIP_CHECK" ), QStringLiteral( "1" ) );
+	inject.setProcessEnvironment( env );
+	inject.start( QStringLiteral( "mcopy" ), QStringList()
+		<< QStringLiteral( "-o" ) << QStringLiteral( "-i" ) << img
+		<< host_plist << QStringLiteral( "::/EFI/OC/config.plist" ) );
+	if( ! inject.waitForFinished( 60000 ) || inject.exitCode() != 0 )
+		return false;
+#endif
+
+	QFile stamp_out( stamp );
+	if( stamp_out.open( QIODevice::WriteOnly | QIODevice::Truncate ) )
+	{
+		stamp_out.write( res.toUtf8() );
+		stamp_out.close();
+	}
+	return true;
 }
 
 bool AQ_Is_Plausible_Apple_SMC_OSK( const QString &osk )

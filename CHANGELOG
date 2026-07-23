@@ -1,3 +1,11 @@
+2026-07-23 Chronic Engineering — Intel macOS match host / 4K resolution via OpenCore
+
+	* Enable General → Resolution for Intel macOS (not only VirtIO-GPU).
+	* Default new Intel macOS VMs to Native (host physical pixels, DPI-aware).
+	* On start, patch OpenCore FAT config.plist Resolution (+ ForceResolution) via mtools.
+	* Add 3840x2160 / 4096x2160 presets; raise vmware-svga VRAM to 256MB for ≥1440p.
+	* Docs updated in docs/intel-macos-gpu.md.
+
 2026-07-23 Chronic Engineering — Intel macOS AMD GPU passthrough UI + software defaults
 
 	Conditional AMD Metal / VFIO UI (community)
