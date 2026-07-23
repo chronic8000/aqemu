@@ -24,6 +24,9 @@
 #include "Utils.h"
 #include "Error_Log_Window.h"
 
+#include <QApplication>
+#include <QClipboard>
+
 Error_Log_Window::Error_Log_Window( QWidget *parent )
 	: QDialog( parent )
 {
@@ -54,6 +57,18 @@ void Error_Log_Window::Add_to_Log( const QString& err_str )
     {
         last_error_is_deprecated_option = false;
     }
+}
+
+void Error_Log_Window::on_Button_Copy_Log_clicked()
+{
+	QString text = ui.Edit_Log->textCursor().hasSelection()
+		? ui.Edit_Log->textCursor().selectedText().replace( QChar( 0x2029 ), QLatin1Char( '\n' ) )
+		: ui.Edit_Log->toPlainText();
+	if( text.isEmpty() )
+		return;
+	QClipboard *clip = QApplication::clipboard();
+	if( clip )
+		clip->setText( text );
 }
 
 bool Error_Log_Window::No_Show_Before_AQEMU_Restart() const

@@ -41,6 +41,7 @@ class Error_Log_Window: public QDialog
 		
 	private slots:
 		void done(int);
+		void on_Button_Copy_Log_clicked();
 		
 	private:
 		Ui::Error_Log_Window ui;

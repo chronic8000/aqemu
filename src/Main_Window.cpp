@@ -38,6 +38,14 @@
 #include <QTimer>
 #include <QApplication>
 #include <QEventLoop>
+#include <QDialog>
+#include <QDialogButtonBox>
+#include <QTextEdit>
+#include <QVBoxLayout>
+#include <QHBoxLayout>
+#include <QLabel>
+#include <QPushButton>
+#include <QClipboard>
 #ifndef Q_OS_WIN32
 #include <QtDBus>
 #endif
@@ -84,6 +92,7 @@ Main_Window::Main_Window( QWidget *parent )
 	, Session_Widget( nullptr )
 	, Session_VM( nullptr )
 	, Session_Mode_Active( false )
+	, Session_User_Detached( false )
 	, Auto_Save_Timer( nullptr )
 {
     Advanced_Options = new QDialog(this);
@@ -204,6 +213,7 @@ Main_Window::Main_Window( QWidget *parent )
 	Icon_Menu = new QMenu( ui.Machines_List );
 
     Icon_Menu->addAction( ui.actionPower_On );
+	Icon_Menu->addAction( ui.actionConnect_Session );
 	Icon_Menu->addAction( ui.actionPause );
     Icon_Menu->addAction( ui.actionShutdown );
 	Icon_Menu->addAction( ui.actionPower_Off );
@@ -525,6 +535,20 @@ void Main_Window::Connect_Signals()
 			 this, SLOT(on_Button_Win11_First_Boot_clicked()) );
 	connect( ui.Button_Win11_Normal, SIGNAL(clicked()),
 			 this, SLOT(on_Button_Win11_Normal_clicked()) );
+	connect( ui.Button_Win11_Repair, SIGNAL(clicked()),
+			 this, SLOT(on_Button_Win11_Repair_clicked()) );
+	connect( ui.TB_Intel_Mac_OpenCore_Browse_Main, SIGNAL(clicked()),
+			 this, SLOT(on_TB_Intel_Mac_OpenCore_Browse_Main_clicked()) );
+	connect( ui.TB_Intel_Mac_Recovery_Browse_Main, SIGNAL(clicked()),
+			 this, SLOT(on_TB_Intel_Mac_Recovery_Browse_Main_clicked()) );
+	connect( ui.Edit_Intel_Mac_OpenCore_Main, SIGNAL(textEdited(const QString &)),
+			 this, SLOT(VM_Changed()) );
+	connect( ui.Edit_Intel_Mac_Recovery_Main, SIGNAL(textEdited(const QString &)),
+			 this, SLOT(VM_Changed()) );
+	connect( ui.Edit_Intel_Mac_OSK_Main, SIGNAL(textEdited(const QString &)),
+			 this, SLOT(VM_Changed()) );
+	connect( ui.CH_Intel_Mac_WSL_Main, SIGNAL(toggled(bool)),
+			 this, SLOT(VM_Changed()) );
 
 	connect( ui.CH_Fullscreen, SIGNAL(clicked()),
 			 this, SLOT(VM_Changed()) );
@@ -884,21 +908,29 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
 		tmp_vm->Set_Machine_Name( ui.Edit_Machine_Name->text() );
 	}
 
-	// Icon Path
-	for( int ix = 0; ix < ui.Machines_List->count(); ix++ )
+	// Icon Path — keep existing icon unless list item has a real icon path stored
 	{
-		if( ui.Machines_List->item(ix)->data(256).toString() == old_vm->Get_UID() )
+		QString list_icon;
+		for( int ix = 0; ix < ui.Machines_List->count(); ix++ )
 		{
-			if( ui.Machines_List->item(ix)->data(128).toString() ==
-				QDir::toNativeSeparators(Settings.value("VM_Directory", "~").toString() + Get_FS_Compatible_VM_Name(ui.Edit_Machine_Name->text())) )
+			if( ui.Machines_List->item(ix)->data(256).toString() == old_vm->Get_UID() )
 			{
-				tmp_vm->Set_Icon_Path( old_vm->Get_Icon_Path() );
-				tmp_vm->Set_Screenshot_Path( ui.Machines_List->item(ix)->data(128).toString() );
+				list_icon = ui.Machines_List->item(ix)->data(128).toString();
+				break;
 			}
-			else
-			{
-				tmp_vm->Set_Icon_Path( ui.Machines_List->item(ix)->data(128).toString() );
-			}
+		}
+		if( ! list_icon.isEmpty() &&
+		    ( list_icon.startsWith( QLatin1String( ":/" ) ) || QFile::exists( list_icon ) ) )
+		{
+			tmp_vm->Set_Icon_Path( list_icon );
+		}
+		else if( ! old_vm->Get_Icon_Path().isEmpty() )
+		{
+			tmp_vm->Set_Icon_Path( old_vm->Get_Icon_Path() );
+		}
+		else
+		{
+			tmp_vm->Set_Icon_Path( QStringLiteral( ":/other.png" ) );
 		}
 	}
 
@@ -1047,6 +1079,7 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
 
 	tmp_vm->Use_Check_FDD_Boot_Sector( ui_ao.CH_FDD_Boot->isChecked() );
 	tmp_vm->Use_ACPI( ui_ao.CH_ACPI->isChecked() );
+	tmp_vm->Use_Force_TCG( ui_ao.CH_Force_TCG->isChecked() );
 	tmp_vm->Use_Snapshot_Mode( ui.CH_Snapshot->isChecked() );
 	tmp_vm->Use_Start_CPU( ui_ao.CH_Start_CPU->isChecked() );
 	tmp_vm->Use_No_Reboot( ui_ao.CH_No_Reboot->isChecked() );
@@ -1201,6 +1234,55 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
 	tmp_vm->Use_VirtIO_Keyboard( old_vm->Use_VirtIO_Keyboard() );
 	tmp_vm->Use_USB_Hub( old_vm->Use_USB_Hub() );
 	tmp_vm->Set_Win11_Lifecycle_Mode( old_vm->Get_Win11_Lifecycle_Mode() );
+	tmp_vm->Use_Intel_MacOS_Profile( ui_ao.CH_Intel_MacOS_Profile->isChecked() ||
+	                                 old_vm->Use_Intel_MacOS_Profile() );
+	{
+		// Prefer main VM-page Intel macOS fields when that section is shown; else Advanced Options;
+		// finally preserve wizard-set values from old_vm.
+		QString osk = ui.Edit_Intel_Mac_OSK_Main->text();
+		if( osk.trimmed().isEmpty() )
+			osk = ui_ao.Edit_Apple_SMC_OSK->text();
+		if( osk.trimmed().isEmpty() )
+			osk = old_vm->Get_Apple_SMC_OSK();
+
+		QString oc = AQ_Normalize_File_Path( ui.Edit_Intel_Mac_OpenCore_Main->text() );
+		if( oc.isEmpty() )
+			oc = AQ_Normalize_File_Path( ui_ao.Edit_OpenCore_Boot_Path->text() );
+		if( oc.isEmpty() )
+			oc = old_vm->Get_OpenCore_Boot_Path();
+
+		QString recovery = AQ_Normalize_File_Path( ui.Edit_Intel_Mac_Recovery_Main->text() );
+		if( recovery.isEmpty() )
+			recovery = old_vm->Get_Mac_Recovery_Image_Path();
+
+		const bool wsl = ui.CH_Intel_Mac_WSL_Main->isChecked() ||
+		                 ui_ao.CH_Launch_Via_WSL->isChecked() ||
+		                 old_vm->Use_Launch_Via_WSL();
+
+		tmp_vm->Set_Apple_SMC_OSK( osk );
+		tmp_vm->Set_OpenCore_Boot_Path( oc );
+		tmp_vm->Set_Mac_Recovery_Image_Path( recovery );
+		tmp_vm->Use_Apple_SMC( tmp_vm->Use_Intel_MacOS_Profile() && ! osk.trimmed().isEmpty() );
+		tmp_vm->Use_Launch_Via_WSL( wsl );
+
+		// Keep Advanced Options widgets in sync
+		ui_ao.Edit_Apple_SMC_OSK->setText( osk );
+		ui_ao.Edit_OpenCore_Boot_Path->setText( oc );
+		ui_ao.CH_Launch_Via_WSL->setChecked( wsl );
+		ui_ao.CH_Intel_MacOS_Profile->setChecked( tmp_vm->Use_Intel_MacOS_Profile() );
+	}
+	if( tmp_vm->Use_Intel_MacOS_Profile() )
+	{
+		tmp_vm->Use_UEFI( true );
+		if( ! ui_ao.Edit_UEFI_CODE_File->text().trimmed().isEmpty() )
+			tmp_vm->Set_UEFI_CODE_File( ui_ao.Edit_UEFI_CODE_File->text().trimmed() );
+		else
+			tmp_vm->Set_UEFI_CODE_File( old_vm->Get_UEFI_CODE_File() );
+		if( ! ui_ao.Edit_UEFI_VARS_File->text().trimmed().isEmpty() )
+			tmp_vm->Set_UEFI_VARS_File( ui_ao.Edit_UEFI_VARS_File->text().trimmed() );
+		else
+			tmp_vm->Set_UEFI_VARS_File( old_vm->Get_UEFI_VARS_File() );
+	}
 
 	// Additional QEMU Arguments
 	tmp_vm->Set_Additional_Args( ui_ao.Edit_Additional_Args->toPlainText() );
@@ -1743,6 +1825,40 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 	// General Tab. Options
 	ui.CH_Fullscreen->setChecked( tmp_vm->Use_Fullscreen_Mode() );
 	ui_ao.CH_ACPI->setChecked( tmp_vm->Use_ACPI() );
+	ui_ao.CH_Force_TCG->setChecked( tmp_vm->Use_Force_TCG() );
+
+	ui_ao.CH_Intel_MacOS_Profile->setChecked( tmp_vm->Use_Intel_MacOS_Profile() );
+	ui_ao.Edit_OpenCore_Boot_Path->setText( tmp_vm->Get_OpenCore_Boot_Path() );
+	ui_ao.Edit_Apple_SMC_OSK->setText( tmp_vm->Get_Apple_SMC_OSK() );
+	ui_ao.Edit_UEFI_CODE_File->setText( tmp_vm->Get_UEFI_CODE_File() );
+	ui_ao.Edit_UEFI_VARS_File->setText( tmp_vm->Get_UEFI_VARS_File() );
+	ui_ao.CH_Launch_Via_WSL->setChecked( tmp_vm->Use_Launch_Via_WSL() );
+	ui_ao.GB_Intel_MacOS->setVisible( tmp_vm->Use_Intel_MacOS_Profile() ||
+		tmp_vm->Get_Machine_Name().contains( "macOS", Qt::CaseInsensitive ) ||
+		tmp_vm->Get_Machine_Name().contains( "Mac OS X", Qt::CaseInsensitive ) ||
+		tmp_vm->Get_Machine_Name().contains( "Darwin", Qt::CaseInsensitive ) );
+
+	ui.Edit_Intel_Mac_OpenCore_Main->setText( tmp_vm->Get_OpenCore_Boot_Path() );
+	ui.Edit_Intel_Mac_Recovery_Main->setText( tmp_vm->Get_Mac_Recovery_Image_Path() );
+	ui.Edit_Intel_Mac_OSK_Main->setText( tmp_vm->Get_Apple_SMC_OSK() );
+	ui.CH_Intel_Mac_WSL_Main->setChecked( tmp_vm->Use_Launch_Via_WSL() );
+	Update_Intel_MacOS_Settings_Ui();
+
+	// Repair blank/generic icons for Intel macOS VMs created before macOS icon support
+	if( tmp_vm->Use_Intel_MacOS_Profile() )
+	{
+		const QString ic = tmp_vm->Get_Icon_Path();
+		if( ic.isEmpty() || ic.endsWith( QLatin1String( "other.png" ) ) )
+		{
+			tmp_vm->Set_Icon_Path( QStringLiteral( ":/default_macos.png" ) );
+			if( ui.Machines_List->currentItem() )
+			{
+				ui.Machines_List->currentItem()->setIcon( QIcon( QStringLiteral( ":/default_macos.png" ) ) );
+				ui.Machines_List->currentItem()->setData( 128, QStringLiteral( ":/default_macos.png" ) );
+			}
+			tmp_vm->Save_VM();
+		}
+	}
 	ui.CH_Snapshot->setChecked( tmp_vm->Use_Snapshot_Mode() );
 	ui_ao.CH_FDD_Boot->setChecked( tmp_vm->Use_Check_FDD_Boot_Sector() );
 	ui.CH_Local_Time->setChecked( tmp_vm->Use_Local_Time() );
@@ -1958,6 +2074,7 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
     	Update_Info_Text();
     }
 	Update_Win11_Lifecycle_Ui();
+	Update_Intel_MacOS_Settings_Ui();
 	Update_Disabled_Controls(); // FIXME
 
 	// CPU count AFTER Update_Disabled_Controls — that rebuilds the combo and used to wipe this to 1.
@@ -2297,11 +2414,35 @@ void Main_Window::VM_State_Changed( Virtual_Machine *vm, VM::VM_State s )
 		return;
 	}
 
+	// Always leave the guest view when this VM stops — even if the list has no
+	// selection (Get_Current_VM() can be null while session mode is active).
+	if( Settings.value( "Embedded_Session", "yes" ).toString() == "yes" )
+	{
+		if( s == VM::VMS_Power_Off || s == VM::VMS_Saved || s == VM::VMS_In_Error )
+		{
+			if( Session_Mode_Active && Session_VM == vm )
+				Exit_Session_Mode();
+			// Allow the next Start to auto-open the session again.
+			if( s == VM::VMS_Power_Off || s == VM::VMS_In_Error )
+				Session_User_Detached = false;
+		}
+		else if( s == VM::VMS_Running || s == VM::VMS_Pause )
+		{
+			// Refresh attach while viewing this VM (e.g. Preparing → Running).
+			// Do not auto-reopen after the user explicitly left with Exit view.
+			if( Session_Mode_Active && Session_VM == vm )
+				Enter_Session_Mode( vm );
+			else if( ! Session_Mode_Active && ! Session_User_Detached )
+				Enter_Session_Mode( vm );
+		}
+	}
+
 	Virtual_Machine *cur_vm = Get_Current_VM();
 	if( cur_vm == NULL )
 	{
-		AQError( "void Main_Window::VM_State_Changed( Virtual_Machine *vm, VM::VM_State s )",
-				 "Cannot Get Current VM" );
+		Show_State_VM( vm );
+		vm->Save_VM();
+		Update_Connect_Action();
 		return;
 	}
 
@@ -2311,24 +2452,10 @@ void Main_Window::VM_State_Changed( Virtual_Machine *vm, VM::VM_State s )
 		Update_Info_Text();
 		Show_State_Current( cur_vm );
 	}
-    Show_State_VM( vm );
+	Show_State_VM( vm );
 
 	vm->Save_VM(); // Save New State
-
-	// Embedded session: enter guest view when VM starts
-	if( Settings.value( "Embedded_Session", "yes" ).toString() == "yes" )
-	{
-		if( s == VM::VMS_Running || s == VM::VMS_Pause )
-		{
-			if( ! Session_Mode_Active || Session_VM == vm )
-				Enter_Session_Mode( vm );
-		}
-		else if( Session_Mode_Active && Session_VM == vm &&
-		         ( s == VM::VMS_Power_Off || s == VM::VMS_Saved ) )
-		{
-			Exit_Session_Mode();
-		}
-	}
+	Update_Connect_Action();
 }
 
 void Main_Window::Enter_Session_Mode( Virtual_Machine *vm )
@@ -2336,6 +2463,7 @@ void Main_Window::Enter_Session_Mode( Virtual_Machine *vm )
 	if( ! vm || ! Session_Widget || ! Main_Stack )
 		return;
 
+	Session_User_Detached = false;
 	Session_VM = vm;
 	Session_Mode_Active = true;
 	setWindowTitle( tr( "AQEMU – %1" ).arg( vm->Get_Machine_Name() ) );
@@ -2355,6 +2483,7 @@ void Main_Window::Enter_Session_Mode( Virtual_Machine *vm )
 	                           vnc_tcp,
 	                           backend );
 	Main_Stack->setCurrentWidget( Session_Widget );
+	Update_Connect_Action();
 }
 
 void Main_Window::Enter_Session_Mode_Preparing( Virtual_Machine *vm )
@@ -2362,6 +2491,7 @@ void Main_Window::Enter_Session_Mode_Preparing( Virtual_Machine *vm )
 	if( ! vm || ! Session_Widget || ! Main_Stack )
 		return;
 
+	Session_User_Detached = false;
 	Session_VM = vm;
 	Session_Mode_Active = true;
 	setWindowTitle( tr( "AQEMU – %1" ).arg( vm->Get_Machine_Name() ) );
@@ -2377,6 +2507,7 @@ void Main_Window::Enter_Session_Mode_Preparing( Virtual_Machine *vm )
 	                           0, 0, backend );
 	Main_Stack->setCurrentWidget( Session_Widget );
 	QApplication::processEvents( QEventLoop::ExcludeUserInputEvents );
+	Update_Connect_Action();
 }
 
 void Main_Window::Exit_Session_Mode()
@@ -2399,12 +2530,62 @@ void Main_Window::Exit_Session_Mode()
 
 	// Refresh device tabs so floppy/CD paths saved during the session show up
 	Update_VM_Ui();
+	Update_Connect_Action();
 }
 
 void Main_Window::On_Session_Exit_View()
 {
-	// Leave session UI without forcing power-off
+	// Leave session UI without forcing power-off.
+	// Only remember "user left the view" when the guest is still running so
+	// Connect stays available and Start does not immediately steal focus again.
+	if( Session_VM &&
+		( Session_VM->Get_State() == VM::VMS_Running ||
+		  Session_VM->Get_State() == VM::VMS_Pause ) )
+		Session_User_Detached = true;
+	else
+		Session_User_Detached = false;
+
 	Exit_Session_Mode();
+}
+
+void Main_Window::Update_Connect_Action()
+{
+	Virtual_Machine *vm = Get_Current_VM();
+	const bool can_connect =
+		vm &&
+		Settings.value( "Embedded_Session", "yes" ).toString() == "yes" &&
+		( vm->Get_State() == VM::VMS_Running || vm->Get_State() == VM::VMS_Pause ) &&
+		!( Session_Mode_Active && Session_VM == vm );
+
+	ui.actionConnect_Session->setEnabled( can_connect );
+}
+
+void Main_Window::on_actionConnect_Session_triggered()
+{
+	Virtual_Machine *vm = Get_Current_VM();
+	if( ! vm )
+		return;
+
+	if( vm->Get_State() != VM::VMS_Running && vm->Get_State() != VM::VMS_Pause )
+	{
+		AQGraphic_Warning( tr( "Connect" ),
+						   tr( "This virtual machine is not running. Use Start first." ) );
+		return;
+	}
+
+	if( Settings.value( "Embedded_Session", "yes" ).toString() != "yes" )
+	{
+		AQGraphic_Warning( tr( "Connect" ),
+						   tr( "Embedded session display is disabled in AQEMU settings." ) );
+		return;
+	}
+
+	// Switching from another guest view, or reconnecting after Exit view.
+	if( Session_Mode_Active && Session_VM != vm )
+		Exit_Session_Mode();
+
+	Session_User_Detached = false;
+	Enter_Session_Mode( vm );
 }
 
 void Main_Window::On_Session_Request_Stop()
@@ -2572,6 +2753,7 @@ void Main_Window::Show_State_Current( Virtual_Machine *vm)
 	ui.Button_Cancel->setEnabled( false );
 
 	Update_Emulator_Control( vm );
+	Update_Connect_Action();
 }
 
 void Main_Window::Show_State_VM( Virtual_Machine *vm )
@@ -3031,12 +3213,20 @@ void Main_Window::on_Machines_List_customContextMenuRequested( const QPoint &pos
 
 void Main_Window::on_Machines_List_itemDoubleClicked( QListWidgetItem *item )
 {
+	Q_UNUSED( item );
 	Virtual_Machine *cur_vm = Get_Current_VM();
 
 	if( cur_vm == NULL )
 	{
 		AQError( "void Main_Window::on_Machines_List_itemDoubleClicked( QListWidgetItem *item )",
 				 "cur_vm == NULL" );
+		return;
+	}
+
+	// Running guests: double-click reconnects to the embedded display.
+	if( cur_vm->Get_State() == VM::VMS_Running || cur_vm->Get_State() == VM::VMS_Pause )
+	{
+		on_actionConnect_Session_triggered();
 		return;
 	}
 
@@ -3646,13 +3836,18 @@ void Main_Window::on_actionExit_triggered()
 
 void Main_Window::on_actionShow_New_VM_Wizard_triggered()
 {
-	VM_Wizard_Window Wizard_Win;
+	VM_Wizard_Window *Wizard_Win = nullptr;
+	AQ_Run_With_Busy_Dialog( this, tr( "Preparing New VM wizard…" ), [ & ]() {
+		Wizard_Win = new VM_Wizard_Window( this );
+		Wizard_Win->Set_VM_List( &VM_List );
+	} );
 
-	Wizard_Win.Set_VM_List( &VM_List );
+	if( ! Wizard_Win )
+		return;
 
-	if( Wizard_Win.exec() == QDialog::Accepted )
+	if( Wizard_Win->exec() == QDialog::Accepted )
 	{
-		Virtual_Machine *vm = Wizard_Win.New_VM;
+		Virtual_Machine *vm = Wizard_Win->New_VM;
 		vm->Set_UID( QUuid::createUuid().toString() ); // Create UID
 		VM_List << vm;
 
@@ -3662,13 +3857,25 @@ void Main_Window::on_actionShow_New_VM_Wizard_triggered()
 		QListWidgetItem *item = new QListWidgetItem( vm->Get_Machine_Name(), ui.Machines_List );
 		item->setIcon( QIcon(vm->Get_Icon_Path()) );
 		item->setData( 256, vm->Get_UID() );
+		item->setData( 128, vm->Get_Icon_Path() );
 
 		ui.Machines_List->setCurrentItem( item );
 
 		Update_VM_Ui();
 
+		// Sync Advanced Options widgets from the new VM before Apply, so Apply
+		// cannot wipe wizard-only fields (OpenCore / OSK) that were not on-screen yet.
+		ui_ao.CH_Intel_MacOS_Profile->setChecked( vm->Use_Intel_MacOS_Profile() );
+		ui_ao.Edit_OpenCore_Boot_Path->setText( vm->Get_OpenCore_Boot_Path() );
+		ui_ao.Edit_Apple_SMC_OSK->setText( vm->Get_Apple_SMC_OSK() );
+		ui_ao.Edit_UEFI_CODE_File->setText( vm->Get_UEFI_CODE_File() );
+		ui_ao.Edit_UEFI_VARS_File->setText( vm->Get_UEFI_VARS_File() );
+		ui_ao.CH_Launch_Via_WSL->setChecked( vm->Use_Launch_Via_WSL() );
+
 		on_Button_Apply_clicked();
 	}
+
+	Wizard_Win->deleteLater();
 }
 
 void Main_Window::on_actionAdd_New_VM_triggered()
@@ -3912,6 +4119,13 @@ void Main_Window::on_actionPower_On_triggered()
 	{
 		AQError( "void Main_Window::on_actionPower_On_triggered()",
 				 "cur_vm == NULL" );
+		return;
+	}
+
+	// Already running: treat Start as Connect to the guest view.
+	if( cur_vm->Get_State() == VM::VMS_Running || cur_vm->Get_State() == VM::VMS_Pause )
+	{
+		on_actionConnect_Session_triggered();
 		return;
 	}
 
@@ -4670,6 +4884,7 @@ void Main_Window::Computer_Type_Changed()
 
 	// Other Options
 	Update_Win11_Lifecycle_Ui();
+	Update_Intel_MacOS_Settings_Ui();
 	Enforce_Accel_Honesty();
 	Update_Disabled_Controls();
 }
@@ -4727,10 +4942,11 @@ void Main_Window::Update_Machine_Accelerators()
 
 void Main_Window::Enforce_Accel_Honesty()
 {
-	const QString host = QSysInfo::currentCpuArchitecture().toLower();
+	const QString host = AQ_Get_Host_CPU_Architecture();
 	bool ok = false;
 	const Available_Devices dev = Get_Current_Machine_Devices( &ok );
-	const QString guest = ok ? dev.System.QEMU_Name.toLower() : QString();
+	const QString guest_bin = ok ? dev.System.QEMU_Name : QString();
+	const QString guest = AQ_Normalize_CPU_Architecture( guest_bin );
 
 	auto *model = qobject_cast<QStandardItemModel *>( ui.CB_Machine_Accelerator->model() );
 	ui.CB_Machine_Accelerator->blockSignals( true );
@@ -4753,26 +4969,7 @@ void Main_Window::Enforce_Accel_Honesty()
 		return;
 	}
 
-	const bool host_x86 =
-		host.contains( QLatin1String( "x86" ) ) ||
-		host == QLatin1String( "amd64" ) ||
-		host == QLatin1String( "i386" );
-	const bool host_arm =
-		host.contains( QLatin1String( "arm" ) ) ||
-		host.contains( QLatin1String( "aarch64" ) );
-
-	const bool guest_x86 =
-		guest.contains( QLatin1String( "x86_64" ) ) ||
-		guest.contains( QLatin1String( "i386" ) );
-	const bool guest_arm =
-		guest.contains( QLatin1String( "aarch64" ) ) ||
-		guest.contains( QLatin1String( "qemu-system-arm" ) ) ||
-		( guest.contains( QLatin1String( "arm" ) ) &&
-		  ! guest.contains( QLatin1String( "x86" ) ) );
-
-	const bool is_native =
-		( host_x86 && guest_x86 ) ||
-		( host_arm && guest_arm );
+	const bool is_native = AQ_Guest_Matches_Host_Architecture( guest );
 
 	int tcg_index = -1;
 	for( int i = 0; i < ui.CB_Machine_Accelerator->count(); ++i )
@@ -4801,13 +4998,15 @@ void Main_Window::Enforce_Accel_Honesty()
 		if( tcg_index >= 0 )
 			ui.CB_Machine_Accelerator->setCurrentIndex( tcg_index );
 		ui.CB_Machine_Accelerator->setToolTip(
-			tr( "Cross-architecture emulation: native acceleration (KVM / WHPX / HVF) "
-				"cannot run this guest on this host. Using software translation (TCG)." ) );
+			tr( "Cross-architecture emulation: host is %1, guest is %2. "
+			    "Native acceleration (KVM / WHPX / HVF) cannot run this guest. Using TCG." )
+				.arg( host ).arg( guest ) );
 	}
 	else
 	{
 		ui.CB_Machine_Accelerator->setToolTip(
-			tr( "On Windows x86 hosts, KVM maps to WHPX/HAX with TCG fallback when available." ) );
+			tr( "Host %1 matches guest %2. On Windows, KVM maps to WHPX/HAX with TCG fallback." )
+				.arg( host ).arg( guest ) );
 	}
 
 	ui.CB_Machine_Accelerator->blockSignals( false );
@@ -5209,6 +5408,82 @@ void Main_Window::on_Button_Win11_Normal_clicked()
 	Apply_Win11_Lifecycle_Mode( VM::Win11_Normal );
 }
 
+void Main_Window::on_Button_Win11_Repair_clicked()
+{
+	Virtual_Machine *vm = Get_Current_VM();
+	const QString disk = ( vm && vm->Get_HDA().Get_Enabled() )
+		? vm->Get_HDA().Get_File_Name()
+		: ( Dev_Manager ? Dev_Manager->HDA.Get_File_Name() : QString() );
+
+	QDialog dlg( this );
+	dlg.setWindowTitle( tr( "Windows 11 ARM — OOBE / UCPD helpers" ) );
+	dlg.resize( 720, 520 );
+
+	QVBoxLayout *lay = new QVBoxLayout( &dlg );
+	QLabel *intro = new QLabel( tr(
+		"<p>Use <b>Send Shift+F10</b> on the session toolbar (or Shift+F10 with the guest focused) "
+		"to open Setup CMD, then paste one of the recipes below.</p>"
+		"<p>Account screens that show <i>An error occurred</i> on ARM/TCG are usually Microsoft "
+		"account / network services failing — skip to a local account with the OOBE recipe.</p>" ), &dlg );
+	intro->setWordWrap( true );
+	lay->addWidget( intro );
+
+	QTextEdit *edit = new QTextEdit( &dlg );
+	edit->setReadOnly( true );
+	edit->setPlainText(
+		tr( "=== OOBE bypass (try this first) ===\n\n" ) +
+		Win11_OOBE_Bypass_Guest_Commands() +
+		QStringLiteral( "\n\n" ) +
+		tr( "=== Remove UCPD.sys (if it reboots after OOBE / BSOD) ===\n\n" ) +
+		Win11_UCPD_Guest_Commands() +
+		QStringLiteral( "\n\n" ) +
+		tr( "Disk image: %1" ).arg( disk.isEmpty() ? tr( "(none)" ) : disk ) );
+	lay->addWidget( edit );
+
+	QHBoxLayout *btns = new QHBoxLayout();
+	QPushButton *copy_oobe = new QPushButton( tr( "Copy OOBE commands" ), &dlg );
+	QPushButton *copy_ucpd = new QPushButton( tr( "Copy UCPD commands" ), &dlg );
+	QPushButton *auto_ucpd = new QPushButton( tr( "Remove UCPD from disk image…" ), &dlg );
+	btns->addWidget( copy_oobe );
+	btns->addWidget( copy_ucpd );
+	btns->addWidget( auto_ucpd );
+	btns->addStretch();
+	lay->addLayout( btns );
+
+	QDialogButtonBox *box = new QDialogButtonBox( QDialogButtonBox::Close, &dlg );
+	lay->addWidget( box );
+	connect( box, &QDialogButtonBox::rejected, &dlg, &QDialog::reject );
+
+	connect( copy_oobe, &QPushButton::clicked, &dlg, []() {
+		QApplication::clipboard()->setText( Win11_OOBE_Bypass_Guest_Commands() );
+	} );
+	connect( copy_ucpd, &QPushButton::clicked, &dlg, []() {
+		QApplication::clipboard()->setText( Win11_UCPD_Guest_Commands() );
+	} );
+	connect( auto_ucpd, &QPushButton::clicked, &dlg, [ this, vm, disk ]() {
+		if( disk.isEmpty() || ! QFile::exists( disk ) )
+		{
+			QMessageBox::warning( this, tr( "UCPD removal" ),
+								  tr( "No HDA disk image is configured for this VM." ) );
+			return;
+		}
+		if( vm && ( vm->Get_State() == VM::VMS_Running || vm->Get_State() == VM::VMS_Pause ) )
+		{
+			QMessageBox::warning( this, tr( "UCPD removal" ),
+								  tr( "Shut down the VM first (or use the guest Shift+F10 UCPD commands while OOBE is open)." ) );
+			return;
+		}
+		QString msg;
+		const bool ok = Remove_UCPD_From_Disk_Image( disk, &msg );
+		if( ok )
+			QMessageBox::information( this, tr( "UCPD removal" ), msg );
+		else
+			QMessageBox::warning( this, tr( "UCPD removal" ), msg );
+	} );
+
+	dlg.exec();
+}
+
 void Main_Window::Update_Win11_Lifecycle_Ui()
 {
 	const bool aarch64 =
@@ -5244,6 +5519,41 @@ void Main_Window::Update_Win11_Lifecycle_Ui()
 			break;
 	}
 	ui.Label_Win11_Lifecycle_Status->setText( status );
+}
+
+void Main_Window::Update_Intel_MacOS_Settings_Ui()
+{
+	Virtual_Machine *vm = Get_Current_VM();
+	const bool show = vm && vm->Use_Intel_MacOS_Profile();
+
+	ui.label_intel_macos->setVisible( show );
+	ui.GB_Intel_MacOS_Settings->setVisible( show );
+	ui.verticalSpacer_intel_macos->changeSize(
+		20, show ? 16 : 0, QSizePolicy::Minimum, show ? QSizePolicy::Fixed : QSizePolicy::Ignored );
+	ui.verticalSpacer_intel_macos->invalidate();
+}
+
+void Main_Window::on_TB_Intel_Mac_OpenCore_Browse_Main_clicked()
+{
+	QString file = QFileDialog::getOpenFileName( this, tr( "Select OpenCore ISO or disk image" ),
+		Get_Last_Dir_Path( ui.Edit_Intel_Mac_OpenCore_Main->text() ),
+		tr( "OpenCore (*.iso *.qcow2 *.qcow *.img *.raw);;ISO (*.iso);;All Files (*)" ) );
+	if( file.isEmpty() )
+		return;
+	ui.Edit_Intel_Mac_OpenCore_Main->setText( QDir::toNativeSeparators( file ) );
+	ui_ao.Edit_OpenCore_Boot_Path->setText( ui.Edit_Intel_Mac_OpenCore_Main->text() );
+	VM_Changed();
+}
+
+void Main_Window::on_TB_Intel_Mac_Recovery_Browse_Main_clicked()
+{
+	QString file = QFileDialog::getOpenFileName( this, tr( "Select Recovery / installer image" ),
+		Get_Last_Dir_Path( ui.Edit_Intel_Mac_Recovery_Main->text() ),
+		tr( "Images (*.iso *.dmg *.img *.raw *.qcow2);;All Files (*)" ) );
+	if( file.isEmpty() )
+		return;
+	ui.Edit_Intel_Mac_Recovery_Main->setText( QDir::toNativeSeparators( file ) );
+	VM_Changed();
 }
 
 void Main_Window::Apply_Win11_Lifecycle_Mode( VM::Win11_Lifecycle_Mode mode )
@@ -5292,7 +5602,8 @@ void Main_Window::Apply_Win11_Lifecycle_Mode( VM::Win11_Lifecycle_Mode mode )
 	vm->Set_Mouse_USB_Controller( QStringLiteral( "xhci" ) );
 	vm->Use_VirtIO_RNG( true );
 	vm->Use_VirtIO_Balloon( true );
-	vm->Use_VirtIO_Keyboard( true );
+	// BVM uses usb-kbd only (no virtio-keyboard) for install and everyday boot.
+	vm->Use_VirtIO_Keyboard( false );
 	vm->Use_UEFI( true );
 
 	const int mouse_ix = ui.CB_Mouse_Type->findData( "usb-tablet" );
@@ -5332,9 +5643,13 @@ void Main_Window::Apply_Win11_Lifecycle_Mode( VM::Win11_Lifecycle_Mode mode )
 	}
 	else if( mode == VM::Win11_First_Boot )
 	{
-		const int vix = ui.CB_Video_Card->findData( "ramfb" );
+		// BVM post-install "boot" uses virtio-gpu only (ramfb is install-only).
+		const int vix = ui.CB_Video_Card->findData( "virtio-gpu-pci" );
 		if( vix >= 0 )
 			ui.CB_Video_Card->setCurrentIndex( vix );
+
+		if( ui.Memory_Size->value() > 4096 )
+			ui.Memory_Size->setValue( 4096 );
 
 		// Keep path but detach ISO for this phase
 		Dev_Manager->CD_ROM.Set_Enabled( false );
@@ -5361,6 +5676,7 @@ void Main_Window::Apply_Win11_Lifecycle_Mode( VM::Win11_Lifecycle_Mode mode )
 	}
 
 	Update_Win11_Lifecycle_Ui();
+	Update_Intel_MacOS_Settings_Ui();
 	Update_Display_Resolution_Enabled();
 	on_Button_Apply_clicked();
 }

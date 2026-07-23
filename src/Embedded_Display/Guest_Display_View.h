@@ -18,6 +18,8 @@ class Guest_Display_View : public QWidget
 		virtual void Disconnect() = 0;
 		virtual bool Is_Connected() const = 0;
 		virtual void Send_CAD() = 0; // Ctrl-Alt-Delete
+		/** Win11 Setup: open cmd (Shift+F10). Default no-op for VNC. */
+		virtual void Send_Shift_F10() {}
 		virtual QString Backend_Name() const = 0;
 
 	signals:

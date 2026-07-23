@@ -26,10 +26,19 @@
 #include <QHeaderView>
 #include <QInputDialog>
 #include <QMessageBox>
+#include <QCheckBox>
+#include <QLineEdit>
+#include <QLabel>
+#include <QToolButton>
+#include <QGroupBox>
+#include <QVBoxLayout>
+#include <QHBoxLayout>
+#include <QGridLayout>
 
 #include "Advanced_Settings_Window.h"
 #include "System_Info.h"
 #include "Utils.h"
+#include "WSL_Launch.h"
 #include "Emulator_Options_Window.h"
 #include "First_Start_Wizard.h"
 #include "Create_Template_Window.h"
@@ -41,6 +50,47 @@ Advanced_Settings_Window::Advanced_Settings_Window( QWidget *parent )
 	ui.setupUi( this );
 
     settings_widget = new Settings_Widget( ui.All_Tabs, QBoxLayout::TopToBottom, true, false );
+
+	// WSL / KVM launch (Windows host)
+	CH_WSL_Launch_Enabled = nullptr;
+	Edit_WSL_Distro = nullptr;
+	Edit_WSL_Qemu_Binary = nullptr;
+	Label_WSL_KVM_Status = nullptr;
+	TB_WSL_Probe = nullptr;
+#ifdef Q_OS_WIN32
+	{
+		QGroupBox *wslBox = new QGroupBox( tr( "WSL / KVM launch" ), ui.Tab_General );
+		QVBoxLayout *wslLay = new QVBoxLayout( wslBox );
+		CH_WSL_Launch_Enabled = new QCheckBox( tr( "Enable Launch via WSL/KVM (for Intel macOS and other VMs)" ) );
+		CH_WSL_Launch_Enabled->setChecked( Settings.value( "WSL_Launch/Enabled", false ).toBool() );
+		wslLay->addWidget( CH_WSL_Launch_Enabled );
+		QHBoxLayout *distroLay = new QHBoxLayout();
+		distroLay->addWidget( new QLabel( tr( "Distro (empty = default):" ) ) );
+		Edit_WSL_Distro = new QLineEdit( Settings.value( "WSL_Launch/Distro", "" ).toString() );
+		distroLay->addWidget( Edit_WSL_Distro );
+		wslLay->addLayout( distroLay );
+		QHBoxLayout *binLay = new QHBoxLayout();
+		binLay->addWidget( new QLabel( tr( "QEMU binary in WSL:" ) ) );
+		Edit_WSL_Qemu_Binary = new QLineEdit(
+			Settings.value( "WSL_Launch/Qemu_Binary", "qemu-system-x86_64" ).toString() );
+		binLay->addWidget( Edit_WSL_Qemu_Binary );
+		wslLay->addLayout( binLay );
+		QHBoxLayout *probeLay = new QHBoxLayout();
+		TB_WSL_Probe = new QToolButton();
+		TB_WSL_Probe->setText( tr( "Probe /dev/kvm" ) );
+		Label_WSL_KVM_Status = new QLabel( tr( "Status: not probed" ) );
+		probeLay->addWidget( TB_WSL_Probe );
+		probeLay->addWidget( Label_WSL_KVM_Status, 1 );
+		wslLay->addLayout( probeLay );
+		QLabel *note = new QLabel( tr(
+			"SPICE/QMP stay on 127.0.0.1 — requires WSL localhostForwarding." ) );
+		note->setWordWrap( true );
+		wslLay->addWidget( note );
+		if( QGridLayout *gl = qobject_cast<QGridLayout*>( ui.Tab_General->layout() ) )
+			gl->addWidget( wslBox, gl->rowCount(), 0, 1, gl->columnCount() );
+		connect( TB_WSL_Probe, SIGNAL(clicked()), this, SLOT(on_TB_WSL_Probe_clicked()) );
+	}
+#endif
 	
 	QHeaderView *hv = new QHeaderView( Qt::Vertical, ui.Emulators_Table );
 	hv->setSectionResizeMode( QHeaderView::Fixed );
@@ -424,6 +474,15 @@ void Advanced_Settings_Window::done(int r)
 {
     if ( r == QDialog::Accepted )
     {
+#ifdef Q_OS_WIN32
+	    if( CH_WSL_Launch_Enabled )
+	    {
+		    Settings.setValue( "WSL_Launch/Enabled", CH_WSL_Launch_Enabled->isChecked() );
+		    Settings.setValue( "WSL_Launch/Distro", Edit_WSL_Distro ? Edit_WSL_Distro->text().trimmed() : QString() );
+		    Settings.setValue( "WSL_Launch/Qemu_Binary",
+			    Edit_WSL_Qemu_Binary ? Edit_WSL_Qemu_Binary->text().trimmed() : QStringLiteral( "qemu-system-x86_64" ) );
+	    }
+#endif
 	    // Execute Before Start QEMU
 	    Settings.setValue( "Run_Before_QEMU", ui.Edit_Before_Start_Command->text() );
 	
@@ -1010,4 +1069,30 @@ QStringList Advanced_Settings_Window::Get_All_Emulators_Names() const
 	QStringList list;
 	for( int ix = 0; ix < Emulators.count(); ix++ ) list << Emulators[ ix ].Get_Name();
 	return list;
+}
+
+void Advanced_Settings_Window::on_TB_WSL_Probe_clicked()
+{
+#ifdef Q_OS_WIN32
+	if( ! Label_WSL_KVM_Status )
+		return;
+
+	AQ_Run_With_Busy_Dialog( this, tr( "Checking WSL/KVM…" ), [ this ]() {
+		WSL_Clear_Probe_Cache();
+		if( ! WSL_Is_Available( true ) )
+		{
+			Label_WSL_KVM_Status->setText( tr( "Status: wsl.exe not available" ) );
+			return;
+		}
+		const QString distro = Edit_WSL_Distro ? Edit_WSL_Distro->text().trimmed() : QString();
+		if( WSL_Ensure_KVM_Access( distro ) )
+			Label_WSL_KVM_Status->setText( tr( "Status: /dev/kvm OK" ) );
+		else if( WSL_Has_KVM( distro, true ) )
+			Label_WSL_KVM_Status->setText( tr( "Status: /dev/kvm OK" ) );
+		else
+			Label_WSL_KVM_Status->setText( tr( "Status: /dev/kvm missing or inaccessible" ) );
+	} );
+#else
+	Q_UNUSED( 0 );
+#endif
 }

@@ -390,6 +390,30 @@ class Virtual_Machine: public QObject
 
 		VM::Win11_Lifecycle_Mode Get_Win11_Lifecycle_Mode() const;
 		void Set_Win11_Lifecycle_Mode( VM::Win11_Lifecycle_Mode mode );
+
+		/** Win95/98 and earlier: force pure TCG (no WHPX/KVM) + safe CPU. */
+		bool Use_Force_TCG() const;
+		void Use_Force_TCG( bool use );
+
+		/** Experimental Intel macOS (OpenCore + Apple SMC + q35). */
+		bool Use_Intel_MacOS_Profile() const;
+		void Use_Intel_MacOS_Profile( bool use );
+
+		bool Use_Apple_SMC() const;
+		void Use_Apple_SMC( bool use );
+
+		const QString &Get_Apple_SMC_OSK() const;
+		void Set_Apple_SMC_OSK( const QString &osk );
+
+		const QString &Get_OpenCore_Boot_Path() const;
+		void Set_OpenCore_Boot_Path( const QString &path );
+
+		const QString &Get_Mac_Recovery_Image_Path() const;
+		void Set_Mac_Recovery_Image_Path( const QString &path );
+
+		/** Launch this VM via wsl.exe + Linux QEMU (KVM) on Windows. */
+		bool Use_Launch_Via_WSL() const;
+		void Use_Launch_Via_WSL( bool use );
 		
 		bool Use_KVM() const;
 		void Use_KVM( bool use );
@@ -660,7 +684,15 @@ class Virtual_Machine: public QObject
 		bool VirtIO_Keyboard;
 
 		VM::Win11_Lifecycle_Mode Win11_Lifecycle_Mode;
-		
+		bool Force_TCG;
+
+		bool Intel_MacOS_Profile;
+		bool Use_Apple_SMC_Flag;
+		QString Apple_SMC_OSK;
+		QString OpenCore_Boot_Path;
+		QString Mac_Recovery_Image_Path;
+		bool Launch_Via_WSL;
+
 		bool Enable_KVM;
 		bool KVM_IRQChip;
 		bool No_KVM_Pit;

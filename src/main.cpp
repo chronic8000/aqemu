@@ -323,6 +323,11 @@ int AQEMU_Main::main_window()
         return ret;
     }
     AQEMU_Startup_Log( "load_settings ok" );
+    {
+	    const QByteArray host_arch_msg =
+		    QByteArray( "Host CPU architecture: " ) + AQ_Get_Host_CPU_Architecture().toUtf8();
+	    AQEMU_Startup_Log( host_arch_msg.constData() );
+    }
 
     // Show main window
     window = new Main_Window;

@@ -1,6 +1,7 @@
 <RCC>
     <qresource prefix="/">
         <file alias="aqemu_logo.png">icons/aqemu_logo.png</file>
+        <file alias="default_macos.png">icons/default_macos.png</file>
         <file alias="default_linux.png">icons/default_linux.png</file>
         <file alias="default_windows.png">icons/default_windows.png</file>
         <file alias="other.png">icons/other.png</file>

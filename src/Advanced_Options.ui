@@ -74,6 +74,16 @@
         </property>
        </widget>
       </item>
+      <item row="6" column="1">
+       <widget class="QCheckBox" name="CH_Force_TCG">
+        <property name="toolTip">
+         <string>Windows 95/98 and earlier: use pure TCG only (no WHPX/KVM). Fixes splash-screen freezes on Windows hosts.</string>
+        </property>
+        <property name="text">
+         <string>Force pure TCG (Win9x / pre-ME)</string>
+        </property>
+       </widget>
+      </item>
       <item row="7" column="0">
        <widget class="QCheckBox" name="CH_Start_Date">
         <property name="sizePolicy">
@@ -194,6 +204,76 @@
     </widget>
    </item>
    <item row="2" column="0">
+    <widget class="QGroupBox" name="GB_Intel_MacOS">
+     <property name="title">
+      <string>Intel macOS (experimental)</string>
+     </property>
+     <layout class="QGridLayout" name="gridLayout_Intel_Mac">
+      <item row="0" column="0" colspan="2">
+       <widget class="QCheckBox" name="CH_Intel_MacOS_Profile">
+        <property name="text">
+         <string>Enable Intel macOS profile (q35 + OpenCore + SMC)</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="Label_OpenCore">
+        <property name="text">
+         <string>OpenCore ISO/disk:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="1">
+       <widget class="QLineEdit" name="Edit_OpenCore_Boot_Path"/>
+      </item>
+      <item row="2" column="0">
+       <widget class="QLabel" name="Label_OSK">
+        <property name="text">
+         <string>Apple SMC OSK:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="1">
+       <widget class="QLineEdit" name="Edit_Apple_SMC_OSK">
+        <property name="echoMode">
+         <enum>QLineEdit::Password</enum>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="0">
+       <widget class="QLabel" name="Label_UEFI_CODE_Mac">
+        <property name="text">
+         <string>OVMF CODE:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="1">
+       <widget class="QLineEdit" name="Edit_UEFI_CODE_File"/>
+      </item>
+      <item row="4" column="0">
+       <widget class="QLabel" name="Label_UEFI_VARS_Mac">
+        <property name="text">
+         <string>OVMF VARS:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="4" column="1">
+       <widget class="QLineEdit" name="Edit_UEFI_VARS_File"/>
+      </item>
+      <item row="5" column="0" colspan="2">
+       <widget class="QCheckBox" name="CH_Launch_Via_WSL">
+        <property name="toolTip">
+         <string>Run Linux QEMU inside WSL with KVM. Requires WSL localhost forwarding for SPICE/QMP.</string>
+        </property>
+        <property name="text">
+         <string>Launch via WSL/KVM</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item row="3" column="0">
     <widget class="Dialog_Button_Box" name="buttonBox">
      <property name="orientation">
       <enum>Qt::Horizontal</enum>

@@ -59,6 +59,7 @@
 #include "VM.h"
 #include "QMP_Client.h"
 #include "Utils.h"
+#include "WSL_Launch.h"
 #include "Emulator_Control_Window.h"
 #include "System_Info.h"
 #include "VNC_Password_Window.h"
@@ -246,7 +247,14 @@ Virtual_Machine::Virtual_Machine( const Virtual_Machine &vm )
 	this->VirtIO_Balloon = vm.Use_VirtIO_Balloon();
 	this->VirtIO_Keyboard = vm.Use_VirtIO_Keyboard();
 	this->Win11_Lifecycle_Mode = vm.Get_Win11_Lifecycle_Mode();
-	
+	this->Force_TCG = vm.Use_Force_TCG();
+	this->Intel_MacOS_Profile = vm.Use_Intel_MacOS_Profile();
+	this->Use_Apple_SMC_Flag = vm.Use_Apple_SMC();
+	this->Apple_SMC_OSK = vm.Get_Apple_SMC_OSK();
+	this->OpenCore_Boot_Path = vm.Get_OpenCore_Boot_Path();
+	this->Mac_Recovery_Image_Path = vm.Get_Mac_Recovery_Image_Path();
+	this->Launch_Via_WSL = vm.Use_Launch_Via_WSL();
+
 	this->Enable_KVM = vm.Use_KVM();
 	this->KVM_IRQChip = vm.Use_KVM_IRQChip();
 	this->No_KVM_Pit = vm.Use_No_KVM_Pit();
@@ -458,7 +466,14 @@ void Virtual_Machine::Shared_Constructor()
 	VirtIO_Balloon = false;
 	VirtIO_Keyboard = false;
 	Win11_Lifecycle_Mode = VM::Win11_Normal;
-	
+	Force_TCG = false;
+	Intel_MacOS_Profile = false;
+	Use_Apple_SMC_Flag = false;
+	Apple_SMC_OSK = "";
+	OpenCore_Boot_Path = "";
+	Mac_Recovery_Image_Path = "";
+	Launch_Via_WSL = false;
+
 	Enable_KVM = true;
 	KVM_IRQChip = false;
 	No_KVM_Pit = false;
@@ -573,6 +588,13 @@ bool Virtual_Machine::operator==( const Virtual_Machine &vm ) const
 		this->VirtIO_Balloon == vm.Use_VirtIO_Balloon() &&
 		this->VirtIO_Keyboard == vm.Use_VirtIO_Keyboard() &&
 		this->Win11_Lifecycle_Mode == vm.Get_Win11_Lifecycle_Mode() &&
+		this->Force_TCG == vm.Use_Force_TCG() &&
+		this->Intel_MacOS_Profile == vm.Use_Intel_MacOS_Profile() &&
+		this->Use_Apple_SMC_Flag == vm.Use_Apple_SMC() &&
+		this->Apple_SMC_OSK == vm.Get_Apple_SMC_OSK() &&
+		this->OpenCore_Boot_Path == vm.Get_OpenCore_Boot_Path() &&
+		this->Mac_Recovery_Image_Path == vm.Get_Mac_Recovery_Image_Path() &&
+		this->Launch_Via_WSL == vm.Use_Launch_Via_WSL() &&
 		this->Enable_KVM == vm.Use_KVM() &&
 		this->KVM_IRQChip == vm.Use_KVM_IRQChip() &&
 		this->No_KVM_Pit == vm.Use_No_KVM_Pit() &&
@@ -823,6 +845,13 @@ Virtual_Machine &Virtual_Machine::operator=( const Virtual_Machine &vm )
 	VirtIO_Balloon = vm.Use_VirtIO_Balloon();
 	VirtIO_Keyboard = vm.Use_VirtIO_Keyboard();
 	Win11_Lifecycle_Mode = vm.Get_Win11_Lifecycle_Mode();
+	Force_TCG = vm.Use_Force_TCG();
+	Intel_MacOS_Profile = vm.Use_Intel_MacOS_Profile();
+	Use_Apple_SMC_Flag = vm.Use_Apple_SMC();
+	Apple_SMC_OSK = vm.Get_Apple_SMC_OSK();
+	OpenCore_Boot_Path = vm.Get_OpenCore_Boot_Path();
+	Mac_Recovery_Image_Path = vm.Get_Mac_Recovery_Image_Path();
+	Launch_Via_WSL = vm.Use_Launch_Via_WSL();
 
 	Enable_KVM = vm.Use_KVM();
 	KVM_IRQChip = vm.Use_KVM_IRQChip();
@@ -3019,6 +3048,41 @@ bool Virtual_Machine::Create_VM_File( const QString &file_name, bool template_mo
 	VM_Element.appendChild( Dom_Element );
 	Dom_Text = New_Dom_Document.createTextNode( VM::Win11_Lifecycle_To_String( Win11_Lifecycle_Mode ) );
 	Dom_Element.appendChild( Dom_Text );
+
+	Dom_Element = New_Dom_Document.createElement( "Force_TCG" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( Force_TCG ? "true" : "false" );
+	Dom_Element.appendChild( Dom_Text );
+
+	Dom_Element = New_Dom_Document.createElement( "Intel_MacOS_Profile" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( Intel_MacOS_Profile ? "true" : "false" );
+	Dom_Element.appendChild( Dom_Text );
+
+	Dom_Element = New_Dom_Document.createElement( "Use_Apple_SMC" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( Use_Apple_SMC_Flag ? "true" : "false" );
+	Dom_Element.appendChild( Dom_Text );
+
+	Dom_Element = New_Dom_Document.createElement( "Apple_SMC_OSK" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( Apple_SMC_OSK );
+	Dom_Element.appendChild( Dom_Text );
+
+	Dom_Element = New_Dom_Document.createElement( "OpenCore_Boot_Path" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( OpenCore_Boot_Path );
+	Dom_Element.appendChild( Dom_Text );
+
+	Dom_Element = New_Dom_Document.createElement( "Mac_Recovery_Image_Path" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( Mac_Recovery_Image_Path );
+	Dom_Element.appendChild( Dom_Text );
+
+	Dom_Element = New_Dom_Document.createElement( "Launch_Via_WSL" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( Launch_Via_WSL ? "true" : "false" );
+	Dom_Element.appendChild( Dom_Text );
 	
 	// Additional Arguments
 	Dom_Element = New_Dom_Document.createElement( "Additional_Args" );
@@ -4748,6 +4812,13 @@ bool Virtual_Machine::Load_VM( const QString &file_name )
 				else
 					Win11_Lifecycle_Mode = VM::Win11_Normal;
 			}
+			Force_TCG = ( Child_Element.firstChildElement( "Force_TCG" ).text() == "true" );
+			Intel_MacOS_Profile = ( Child_Element.firstChildElement( "Intel_MacOS_Profile" ).text() == "true" );
+			Use_Apple_SMC_Flag = ( Child_Element.firstChildElement( "Use_Apple_SMC" ).text() == "true" );
+			Apple_SMC_OSK = Child_Element.firstChildElement( "Apple_SMC_OSK" ).text();
+			OpenCore_Boot_Path = AQ_Normalize_File_Path( Child_Element.firstChildElement( "OpenCore_Boot_Path" ).text() );
+			Mac_Recovery_Image_Path = AQ_Normalize_File_Path( Child_Element.firstChildElement( "Mac_Recovery_Image_Path" ).text() );
+			Launch_Via_WSL = ( Child_Element.firstChildElement( "Launch_Via_WSL" ).text() == "true" );
 			
 			// Enable KVM
 			Enable_KVM = ! (Child_Element.firstChildElement("Enable_KVM").text() == "false" );
@@ -5462,7 +5533,19 @@ static bool Media_Is_Bootable_Now( const Virtual_Machine &vm, VM::Boot_Device ty
 		case VM::Boot_From_FDB:
 			return vm.Get_FD1().Get_Enabled() && QFile::exists( vm.Get_FD1().Get_File_Name() );
 		case VM::Boot_From_CDROM:
-			return vm.Get_CD_ROM().Get_Enabled() && QFile::exists( vm.Get_CD_ROM().Get_File_Name() );
+			if( vm.Get_CD_ROM().Get_Enabled() && QFile::exists( vm.Get_CD_ROM().Get_File_Name() ) )
+				return true;
+			// Intel macOS: OpenCore / Recovery ISOs are the CD-class boot media
+			if( vm.Use_Intel_MacOS_Profile() )
+			{
+				const QString oc = AQ_Normalize_File_Path( vm.Get_OpenCore_Boot_Path() );
+				if( ! oc.isEmpty() && QFile::exists( oc ) )
+					return true;
+				const QString rec = AQ_Normalize_File_Path( vm.Get_Mac_Recovery_Image_Path() );
+				if( ! rec.isEmpty() && QFile::exists( rec ) )
+					return true;
+			}
+			return false;
 		case VM::Boot_From_HDD:
 			return ( vm.Get_HDA().Get_Enabled() && QFile::exists( vm.Get_HDA().Get_File_Name() ) ) ||
 			       ( vm.Get_HDB().Get_Enabled() && QFile::exists( vm.Get_HDB().Get_File_Name() ) ) ||
@@ -5648,6 +5731,9 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	// SMP Mode
 	int smp_count = SMP.SMP_Count;
 	if( smp_count < 1 ) smp_count = 1;
+	// Win95/98 Force_TCG: single CPU only (SMP hangs or destabilizes 9x).
+	if( Force_TCG )
+		smp_count = 1;
 	// aarch64 under TCG with 1 vCPU is unusably slow; match kiosk default of 4
 	const bool virt_arch_for_smp =
 		Computer_Type.contains( "aarch64", Qt::CaseInsensitive ) ||
@@ -5656,7 +5742,11 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	if( virt_arch_for_smp && smp_count < 2 )
 		smp_count = 4;
 
-	if( smp_count <= Current_Emulator_Devices.PSO_SMP_Count )
+	if( Intel_MacOS_Profile && smp_count >= 1 )
+	{
+		Args << "-smp" << QString( "sockets=1,cores=%1,threads=1" ).arg( smp_count );
+	}
+	else if( smp_count <= Current_Emulator_Devices.PSO_SMP_Count )
 	{
 		if( Current_Emulator_Devices.PSO_SMP_Cores ||
 			Current_Emulator_Devices.PSO_SMP_Threads ||
@@ -5696,6 +5786,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	// CPU Model
 	// TCG aarch64 / Win11 ARM: -cpu max,pauth-impdef=on (PAuth without full crypto cost).
 	// KVM on ARM hosts: -cpu host. Bare -cpu max without pauth-impdef is too slow under TCG.
+	// Win95/98 (Force_TCG): period CPU — modern "max"/"host" hangs at splash under WHPX/TCG.
 	{
 		QString cpu_arg;
 		if( Current_Emulator_Devices.CPU_List.count() > 1 &&
@@ -5714,6 +5805,44 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			else
 				cpu_arg = QStringLiteral( "max,pauth-impdef=on" );
 			#endif
+		}
+
+		if( Force_TCG )
+		{
+			const QString c = cpu_arg.trimmed().toLower();
+			if( c.isEmpty() || c == QLatin1String( "max" ) || c == QLatin1String( "host" ) ||
+				c.startsWith( QLatin1String( "qemu64" ) ) || c.startsWith( QLatin1String( "qemu32" ) ) )
+				cpu_arg = QStringLiteral( "pentium2" );
+		}
+
+		if( Intel_MacOS_Profile )
+		{
+			// LongQT / modern Intel macOS (10.11+): Skylake-Client-v4 + GenuineIntel.
+			// Penryn alone often reaches the kernel then dies with "still waiting for root device".
+			QString base = cpu_arg.trimmed();
+			if( base.isEmpty() || base == QLatin1String( "max" ) || base == QLatin1String( "host" ) ||
+			    base.startsWith( QLatin1String( "qemu" ) ) ||
+			    base.startsWith( QLatin1String( "Penryn" ), Qt::CaseInsensitive ) )
+				base = QStringLiteral( "Skylake-Client-v4" );
+			const int comma = base.indexOf( QLatin1Char( ',' ) );
+			if( comma > 0 )
+				base = base.left( comma );
+			QStringList feats;
+			feats << base;
+			feats << QStringLiteral( "vendor=GenuineIntel" );
+			#ifdef Q_OS_WIN32
+			if( Launch_Via_WSL )
+			{
+				const QString distro = Settings.value( QStringLiteral( "WSL_Launch/Distro" ), QString() ).toString();
+				if( WSL_Has_KVM( distro, false ) )
+				{
+					feats << QStringLiteral( "kvm=on" );
+					feats << QStringLiteral( "+invtsc" );
+					feats << QStringLiteral( "vmware-cpuid-freq=on" );
+				}
+			}
+			#endif
+			cpu_arg = feats.join( QLatin1Char( ',' ) );
 		}
 
 		if( ! cpu_arg.isEmpty() )
@@ -5751,11 +5880,24 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	{
 		QString audiodev_backend;
 		#ifdef Q_OS_WIN32
-		// Current Windows QEMU builds expose dsound/sdl ? not wasapi/alsa
-		audiodev_backend = Settings.value( "QEMU_AUDIO/QEMU_AUDIO_DRV", "dsound" ).toString();
-		if( audiodev_backend != "dsound" && audiodev_backend != "sdl" &&
-		    audiodev_backend != "wav" && audiodev_backend != "none" )
-			audiodev_backend = "dsound";
+		if( Launch_Via_WSL )
+		{
+			// Linux QEMU in WSL often lacks pa/sdl (minimal/server builds).
+			const QString distro = Settings.value( QStringLiteral( "WSL_Launch/Distro" ), QString() ).toString();
+			const QString linux_qemu = Settings.value( QStringLiteral( "WSL_Launch/Qemu_Binary" ),
+				QStringLiteral( "qemu-system-x86_64" ) ).toString();
+			const QString preferred = Settings.value( QStringLiteral( "WSL_Launch/Audio_Backend" ),
+				QString() ).toString();
+			audiodev_backend = WSL_Pick_Audio_Backend( distro, linux_qemu, preferred );
+		}
+		else
+		{
+			// Native Windows QEMU: prefer sdl when dsound is unavailable in the build.
+			audiodev_backend = Settings.value( "QEMU_AUDIO/QEMU_AUDIO_DRV", "sdl" ).toString();
+			if( audiodev_backend != "dsound" && audiodev_backend != "sdl" &&
+			    audiodev_backend != "wav" && audiodev_backend != "none" )
+				audiodev_backend = "sdl";
+		}
 		#else
 		if( Settings.value("QEMU_AUDIO/Use_Default_Driver", "yes").toString() == "no" )
 			audiodev_backend = Settings.value("QEMU_AUDIO/QEMU_AUDIO_DRV", "pa").toString();
@@ -5782,7 +5924,10 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		
 		if( Audio_Card.Audio_HDA )
 		{
-			Args << "-device" << "intel-hda,id=hda0";
+			if( Intel_MacOS_Profile )
+				Args << "-device" << "ich9-intel-hda,id=hda0,bus=pcie.0,addr=0x1b";
+			else
+				Args << "-device" << "intel-hda,id=hda0";
 			Args << "-device" << "hda-duplex,bus=hda0.0,audiodev=snd0";
 		}
 		
@@ -5824,14 +5969,17 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		Args << "-k" << Get_Keyboard_Layout();
 	
 	// Video ? architecture-aware: device-based (virtio-gpu) vs legacy -vga.
-	// Win11 ARM lifecycle (BVM): install/first_boot = ramfb only; normal = virtio-gpu only.
+	// Win11 ARM lifecycle (BVM): install = ramfb only; first_boot/normal = virtio-gpu only.
 	QString effective_video = System_Info::Sanitize_Video_Card( Computer_Type, Video_Card, Machine_Type );
 	const bool win11_early_display =
-		is_virt_arch &&
-		( Win11_Lifecycle_Mode == VM::Win11_Install ||
-		  Win11_Lifecycle_Mode == VM::Win11_First_Boot );
+		is_virt_arch && Win11_Lifecycle_Mode == VM::Win11_Install;
 	if( win11_early_display )
 		effective_video = QStringLiteral( "ramfb" );
+
+	const bool win11_post_install =
+		is_virt_arch &&
+		( Win11_Lifecycle_Mode == VM::Win11_First_Boot ||
+		  Win11_Lifecycle_Mode == VM::Win11_Normal );
 
 	const bool device_based_video = System_Info::Uses_Device_Based_Video( Computer_Type ) ||
 	                                effective_video == "virtio-gpu-pci" || effective_video == "virtio-gpu-gl-pci" ||
@@ -5876,7 +6024,8 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 				}
 			}
 
-			if( have_size )
+			// BVM: virtio-gpu xres/yres can break Win11 ARM boot after OOBE.
+			if( have_size && ! win11_post_install )
 				virtio += QString( ",xres=%1,yres=%2" ).arg( rw ).arg( rh );
 
 			Args << "-device" << virtio;
@@ -5920,8 +6069,21 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	}
 
 	bool use_separate_tcg_accel = false;
+	bool legacy_force_tcg = Force_TCG && ! is_virt_arch;
 	#ifdef Q_OS_WIN32
-	if( is_virt_arch )
+	if( Launch_Via_WSL && ! is_virt_arch )
+	{
+		// Linux QEMU inside WSL: KVM only when /dev/kvm is writable; else pure TCG.
+		const QString distro = Settings.value( QStringLiteral( "WSL_Launch/Distro" ), QString() ).toString();
+		if( WSL_Has_KVM( distro, false ) )
+			props << "accel=kvm";
+		else
+			props << "accel=tcg";
+	}
+	else if( is_virt_arch )
+		use_separate_tcg_accel = true;
+	else if( legacy_force_tcg )
+		// Win95/98: WHPX hangs at splash; pure single-thread TCG is required.
 		use_separate_tcg_accel = true;
 	else if( Machine_Accelerator == VM::KVM || Machine_Accelerator == VM::TCG )
 		// Prefer Hyper-V WHPX (or HAX) for x86; fall back to TCG. Pure TCG makes
@@ -5932,7 +6094,9 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	else
 		props << "accel="+VM::Accel_To_String( Machine_Accelerator );
 	#else
-	if( Machine_Accelerator == VM::KVM )
+	if( legacy_force_tcg )
+		use_separate_tcg_accel = true;
+	else if( Machine_Accelerator == VM::KVM || Launch_Via_WSL )
 		props << "accel=kvm:tcg";
 	else if( Machine_Accelerator == VM::XEN )
 		props << "accel=xen:tcg";
@@ -5948,8 +6112,14 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	Args << props.join(",");
 
 	// TCG: multi-thread + larger TB cache (Gemini/Linaro tips). tb-size is an -accel prop, not -tb-size.
+	// Legacy Win9x (Force_TCG): thread=single — multi-thread TCG also breaks splash→desktop.
 	if( use_separate_tcg_accel )
-		Args << "-accel" << "tcg,thread=multi,tb-size=1024";
+	{
+		if( legacy_force_tcg )
+			Args << "-accel" << "tcg,thread=single";
+		else
+			Args << "-accel" << "tcg,thread=multi,tb-size=1024";
+	}
 	// KVM Options
 	//if( Current_Emulator_Devices.PSO_Enable_KVM && Enable_KVM )
 	//	Args << "-enable-kvm";
@@ -6108,6 +6278,13 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	
 	// CD-ROM
 	bool attach_cdrom = CD_ROM.Get_Enabled();
+	bool ide_index_2_used = false;
+	const QString mac_recovery_norm = Intel_MacOS_Profile
+		? AQ_Normalize_File_Path( Mac_Recovery_Image_Path )
+		: QString();
+	const bool mac_recovery_active = Intel_MacOS_Profile && ! mac_recovery_norm.isEmpty() &&
+		( QFile::exists( mac_recovery_norm ) || Build_QEMU_Args_for_Tab_Info );
+
 	if( is_virt_arch )
 	{
 		// BVM firstboot attaches installer ISO; first_boot/normal omit it.
@@ -6116,6 +6293,16 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		else if( Win11_Lifecycle_Mode == VM::Win11_Install &&
 				 QFile::exists( CD_ROM.Get_File_Name() ) )
 			attach_cdrom = true;
+	}
+
+	// Intel macOS Recovery/installer ISO is attached separately — do not also take IDE index 2.
+	if( mac_recovery_active && attach_cdrom )
+	{
+		const QString cd = AQ_Normalize_File_Path( CD_ROM.Get_File_Name() );
+		const QString cd_n = QDir::fromNativeSeparators( cd );
+		const QString rec_n = QDir::fromNativeSeparators( mac_recovery_norm );
+		if( cd.isEmpty() || cd_n.compare( rec_n, Qt::CaseInsensitive ) == 0 )
+			attach_cdrom = false;
 	}
 
 	if( attach_cdrom )
@@ -6164,6 +6351,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 					.arg( CD_ROM.Get_File_Name() );
 			else
 				StorageArgs << "-drive" << "if=ide,index=2,media=cdrom,readonly=on,format=raw,id=aqemu-cdrom,cache=unsafe,aio=threads,file.driver=null-co";
+			ide_index_2_used = true;
 		}
 		else
 		{
@@ -6176,6 +6364,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 					StorageArgs << "-drive" << "\"" + drive + "\"";
 				else
 					StorageArgs << "-drive" << drive;
+				ide_index_2_used = true;
 			}
 			else
 			{
@@ -6184,15 +6373,152 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			}
 		}
 	}
-	else if( ! is_virt_arch && embedded_session )
+	else if( ! is_virt_arch && embedded_session && ! mac_recovery_active )
 	{
 		StorageArgs << "-drive" << "if=ide,index=2,media=cdrom,readonly=on,format=raw,id=aqemu-cdrom,cache=unsafe,aio=threads,file.driver=null-co";
+		ide_index_2_used = true;
 	}
 	
+	// OpenCore first (Intel macOS). Prefer AHCI on q35 so OpenCore scans the volume;
+	// LongQT-style .iso → patch BOOT.img with OpenPartitionDxe (missing from upstream),
+	// then attach as disk; true disk/qcow OpenCore images attach as-is.
+	bool mac_oc_has_partition_dxe = false;
+	{
+		QString oc_file = AQ_Normalize_File_Path( OpenCore_Boot_Path );
+		if( Intel_MacOS_Profile && ! oc_file.isEmpty() &&
+		    ( QFile::exists( oc_file ) || Build_QEMU_Args_for_Tab_Info ) )
+		{
+			const QString lower = oc_file.toLower();
+			const bool oc_iso = lower.endsWith( QLatin1String( ".iso" ) );
+			if( oc_iso && ! Build_QEMU_Args_for_Tab_Info && QFile::exists( oc_file ) )
+			{
+				QString dest = oc_file;
+				dest.chop( 4 );
+				dest += QStringLiteral( "_BOOT.img" );
+				const QString vm_xml = Get_VM_XML_File_Path();
+				if( ! vm_xml.isEmpty() )
+				{
+					const QFileInfo vmi( vm_xml );
+					dest = vmi.absolutePath() + QLatin1Char( '/' ) +
+					       vmi.completeBaseName() + QStringLiteral( "_OpenCore_BOOT.img" );
+				}
+				const QString prepared = AQ_Ensure_OpenCore_Boot_With_PartitionDxe( oc_file, dest );
+				if( ! prepared.isEmpty() )
+				{
+					oc_file = prepared;
+					mac_oc_has_partition_dxe = true;
+				}
+			}
+
+			QString oc_fmt = QStringLiteral( "raw" );
+			if( ! mac_oc_has_partition_dxe && ! oc_iso &&
+			    ( lower.endsWith( QLatin1String( ".qcow2" ) ) || lower.endsWith( QLatin1String( ".qcow" ) ) ) )
+				oc_fmt = QStringLiteral( "qcow2" );
+
+			const bool as_cd = oc_iso && ! mac_oc_has_partition_dxe;
+			if( ! as_cd )
+				mac_oc_has_partition_dxe = true; // disk OpenCore (patched BOOT.img) can see APM
+			QString drive = AQ_Qemu_Drive_File_Key( oc_file );
+			drive += QStringLiteral( ",if=none,id=OpenCore,format=%1" ).arg( oc_fmt );
+			if( as_cd )
+				drive += QStringLiteral( ",media=cdrom,readonly=on" );
+			else
+				drive += QStringLiteral( ",media=disk" );
+
+			const QString base_dev = as_cd
+				? QStringLiteral( "ide-cd,bus=aqemu_mac_ahci.0,drive=OpenCore" )
+				: QStringLiteral( "ide-hd,bus=aqemu_mac_ahci.0,drive=OpenCore" );
+			// UEFI: OpenCore must be bootindex 1; system disk must not collide.
+			const QString dev = With_Bootindex( base_dev, 1 );
+
+			if( Build_QEMU_Args_for_Script_Mode )
+			{
+				StorageArgs << "-device" << "ich9-ahci,id=aqemu_mac_ahci";
+				StorageArgs << "-drive" << "\"" + drive + "\"";
+				StorageArgs << "-device" << "\"" + dev + "\"";
+			}
+			else
+			{
+				StorageArgs << "-device" << "ich9-ahci,id=aqemu_mac_ahci";
+				StorageArgs << "-drive" << drive;
+				StorageArgs << "-device" << dev;
+			}
+		}
+	}
+
+	// Recovery / installer on same AHCI as OpenCore (OSX-KVM style).
+	// MIST/Pyenb "*.iso" = APM+HFS disk images — must be ide-hd, not ide-cd.
+	// With OpenPartitionDxe present, attach the whole APM disk (no offset) so the
+	// kernel can re-find the same volume UUID after ExitBootServices.
+	// Fallback: raw HFS offset when PartitionDxe prep failed.
+	{
+		const QString rec_file = AQ_Normalize_File_Path( Mac_Recovery_Image_Path );
+		if( Intel_MacOS_Profile && ! rec_file.isEmpty() &&
+		    ( QFile::exists( rec_file ) || Build_QEMU_Args_for_Tab_Info ) )
+		{
+			const bool apm = AQ_Is_Apple_Partition_Map_Image( rec_file );
+			const bool as_cd = ! apm && AQ_Is_Iso9660_Image( rec_file );
+			const qint64 hfs_off = ( apm && ! mac_oc_has_partition_dxe )
+				? AQ_Apple_HFS_Partition_Offset( rec_file ) : qint64( -1 );
+
+			QString drive = AQ_Qemu_Drive_File_Key( rec_file );
+			drive += QStringLiteral( ",if=none,id=Recovery,format=raw" );
+			if( hfs_off > 0 )
+				drive += QStringLiteral( ",offset=%1" ).arg( hfs_off );
+			if( as_cd )
+				drive += QStringLiteral( ",media=cdrom,readonly=on" );
+			else
+				drive += QStringLiteral( ",media=disk" );
+
+			const QStringList mac_ahci_args = StorageArgs.filter( QStringLiteral( "aqemu_mac_ahci" ) );
+			if( mac_ahci_args.isEmpty() )
+				StorageArgs << "-device" << "ich9-ahci,id=aqemu_mac_ahci";
+
+			const QString base_dev = as_cd
+				? QStringLiteral( "ide-cd,bus=aqemu_mac_ahci.2,drive=Recovery" )
+				: QStringLiteral( "ide-hd,bus=aqemu_mac_ahci.2,drive=Recovery" );
+
+			if( Build_QEMU_Args_for_Script_Mode )
+			{
+				StorageArgs << "-drive" << "\"" + drive + "\"";
+				StorageArgs << "-device" << "\"" + base_dev + "\"";
+			}
+			else
+			{
+				StorageArgs << "-drive" << drive;
+				StorageArgs << "-device" << base_dev;
+			}
+		}
+	}
+
 	// HDA
 	if( HDA.Get_Enabled() )
 	{
-        if( HDA.Get_Native_Mode() )
+		// Intel macOS: OpenCore cannot see VirtIO disks without guest kexts.
+		// Always expose the system disk on AHCI during install / everyday OC boot.
+		if( Intel_MacOS_Profile &&
+		    ( QFile::exists( HDA.Get_File_Name() ) || Build_QEMU_Args_for_Tab_Info ) )
+		{
+			QString drive = AQ_Qemu_Drive_File_Key( HDA.Get_File_Name() );
+			drive += QStringLiteral( ",if=none,id=SystemDisk,media=disk" );
+			const QStringList mac_ahci_args = StorageArgs.filter( QStringLiteral( "aqemu_mac_ahci" ) );
+			if( mac_ahci_args.isEmpty() )
+				StorageArgs << "-device" << "ich9-ahci,id=aqemu_mac_ahci";
+			// OpenCore uses bootindex=1; system disk is always 2 for Intel macOS.
+			const QString dev = With_Bootindex(
+				QStringLiteral( "ide-hd,bus=aqemu_mac_ahci.1,drive=SystemDisk" ), 2 );
+			if( Build_QEMU_Args_for_Script_Mode )
+			{
+				StorageArgs << "-drive" << "\"" + drive + "\"";
+				StorageArgs << "-device" << "\"" + dev + "\"";
+			}
+			else
+			{
+				StorageArgs << "-drive" << drive;
+				StorageArgs << "-device" << dev;
+			}
+		}
+        else if( HDA.Get_Native_Mode() )
         {
             // Testing for the interface type 'virtio-scsi'
             VM::Device_Interface iftype = HDA.Get_Native_Device().Get_Interface();
@@ -6210,12 +6536,24 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 				if( effective_machine == "virt" || is_virt_arch )
 				{
 					const int hdd_boot = Bootindex_For( *this, VM::Boot_From_HDD );
+					const bool win11_disk_bvm =
+						is_virt_arch &&
+						Win11_Lifecycle_Mode != VM::Win11_Install;
+					QString drive;
+					if( win11_disk_bvm )
+					{
+						drive = QString(
+							"file=%1,if=none,id=aqhd0,cache=none,aio=threads,discard=unmap" )
+							.arg( HDA.Get_File_Name() );
+					}
 					#ifdef Q_OS_WIN32
-					QString drive = QString( "file=%1,if=none,id=aqhd0,cache=writeback,aio=threads" )
-						.arg( HDA.Get_File_Name() );
+					else
+						drive = QString( "file=%1,if=none,id=aqhd0,cache=writeback,aio=threads" )
+							.arg( HDA.Get_File_Name() );
 					#else
-					QString drive = QString( "file=%1,if=none,id=aqhd0,cache=none,aio=threads" )
-						.arg( HDA.Get_File_Name() );
+					else
+						drive = QString( "file=%1,if=none,id=aqhd0,cache=none,aio=threads" )
+							.arg( HDA.Get_File_Name() );
 					#endif
 					const QString virtio_dev = With_Bootindex(
 						QStringLiteral( "virtio-blk-pci,drive=aqhd0" ), hdd_boot );
@@ -6655,9 +6993,14 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 				if( ( model == "virtio" || model == "virtio-net" || model.isEmpty() ) &&
 					( effective_machine == "virt" || is_virt_arch ) )
 					model = "virtio-net-pci";
+				// LongQT / modern Intel macOS: VirtIO NIC (e1000-82545em often has no
+				// link in Sonoma/Monterey Recovery → "internet connection required").
+				if( Intel_MacOS_Profile )
+					model = QStringLiteral( "virtio-net-pci" );
 
-				// aarch64/virt: modern netdev like win11-pi5-kiosk (no PXE bootindex on legacy -net)
-				if( is_virt_arch && Network_Cards[nc].Get_Net_Mode() == VM::Net_Mode_Usermode )
+				// Modern netdev for Intel macOS + aarch64/virt (usermode)
+				if( ( is_virt_arch || Intel_MacOS_Profile ) &&
+				    Network_Cards[nc].Get_Net_Mode() == VM::Net_Mode_Usermode )
 				{
 					QString nid = QString( "net%1" ).arg( nc );
 					QString netdev = "user,id=" + nid;
@@ -7268,7 +7611,9 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	// UEFI dual pflash (AAVMF / EDK2) ? required for Windows 11 ARM / aarch64 virt
 	if( UEFI && ! UEFI_CODE_File.isEmpty() )
 	{
-		QString code_arg = QString( "if=pflash,format=raw,unit=0,file=%1,readonly=on" ).arg( UEFI_CODE_File );
+		// Use file.filename= form so spaces (e.g. Program Files) survive WSL rewrite
+		QString code_arg = AQ_Qemu_Drive_File_Key( UEFI_CODE_File );
+		code_arg += QStringLiteral( ",if=pflash,format=raw,unit=0,readonly=on" );
 		if( Build_QEMU_Args_for_Script_Mode )
 			Args << "-drive" << "\"" + code_arg + "\"";
 		else
@@ -7276,13 +7621,28 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		
 		if( ! UEFI_VARS_File.isEmpty() )
 		{
-			QString vars_arg = QString( "if=pflash,format=raw,unit=1,file=%1" ).arg( UEFI_VARS_File );
+			QString vars_arg = AQ_Qemu_Drive_File_Key( UEFI_VARS_File );
+			vars_arg += QStringLiteral( ",if=pflash,format=raw,unit=1" );
 			if( Build_QEMU_Args_for_Script_Mode )
 				Args << "-drive" << "\"" + vars_arg + "\"";
 			else
 				Args << "-drive" << vars_arg;
 		}
 	}
+
+	// Apple SMC (Intel macOS) — only emit OSK if the user supplied one (never invent a key)
+	if( Intel_MacOS_Profile && Use_Apple_SMC_Flag && ! Apple_SMC_OSK.trimmed().isEmpty() )
+	{
+		QString osk = Apple_SMC_OSK;
+		osk.replace( QLatin1Char( ',' ), QLatin1String( ",," ) ); // QEMU comma escape
+		Args << "-device" << QStringLiteral( "isa-applesmc,osk=%1" ).arg( osk );
+	}
+
+	if( Intel_MacOS_Profile )
+		Args << "-smbios" << "type=2";
+
+	// Recovery / installer is attached earlier with OpenCore on AHCI
+	// (ide-hd for MIST APM+HFS; ide-cd for true ISO9660).
 	
 	// VirtIO RNG
 	if( VirtIO_RNG )
@@ -7299,9 +7659,13 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	// VirtIO Balloon
 	if( VirtIO_Balloon )
 		Args << "-device" << "virtio-balloon-pci";
+
+	// BVM everyday boot always includes virtio-serial (guest tools / agents).
+	if( win11_post_install )
+		Args << "-device" << "virtio-serial-pci";
 	
 	// VirtIO Keyboard
-	if( VirtIO_Keyboard )
+	if( VirtIO_Keyboard && ! win11_post_install )
 		Args << "-device" << "virtio-keyboard-pci";
 
 	// Pointer / mouse (QEMU input devices)
@@ -7327,6 +7691,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 					Computer_Type.contains( "aarch64", Qt::CaseInsensitive ) ||
 					Computer_Type.contains( "qemu-system-arm", Qt::CaseInsensitive ) ||
 					Machine_Type.contains( "virt", Qt::CaseInsensitive ) ||
+					Intel_MacOS_Profile ||
 					USB_Hub;
 				ctrl = virt_like ? QStringLiteral( "xhci" ) : QStringLiteral( "uhci" );
 			}
@@ -7396,7 +7761,8 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		const bool need_usb_kbd =
 			Computer_Type.contains( "aarch64", Qt::CaseInsensitive ) ||
 			Computer_Type.contains( "qemu-system-arm", Qt::CaseInsensitive ) ||
-			Machine_Type.contains( "virt", Qt::CaseInsensitive );
+			Machine_Type.contains( "virt", Qt::CaseInsensitive ) ||
+			Intel_MacOS_Profile;
 		if( need_usb_kbd )
 		{
 			if( ! added_xhci )
@@ -7436,8 +7802,12 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	
 	// VM Name
 	if( Current_Emulator_Devices.PSO_Name )
-		Args << "-name" << "\"" + Machine_Name + "\"";
-	
+	{
+		if( Build_QEMU_Args_for_Script_Mode )
+			Args << "-name" << "\"" + Machine_Name + "\"";
+		else
+			Args << "-name" << Machine_Name;
+	}	
 	// SPICE
 	// FIXME. VNC and SPICE together?
 	if( embedded_session )
@@ -7922,6 +8292,69 @@ bool Virtual_Machine::Start_impl()
 	Embedded_Spice_Port = 0;
 	Embedded_VNC_Port = 0;
 
+	// Intel macOS start gate: require user-supplied OpenCore + OSK (never invent OSK)
+	if( Intel_MacOS_Profile )
+	{
+		if( AQ_Normalize_File_Path( OpenCore_Boot_Path ).isEmpty() ||
+		    ! QFileInfo( AQ_Normalize_File_Path( OpenCore_Boot_Path ) ).exists() )
+		{
+			AQGraphic_Warning( tr( "Intel macOS" ),
+				tr( "OpenCore path is missing or does not exist:\n%1\n\n"
+				    "Set it in Advanced Options (Intel macOS), or recreate the VM with a valid ISO/disk." )
+					.arg( OpenCore_Boot_Path.isEmpty() ? tr( "(empty)" )
+					                                   : AQ_Normalize_File_Path( OpenCore_Boot_Path ) ) );
+			return false;
+		}
+		if( Apple_SMC_OSK.trimmed().isEmpty() )
+		{
+			AQGraphic_Warning( tr( "Intel macOS" ),
+				tr( "Apple SMC OSK is empty.\n"
+				    "Paste your own OSK string into the VM settings. AQEMU does not provide one." ) );
+			return false;
+		}
+		if( ! AQ_Is_Plausible_Apple_SMC_OSK( Apple_SMC_OSK ) )
+		{
+			AQGraphic_Warning( tr( "Intel macOS" ),
+				tr( "Apple SMC OSK looks invalid (it resembles network/Proxmox config, not an OSK).\n\n"
+				    "Current value starts with:\n%1\n\n"
+				    "Clear the OSK field on the VM page and paste only the Apple SMC OSK string." )
+					.arg( Apple_SMC_OSK.left( 80 ) ) );
+			return false;
+		}
+		Use_Apple_SMC_Flag = true;
+	}
+
+	#ifdef Q_OS_WIN32
+	// Prefer WSL/KVM for Intel macOS when enabled globally or on this VM
+	{
+		QSettings s;
+		const bool global_wsl = s.value( QStringLiteral( "WSL_Launch/Enabled" ), false ).toBool();
+		if( Launch_Via_WSL || ( Intel_MacOS_Profile && global_wsl ) )
+		{
+			const QString distro = s.value( QStringLiteral( "WSL_Launch/Distro" ), QString() ).toString();
+			// Fresh probe on start — a prior cold-start timeout must not stick.
+			WSL_Clear_Probe_Cache();
+			if( WSL_Is_Available( true ) )
+			{
+				Launch_Via_WSL = true;
+				// Fix /dev/kvm permissions automatically (wsl -u root); no user commands.
+				if( ! WSL_Ensure_KVM_Access( distro ) )
+				{
+					AQWarning( "Virtual_Machine::Start_impl()",
+						"WSL /dev/kvm still not writable after automatic fix — using TCG" );
+				}
+			}
+			else if( Launch_Via_WSL )
+			{
+				AQGraphic_Warning( tr( "WSL / KVM" ),
+					tr( "Launch via WSL was requested, but WSL is not available.\n"
+					    "Falling back to native Windows QEMU." ) );
+				Launch_Via_WSL = false;
+			}
+		}
+	}
+	#endif
+
 	// Kill a leftover QEMU child if AQEMU thinks the VM is off but the process lives
 	QEMU_Kill_Target_Pid = 0; // cancel any pending Force_Kill from a prior Stop
 	if( QEMU_Process && QEMU_Process->state() != QProcess::NotRunning )
@@ -8095,13 +8528,48 @@ bool Virtual_Machine::Start_impl()
             return false;
         }
 
-        if( ! QFile::exists(bin_path) )
+#ifdef Q_OS_WIN32
+		if( Launch_Via_WSL )
+		{
+			QSettings s;
+			const QString distro = s.value( QStringLiteral( "WSL_Launch/Distro" ), QString() ).toString();
+			QString linux_qemu = s.value( QStringLiteral( "WSL_Launch/Qemu_Binary" ),
+			                              QStringLiteral( "qemu-system-x86_64" ) ).toString();
+			if( linux_qemu.trimmed().isEmpty() )
+				linux_qemu = QStringLiteral( "qemu-system-x86_64" );
+			// Prefer matching guest arch binary name when possible
+			if( Computer_Type.contains( QLatin1String( "ppc" ), Qt::CaseInsensitive ) )
+				linux_qemu = QStringLiteral( "qemu-system-ppc" );
+			else if( Computer_Type.contains( QLatin1String( "aarch64" ), Qt::CaseInsensitive ) )
+				linux_qemu = QStringLiteral( "qemu-system-aarch64" );
+
+			QStringList qemu_args = this->Build_QEMU_Args();
+			// Ensure script-mode quoting cannot leak into argv launch
+			Build_QEMU_Args_for_Script_Mode = false;
+			QStringList wsl_args = Build_WSL_Launch_Args( distro, linux_qemu, qemu_args );
+			AQDebug( "bool Virtual_Machine::Start()",
+			         QString( "Starting via WSL: wsl.exe %1" ).arg( wsl_args.join( " " ) ) );
+			QEMU_Process->start( QStringLiteral( "wsl.exe" ), wsl_args );
+			if( ! QEMU_Process->waitForStarted( 20000 ) )
+			{
+				AQGraphic_Error( "bool Virtual_Machine::Start()", tr( "Error!" ),
+				                 tr( "Failed to start QEMU via WSL:\n%1" )
+				                     .arg( QEMU_Process->errorString() ), false );
+				Start_Snapshot_Tag = "";
+				return false;
+			}
+		}
+		else
+#endif
+		if( ! QFile::exists(bin_path) )
         {
             AQGraphic_Error( "bool Virtual_Machine::Start()", tr("Error!"),
                              tr("Emulator binary not exists! Check path: %1").arg(bin_path), false );
             Start_Snapshot_Tag = "";
             return false;
         }
+		else
+		{
 
         // Add VM USB devices to used USB list
         if( USB_Ports.count() > 0 )
@@ -8121,6 +8589,7 @@ bool Virtual_Machine::Start_impl()
 			                     .arg( QEMU_Process->errorString() ), false );
 			Start_Snapshot_Tag = "";
 			return false;
+		}
 		}
     }
 
@@ -8265,6 +8734,8 @@ void Virtual_Machine::Force_Kill_QEMU_Hard()
 	           "QEMU did not exit after terminate ? killing process" );
 	QEMU_Process->kill();
 	QEMU_Kill_Target_Pid = 0;
+	// wsl.exe can die while Linux qemu-system keeps the disk locked
+	Kill_Orphan_QEMU_Using_Disks();
 	// State / session exit come from QEMU_Finished when the process actually dies.
 }
 
@@ -8275,15 +8746,21 @@ void Virtual_Machine::Kill_Orphan_QEMU_Using_Disks()
 	QStringList disks;
 	auto add_disk = [ &disks ]( const QString &path )
 	{
-		const QString n = QDir::toNativeSeparators( path.trimmed() );
-		if( ! n.isEmpty() && ! disks.contains( n, Qt::CaseInsensitive ) )
-			disks << n;
+		const QString n = AQ_Normalize_File_Path( path );
+		if( n.isEmpty() )
+			return;
+		const QString native = QDir::toNativeSeparators( n );
+		if( ! disks.contains( native, Qt::CaseInsensitive ) )
+			disks << native;
 	};
 
 	if( HDA.Get_Enabled() ) add_disk( HDA.Get_File_Name() );
 	if( HDB.Get_Enabled() ) add_disk( HDB.Get_File_Name() );
 	if( HDC.Get_Enabled() ) add_disk( HDC.Get_File_Name() );
 	if( HDD.Get_Enabled() ) add_disk( HDD.Get_File_Name() );
+	add_disk( OpenCore_Boot_Path );
+	add_disk( Mac_Recovery_Image_Path );
+	add_disk( UEFI_VARS_File );
 	for( int i = 0; i < Storage_Devices.count(); ++i )
 	{
 		const QString p = Storage_Devices[i].Get_File_Path();
@@ -8317,6 +8794,51 @@ void Virtual_Machine::Kill_Orphan_QEMU_Using_Disks()
 	{
 		AQWarning( "Virtual_Machine::Kill_Orphan_QEMU_Using_Disks()",
 		           "Orphan QEMU cleanup returned " + QString::number( killer.exitCode() ) );
+	}
+
+	// Launch-via-WSL: Linux qemu-system often survives after wsl.exe is killed.
+	// Match on file basenames (paths differ: D:\… vs /mnt/d/…).
+	QStringList basenames;
+	for( const QString &d : disks )
+	{
+		const QString base = QFileInfo( d ).fileName();
+		if( base.isEmpty() )
+			continue;
+		// Keep pattern shell-safe (alphanumeric, dot, underscore, dash)
+		QString safe = base;
+		safe.replace( QRegularExpression( QStringLiteral( "[^A-Za-z0-9._-]" ) ),
+		              QStringLiteral( "." ) );
+		if( ! safe.isEmpty() && ! basenames.contains( safe ) )
+			basenames << safe;
+	}
+	if( ! basenames.isEmpty() && WSL_Is_Available( false ) )
+	{
+		// pgrep/pkill -f against qemu cmdline; ignore failures if none match.
+		const QString pat = basenames.join( QLatin1Char( '|' ) );
+		const QString sh =
+			QStringLiteral(
+				"pids=$(pgrep -f 'qemu-system' 2>/dev/null || true); "
+				"for p in $pids; do "
+				"  cmd=$(tr '\\0' ' ' </proc/$p/cmdline 2>/dev/null || true); "
+				"  echo \"$cmd\" | grep -Eq '%1' || continue; "
+				"  kill -TERM \"$p\" 2>/dev/null || true; "
+				"done; "
+				"sleep 0.4; "
+				"pids=$(pgrep -f 'qemu-system' 2>/dev/null || true); "
+				"for p in $pids; do "
+				"  cmd=$(tr '\\0' ' ' </proc/$p/cmdline 2>/dev/null || true); "
+				"  echo \"$cmd\" | grep -Eq '%1' || continue; "
+				"  kill -KILL \"$p\" 2>/dev/null || true; "
+				"done" )
+				.arg( pat );
+
+		QProcess wsl_killer;
+		wsl_killer.start( QStringLiteral( "wsl.exe" ),
+		                  QStringList() << QStringLiteral( "--" )
+		                                << QStringLiteral( "bash" )
+		                                << QStringLiteral( "-lc" )
+		                                << sh );
+		wsl_killer.waitForFinished( 10000 );
 	}
 #else
 	Q_UNUSED( disks );
@@ -9895,6 +10417,76 @@ VM::Win11_Lifecycle_Mode Virtual_Machine::Get_Win11_Lifecycle_Mode() const
 void Virtual_Machine::Set_Win11_Lifecycle_Mode( VM::Win11_Lifecycle_Mode mode )
 {
 	Win11_Lifecycle_Mode = mode;
+}
+
+bool Virtual_Machine::Use_Force_TCG() const
+{
+	return Force_TCG;
+}
+
+void Virtual_Machine::Use_Force_TCG( bool use )
+{
+	Force_TCG = use;
+}
+
+bool Virtual_Machine::Use_Intel_MacOS_Profile() const
+{
+	return Intel_MacOS_Profile;
+}
+
+void Virtual_Machine::Use_Intel_MacOS_Profile( bool use )
+{
+	Intel_MacOS_Profile = use;
+}
+
+bool Virtual_Machine::Use_Apple_SMC() const
+{
+	return Use_Apple_SMC_Flag;
+}
+
+void Virtual_Machine::Use_Apple_SMC( bool use )
+{
+	Use_Apple_SMC_Flag = use;
+}
+
+const QString &Virtual_Machine::Get_Apple_SMC_OSK() const
+{
+	return Apple_SMC_OSK;
+}
+
+void Virtual_Machine::Set_Apple_SMC_OSK( const QString &osk )
+{
+	Apple_SMC_OSK = osk.trimmed();
+}
+
+const QString &Virtual_Machine::Get_OpenCore_Boot_Path() const
+{
+	return OpenCore_Boot_Path;
+}
+
+void Virtual_Machine::Set_OpenCore_Boot_Path( const QString &path )
+{
+	OpenCore_Boot_Path = AQ_Normalize_File_Path( path );
+}
+
+const QString &Virtual_Machine::Get_Mac_Recovery_Image_Path() const
+{
+	return Mac_Recovery_Image_Path;
+}
+
+void Virtual_Machine::Set_Mac_Recovery_Image_Path( const QString &path )
+{
+	Mac_Recovery_Image_Path = AQ_Normalize_File_Path( path );
+}
+
+bool Virtual_Machine::Use_Launch_Via_WSL() const
+{
+	return Launch_Via_WSL;
+}
+
+void Virtual_Machine::Use_Launch_Via_WSL( bool use )
+{
+	Launch_Via_WSL = use;
 }
 
 bool Virtual_Machine::Use_KVM() const

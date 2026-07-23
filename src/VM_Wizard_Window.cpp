@@ -1,7 +1,7 @@
 /****************************************************************************
 **
 ** Copyright (C) 2008-2010 Andrey Rijov <ANDron142@yandex.ru>
-** COpyirght (C) 2016 Tobias Gläßer
+** Copyright (C) 2016 Tobias Gläßer
 **
 ** This file is part of AQEMU.
 **
@@ -41,33 +41,15 @@
 #include <QJsonDocument>
 #include <QJsonArray>
 #include <QJsonObject>
-#include <QCoreApplication>
+#include <QScrollArea>
+#include <QSizePolicy>
+#include <QFrame>
 
 #include "Utils.h"
+#include "WSL_Launch.h"
 #include "VM_Wizard_Window.h"
 #include "System_Info.h"
 #include "VM_Devices.h"
-
-#ifdef Q_OS_WIN32
-#include <QSysInfo>
-QString Get_My_System_Architecture()
-{
-    QString arch = QSysInfo::currentCpuArchitecture();
-    if( arch == "i386" ) return "i686";
-    if( arch == "arm64" ) return "aarch64";
-    return arch;
-}
-#else
-#include <sys/utsname.h>
-#include <stdio.h>
-
-QString Get_My_System_Architecture()
-{
-    struct utsname name;
-    uname(&name);
-    return QString(name.machine);
-}
-#endif
 
 VM_Wizard_Window::VM_Wizard_Window( QWidget *parent )
 	: QDialog(parent)
@@ -100,6 +82,7 @@ VM_Wizard_Window::VM_Wizard_Window( QWidget *parent )
 	Guest_Sound.Audio_HDA = true;
 	Guest_Suggest_Win2K_Hack = false;
 	Label_Guest_Compat_Tip = nullptr;
+	Label_Arch_Summary = nullptr;
 	
 	// Hide release date widgets
 	ui.Label_Relese_Date->hide();
@@ -107,14 +90,26 @@ VM_Wizard_Window::VM_Wizard_Window( QWidget *parent )
 	
 	Build_Three_Path_Pages();
 	Build_Windows11_ARM_Page();
+	Build_Intel_MacOS_Page();
 
-	// Tip label on Template / Architecture page
+	// Summary + tip labels on Template / Architecture page
+	Label_Arch_Summary = new QLabel( ui.Template_Page );
+	Label_Arch_Summary->setWordWrap( true );
+	Label_Arch_Summary->setStyleSheet( "QLabel { color: #223; font-weight: bold; padding: 6px; }" );
 	Label_Guest_Compat_Tip = new QLabel( ui.Template_Page );
 	Label_Guest_Compat_Tip->setWordWrap( true );
 	Label_Guest_Compat_Tip->setStyleSheet( "QLabel { color: #335; padding: 6px; }" );
 	if( QGridLayout *gl = qobject_cast<QGridLayout*>( ui.Template_Page->layout() ) )
+	{
+		gl->addWidget( Label_Arch_Summary, 19, 0, 1, 2 );
 		gl->addWidget( Label_Guest_Compat_Tip, 20, 0, 1, 2 );
+	}
+	Label_Arch_Summary->hide();
 	Label_Guest_Compat_Tip->hide();
+
+	// Fixed wizard size — do not grow/shrink when changing pages
+	setMinimumSize( 640, 620 );
+	resize( 640, 620 );
 
 	// Loading All Templates
 	if( Load_OS_Templates() )
@@ -447,6 +442,47 @@ void VM_Wizard_Window::Apply_Platform_Binding( const QString &platform_display )
 	New_VM->Set_Machine_Type( Selected_Machine_Id );
 }
 
+void VM_Wizard_Window::Apply_Sound_Preset( const QString &preset )
+{
+	Guest_Sound = VM::Sound_Cards();
+	if( preset == "none" )
+		return;
+	if( preset == "sb16" )
+		Guest_Sound.Audio_sb16 = true;
+	else if( preset == "sb16_adlib_pcspk" )
+	{
+		Guest_Sound.Audio_sb16 = true;
+		Guest_Sound.Audio_Adlib = true;
+		Guest_Sound.Audio_PC_Speaker = true;
+	}
+	else if( preset == "sb16_es1370_pcspk" )
+	{
+		Guest_Sound.Audio_sb16 = true;
+		Guest_Sound.Audio_es1370 = true;
+		Guest_Sound.Audio_PC_Speaker = true;
+	}
+	else if( preset == "es1370" )
+		Guest_Sound.Audio_es1370 = true;
+	else if( preset == "es1370_ac97" )
+	{
+		Guest_Sound.Audio_es1370 = true;
+		Guest_Sound.Audio_AC97 = true;
+	}
+	else if( preset == "ac97" )
+		Guest_Sound.Audio_AC97 = true;
+	else if( preset == "pcspk" )
+		Guest_Sound.Audio_PC_Speaker = true;
+	else if( preset == "virtio" )
+		Guest_Sound.Audio_VirtIO = true;
+	else if( preset == "hda_virtio" )
+	{
+		Guest_Sound.Audio_HDA = true;
+		Guest_Sound.Audio_VirtIO = true;
+	}
+	else // hda (default modern)
+		Guest_Sound.Audio_HDA = true;
+}
+
 void VM_Wizard_Window::Apply_OS_Defaults( const QString &os_name )
 {
 	Selected_OS_Name = os_name;
@@ -460,188 +496,124 @@ void VM_Wizard_Window::Apply_OS_Defaults( const QString &os_name )
 	Guest_NIC_Model = "e1000";
 	Guest_Compat_Tip.clear();
 
-	const QString host = Get_My_System_Architecture();
-	const bool host_arm = ( host == "aarch64" || host == "arm64" );
-	const QString os = os_name;
+	const QString host = AQ_Get_Host_CPU_Architecture();
+	const bool host_arm = ( host == "aarch64" );
 
-	auto set_legacy_pc32 = [&]( int ram, double hdd, const QString &machine, const QString &nic,
-	                            bool sb16, bool es1370, bool adlib, bool pcspk, const QString &tip ) {
-		Selected_Target = "i386";
-		Selected_Machine_Id = machine;
-		Guest_RAM_MB = ram;
-		Guest_HDD_GB = hdd;
-		Guest_NIC_Model = nic;
-		Guest_Sound.Audio_sb16 = sb16;
-		Guest_Sound.Audio_es1370 = es1370;
-		Guest_Sound.Audio_Adlib = adlib;
-		Guest_Sound.Audio_PC_Speaker = pcspk;
-		Guest_Sound.Audio_AC97 = false;
-		Guest_Sound.Audio_HDA = false;
-		Guest_Sound.Audio_VirtIO = false; // available in UI later; not default for classic guests
-		Guest_Sound.Audio_USB = false;
-		Guest_Compat_Tip = tip;
-	};
-
-	auto set_modern_pc64 = [&]( int ram, double hdd, const QString &machine, const QString &nic, bool hda ) {
-		Selected_Target = "x86_64";
-		Selected_Machine_Id = machine;
-		Guest_RAM_MB = ram;
-		Guest_HDD_GB = hdd;
-		Guest_NIC_Model = nic;
-		Guest_Sound.Audio_HDA = hda;
-		Guest_Sound.Audio_AC97 = ! hda;
-		Guest_Compat_Tip = tr(
-			"Default: IBM PC 64Bit. You can change Architecture below — VirtIO disk/net/sound are available "
-			"in the main window if you install drivers." );
-	};
 
 	// Only invent target/machine for Guest-OS path (Platform/Arch already chose hardware)
 	if( Current_Method != Method_Guest_OS )
 	{
 		Guest_Compat_Tip = tr( "Select or confirm a guest OS. Architecture stays fully editable." );
+		Update_Guest_Compat_Tip();
 		return;
 	}
 
-	if( os == "Windows 11" && host_arm )
-	{
-		Selected_Target = "aarch64";
-		Selected_Machine_Id = "virt";
-		Guest_RAM_MB = 8192;
-		Guest_HDD_GB = 64.0;
-		Guest_NIC_Model = "virtio-net-pci";
-		Guest_Sound.Audio_USB = true;
-		Guest_Sound.Audio_VirtIO = true;
-		Guest_Compat_Tip = tr( "Windows 11 on ARM host → AArch64 + virt (VirtIO). Architecture remains editable." );
-	}
-	else if( os.contains( "MS-DOS" ) || os.contains( "PC DOS" ) || os.contains( "DR-DOS" ) )
-	{
-		set_legacy_pc32( 32, 2.0, "isapc", "ne2k_isa", true, false, true, true,
-			tr( "DOS prefers IBM PC 32Bit + Legacy ISA. 64Bit kernels/guests don't run DOS." ) );
-	}
-	else if( os.startsWith( "Windows 1" ) || os.startsWith( "Windows 2" ) || os.startsWith( "Windows 3" ) )
-	{
-		set_legacy_pc32( 16, 2.0, "isapc", "ne2k_isa", true, false, true, true,
-			tr( "Windows 1.x–3.x need IBM PC 32Bit (ISA PC). They cannot run as 64Bit guests." ) );
-	}
-	else if( os.contains( "Windows 95" ) || os.contains( "Windows 98" ) || os.contains( "Windows ME" ) )
-	{
-		set_legacy_pc32( 256, 8.0, "pc", "rtl8139", true, true, false, true,
-			tr( "Windows 95/98/ME need IBM PC 32Bit + pc (i440FX). They do not run on x86_64 CPU mode. "
-			    "Default disk IDE, NIC rtl8139, sound SB16/ES1370. VirtIO is optional (with drivers) — not auto-selected." ) );
-	}
-	else if( os.contains( "Windows NT 3" ) || os.contains( "Windows NT 4" ) )
-	{
-		set_legacy_pc32( 128, 8.0, "pc", "ne2k_pci", false, true, false, false,
-			tr( "Windows NT 3.x/4.0 → IBM PC 32Bit. Avoid x86_64." ) );
-	}
-	else if( os.contains( "Windows 2000" ) )
-	{
-		set_legacy_pc32( 512, 16.0, "pc", "rtl8139", false, true, false, false,
-			tr( "Windows 2000 → IBM PC 32Bit + pc. Win2K disk hack can help." ) );
-		Guest_Suggest_Win2K_Hack = true;
-		Guest_Sound.Audio_AC97 = true;
-	}
-	else if( os.contains( "Windows XP" ) && ! os.contains( "Server" ) )
-	{
-		set_legacy_pc32( 1024, 20.0, "pc", "rtl8139", false, false, false, false,
-			tr( "Windows XP (32Bit) → IBM PC 32Bit. For XP x64 choose IBM PC 64Bit manually." ) );
-		Guest_Sound.Audio_AC97 = true;
-	}
-	else if( os.contains( "Windows Vista" ) || os.contains( "Windows 7" ) ||
-	         os.contains( "Windows 8" ) || os.contains( "Windows 10" ) ||
-	         os.contains( "Windows 11" ) || os.contains( "Windows Server 2008" ) ||
-	         os.contains( "Windows Server 2012" ) || os.contains( "Windows Server 2016" ) ||
-	         os.contains( "Windows Server 2019" ) || os.contains( "Windows Server 2022" ) ||
-	         os.contains( "Windows Server 2025" ) )
-	{
-		set_modern_pc64( 4096, 40.0, "q35", "e1000", true );
-		if( os.contains( "Windows Vista" ) || os.contains( "Windows 7" ) || os.contains( "Windows 8" ) )
-			Guest_RAM_MB = 2048;
-		if( os.contains( "Server" ) )
-			Guest_RAM_MB = 4096;
-	}
-	else if( os.contains( "Windows Server 2000" ) || os.contains( "Windows Server 2003" ) )
-	{
-		set_legacy_pc32( 1024, 20.0, "pc", "rtl8139", false, false, false, false,
-			tr( "Windows Server 2000/2003 → prefer IBM PC 32Bit." ) );
-		Guest_Sound.Audio_AC97 = true;
-	}
-	else if( os.contains( "ReactOS" ) || os.contains( "OS/2" ) || os.contains( "eComStation" ) ||
-	         os.contains( "ArcaOS" ) )
-	{
-		set_legacy_pc32( 512, 10.0, "pc", "rtl8139", false, true, false, false,
-			tr( "ReactOS / OS/2 family → IBM PC 32Bit by default." ) );
-	}
-	else if( os.contains( "Mac OS X PPC" ) || os.startsWith( "Mac OS 7" ) ||
-	         os.startsWith( "Mac OS 8" ) || os.startsWith( "Mac OS 9" ) )
-	{
-		Selected_Target = "ppc";
-		Selected_Machine_Id = "mac99";
-		Guest_RAM_MB = 512;
-		Guest_HDD_GB = 10.0;
-		Guest_Compat_Tip = tr( "Classic Mac OS → PowerPC (mac99)." );
-	}
-	else if( os.contains( "macOS" ) || os.contains( "Mac OS X Intel" ) || os.contains( "Darwin" ) )
-	{
-		set_modern_pc64( 4096, 40.0, "q35", "e1000", true );
-		Guest_Compat_Tip = tr( "Intel macOS/Darwin → x86_64 (experimental under QEMU)." );
-	}
-	else if( os.contains( "SPARC" ) || os.contains( "Solaris SPARC" ) )
-	{
-		Selected_Target = "sparc64";
-		Selected_Machine_Id = "sun4u";
-		Guest_RAM_MB = 1024;
-		Guest_Compat_Tip = tr( "SPARC guest → sparc64 / sun4u." );
-	}
-	else if( os.contains( "Solaris" ) )
-	{
-		set_modern_pc64( 2048, 20.0, "pc", "e1000", true );
-	}
-	else if( os.contains( "IRIX" ) )
-	{
-		Selected_Target = "mips";
-		Selected_Machine_Id = "magnum";
-		Guest_RAM_MB = 256;
-		Guest_Compat_Tip = tr( "IRIX → MIPS Magnum." );
-	}
-	else if( os.contains( "AIX" ) )
-	{
-		Selected_Target = "ppc64";
-		Selected_Machine_Id = "pseries";
-		Guest_RAM_MB = 2048;
-		Guest_Compat_Tip = tr( "AIX → ppc64 pSeries." );
-	}
-	else if( os.contains( "Android" ) )
-	{
-		Selected_Target = "aarch64";
-		Selected_Machine_Id = "virt";
-		Guest_RAM_MB = 2048;
-		Guest_NIC_Model = "virtio-net-pci";
-		Guest_Sound.Audio_VirtIO = true;
-		Guest_Compat_Tip = tr( "Android → AArch64 virt + VirtIO." );
-	}
-	else if( os.contains( "Linux" ) || os.contains( "Ubuntu" ) || os.contains( "Debian" ) ||
-	         os.contains( "Fedora" ) || os.contains( "RHEL" ) || os.contains( "Rocky" ) ||
-	         os.contains( "Alma" ) || os.contains( "SUSE" ) || os.contains( "Arch" ) ||
-	         os.contains( "Gentoo" ) || os.contains( "Slackware" ) || os.contains( "Kali" ) ||
-	         os.contains( "Mint" ) || os.contains( "Alpine" ) || os.contains( "Tiny Core" ) ||
-	         os.contains( "BSD" ) || os.contains( "Haiku" ) )
-	{
-		set_modern_pc64( 2048, 20.0, "q35", "virtio-net-pci", true );
-		Guest_Sound.Audio_VirtIO = true;
-		Guest_Compat_Tip = tr(
-			"Modern Linux/BSD → IBM PC 64Bit + Q35. VirtIO net suggested; change Architecture freely if needed." );
-	}
-	else
+	QJsonObject profiles = Wizard_Trees.value( "os_profiles" ).toObject();
+	QJsonObject profile = profiles.value( os_name ).toObject();
+
+	if( profile.isEmpty() )
 	{
 		Selected_Target = host_arm ? "aarch64" : "x86_64";
 		Selected_Machine_Id = host_arm ? "virt" : "q35";
 		Guest_RAM_MB = 2048;
-		Guest_Compat_Tip = tr( "Generic default from host arch. Architecture remains fully editable." );
+		Guest_Compat_Tip = tr( "No profile for \"%1\" — using host architecture default. "
+		                       "Computer Type remains fully editable." ).arg( os_name );
+	}
+	else
+	{
+		const QJsonArray flags = profile.value( "flags" ).toArray();
+		auto has_flag = [ &flags ]( const char *name ) -> bool {
+			for( const QJsonValue &v : flags )
+			{
+				if( v.toString() == QLatin1String( name ) )
+					return true;
+			}
+			return false;
+		};
+
+		Selected_Target = profile.value( "target" ).toString( "x86_64" );
+		Selected_Machine_Id = profile.value( "machine" ).toString( "q35" );
+		Guest_RAM_MB = profile.value( "ram_mb" ).toInt( 2048 );
+		Guest_HDD_GB = profile.value( "hdd_gb" ).toDouble( 20.0 );
+		Guest_NIC_Model = profile.value( "nic" ).toString( "e1000" );
+		Apply_Sound_Preset( profile.value( "sound" ).toString( "hda" ) );
+		Guest_Compat_Tip = profile.value( "tip" ).toString();
+
+		if( has_flag( "win2k_hack" ) )
+			Guest_Suggest_Win2K_Hack = true;
+
+		if( has_flag( "host_default" ) || Selected_Target == "host" )
+		{
+			Selected_Target = host_arm ? "aarch64" : "x86_64";
+			Selected_Machine_Id = host_arm ? "virt" : "q35";
+		}
+
+		// Windows 11 on ARM host → AArch64 + virt guided path
+		if( has_flag( "win11_host_arm" ) && host_arm )
+		{
+			Selected_Target = "aarch64";
+			Selected_Machine_Id = "virt";
+			Guest_RAM_MB = 8192;
+			Guest_HDD_GB = 64.0;
+			Guest_NIC_Model = "virtio-net-pci";
+			Guest_Sound = VM::Sound_Cards();
+			Guest_Sound.Audio_USB = true;
+			Guest_Sound.Audio_VirtIO = true;
+			Guest_Compat_Tip = tr( "Windows 11 on ARM host → AArch64 + virt (VirtIO). Architecture remains editable." );
+		}
 	}
 
 	New_VM->Set_Machine_Type( Selected_Machine_Id );
 	Update_Guest_Compat_Tip();
+}
+
+void VM_Wizard_Window::Update_Architecture_Page_Chrome()
+{
+	const bool three_path_generate = Three_Path_Active && ui.RB_Generate_VM->isChecked();
+
+	// Hide unused legacy template row when Guest OS / Platform / Arch already chose the guest
+	ui.RB_VM_Template->setVisible( ! three_path_generate );
+	ui.Label_OS_Type->setVisible( ! three_path_generate );
+	ui.CB_OS_Type->setVisible( ! three_path_generate );
+	if( QWidget *line = ui.Template_Page->findChild<QWidget*>( "line" ) )
+		line->setVisible( ! three_path_generate );
+
+	if( three_path_generate )
+	{
+		ui.RB_Generate_VM->setText( tr( "&QEMU system (editable)" ) );
+		ui.Label_Computer_Type->setText( tr( "Comp&uter Type:" ) );
+	}
+	else
+	{
+		ui.RB_Generate_VM->setText( tr( "&Generate VM (any QEMU arch)" ) );
+	}
+
+	if( ! Label_Arch_Summary )
+		return;
+
+	if( ! three_path_generate || Selected_Target.isEmpty() )
+	{
+		Label_Arch_Summary->hide();
+		return;
+	}
+
+	QString guest = Selected_OS_Name;
+	if( guest.isEmpty() )
+		guest = Selected_Platform_Name;
+	if( guest.isEmpty() )
+		guest = Selected_Arch_Name;
+	if( guest.isEmpty() )
+		guest = tr( "Custom" );
+
+	const QString machine = Selected_Machine_Id.isEmpty()
+		? tr( "(default)" )
+		: Selected_Machine_Id;
+
+	Label_Arch_Summary->setText( tr( "Guest: %1 → qemu-system-%2 + machine %3" )
+		.arg( guest )
+		.arg( Selected_Target )
+		.arg( machine ) );
+	Label_Arch_Summary->show();
 }
 
 void VM_Wizard_Window::Update_Guest_Compat_Tip()
@@ -654,15 +626,19 @@ void VM_Wizard_Window::Update_Guest_Compat_Tip()
 	const QString os = Selected_OS_Name;
 
 	const bool legacy_win =
-		os.contains( "Windows 95" ) || os.contains( "Windows 98" ) || os.contains( "Windows ME" ) ||
-		os.startsWith( "Windows 1" ) || os.startsWith( "Windows 2" ) || os.startsWith( "Windows 3" ) ||
-		os.contains( "Windows NT 3" ) || os.contains( "Windows NT 4" ) ||
-		os.contains( "MS-DOS" ) || os.contains( "PC DOS" ) || os.contains( "DR-DOS" );
+		os == "Windows 95" || os == "Windows 98" || os == "Windows ME" ||
+		os == "Windows 1.x" || os == "Windows 2.x" || os == "Windows 3.x" ||
+		os == "Windows NT 3.x" || os == "Windows NT 4.0" ||
+		os == "MS-DOS" || os == "PC DOS" || os == "DR-DOS" ||
+		os == "Windows 2000" || os == "Windows XP" ||
+		os == "Windows Server 2000" || os == "Windows Server 2003";
 
-	if( legacy_win && archCaption.contains( "64Bit", Qt::CaseInsensitive ) )
+	if( legacy_win &&
+	    ( archCaption.contains( "x86_64", Qt::CaseInsensitive ) ||
+	      archCaption.contains( "64Bit", Qt::CaseInsensitive ) ) )
 	{
-		tip += tr( "\n\nWarning: %1 generally cannot run as an IBM PC 64Bit / x86_64 guest. "
-		           "Prefer IBM PC 32Bit (i386)." ).arg( os.isEmpty() ? tr("This OS") : os );
+		tip += tr( "\n\nWarning: %1 generally cannot run as an x86_64 guest. "
+		           "Prefer x86 (i386 PC)." ).arg( os.isEmpty() ? tr("This OS") : os );
 	}
 
 	if( tip.isEmpty() )
@@ -674,6 +650,8 @@ void VM_Wizard_Window::Update_Guest_Compat_Tip()
 		Label_Guest_Compat_Tip->setText( tip );
 		Label_Guest_Compat_Tip->show();
 	}
+
+	Update_Architecture_Page_Chrome();
 }
 
 void VM_Wizard_Window::Apply_Guest_Hardware_To_New_VM()
@@ -694,13 +672,23 @@ void VM_Wizard_Window::Apply_Guest_Hardware_To_New_VM()
 	{
 		const QString os = Selected_OS_Name;
 		const bool legacy_win =
-			os.contains( "Windows 95" ) || os.contains( "Windows 98" ) || os.contains( "Windows ME" ) ||
-			os.startsWith( "Windows 1" ) || os.startsWith( "Windows 2" ) || os.startsWith( "Windows 3" ) ||
-			os.contains( "Windows NT 3" ) || os.contains( "Windows NT 4" ) ||
-			os.contains( "MS-DOS" ) || os.contains( "PC DOS" ) || os.contains( "DR-DOS" );
+			os == "Windows 95" || os == "Windows 98" || os == "Windows ME" ||
+			os == "Windows 1.x" || os == "Windows 2.x" || os == "Windows 3.x" ||
+			os == "Windows NT 3.x" || os == "Windows NT 4.0" ||
+			os == "MS-DOS" || os == "PC DOS" || os == "DR-DOS" ||
+			os == "Windows 2000" || os == "Windows XP" ||
+			os == "Windows Server 2000" || os == "Windows Server 2003";
+		// Prior to ME: force pure TCG (WHPX hangs Win98 at splash).
+		const bool force_tcg_legacy =
+			os == "Windows 95" || os == "Windows 98" ||
+			os == "Windows 1.x" || os == "Windows 2.x" || os == "Windows 3.x" ||
+			os == "MS-DOS" || os == "PC DOS" || os == "DR-DOS";
+		const bool classic_mac =
+			os == "Mac OS X PPC" || os == "Mac OS 7" || os == "Mac OS 8" || os == "Mac OS 9";
 		const bool modern_need_tablet =
 			os.contains( "Windows" ) || os.contains( "Linux" ) || os.contains( "BSD" ) ||
-			os.contains( "Haiku" ) || Selected_Target.contains( "aarch64" );
+			os.contains( "Haiku" ) || os.contains( "Ubuntu" ) || os.contains( "ChromeOS" ) ||
+			os.contains( "SerenityOS" ) || Selected_Target.contains( "aarch64" );
 
 		if( legacy_win )
 		{
@@ -712,7 +700,47 @@ void VM_Wizard_Window::Apply_Guest_Hardware_To_New_VM()
 			New_VM->Set_Video_Card( QStringLiteral( "cirrus" ) );
 			New_VM->Use_ACPI( false );
 		}
-		else if( modern_need_tablet )
+		if( force_tcg_legacy )
+		{
+			New_VM->Use_Force_TCG( true );
+			New_VM->Set_Machine_Accelerator( VM::TCG );
+			New_VM->Set_CPU_Type( QStringLiteral( "pentium2" ) );
+			New_VM->Set_SMP_CPU_Count( 1 );
+			New_VM->Use_ACPI( false );
+			if( New_VM->Get_Video_Card().isEmpty() )
+				New_VM->Set_Video_Card( QStringLiteral( "cirrus" ) );
+		}
+		else if( classic_mac )
+		{
+			// mac99 uses onboard video/USB; do not force x86 cirrus / virtio-gpu.
+			New_VM->Set_Video_Card( QString() );
+			New_VM->Set_Mouse_Type( QStringLiteral( "usb-tablet" ) );
+			New_VM->Set_Mouse_USB_Controller( QStringLiteral( "auto" ) );
+			New_VM->Set_SMP_CPU_Count( 1 );
+			New_VM->Use_ACPI( false );
+			New_VM->Use_Force_TCG( false );
+			// Prefer sungem / macio-nic when the probed PPC device list has them
+			if( Current_Devices )
+			{
+				QString nic;
+				for( int i = 0; i < Current_Devices->Network_Card_List.count(); ++i )
+				{
+					const QString n = Current_Devices->Network_Card_List[i].QEMU_Name;
+					if( n.contains( QLatin1String( "sungem" ), Qt::CaseInsensitive ) )
+					{
+						nic = n;
+						break;
+					}
+					if( nic.isEmpty() && n.contains( QLatin1String( "macio" ), Qt::CaseInsensitive ) )
+						nic = n;
+				}
+				Guest_NIC_Model = nic; // empty = leave unset rather than e1000
+			}
+			// Screamer is not a modern -device checkbox; hint via additional args if empty.
+			if( New_VM->Get_Additional_Args().trimmed().isEmpty() )
+				New_VM->Set_Additional_Args( QStringLiteral( "-device screamer" ) );
+		}
+		else if( modern_need_tablet && ! legacy_win )
 		{
 			New_VM->Set_Mouse_Type( QStringLiteral( "usb-tablet" ) );
 			New_VM->Set_Mouse_USB_Controller( QStringLiteral( "auto" ) );
@@ -745,30 +773,43 @@ void VM_Wizard_Window::Apply_Guest_Hardware_To_New_VM()
 
 void VM_Wizard_Window::Prefer_Accelerator_For_Target( const QString &target )
 {
-	QString host_arch = Get_My_System_Architecture();
-	bool host_is_aarch64 = ( host_arch == "aarch64" || host_arch == "arm64" );
-	bool guest_is_arm = ( target == "aarch64" || target == "arm" );
-	bool host_is_x86 = ( host_arch.contains( "x86_64" ) || host_arch.contains( "amd64" ) ||
-	                     host_arch.contains( "i386" ) || host_arch.contains( "i686" ) );
-	bool guest_is_x86 = ( target == "x86_64" || target == "i386" );
+	const QString host = AQ_Get_Host_CPU_Architecture();
+	const QString guest = AQ_Normalize_CPU_Architecture( target );
+	const bool prefer_native = AQ_Should_Prefer_Native_Accelerator( target );
 
-	// WHPX/KVM on Windows is unreliable for 32-bit guests — prefer TCG for i386
-	#ifdef Q_OS_WIN32
-	if( target == "i386" )
-	{
-		ui.RB_Emulator_QEMU->setChecked( true );
-		return;
-	}
-	#endif
-
-	if( guest_is_arm && ! host_is_aarch64 )
-		ui.RB_Emulator_QEMU->setChecked( true ); // TCG
-	else if( guest_is_x86 && host_is_x86 )
-		ui.RB_Emulator_KVM->setChecked( true );
-	else if( target == host_arch || ( guest_is_arm && host_is_aarch64 ) )
+	if( prefer_native )
 		ui.RB_Emulator_KVM->setChecked( true );
 	else
 		ui.RB_Emulator_QEMU->setChecked( true );
+
+#ifdef Q_OS_WIN32
+	ui.RB_Emulator_KVM->setText( tr( "&KVM / WHPX (native acceleration)" ) );
+#else
+	ui.RB_Emulator_KVM->setText( tr( "&KVM (native acceleration)" ) );
+#endif
+	ui.RB_Emulator_QEMU->setText( tr( "&TCG (software emulation)" ) );
+
+	QString tip;
+	if( prefer_native )
+	{
+		tip = tr( "Host CPU is %1; guest target is %2 — using native acceleration "
+		          "(KVM on Linux/WSL, WHPX on Windows)." )
+			.arg( host ).arg( guest.isEmpty() ? target : guest );
+	}
+	else if( AQ_Guest_Matches_Host_Architecture( target ) && guest == QLatin1String( "i386" ) )
+	{
+		tip = tr( "Host is %1 but 32-bit x86 guests on Windows are more reliable with TCG "
+		          "(WHPX often hangs). You can still try KVM/WHPX if you prefer." )
+			.arg( host );
+	}
+	else
+	{
+		tip = tr( "Host CPU is %1; guest target is %2 — architectures do not match, "
+		          "so TCG (software translation) is required." )
+			.arg( host ).arg( guest.isEmpty() ? target : guest );
+	}
+	ui.RB_Emulator_KVM->setToolTip( tip );
+	ui.RB_Emulator_QEMU->setToolTip( tip );
 }
 
 void VM_Wizard_Window::Goto_Hardware_Flow()
@@ -780,11 +821,12 @@ void VM_Wizard_Window::Goto_Hardware_Flow()
 	Use_Accelerator_Page = true;
 	Prefer_Accelerator_For_Target( Selected_Target );
 	Update_Guest_Compat_Tip();
+	Update_Architecture_Page_Chrome();
 	// Always land on Architecture page so user can override smart defaults
 	ui.Wizard_Pages->setCurrentWidget( ui.Template_Page );
 	ui.Label_Page->setText( tr("Architecture") );
 	ui.Label_Template->setText( tr(
-		"Smart defaults applied from the guest OS. Architecture is fully editable — change anything you need:" ) );
+		"Confirm QEMU system and machine from the guest OS. Computer Type is fully editable:" ) );
 	ui.Button_Back->setEnabled( true );
 	ui.Button_Next->setEnabled( true );
 }
@@ -866,6 +908,229 @@ void VM_Wizard_Window::Build_Windows11_ARM_Page()
 	connect( TB_Win11_Existing_Disk_Browse, SIGNAL(clicked()), this, SLOT(Win11_Existing_Disk_Browse_Clicked()) );
 	connect( TB_Win11_VirtIO_ISO_Browse, SIGNAL(clicked()), this, SLOT(Win11_VirtIO_ISO_Browse_Clicked()) );
 	connect( CH_Win11_VirtIO_ISO, SIGNAL(toggled(bool)), this, SLOT(Win11_VirtIO_ISO_Toggled(bool)) );
+}
+
+void VM_Wizard_Window::Build_Intel_MacOS_Page()
+{
+	Intel_MacOS_Page = new QWidget();
+	QVBoxLayout *pageLay = new QVBoxLayout( Intel_MacOS_Page );
+	pageLay->setContentsMargins( 0, 0, 0, 0 );
+
+	QScrollArea *scroll = new QScrollArea( Intel_MacOS_Page );
+	scroll->setWidgetResizable( true );
+	scroll->setFrameShape( QFrame::NoFrame );
+	scroll->setHorizontalScrollBarPolicy( Qt::ScrollBarAlwaysOff );
+	pageLay->addWidget( scroll );
+
+	QWidget *content = new QWidget();
+	scroll->setWidget( content );
+	QVBoxLayout *mainLay = new QVBoxLayout( content );
+	mainLay->setContentsMargins( 8, 8, 8, 8 );
+	mainLay->setSpacing( 8 );
+
+	auto lock_height = []( QWidget *w ) {
+		w->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Fixed );
+		w->setMinimumHeight( w->sizeHint().height() );
+	};
+
+	QLabel *intro = new QLabel( tr(
+		"<b>Intel macOS (experimental)</b> — AQEMU does not ship OpenCore, OVMF, OSK, or Apple OS images. "
+		"Uses <code>qemu-system-x86_64</code> + <code>q35</code> + OVMF. "
+		"OpenCore <b>.iso</b> files attach as CD/DVD." ) );
+	intro->setWordWrap( true );
+	intro->setSizePolicy( QSizePolicy::Preferred, QSizePolicy::Minimum );
+	mainLay->addWidget( intro );
+
+	CH_Intel_Mac_Supply_Files = new QCheckBox( tr(
+		"I will supply all Apple / OpenCore / OVMF files myself" ) );
+	CH_Intel_Mac_Supply_Files->setChecked( true );
+	lock_height( CH_Intel_Mac_Supply_Files );
+	mainLay->addWidget( CH_Intel_Mac_Supply_Files );
+
+	QGroupBox *ocBox = new QGroupBox( tr("OpenCore (ISO or disk image)") );
+	QVBoxLayout *ocOuter = new QVBoxLayout( ocBox );
+	ocOuter->setSpacing( 6 );
+	QLabel *ocHint = new QLabel( tr(
+		"e.g. LongQT-OpenCore-v0.x.iso (CD/DVD) or OpenCore .qcow2/.img" ) );
+	ocHint->setWordWrap( true );
+	ocOuter->addWidget( ocHint );
+	QHBoxLayout *ocLay = new QHBoxLayout();
+	Edit_Intel_Mac_OpenCore = new QLineEdit();
+	lock_height( Edit_Intel_Mac_OpenCore );
+	TB_Intel_Mac_OpenCore_Browse = new QToolButton();
+	TB_Intel_Mac_OpenCore_Browse->setText( "..." );
+	TB_Intel_Mac_OpenCore_Browse->setFixedWidth( 32 );
+	lock_height( TB_Intel_Mac_OpenCore_Browse );
+	ocLay->addWidget( Edit_Intel_Mac_OpenCore );
+	ocLay->addWidget( TB_Intel_Mac_OpenCore_Browse );
+	ocOuter->addLayout( ocLay );
+	ocBox->setSizePolicy( QSizePolicy::Preferred, QSizePolicy::Maximum );
+	mainLay->addWidget( ocBox );
+
+	QGroupBox *diskBox = new QGroupBox( tr("System disk") );
+	QVBoxLayout *diskLay = new QVBoxLayout( diskBox );
+	diskLay->setSpacing( 6 );
+	RB_Intel_Mac_New_Disk = new QRadioButton( tr("Create a new disk image") );
+	RB_Intel_Mac_Existing_Disk = new QRadioButton( tr("Use an existing disk image") );
+	RB_Intel_Mac_New_Disk->setChecked( true );
+	lock_height( RB_Intel_Mac_New_Disk );
+	lock_height( RB_Intel_Mac_Existing_Disk );
+	diskLay->addWidget( RB_Intel_Mac_New_Disk );
+	diskLay->addWidget( RB_Intel_Mac_Existing_Disk );
+	QHBoxLayout *existLay = new QHBoxLayout();
+	Edit_Intel_Mac_Existing_Disk = new QLineEdit();
+	Edit_Intel_Mac_Existing_Disk->setEnabled( false );
+	lock_height( Edit_Intel_Mac_Existing_Disk );
+	TB_Intel_Mac_Disk_Browse = new QToolButton();
+	TB_Intel_Mac_Disk_Browse->setText( "..." );
+	TB_Intel_Mac_Disk_Browse->setFixedWidth( 32 );
+	TB_Intel_Mac_Disk_Browse->setEnabled( false );
+	lock_height( TB_Intel_Mac_Disk_Browse );
+	existLay->addWidget( Edit_Intel_Mac_Existing_Disk );
+	existLay->addWidget( TB_Intel_Mac_Disk_Browse );
+	diskLay->addLayout( existLay );
+	diskBox->setSizePolicy( QSizePolicy::Preferred, QSizePolicy::Maximum );
+	mainLay->addWidget( diskBox );
+
+	QGroupBox *recBox = new QGroupBox( tr("Installer disk image (MIST APM/HFS .iso)") );
+	QHBoxLayout *recLay = new QHBoxLayout( recBox );
+	Edit_Intel_Mac_Recovery = new QLineEdit();
+	lock_height( Edit_Intel_Mac_Recovery );
+	TB_Intel_Mac_Recovery_Browse = new QToolButton();
+	TB_Intel_Mac_Recovery_Browse->setText( "..." );
+	TB_Intel_Mac_Recovery_Browse->setFixedWidth( 32 );
+	lock_height( TB_Intel_Mac_Recovery_Browse );
+	recLay->addWidget( Edit_Intel_Mac_Recovery );
+	recLay->addWidget( TB_Intel_Mac_Recovery_Browse );
+	recBox->setSizePolicy( QSizePolicy::Preferred, QSizePolicy::Maximum );
+	mainLay->addWidget( recBox );
+
+	QGroupBox *oskBox = new QGroupBox( tr("Apple SMC OSK (required to start)") );
+	QVBoxLayout *oskLay = new QVBoxLayout( oskBox );
+	Edit_Intel_Mac_OSK = new QLineEdit();
+	Edit_Intel_Mac_OSK->setEchoMode( QLineEdit::Password );
+	Edit_Intel_Mac_OSK->setPlaceholderText( tr( "Paste your own OSK — AQEMU never pre-fills this" ) );
+	lock_height( Edit_Intel_Mac_OSK );
+	oskLay->addWidget( Edit_Intel_Mac_OSK );
+	oskBox->setSizePolicy( QSizePolicy::Preferred, QSizePolicy::Maximum );
+	mainLay->addWidget( oskBox );
+
+	Label_Intel_Mac_UEFI_Status = new QLabel();
+	Label_Intel_Mac_UEFI_Status->setWordWrap( true );
+	Label_Intel_Mac_UEFI_Status->setSizePolicy( QSizePolicy::Preferred, QSizePolicy::Minimum );
+	mainLay->addWidget( Label_Intel_Mac_UEFI_Status );
+
+	CH_Intel_Mac_Prefer_WSL = new QCheckBox( tr(
+		"Prefer WSL/KVM when /dev/kvm is available (Windows)" ) );
+#ifdef Q_OS_WIN32
+	CH_Intel_Mac_Prefer_WSL->setChecked(
+		Settings.value( QStringLiteral( "WSL_Launch/Enabled" ), false ).toBool() );
+	CH_Intel_Mac_Prefer_WSL->setEnabled( true );
+	CH_Intel_Mac_Prefer_WSL->setToolTip( tr(
+		"Uses Linux QEMU inside WSL with KVM. Probing /dev/kvm is deferred so the New VM wizard opens instantly." ) );
+#else
+	CH_Intel_Mac_Prefer_WSL->setChecked( false );
+	CH_Intel_Mac_Prefer_WSL->setEnabled( false );
+	CH_Intel_Mac_Prefer_WSL->setVisible( false );
+#endif
+	lock_height( CH_Intel_Mac_Prefer_WSL );
+	mainLay->addWidget( CH_Intel_Mac_Prefer_WSL );
+
+	QLabel *finishHelp = new QLabel( tr(
+		"<b>After Finish:</b> Start should reach the OpenCore picker if your OpenCore image is valid. "
+		"Install success depends on your OpenCore config — not AQEMU." ) );
+	finishHelp->setWordWrap( true );
+	finishHelp->setSizePolicy( QSizePolicy::Preferred, QSizePolicy::Minimum );
+	mainLay->addWidget( finishHelp );
+	mainLay->addStretch( 1 );
+
+	ui.Wizard_Pages->addWidget( Intel_MacOS_Page );
+
+	connect( RB_Intel_Mac_New_Disk, SIGNAL(toggled(bool)), this, SLOT(Intel_Mac_New_Disk_Toggled(bool)) );
+	connect( TB_Intel_Mac_OpenCore_Browse, SIGNAL(clicked()), this, SLOT(Intel_Mac_OpenCore_Browse_Clicked()) );
+	connect( TB_Intel_Mac_Disk_Browse, SIGNAL(clicked()), this, SLOT(Intel_Mac_Disk_Browse_Clicked()) );
+	connect( TB_Intel_Mac_Recovery_Browse, SIGNAL(clicked()), this, SLOT(Intel_Mac_Recovery_Browse_Clicked()) );
+}
+
+void VM_Wizard_Window::Show_Intel_MacOS_Page()
+{
+	ui.Wizard_Pages->setCurrentWidget( Intel_MacOS_Page );
+	ui.Label_Page->setText( tr( "Intel macOS Setup" ) );
+	Probe_WSL_For_Intel_Mac_Page();
+}
+
+void VM_Wizard_Window::Probe_WSL_For_Intel_Mac_Page()
+{
+#ifdef Q_OS_WIN32
+	if( ! CH_Intel_Mac_Prefer_WSL )
+		return;
+
+	AQ_Run_With_Busy_Dialog( this, tr( "Checking WSL/KVM…" ), [ this ]() {
+		const QString distro =
+			Settings.value( QStringLiteral( "WSL_Launch/Distro" ), QString() ).toString();
+		const bool kvm = WSL_Is_Available( false ) && WSL_Ensure_KVM_Access( distro );
+		if( kvm )
+			CH_Intel_Mac_Prefer_WSL->setChecked( true );
+		else if( ! Settings.value( QStringLiteral( "WSL_Launch/Enabled" ), false ).toBool() )
+			CH_Intel_Mac_Prefer_WSL->setChecked( false );
+
+		CH_Intel_Mac_Prefer_WSL->setToolTip( kvm
+			? tr( "WSL/KVM available. Prefer launching Linux QEMU inside WSL." )
+			: tr( "WSL/KVM not detected. Native Windows QEMU (WHPX/TCG) will be used unless you enable WSL in Settings after fixing KVM." ) );
+	} );
+#else
+	Q_UNUSED( 0 );
+#endif
+}
+
+bool VM_Wizard_Window::Is_Intel_MacOS_Template() const
+{
+	if( Three_Path_Active )
+	{
+		return Selected_OS_Name.contains( "macOS", Qt::CaseInsensitive ) ||
+		       Selected_OS_Name.contains( "Mac OS X Intel" ) ||
+		       Selected_OS_Name.contains( "Darwin" );
+	}
+	if( ! ui.RB_VM_Template->isChecked() )
+		return false;
+	if( ui.CB_OS_Type->currentIndex() <= 0 )
+		return false;
+	const QString t = ui.CB_OS_Type->currentText();
+	return t.contains( "MacOS X x86", Qt::CaseInsensitive ) ||
+	       t.contains( "macOS", Qt::CaseInsensitive );
+}
+
+void VM_Wizard_Window::Intel_Mac_New_Disk_Toggled( bool on )
+{
+	Edit_Intel_Mac_Existing_Disk->setEnabled( ! on );
+	TB_Intel_Mac_Disk_Browse->setEnabled( ! on );
+}
+
+void VM_Wizard_Window::Intel_Mac_OpenCore_Browse_Clicked()
+{
+	QString file = QFileDialog::getOpenFileName( this, tr("Select OpenCore ISO or disk image"),
+		Get_Last_Dir_Path( Edit_Intel_Mac_OpenCore->text() ),
+		tr("OpenCore (*.iso *.qcow2 *.qcow *.img *.raw);;ISO CD/DVD (*.iso);;Disk Images (*.qcow2 *.qcow *.img *.raw);;All Files (*)") );
+	if( ! file.isEmpty() )
+		Edit_Intel_Mac_OpenCore->setText( QDir::toNativeSeparators( file ) );
+}
+
+void VM_Wizard_Window::Intel_Mac_Disk_Browse_Clicked()
+{
+	QString file = QFileDialog::getOpenFileName( this, tr("Select system disk image"),
+		Get_Last_Dir_Path( Edit_Intel_Mac_Existing_Disk->text() ),
+		tr("Disk Images (*.qcow2 *.qcow *.img *.vhd *.vhdx *.raw);;All Files (*)") );
+	if( ! file.isEmpty() )
+		Edit_Intel_Mac_Existing_Disk->setText( QDir::toNativeSeparators( file ) );
+}
+
+void VM_Wizard_Window::Intel_Mac_Recovery_Browse_Clicked()
+{
+	QString file = QFileDialog::getOpenFileName( this, tr("Select Recovery / BaseSystem image"),
+		Get_Last_Dir_Path( Edit_Intel_Mac_Recovery->text() ),
+		tr("Disk / ISO (*.qcow2 *.qcow *.img *.raw *.iso *.dmg);;All Files (*)") );
+	if( ! file.isEmpty() )
+		Edit_Intel_Mac_Recovery->setText( QDir::toNativeSeparators( file ) );
 }
 
 void VM_Wizard_Window::Win11_VirtIO_ISO_Toggled( bool on )
@@ -1085,6 +1350,19 @@ void VM_Wizard_Window::on_Button_Back_clicked()
 			ui.Label_Page->setText( tr("Virtual Hard Disk") );
 		}
 	}
+	else if( Intel_MacOS_Page == ui.Wizard_Pages->currentWidget() )
+	{
+		if( ui.RB_Typical->isChecked() )
+		{
+			ui.Wizard_Pages->setCurrentWidget( ui.Typical_HDD_Page );
+			ui.Label_Page->setText( tr("Hard Disk Size") );
+		}
+		else
+		{
+			ui.Wizard_Pages->setCurrentWidget( ui.Custom_HDD_Page );
+			ui.Label_Page->setText( tr("Virtual Hard Disk") );
+		}
+	}
 	else if( ui.Custom_HDD_Page == ui.Wizard_Pages->currentWidget() )
 	{
 		ui.Wizard_Pages->setCurrentWidget( ui.Memory_Page );
@@ -1092,7 +1370,11 @@ void VM_Wizard_Window::on_Button_Back_clicked()
 	}
 	else if( ui.Network_Page == ui.Wizard_Pages->currentWidget() )
 	{
-		if( Is_Windows11_ARM_Template() )
+		if( Is_Intel_MacOS_Template() )
+		{
+			Show_Intel_MacOS_Page();
+		}
+		else if( Is_Windows11_ARM_Template() )
 		{
 			ui.Wizard_Pages->setCurrentWidget( Win11_ARM_Page );
 			ui.Label_Page->setText( tr("Windows 11 ARM Install") );
@@ -1257,12 +1539,12 @@ void VM_Wizard_Window::on_Button_Next_clicked()
 
         // Prefer host CPU architecture when available in the emulator list
         int defaultIndex = 0;
-        QString host_arch = Get_My_System_Architecture();
+        const QString host_arch = AQ_Get_Host_CPU_Architecture();
         for( int ix = 0; ix < ui.CB_Computer_Type->count(); ++ix )
         {
             QString text = ui.CB_Computer_Type->itemText( ix );
             QString lower = text.toLower();
-            if( host_arch.contains( "aarch64" ) || host_arch.contains( "arm64" ) )
+            if( host_arch == QLatin1String( "aarch64" ) )
             {
                 if( lower.contains( "aarch64" ) || lower.contains( "arm 64" ) )
                 {
@@ -1270,9 +1552,9 @@ void VM_Wizard_Window::on_Button_Next_clicked()
                     break;
                 }
             }
-            else if( host_arch.contains( "x86_64" ) || host_arch.contains( "amd64" ) )
+            else if( host_arch == QLatin1String( "x86_64" ) )
             {
-                if( text.contains( "64Bit" ) || lower.contains( "x86_64" ) )
+                if( lower.contains( "x86_64" ) || text.contains( "64Bit" ) )
                 {
                     defaultIndex = ix;
                     break;
@@ -1326,36 +1608,25 @@ void VM_Wizard_Window::on_Button_Next_clicked()
 			}
 		}
 
-        // Prefer KVM/WHPX when host arch matches guest; otherwise TCG
-        QString host_arch = Get_My_System_Architecture();
-        bool guest_is_aarch64 = false;
-		bool guest_is_i386 = false;
-        if( ui.RB_VM_Template->isChecked() && ui.CB_OS_Type->currentIndex() > 0 )
-        {
-            guest_is_aarch64 = ui.CB_OS_Type->currentText().contains( "ARM", Qt::CaseInsensitive ) ||
-                               ui.CB_OS_Type->currentText().contains( "Raspberry", Qt::CaseInsensitive );
-        }
-        else if( ui.RB_Generate_VM->isChecked() )
-        {
-            guest_is_aarch64 = ui.CB_Computer_Type->currentText().contains( "AArch64", Qt::CaseInsensitive ) ||
-                               ( ui.CB_Computer_Type->currentText().contains( "ARM", Qt::CaseInsensitive ) &&
-                                 ! ui.CB_Computer_Type->currentText().contains( "64", Qt::CaseInsensitive ) );
-			guest_is_i386 = ui.CB_Computer_Type->currentText().contains( "32Bit", Qt::CaseInsensitive ) ||
-			                Selected_Target == "i386";
-        }
-
-        bool host_is_aarch64 = ( host_arch == "aarch64" || host_arch == "arm64" );
-#ifdef Q_OS_WIN32
-		if( guest_is_i386 )
-			ui.RB_Emulator_QEMU->setChecked( true ); // TCG — more reliable for 32-bit on Windows
+        // Prefer KVM/WHPX when guest matches host arch; otherwise TCG
+        if( ! Selected_Target.isEmpty() )
+			Prefer_Accelerator_For_Target( Selected_Target );
 		else
-#endif
-        if( guest_is_aarch64 && ! host_is_aarch64 )
-            ui.RB_Emulator_QEMU->setChecked( true ); // TCG
-        else if( ui.RB_Generate_VM->isChecked() && ui.CB_Computer_Type->currentText() != "IBM PC 64Bit" && ! guest_is_aarch64 )
-            ui.RB_Emulator_QEMU->setChecked( true );
-        else
-            ui.RB_Emulator_KVM->setChecked( true );
+		{
+			// Fall back: derive target from Computer Type caption / binary
+			QString tgt;
+			for( QMap<QString, Available_Devices>::const_iterator it = All_Systems.constBegin();
+			     it != All_Systems.constEnd(); ++it )
+			{
+				if( it.value().System.Caption == ui.CB_Computer_Type->currentText() )
+				{
+					tgt = it.value().System.QEMU_Name;
+					tgt.remove( "qemu-system-" );
+					break;
+				}
+			}
+			Prefer_Accelerator_For_Target( tgt.isEmpty() ? QStringLiteral( "x86_64" ) : tgt );
+		}
 
 		Update_Guest_Compat_Tip();
 		ui.Wizard_Pages->setCurrentWidget( ui.Accelerator_Page );
@@ -1409,6 +1680,24 @@ void VM_Wizard_Window::on_Button_Next_clicked()
 			ui.Wizard_Pages->setCurrentWidget( Win11_ARM_Page );
 			ui.Label_Page->setText( tr("Windows 11 ARM Install") );
 		}
+		else if( Is_Intel_MacOS_Template() )
+		{
+			QString qemu_bin;
+			Emulator emul = Get_Default_Emulator();
+			QMap<QString, QString> bins = emul.Get_Binary_Files();
+			if( bins.contains( "qemu-system-x86_64" ) )
+				qemu_bin = bins[ "qemu-system-x86_64" ];
+			else if( bins.contains( "qemu-system-x86" ) )
+				qemu_bin = bins[ "qemu-system-x86" ];
+			QString code = Find_UEFI_Firmware_CODE( qemu_bin, QStringLiteral( "x86_64" ) );
+			if( code.isEmpty() )
+				Label_Intel_Mac_UEFI_Status->setText( tr(
+					"<font color='orange'>OVMF CODE not found automatically. "
+					"Install OVMF / edk2-x86_64 firmware or set UEFI paths after creating the VM.</font>" ) );
+			else
+				Label_Intel_Mac_UEFI_Status->setText( tr( "OVMF CODE found: %1" ).arg( code ) );
+			Show_Intel_MacOS_Page();
+		}
 		else
 		{
 			ui.Wizard_Pages->setCurrentWidget( ui.Network_Page );
@@ -1432,12 +1721,72 @@ void VM_Wizard_Window::on_Button_Next_clicked()
 		ui.Wizard_Pages->setCurrentWidget( ui.Network_Page );
 		ui.Label_Page->setText( tr("Network") );
 	}
+	else if( Intel_MacOS_Page == ui.Wizard_Pages->currentWidget() )
+	{
+		if( ! CH_Intel_Mac_Supply_Files->isChecked() )
+		{
+			AQGraphic_Warning( tr("Intel macOS"),
+				tr("Please confirm that you will supply all Apple/OpenCore/OVMF files yourself.") );
+			return;
+		}
+		const QString oc = QDir::toNativeSeparators( Edit_Intel_Mac_OpenCore->text().trimmed() );
+		Edit_Intel_Mac_OpenCore->setText( oc );
+		if( oc.isEmpty() )
+		{
+			AQGraphic_Warning( tr("Intel macOS"),
+				tr("Please select your OpenCore ISO or disk image.") );
+			return;
+		}
+		if( ! QFile::exists( oc ) )
+		{
+			AQGraphic_Warning( tr("Intel macOS"),
+				tr( "OpenCore file does not exist:\n%1" ).arg( oc ) );
+			return;
+		}
+		if( Edit_Intel_Mac_OSK->text().trimmed().isEmpty() )
+		{
+			AQGraphic_Warning( tr("Intel macOS"),
+				tr("Please paste your Apple SMC OSK. AQEMU does not provide one.") );
+			return;
+		}
+		if( RB_Intel_Mac_Existing_Disk->isChecked() )
+		{
+			const QString disk = QDir::toNativeSeparators( Edit_Intel_Mac_Existing_Disk->text().trimmed() );
+			Edit_Intel_Mac_Existing_Disk->setText( disk );
+			if( disk.isEmpty() )
+			{
+				AQGraphic_Warning( tr("Intel macOS"),
+					tr("Please select an existing system disk, or choose \"Create a new disk image\".") );
+				return;
+			}
+			if( ! QFile::exists( disk ) )
+			{
+				AQGraphic_Warning( tr("Intel macOS"),
+					tr( "System disk file does not exist:\n%1" ).arg( disk ) );
+				return;
+			}
+		}
+		const QString recovery = QDir::toNativeSeparators( Edit_Intel_Mac_Recovery->text().trimmed() );
+		Edit_Intel_Mac_Recovery->setText( recovery );
+		if( ! recovery.isEmpty() && ! QFile::exists( recovery ) )
+		{
+			AQGraphic_Warning( tr("Intel macOS"),
+				tr( "Recovery / installer file does not exist:\n%1" ).arg( recovery ) );
+			return;
+		}
+		ui.Wizard_Pages->setCurrentWidget( ui.Network_Page );
+		ui.Label_Page->setText( tr("Network") );
+	}
 	else if( ui.Custom_HDD_Page == ui.Wizard_Pages->currentWidget() )
 	{
 		if( Is_Windows11_ARM_Template() )
 		{
 			ui.Wizard_Pages->setCurrentWidget( Win11_ARM_Page );
 			ui.Label_Page->setText( tr("Windows 11 ARM Install") );
+		}
+		else if( Is_Intel_MacOS_Template() )
+		{
+			Show_Intel_MacOS_Page();
 		}
 		else
 		{
@@ -1666,6 +2015,10 @@ bool VM_Wizard_Window::Create_New_VM(bool simulate)
 {
 	// Icon
 	QString icon_path = Find_OS_Icon( ui.Edit_VM_Name->text() );
+	if( icon_path.isEmpty() && Is_Intel_MacOS_Template() )
+		icon_path = QStringLiteral( ":/default_macos.png" );
+	if( icon_path.isEmpty() && Three_Path_Active && ! Selected_OS_Name.isEmpty() )
+		icon_path = Find_OS_Icon( Selected_OS_Name );
 	if( icon_path.isEmpty() )
 	{
 		AQWarning( "void VM_Wizard_Window::Create_New_VM()", "Icon for new VM not Found!" );
@@ -1705,6 +2058,10 @@ bool VM_Wizard_Window::Create_New_VM(bool simulate)
 		if( Is_Windows11_ARM_Template() && RB_Win11_Existing_Disk->isChecked() )
 		{
 			New_VM->Set_HDA( VM_HDD(true, Edit_Win11_Existing_Disk->text()) );
+		}
+		else if( Is_Intel_MacOS_Template() && RB_Intel_Mac_Existing_Disk->isChecked() )
+		{
+			New_VM->Set_HDA( VM_HDD(true, Edit_Intel_Mac_Existing_Disk->text()) );
 		}
 		else
 		{
@@ -1753,22 +2110,23 @@ bool VM_Wizard_Window::Create_New_VM(bool simulate)
 		}
 		else
 		{
-			// Find QEMU System Name in CB_Computer_Type
-			if( ui.RB_Emulator_KVM->isChecked() )
+			// Find QEMU System Name in CB_Computer_Type (do not force x86_64 just because KVM is on)
+			for( QMap<QString, Available_Devices>::const_iterator it = All_Systems.constBegin(); it != All_Systems.constEnd(); it++ )
 			{
-				Current_Devices = &All_Systems[ "qemu-system-x86_64" ];
-				if( ! Current_Devices->System.QEMU_Name.isEmpty() ) devices_found = true;
-			}
-			else // QEMU
-			{
-				for( QMap<QString, Available_Devices>::const_iterator it = All_Systems.constBegin(); it != All_Systems.constEnd(); it++ )
+				if( it.value().System.Caption == ui.CB_Computer_Type->currentText() )
 				{
-					if( it.value().System.Caption == ui.CB_Computer_Type->currentText() )
-					{
-						Current_Devices = &it.value();
-						devices_found = true;
-						break;
-					}
+					Current_Devices = &it.value();
+					devices_found = true;
+					break;
+				}
+			}
+			if( ! devices_found && Three_Path_Active && ! Selected_Target.isEmpty() )
+			{
+				QString qemu_name = "qemu-system-" + Selected_Target;
+				if( All_Systems.contains( qemu_name ) )
+				{
+					Current_Devices = &All_Systems[ qemu_name ];
+					devices_found = true;
 				}
 			}
 		}
@@ -1818,6 +2176,8 @@ bool VM_Wizard_Window::Create_New_VM(bool simulate)
 	
 	if( Is_Windows11_ARM_Template() )
 		Apply_Windows11_ARM_Profile( simulate );
+	else if( Is_Intel_MacOS_Template() )
+		Apply_Intel_MacOS_Profile( simulate );
 	else if( New_VM->Get_Computer_Type().contains( "aarch64", Qt::CaseInsensitive ) ||
 			 New_VM->Get_Computer_Type().contains( "qemu-system-arm", Qt::CaseInsensitive ) )
 		Apply_AArch64_Generic_Profile( simulate );
@@ -1851,11 +2211,34 @@ void VM_Wizard_Window::Update_Finish_Page_Guidance()
 			help = tr( "<p><b>Windows 11 ARM - install checklist</b></p><ol>"
 				"<li>Lifecycle is set to <b>Install Windows</b> (ramfb + USB installer ISO).</li>"
 				"<li>Start the VM and complete Windows Setup.</li>"
-				"<li>After Setup finishes, click <b>First boot</b> (ramfb, no ISO) or <b>Normal</b> (virtio-gpu) on the VM page.</li>"
+				"<li>After Setup finishes, click <b>First boot</b> (virtio-gpu, no ISO) to finish OOBE, then <b>Normal</b> for everyday use.</li>"
 				"<li>Use <b>Normal</b> for everyday use.</li>"
 				"</ol>"
 				"<p>All machine/CPU/device options remain editable in the main GUI after creation.</p>" );
 		}
+	}
+	else if( Selected_OS_Name.contains( "Mac OS X PPC" ) ||
+	         Selected_OS_Name.startsWith( "Mac OS 7" ) ||
+	         Selected_OS_Name.startsWith( "Mac OS 8" ) ||
+	         Selected_OS_Name.startsWith( "Mac OS 9" ) )
+	{
+		help = tr( "<p><b>Classic Mac OS (PowerPC)</b></p><ul>"
+			"<li>Uses <code>qemu-system-ppc</code> and machine <code>mac99</code>.</li>"
+			"<li>Attach your own Mac OS CD/ISO or a prepared HDD image in Device Manager.</li>"
+			"<li>AQEMU does not ship Apple install media.</li>"
+			"<li>If Start fails finding a binary, install a QEMU build that includes "
+			"<code>qemu-system-ppc</code> and re-run the First Start Wizard.</li>"
+			"</ul>" );
+	}
+	else if( Selected_OS_Name.contains( "macOS", Qt::CaseInsensitive ) ||
+	         Selected_OS_Name.contains( "Mac OS X Intel" ) ||
+	         Selected_OS_Name.contains( "Darwin" ) )
+	{
+		help = tr( "<p><b>Intel macOS (experimental)</b></p><ul>"
+			"<li>You must supply OpenCore boot disk, OVMF firmware, OSK, and install/system disks.</li>"
+			"<li>AQEMU does not ship Apple OS files or a default OSK.</li>"
+			"<li>On Windows, WHPX is used unless you enable Launch via WSL/KVM.</li>"
+			"</ul>" );
 	}
 	else if( ui.RB_Generate_VM->isChecked() &&
 			 ( ui.CB_Computer_Type->currentText().contains( "AArch64", Qt::CaseInsensitive ) ||
@@ -2007,6 +2390,81 @@ void VM_Wizard_Window::Apply_Windows11_ARM_Profile( bool simulate )
 		Prepare_UEFI_VARS_File( vars_dest, qemu_bin );
 }
 
+void VM_Wizard_Window::Apply_Intel_MacOS_Profile( bool simulate )
+{
+	QString vm_dir = Settings.value( "VM_Directory", "~" ).toString();
+	QString vm_base = Get_FS_Compatible_VM_Name( ui.Edit_VM_Name->text() );
+
+	New_VM->Use_Intel_MacOS_Profile( true );
+	New_VM->Set_Machine_Type( QStringLiteral( "q35" ) );
+	New_VM->Set_CPU_Type( QStringLiteral( "Skylake-Client-v4" ) );
+	New_VM->Set_SMP_CPU_Count( 2 );
+	if( New_VM->Get_Memory_Size() < 4096 )
+		New_VM->Set_Memory_Size( 4096 );
+	New_VM->Set_Video_Card( QString() ); // machine/VGA defaults; avoid cirrus for OpenCore
+	New_VM->Use_USB_Hub( true );
+	New_VM->Set_Mouse_Type( QStringLiteral( "usb-tablet" ) );
+	New_VM->Set_Mouse_USB_Controller( QStringLiteral( "xhci" ) );
+	New_VM->Set_Mouse_USB_Version( 0 );
+	New_VM->Use_ACPI( true );
+
+	VM::Sound_Cards audio;
+	audio.Audio_HDA = true;
+	New_VM->Set_Audio_Cards( audio );
+
+	if( New_VM->Get_Network_Cards_Count() > 0 )
+	{
+		VM_Net_Card card = New_VM->Get_Network_Card( 0 );
+		card.Set_Card_Model( QStringLiteral( "virtio-net-pci" ) );
+		New_VM->Set_VM_Network_Card( 0, card );
+	}
+
+	New_VM->Set_OpenCore_Boot_Path( QDir::toNativeSeparators( AQ_Normalize_File_Path( Edit_Intel_Mac_OpenCore->text() ) ) );
+	New_VM->Set_Mac_Recovery_Image_Path( QDir::toNativeSeparators( AQ_Normalize_File_Path( Edit_Intel_Mac_Recovery->text() ) ) );
+	New_VM->Set_Apple_SMC_OSK( Edit_Intel_Mac_OSK->text() );
+	New_VM->Use_Apple_SMC( ! Edit_Intel_Mac_OSK->text().trimmed().isEmpty() );
+	New_VM->Use_Launch_Via_WSL( CH_Intel_Mac_Prefer_WSL->isChecked() );
+
+#ifdef Q_OS_WIN32
+	if( CH_Intel_Mac_Prefer_WSL->isChecked() )
+	{
+		Settings.setValue( QStringLiteral( "WSL_Launch/Enabled" ), true );
+	}
+#endif
+
+	QString qemu_bin;
+	Emulator emul = Get_Default_Emulator();
+	QMap<QString, QString> bins = emul.Get_Binary_Files();
+	if( bins.contains( "qemu-system-x86_64" ) )
+		qemu_bin = bins[ "qemu-system-x86_64" ];
+	else if( bins.contains( "qemu-system-x86" ) )
+		qemu_bin = bins[ "qemu-system-x86" ];
+
+	QString code = Find_UEFI_Firmware_CODE( qemu_bin, QStringLiteral( "x86_64" ) );
+	QString vars_dest = vm_dir + vm_base + "_OVMF_VARS.fd";
+	New_VM->Use_UEFI( true );
+	if( ! code.isEmpty() )
+		New_VM->Set_UEFI_CODE_File( code );
+	New_VM->Set_UEFI_VARS_File( vars_dest );
+	if( ! simulate )
+		Prepare_UEFI_VARS_File( vars_dest, qemu_bin, QStringLiteral( "x86_64" ) );
+
+	QList<VM::Boot_Order> boot;
+	const QString oc_path = Edit_Intel_Mac_OpenCore->text().trimmed().toLower();
+	if( oc_path.endsWith( QLatin1String( ".iso" ) ) )
+	{
+		VM::Boot_Order bcd;
+		bcd.Type = VM::Boot_From_CDROM;
+		bcd.Enabled = true;
+		boot << bcd;
+	}
+	VM::Boot_Order bhdd;
+	bhdd.Type = VM::Boot_From_HDD;
+	bhdd.Enabled = true;
+	boot << bhdd;
+	New_VM->Set_Boot_Order_List( boot );
+}
+
 void VM_Wizard_Window::Apply_AArch64_Generic_Profile( bool simulate )
 {
 	// Flexible defaults for any aarch64/ARM guest (Linux, BSD, etc.) - not Win11-specific
@@ -2126,6 +2584,23 @@ QString VM_Wizard_Window::Find_OS_Icon( const QString os_name )
 	if( rex.exactMatch(os_name) )
 		return ":/default_windows.png";
 
+	// Apple / macOS / Darwin
+	rex.setPattern( "*mac*os*" );
+	if( rex.exactMatch(os_name) )
+		return ":/default_macos.png";
+	rex.setPattern( "*macos*" );
+	if( rex.exactMatch(os_name) )
+		return ":/default_macos.png";
+	rex.setPattern( "*darwin*" );
+	if( rex.exactMatch(os_name) )
+		return ":/default_macos.png";
+	rex.setPattern( "*osx*" );
+	if( rex.exactMatch(os_name) )
+		return ":/default_macos.png";
+	rex.setPattern( "*apple*" );
+	if( rex.exactMatch(os_name) )
+		return ":/default_macos.png";
+
 	return ":/other.png";
 }
 
@@ -2152,7 +2627,7 @@ void VM_Wizard_Window::on_RB_Generate_VM_toggled( bool on )
 			for( int ix = 0; ix < ui.CB_Computer_Type->count(); ++ix )
 			{
 				QString text = ui.CB_Computer_Type->itemText( ix );
-				if( text.contains("64Bit") || text.contains("x86_64") )
+				if( text.contains("x86_64") || text.contains("64Bit") || text.contains("x86_64 (PC)") )
 				{
 					defaultIndex = ix;
 					break;
@@ -2185,6 +2660,21 @@ void VM_Wizard_Window::on_CB_Computer_Type_currentIndexChanged( int index )
 	else
 	{
 		ui.Button_Next->setEnabled( true );
+		// Keep Selected_Target in sync when user overrides Computer Type
+		if( Three_Path_Active && ui.RB_Generate_VM->isChecked() )
+		{
+			for( QMap<QString, Available_Devices>::const_iterator it = All_Systems.constBegin();
+			     it != All_Systems.constEnd(); ++it )
+			{
+				if( it.value().System.Caption == ui.CB_Computer_Type->currentText() )
+				{
+					QString qn = it.value().System.QEMU_Name;
+					Selected_Target = qn;
+					Selected_Target.remove( "qemu-system-" );
+					break;
+				}
+			}
+		}
 		Update_Guest_Compat_Tip();
 	}
 }

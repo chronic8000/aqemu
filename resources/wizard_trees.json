@@ -117,6 +117,7 @@
     "POWER8": {"target": "ppc64", "machine": "powernv8"},
     "POWER9": {"target": "ppc64", "machine": "powernv9"},
     "POWER10": {"target": "ppc64", "machine": "powernv10"},
+    "POWER11": {"target": "ppc64", "machine": "powernv10"},
     "IBM Z (s390x)": {"target": "s390x", "machine": "s390-ccw-virtio"},
     "MIPS Malta": {"target": "mipsel", "machine": "malta"},
     "Fuloong 2E": {"target": "mipsel", "machine": "fuloong2e"},
@@ -124,6 +125,8 @@
     "Alpha Clipper": {"target": "alpha", "machine": "clipper"},
     "HP B160L": {"target": "hppa", "machine": "b160l"},
     "HP C3700": {"target": "hppa", "machine": "c3700"},
+    "HP A400-44": {"target": "hppa", "machine": "b160l"},
+    "HP 715/64": {"target": "hppa", "machine": "b160l"},
     "RISC-V Virt": {"target": "riscv64", "machine": "virt"},
     "RISC-V Spike": {"target": "riscv64", "machine": "spike"},
     "SiFive E": {"target": "riscv32", "machine": "sifive_e"},
@@ -137,10 +140,418 @@
     "Netduino Plus 2": {"target": "arm", "machine": "netduinoplus2"},
     "BBC micro:bit": {"target": "arm", "machine": "microbit"},
     "SGI Magnum": {"target": "mips", "machine": "magnum"},
+    "AmigaOne": {"target": "ppc", "machine": "amigaone"},
+    "Sam460ex": {"target": "ppc", "machine": "sam460ex"},
+    "Acer Pica 61": {"target": "mips", "machine": "pica61"},
     "Cubieboard": {"target": "arm", "machine": "cubieboard"},
     "Orange Pi PC": {"target": "arm", "machine": "orangepi-pc"},
     "Bananapi M2U": {"target": "arm", "machine": "bpim2u"},
     "Generic Virtual Machine": {"target": "aarch64", "machine": "virt"},
     "Empty Machine": {"target": "aarch64", "machine": "none"}
+  },
+  "os_profiles": {
+    "MS-DOS": {
+      "target": "i386", "machine": "isapc", "ram_mb": 32, "hdd_gb": 2,
+      "nic": "ne2k_isa", "sound": "sb16_adlib_pcspk",
+      "tip": "DOS → x86 (i386 PC) + Legacy ISA. 64-bit guests cannot run DOS."
+    },
+    "PC DOS": {
+      "target": "i386", "machine": "isapc", "ram_mb": 32, "hdd_gb": 2,
+      "nic": "ne2k_isa", "sound": "sb16_adlib_pcspk",
+      "tip": "PC DOS → x86 (i386 PC) + Legacy ISA."
+    },
+    "DR-DOS": {
+      "target": "i386", "machine": "isapc", "ram_mb": 32, "hdd_gb": 2,
+      "nic": "ne2k_isa", "sound": "sb16_adlib_pcspk",
+      "tip": "DR-DOS → x86 (i386 PC) + Legacy ISA."
+    },
+    "Windows 1.x": {
+      "target": "i386", "machine": "isapc", "ram_mb": 16, "hdd_gb": 2,
+      "nic": "ne2k_isa", "sound": "sb16_adlib_pcspk",
+      "tip": "Windows 1.x needs x86 (i386 PC) / ISA PC. Cannot run as an x86_64 guest."
+    },
+    "Windows 2.x": {
+      "target": "i386", "machine": "isapc", "ram_mb": 16, "hdd_gb": 2,
+      "nic": "ne2k_isa", "sound": "sb16_adlib_pcspk",
+      "tip": "Windows 2.x needs x86 (i386 PC) / ISA PC. Cannot run as an x86_64 guest."
+    },
+    "Windows 3.x": {
+      "target": "i386", "machine": "isapc", "ram_mb": 16, "hdd_gb": 2,
+      "nic": "ne2k_isa", "sound": "sb16_adlib_pcspk",
+      "tip": "Windows 3.x needs x86 (i386 PC) / ISA PC. Cannot run as an x86_64 guest."
+    },
+    "Windows 95": {
+      "target": "i386", "machine": "pc", "ram_mb": 128, "hdd_gb": 8,
+      "nic": "rtl8139", "sound": "sb16",
+      "tip": "Windows 95 → x86 (i386 PC) + pc (i440FX). Force TCG on Windows hosts; CPU pentium2; cirrus; ACPI off.",
+      "flags": ["win95_98"]
+    },
+    "Windows 98": {
+      "target": "i386", "machine": "pc", "ram_mb": 128, "hdd_gb": 8,
+      "nic": "rtl8139", "sound": "sb16",
+      "tip": "Windows 98 → x86 (i386 PC) + pc (i440FX). Force TCG on Windows hosts; CPU pentium2; cirrus; ACPI off.",
+      "flags": ["win95_98"]
+    },
+    "Windows ME": {
+      "target": "i386", "machine": "pc", "ram_mb": 256, "hdd_gb": 8,
+      "nic": "rtl8139", "sound": "sb16_es1370_pcspk",
+      "tip": "Windows ME → x86 (i386 PC) + pc (i440FX). Not forced to pure TCG (unlike 95/98)."
+    },
+    "Windows NT 3.x": {
+      "target": "i386", "machine": "pc", "ram_mb": 128, "hdd_gb": 8,
+      "nic": "ne2k_pci", "sound": "es1370",
+      "tip": "Windows NT 3.x → x86 (i386 PC). Avoid x86_64."
+    },
+    "Windows NT 4.0": {
+      "target": "i386", "machine": "pc", "ram_mb": 128, "hdd_gb": 8,
+      "nic": "ne2k_pci", "sound": "es1370",
+      "tip": "Windows NT 4.0 → x86 (i386 PC). Avoid x86_64."
+    },
+    "Windows 2000": {
+      "target": "i386", "machine": "pc", "ram_mb": 512, "hdd_gb": 16,
+      "nic": "rtl8139", "sound": "es1370_ac97",
+      "tip": "Windows 2000 → x86 (i386 PC) + pc. Win2K disk hack can help.",
+      "flags": ["win2k_hack"]
+    },
+    "Windows XP": {
+      "target": "i386", "machine": "pc", "ram_mb": 1024, "hdd_gb": 20,
+      "nic": "rtl8139", "sound": "ac97",
+      "tip": "Windows XP (32-bit) → x86 (i386 PC). For XP x64 choose x86_64 (PC) manually."
+    },
+    "Windows Vista": {
+      "target": "x86_64", "machine": "q35", "ram_mb": 2048, "hdd_gb": 40,
+      "nic": "e1000", "sound": "hda",
+      "tip": "Windows Vista → x86_64 (PC) + Q35."
+    },
+    "Windows 7": {
+      "target": "x86_64", "machine": "q35", "ram_mb": 2048, "hdd_gb": 40,
+      "nic": "e1000", "sound": "hda",
+      "tip": "Windows 7 → x86_64 (PC) + Q35."
+    },
+    "Windows 8": {
+      "target": "x86_64", "machine": "q35", "ram_mb": 2048, "hdd_gb": 40,
+      "nic": "e1000", "sound": "hda",
+      "tip": "Windows 8 → x86_64 (PC) + Q35."
+    },
+    "Windows 8.1": {
+      "target": "x86_64", "machine": "q35", "ram_mb": 2048, "hdd_gb": 40,
+      "nic": "e1000", "sound": "hda",
+      "tip": "Windows 8.1 → x86_64 (PC) + Q35."
+    },
+    "Windows 10": {
+      "target": "x86_64", "machine": "q35", "ram_mb": 4096, "hdd_gb": 40,
+      "nic": "e1000", "sound": "hda",
+      "tip": "Windows 10 → x86_64 (PC) + Q35."
+    },
+    "Windows 11": {
+      "target": "x86_64", "machine": "q35", "ram_mb": 4096, "hdd_gb": 40,
+      "nic": "e1000", "sound": "hda",
+      "tip": "Windows 11 → x86_64 (PC) + Q35. On ARM hosts AQEMU switches to AArch64 + virt.",
+      "flags": ["win11_host_arm"]
+    },
+    "Windows Server 2000": {
+      "target": "i386", "machine": "pc", "ram_mb": 1024, "hdd_gb": 20,
+      "nic": "rtl8139", "sound": "ac97",
+      "tip": "Windows Server 2000 → x86 (i386 PC)."
+    },
+    "Windows Server 2003": {
+      "target": "i386", "machine": "pc", "ram_mb": 1024, "hdd_gb": 20,
+      "nic": "rtl8139", "sound": "ac97",
+      "tip": "Windows Server 2003 → x86 (i386 PC)."
+    },
+    "Windows Server 2008": {
+      "target": "x86_64", "machine": "q35", "ram_mb": 4096, "hdd_gb": 40,
+      "nic": "e1000", "sound": "hda",
+      "tip": "Windows Server 2008 → x86_64 (PC) + Q35."
+    },
+    "Windows Server 2012": {
+      "target": "x86_64", "machine": "q35", "ram_mb": 4096, "hdd_gb": 40,
+      "nic": "e1000", "sound": "hda",
+      "tip": "Windows Server 2012 → x86_64 (PC) + Q35."
+    },
+    "Windows Server 2016": {
+      "target": "x86_64", "machine": "q35", "ram_mb": 4096, "hdd_gb": 40,
+      "nic": "e1000", "sound": "hda",
+      "tip": "Windows Server 2016 → x86_64 (PC) + Q35."
+    },
+    "Windows Server 2019": {
+      "target": "x86_64", "machine": "q35", "ram_mb": 4096, "hdd_gb": 40,
+      "nic": "e1000", "sound": "hda",
+      "tip": "Windows Server 2019 → x86_64 (PC) + Q35."
+    },
+    "Windows Server 2022": {
+      "target": "x86_64", "machine": "q35", "ram_mb": 4096, "hdd_gb": 40,
+      "nic": "e1000", "sound": "hda",
+      "tip": "Windows Server 2022 → x86_64 (PC) + Q35."
+    },
+    "Windows Server 2025": {
+      "target": "x86_64", "machine": "q35", "ram_mb": 4096, "hdd_gb": 40,
+      "nic": "e1000", "sound": "hda",
+      "tip": "Windows Server 2025 → x86_64 (PC) + Q35."
+    },
+    "Ubuntu": {
+      "target": "x86_64", "machine": "q35", "ram_mb": 2048, "hdd_gb": 20,
+      "nic": "virtio-net-pci", "sound": "hda_virtio",
+      "tip": "Ubuntu → x86_64 (PC) + Q35. VirtIO net suggested; change Computer Type if needed."
+    },
+    "Debian": {
+      "target": "x86_64", "machine": "q35", "ram_mb": 2048, "hdd_gb": 20,
+      "nic": "virtio-net-pci", "sound": "hda_virtio",
+      "tip": "Debian → x86_64 (PC) + Q35 with VirtIO."
+    },
+    "Fedora": {
+      "target": "x86_64", "machine": "q35", "ram_mb": 2048, "hdd_gb": 20,
+      "nic": "virtio-net-pci", "sound": "hda_virtio",
+      "tip": "Fedora → x86_64 (PC) + Q35 with VirtIO."
+    },
+    "RHEL": {
+      "target": "x86_64", "machine": "q35", "ram_mb": 2048, "hdd_gb": 20,
+      "nic": "virtio-net-pci", "sound": "hda_virtio",
+      "tip": "RHEL → x86_64 (PC) + Q35 with VirtIO."
+    },
+    "Rocky Linux": {
+      "target": "x86_64", "machine": "q35", "ram_mb": 2048, "hdd_gb": 20,
+      "nic": "virtio-net-pci", "sound": "hda_virtio",
+      "tip": "Rocky Linux → x86_64 (PC) + Q35 with VirtIO."
+    },
+    "AlmaLinux": {
+      "target": "x86_64", "machine": "q35", "ram_mb": 2048, "hdd_gb": 20,
+      "nic": "virtio-net-pci", "sound": "hda_virtio",
+      "tip": "AlmaLinux → x86_64 (PC) + Q35 with VirtIO."
+    },
+    "SUSE Linux": {
+      "target": "x86_64", "machine": "q35", "ram_mb": 2048, "hdd_gb": 20,
+      "nic": "virtio-net-pci", "sound": "hda_virtio",
+      "tip": "SUSE Linux → x86_64 (PC) + Q35 with VirtIO."
+    },
+    "openSUSE": {
+      "target": "x86_64", "machine": "q35", "ram_mb": 2048, "hdd_gb": 20,
+      "nic": "virtio-net-pci", "sound": "hda_virtio",
+      "tip": "openSUSE → x86_64 (PC) + Q35 with VirtIO."
+    },
+    "Arch Linux": {
+      "target": "x86_64", "machine": "q35", "ram_mb": 2048, "hdd_gb": 20,
+      "nic": "virtio-net-pci", "sound": "hda_virtio",
+      "tip": "Arch Linux → x86_64 (PC) + Q35 with VirtIO."
+    },
+    "Gentoo": {
+      "target": "x86_64", "machine": "q35", "ram_mb": 2048, "hdd_gb": 20,
+      "nic": "virtio-net-pci", "sound": "hda_virtio",
+      "tip": "Gentoo → x86_64 (PC) + Q35 with VirtIO."
+    },
+    "Slackware": {
+      "target": "x86_64", "machine": "q35", "ram_mb": 2048, "hdd_gb": 20,
+      "nic": "virtio-net-pci", "sound": "hda_virtio",
+      "tip": "Slackware → x86_64 (PC) + Q35 with VirtIO."
+    },
+    "Kali Linux": {
+      "target": "x86_64", "machine": "q35", "ram_mb": 2048, "hdd_gb": 20,
+      "nic": "virtio-net-pci", "sound": "hda_virtio",
+      "tip": "Kali Linux → x86_64 (PC) + Q35 with VirtIO."
+    },
+    "Linux Mint": {
+      "target": "x86_64", "machine": "q35", "ram_mb": 2048, "hdd_gb": 20,
+      "nic": "virtio-net-pci", "sound": "hda_virtio",
+      "tip": "Linux Mint → x86_64 (PC) + Q35 with VirtIO."
+    },
+    "Alpine Linux": {
+      "target": "x86_64", "machine": "q35", "ram_mb": 1024, "hdd_gb": 8,
+      "nic": "virtio-net-pci", "sound": "hda_virtio",
+      "tip": "Alpine Linux → x86_64 (PC) + Q35 with VirtIO."
+    },
+    "Tiny Core Linux": {
+      "target": "x86_64", "machine": "q35", "ram_mb": 512, "hdd_gb": 4,
+      "nic": "virtio-net-pci", "sound": "hda_virtio",
+      "tip": "Tiny Core Linux → x86_64 (PC) + Q35 with VirtIO."
+    },
+    "Generic Linux": {
+      "target": "x86_64", "machine": "q35", "ram_mb": 2048, "hdd_gb": 20,
+      "nic": "virtio-net-pci", "sound": "hda_virtio",
+      "tip": "Generic Linux → x86_64 (PC) + Q35 with VirtIO. Change Computer Type for other arches."
+    },
+    "FreeBSD": {
+      "target": "x86_64", "machine": "q35", "ram_mb": 2048, "hdd_gb": 20,
+      "nic": "virtio-net-pci", "sound": "hda_virtio",
+      "tip": "FreeBSD → x86_64 (PC) + Q35 with VirtIO."
+    },
+    "OpenBSD": {
+      "target": "x86_64", "machine": "q35", "ram_mb": 2048, "hdd_gb": 20,
+      "nic": "virtio-net-pci", "sound": "hda_virtio",
+      "tip": "OpenBSD → x86_64 (PC) + Q35 with VirtIO."
+    },
+    "NetBSD": {
+      "target": "x86_64", "machine": "q35", "ram_mb": 2048, "hdd_gb": 20,
+      "nic": "virtio-net-pci", "sound": "hda_virtio",
+      "tip": "NetBSD → x86_64 (PC) + Q35 with VirtIO."
+    },
+    "DragonFly BSD": {
+      "target": "x86_64", "machine": "q35", "ram_mb": 2048, "hdd_gb": 20,
+      "nic": "virtio-net-pci", "sound": "hda_virtio",
+      "tip": "DragonFly BSD → x86_64 (PC) + Q35 with VirtIO."
+    },
+    "Mac OS 7": {
+      "target": "ppc", "machine": "mac99", "ram_mb": 256, "hdd_gb": 4,
+      "nic": "sungem", "sound": "none",
+      "tip": "Classic Mac OS 7 → qemu-system-ppc + mac99. Supply your own boot CD/ISO or HDD image."
+    },
+    "Mac OS 8": {
+      "target": "ppc", "machine": "mac99", "ram_mb": 256, "hdd_gb": 4,
+      "nic": "sungem", "sound": "none",
+      "tip": "Classic Mac OS 8 → qemu-system-ppc + mac99. Supply your own boot CD/ISO or HDD image."
+    },
+    "Mac OS 9": {
+      "target": "ppc", "machine": "mac99", "ram_mb": 256, "hdd_gb": 4,
+      "nic": "sungem", "sound": "none",
+      "tip": "Classic Mac OS 9 → qemu-system-ppc + mac99. Supply your own boot CD/ISO or HDD image."
+    },
+    "Mac OS X PPC": {
+      "target": "ppc", "machine": "mac99", "ram_mb": 512, "hdd_gb": 10,
+      "nic": "sungem", "sound": "none",
+      "tip": "Mac OS X PPC → qemu-system-ppc + mac99. Ensure qemu-system-ppc is installed."
+    },
+    "Mac OS X Intel": {
+      "target": "x86_64", "machine": "q35", "ram_mb": 4096, "hdd_gb": 40,
+      "nic": "e1000-82545em", "sound": "hda",
+      "tip": "Intel Mac OS X (experimental): qemu-system-x86_64 + q35 (PC-class hardware for OpenCore). Supply OpenCore, OVMF, OSK, install media.",
+      "flags": ["intel_macos"]
+    },
+    "macOS": {
+      "target": "x86_64", "machine": "q35", "ram_mb": 4096, "hdd_gb": 40,
+      "nic": "e1000-82545em", "sound": "hda",
+      "tip": "Intel macOS (experimental): qemu-system-x86_64 + q35 (PC-class hardware for OpenCore — not Apple Silicon). On an x86_64 host AQEMU selects KVM/WHPX by default. Supply OpenCore, OVMF, OSK, install media. AQEMU does not ship Apple files.",
+      "flags": ["intel_macos"]
+    },
+    "Darwin": {
+      "target": "x86_64", "machine": "q35", "ram_mb": 4096, "hdd_gb": 40,
+      "nic": "e1000-82545em", "sound": "hda",
+      "tip": "Darwin / Intel macOS path: qemu-system-x86_64 + q35. Supply OpenCore, OVMF, OSK, install media.",
+      "flags": ["intel_macos"]
+    },
+    "Solaris x86": {
+      "target": "x86_64", "machine": "pc", "ram_mb": 2048, "hdd_gb": 20,
+      "nic": "e1000", "sound": "hda",
+      "tip": "Solaris x86 → x86_64 (PC) + pc (i440FX)."
+    },
+    "Solaris SPARC": {
+      "target": "sparc64", "machine": "sun4u", "ram_mb": 1024, "hdd_gb": 20,
+      "nic": "e1000", "sound": "none",
+      "tip": "Solaris SPARC → SPARC 64 / sun4u."
+    },
+    "OpenSolaris": {
+      "target": "x86_64", "machine": "pc", "ram_mb": 2048, "hdd_gb": 20,
+      "nic": "e1000", "sound": "hda",
+      "tip": "OpenSolaris → x86_64 (PC)."
+    },
+    "illumos": {
+      "target": "x86_64", "machine": "q35", "ram_mb": 2048, "hdd_gb": 20,
+      "nic": "virtio-net-pci", "sound": "hda_virtio",
+      "tip": "illumos → x86_64 (PC) + Q35 with VirtIO."
+    },
+    "OmniOS": {
+      "target": "x86_64", "machine": "q35", "ram_mb": 2048, "hdd_gb": 20,
+      "nic": "virtio-net-pci", "sound": "hda_virtio",
+      "tip": "OmniOS → x86_64 (PC) + Q35 with VirtIO."
+    },
+    "IRIX 5.x": {
+      "target": "mips", "machine": "magnum", "ram_mb": 256, "hdd_gb": 8,
+      "nic": "e1000", "sound": "none",
+      "tip": "IRIX 5.x → MIPS Magnum. Experimental; needs a suitable IRIX image."
+    },
+    "IRIX 6.x": {
+      "target": "mips", "machine": "magnum", "ram_mb": 256, "hdd_gb": 8,
+      "nic": "e1000", "sound": "none",
+      "tip": "IRIX 6.x → MIPS Magnum. Experimental; needs a suitable IRIX image."
+    },
+    "AIX": {
+      "target": "ppc64", "machine": "pseries", "ram_mb": 2048, "hdd_gb": 20,
+      "nic": "e1000", "sound": "none",
+      "tip": "AIX → PowerPC 64 / pSeries."
+    },
+    "OS/2": {
+      "target": "i386", "machine": "pc", "ram_mb": 512, "hdd_gb": 10,
+      "nic": "rtl8139", "sound": "es1370",
+      "tip": "OS/2 → x86 (i386 PC) by default."
+    },
+    "eComStation": {
+      "target": "i386", "machine": "pc", "ram_mb": 512, "hdd_gb": 10,
+      "nic": "rtl8139", "sound": "es1370",
+      "tip": "eComStation → x86 (i386 PC) by default."
+    },
+    "ArcaOS": {
+      "target": "i386", "machine": "pc", "ram_mb": 512, "hdd_gb": 10,
+      "nic": "rtl8139", "sound": "es1370",
+      "tip": "ArcaOS → x86 (i386 PC) by default."
+    },
+    "OpenVMS": {
+      "target": "alpha", "machine": "clipper", "ram_mb": 512, "hdd_gb": 10,
+      "nic": "e1000", "sound": "none",
+      "tip": "OpenVMS → Alpha Server / clipper (best QEMU fit). VAX is not available in mainline QEMU."
+    },
+    "Tru64 UNIX": {
+      "target": "alpha", "machine": "clipper", "ram_mb": 512, "hdd_gb": 10,
+      "nic": "e1000", "sound": "none",
+      "tip": "Tru64 UNIX → Alpha Server / clipper."
+    },
+    "ReactOS": {
+      "target": "i386", "machine": "pc", "ram_mb": 512, "hdd_gb": 10,
+      "nic": "rtl8139", "sound": "es1370",
+      "tip": "ReactOS → x86 (i386 PC) by default."
+    },
+    "Haiku": {
+      "target": "x86_64", "machine": "q35", "ram_mb": 2048, "hdd_gb": 20,
+      "nic": "virtio-net-pci", "sound": "hda_virtio",
+      "tip": "Haiku → x86_64 (PC) + Q35 with VirtIO."
+    },
+    "BeOS": {
+      "target": "i386", "machine": "pc", "ram_mb": 256, "hdd_gb": 8,
+      "nic": "rtl8139", "sound": "es1370",
+      "tip": "BeOS → x86 (i386 PC). Use a BeOS-compatible disk/ISO."
+    },
+    "AmigaOS": {
+      "target": "ppc", "machine": "amigaone", "ram_mb": 512, "hdd_gb": 10,
+      "nic": "e1000", "sound": "none",
+      "tip": "AmigaOS → PowerPC / amigaone. Requires qemu-system-ppc with amigaone machine support."
+    },
+    "MorphOS": {
+      "target": "ppc", "machine": "sam460ex", "ram_mb": 512, "hdd_gb": 10,
+      "nic": "e1000", "sound": "none",
+      "tip": "MorphOS → PowerPC / sam460ex. Requires qemu-system-ppc with sam460ex."
+    },
+    "RISC OS": {
+      "target": "arm", "machine": "virt", "ram_mb": 256, "hdd_gb": 4,
+      "nic": "virtio-net-pci", "sound": "none",
+      "tip": "RISC OS → ARM virt. Needs a specialized RISC OS image; machine choice may need tuning."
+    },
+    "Android": {
+      "target": "aarch64", "machine": "virt", "ram_mb": 2048, "hdd_gb": 20,
+      "nic": "virtio-net-pci", "sound": "virtio",
+      "tip": "Android → AArch64 virt + VirtIO."
+    },
+    "ChromeOS": {
+      "target": "x86_64", "machine": "q35", "ram_mb": 4096, "hdd_gb": 40,
+      "nic": "virtio-net-pci", "sound": "hda_virtio",
+      "tip": "ChromeOS → x86_64 (PC) + Q35. Prefer a Chromium OS / Brunch-style image; ARM ChromeOS needs AArch64 manually."
+    },
+    "SerenityOS": {
+      "target": "x86_64", "machine": "q35", "ram_mb": 2048, "hdd_gb": 20,
+      "nic": "virtio-net-pci", "sound": "hda_virtio",
+      "tip": "SerenityOS → x86_64 (PC) + Q35 with VirtIO."
+    },
+    "KolibriOS": {
+      "target": "i386", "machine": "pc", "ram_mb": 128, "hdd_gb": 2,
+      "nic": "rtl8139", "sound": "sb16",
+      "tip": "KolibriOS → x86 (i386 PC)."
+    },
+    "TempleOS": {
+      "target": "i386", "machine": "pc", "ram_mb": 512, "hdd_gb": 2,
+      "nic": "rtl8139", "sound": "pcspk",
+      "tip": "TempleOS → x86 (i386 PC)."
+    },
+    "Other": {
+      "target": "host", "machine": "host", "ram_mb": 2048, "hdd_gb": 20,
+      "nic": "e1000", "sound": "hda",
+      "tip": "Generic default from host architecture. Computer Type remains fully editable.",
+      "flags": ["host_default"]
+    }
   }
 }

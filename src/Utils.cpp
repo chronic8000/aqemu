@@ -28,13 +28,20 @@
 #include <QDateTime>
 #include <QMessageBox>
 #include <QApplication>
+#include <QCoreApplication>
 #include <QSettings>
 #include <QRegExp>
 #include <QProcess>
 #include <QStringList>
 #include <QTextStream>
+#include <QObject>
+#include <QSysInfo>
 
 #include <cmath>
+
+#ifdef Q_OS_UNIX
+#include <unistd.h>
+#endif
 
 #ifdef Q_OS_WIN32
 #include <iostream>
@@ -517,9 +524,209 @@ QString Get_TR_Size_Suffix( VM::Device_Size suf )
 	}
 }
 
+QString AQ_Normalize_File_Path( const QString &path )
+{
+	QString p = path.trimmed();
+	while( p.size() >= 2 )
+	{
+		const QChar a = p.at( 0 );
+		const QChar b = p.at( p.size() - 1 );
+		if( ( a == QLatin1Char( '"' ) && b == QLatin1Char( '"' ) ) ||
+		    ( a == QLatin1Char( '\'' ) && b == QLatin1Char( '\'' ) ) )
+		{
+			p = p.mid( 1, p.size() - 2 ).trimmed();
+			continue;
+		}
+		break;
+	}
+	return p;
+}
+
+QString AQ_Qemu_Drive_File_Key( const QString &path )
+{
+	QString p = QDir::fromNativeSeparators( AQ_Normalize_File_Path( path ) );
+	// QEMU treats ',' as option separator — escape as ',,'
+	p.replace( QLatin1Char( ',' ), QLatin1String( ",," ) );
+	// Prefer dotted form whenever the path is non-trivial (spaces, drive letters, etc.)
+	if( p.contains( QLatin1Char( ' ' ) ) || p.contains( QLatin1Char( '=' ) ) ||
+	    p.contains( QLatin1Char( ',' ) ) || p.contains( QLatin1Char( ':' ) ) )
+		return QStringLiteral( "file.driver=file,file.filename=%1" ).arg( p );
+	return QStringLiteral( "file=%1" ).arg( p );
+}
+
+bool AQ_Is_Apple_Partition_Map_Image( const QString &path )
+{
+	QFile f( AQ_Normalize_File_Path( path ) );
+	if( ! f.open( QIODevice::ReadOnly ) )
+		return false;
+	const QByteArray sector0 = f.read( 2 );
+	if( sector0 != QByteArrayLiteral( "ER" ) )
+		return false;
+	if( ! f.seek( 512 ) )
+		return false;
+	return f.read( 2 ) == QByteArrayLiteral( "PM" );
+}
+
+bool AQ_Is_Iso9660_Image( const QString &path )
+{
+	QFile f( AQ_Normalize_File_Path( path ) );
+	if( ! f.open( QIODevice::ReadOnly ) )
+		return false;
+	// ISO9660 PVD starts at byte 32768; identifier "CD001" at +1.
+	if( ! f.seek( 32769 ) )
+		return false;
+	return f.read( 5 ) == QByteArrayLiteral( "CD001" );
+}
+
+qint64 AQ_Apple_HFS_Partition_Offset( const QString &path )
+{
+	QFile f( AQ_Normalize_File_Path( path ) );
+	if( ! f.open( QIODevice::ReadOnly ) )
+		return -1;
+
+	const QByteArray ddm = f.read( 512 );
+	if( ddm.size() < 4 || ! ddm.startsWith( "ER" ) )
+		return -1;
+
+	quint16 block_size = 512;
+	if( ddm.size() >= 4 )
+	{
+		const quint16 bs = ( quint8( ddm.at( 2 ) ) << 8 ) | quint8( ddm.at( 3 ) );
+		if( bs == 512 || bs == 1024 || bs == 2048 )
+			block_size = bs;
+	}
+
+	int map_count = 1;
+	for( int i = 1; i <= map_count && i < 64; ++i )
+	{
+		if( ! f.seek( qint64( i ) * block_size ) )
+			return -1;
+		const QByteArray ent = f.read( block_size );
+		if( ent.size() < 80 || ! ent.startsWith( "PM" ) )
+			break;
+
+		const auto be32 = [&ent]( int off ) -> quint32 {
+			return ( quint32( quint8( ent.at( off ) ) ) << 24 ) |
+			       ( quint32( quint8( ent.at( off + 1 ) ) ) << 16 ) |
+			       ( quint32( quint8( ent.at( off + 2 ) ) ) << 8 ) |
+			       quint32( quint8( ent.at( off + 3 ) ) );
+		};
+
+		if( i == 1 )
+		{
+			const int mc = int( be32( 4 ) );
+			if( mc > 0 && mc < 64 )
+				map_count = mc;
+		}
+
+		const quint32 part_start = be32( 8 );
+		const QByteArray typ = ent.mid( 48, 32 );
+		const int z = typ.indexOf( '\0' );
+		const QByteArray typ_z = ( z >= 0 ) ? typ.left( z ) : typ;
+		if( typ_z.startsWith( "Apple_HFS" ) ) // Apple_HFS / Apple_HFSX
+			return qint64( part_start ) * qint64( block_size );
+	}
+	return -1;
+}
+
+QString AQ_Ensure_OpenCore_Boot_With_PartitionDxe( const QString &opencore_iso,
+                                                   const QString &dest_boot_img )
+{
+	const QString iso = AQ_Normalize_File_Path( opencore_iso );
+	const QString dest = AQ_Normalize_File_Path( dest_boot_img );
+	if( iso.isEmpty() || dest.isEmpty() || ! QFile::exists( iso ) )
+		return QString();
+
+	QString dxe = QDir( QCoreApplication::applicationDirPath() )
+	                  .filePath( QStringLiteral( "OpenPartitionDxe.efi" ) );
+	if( ! QFile::exists( dxe ) )
+	{
+		// Dev-tree fallback next to the binary's ../../third_party
+		dxe = QDir( QCoreApplication::applicationDirPath() )
+		          .absoluteFilePath( QStringLiteral( "../third_party/opencore/OpenPartitionDxe.efi" ) );
+	}
+	if( ! QFile::exists( dxe ) )
+		return QString();
+
+	QFileInfo dest_info( dest );
+	QFileInfo iso_info( iso );
+	QFileInfo dxe_info( dxe );
+	if( dest_info.exists() &&
+	    dest_info.lastModified() >= iso_info.lastModified() &&
+	    dest_info.lastModified() >= dxe_info.lastModified() &&
+	    dest_info.size() > 1024 * 1024 )
+		return dest;
+
+	QDir().mkpath( QFileInfo( dest ).absolutePath() );
+
+#ifdef Q_OS_WIN32
+	// Prefer the already-tested WSL+mtools path (Windows hosts run Intel macOS via WSL/KVM).
+	const QString wsl_iso = QStringLiteral( "/mnt/%1%2" )
+		.arg( iso.at( 0 ).toLower() )
+		.arg( QDir::fromNativeSeparators( iso.mid( 2 ) ) );
+	const QString wsl_dest = QStringLiteral( "/mnt/%1%2" )
+		.arg( dest.at( 0 ).toLower() )
+		.arg( QDir::fromNativeSeparators( dest.mid( 2 ) ) );
+	const QString wsl_dxe = QStringLiteral( "/mnt/%1%2" )
+		.arg( dxe.at( 0 ).toLower() )
+		.arg( QDir::fromNativeSeparators( dxe.mid( 2 ) ) );
+
+	QProcess p;
+	p.setProgram( QStringLiteral( "wsl" ) );
+	p.setArguments( QStringList()
+		<< QStringLiteral( "-e" ) << QStringLiteral( "bash" ) << QStringLiteral( "-lc" )
+		<< QStringLiteral(
+			"set -e; TMP=$(mktemp -d); "
+			"7z e -y -o\"$TMP\" \"%1\" BOOT.img >/dev/null; "
+			"cp \"$TMP/BOOT.img\" \"%2\"; "
+			"export MTOOLS_SKIP_CHECK=1; "
+			"mcopy -o -i \"%2\" \"%3\" ::/EFI/OC/Drivers/OpenPartitionDxe.efi; "
+			"rm -rf \"$TMP\"" )
+			.arg( wsl_iso, wsl_dest, wsl_dxe ) );
+	p.start();
+	if( ! p.waitForFinished( 120000 ) || p.exitCode() != 0 )
+		return QString();
+#else
+	Q_UNUSED( iso );
+	return QString();
+#endif
+
+	return QFile::exists( dest ) ? dest : QString();
+}
+
+bool AQ_Is_Plausible_Apple_SMC_OSK( const QString &osk )
+{
+	const QString s = osk.trimmed();
+	if( s.size() < 20 || s.size() > 128 )
+		return false;
+
+	const QString lower = s.toLower();
+	// Reject Proxmox / QEMU network fragments people paste by mistake
+	static const char *bad[] = {
+		"bridge=", "net0", "net1", "e1000", "virtio", "vmbr", "vlan=",
+		"firewall=", "model=", "macaddr=", "queues=", "rate="
+	};
+	for( const char *b : bad )
+	{
+		if( lower.contains( QLatin1String( b ) ) )
+			return false;
+	}
+
+	// Real OSKs are mostly letters/digits with a few punctuation chars (e.g. () ).
+	int weird = 0;
+	for( const QChar &ch : s )
+	{
+		if( ch.isLetterOrNumber() || ch == QLatin1Char( '(' ) || ch == QLatin1Char( ')' ) ||
+		    ch == QLatin1Char( '.' ) || ch == QLatin1Char( '-' ) || ch == QLatin1Char( '_' ) )
+			continue;
+		++weird;
+	}
+	return weird <= 4;
+}
+
 QString Get_Last_Dir_Path( const QString &path )
 {
-	QFileInfo info( path );
+	QFileInfo info( AQ_Normalize_File_Path( path ) );
 	QString dir = info.path();
 	
 	if( dir.isEmpty() ) return "/";
@@ -1047,6 +1254,8 @@ void Set_Show_Error_Window( bool show )
 }
 
 #include <QCheckBox>
+#include <QProgressDialog>
+#include <QApplication>
 
 void Checkbox_Dependend_Set_Enabled(QList<QWidget*>& children_to_enable, QCheckBox* checkbox, bool enabled)
 {
@@ -1078,6 +1287,96 @@ double calculateContrast(const QColor& col1, const QColor& col2)
     return (l1 > l2) ? (l1 / l2) : (l2 / l1);
 }
 
+void AQ_Run_With_Busy_Dialog( QWidget *parent, const QString &message,
+                              const std::function<void()> &work )
+{
+	QProgressDialog dlg( message, QString(), 0, 0, parent );
+	dlg.setWindowTitle( QObject::tr( "Please wait" ) );
+	dlg.setWindowModality( Qt::ApplicationModal );
+	dlg.setMinimumDuration( 0 );
+	dlg.setCancelButton( nullptr );
+	dlg.setAutoClose( false );
+	dlg.setAutoReset( false );
+	dlg.show();
+	QApplication::processEvents();
+	if( work )
+		work();
+	dlg.close();
+	QApplication::processEvents();
+}
+
+QString AQ_Normalize_CPU_Architecture( const QString &raw )
+{
+	const QString a = raw.trimmed().toLower();
+	if( a.isEmpty() )
+		return QString();
+	if( a == QLatin1String( "x86_64" ) || a == QLatin1String( "amd64" ) ||
+	    a == QLatin1String( "x64" ) || a.contains( QLatin1String( "x86_64" ) ) )
+		return QStringLiteral( "x86_64" );
+	if( a == QLatin1String( "i386" ) || a == QLatin1String( "i686" ) ||
+	    a == QLatin1String( "x86" ) || a == QLatin1String( "i586" ) )
+		return QStringLiteral( "i386" );
+	if( a == QLatin1String( "aarch64" ) || a == QLatin1String( "arm64" ) )
+		return QStringLiteral( "aarch64" );
+	if( a == QLatin1String( "arm" ) || a.startsWith( QLatin1String( "armv" ) ) )
+		return QStringLiteral( "arm" );
+	if( a.contains( QLatin1String( "ppc64" ) ) || a == QLatin1String( "powerpc64" ) )
+		return QStringLiteral( "ppc64" );
+	if( a.contains( QLatin1String( "ppc" ) ) || a.contains( QLatin1String( "powerpc" ) ) )
+		return QStringLiteral( "ppc" );
+	// Strip qemu-system- prefix if a binary name was passed
+	if( a.startsWith( QLatin1String( "qemu-system-" ) ) )
+		return AQ_Normalize_CPU_Architecture( a.mid( 12 ) );
+	return a;
+}
+
+QString AQ_Get_Host_CPU_Architecture()
+{
+	static QString cached;
+	if( ! cached.isEmpty() )
+		return cached;
+
+	cached = AQ_Normalize_CPU_Architecture( QSysInfo::currentCpuArchitecture() );
+	if( cached.isEmpty() )
+		cached = QStringLiteral( "x86_64" );
+	return cached;
+}
+
+bool AQ_Guest_Matches_Host_Architecture( const QString &guest_target )
+{
+	const QString host = AQ_Get_Host_CPU_Architecture();
+	const QString guest = AQ_Normalize_CPU_Architecture( guest_target );
+	if( host.isEmpty() || guest.isEmpty() )
+		return false;
+
+	if( host == guest )
+		return true;
+
+	// 64-bit hosts can natively accelerate matching 32-bit guests of the same family
+	if( host == QLatin1String( "x86_64" ) && guest == QLatin1String( "i386" ) )
+		return true;
+	if( host == QLatin1String( "aarch64" ) && guest == QLatin1String( "arm" ) )
+		return true;
+	if( host == QLatin1String( "ppc64" ) && guest == QLatin1String( "ppc" ) )
+		return true;
+
+	return false;
+}
+
+bool AQ_Should_Prefer_Native_Accelerator( const QString &guest_target )
+{
+	const QString guest = AQ_Normalize_CPU_Architecture( guest_target );
+	if( ! AQ_Guest_Matches_Host_Architecture( guest ) )
+		return false;
+
+	// WHPX on Windows is unreliable for 32-bit x86 guests — prefer TCG
+#ifdef Q_OS_WIN32
+	if( guest == QLatin1String( "i386" ) )
+		return false;
+#endif
+	return true;
+}
+
 static QString First_Existing_Path( const QStringList &candidates )
 {
 	for( int i = 0; i < candidates.count(); ++i )
@@ -1088,82 +1387,178 @@ static QString First_Existing_Path( const QStringList &candidates )
 	return QString();
 }
 
-QString Find_UEFI_Firmware_CODE( const QString &qemu_binary_path )
+static bool UEFI_Arch_Is_X86( const QString &arch )
+{
+	const QString a = arch.trimmed().toLower();
+	return a.contains( QLatin1String( "x86" ) ) || a.contains( QLatin1String( "amd64" ) ) ||
+	       a == QLatin1String( "i386" ) || a == QLatin1String( "pc" );
+}
+
+QString Find_UEFI_Firmware_CODE( const QString &qemu_binary_path, const QString &arch )
 {
 	QStringList candidates;
-	
+	const bool x86 = UEFI_Arch_Is_X86( arch );
+
 	#ifdef Q_OS_WIN32
 	QString binDir;
 	if( ! qemu_binary_path.isEmpty() )
 		binDir = QFileInfo( qemu_binary_path ).absolutePath();
-	
+
 	if( ! binDir.isEmpty() )
 	{
-		candidates << binDir + "/edk2-aarch64-code.fd"
-		           << binDir + "/share/edk2-aarch64-code.fd"
-		           << binDir + "/../share/qemu/edk2-aarch64-code.fd"
-		           << binDir + "/../share/edk2-aarch64-code.fd"
-		           << binDir + "/QEMU_EFI.fd"
-		           << binDir + "/AAVMF_CODE.fd";
+		if( x86 )
+		{
+			candidates << binDir + "/OVMF_CODE.fd"
+			           << binDir + "/OVMF_CODE_4M.fd"
+			           << binDir + "/edk2-x86_64-code.fd"
+			           << binDir + "/share/OVMF_CODE.fd"
+			           << binDir + "/share/OVMF_CODE_4M.fd"
+			           << binDir + "/share/edk2-x86_64-code.fd"
+			           << binDir + "/../share/qemu/OVMF_CODE.fd"
+			           << binDir + "/../share/qemu/OVMF_CODE_4M.fd"
+			           << binDir + "/../share/qemu/edk2-x86_64-code.fd"
+			           << binDir + "/../share/edk2-x86_64-code.fd";
+		}
+		else
+		{
+			candidates << binDir + "/edk2-aarch64-code.fd"
+			           << binDir + "/share/edk2-aarch64-code.fd"
+			           << binDir + "/../share/qemu/edk2-aarch64-code.fd"
+			           << binDir + "/../share/edk2-aarch64-code.fd"
+			           << binDir + "/QEMU_EFI.fd"
+			           << binDir + "/AAVMF_CODE.fd";
+		}
 	}
-	candidates << "C:/Program Files/qemu/share/edk2-aarch64-code.fd"
-	           << "C:/Program Files/qemu/edk2-aarch64-code.fd"
-	           << "C:/msys64/ucrt64/share/qemu/edk2-aarch64-code.fd"
-	           << "C:/msys64/mingw64/share/qemu/edk2-aarch64-code.fd";
+	if( x86 )
+	{
+		candidates << "C:/Program Files/qemu/share/OVMF_CODE.fd"
+		           << "C:/Program Files/qemu/share/OVMF_CODE_4M.fd"
+		           << "C:/Program Files/qemu/share/edk2-x86_64-code.fd"
+		           << "C:/Program Files/qemu/OVMF_CODE.fd"
+		           << "C:/msys64/ucrt64/share/qemu/OVMF_CODE.fd"
+		           << "C:/msys64/ucrt64/share/qemu/OVMF_CODE_4M.fd"
+		           << "C:/msys64/ucrt64/share/qemu/edk2-x86_64-code.fd"
+		           << "C:/msys64/mingw64/share/qemu/OVMF_CODE.fd"
+		           << "C:/msys64/mingw64/share/qemu/edk2-x86_64-code.fd";
+	}
+	else
+	{
+		candidates << "C:/Program Files/qemu/share/edk2-aarch64-code.fd"
+		           << "C:/Program Files/qemu/edk2-aarch64-code.fd"
+		           << "C:/msys64/ucrt64/share/qemu/edk2-aarch64-code.fd"
+		           << "C:/msys64/mingw64/share/qemu/edk2-aarch64-code.fd";
+	}
 	#else
-	candidates << "/usr/share/AAVMF/AAVMF_CODE.no-secboot.fd"
-	           << "/usr/share/AAVMF/AAVMF_CODE.fd"
-	           << "/usr/share/qemu-efi-aarch64/QEMU_EFI.fd"
-	           << "/usr/share/qemu/edk2-aarch64-code.fd"
-	           << "/usr/share/edk2/aarch64/QEMU_EFI.fd"
-	           << "/usr/share/OVMF/AAVMF_CODE.fd";
+	if( x86 )
+	{
+		candidates << "/usr/share/OVMF/OVMF_CODE.fd"
+		           << "/usr/share/OVMF/OVMF_CODE_4M.fd"
+		           << "/usr/share/OVMF/OVMF_CODE.secboot.fd"
+		           << "/usr/share/qemu/OVMF_CODE.fd"
+		           << "/usr/share/qemu/edk2-x86_64-code.fd"
+		           << "/usr/share/edk2/x64/OVMF_CODE.fd"
+		           << "/usr/share/edk2-ovmf/x64/OVMF_CODE.fd";
+	}
+	else
+	{
+		candidates << "/usr/share/AAVMF/AAVMF_CODE.no-secboot.fd"
+		           << "/usr/share/AAVMF/AAVMF_CODE.fd"
+		           << "/usr/share/qemu-efi-aarch64/QEMU_EFI.fd"
+		           << "/usr/share/qemu/edk2-aarch64-code.fd"
+		           << "/usr/share/edk2/aarch64/QEMU_EFI.fd"
+		           << "/usr/share/OVMF/AAVMF_CODE.fd";
+	}
 	#endif
-	
+
 	return First_Existing_Path( candidates );
 }
 
-QString Find_UEFI_Firmware_VARS_Template( const QString &qemu_binary_path )
+QString Find_UEFI_Firmware_VARS_Template( const QString &qemu_binary_path, const QString &arch )
 {
 	QStringList candidates;
-	
+	const bool x86 = UEFI_Arch_Is_X86( arch );
+
 	#ifdef Q_OS_WIN32
 	QString binDir;
 	if( ! qemu_binary_path.isEmpty() )
 		binDir = QFileInfo( qemu_binary_path ).absolutePath();
-	
+
 	if( ! binDir.isEmpty() )
 	{
-		candidates << binDir + "/edk2-arm-vars.fd"
-		           << binDir + "/share/edk2-arm-vars.fd"
-		           << binDir + "/../share/qemu/edk2-arm-vars.fd"
-		           << binDir + "/../share/edk2-arm-vars.fd"
-		           << binDir + "/QEMU_VARS.fd"
-		           << binDir + "/AAVMF_VARS.fd";
+		if( x86 )
+		{
+			candidates << binDir + "/OVMF_VARS.fd"
+			           << binDir + "/OVMF_VARS_4M.fd"
+			           << binDir + "/edk2-i386-vars.fd"
+			           << binDir + "/share/OVMF_VARS.fd"
+			           << binDir + "/share/OVMF_VARS_4M.fd"
+			           << binDir + "/share/edk2-i386-vars.fd"
+			           << binDir + "/../share/qemu/OVMF_VARS.fd"
+			           << binDir + "/../share/qemu/OVMF_VARS_4M.fd"
+			           << binDir + "/../share/qemu/edk2-i386-vars.fd";
+		}
+		else
+		{
+			candidates << binDir + "/edk2-arm-vars.fd"
+			           << binDir + "/share/edk2-arm-vars.fd"
+			           << binDir + "/../share/qemu/edk2-arm-vars.fd"
+			           << binDir + "/../share/edk2-arm-vars.fd"
+			           << binDir + "/QEMU_VARS.fd"
+			           << binDir + "/AAVMF_VARS.fd";
+		}
 	}
-	candidates << "C:/Program Files/qemu/share/edk2-arm-vars.fd"
-	           << "C:/Program Files/qemu/edk2-arm-vars.fd"
-	           << "C:/msys64/ucrt64/share/qemu/edk2-arm-vars.fd"
-	           << "C:/msys64/mingw64/share/qemu/edk2-arm-vars.fd";
+	if( x86 )
+	{
+		candidates << "C:/Program Files/qemu/share/OVMF_VARS.fd"
+		           << "C:/Program Files/qemu/share/OVMF_VARS_4M.fd"
+		           << "C:/Program Files/qemu/share/edk2-i386-vars.fd"
+		           << "C:/Program Files/qemu/OVMF_VARS.fd"
+		           << "C:/msys64/ucrt64/share/qemu/OVMF_VARS.fd"
+		           << "C:/msys64/ucrt64/share/qemu/OVMF_VARS_4M.fd"
+		           << "C:/msys64/ucrt64/share/qemu/edk2-i386-vars.fd"
+		           << "C:/msys64/mingw64/share/qemu/OVMF_VARS.fd"
+		           << "C:/msys64/mingw64/share/qemu/edk2-i386-vars.fd";
+	}
+	else
+	{
+		candidates << "C:/Program Files/qemu/share/edk2-arm-vars.fd"
+		           << "C:/Program Files/qemu/edk2-arm-vars.fd"
+		           << "C:/msys64/ucrt64/share/qemu/edk2-arm-vars.fd"
+		           << "C:/msys64/mingw64/share/qemu/edk2-arm-vars.fd";
+	}
 	#else
-	candidates << "/usr/share/AAVMF/AAVMF_VARS.fd"
-	           << "/usr/share/qemu-efi-aarch64/QEMU_VARS.fd"
-	           << "/usr/share/qemu/edk2-arm-vars.fd"
-	           << "/usr/share/edk2/aarch64/QEMU_VARS.fd"
-	           << "/usr/share/OVMF/AAVMF_VARS.fd";
+	if( x86 )
+	{
+		candidates << "/usr/share/OVMF/OVMF_VARS.fd"
+		           << "/usr/share/OVMF/OVMF_VARS_4M.fd"
+		           << "/usr/share/qemu/OVMF_VARS.fd"
+		           << "/usr/share/qemu/edk2-i386-vars.fd"
+		           << "/usr/share/edk2/x64/OVMF_VARS.fd"
+		           << "/usr/share/edk2-ovmf/x64/OVMF_VARS.fd";
+	}
+	else
+	{
+		candidates << "/usr/share/AAVMF/AAVMF_VARS.fd"
+		           << "/usr/share/qemu-efi-aarch64/QEMU_VARS.fd"
+		           << "/usr/share/qemu/edk2-arm-vars.fd"
+		           << "/usr/share/edk2/aarch64/QEMU_VARS.fd"
+		           << "/usr/share/OVMF/AAVMF_VARS.fd";
+	}
 	#endif
-	
+
 	return First_Existing_Path( candidates );
 }
 
-bool Prepare_UEFI_VARS_File( const QString &dest_path, const QString &qemu_binary_path )
+bool Prepare_UEFI_VARS_File( const QString &dest_path, const QString &qemu_binary_path,
+                             const QString &arch )
 {
 	if( dest_path.isEmpty() )
 		return false;
-	
+
 	if( QFile::exists( dest_path ) )
 		return true;
-	
-	QString tmpl = Find_UEFI_Firmware_VARS_Template( qemu_binary_path );
+
+	QString tmpl = Find_UEFI_Firmware_VARS_Template( qemu_binary_path, arch );
 	if( tmpl.isEmpty() )
 	{
 		AQError( "Prepare_UEFI_VARS_File", "UEFI VARS template not found" );
@@ -1186,4 +1581,253 @@ bool Prepare_UEFI_VARS_File( const QString &dest_path, const QString &qemu_binar
 		QFile::ReadGroup | QFile::ReadOther );
 	
 	return true;
+}
+
+QString Win11_OOBE_Bypass_Guest_Commands()
+{
+	return QStringLiteral(
+		"rem === Win11 ARM OOBE: skip Microsoft account / \"An error occurred\" ===\r\n"
+		"rem Open guest CMD with Shift+F10 (or AQEMU toolbar Send Shift+F10), then try in order:\r\n"
+		"\r\n"
+		"rem 1) Local-account OOBE URI (works on many 24H2+ builds):\r\n"
+		"start ms-cxh:localonly\r\n"
+		"\r\n"
+		"rem 2) Classic BypassNRO + reboot (if step 1 does nothing):\r\n"
+		"reg add \"HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\OOBE\" /v BypassNRO /t REG_DWORD /d 1 /f\r\n"
+		"shutdown /r /t 0\r\n"
+		"\r\n"
+		"rem 3) Optional: kill networking so OOBE offers offline path:\r\n"
+		"ipconfig /release\r\n"
+	);
+}
+
+QString Win11_UCPD_Guest_Commands()
+{
+	return QStringLiteral(
+		"rem === Remove UCPD.sys (BVM fix for post-OOBE reboot / BSOD) ===\r\n"
+		"rem Run in guest CMD (Shift+F10). Then reboot.\r\n"
+		"\r\n"
+		"takeown /f C:\\Windows\\System32\\drivers\\UCPD.sys\r\n"
+		"icacls C:\\Windows\\System32\\drivers\\UCPD.sys /grant *S-1-5-32-544:F\r\n"
+		"del /f /q C:\\Windows\\System32\\drivers\\UCPD.sys\r\n"
+		"reg add \"HKLM\\SYSTEM\\CurrentControlSet\\Services\\UCPD\" /v Start /t REG_DWORD /d 4 /f\r\n"
+		"shutdown /r /t 0\r\n"
+	);
+}
+
+static QString Find_QEMU_NBD_Path()
+{
+	const QString img = Get_QEMU_IMG_Path();
+	QFileInfo fi( img );
+	QStringList candidates;
+#ifdef Q_OS_WIN32
+	const QString exe = QStringLiteral( ".exe" );
+#else
+	const QString exe;
+#endif
+	if( fi.exists() )
+		candidates << fi.absolutePath() + QDir::separator() + "qemu-nbd" + exe;
+	candidates
+		<< QCoreApplication::applicationDirPath() + QDir::separator() + "qemu-nbd" + exe
+		<< QStringLiteral( "/usr/bin/qemu-nbd" )
+		<< QStringLiteral( "/usr/local/bin/qemu-nbd" )
+		<< QStringLiteral( "qemu-nbd" ) + exe;
+
+	for( const QString &c : candidates )
+	{
+		if( QFile::exists( c ) && QFileInfo( c ).isFile() )
+			return QDir::toNativeSeparators( c );
+	}
+	return QString();
+}
+
+bool Remove_UCPD_From_Disk_Image( const QString &disk_path, QString *result_message )
+{
+	auto set_msg = [ result_message ]( const QString &m ) {
+		if( result_message )
+			*result_message = m;
+	};
+
+	if( disk_path.trimmed().isEmpty() || ! QFile::exists( disk_path ) )
+	{
+		set_msg( QObject::tr( "Disk image not found." ) );
+		return false;
+	}
+
+#ifdef Q_OS_WIN32
+	set_msg( QObject::tr(
+		"Automatic UCPD.sys removal from the disk image needs Linux tools "
+		"(qemu-nbd + NTFS mount), which are not available on this Windows host.\n\n"
+		"Shut the VM down is optional — while OOBE is on screen, press Shift+F10 "
+		"(or use Send Shift+F10) and paste the UCPD guest commands from the helper dialog." ) );
+	return false;
+#else
+	const QString nbd_bin = Find_QEMU_NBD_Path();
+	if( nbd_bin.isEmpty() )
+	{
+		set_msg( QObject::tr( "qemu-nbd not found next to qemu-img. Install qemu-utils." ) );
+		return false;
+	}
+
+	// Prefer pkexec when not root so the helper can still work from the GUI.
+	const bool need_elev = ( ::geteuid() != 0 );
+	auto run_root = [ need_elev ]( const QString &prog, const QStringList &args,
+								   QString *out, int timeout_ms = 60000 ) -> int {
+		QProcess p;
+		if( need_elev )
+		{
+			QStringList a;
+			a << prog << args;
+			p.start( QStringLiteral( "pkexec" ), a );
+		}
+		else
+			p.start( prog, args );
+		if( ! p.waitForFinished( timeout_ms ) )
+		{
+			p.kill();
+			if( out ) *out = QObject::tr( "Command timed out: %1" ).arg( prog );
+			return -1;
+		}
+		if( out )
+			*out = QString::fromLocal8Bit( p.readAllStandardOutput() + p.readAllStandardError() ).trimmed();
+		return p.exitCode();
+	};
+
+	QString err;
+	run_root( QStringLiteral( "modprobe" ), QStringList() << QStringLiteral( "nbd" )
+			  << QStringLiteral( "max_part=16" ), &err );
+
+	QString nbd_dev;
+	for( int i = 0; i < 16; ++i )
+	{
+		const QString candidate = QStringLiteral( "/dev/nbd%1" ).arg( i );
+		if( ! QFile::exists( candidate ) )
+			continue;
+		QProcess lsblk;
+		lsblk.start( QStringLiteral( "lsblk" ),
+					 QStringList() << QStringLiteral( "-no" ) << QStringLiteral( "MOUNTPOINTS" ) << candidate );
+		lsblk.waitForFinished( 5000 );
+		const QString mounts = QString::fromLocal8Bit( lsblk.readAllStandardOutput() ).trimmed();
+		if( mounts.isEmpty() )
+		{
+			nbd_dev = candidate;
+			break;
+		}
+	}
+	if( nbd_dev.isEmpty() )
+	{
+		set_msg( QObject::tr( "No free /dev/nbd* device found." ) );
+		return false;
+	}
+
+	QString connect_out;
+	const int connect_rc = run_root( nbd_bin,
+		QStringList() << QStringLiteral( "--connect=" ) + nbd_dev << disk_path,
+		&connect_out, 30000 );
+	if( connect_rc != 0 )
+	{
+		set_msg( QObject::tr( "qemu-nbd connect failed:\n%1" ).arg( connect_out ) );
+		return false;
+	}
+
+	auto disconnect_nbd = [ & ]() {
+		QString dummy;
+		run_root( nbd_bin, QStringList() << QStringLiteral( "--disconnect" ) << nbd_dev, &dummy, 15000 );
+	};
+
+	// Wait for partitions (Windows typically uses partition 3 or 4 for C:)
+	QStringList part_candidates;
+	for( int wait = 0; wait < 10; ++wait )
+	{
+		part_candidates.clear();
+		for( int p = 1; p <= 8; ++p )
+		{
+			const QString part = nbd_dev + QStringLiteral( "p%1" ).arg( p );
+			if( QFile::exists( part ) )
+				part_candidates << part;
+		}
+		if( ! part_candidates.isEmpty() )
+			break;
+		QProcess::execute( QStringLiteral( "sleep" ), QStringList() << QStringLiteral( "1" ) );
+	}
+	if( part_candidates.isEmpty() )
+	{
+		disconnect_nbd();
+		set_msg( QObject::tr( "No partitions appeared on %1 after connecting the disk." ).arg( nbd_dev ) );
+		return false;
+	}
+
+	const QString mountpoint = QStringLiteral( "/tmp/aqemu-ucpd-%1" ).arg( QCoreApplication::applicationPid() );
+	run_root( QStringLiteral( "mkdir" ), QStringList() << QStringLiteral( "-p" ) << mountpoint, &err );
+
+	QString windows_root;
+	QString mounted_part;
+	for( const QString &part : part_candidates )
+	{
+		run_root( QStringLiteral( "umount" ), QStringList() << mountpoint, &err, 10000 );
+		QString mout;
+		int mrc = run_root( QStringLiteral( "mount" ),
+			QStringList() << QStringLiteral( "-t" ) << QStringLiteral( "ntfs3" )
+						  << QStringLiteral( "-o" ) << QStringLiteral( "rw,remove_hiberfile" )
+						  << part << mountpoint,
+			&mout, 20000 );
+		if( mrc != 0 )
+		{
+			mrc = run_root( QStringLiteral( "mount" ),
+				QStringList() << QStringLiteral( "-t" ) << QStringLiteral( "ntfs-3g" )
+							  << QStringLiteral( "-o" ) << QStringLiteral( "rw,remove_hiberfile" )
+							  << part << mountpoint,
+				&mout, 20000 );
+		}
+		if( mrc != 0 )
+			continue;
+
+		if( QFile::exists( mountpoint + QStringLiteral( "/Windows/System32" ) ) )
+		{
+			windows_root = mountpoint;
+			mounted_part = part;
+			break;
+		}
+		run_root( QStringLiteral( "umount" ), QStringList() << mountpoint, &err, 10000 );
+	}
+
+	if( windows_root.isEmpty() )
+	{
+		run_root( QStringLiteral( "umount" ), QStringList() << mountpoint, &err, 10000 );
+		disconnect_nbd();
+		run_root( QStringLiteral( "rmdir" ), QStringList() << mountpoint, &err, 5000 );
+		set_msg( QObject::tr(
+			"Could not find a Windows partition (Windows\\System32) on this disk. "
+			"Use the guest Shift+F10 UCPD commands instead." ) );
+		return false;
+	}
+
+	const QString ucpd = windows_root + QStringLiteral( "/Windows/System32/drivers/UCPD.sys" );
+	bool removed = false;
+	if( QFile::exists( ucpd ) )
+	{
+		QString rm_out;
+		const int rrc = run_root( QStringLiteral( "rm" ), QStringList() << QStringLiteral( "-f" ) << ucpd, &rm_out );
+		removed = ( rrc == 0 && ! QFile::exists( ucpd ) );
+		if( ! removed )
+		{
+			run_root( QStringLiteral( "umount" ), QStringList() << mountpoint, &err, 10000 );
+			disconnect_nbd();
+			run_root( QStringLiteral( "rmdir" ), QStringList() << mountpoint, &err, 5000 );
+			set_msg( QObject::tr( "Failed to delete UCPD.sys:\n%1" ).arg( rm_out ) );
+			return false;
+		}
+	}
+
+	run_root( QStringLiteral( "umount" ), QStringList() << mountpoint, &err, 15000 );
+	disconnect_nbd();
+	run_root( QStringLiteral( "rmdir" ), QStringList() << mountpoint, &err, 5000 );
+
+	if( removed )
+		set_msg( QObject::tr( "Removed UCPD.sys from %1 (partition %2)." )
+				 .arg( disk_path, mounted_part ) );
+	else
+		set_msg( QObject::tr( "UCPD.sys was already absent on %1." ).arg( disk_path ) );
+	return true;
+#endif
 }

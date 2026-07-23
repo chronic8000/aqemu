@@ -41,3 +41,28 @@ third_party/qemu-build/
 third_party/qemu-build-win/
 third_party/qemu-install/
 
+# Local OSX-KVM clone + Apple recovery images (fetch with fetch-macOS-v2.py)
+scripts/OSX-KVM/
+**/BaseSystem.dmg
+**/BaseSystem.img
+**/BaseSystem.chunklist
+
+# One-off probe / config scratch
+scripts/probe-*.sh
+scripts/probe-*.py
+config-temp/
+third_party/gcc-probe.txt
+third_party/pacman-install.*
+third_party/libvnc-build/
+third_party/libvnc-install/
+third_party/libvnc_inc/
+third_party/libvncserver/
+third_party/zlib-build/
+third_party/zlib-install/
+third_party/zlib/
+third_party/bvm/
+third_party/bvm-ref.sh
+
+# Built binary in build tree (DLLs may still be staged for packaging)
+build_win/aqemu.exe
+

@@ -239,6 +239,10 @@ void Spice_View::Disconnect()
 	Primary_Bytes.clear();
 	Frame = QImage();
 	Set_Local_Cursor_Hidden( false );
+#if defined(AQEMU_HAVE_SPICE_GLIB) || defined(AQEMU_HAVE_SPICE_GTK)
+	qApp->removeEventFilter( this );
+	Update_Keyboard_Grab();
+#endif
 
 	if( was )
 		emit Disconnected();
@@ -265,6 +269,82 @@ void Spice_View::Send_CAD()
 #else
 	AQDebug( "Spice_View::Send_CAD()", Backend_Name() );
 #endif
+}
+
+void Spice_View::Send_Shift_F10()
+{
+#if defined(AQEMU_HAVE_SPICE_GLIB) || defined(AQEMU_HAVE_SPICE_GTK)
+	if( ! Inputs || ! Connected_Flag )
+		return;
+	setFocus( Qt::OtherFocusReason );
+	Update_Keyboard_Grab();
+	// Left Shift + F10 — Win11 Setup command prompt
+	spice_inputs_channel_key_press( Inputs, 0x2a );
+	spice_inputs_channel_key_press( Inputs, 0x44 );
+	spice_inputs_channel_key_release( Inputs, 0x44 );
+	spice_inputs_channel_key_release( Inputs, 0x2a );
+	AQDebug( "Spice_View::Send_Shift_F10()", "sent Shift+F10" );
+#else
+	AQDebug( "Spice_View::Send_Shift_F10()", Backend_Name() );
+#endif
+}
+
+bool Spice_View::event( QEvent *event )
+{
+#if defined(AQEMU_HAVE_SPICE_GLIB) || defined(AQEMU_HAVE_SPICE_GTK)
+	// Stop QMenuBar / Windows from stealing F10 (activates File menu) so
+	// Shift+F10 / Ctrl+F10 can reach the guest instead of flashing the host cursor.
+	if( Connected_Flag && event->type() == QEvent::ShortcutOverride )
+	{
+		QKeyEvent *ke = static_cast<QKeyEvent *>( event );
+		const int k = ke->key();
+		if( k == Qt::Key_F10 || k == Qt::Key_Menu ||
+		    ( k >= Qt::Key_F1 && k <= Qt::Key_F12 ) )
+		{
+			event->accept();
+			return true;
+		}
+	}
+#endif
+	return Guest_Display_View::event( event );
+}
+
+bool Spice_View::eventFilter( QObject *watched, QEvent *event )
+{
+#if defined(AQEMU_HAVE_SPICE_GLIB) || defined(AQEMU_HAVE_SPICE_GTK)
+	if( Connected_Flag &&
+	    ( event->type() == QEvent::KeyPress ||
+	      event->type() == QEvent::KeyRelease ||
+	      event->type() == QEvent::ShortcutOverride ) )
+	{
+		QKeyEvent *ke = static_cast<QKeyEvent *>( event );
+		const int k = ke->key();
+		const bool fn =
+			( k == Qt::Key_F10 || k == Qt::Key_Menu ||
+			  ( k >= Qt::Key_F1 && k <= Qt::Key_F12 ) );
+		if( fn && ( hasFocus() || underMouse() || Mouse_Captured ) )
+		{
+			if( event->type() == QEvent::ShortcutOverride )
+			{
+				event->accept();
+				return true;
+			}
+			// Divert F-keys away from the main window menu bar into SPICE.
+			if( watched != this && Inputs )
+			{
+				if( k == Qt::Key_Menu && event->type() == QEvent::KeyPress
+				    && ! ke->isAutoRepeat() )
+				{
+					Send_Shift_F10();
+					return true;
+				}
+				Send_Key( ke, event->type() == QEvent::KeyPress );
+				return true;
+			}
+		}
+	}
+#endif
+	return QWidget::eventFilter( watched, event );
 }
 
 #if defined(AQEMU_HAVE_SPICE_GLIB) || defined(AQEMU_HAVE_SPICE_GTK)
@@ -357,6 +437,17 @@ void Spice_View::Set_Mouse_Captured( bool captured )
 		if( ! Client_Mouse_Mode )
 			Set_Local_Cursor_Hidden( false );
 	}
+	Update_Keyboard_Grab();
+}
+
+void Spice_View::Update_Keyboard_Grab()
+{
+	// Grab the keyboard while focused so Windows cannot steal Shift+F10
+	// (system Context Menu hotkey) — Win11 Setup needs that combo for cmd.exe.
+	if( Connected_Flag && hasFocus() )
+		grabKeyboard();
+	else
+		releaseKeyboard();
 }
 
 void Spice_View::Warp_Pointer_To_Center()
@@ -475,6 +566,8 @@ void Spice_View::Emit_Connected_Once()
 	// Guest (or SPICE cursor channel) draws the pointer — hide the host arrow
 	// so we do not show two cursors stacked on tablet/absolute mice.
 	Set_Local_Cursor_Hidden( true );
+	qApp->installEventFilter( this );
+	Update_Keyboard_Grab();
 	AQDebug( "Spice_View", QString( "SPICE connected %1x%2" )
 	         .arg( Primary_Width ).arg( Primary_Height ) );
 	emit Connected();
@@ -793,6 +886,23 @@ void Spice_View::leaveEvent( QEvent *event )
 	Set_Local_Cursor_Hidden( false );
 }
 
+void Spice_View::focusInEvent( QFocusEvent *event )
+{
+	Guest_Display_View::focusInEvent( event );
+#if defined(AQEMU_HAVE_SPICE_GLIB) || defined(AQEMU_HAVE_SPICE_GTK)
+	Update_Keyboard_Grab();
+#endif
+}
+
+void Spice_View::focusOutEvent( QFocusEvent *event )
+{
+#if defined(AQEMU_HAVE_SPICE_GLIB) || defined(AQEMU_HAVE_SPICE_GTK)
+	// Drop grab so host shortcuts work outside the guest pane.
+	releaseKeyboard();
+#endif
+	Guest_Display_View::focusOutEvent( event );
+}
+
 void Spice_View::mouseMoveEvent( QMouseEvent *event )
 {
 #if defined(AQEMU_HAVE_SPICE_GLIB) || defined(AQEMU_HAVE_SPICE_GTK)
@@ -915,6 +1025,18 @@ void Spice_View::keyPressEvent( QKeyEvent *event )
 	    && event->key() == Qt::Key_Escape && ! event->isAutoRepeat() )
 	{
 		Set_Mouse_Captured( false );
+		event->accept();
+		return;
+	}
+	// If Windows still delivers the Context Menu key instead of Shift+F10,
+	// synthesize Shift+F10 for Win11 Setup (LabConfig / cmd.exe).
+	if( Inputs && Connected_Flag && ! event->isAutoRepeat()
+	    && event->key() == Qt::Key_Menu )
+	{
+		spice_inputs_channel_key_press( Inputs, 0x2a ); // Shift
+		spice_inputs_channel_key_press( Inputs, 0x44 ); // F10
+		spice_inputs_channel_key_release( Inputs, 0x44 );
+		spice_inputs_channel_key_release( Inputs, 0x2a );
 		event->accept();
 		return;
 	}

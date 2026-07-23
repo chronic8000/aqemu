@@ -1,3 +1,44 @@
+2026-07-23 Chronic Engineering — Intel macOS on Windows (WSL/KVM) + installer pipeline
+
+	Intel macOS guest support (OpenCore + AppleSMC OSK)
+	* New Intel macOS wizard page and main-window settings: OpenCore path,
+	  Recovery/BaseSystem installer path, OSK, prefer-WSL checkbox.
+	* Preserve / repair macOS list icon (default_macos.png); profile flag in .aqemu.
+	* QEMU args: q35, ich9-ahci, OVMF, isa-applesmc + OSK validation (reject
+	  Proxmox/network junk pasted as OSK), smbios type=2.
+	* CPU: Skylake-Client-v4 + GenuineIntel (+invtsc/kvm/vmware-cpuid-freq under
+	  WSL KVM). Penryn alone often died with "still waiting for root device".
+	* NIC: force virtio-net-pci for Intel macOS (e1000-82545em often has no link
+	  in Sonoma/Monterey Recovery → "internet connection required").
+	* System disk always on AHCI for OpenCore visibility (not VirtIO without kexts).
+
+	OpenCore / installer media correctness
+	* Detect Apple Partition Map (MIST/Pyenb "*.iso") vs true ISO9660.
+	* LongQT OpenCore ISO enables OpenPartitionDxe.efi but ships without the file;
+	  AQEMU extracts BOOT.img, injects bundled OpenPartitionDxe.efi, and boots that
+	  FAT image so APM installers are visible and UUID-stable for the kernel.
+	* Fallback: raw HFS partition offset= when PartitionDxe prep is unavailable.
+	* scripts/patch-longqt-boot.sh helper; third_party/opencore/OpenPartitionDxe.efi
+	  copied next to aqemu.exe at build time.
+	* Note: incomplete third-party MIST full ISOs can fail mid-install (missing
+	  x86_64BaseSystem.dmg). Prefer OSX-KVM BaseSystem.img + network install, or a
+	  LongQT full installer ISO attached as CD-ROM.
+
+	Windows ↔ WSL/KVM launch
+	* New WSL_Launch.cpp/.h: path rewrite (file.filename=), wsl -e (not bash -c)
+	  so OSK "(c)" and spaced paths survive, orphan QEMU kill on stop/restart.
+	* WSL_Ensure_KVM_Access: chmod /dev/kvm, kvm group, udev rule; set
+	  kvm.ignore_msrs=1 (required for macOS) and persist via modprobe.d.
+	* Audio backend selection that works under WSL (avoid host-only dsound/pa).
+	* Quoted/normalized disk and firmware paths (AQ_Normalize_File_Path,
+	  AQ_Qemu_Drive_File_Key) for spaces under Program Files / OSX ISO folders.
+
+	Wizard / OS catalog and other guest UX
+	* Expanded wizard_trees.json / os profiles; QEMU-aligned System_Info captions.
+	* Prefer host-native accel when guest arch matches; TCG otherwise.
+	* Error log Copy button; Spice/session widget polish; Advanced Options macOS UI.
+	* Mac OS Classic PPC template; gitignore for local OSX-KVM clones and images.
+
 2016-06-?? Tobias Gläßer (Version 0.9.6)
     * Merged changes from forks/contributors. Thanks you to all who contributed!
 

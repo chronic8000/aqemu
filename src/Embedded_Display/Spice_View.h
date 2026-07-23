@@ -18,6 +18,7 @@ class QMouseEvent;
 class QWheelEvent;
 class QKeyEvent;
 class QShowEvent;
+class QFocusEvent;
 class QEvent;
 
 #if defined(AQEMU_HAVE_SPICE_GLIB) || defined(AQEMU_HAVE_SPICE_GTK)
@@ -44,17 +45,23 @@ class Spice_View : public Guest_Display_View
 		void Disconnect() override;
 		bool Is_Connected() const override;
 		void Send_CAD() override;
+		/** Inject Shift+F10 (Win11 Setup command prompt / LabConfig). */
+		void Send_Shift_F10();
 		QString Backend_Name() const override;
 
 		bool Spice_GTK_Available() const;
 		bool Spice_Available() const { return Spice_GTK_Available(); }
 
 	protected:
+		bool event( QEvent *event ) override;
+		bool eventFilter( QObject *watched, QEvent *event ) override;
 		void paintEvent( QPaintEvent *event ) override;
 		void resizeEvent( QResizeEvent *event ) override;
 		void showEvent( QShowEvent *event ) override;
 		void enterEvent( QEvent *event ) override;
 		void leaveEvent( QEvent *event ) override;
+		void focusInEvent( QFocusEvent *event ) override;
+		void focusOutEvent( QFocusEvent *event ) override;
 		void mouseMoveEvent( QMouseEvent *event ) override;
 		void mousePressEvent( QMouseEvent *event ) override;
 		void mouseReleaseEvent( QMouseEvent *event ) override;
@@ -87,6 +94,7 @@ class Spice_View : public Guest_Display_View
 		void Send_Pointer( const QPoint &guest_pos, bool have_pos );
 		void Set_Mouse_Captured( bool captured );
 		void Warp_Pointer_To_Center();
+		void Update_Keyboard_Grab();
 
 		QPoint Guest_From_Widget( const QPoint &widget_pos ) const;
 		QRectF Scaled_Dest_Rect() const;
