@@ -707,12 +707,14 @@ void Main_Window::Polish_Settings_Tabs_Layout()
 	if( ui.Memory_Size )
 	{
 		ui.Memory_Size->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Fixed );
-		ui.Memory_Size->setMaximumHeight( AQ_Px( 28, this ) );
-		ui.Memory_Size->setMinimumHeight( AQ_Px( 22, this ) );
+		// Don't clamp slider height — HiDPI + QSS already size it; hard caps clip neighbors.
 		ui.Memory_Size->setMaximumWidth( content_cap - AQ_Px( 80, this ) );
 	}
 	if( ui.CB_RAM_Size )
+	{
 		ui.CB_RAM_Size->setMinimumWidth( AQ_Px( 110, this ) );
+		ui.CB_RAM_Size->setSizePolicy( QSizePolicy::Preferred, QSizePolicy::Fixed );
+	}
 
 	if( ui.widget && ui.widget->layout() )
 	{
@@ -732,8 +734,23 @@ void Main_Window::Polish_Settings_Tabs_Layout()
 	{
 		ui.TB_Show_Advanced_Options_Window->setSizePolicy(
 			QSizePolicy::Maximum, QSizePolicy::Fixed );
-		ui.TB_Show_Advanced_Options_Window->setMinimumWidth( AQ_Px( 120, this ) );
+		ui.TB_Show_Advanced_Options_Window->setMinimumWidth( 0 );
+		ui.TB_Show_Advanced_Options_Window->setMinimumHeight( 0 );
+		ui.TB_Show_Advanced_Options_Window->setMaximumHeight( QWIDGETSIZE_MAX );
 	}
+
+	// Win11 lifecycle buttons — Preferred width so long labels aren't truncated.
+	auto polish_btn = []( QPushButton *b ) {
+		if( ! b ) return;
+		b->setSizePolicy( QSizePolicy::Preferred, QSizePolicy::Fixed );
+		b->setMinimumHeight( 0 );
+		b->setMaximumHeight( QWIDGETSIZE_MAX );
+	};
+	polish_btn( ui.Button_Win11_Install );
+	polish_btn( ui.Button_Win11_First_Boot );
+	polish_btn( ui.Button_Win11_Normal );
+	polish_btn( ui.Button_Win11_Repair );
+	polish_btn( ui.Button_VirtIO_Defaults );
 
 	if( ui.GB_Options )
 	{
