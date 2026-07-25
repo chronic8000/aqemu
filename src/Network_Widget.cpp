@@ -993,8 +993,9 @@ void Network_Widget::on_CB_Network_Type_currentIndexChanged( int index )
 	// -net nic[,vlan=n][,macaddr=mac][,model=type][,name=str][,addr=str][,vectors=v]
 	if( ui.CB_Network_Type->currentText() == "nic" )
 	{
-		ui.CH_vlan->setVisible( true );
-		ui.SB_vlan->setVisible( true );
+		// vlan UI hidden — deprecated on modern QEMU (tobimensch#44)
+		ui.CH_vlan->setVisible( false );
+		ui.SB_vlan->setVisible( false );
 		
 		ui.CH_macaddr->setVisible( true );
 		ui.Edit_macaddr->setVisible( true );
@@ -1017,8 +1018,8 @@ void Network_Widget::on_CB_Network_Type_currentIndexChanged( int index )
 	//			[,hostfwd=rule][,guestfwd=rule][,smb=dir[,smbserver=addr]]
 	else if( ui.CB_Network_Type->currentText() == "user" )
 	{
-		ui.CH_vlan->setVisible( true );
-		ui.SB_vlan->setVisible( true );
+		ui.CH_vlan->setVisible( false );
+		ui.SB_vlan->setVisible( false );
 		
 		ui.CH_hostname->setVisible( true );
 		ui.Edit_hostname->setVisible( true );

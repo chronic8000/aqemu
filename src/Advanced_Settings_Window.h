@@ -33,6 +33,8 @@ class QCheckBox;
 class QLineEdit;
 class QLabel;
 class QToolButton;
+class QRadioButton;
+class QGroupBox;
 
 class Advanced_Settings_Window: public QDialog
 {
@@ -71,6 +73,11 @@ class Advanced_Settings_Window: public QDialog
 		void on_Button_CDROM_Edit_clicked();
 		void on_Button_CDROM_Delete_clicked();
 		void on_TB_WSL_Probe_clicked();
+
+		void On_QEMU_Source_Toggled( bool checked );
+		void On_QEMU_Custom_Browse_clicked();
+		void On_QEMU_Use_Built_In_clicked();
+		void Update_QEMU_Source_Banner();
 		
 		bool Load_Emulators_Info();
 		bool Save_Emulators_Info();
@@ -90,6 +97,14 @@ class Advanced_Settings_Window: public QDialog
 		QLineEdit *Edit_WSL_Qemu_Binary;
 		QLabel *Label_WSL_KVM_Status;
 		QToolButton *TB_WSL_Probe;
+
+		QGroupBox *GB_QEMU_Source;
+		QRadioButton *RB_QEMU_Built_In;
+		QRadioButton *RB_QEMU_Custom;
+		QLineEdit *Edit_QEMU_Custom_Path;
+		QToolButton *TB_QEMU_Custom_Browse;
+		QToolButton *TB_QEMU_Use_Built_In;
+		QLabel *Label_QEMU_Built_In_Path;
 };
 
 #endif

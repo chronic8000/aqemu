@@ -140,6 +140,19 @@ bool AQEMU_Service::isActive()
     return ( machines.count() > 0 );
 }
 
+bool AQEMU_Service::ensureInitialized()
+{
+    if( service != nullptr )
+        return true;
+
+    if( init_service() )
+    {
+        successful_init = true;
+        return true;
+    }
+    return false;
+}
+
 bool AQEMU_Service::call(const QString& command, const QList<QVariant>& params, bool noblock)
 {
     called_dbus = true;

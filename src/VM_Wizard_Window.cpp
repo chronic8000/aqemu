@@ -44,12 +44,22 @@
 #include <QScrollArea>
 #include <QSizePolicy>
 #include <QFrame>
+#include <QComboBox>
+#include <QProcess>
+#include <QSet>
+#include <QCoreApplication>
+#include <QMessageBox>
+#include <QUrl>
 
 #include "Utils.h"
 #include "WSL_Launch.h"
 #include "VM_Wizard_Window.h"
 #include "System_Info.h"
 #include "VM_Devices.h"
+#include "Guest_Capabilities.h"
+#include "ISO_Guess.h"
+#include "URL_Fetch.h"
+#include "Storage_Browser_Window.h"
 
 VM_Wizard_Window::VM_Wizard_Window( QWidget *parent )
 	: QDialog(parent)
@@ -58,6 +68,30 @@ VM_Wizard_Window::VM_Wizard_Window( QWidget *parent )
 	
 	New_VM = new Virtual_Machine();
 	Win11_ARM_Page = nullptr;
+	RB_Typical_New_Disk = nullptr;
+	RB_Typical_Existing_Disk = nullptr;
+	Edit_Typical_Disk_Path = nullptr;
+	TB_Typical_Disk_Browse = nullptr;
+	Widget_Typical_Size_Row = nullptr;
+	Edit_Install_ISO = nullptr;
+	TB_Install_ISO_Browse = nullptr;
+	TB_Install_ISO_Storage = nullptr;
+	Label_Install_ISO_Guess = nullptr;
+	RB_Install_Local = nullptr;
+	RB_Install_URL_ISO = nullptr;
+	RB_Install_Network_Kernel = nullptr;
+	Widget_Install_Local_Row = nullptr;
+	Widget_Install_URL_Row = nullptr;
+	Widget_Install_Kernel_Row = nullptr;
+	Edit_Install_ISO_URL = nullptr;
+	TB_Download_ISO_URL = nullptr;
+	Edit_Kernel_URL = nullptr;
+	Edit_Initrd_URL = nullptr;
+	Edit_Kernel_Append = nullptr;
+	Edit_Kernel_Local = nullptr;
+	Edit_Initrd_Local = nullptr;
+	TB_Download_Kernel = nullptr;
+	TB_Download_Initrd = nullptr;
 	Creation_Method_Page = nullptr;
 	OS_Tree_Page = nullptr;
 	Platform_Tree_Page = nullptr;
@@ -67,6 +101,7 @@ VM_Wizard_Window::VM_Wizard_Window( QWidget *parent )
 	RB_Method_Platform = nullptr;
 	RB_Method_Architecture = nullptr;
 	RB_Method_Custom = nullptr;
+	RB_Method_Import = nullptr;
 	Tree_OS = nullptr;
 	Tree_Platform = nullptr;
 	List_Arch = nullptr;
@@ -83,6 +118,24 @@ VM_Wizard_Window::VM_Wizard_Window( QWidget *parent )
 	Guest_Suggest_Win2K_Hack = false;
 	Label_Guest_Compat_Tip = nullptr;
 	Label_Arch_Summary = nullptr;
+	Label_Wizard_Machine = nullptr;
+	CB_Wizard_Machine = nullptr;
+	Machine_Catalog_Loaded = false;
+	Devices_Page = nullptr;
+	Label_Devices_Summary = nullptr;
+	CB_Dev_Disk = nullptr;
+	CB_Dev_NIC = nullptr;
+	CB_Dev_Sound = nullptr;
+	CB_Dev_Video = nullptr;
+	CH_Dev_VirtIO_Extras = nullptr;
+	CH_Dev_GPU_Passthrough = nullptr;
+	CB_Dev_GPU = nullptr;
+	CH_Dev_Show_All = nullptr;
+	Label_Dev_GPU = nullptr;
+	Guest_Disk_Bus = QStringLiteral( "ide" );
+	Guest_Video_Card = QStringLiteral( "std" );
+	Guest_Use_VirtIO_Extras = false;
+	Guest_Use_GPU_Passthrough = false;
 	
 	// Hide release date widgets
 	ui.Label_Relese_Date->hide();
@@ -91,6 +144,8 @@ VM_Wizard_Window::VM_Wizard_Window( QWidget *parent )
 	Build_Three_Path_Pages();
 	Build_Windows11_ARM_Page();
 	Build_Intel_MacOS_Page();
+	Enhance_Typical_HDD_Page();
+	Build_Devices_Page();
 
 	// Summary + tip labels on Template / Architecture page
 	Label_Arch_Summary = new QLabel( ui.Template_Page );
@@ -99,13 +154,31 @@ VM_Wizard_Window::VM_Wizard_Window( QWidget *parent )
 	Label_Guest_Compat_Tip = new QLabel( ui.Template_Page );
 	Label_Guest_Compat_Tip->setWordWrap( true );
 	Label_Guest_Compat_Tip->setStyleSheet( "QLabel { color: #335; padding: 6px; }" );
+	Label_Wizard_Machine = new QLabel( tr( "Mach&ine Type:" ), ui.Template_Page );
+	CB_Wizard_Machine = new QComboBox( ui.Template_Page );
+	CB_Wizard_Machine->setEditable( true );
+	CB_Wizard_Machine->setInsertPolicy( QComboBox::NoInsert );
+	CB_Wizard_Machine->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Fixed );
+	CB_Wizard_Machine->setToolTip( tr(
+		"QEMU -machine / -M board. Editable — type any machine id your qemu-system-* supports." ) );
+	Label_Wizard_Machine->setBuddy( CB_Wizard_Machine );
+	Label_Wizard_Machine->setEnabled( false );
+	CB_Wizard_Machine->setEnabled( false );
+	connect( CB_Wizard_Machine, QOverload<int>::of( &QComboBox::currentIndexChanged ),
+		this, [this]( int ) { Sync_Selected_Machine_From_Combo(); } );
+	connect( CB_Wizard_Machine->lineEdit(), &QLineEdit::editingFinished,
+		this, [this]() { Sync_Selected_Machine_From_Combo(); } );
 	if( QGridLayout *gl = qobject_cast<QGridLayout*>( ui.Template_Page->layout() ) )
 	{
+		gl->addWidget( Label_Wizard_Machine, 7, 0 );
+		gl->addWidget( CB_Wizard_Machine, 7, 1 );
 		gl->addWidget( Label_Arch_Summary, 19, 0, 1, 2 );
 		gl->addWidget( Label_Guest_Compat_Tip, 20, 0, 1, 2 );
 	}
 	Label_Arch_Summary->hide();
 	Label_Guest_Compat_Tip->hide();
+	Label_Wizard_Machine->hide();
+	CB_Wizard_Machine->hide();
 
 	// Fixed wizard size — do not grow/shrink when changing pages
 	setMinimumSize( 640, 620 );
@@ -142,16 +215,35 @@ void VM_Wizard_Window::Build_Three_Path_Pages()
 	Creation_Method_Page = new QWidget();
 	QVBoxLayout *methodLay = new QVBoxLayout( Creation_Method_Page );
 	methodLay->addWidget( new QLabel( tr(
-		"<b>How do you want to create this virtual machine?</b>") ) );
+		"<b>How do you want to create this virtual machine?</b><br/>"
+		"<span style=\"color:gray;\">Any path can reach any QEMU architecture — "
+		"you can always override Computer Type and machine later.</span>") ) );
+
 	RB_Method_Guest_OS = new QRadioButton( tr("Guest Operating System") );
 	RB_Method_Platform = new QRadioButton( tr("System / Machine Platform") );
 	RB_Method_Architecture = new QRadioButton( tr("CPU Architecture") );
 	RB_Method_Custom = new QRadioButton( tr("Custom / Advanced") );
 	RB_Method_Guest_OS->setChecked( true );
-	methodLay->addWidget( RB_Method_Guest_OS );
-	methodLay->addWidget( RB_Method_Platform );
-	methodLay->addWidget( RB_Method_Architecture );
-	methodLay->addWidget( RB_Method_Custom );
+
+	auto add_method = [methodLay]( QRadioButton *rb, const QString &hint ) {
+		methodLay->addWidget( rb );
+		QLabel *h = new QLabel( hint );
+		h->setWordWrap( true );
+		h->setStyleSheet( QStringLiteral( "color: gray; margin-left: 22px; margin-bottom: 8px;" ) );
+		methodLay->addWidget( h );
+	};
+	add_method( RB_Method_Guest_OS,
+		tr( "Best for Windows, Linux, macOS, DOS, BSD… — AQEMU picks a matching QEMU binary and machine, then you confirm." ) );
+	add_method( RB_Method_Platform,
+		tr( "Best for Raspberry Pi, SGI Indy, PowerMac, SPARCstation, PC (Q35)… — choose the board/platform first." ) );
+	add_method( RB_Method_Architecture,
+		tr( "Best when you know the CPU family (x86-64, ARM64, MIPS, RISC-V…) — then pick any machine QEMU offers for it." ) );
+	add_method( RB_Method_Custom,
+		tr( "Full manual control: Typical or Custom disk/RAM flow, any qemu-system-* binary, templates or generate." ) );
+	RB_Method_Import = new QRadioButton( tr( "Import Existing Disk" ) );
+	add_method( RB_Method_Import,
+		tr( "Attach an existing qcow2/raw/vmdk (and optional ISO). Fastest path when you already have an image." ) );
+
 	methodLay->addStretch( 1 );
 	ui.Wizard_Pages->insertWidget( 0, Creation_Method_Page );
 
@@ -164,34 +256,53 @@ void VM_Wizard_Window::Build_Three_Path_Pages()
 	Tree_OS->setRootIsDecorated( true );
 	osLay->addWidget( Tree_OS );
 	Populate_OS_Tree();
+	connect( Tree_OS, &QTreeWidget::itemDoubleClicked, this, [this]( QTreeWidgetItem *item, int ) {
+		if( item && item->childCount() == 0 )
+			on_Button_Next_clicked();
+	} );
 	ui.Wizard_Pages->addWidget( OS_Tree_Page );
 
 	// --- Platform tree ---
 	Platform_Tree_Page = new QWidget();
 	QVBoxLayout *platLay = new QVBoxLayout( Platform_Tree_Page );
-	platLay->addWidget( new QLabel( tr("Select a system / machine platform:") ) );
+	platLay->addWidget( new QLabel( tr(
+		"Select a system / machine platform:\n"
+		"(This sets the QEMU binary and -machine; you can change both on the next page.)" ) ) );
 	Tree_Platform = new QTreeWidget();
 	Tree_Platform->setHeaderHidden( true );
 	platLay->addWidget( Tree_Platform );
 	Populate_Platform_Tree();
+	connect( Tree_Platform, &QTreeWidget::itemDoubleClicked, this, [this]( QTreeWidgetItem *item, int ) {
+		if( item && item->childCount() == 0 )
+			on_Button_Next_clicked();
+	} );
 	ui.Wizard_Pages->addWidget( Platform_Tree_Page );
 
 	// --- Architecture list ---
 	Arch_List_Page = new QWidget();
 	QVBoxLayout *archLay = new QVBoxLayout( Arch_List_Page );
-	archLay->addWidget( new QLabel( tr("Select a CPU architecture:") ) );
+	archLay->addWidget( new QLabel( tr("Select a CPU architecture (qemu-system-* target):") ) );
 	List_Arch = new QListWidget();
 	archLay->addWidget( List_Arch );
 	Populate_Arch_List();
+	connect( List_Arch, &QListWidget::itemDoubleClicked, this, [this]( QListWidgetItem * ) {
+		on_Button_Next_clicked();
+	} );
 	ui.Wizard_Pages->addWidget( Arch_List_Page );
 
 	// --- Machines filtered by arch ---
 	Arch_Machines_Page = new QWidget();
 	QVBoxLayout *machLay = new QVBoxLayout( Arch_Machines_Page );
-	machLay->addWidget( new QLabel( tr("Select a machine (filtered by architecture):") ) );
+	machLay->addWidget( new QLabel( tr(
+		"Select a machine for this architecture:\n"
+		"(Recommended boards first; expand “All available machines…” for the full QEMU list when catalog is present.)" ) ) );
 	Tree_Arch_Machines = new QTreeWidget();
 	Tree_Arch_Machines->setHeaderHidden( true );
 	machLay->addWidget( Tree_Arch_Machines );
+	connect( Tree_Arch_Machines, &QTreeWidget::itemDoubleClicked, this, [this]( QTreeWidgetItem *item, int ) {
+		if( item && item->childCount() == 0 )
+			on_Button_Next_clicked();
+	} );
 	ui.Wizard_Pages->addWidget( Arch_Machines_Page );
 }
 
@@ -253,10 +364,49 @@ void VM_Wizard_Window::Populate_Platform_Tree()
 		QJsonArray children = it.value().toArray();
 		for( int i = 0; i < children.size(); ++i )
 		{
+			const QString name = children.at(i).toString();
+			// Dead-end placeholders — replaced by catalog / Custom shortcut below
+			if( name == QLatin1String( "Hundreds More..." ) ||
+			    name == QLatin1String( "Import Existing QEMU Command Line" ) )
+				continue;
 			QTreeWidgetItem *leaf = new QTreeWidgetItem( group );
-			leaf->setText( 0, children.at(i).toString() );
+			leaf->setText( 0, name );
+		}
+		if( group->childCount() == 0 )
+			delete group;
+	}
+
+	// Shortcut into Custom / Advanced (CLI paste later)
+	{
+		QTreeWidgetItem *group = new QTreeWidgetItem( Tree_Platform );
+		group->setText( 0, tr( "Advanced" ) );
+		group->setFlags( group->flags() & ~Qt::ItemIsSelectable );
+		QTreeWidgetItem *custom = new QTreeWidgetItem( group );
+		custom->setText( 0, tr( "Custom / Advanced setup…" ) );
+		custom->setData( 0, Qt::UserRole, QStringLiteral( "action:custom" ) );
+	}
+
+	// Full QEMU machine catalog under Platform (any board, any order)
+	Ensure_Machine_Catalog();
+	QJsonArray binaries = Machine_Catalog.value( "binaries" ).toArray();
+	if( ! binaries.isEmpty() )
+	{
+		QTreeWidgetItem *all = new QTreeWidgetItem( Tree_Platform );
+		all->setText( 0, tr( "All QEMU machines…" ) );
+		all->setFlags( all->flags() & ~Qt::ItemIsSelectable );
+		for( int bi = 0; bi < binaries.size(); ++bi )
+		{
+			QJsonObject bo = binaries.at( bi ).toObject();
+			const QString target = bo.value( "target" ).toString();
+			if( target.isEmpty() )
+				continue;
+			QTreeWidgetItem *arch = new QTreeWidgetItem( all );
+			arch->setText( 0, tr( "qemu-system-%1" ).arg( target ) );
+			arch->setFlags( arch->flags() & ~Qt::ItemIsSelectable );
+			Append_Catalog_Machines( arch, target );
 		}
 	}
+
 	Tree_Platform->expandToDepth( 0 );
 }
 
@@ -265,10 +415,195 @@ void VM_Wizard_Window::Populate_Arch_List()
 	if( ! List_Arch ) return;
 	List_Arch->clear();
 	QJsonArray arches = Wizard_Trees.value( "architectures" ).toArray();
+	QSet<QString> seen;
 	for( int i = 0; i < arches.size(); ++i )
-		List_Arch->addItem( arches.at(i).toString() );
+	{
+		const QString name = arches.at( i ).toString();
+		List_Arch->addItem( name );
+		seen.insert( name );
+	}
+
+	// Append any configured emulator binaries not already listed
+	{
+		Emulator em = Get_Default_Emulator();
+		const QMap<QString, Available_Devices> systems = em.Get_Devices();
+		QJsonObject targets = Wizard_Trees.value( "architecture_targets" ).toObject();
+		QMap<QString, QString> target_to_display;
+		for( QJsonObject::const_iterator it = targets.constBegin(); it != targets.constEnd(); ++it )
+			target_to_display.insert( it.value().toString(), it.key() );
+
+		for( QMap<QString, Available_Devices>::const_iterator it = systems.constBegin();
+		     it != systems.constEnd(); ++it )
+		{
+			QString qn = it.value().System.QEMU_Name;
+			if( ! qn.startsWith( QLatin1String( "qemu-system-" ) ) )
+				continue;
+			const QString target = qn.mid( QStringLiteral( "qemu-system-" ).size() );
+			QString display = target_to_display.value( target );
+			if( display.isEmpty() )
+				display = target;
+			if( seen.contains( display ) )
+				continue;
+			List_Arch->addItem( display );
+			seen.insert( display );
+			if( ! targets.contains( display ) )
+			{
+				targets.insert( display, target );
+				Wizard_Trees.insert( QStringLiteral( "architecture_targets" ), targets );
+			}
+		}
+	}
+
+	// Prefer host architecture when present
+	const QString host = AQ_Get_Host_CPU_Architecture();
+	int prefer = 1; // x86-64 is usually index 1 in curated list
+	for( int i = 0; i < List_Arch->count(); ++i )
+	{
+		const QString t = List_Arch->item( i )->text();
+		if( ( host == QLatin1String( "aarch64" ) && t.contains( QLatin1String( "ARM64" ) ) ) ||
+		    ( host == QLatin1String( "x86_64" ) && t == QLatin1String( "x86-64" ) ) ||
+		    t.toLower().contains( host ) )
+		{
+			prefer = i;
+			break;
+		}
+	}
 	if( List_Arch->count() > 0 )
-		List_Arch->setCurrentRow( 1 ); // x86-64 by default if present
+		List_Arch->setCurrentRow( prefer );
+}
+
+void VM_Wizard_Window::Ensure_Machine_Catalog()
+{
+	if( Machine_Catalog_Loaded )
+		return;
+	Machine_Catalog_Loaded = true;
+
+	QStringList catalogPaths;
+	catalogPaths << QCoreApplication::applicationDirPath() + "/qemu_machine_catalog.json"
+	             << QCoreApplication::applicationDirPath() + "/../docs/qemu_machine_catalog.json"
+	             << QDir::currentPath() + "/docs/qemu_machine_catalog.json"
+	             << QDir( QCoreApplication::applicationDirPath() ).absoluteFilePath( "../docs/qemu_machine_catalog.json" );
+	for( int p = 0; p < catalogPaths.size(); ++p )
+	{
+		QFile cf( catalogPaths[p] );
+		if( ! cf.open( QIODevice::ReadOnly ) )
+			continue;
+		QJsonDocument cdoc = QJsonDocument::fromJson( cf.readAll() );
+		cf.close();
+		if( cdoc.isObject() )
+		{
+			Machine_Catalog = cdoc.object();
+			return;
+		}
+	}
+}
+
+void VM_Wizard_Window::Append_Catalog_Machines( QTreeWidgetItem *parent, const QString &target )
+{
+	if( ! parent || target.isEmpty() )
+		return;
+
+	Ensure_Machine_Catalog();
+	QJsonArray binaries = Machine_Catalog.value( "binaries" ).toArray();
+	bool from_catalog = false;
+	for( int bi = 0; bi < binaries.size(); ++bi )
+	{
+		QJsonObject bo = binaries.at( bi ).toObject();
+		if( bo.value( "target" ).toString() != target )
+			continue;
+		QJsonArray machines = bo.value( "machines" ).toArray();
+		for( int mi = 0; mi < machines.size(); ++mi )
+		{
+			QJsonObject m = machines.at( mi ).toObject();
+			if( m.value( "hidden" ).toBool() )
+				continue;
+			QString display = m.value( "display_name" ).toString();
+			if( display.isEmpty() )
+				display = m.value( "name" ).toString();
+			QTreeWidgetItem *leaf = new QTreeWidgetItem( parent );
+			leaf->setText( 0, display );
+			leaf->setData( 0, Qt::UserRole, m.value( "name" ).toString() );
+			leaf->setData( 0, Qt::UserRole + 1, target );
+			from_catalog = true;
+		}
+		break;
+	}
+
+	if( from_catalog )
+		return;
+
+	// Live probe when catalog is missing / incomplete for this target
+	const QStringList live = Probe_Live_Machines( target );
+	for( const QString &mid : live )
+	{
+		QTreeWidgetItem *leaf = new QTreeWidgetItem( parent );
+		leaf->setText( 0, mid );
+		leaf->setData( 0, Qt::UserRole, mid );
+		leaf->setData( 0, Qt::UserRole + 1, target );
+	}
+}
+
+QString VM_Wizard_Window::Find_Emulator_Binary_For_Target( const QString &target ) const
+{
+	if( target.isEmpty() )
+		return QString();
+
+	const QString key = QStringLiteral( "qemu-system-" ) + target;
+	Emulator em = Current_Emulator.Get_Name().isEmpty() ? Get_Default_Emulator() : Current_Emulator;
+	const QMap<QString, QString> bins = em.Get_Binary_Files();
+	if( bins.contains( key ) && ! bins.value( key ).isEmpty() && QFile::exists( bins.value( key ) ) )
+		return bins.value( key );
+
+	for( QMap<QString, QString>::const_iterator it = bins.constBegin(); it != bins.constEnd(); ++it )
+	{
+		if( it.key().endsWith( target, Qt::CaseInsensitive ) &&
+		    ! it.value().isEmpty() && QFile::exists( it.value() ) )
+			return it.value();
+	}
+
+	const QString beside = QCoreApplication::applicationDirPath() + QDir::separator() + key
+#ifdef Q_OS_WIN
+		+ QStringLiteral( ".exe" )
+#endif
+		;
+	if( QFile::exists( beside ) )
+		return beside;
+
+	return QString();
+}
+
+QStringList VM_Wizard_Window::Probe_Live_Machines( const QString &target )
+{
+	QStringList out;
+	const QString bin = Find_Emulator_Binary_For_Target( target );
+	if( bin.isEmpty() )
+		return out;
+
+	QProcess proc;
+	proc.setProcessChannelMode( QProcess::MergedChannels );
+	proc.start( bin, QStringList() << QStringLiteral( "-machine" ) << QStringLiteral( "help" ) );
+	if( ! proc.waitForFinished( 8000 ) )
+	{
+		proc.kill();
+		return out;
+	}
+	const QString text = QString::fromLocal8Bit( proc.readAllStandardOutput() );
+	const QStringList lines = text.split( QLatin1Char( '\n' ), QString::SkipEmptyParts );
+	for( QString line : lines )
+	{
+		line = line.trimmed();
+		if( line.isEmpty() || line.startsWith( QLatin1String( "Supported" ) ) ||
+		    line.startsWith( QLatin1String( "Use" ) ) )
+			continue;
+		const int sp = line.indexOf( QRegExp( "\\s" ) );
+		QString mid = ( sp > 0 ) ? line.left( sp ) : line;
+		mid = mid.trimmed();
+		if( mid.isEmpty() || mid.contains( QLatin1Char( '/' ) ) )
+			continue;
+		if( ! out.contains( mid ) )
+			out << mid;
+	}
+	return out;
 }
 
 void VM_Wizard_Window::Populate_Arch_Machines( const QString &arch_display )
@@ -279,6 +614,14 @@ void VM_Wizard_Window::Populate_Arch_Machines( const QString &arch_display )
 	QJsonObject targets = Wizard_Trees.value( "architecture_targets" ).toObject();
 	QString target = targets.value( arch_display ).toString();
 	if( target.isEmpty() )
+	{
+		// Allow raw target names added from configured binaries
+		if( arch_display.startsWith( QLatin1String( "qemu-system-" ) ) )
+			target = arch_display.mid( QStringLiteral( "qemu-system-" ).size() );
+		else
+			target = arch_display;
+	}
+	if( target.isEmpty() )
 		return;
 	Selected_Target = target;
 	Selected_Arch_Name = arch_display;
@@ -288,6 +631,7 @@ void VM_Wizard_Window::Populate_Arch_Machines( const QString &arch_display )
 	root->setFlags( root->flags() & ~Qt::ItemIsSelectable );
 
 	QJsonObject bindings = Wizard_Trees.value( "platform_bindings" ).toObject();
+	int recommended = 0;
 	for( QJsonObject::const_iterator it = bindings.constBegin(); it != bindings.constEnd(); ++it )
 	{
 		QJsonObject b = it.value().toObject();
@@ -297,49 +641,36 @@ void VM_Wizard_Window::Populate_Arch_Machines( const QString &arch_display )
 		leaf->setText( 0, it.key() );
 		leaf->setData( 0, Qt::UserRole, b.value( "machine" ).toString() );
 		leaf->setData( 0, Qt::UserRole + 1, target );
+		++recommended;
 	}
 
-	// Optional: expand from probed catalog for this binary
-	QStringList catalogPaths;
-	catalogPaths << QCoreApplication::applicationDirPath() + "/qemu_machine_catalog.json"
-	             << QCoreApplication::applicationDirPath() + "/../docs/qemu_machine_catalog.json"
-	             << QDir::currentPath() + "/docs/qemu_machine_catalog.json";
-	for( int p = 0; p < catalogPaths.size(); ++p )
+	// Always offer a sane default board when bindings are sparse
+	if( recommended == 0 )
 	{
-		QFile cf( catalogPaths[p] );
-		if( ! cf.open( QIODevice::ReadOnly ) )
-			continue;
-		QJsonDocument cdoc = QJsonDocument::fromJson( cf.readAll() );
-		cf.close();
-		if( ! cdoc.isObject() )
-			continue;
-		QJsonArray binaries = cdoc.object().value( "binaries" ).toArray();
-		for( int bi = 0; bi < binaries.size(); ++bi )
-		{
-			QJsonObject bo = binaries.at(bi).toObject();
-			if( bo.value( "target" ).toString() != target )
-				continue;
-			QJsonArray machines = bo.value( "machines" ).toArray();
-			QTreeWidgetItem *more = new QTreeWidgetItem( root );
-			more->setText( 0, tr("All available machines…") );
-			more->setFlags( more->flags() & ~Qt::ItemIsSelectable );
-			for( int mi = 0; mi < machines.size(); ++mi )
-			{
-				QJsonObject m = machines.at(mi).toObject();
-				if( m.value( "hidden" ).toBool() )
-					continue;
-				QString display = m.value( "display_name" ).toString();
-				if( display.isEmpty() )
-					display = m.value( "name" ).toString();
-				QTreeWidgetItem *leaf = new QTreeWidgetItem( more );
-				leaf->setText( 0, display );
-				leaf->setData( 0, Qt::UserRole, m.value( "name" ).toString() );
-				leaf->setData( 0, Qt::UserRole + 1, target );
-			}
-			break;
-		}
-		break;
+		QString def_machine = QStringLiteral( "virt" );
+		if( target == QLatin1String( "x86_64" ) || target == QLatin1String( "i386" ) )
+			def_machine = QStringLiteral( "q35" );
+		else if( target == QLatin1String( "ppc" ) || target == QLatin1String( "ppc64" ) )
+			def_machine = QStringLiteral( "mac99" );
+		else if( target.startsWith( QLatin1String( "sparc" ) ) )
+			def_machine = QStringLiteral( "sun4u" );
+		else if( target.startsWith( QLatin1String( "mips" ) ) )
+			def_machine = QStringLiteral( "malta" );
+		else if( target == QLatin1String( "riscv64" ) || target == QLatin1String( "riscv32" ) )
+			def_machine = QStringLiteral( "virt" );
+		QTreeWidgetItem *leaf = new QTreeWidgetItem( root );
+		leaf->setText( 0, tr( "Recommended default (%1)" ).arg( def_machine ) );
+		leaf->setData( 0, Qt::UserRole, def_machine );
+		leaf->setData( 0, Qt::UserRole + 1, target );
+		Tree_Arch_Machines->setCurrentItem( leaf );
 	}
+
+	QTreeWidgetItem *more = new QTreeWidgetItem( root );
+	more->setText( 0, tr( "All available machines…" ) );
+	more->setFlags( more->flags() & ~Qt::ItemIsSelectable );
+	Append_Catalog_Machines( more, target );
+	if( more->childCount() == 0 )
+		delete more;
 
 	Tree_Arch_Machines->expandToDepth( 0 );
 }
@@ -624,12 +955,32 @@ void VM_Wizard_Window::Apply_OS_Defaults( const QString &os_name )
 	}
 
 	New_VM->Set_Machine_Type( Selected_Machine_Id );
+	{
+		const Guest_Capabilities caps = Current_Guest_Capabilities();
+		Guest_Disk_Bus = caps.default_disk;
+		Guest_Video_Card = caps.default_video;
+		Guest_Use_VirtIO_Extras = caps.prefer_virtio && caps.allow_virtio_extras;
+		Guest_Use_GPU_Passthrough = false;
+		Guest_GPU_PCI.clear();
+		if( ! caps.allow_virtio_net &&
+		    Guest_NIC_Model.contains( QLatin1String( "virtio" ), Qt::CaseInsensitive ) )
+		{
+			Guest_NIC_Model = caps.default_nic.isEmpty()
+				? QStringLiteral( "e1000" )
+				: caps.default_nic;
+		}
+		if( ! caps.allow_virtio_sound )
+			Apply_Sound_Preset( caps.default_sound );
+		if( Guest_Compat_Tip.isEmpty() )
+			Guest_Compat_Tip = caps.summary;
+	}
 	Update_Guest_Compat_Tip();
 }
 
 void VM_Wizard_Window::Update_Architecture_Page_Chrome()
 {
 	const bool three_path_generate = Three_Path_Active && ui.RB_Generate_VM->isChecked();
+	const bool show_machine = ui.RB_Generate_VM->isChecked();
 
 	// Hide unused legacy template row when Guest OS / Platform / Arch already chose the guest
 	ui.RB_VM_Template->setVisible( ! three_path_generate );
@@ -646,6 +997,16 @@ void VM_Wizard_Window::Update_Architecture_Page_Chrome()
 	else
 	{
 		ui.RB_Generate_VM->setText( tr( "&Generate VM (any QEMU arch)" ) );
+	}
+
+	if( Label_Wizard_Machine && CB_Wizard_Machine )
+	{
+		Label_Wizard_Machine->setVisible( show_machine );
+		CB_Wizard_Machine->setVisible( show_machine );
+		Label_Wizard_Machine->setEnabled( show_machine );
+		CB_Wizard_Machine->setEnabled( show_machine );
+		if( show_machine )
+			Refresh_Wizard_Machine_Combo();
 	}
 
 	if( ! Label_Arch_Summary )
@@ -674,6 +1035,111 @@ void VM_Wizard_Window::Update_Architecture_Page_Chrome()
 		.arg( Selected_Target )
 		.arg( machine ) );
 	Label_Arch_Summary->show();
+}
+
+void VM_Wizard_Window::Refresh_Wizard_Machine_Combo()
+{
+	if( ! CB_Wizard_Machine )
+		return;
+
+	const QString keep = Selected_Machine_Id.isEmpty()
+		? CB_Wizard_Machine->currentText().trimmed()
+		: Selected_Machine_Id;
+
+	CB_Wizard_Machine->blockSignals( true );
+	CB_Wizard_Machine->clear();
+
+	QSet<QString> seen;
+	auto add_machine = [&]( const QString &caption, const QString &id ) {
+		if( id.isEmpty() || seen.contains( id ) )
+			return;
+		seen.insert( id );
+		CB_Wizard_Machine->addItem( caption.isEmpty() ? id : caption, id );
+	};
+
+	if( Current_Devices )
+	{
+		for( int i = 0; i < Current_Devices->Machine_List.count(); ++i )
+		{
+			const Device_Map &m = Current_Devices->Machine_List[i];
+			add_machine( m.Caption.isEmpty() ? m.QEMU_Name : m.Caption, m.QEMU_Name );
+		}
+	}
+
+	Ensure_Machine_Catalog();
+	QJsonArray binaries = Machine_Catalog.value( "binaries" ).toArray();
+	for( int bi = 0; bi < binaries.size(); ++bi )
+	{
+		QJsonObject bo = binaries.at( bi ).toObject();
+		if( bo.value( "target" ).toString() != Selected_Target )
+			continue;
+		QJsonArray machines = bo.value( "machines" ).toArray();
+		for( int mi = 0; mi < machines.size(); ++mi )
+		{
+			QJsonObject m = machines.at( mi ).toObject();
+			if( m.value( "hidden" ).toBool() )
+				continue;
+			const QString id = m.value( "name" ).toString();
+			QString display = m.value( "display_name" ).toString();
+			if( display.isEmpty() )
+				display = id;
+			add_machine( display, id );
+		}
+		break;
+	}
+
+	if( CB_Wizard_Machine->count() == 0 )
+	{
+		const QStringList live = Probe_Live_Machines( Selected_Target );
+		for( const QString &mid : live )
+			add_machine( mid, mid );
+	}
+
+	if( ! keep.isEmpty() && ! seen.contains( keep ) )
+		add_machine( keep, keep );
+
+	int idx = CB_Wizard_Machine->findData( keep );
+	if( idx < 0 && ! keep.isEmpty() )
+		idx = CB_Wizard_Machine->findText( keep );
+	if( idx >= 0 )
+		CB_Wizard_Machine->setCurrentIndex( idx );
+	else if( ! keep.isEmpty() )
+		CB_Wizard_Machine->setEditText( keep );
+	else if( CB_Wizard_Machine->count() > 0 )
+		CB_Wizard_Machine->setCurrentIndex( 0 );
+
+	CB_Wizard_Machine->blockSignals( false );
+	Sync_Selected_Machine_From_Combo();
+}
+
+void VM_Wizard_Window::Sync_Selected_Machine_From_Combo()
+{
+	if( ! CB_Wizard_Machine )
+		return;
+	QString mid = CB_Wizard_Machine->currentData().toString();
+	if( mid.isEmpty() )
+		mid = CB_Wizard_Machine->currentText().trimmed();
+	// Prefer UserRole id when combo item has "Caption (id)" style text
+	if( CB_Wizard_Machine->currentIndex() >= 0 )
+	{
+		const QVariant d = CB_Wizard_Machine->itemData( CB_Wizard_Machine->currentIndex() );
+		if( d.isValid() && ! d.toString().isEmpty() )
+			mid = d.toString();
+	}
+	if( mid.isEmpty() )
+		return;
+	Selected_Machine_Id = mid;
+	if( New_VM )
+		New_VM->Set_Machine_Type( mid );
+	if( Label_Arch_Summary && Label_Arch_Summary->isVisible() && Three_Path_Active )
+	{
+		QString guest = Selected_OS_Name;
+		if( guest.isEmpty() ) guest = Selected_Platform_Name;
+		if( guest.isEmpty() ) guest = Selected_Arch_Name;
+		if( guest.isEmpty() ) guest = tr( "Custom" );
+		Label_Arch_Summary->setText( tr( "Guest: %1 → qemu-system-%2 + machine %3" )
+			.arg( guest ).arg( Selected_Target ).arg( Selected_Machine_Id ) );
+	}
 }
 
 void VM_Wizard_Window::Update_Guest_Compat_Tip()
@@ -723,19 +1189,24 @@ void VM_Wizard_Window::Update_Guest_Compat_Tip()
 
 void VM_Wizard_Window::Apply_Guest_Hardware_To_New_VM()
 {
-	if( ! Three_Path_Active )
-		return;
+	if( Three_Path_Active )
+	{
+		if( ! Selected_Machine_Id.isEmpty() )
+			New_VM->Set_Machine_Type( Selected_Machine_Id );
 
-	if( ! Selected_Machine_Id.isEmpty() )
-		New_VM->Set_Machine_Type( Selected_Machine_Id );
+		if( Guest_Sound.isEnabled() )
+			New_VM->Set_Audio_Cards( Guest_Sound );
 
-	if( Guest_Sound.isEnabled() )
+		if( Guest_Suggest_Win2K_Hack )
+			New_VM->Use_Win2K_Hack( true );
+	}
+	else if( Guest_Sound.isEnabled() )
+	{
 		New_VM->Set_Audio_Cards( Guest_Sound );
-
-	if( Guest_Suggest_Win2K_Hack )
-		New_VM->Use_Win2K_Hack( true );
+	}
 
 	// Pointer device defaults by guest class
+	if( Three_Path_Active )
 	{
 		const QString os = Selected_OS_Name;
 		const bool legacy_win =
@@ -1194,6 +1665,10 @@ void VM_Wizard_Window::Apply_Guest_Hardware_To_New_VM()
 				else
 					native.Set_Interface( want_virtio_disk ? VM::DI_Virtio : VM::DI_IDE );
 			}
+			native.Set_Interface( System_Info::Sanitize_Disk_Bus(
+				New_VM->Get_Computer_Type(),
+				New_VM->Get_Machine_Type(),
+				native.Get_Interface(), false ) );
 			if( ! native.Use_File_Path() || native.Get_File_Path().trimmed().isEmpty() )
 			{
 				native.Use_File_Path( true );
@@ -1224,6 +1699,55 @@ void VM_Wizard_Window::Apply_Guest_Hardware_To_New_VM()
 			cards[0].Set_Card_Model( Guest_NIC_Model );
 			New_VM->Set_Network_Cards( cards );
 		}
+	}
+
+	// Devices page / capability overrides (always win over class heuristics when set)
+	if( ! Guest_Video_Card.isEmpty() )
+		New_VM->Set_Video_Card( Guest_Video_Card );
+	else if( Current_Guest_Capabilities().guest_class == Guest_Capabilities::Classic_Mac )
+		New_VM->Set_Video_Card( QString() );
+
+	if( ! Guest_Disk_Bus.isEmpty() )
+	{
+		VM_HDD hda = New_VM->Get_HDA();
+		if( hda.Get_Enabled() )
+		{
+			VM_Native_Storage_Device native = hda.Get_Native_Device();
+			native.Use_Interface( true );
+			if( Guest_Disk_Bus == QLatin1String( "virtio" ) )
+				native.Set_Interface( VM::DI_Virtio );
+			else if( Guest_Disk_Bus == QLatin1String( "virtio-scsi" ) )
+				native.Set_Interface( VM::DI_Virtio_SCSI );
+			else if( Guest_Disk_Bus == QLatin1String( "scsi" ) )
+				native.Set_Interface( VM::DI_SCSI );
+			else if( Guest_Disk_Bus == QLatin1String( "sata" ) )
+				native.Set_Interface( VM::DI_AHCI );
+			else
+				native.Set_Interface( VM::DI_IDE );
+			if( ! native.Use_File_Path() || native.Get_File_Path().trimmed().isEmpty() )
+			{
+				native.Use_File_Path( true );
+				native.Set_File_Path( hda.Get_File_Name() );
+			}
+			hda.Set_Native_Device( native );
+			New_VM->Set_HDA( hda );
+		}
+	}
+
+	New_VM->Use_VirtIO_RNG( Guest_Use_VirtIO_Extras );
+	New_VM->Use_VirtIO_Balloon( Guest_Use_VirtIO_Extras );
+	New_VM->Use_VirtIO_Keyboard( Guest_Use_VirtIO_Extras );
+
+	if( Guest_Use_GPU_Passthrough )
+	{
+		New_VM->Use_GPU_Passthrough( true );
+		if( ! Guest_GPU_PCI.isEmpty() )
+			New_VM->Set_GPU_PCI_Address( Guest_GPU_PCI );
+		New_VM->Use_GPU_Passthrough_Multifunction( true );
+	}
+	else
+	{
+		New_VM->Use_GPU_Passthrough( false );
 	}
 }
 
@@ -1266,6 +1790,287 @@ void VM_Wizard_Window::Prefer_Accelerator_For_Target( const QString &target )
 	}
 	ui.RB_Emulator_KVM->setToolTip( tip );
 	ui.RB_Emulator_QEMU->setToolTip( tip );
+
+	const Guest_Capabilities caps = Current_Guest_Capabilities();
+	if( caps.force_tcg )
+	{
+		ui.RB_Emulator_QEMU->setChecked( true );
+		ui.RB_Emulator_KVM->setEnabled( false );
+		ui.RB_Emulator_KVM->setToolTip( caps.summary );
+	}
+	else
+	{
+		ui.RB_Emulator_KVM->setEnabled( caps.allow_kvm_whpx );
+	}
+}
+
+Guest_Capabilities VM_Wizard_Window::Current_Guest_Capabilities() const
+{
+	QStringList flags;
+	if( ! Selected_OS_Name.isEmpty() )
+	{
+		const QJsonObject profiles = Wizard_Trees.value( "os_profiles" ).toObject();
+		const QJsonObject profile = profiles.value( Selected_OS_Name ).toObject();
+		const QJsonArray fa = profile.value( "flags" ).toArray();
+		for( int i = 0; i < fa.size(); ++i )
+			flags << fa.at( i ).toString();
+	}
+	return AQ_Compute_Guest_Capabilities(
+		Selected_OS_Name, Selected_Target, Selected_Machine_Id, flags );
+}
+
+void VM_Wizard_Window::Build_Devices_Page()
+{
+	Devices_Page = new QWidget();
+	QVBoxLayout *lay = new QVBoxLayout( Devices_Page );
+
+	Label_Devices_Summary = new QLabel();
+	Label_Devices_Summary->setWordWrap( true );
+	Label_Devices_Summary->setStyleSheet( QStringLiteral( "color: #223; padding: 4px;" ) );
+	lay->addWidget( Label_Devices_Summary );
+
+	auto add_row = [&]( const QString &label, QComboBox **combo ) {
+		QHBoxLayout *row = new QHBoxLayout();
+		QLabel *l = new QLabel( label );
+		l->setMinimumWidth( 110 );
+		*combo = new QComboBox();
+		( *combo )->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Fixed );
+		row->addWidget( l );
+		row->addWidget( *combo, 1 );
+		lay->addLayout( row );
+	};
+
+	add_row( tr( "Disk bus:" ), &CB_Dev_Disk );
+	add_row( tr( "Network card:" ), &CB_Dev_NIC );
+	add_row( tr( "Sound:" ), &CB_Dev_Sound );
+	add_row( tr( "Display:" ), &CB_Dev_Video );
+
+	CH_Dev_VirtIO_Extras = new QCheckBox( tr(
+		"VirtIO extras (RNG, balloon, keyboard) — only when the guest has VirtIO drivers" ) );
+	lay->addWidget( CH_Dev_VirtIO_Extras );
+
+	CH_Dev_GPU_Passthrough = new QCheckBox( tr(
+		"GPU passthrough (NVIDIA / AMD) — advanced; requires KVM/IOMMU or host GPU assign" ) );
+	lay->addWidget( CH_Dev_GPU_Passthrough );
+
+	QHBoxLayout *gpuRow = new QHBoxLayout();
+	Label_Dev_GPU = new QLabel( tr( "Host GPU:" ) );
+	CB_Dev_GPU = new QComboBox();
+	CB_Dev_GPU->setEnabled( false );
+	gpuRow->addWidget( Label_Dev_GPU );
+	gpuRow->addWidget( CB_Dev_GPU, 1 );
+	lay->addLayout( gpuRow );
+
+	connect( CH_Dev_GPU_Passthrough, &QCheckBox::toggled, this, [this]( bool on ) {
+		if( CB_Dev_GPU ) CB_Dev_GPU->setEnabled( on );
+		if( Label_Dev_GPU ) Label_Dev_GPU->setEnabled( on );
+	} );
+
+	CH_Dev_Show_All = new QCheckBox( tr(
+		"Show all QEMU options (power user — may offer devices this guest cannot use)" ) );
+	lay->addWidget( CH_Dev_Show_All );
+	connect( CH_Dev_Show_All, &QCheckBox::toggled, this, [this]( bool ) {
+		Refresh_Devices_Page();
+	} );
+
+	lay->addStretch( 1 );
+	ui.Wizard_Pages->addWidget( Devices_Page );
+}
+
+void VM_Wizard_Window::Refresh_Devices_Page()
+{
+	if( ! Devices_Page || ! CB_Dev_Disk )
+		return;
+
+	const Guest_Capabilities caps = Current_Guest_Capabilities();
+	const bool show_all = CH_Dev_Show_All && CH_Dev_Show_All->isChecked();
+
+	if( Label_Devices_Summary )
+	{
+		QString text = caps.summary;
+		if( text.isEmpty() )
+			text = tr( "Pick devices that match this guest. Incompatible options are hidden unless you enable “Show all”." );
+		Label_Devices_Summary->setText( text );
+	}
+
+	auto fill_named = []( QComboBox *cb, const QList<Guest_Named_Option> &opts, const QString &prefer ) {
+		if( ! cb ) return;
+		cb->blockSignals( true );
+		cb->clear();
+		int prefer_ix = 0;
+		for( int i = 0; i < opts.size(); ++i )
+		{
+			cb->addItem( opts[i].caption, opts[i].id );
+			if( ! opts[i].tip.isEmpty() )
+				cb->setItemData( i, opts[i].tip, Qt::ToolTipRole );
+			if( opts[i].id == prefer )
+				prefer_ix = i;
+		}
+		if( cb->count() > 0 )
+			cb->setCurrentIndex( prefer_ix );
+		cb->blockSignals( false );
+	};
+
+	auto fill_disk = []( QComboBox *cb, const QList<Guest_Disk_Option> &opts, const QString &prefer ) {
+		if( ! cb ) return;
+		cb->blockSignals( true );
+		cb->clear();
+		int prefer_ix = 0;
+		for( int i = 0; i < opts.size(); ++i )
+		{
+			cb->addItem( opts[i].caption, opts[i].id );
+			if( opts[i].id == prefer )
+				prefer_ix = i;
+		}
+		if( cb->count() > 0 )
+			cb->setCurrentIndex( prefer_ix );
+		cb->blockSignals( false );
+	};
+
+	QString prefer_disk = Guest_Disk_Bus.isEmpty() ? caps.default_disk : Guest_Disk_Bus;
+	QString prefer_nic = Guest_NIC_Model.isEmpty() ? caps.default_nic : Guest_NIC_Model;
+	QString prefer_sound = caps.default_sound;
+	QString prefer_video = Guest_Video_Card.isEmpty() ? caps.default_video : Guest_Video_Card;
+
+	// Compatible lists (always)
+	QList<Guest_Disk_Option> disks = caps.disk_options;
+	QList<Guest_Named_Option> nics = caps.nic_options;
+	QList<Guest_Named_Option> sounds = caps.sound_options;
+	QList<Guest_Named_Option> videos = caps.video_options;
+
+	if( show_all )
+	{
+		// Append common QEMU PC devices without removing safe defaults
+		auto append_disk = [&]( const char *id, const char *cap ) {
+			for( int i = 0; i < disks.size(); ++i )
+				if( disks[i].id == QLatin1String( id ) ) return;
+			Guest_Disk_Option d; d.id = QString::fromUtf8( id ); d.caption = tr( cap ); disks << d;
+		};
+		auto append_named = [&]( QList<Guest_Named_Option> &list, const char *id, const char *cap ) {
+			for( int i = 0; i < list.size(); ++i )
+				if( list[i].id == QLatin1String( id ) ) return;
+			Guest_Named_Option o; o.id = QString::fromUtf8( id ); o.caption = tr( cap ); list << o;
+		};
+		append_disk( "ide", "IDE" );
+		append_disk( "virtio", "VirtIO disk" );
+		append_disk( "virtio-scsi", "VirtIO-SCSI" );
+		append_disk( "sata", "AHCI / SATA" );
+		append_disk( "scsi", "SCSI" );
+		append_named( nics, "virtio-net-pci", "VirtIO network" );
+		append_named( nics, "e1000", "Intel e1000" );
+		append_named( nics, "rtl8139", "RTL8139" );
+		append_named( nics, "ne2k_pci", "NE2000 PCI" );
+		append_named( nics, "pcnet", "PCNet" );
+		append_named( nics, "sungem", "SunGEM" );
+		append_named( sounds, "sb16", "Sound Blaster 16" );
+		append_named( sounds, "sb16_adlib_pcspk", "SB16 + AdLib + PC Speaker" );
+		append_named( sounds, "ac97", "AC97" );
+		append_named( sounds, "hda", "Intel HDA" );
+		append_named( sounds, "hda_virtio", "HDA + VirtIO" );
+		append_named( sounds, "virtio", "VirtIO sound" );
+		append_named( sounds, "none", "No sound" );
+		append_named( videos, "std", "Standard VGA" );
+		append_named( videos, "cirrus", "Cirrus VGA" );
+		append_named( videos, "virtio", "VirtIO-GPU" );
+		append_named( videos, "qxl", "QXL" );
+		append_named( videos, "VGA", "VGA" );
+		if( Current_Devices )
+		{
+			for( int i = 0; i < Current_Devices->Network_Card_List.count(); ++i )
+			{
+				const Device_Map &m = Current_Devices->Network_Card_List[i];
+				bool exists = false;
+				for( int j = 0; j < nics.size(); ++j )
+					if( nics[j].id == m.QEMU_Name ) { exists = true; break; }
+				if( ! exists )
+				{
+					Guest_Named_Option o;
+					o.id = m.QEMU_Name;
+					o.caption = m.Caption.isEmpty() ? m.QEMU_Name : m.Caption;
+					nics << o;
+				}
+			}
+			for( int i = 0; i < Current_Devices->Video_Card_List.count(); ++i )
+			{
+				const Device_Map &m = Current_Devices->Video_Card_List[i];
+				bool exists = false;
+				for( int j = 0; j < videos.size(); ++j )
+					if( videos[j].id == m.QEMU_Name ) { exists = true; break; }
+				if( ! exists )
+				{
+					Guest_Named_Option o;
+					o.id = m.QEMU_Name;
+					o.caption = m.Caption.isEmpty() ? m.QEMU_Name : m.Caption;
+					videos << o;
+				}
+			}
+		}
+	}
+
+	fill_disk( CB_Dev_Disk, disks, prefer_disk );
+	fill_named( CB_Dev_NIC, nics, prefer_nic );
+	fill_named( CB_Dev_Sound, sounds, prefer_sound );
+	fill_named( CB_Dev_Video, videos, prefer_video );
+
+	if( CH_Dev_VirtIO_Extras )
+	{
+		CH_Dev_VirtIO_Extras->setEnabled( caps.allow_virtio_extras || show_all );
+		CH_Dev_VirtIO_Extras->setChecked( Guest_Use_VirtIO_Extras ||
+			( caps.prefer_virtio && caps.allow_virtio_extras ) );
+		if( ! caps.allow_virtio_extras && ! show_all )
+			CH_Dev_VirtIO_Extras->setChecked( false );
+	}
+
+	if( CH_Dev_GPU_Passthrough )
+	{
+		const bool gpu_ok = caps.allow_gpu_passthrough || show_all;
+		CH_Dev_GPU_Passthrough->setEnabled( gpu_ok );
+		if( ! gpu_ok )
+			CH_Dev_GPU_Passthrough->setChecked( false );
+		else
+			CH_Dev_GPU_Passthrough->setChecked( Guest_Use_GPU_Passthrough );
+	}
+
+	if( CB_Dev_GPU )
+	{
+		CB_Dev_GPU->clear();
+		CB_Dev_GPU->addItem( tr( "(scan host GPUs…)" ), QString() );
+		const QList<Host_GPU> &gpus = System_Info::Get_Cached_Host_GPU_List();
+		for( int i = 0; i < gpus.size(); ++i )
+		{
+			const Host_GPU &g = gpus[i];
+			if( ! g.Is_Display )
+				continue;
+			const QString label = QString( "%1 — %2 (%3)" )
+				.arg( g.Vendor, g.Name, g.PCI_Address.isEmpty() ? tr( "addr n/a" ) : g.PCI_Address );
+			CB_Dev_GPU->addItem( label, g.PCI_Address );
+			if( ! Guest_GPU_PCI.isEmpty() && Guest_GPU_PCI == g.PCI_Address )
+				CB_Dev_GPU->setCurrentIndex( CB_Dev_GPU->count() - 1 );
+		}
+		if( gpus.isEmpty() )
+		{
+			CB_Dev_GPU->addItem( tr( "No GPUs listed yet — enable passthrough and finish; set BDF in VM settings" ),
+				QString() );
+		}
+		CB_Dev_GPU->setEnabled( CH_Dev_GPU_Passthrough && CH_Dev_GPU_Passthrough->isChecked() );
+	}
+}
+
+void VM_Wizard_Window::Apply_Devices_Page_To_State()
+{
+	if( ! CB_Dev_Disk )
+		return;
+
+	Guest_Disk_Bus = CB_Dev_Disk->currentData().toString();
+	Guest_NIC_Model = CB_Dev_NIC ? CB_Dev_NIC->currentData().toString() : Guest_NIC_Model;
+	Guest_Video_Card = CB_Dev_Video ? CB_Dev_Video->currentData().toString() : Guest_Video_Card;
+	if( CB_Dev_Sound )
+		Apply_Sound_Preset( CB_Dev_Sound->currentData().toString() );
+	Guest_Use_VirtIO_Extras = CH_Dev_VirtIO_Extras && CH_Dev_VirtIO_Extras->isChecked();
+	Guest_Use_GPU_Passthrough = CH_Dev_GPU_Passthrough && CH_Dev_GPU_Passthrough->isChecked();
+	Guest_GPU_PCI = ( CB_Dev_GPU && Guest_Use_GPU_Passthrough )
+		? CB_Dev_GPU->currentData().toString()
+		: QString();
 }
 
 void VM_Wizard_Window::Goto_Hardware_Flow()
@@ -1279,18 +2084,507 @@ void VM_Wizard_Window::Goto_Hardware_Flow()
 		ui.RB_Generate_VM->setChecked( true );
 		on_RB_Generate_VM_toggled( true );
 	}
+	ui.RB_Generate_VM->setChecked( true );
 	ui.RB_Typical->setChecked( true );
 	Use_Accelerator_Page = true;
 	Prefer_Accelerator_For_Target( Selected_Target );
 	Update_Guest_Compat_Tip();
 	Update_Architecture_Page_Chrome();
-	// Always land on Architecture page so user can override smart defaults
+
+	QString caption = tr( "Architecture" );
+	QString blurb = tr(
+		"Confirm QEMU system and machine. Computer Type is fully editable — any qemu-system-* you have configured:" );
+	if( Current_Method == Method_Platform )
+	{
+		caption = tr( "Confirm QEMU system" );
+		blurb = tr( "Platform “%1” mapped to this QEMU binary and machine. Change either if you need to:" )
+			.arg( Selected_Platform_Name.isEmpty() ? tr( "(selected)" ) : Selected_Platform_Name );
+	}
+	else if( Current_Method == Method_Architecture )
+	{
+		caption = tr( "Confirm QEMU system" );
+		blurb = tr( "Architecture “%1” with machine “%2”. You can switch to any other configured binary:" )
+			.arg( Selected_Arch_Name.isEmpty() ? Selected_Target : Selected_Arch_Name,
+			      Selected_Machine_Id.isEmpty() ? tr( "(default)" ) : Selected_Machine_Id );
+	}
+	else if( Current_Method == Method_Guest_OS )
+	{
+		blurb = tr(
+			"Confirm QEMU system and machine from the guest OS. Computer Type is fully editable:" );
+	}
+
+	ui.Label_Template->setText( blurb );
 	ui.Wizard_Pages->setCurrentWidget( ui.Template_Page );
-	ui.Label_Page->setText( tr("Architecture") );
-	ui.Label_Template->setText( tr(
-		"Confirm QEMU system and machine from the guest OS. Computer Type is fully editable:" ) );
+	ui.Label_Page->setText( caption );
 	ui.Button_Back->setEnabled( true );
 	ui.Button_Next->setEnabled( true );
+	Refresh_Wizard_Machine_Combo();
+}
+
+void VM_Wizard_Window::Enhance_Typical_HDD_Page()
+{
+	// Keep size widgets; rebuild the page so users can create or attach an image.
+	// Reparent keepers first so clearing the old layout does not destroy them.
+	ui.Label_Typical_HDD->setParent( nullptr );
+	ui.Label_HDD_Size->setParent( nullptr );
+	ui.SB_HDD_Size->setParent( nullptr );
+
+	if( QLayout *old = ui.Typical_HDD_Page->layout() )
+	{
+		QLayoutItem *it;
+		while( ( it = old->takeAt( 0 ) ) != nullptr )
+		{
+			// QLayout inherits QLayoutItem — deleting `it` frees nested layouts.
+			// Do NOT also delete it->layout() (double-free / crash on wizard open).
+			if( QWidget *w = it->widget() )
+				delete w;
+			delete it;
+		}
+		delete old;
+	}
+
+	QVBoxLayout *lay = new QVBoxLayout( ui.Typical_HDD_Page );
+	lay->setContentsMargins( 9, 9, 9, 9 );
+	lay->setSpacing( 8 );
+
+	ui.Label_Typical_HDD->setText( tr(
+		"Create a new hard disk image, or connect an existing one. "
+		"Size is used only when creating a new image." ) );
+	ui.Label_Typical_HDD->setWordWrap( true );
+	lay->addWidget( ui.Label_Typical_HDD );
+
+	RB_Typical_New_Disk = new QRadioButton( tr( "Create a new disk image" ), ui.Typical_HDD_Page );
+	RB_Typical_Existing_Disk = new QRadioButton( tr( "Use an existing disk image" ), ui.Typical_HDD_Page );
+	RB_Typical_New_Disk->setChecked( true );
+	lay->addWidget( RB_Typical_New_Disk );
+
+	Widget_Typical_Size_Row = new QWidget( ui.Typical_HDD_Page );
+	QHBoxLayout *sizeLay = new QHBoxLayout( Widget_Typical_Size_Row );
+	sizeLay->setContentsMargins( 20, 0, 0, 0 );
+	sizeLay->addWidget( ui.Label_HDD_Size );
+	sizeLay->addWidget( ui.SB_HDD_Size );
+	sizeLay->addStretch( 1 );
+	lay->addWidget( Widget_Typical_Size_Row );
+
+	lay->addWidget( RB_Typical_Existing_Disk );
+
+	QHBoxLayout *pathLay = new QHBoxLayout();
+	pathLay->setContentsMargins( 0, 0, 0, 0 );
+	pathLay->addWidget( new QLabel( tr( "Disk image:" ), ui.Typical_HDD_Page ) );
+	Edit_Typical_Disk_Path = new QLineEdit( ui.Typical_HDD_Page );
+	TB_Typical_Disk_Browse = new QToolButton( ui.Typical_HDD_Page );
+	TB_Typical_Disk_Browse->setText( QStringLiteral( "..." ) );
+	TB_Typical_Disk_Browse->setToolTip( tr( "Browse for disk image" ) );
+	pathLay->addWidget( Edit_Typical_Disk_Path, 1 );
+	pathLay->addWidget( TB_Typical_Disk_Browse );
+	QToolButton *tb_disk_pool = new QToolButton( ui.Typical_HDD_Page );
+	tb_disk_pool->setText( tr( "Pool" ) );
+	tb_disk_pool->setToolTip( tr( "Browse VM storage folder" ) );
+	pathLay->addWidget( tb_disk_pool );
+	lay->addLayout( pathLay );
+
+	lay->addWidget( new QLabel( tr( "Install media:" ), ui.Typical_HDD_Page ) );
+	RB_Install_Local = new QRadioButton( tr( "Local ISO / image file" ), ui.Typical_HDD_Page );
+	RB_Install_URL_ISO = new QRadioButton( tr( "Download ISO from URL" ), ui.Typical_HDD_Page );
+	RB_Install_Network_Kernel = new QRadioButton( tr( "Network install (kernel + initrd URLs)" ), ui.Typical_HDD_Page );
+	RB_Install_Local->setChecked( true );
+	lay->addWidget( RB_Install_Local );
+
+	Widget_Install_Local_Row = new QWidget( ui.Typical_HDD_Page );
+	QHBoxLayout *isoLay = new QHBoxLayout( Widget_Install_Local_Row );
+	isoLay->setContentsMargins( 20, 0, 0, 0 );
+	Edit_Install_ISO = new QLineEdit( Widget_Install_Local_Row );
+	Edit_Install_ISO->setPlaceholderText( tr( "Path to installer ISO — OS is guessed from volume ID / filename" ) );
+	TB_Install_ISO_Browse = new QToolButton( Widget_Install_Local_Row );
+	TB_Install_ISO_Browse->setText( QStringLiteral( "..." ) );
+	TB_Install_ISO_Storage = new QToolButton( Widget_Install_Local_Row );
+	TB_Install_ISO_Storage->setText( tr( "Pool" ) );
+	TB_Install_ISO_Storage->setToolTip( tr( "Browse VM storage folder for ISOs" ) );
+	isoLay->addWidget( Edit_Install_ISO, 1 );
+	isoLay->addWidget( TB_Install_ISO_Browse );
+	isoLay->addWidget( TB_Install_ISO_Storage );
+	lay->addWidget( Widget_Install_Local_Row );
+
+	lay->addWidget( RB_Install_URL_ISO );
+	Widget_Install_URL_Row = new QWidget( ui.Typical_HDD_Page );
+	QHBoxLayout *urlLay = new QHBoxLayout( Widget_Install_URL_Row );
+	urlLay->setContentsMargins( 20, 0, 0, 0 );
+	Edit_Install_ISO_URL = new QLineEdit( Widget_Install_URL_Row );
+	Edit_Install_ISO_URL->setPlaceholderText( tr( "https://…/install.iso" ) );
+	TB_Download_ISO_URL = new QToolButton( Widget_Install_URL_Row );
+	TB_Download_ISO_URL->setText( tr( "Download" ) );
+	TB_Download_ISO_URL->setToolTip( tr( "Download into your VM folder and use as CD-ROM" ) );
+	urlLay->addWidget( Edit_Install_ISO_URL, 1 );
+	urlLay->addWidget( TB_Download_ISO_URL );
+	lay->addWidget( Widget_Install_URL_Row );
+
+	lay->addWidget( RB_Install_Network_Kernel );
+	Widget_Install_Kernel_Row = new QWidget( ui.Typical_HDD_Page );
+	QVBoxLayout *kernLay = new QVBoxLayout( Widget_Install_Kernel_Row );
+	kernLay->setContentsMargins( 20, 0, 0, 0 );
+	kernLay->setSpacing( 4 );
+	QHBoxLayout *kurl = new QHBoxLayout();
+	Edit_Kernel_URL = new QLineEdit( Widget_Install_Kernel_Row );
+	Edit_Kernel_URL->setPlaceholderText( tr( "Kernel URL (vmlinuz / bzImage)" ) );
+	TB_Download_Kernel = new QToolButton( Widget_Install_Kernel_Row );
+	TB_Download_Kernel->setText( tr( "Get" ) );
+	kurl->addWidget( Edit_Kernel_URL, 1 );
+	kurl->addWidget( TB_Download_Kernel );
+	kernLay->addLayout( kurl );
+	QHBoxLayout *iurl = new QHBoxLayout();
+	Edit_Initrd_URL = new QLineEdit( Widget_Install_Kernel_Row );
+	Edit_Initrd_URL->setPlaceholderText( tr( "Initrd URL (optional)" ) );
+	TB_Download_Initrd = new QToolButton( Widget_Install_Kernel_Row );
+	TB_Download_Initrd->setText( tr( "Get" ) );
+	iurl->addWidget( Edit_Initrd_URL, 1 );
+	iurl->addWidget( TB_Download_Initrd );
+	kernLay->addLayout( iurl );
+	Edit_Kernel_Append = new QLineEdit( Widget_Install_Kernel_Row );
+	Edit_Kernel_Append->setPlaceholderText( tr( "Kernel cmdline (-append), e.g. inst.repo=http://…" ) );
+	kernLay->addWidget( Edit_Kernel_Append );
+	QHBoxLayout *kloc = new QHBoxLayout();
+	Edit_Kernel_Local = new QLineEdit( Widget_Install_Kernel_Row );
+	Edit_Kernel_Local->setPlaceholderText( tr( "Local kernel path (after download or browse)" ) );
+	Edit_Initrd_Local = new QLineEdit( Widget_Install_Kernel_Row );
+	Edit_Initrd_Local->setPlaceholderText( tr( "Local initrd path" ) );
+	kloc->addWidget( Edit_Kernel_Local, 1 );
+	kloc->addWidget( Edit_Initrd_Local, 1 );
+	kernLay->addLayout( kloc );
+	lay->addWidget( Widget_Install_Kernel_Row );
+
+	Label_Install_ISO_Guess = new QLabel( ui.Typical_HDD_Page );
+	Label_Install_ISO_Guess->setWordWrap( true );
+	Label_Install_ISO_Guess->setStyleSheet( QStringLiteral( "color: #335;" ) );
+	lay->addWidget( Label_Install_ISO_Guess );
+
+	QLabel *hint = new QLabel( tr(
+		"New images default to your VM folder. Change the path to store the disk elsewhere. "
+		"Attach an ISO, download one from a URL, or use kernel+initrd network install "
+		"(like virt-manager URL install)." ),
+		ui.Typical_HDD_Page );
+	hint->setWordWrap( true );
+	hint->setStyleSheet( QStringLiteral( "color: palette(mid);" ) );
+	lay->addWidget( hint );
+	lay->addStretch( 1 );
+
+	connect( RB_Typical_New_Disk, SIGNAL(toggled(bool)), this, SLOT(Typical_New_Disk_Toggled(bool)) );
+	connect( TB_Typical_Disk_Browse, SIGNAL(clicked()), this, SLOT(Typical_Disk_Browse_Clicked()) );
+	connect( tb_disk_pool, SIGNAL(clicked()), this, SLOT(Storage_Browser_For_Disk_Clicked()) );
+	connect( TB_Install_ISO_Browse, SIGNAL(clicked()), this, SLOT(Install_ISO_Browse_Clicked()) );
+	connect( TB_Install_ISO_Storage, SIGNAL(clicked()), this, SLOT(Storage_Browser_For_ISO_Clicked()) );
+	connect( Edit_Install_ISO, SIGNAL(editingFinished()), this, SLOT(Apply_Install_ISO_Guess()) );
+	connect( RB_Install_Local, SIGNAL(toggled(bool)), this, SLOT(Install_Source_Mode_Changed()) );
+	connect( RB_Install_URL_ISO, SIGNAL(toggled(bool)), this, SLOT(Install_Source_Mode_Changed()) );
+	connect( RB_Install_Network_Kernel, SIGNAL(toggled(bool)), this, SLOT(Install_Source_Mode_Changed()) );
+	connect( TB_Download_ISO_URL, SIGNAL(clicked()), this, SLOT(Download_Install_ISO_URL_Clicked()) );
+	connect( TB_Download_Kernel, SIGNAL(clicked()), this, SLOT(Download_Network_Kernel_Clicked()) );
+	connect( TB_Download_Initrd, SIGNAL(clicked()), this, SLOT(Download_Network_Initrd_Clicked()) );
+	Typical_New_Disk_Toggled( true );
+	Install_Source_Mode_Changed();
+}
+
+QString VM_Wizard_Window::Default_Typical_HDA_Path() const
+{
+	const QString vm_base = Get_FS_Compatible_VM_Name( ui.Edit_VM_Name->text() );
+	QString dir = Settings.value( "VM_Directory", "~" ).toString();
+	if( ! dir.isEmpty() && ! dir.endsWith( QLatin1Char( '/' ) ) && ! dir.endsWith( QLatin1Char( '\\' ) ) )
+		dir += QDir::separator();
+
+	QString fmt = Settings.value( "Default_HDD_Image_Format", "qcow2" ).toString().toLower();
+	QString ext = QStringLiteral( "img" );
+	if( fmt == QLatin1String( "qcow2" ) || fmt == QLatin1String( "qcow" ) )
+		ext = QStringLiteral( "qcow2" );
+	else if( fmt == QLatin1String( "vmdk" ) )
+		ext = QStringLiteral( "vmdk" );
+	else if( fmt == QLatin1String( "vhdx" ) || fmt == QLatin1String( "vpc" ) )
+		ext = QStringLiteral( "vhdx" );
+	else if( fmt == QLatin1String( "raw" ) )
+		ext = QStringLiteral( "img" );
+
+	return QDir::toNativeSeparators( dir + vm_base + QStringLiteral( "_HDA." ) + ext );
+}
+
+void VM_Wizard_Window::Refresh_Typical_HDD_Defaults()
+{
+	if( ! Edit_Typical_Disk_Path )
+		return;
+	if( RB_Typical_New_Disk && RB_Typical_New_Disk->isChecked() )
+		Edit_Typical_Disk_Path->setText( Default_Typical_HDA_Path() );
+}
+
+void VM_Wizard_Window::Typical_New_Disk_Toggled( bool on )
+{
+	if( Widget_Typical_Size_Row )
+		Widget_Typical_Size_Row->setEnabled( on );
+	if( ui.SB_HDD_Size )
+		ui.SB_HDD_Size->setEnabled( on );
+	if( ui.Label_HDD_Size )
+		ui.Label_HDD_Size->setEnabled( on );
+	if( on )
+		Refresh_Typical_HDD_Defaults();
+}
+
+void VM_Wizard_Window::Typical_Disk_Browse_Clicked()
+{
+	if( ! Edit_Typical_Disk_Path )
+		return;
+	const bool create_new = RB_Typical_New_Disk && RB_Typical_New_Disk->isChecked();
+	const QString start = Get_Last_Dir_Path( Edit_Typical_Disk_Path->text().isEmpty()
+		? Default_Typical_HDA_Path()
+		: Edit_Typical_Disk_Path->text() );
+	const QString filter = Disk_Image_File_Filter( false, false );
+
+	QString file;
+	if( create_new )
+	{
+		file = QFileDialog::getSaveFileName( this, tr( "Save new disk image as" ),
+			start.isEmpty() ? Default_Typical_HDA_Path() : Edit_Typical_Disk_Path->text(),
+			filter );
+	}
+	else
+	{
+		file = QFileDialog::getOpenFileName( this, tr( "Select existing disk image" ),
+			start, filter );
+	}
+	if( ! file.isEmpty() )
+		Edit_Typical_Disk_Path->setText( QDir::toNativeSeparators( file ) );
+}
+
+void VM_Wizard_Window::Install_ISO_Browse_Clicked()
+{
+	if( ! Edit_Install_ISO )
+		return;
+	const QString file = QFileDialog::getOpenFileName( this, tr( "Select install ISO" ),
+		Get_Last_Dir_Path( Edit_Install_ISO->text() ),
+		tr( "ISO Images (*.iso);;All Files (*)" ) );
+	if( ! file.isEmpty() )
+	{
+		Edit_Install_ISO->setText( QDir::toNativeSeparators( file ) );
+		Apply_Install_ISO_Guess();
+	}
+}
+
+void VM_Wizard_Window::Storage_Browser_For_ISO_Clicked()
+{
+	Storage_Browser_Window dlg( this );
+	dlg.Set_Filter_Mode( QStringLiteral( "iso" ) );
+	if( dlg.exec() == QDialog::Accepted && ! dlg.Selected_Path().isEmpty() && Edit_Install_ISO )
+	{
+		Edit_Install_ISO->setText( QDir::toNativeSeparators( dlg.Selected_Path() ) );
+		Apply_Install_ISO_Guess();
+	}
+}
+
+void VM_Wizard_Window::Storage_Browser_For_Disk_Clicked()
+{
+	Storage_Browser_Window dlg( this );
+	dlg.Set_Filter_Mode( QStringLiteral( "disk" ) );
+	if( dlg.exec() == QDialog::Accepted && ! dlg.Selected_Path().isEmpty() && Edit_Typical_Disk_Path )
+	{
+		if( RB_Typical_Existing_Disk )
+			RB_Typical_Existing_Disk->setChecked( true );
+		Edit_Typical_Disk_Path->setText( QDir::toNativeSeparators( dlg.Selected_Path() ) );
+	}
+}
+
+void VM_Wizard_Window::Apply_Install_ISO_Guess()
+{
+	if( ! Edit_Install_ISO )
+		return;
+	Guest_Install_ISO = Edit_Install_ISO->text().trimmed();
+	if( Guest_Install_ISO.isEmpty() )
+	{
+		if( Label_Install_ISO_Guess )
+			Label_Install_ISO_Guess->clear();
+		return;
+	}
+	const ISO_Guess_Result g = AQ_Guess_OS_From_Media( Guest_Install_ISO );
+	if( Label_Install_ISO_Guess )
+	{
+		if( g.os_name.isEmpty() )
+			Label_Install_ISO_Guess->setText( g.tip );
+		else
+		{
+			QString msg = tr( "Guessed OS: %1 (%2) — %3" )
+				.arg( g.os_name, g.confidence, g.tip );
+			if( ! g.volume_id.isEmpty() && g.tip.indexOf( g.volume_id ) < 0 )
+				msg += tr( " Volume ID: %1." ).arg( g.volume_id );
+			Label_Install_ISO_Guess->setText( msg );
+		}
+	}
+	if( ! g.os_name.isEmpty() &&
+	    ( Selected_OS_Name.isEmpty() || Selected_OS_Name == g.os_name ) )
+	{
+		Selected_OS_Name = g.os_name;
+		const Creation_Method prev = Current_Method;
+		Current_Method = Method_Guest_OS;
+		Apply_OS_Defaults( g.os_name );
+		Current_Method = prev;
+		if( ui.Edit_VM_Name->text().isEmpty() || ui.Edit_VM_Name->text().startsWith( "Virtual Machine" ) )
+			ui.Edit_VM_Name->setText( g.os_name );
+	}
+}
+
+void VM_Wizard_Window::Install_Source_Mode_Changed()
+{
+	const bool local = RB_Install_Local && RB_Install_Local->isChecked();
+	const bool url = RB_Install_URL_ISO && RB_Install_URL_ISO->isChecked();
+	const bool kern = RB_Install_Network_Kernel && RB_Install_Network_Kernel->isChecked();
+	if( Widget_Install_Local_Row )
+		Widget_Install_Local_Row->setEnabled( local );
+	if( Widget_Install_URL_Row )
+		Widget_Install_URL_Row->setEnabled( url );
+	if( Widget_Install_Kernel_Row )
+		Widget_Install_Kernel_Row->setEnabled( kern );
+	if( ! local && Label_Install_ISO_Guess && ! kern )
+		Label_Install_ISO_Guess->clear();
+}
+
+static QString Wizard_Download_Dest( const QString &vm_name, const QString &url, const QString &fallback_name )
+{
+	QSettings s;
+	QString dir = s.value( "VM_Directory", "~" ).toString();
+	if( ! dir.isEmpty() && ! dir.endsWith( QLatin1Char( '/' ) ) && ! dir.endsWith( QLatin1Char( '\\' ) ) )
+		dir += QDir::separator();
+	QString leaf = QUrl( url.trimmed() ).fileName();
+	if( leaf.isEmpty() )
+		leaf = fallback_name;
+	leaf.replace( QRegExp( QStringLiteral( "[\\\\/:*?\"<>|]" ) ), QStringLiteral( "_" ) );
+	const QString prefix = Get_FS_Compatible_VM_Name( vm_name );
+	return QDir::toNativeSeparators( dir + prefix + QLatin1Char( '_' ) + leaf );
+}
+
+void VM_Wizard_Window::Download_Install_ISO_URL_Clicked()
+{
+	if( ! Edit_Install_ISO_URL )
+		return;
+	const QString url = Edit_Install_ISO_URL->text().trimmed();
+	if( url.isEmpty() )
+	{
+		QMessageBox::information( this, tr( "Download ISO" ),
+			tr( "Enter an HTTP(S) or FTP URL to an installer ISO." ) );
+		return;
+	}
+	const QString dest = Wizard_Download_Dest( ui.Edit_VM_Name->text(), url, QStringLiteral( "install.iso" ) );
+	const QString got = AQ_Download_URL_To_File( this, url, dest, tr( "Downloading install ISO…" ) );
+	if( got.isEmpty() )
+		return;
+	if( Edit_Install_ISO )
+		Edit_Install_ISO->setText( got );
+	Guest_Install_ISO = got;
+	if( RB_Install_Local )
+		RB_Install_Local->setChecked( true );
+	Apply_Install_ISO_Guess();
+}
+
+void VM_Wizard_Window::Download_Network_Kernel_Clicked()
+{
+	if( ! Edit_Kernel_URL )
+		return;
+	const QString url = Edit_Kernel_URL->text().trimmed();
+	if( url.isEmpty() )
+	{
+		QMessageBox::information( this, tr( "Download kernel" ),
+			tr( "Enter a URL to a kernel (vmlinuz / bzImage)." ) );
+		return;
+	}
+	const QString dest = Wizard_Download_Dest( ui.Edit_VM_Name->text(), url, QStringLiteral( "vmlinuz" ) );
+	const QString got = AQ_Download_URL_To_File( this, url, dest, tr( "Downloading kernel…" ) );
+	if( got.isEmpty() )
+		return;
+	if( Edit_Kernel_Local )
+		Edit_Kernel_Local->setText( got );
+	Guest_Kernel_Path = got;
+}
+
+void VM_Wizard_Window::Download_Network_Initrd_Clicked()
+{
+	if( ! Edit_Initrd_URL )
+		return;
+	const QString url = Edit_Initrd_URL->text().trimmed();
+	if( url.isEmpty() )
+	{
+		QMessageBox::information( this, tr( "Download initrd" ),
+			tr( "Enter a URL to an initrd/initramfs (optional)." ) );
+		return;
+	}
+	const QString dest = Wizard_Download_Dest( ui.Edit_VM_Name->text(), url, QStringLiteral( "initrd.img" ) );
+	const QString got = AQ_Download_URL_To_File( this, url, dest, tr( "Downloading initrd…" ) );
+	if( got.isEmpty() )
+		return;
+	if( Edit_Initrd_Local )
+		Edit_Initrd_Local->setText( got );
+	Guest_Initrd_Path = got;
+}
+
+bool VM_Wizard_Window::Validate_Typical_HDD_Page()
+{
+	if( ! Edit_Typical_Disk_Path )
+		return true;
+	const QString path = QDir::toNativeSeparators( Edit_Typical_Disk_Path->text().trimmed() );
+	Edit_Typical_Disk_Path->setText( path );
+
+	if( RB_Typical_Existing_Disk && RB_Typical_Existing_Disk->isChecked() )
+	{
+		if( path.isEmpty() )
+		{
+			AQGraphic_Warning( tr( "Hard Disk" ),
+				tr( "Please select an existing disk image, or choose \"Create a new disk image\"." ) );
+			return false;
+		}
+		if( ! QFileInfo( path ).exists() )
+		{
+			AQGraphic_Warning( tr( "Hard Disk" ),
+				tr( "The selected disk image does not exist:\n%1" ).arg( path ) );
+			return false;
+		}
+	}
+	else
+	{
+		if( path.isEmpty() )
+		{
+			AQGraphic_Warning( tr( "Hard Disk" ),
+				tr( "Please choose a location for the new disk image." ) );
+			return false;
+		}
+		const QFileInfo fi( path );
+		if( fi.exists() )
+		{
+			AQGraphic_Warning( tr( "Hard Disk" ),
+				tr( "A file already exists at that path. Choose a different location, "
+				    "or select \"Use an existing disk image\"." ) );
+			return false;
+		}
+		QDir parent = fi.dir();
+		if( ! parent.exists() )
+		{
+			AQGraphic_Warning( tr( "Hard Disk" ),
+				tr( "The folder for the new disk image does not exist:\n%1" ).arg( parent.path() ) );
+			return false;
+		}
+	}
+
+	if( RB_Install_URL_ISO && RB_Install_URL_ISO->isChecked() )
+	{
+		const QString local = Edit_Install_ISO ? Edit_Install_ISO->text().trimmed() : QString();
+		if( local.isEmpty() || ! QFile::exists( local ) )
+		{
+			AQGraphic_Warning( tr( "Install media" ),
+				tr( "Download the ISO from the URL first (Download button), or switch to a local file." ) );
+			return false;
+		}
+	}
+	if( RB_Install_Network_Kernel && RB_Install_Network_Kernel->isChecked() )
+	{
+		const QString kern = Edit_Kernel_Local ? Edit_Kernel_Local->text().trimmed() : QString();
+		if( kern.isEmpty() || ! QFile::exists( kern ) )
+		{
+			AQGraphic_Warning( tr( "Network install" ),
+				tr( "Download a kernel (Get), or enter an existing local kernel path." ) );
+			return false;
+		}
+	}
+	return true;
 }
 
 void VM_Wizard_Window::Build_Windows11_ARM_Page()
@@ -1584,7 +2878,7 @@ void VM_Wizard_Window::Intel_Mac_Disk_Browse_Clicked()
 {
 	QString file = QFileDialog::getOpenFileName( this, tr("Select system disk image"),
 		Get_Last_Dir_Path( Edit_Intel_Mac_Existing_Disk->text() ),
-		tr("Disk Images (*.qcow2 *.qcow *.img *.vhd *.vhdx *.raw);;All Files (*)") );
+		Disk_Image_File_Filter( false, false ) );
 	if( ! file.isEmpty() )
 		Edit_Intel_Mac_Existing_Disk->setText( QDir::toNativeSeparators( file ) );
 }
@@ -1650,7 +2944,7 @@ void VM_Wizard_Window::Win11_Existing_Disk_Browse_Clicked()
 {
 	QString file = QFileDialog::getOpenFileName( this, tr("Select existing disk image"),
 		Get_Last_Dir_Path( Edit_Win11_Existing_Disk->text() ),
-		tr("Disk Images (*.qcow2 *.qcow *.img *.vhd *.vhdx *.raw);;All Files (*)") );
+		Disk_Image_File_Filter( false, false ) );
 	if( ! file.isEmpty() )
 		Edit_Win11_Existing_Disk->setText( QDir::toNativeSeparators( file ) );
 }
@@ -1688,27 +2982,12 @@ void VM_Wizard_Window::on_Button_Back_clicked()
 	}
 	else if( OS_Tree_Page == ui.Wizard_Pages->currentWidget() )
 	{
-		if( Current_Method == Method_Platform || Current_Method == Method_Architecture )
-		{
-			if( Current_Method == Method_Architecture )
-			{
-				ui.Wizard_Pages->setCurrentWidget( Arch_Machines_Page );
-				ui.Label_Page->setText( tr("Select Machine") );
-			}
-			else
-			{
-				ui.Wizard_Pages->setCurrentWidget( Platform_Tree_Page );
-				ui.Label_Page->setText( tr("System / Machine Platform") );
-			}
-		}
-		else
-		{
-			ui.Wizard_Pages->setCurrentWidget( Creation_Method_Page );
-			ui.Label_Page->setText( tr("Creation Method") );
-			ui.Button_Back->setEnabled( false );
-			Three_Path_Active = false;
-			Current_Method = Method_None;
-		}
+		// Only Guest OS path uses this page as a primary step
+		ui.Wizard_Pages->setCurrentWidget( Creation_Method_Page );
+		ui.Label_Page->setText( tr("Creation Method") );
+		ui.Button_Back->setEnabled( false );
+		Three_Path_Active = false;
+		Current_Method = Method_None;
 	}
 	else if( Platform_Tree_Page == ui.Wizard_Pages->currentWidget() )
 	{
@@ -1745,15 +3024,15 @@ void VM_Wizard_Window::on_Button_Back_clicked()
 		{
 			if( Current_Method == Method_Architecture )
 			{
-				ui.Wizard_Pages->setCurrentWidget( OS_Tree_Page );
-				ui.Label_Page->setText( tr("Select Operating System") );
+				ui.Wizard_Pages->setCurrentWidget( Arch_Machines_Page );
+				ui.Label_Page->setText( tr("Select Machine") );
 			}
 			else if( Current_Method == Method_Platform )
 			{
-				ui.Wizard_Pages->setCurrentWidget( OS_Tree_Page );
-				ui.Label_Page->setText( tr("Select Operating System") );
+				ui.Wizard_Pages->setCurrentWidget( Platform_Tree_Page );
+				ui.Label_Page->setText( tr("System / Machine Platform") );
 			}
-			else
+			else // Method_Guest_OS
 			{
 				ui.Wizard_Pages->setCurrentWidget( OS_Tree_Page );
 				ui.Label_Page->setText( tr("Guest Operating System") );
@@ -1806,8 +3085,9 @@ void VM_Wizard_Window::on_Button_Back_clicked()
 	{
 		if( ui.RB_Typical->isChecked() )
 		{
+			Refresh_Typical_HDD_Defaults();
 			ui.Wizard_Pages->setCurrentWidget( ui.Typical_HDD_Page );
-			ui.Label_Page->setText( tr("Hard Disk Size") );
+			ui.Label_Page->setText( tr("Virtual Hard Disk") );
 		}
 		else
 		{
@@ -1819,8 +3099,9 @@ void VM_Wizard_Window::on_Button_Back_clicked()
 	{
 		if( ui.RB_Typical->isChecked() )
 		{
+			Refresh_Typical_HDD_Defaults();
 			ui.Wizard_Pages->setCurrentWidget( ui.Typical_HDD_Page );
-			ui.Label_Page->setText( tr("Hard Disk Size") );
+			ui.Label_Page->setText( tr("Virtual Hard Disk") );
 		}
 		else
 		{
@@ -1835,7 +3116,12 @@ void VM_Wizard_Window::on_Button_Back_clicked()
 	}
 	else if( ui.Network_Page == ui.Wizard_Pages->currentWidget() )
 	{
-		if( Is_Intel_MacOS_Template() )
+		if( Devices_Page )
+		{
+			ui.Wizard_Pages->setCurrentWidget( Devices_Page );
+			ui.Label_Page->setText( tr( "Devices" ) );
+		}
+		else if( Is_Intel_MacOS_Template() )
 		{
 			Show_Intel_MacOS_Page();
 		}
@@ -1846,8 +3132,32 @@ void VM_Wizard_Window::on_Button_Back_clicked()
 		}
 		else if( ui.RB_Typical->isChecked() ) // typical or custom mode
 		{
+			Refresh_Typical_HDD_Defaults();
 			ui.Wizard_Pages->setCurrentWidget( ui.Typical_HDD_Page );
-			ui.Label_Page->setText( tr("Hard Disk Size") );
+			ui.Label_Page->setText( tr("Virtual Hard Disk") );
+		}
+		else
+		{
+			ui.Wizard_Pages->setCurrentWidget( ui.Custom_HDD_Page );
+			ui.Label_Page->setText( tr("Virtual Hard Disk") );
+		}
+	}
+	else if( Devices_Page && Devices_Page == ui.Wizard_Pages->currentWidget() )
+	{
+		if( Is_Intel_MacOS_Template() )
+		{
+			Show_Intel_MacOS_Page();
+		}
+		else if( Is_Windows11_ARM_Template() )
+		{
+			ui.Wizard_Pages->setCurrentWidget( Win11_ARM_Page );
+			ui.Label_Page->setText( tr("Windows 11 ARM Install") );
+		}
+		else if( ui.RB_Typical->isChecked() )
+		{
+			Refresh_Typical_HDD_Defaults();
+			ui.Wizard_Pages->setCurrentWidget( ui.Typical_HDD_Page );
+			ui.Label_Page->setText( tr("Virtual Hard Disk") );
 		}
 		else
 		{
@@ -1893,12 +3203,30 @@ void VM_Wizard_Window::on_Button_Next_clicked()
 			ui.Wizard_Pages->setCurrentWidget( Arch_List_Page );
 			ui.Label_Page->setText( tr("CPU Architecture") );
 		}
+		else if( RB_Method_Import && RB_Method_Import->isChecked() )
+		{
+			Current_Method = Method_Custom;
+			Three_Path_Active = false;
+			ui.RB_Generate_VM->setChecked( true );
+			ui.RB_Typical->setChecked( true );
+			ui.Wizard_Pages->setCurrentWidget( ui.Wizard_Mode_Page );
+			ui.Label_Page->setText( tr( "Wizard Mode" ) );
+			ui.Label_Confiration_Mode->setText( tr(
+				"Import existing disk: use Typical mode, then choose “Use an existing disk image” "
+				"(and optional install ISO)." ) );
+			if( RB_Typical_Existing_Disk )
+				RB_Typical_Existing_Disk->setChecked( true );
+		}
 		else
 		{
 			Current_Method = Method_Custom;
 			Three_Path_Active = false;
+			ui.RB_Generate_VM->setChecked( true );
 			ui.Wizard_Pages->setCurrentWidget( ui.Wizard_Mode_Page );
 			ui.Label_Page->setText( tr("Wizard Mode") );
+			ui.Label_Confiration_Mode->setText( tr(
+				"Custom / Advanced: Typical uses a guided disk page; Custom opens full memory and HDD pages. "
+				"Next you pick any qemu-system-* binary and Machine Type." ) );
 		}
 		ui.Button_Back->setEnabled( true );
 		return;
@@ -1923,24 +3251,20 @@ void VM_Wizard_Window::on_Button_Next_clicked()
 	}
 	else if( Platform_Tree_Page == ui.Wizard_Pages->currentWidget() )
 	{
+		QTreeWidgetItem *plat_item = Tree_Platform ? Tree_Platform->currentItem() : nullptr;
 		QString plat = Selected_Tree_Leaf( Tree_Platform );
 		if( plat.isEmpty() )
 		{
 			AQGraphic_Warning( tr("Select Platform"), tr("Please select a machine platform (leaf item).") );
 			return;
 		}
-		if( plat == "Hundreds More..." )
+		if( plat_item && plat_item->data( 0, Qt::UserRole ).toString() == QLatin1String( "action:custom" ) )
 		{
-			AQGraphic_Warning( tr("More platforms"),
-				tr("Use \"CPU Architecture\" then expand \"All available machines…\", "
-				   "or place qemu_machine_catalog.json next to aqemu.exe.") );
-			return;
-		}
-		if( plat == "Import Existing QEMU Command Line" )
-		{
-			AQGraphic_Warning( tr("Not implemented"),
-				tr("Importing an existing QEMU command line is not available yet. "
-				   "Choose Custom / Advanced for manual setup.") );
+			Current_Method = Method_Custom;
+			Three_Path_Active = false;
+			ui.RB_Generate_VM->setChecked( true );
+			ui.Wizard_Pages->setCurrentWidget( ui.Wizard_Mode_Page );
+			ui.Label_Page->setText( tr("Wizard Mode") );
 			return;
 		}
 		if( ! Ensure_Emulator_Ready() )
@@ -1948,8 +3272,13 @@ void VM_Wizard_Window::on_Button_Next_clicked()
 		Apply_Platform_Binding( plat );
 		if( ! Apply_Selected_Computer_Type( Selected_Target ) )
 			return;
-		ui.Wizard_Pages->setCurrentWidget( OS_Tree_Page );
-		ui.Label_Page->setText( tr("Select Operating System") );
+		if( ! Selected_Machine_Id.isEmpty() )
+			New_VM->Set_Machine_Type( Selected_Machine_Id );
+		Guest_Compat_Tip = tr( "Platform “%1” → %2 / machine %3. Architecture stays fully editable." )
+			.arg( plat, Selected_Target, Selected_Machine_Id );
+		Update_Guest_Compat_Tip();
+		// Do NOT force Guest OS — platform path goes straight to hardware confirm
+		Goto_Hardware_Flow();
 		return;
 	}
 	else if( Arch_List_Page == ui.Wizard_Pages->currentWidget() )
@@ -1989,14 +3318,26 @@ void VM_Wizard_Window::on_Button_Next_clicked()
 			return;
 		if( ! Selected_Machine_Id.isEmpty() )
 			New_VM->Set_Machine_Type( Selected_Machine_Id );
-		ui.Wizard_Pages->setCurrentWidget( OS_Tree_Page );
-		ui.Label_Page->setText( tr("Select Operating System") );
+		Guest_Compat_Tip = tr( "Architecture “%1” → machine %2. You can switch binary/machine next." )
+			.arg( Selected_Arch_Name.isEmpty() ? Selected_Target : Selected_Arch_Name,
+			      Selected_Machine_Id );
+		Update_Guest_Compat_Tip();
+		// Do NOT force Guest OS — arch path goes straight to hardware confirm
+		Goto_Hardware_Flow();
 		return;
 	}
 	else if( ui.Wizard_Mode_Page == ui.Wizard_Pages->currentWidget() )
 	{
 		ui.Wizard_Pages->setCurrentWidget( ui.Template_Page );
-		ui.Label_Page->setText( tr("Template For VM") );
+		ui.Label_Page->setText( Current_Method == Method_Custom
+			? tr( "QEMU system & machine" )
+			: tr( "Template For VM" ) );
+		if( Current_Method == Method_Custom )
+		{
+			ui.Label_Template->setText( tr(
+				"Pick a hardware template, or Generate VM and choose any configured qemu-system-* "
+				"plus Machine Type. You can change both later in VM settings." ) );
+		}
 		on_RB_VM_Template_toggled( ui.RB_VM_Template->isChecked() );
 
         if( ! Ensure_Emulator_Ready() )
@@ -2042,6 +3383,8 @@ void VM_Wizard_Window::on_Button_Next_clicked()
             ui.CB_OS_Type->setCurrentIndex( 1 );
         }
 
+		Update_Architecture_Page_Chrome();
+		Refresh_Wizard_Machine_Combo();
         ui.Button_Next->setEnabled( true );
 		ui.Button_Back->setEnabled( true );
 	}
@@ -2054,6 +3397,7 @@ void VM_Wizard_Window::on_Button_Next_clicked()
 	else if( ui.Template_Page == ui.Wizard_Pages->currentWidget() )
 	{
         Use_Accelerator_Page = true;
+		Sync_Selected_Machine_From_Combo();
 
 		// Sync Selected_Target from Architecture combo (user may have overridden OS default)
 		if( ui.RB_Generate_VM->isChecked() )
@@ -2071,6 +3415,7 @@ void VM_Wizard_Window::on_Button_Next_clicked()
 					break;
 				}
 			}
+			Sync_Selected_Machine_From_Combo();
 		}
 
         // Prefer KVM/WHPX when guest matches host arch; otherwise TCG
@@ -2110,8 +3455,9 @@ void VM_Wizard_Window::on_Button_Next_clicked()
 
 		if( ui.RB_Typical->isChecked() )
 		{
+			Refresh_Typical_HDD_Defaults();
 			ui.Wizard_Pages->setCurrentWidget( ui.Typical_HDD_Page );
-			ui.Label_Page->setText( tr("Hard Disk Size") );
+			ui.Label_Page->setText( tr("Virtual Hard Disk") );
 		}
 		else
 		{
@@ -2127,6 +3473,9 @@ void VM_Wizard_Window::on_Button_Next_clicked()
 	}
 	else if( ui.Typical_HDD_Page == ui.Wizard_Pages->currentWidget() )
 	{
+		if( ! Validate_Typical_HDD_Page() )
+			return;
+
 		if( Is_Windows11_ARM_Template() )
 		{
 			// Refresh UEFI status label
@@ -2165,8 +3514,9 @@ void VM_Wizard_Window::on_Button_Next_clicked()
 		}
 		else
 		{
-			ui.Wizard_Pages->setCurrentWidget( ui.Network_Page );
-			ui.Label_Page->setText( tr("Network") );
+			Refresh_Devices_Page();
+			ui.Wizard_Pages->setCurrentWidget( Devices_Page );
+			ui.Label_Page->setText( tr( "Devices" ) );
 		}
 	}
 	else if( Win11_ARM_Page == ui.Wizard_Pages->currentWidget() )
@@ -2183,8 +3533,9 @@ void VM_Wizard_Window::on_Button_Next_clicked()
 				tr("Please select an existing disk image, or choose \"Create a new disk image\".") );
 			return;
 		}
-		ui.Wizard_Pages->setCurrentWidget( ui.Network_Page );
-		ui.Label_Page->setText( tr("Network") );
+		Refresh_Devices_Page();
+		ui.Wizard_Pages->setCurrentWidget( Devices_Page );
+		ui.Label_Page->setText( tr( "Devices" ) );
 	}
 	else if( Intel_MacOS_Page == ui.Wizard_Pages->currentWidget() )
 	{
@@ -2239,8 +3590,9 @@ void VM_Wizard_Window::on_Button_Next_clicked()
 				tr( "Recovery / installer file does not exist:\n%1" ).arg( recovery ) );
 			return;
 		}
-		ui.Wizard_Pages->setCurrentWidget( ui.Network_Page );
-		ui.Label_Page->setText( tr("Network") );
+		Refresh_Devices_Page();
+		ui.Wizard_Pages->setCurrentWidget( Devices_Page );
+		ui.Label_Page->setText( tr( "Devices" ) );
 	}
 	else if( ui.Custom_HDD_Page == ui.Wizard_Pages->currentWidget() )
 	{
@@ -2255,9 +3607,16 @@ void VM_Wizard_Window::on_Button_Next_clicked()
 		}
 		else
 		{
-			ui.Wizard_Pages->setCurrentWidget( ui.Network_Page );
-			ui.Label_Page->setText( tr("Network") );
+			Refresh_Devices_Page();
+			ui.Wizard_Pages->setCurrentWidget( Devices_Page );
+			ui.Label_Page->setText( tr( "Devices" ) );
 		}
+	}
+	else if( Devices_Page && Devices_Page == ui.Wizard_Pages->currentWidget() )
+	{
+		Apply_Devices_Page_To_State();
+		ui.Wizard_Pages->setCurrentWidget( ui.Network_Page );
+		ui.Label_Page->setText( tr( "Network" ) );
 	}
 	else if( ui.Network_Page == ui.Wizard_Pages->currentWidget() )
 	{
@@ -2508,6 +3867,12 @@ bool VM_Wizard_Window::Create_New_VM(bool simulate)
 
 	if( Three_Path_Active && ! Selected_Machine_Id.isEmpty() )
 		New_VM->Set_Machine_Type( Selected_Machine_Id );
+	else if( ui.RB_Generate_VM->isChecked() )
+	{
+		Sync_Selected_Machine_From_Combo();
+		if( ! Selected_Machine_Id.isEmpty() )
+			New_VM->Set_Machine_Type( Selected_Machine_Id );
+	}
 
 	// RAM
 	New_VM->Set_Memory_Size( ui.Memory_Size->value() );
@@ -2528,17 +3893,30 @@ bool VM_Wizard_Window::Create_New_VM(bool simulate)
 		{
 			New_VM->Set_HDA( VM_HDD(true, Edit_Intel_Mac_Existing_Disk->text()) );
 		}
+		else if( RB_Typical_Existing_Disk && RB_Typical_Existing_Disk->isChecked()
+		         && Edit_Typical_Disk_Path
+		         && ! Edit_Typical_Disk_Path->text().trimmed().isEmpty() )
+		{
+			New_VM->Set_HDA( VM_HDD( true,
+				QDir::toNativeSeparators( Edit_Typical_Disk_Path->text().trimmed() ) ) );
+		}
 		else
 		{
-			// Hard Disk
+			// Create new hard disk at chosen path (default: VM folder)
+			QString hda_file;
+			if( Edit_Typical_Disk_Path && ! Edit_Typical_Disk_Path->text().trimmed().isEmpty() )
+				hda_file = QDir::toNativeSeparators( Edit_Typical_Disk_Path->text().trimmed() );
+			else
+				hda_file = Default_Typical_HDA_Path();
+
 			VM::Device_Size hd_size;
 			hd_size.Size = ui.SB_HDD_Size->value();
 			hd_size.Suffix = VM::Size_Suf_Gb;
 
-			if ( ! simulate )
-				Create_New_HDD_Image( hd_path + "_HDA.img", hd_size );
+			if( ! simulate )
+				Create_New_HDD_Image( hda_file, hd_size );
 
-			New_VM->Set_HDA( VM_HDD(true, hd_path + "_HDA.img") );
+			New_VM->Set_HDA( VM_HDD( true, hda_file ) );
 		}
 
 		// Other HDD's
@@ -2613,25 +3991,69 @@ bool VM_Wizard_Window::Create_New_VM(bool simulate)
 	}
 	
 	// Network
-	if( ui.RB_User_Mode_Network->isChecked() )
-	{
-		if( New_VM->Get_Network_Cards_Count() == 0 )
-		{
-			New_VM->Set_Use_Network( true );
-			VM_Net_Card net_card;
-			net_card.Set_Net_Mode( VM::Net_Mode_Usermode );
-			
-			New_VM->Add_Network_Card( net_card );
-		}
-	}
-	else if( ui.RB_No_Network->isChecked() )
+	if( ui.RB_No_Network->isChecked() )
 	{
 		New_VM->Set_Use_Network( false );
-		
 		for( int rx = 0; rx < New_VM->Get_Network_Cards_Count(); ++rx )
-		{
 			New_VM->Delete_Network_Card( 0 );
+	}
+	else
+	{
+		New_VM->Set_Use_Network( true );
+		VM_Net_Card net_card;
+		if( ui.RB_Bridge_Network && ui.RB_Bridge_Network->isChecked() )
+			net_card.Set_Net_Mode( VM::Net_Mode_Tuntap ); // bridge-like; refine in Network tab
+		else if( ui.RB_Tap_Network && ui.RB_Tap_Network->isChecked() )
+			net_card.Set_Net_Mode( VM::Net_Mode_Tuntap );
+		else
+			net_card.Set_Net_Mode( VM::Net_Mode_Usermode );
+		if( ! Guest_NIC_Model.isEmpty() )
+			net_card.Set_Card_Model( Guest_NIC_Model );
+		if( New_VM->Get_Network_Cards_Count() == 0 )
+			New_VM->Add_Network_Card( net_card );
+		else
+		{
+			QList<VM_Net_Card> cards = New_VM->Get_Network_Cards();
+			cards[0].Set_Net_Mode( net_card.Get_Net_Mode() );
+			if( ! Guest_NIC_Model.isEmpty() )
+				cards[0].Set_Card_Model( Guest_NIC_Model );
+			New_VM->Set_Network_Cards( cards );
 		}
+	}
+
+	// Optional install ISO / URL / network kernel (virt-manager-style media)
+	if( Edit_Install_ISO )
+		Guest_Install_ISO = Edit_Install_ISO->text().trimmed();
+	if( Edit_Kernel_Local )
+		Guest_Kernel_Path = Edit_Kernel_Local->text().trimmed();
+	if( Edit_Initrd_Local )
+		Guest_Initrd_Path = Edit_Initrd_Local->text().trimmed();
+	if( Edit_Kernel_Append )
+		Guest_Kernel_Append = Edit_Kernel_Append->text().trimmed();
+
+	const bool use_network_kernel = RB_Install_Network_Kernel &&
+		RB_Install_Network_Kernel->isChecked() &&
+		! Guest_Kernel_Path.isEmpty() && QFile::exists( Guest_Kernel_Path );
+
+	if( use_network_kernel )
+	{
+		New_VM->Set_Use_Linux_Boot( true );
+		New_VM->Set_bzImage_Path( Guest_Kernel_Path );
+		New_VM->Set_Initrd_Path( Guest_Initrd_Path );
+		New_VM->Set_Kernel_ComLine( Guest_Kernel_Append );
+		QList<VM::Boot_Order> boot;
+		VM::Boot_Order bhd; bhd.Enabled = true; bhd.Type = VM::Boot_From_HDD;
+		boot << bhd;
+		New_VM->Set_Boot_Order_List( boot );
+	}
+	else if( ! Guest_Install_ISO.isEmpty() && QFile::exists( Guest_Install_ISO ) )
+	{
+		New_VM->Set_CD_ROM( VM_Storage_Device( true, Guest_Install_ISO ) );
+		QList<VM::Boot_Order> boot;
+		VM::Boot_Order bcd; bcd.Enabled = true; bcd.Type = VM::Boot_From_CDROM;
+		VM::Boot_Order bhd; bhd.Enabled = true; bhd.Type = VM::Boot_From_HDD;
+		boot << bcd << bhd;
+		New_VM->Set_Boot_Order_List( boot );
 	}
 	
 	// Set Emulator Name (version) to Default ("")
@@ -2648,6 +4070,8 @@ bool VM_Wizard_Window::Create_New_VM(bool simulate)
 		Apply_AArch64_Generic_Profile( simulate );
 	else if( Three_Path_Active )
 		Apply_Guest_Hardware_To_New_VM();
+	else
+		Apply_Guest_Hardware_To_New_VM(); // still apply device-page / NIC overrides
 
 	// Guests that opted into UEFI need a writable OVMF VARS file
 	if( ! simulate && New_VM->Use_UEFI() )
@@ -3147,6 +4571,13 @@ void VM_Wizard_Window::on_RB_Generate_VM_toggled( bool on )
 {
 	if( on )
 	{
+		if( Label_Wizard_Machine && CB_Wizard_Machine )
+		{
+			Label_Wizard_Machine->setVisible( true );
+			CB_Wizard_Machine->setVisible( true );
+			Label_Wizard_Machine->setEnabled( true );
+			CB_Wizard_Machine->setEnabled( true );
+		}
 		if( ui.CB_Computer_Type->count() > 0 )
 		{
 			int defaultIndex = ui.CB_Computer_Type->currentIndex();
@@ -3200,6 +4631,12 @@ void VM_Wizard_Window::on_RB_Generate_VM_toggled( bool on )
 			ui.Button_Next->setEnabled( false );
 		else
 			ui.Button_Next->setEnabled( true );
+		Refresh_Wizard_Machine_Combo();
+	}
+	else if( Label_Wizard_Machine && CB_Wizard_Machine )
+	{
+		Label_Wizard_Machine->setVisible( false );
+		CB_Wizard_Machine->setVisible( false );
 	}
 }
 
@@ -3221,7 +4658,7 @@ void VM_Wizard_Window::on_CB_Computer_Type_currentIndexChanged( int index )
 	{
 		ui.Button_Next->setEnabled( true );
 		// Keep Selected_Target in sync when user overrides Computer Type
-		if( Three_Path_Active && ui.RB_Generate_VM->isChecked() )
+		if( ui.RB_Generate_VM->isChecked() )
 		{
 			for( QMap<QString, Available_Devices>::const_iterator it = All_Systems.constBegin();
 			     it != All_Systems.constEnd(); ++it )
@@ -3231,9 +4668,12 @@ void VM_Wizard_Window::on_CB_Computer_Type_currentIndexChanged( int index )
 					QString qn = it.value().System.QEMU_Name;
 					Selected_Target = qn;
 					Selected_Target.remove( "qemu-system-" );
+					Current_Devices = &it.value();
+					New_VM->Set_Computer_Type( qn );
 					break;
 				}
 			}
+			Refresh_Wizard_Machine_Combo();
 		}
 		Update_Guest_Compat_Tip();
 	}

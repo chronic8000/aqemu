@@ -38,6 +38,7 @@
 #include <QListWidget>
 #include <QListWidgetItem>
 #include <QSet>
+#include <QThread>
 #include <QTimer>
 #include <QApplication>
 #include <QEventLoop>
@@ -81,6 +82,8 @@
 #include "Boot_Device_Window.h"
 #include "SMP_Settings_Window.h"
 #include "Settings_Widget.h"
+#include "Storage_Browser_Window.h"
+#include "Remote_Host_Window.h"
 #include "Utils.h"
 #include "Blockdev_Graph_Window.h"
 #include "Service.h"
@@ -93,6 +96,7 @@ QMap<QString, Available_Devices> System_Info::Emulator_QEMU_2_0;
 QList<VM_USB> System_Info::All_Host_USB;
 QList<VM_USB> System_Info::Used_Host_USB;
 QList<Host_GPU> System_Info::All_Host_GPU;
+bool System_Info::Host_GPU_Scanned = false;
 
 Main_Window::Main_Window( QWidget *parent )
 	: QMainWindow( parent )
@@ -102,6 +106,7 @@ Main_Window::Main_Window( QWidget *parent )
 	, Session_VM( nullptr )
 	, Session_Mode_Active( false )
 	, Session_User_Detached( false )
+	, GPU_Scan_Busy( false )
 	, Tray_Icon( nullptr )
 	, Act_Tray_Show( nullptr )
 	, Act_Tray_Quit( nullptr )
@@ -119,6 +124,33 @@ Main_Window::Main_Window( QWidget *parent )
 
     ui.setupUi( this );
 	ui_ao.setupUi( Advanced_Options );
+
+	// File → Storage browser (VM_Directory pool)
+	{
+		QAction *actPool = new QAction( QIcon( ":/open-folder.png" ),
+			tr( "Storage &Browser…" ), this );
+		actPool->setStatusTip( tr( "Browse disk images and ISOs in your VM folder" ) );
+		connect( actPool, &QAction::triggered, this, [this]() {
+			Storage_Browser_Window dlg( this );
+			dlg.exec();
+		} );
+		ui.menuFile->insertAction( ui.actionCreate_HDD_Image, actPool );
+		ui.menuFile->insertSeparator( ui.actionCreate_HDD_Image );
+	}
+	// File → Remote hosts (SSH tunnels / libvirt helper for Xen·LXC)
+	{
+		QAction *actRemote = new QAction( QIcon( ":/preferences-system-network.png" ),
+			tr( "&Remote Hosts…" ), this );
+		actRemote->setStatusTip( tr(
+			"SSH tunnels to remote QEMU, or open libvirt/Xen/LXC in virt-manager" ) );
+		connect( actRemote, &QAction::triggered, this, [this]() {
+			Remote_Host_Window dlg( this );
+			dlg.exec();
+		} );
+		ui.menuFile->insertAction( ui.actionCreate_HDD_Image, actRemote );
+	}
+	if( ui.actionCopy )
+		ui.actionCopy->setText( tr( "Clone &VM…" ) );
 
 	// Embedded session shell (guest view replaces idle UI)
 	Idle_Window_Title = windowTitle();
@@ -1040,17 +1072,19 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
 		tmp_vm->Set_Machine_Name( ui.Edit_Machine_Name->text() );
 	}
 
-	// Icon Path — keep existing icon unless list item has a real icon path stored
+	// Icon Path — never use display role 128 (may be a screenshot when Saved) (PR #1 / Qodo)
 	{
 		QString list_icon;
 		for( int ix = 0; ix < ui.Machines_List->count(); ix++ )
 		{
 			if( ui.Machines_List->item(ix)->data(256).toString() == old_vm->Get_UID() )
 			{
-				list_icon = ui.Machines_List->item(ix)->data(128).toString();
+				list_icon = ui.Machines_List->item(ix)->data(257).toString();
 				break;
 			}
 		}
+		if( list_icon.isEmpty() )
+			list_icon = old_vm->Get_Icon_Path();
 		if( ! list_icon.isEmpty() &&
 		    ( list_icon.startsWith( QLatin1String( ":/" ) ) || QFile::exists( list_icon ) ) )
 		{
@@ -1310,9 +1344,20 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
 				case 1: native.Set_Interface( VM::DI_Virtio_SCSI ); break;
 				case 2: native.Set_Interface( VM::DI_SCSI ); break;
 				case 3: native.Set_Interface( VM::DI_IDE ); break;
-				case 4: native.Set_Interface( VM::DI_SD ); break;
-				case 5: native.Set_Interface( VM::DI_NVMe ); break;
+				case 4: native.Set_Interface( VM::DI_AHCI ); break;
+				case 5: native.Set_Interface( VM::DI_SD ); break;
+				case 6: native.Set_Interface( VM::DI_NVMe ); break;
 				default: native.Set_Interface( VM::DI_Virtio ); break;
+			}
+			// Clamp to what this arch/machine supports
+			{
+				bool dok = false;
+				const Available_Devices ddev = Get_Current_Machine_Devices( &dok );
+				const QString computer = dok ? ddev.System.QEMU_Name : QString();
+				const QString machine = ui.CB_Machine_Type_Main->currentText();
+				if( ! computer.isEmpty() )
+					native.Set_Interface( System_Info::Sanitize_Disk_Bus(
+						computer, machine, native.Get_Interface(), false ) );
 			}
 			if( ! native.Use_File_Path() )
 			{
@@ -1469,11 +1514,23 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
 		if( ui.GB_Intel_Mac_GPU_Passthrough->isVisible() )
 		{
 			const bool can_pass = ui.CH_Intel_Mac_GPU_Passthrough->isEnabled();
-			tmp_vm->Use_GPU_Passthrough( can_pass && ui.CH_Intel_Mac_GPU_Passthrough->isChecked() );
-			tmp_vm->Set_GPU_PCI_Address( ui.CB_Intel_Mac_GPU->currentData().toString() );
-			tmp_vm->Set_GPU_Audio_PCI_Address( ui.Edit_Intel_Mac_GPU_Audio->text() );
-			tmp_vm->Set_GPU_ROM_File( ui.Edit_Intel_Mac_GPU_ROM->text() );
-			tmp_vm->Use_GPU_Passthrough_Multifunction( true );
+			if( can_pass )
+			{
+				tmp_vm->Use_GPU_Passthrough( ui.CH_Intel_Mac_GPU_Passthrough->isChecked() );
+				tmp_vm->Set_GPU_PCI_Address( ui.CB_Intel_Mac_GPU->currentData().toString() );
+				tmp_vm->Set_GPU_Audio_PCI_Address( ui.Edit_Intel_Mac_GPU_Audio->text() );
+				tmp_vm->Set_GPU_ROM_File( ui.Edit_Intel_Mac_GPU_ROM->text() );
+				tmp_vm->Use_GPU_Passthrough_Multifunction( true );
+			}
+			else
+			{
+				// Windows/WSL: controls disabled — preserve saved passthrough config (PR #2 / Qodo)
+				tmp_vm->Use_GPU_Passthrough( old_vm->Use_GPU_Passthrough() );
+				tmp_vm->Set_GPU_PCI_Address( old_vm->Get_GPU_PCI_Address() );
+				tmp_vm->Set_GPU_Audio_PCI_Address( old_vm->Get_GPU_Audio_PCI_Address() );
+				tmp_vm->Set_GPU_ROM_File( old_vm->Get_GPU_ROM_File() );
+				tmp_vm->Use_GPU_Passthrough_Multifunction( old_vm->Use_GPU_Passthrough_Multifunction() );
+			}
 		}
 		else
 		{
@@ -1760,6 +1817,7 @@ bool Main_Window::Load_Virtual_Machines()
 
 			QListWidgetItem *item = new QListWidgetItem( new_vm->Get_Machine_Name(), ui.Machines_List );
 			item->setData( 256, new_vm->Get_UID() );
+			item->setData( 257, new_vm->Get_Icon_Path() );
 
 			// Load OS Logo or OS Screenshot Icon
 			if( new_vm->Get_State() == VM::VMS_Saved &&
@@ -1767,13 +1825,20 @@ bool Main_Window::Load_Virtual_Machines()
 			{
 				// Screenshot File Not Found? Use OS Icon.
 				if( QFile::exists(new_vm->Get_Screenshot_Path()) )
+				{
 					item->setIcon( QIcon(new_vm->Get_Screenshot_Path()) );
+					item->setData( 128, new_vm->Get_Screenshot_Path() );
+				}
 				else
+				{
 					item->setIcon( QIcon(new_vm->Get_Icon_Path()) );
+					item->setData( 128, new_vm->Get_Icon_Path() );
+				}
 			}
 			else
 			{
 				item->setIcon( QIcon(new_vm->Get_Icon_Path()) );
+				item->setData( 128, new_vm->Get_Icon_Path() );
 			}
 
 			// Append new VM
@@ -1785,8 +1850,7 @@ bool Main_Window::Load_Virtual_Machines()
 	}
 
 	AQEMU_Startup_Log(
-		QByteArray( "VMs loaded: " ) +
-		QByteArray::number( VM_List.count() ) );
+		QStringLiteral( "VMs loaded: %1" ).arg( VM_List.count() ) );
 
 	// Set last used vm
 	int cur_row = Settings.value( "Current_VM_Index", 0 ).toInt();
@@ -2056,8 +2120,9 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 				case VM::DI_Virtio_SCSI: disk_idx = 1; break;
 				case VM::DI_SCSI: disk_idx = 2; break;
 				case VM::DI_IDE: disk_idx = 3; break;
-				case VM::DI_SD: disk_idx = 4; break;
-				case VM::DI_NVMe: disk_idx = 5; break;
+				case VM::DI_AHCI: disk_idx = 4; break;
+				case VM::DI_SD: disk_idx = 5; break;
+				case VM::DI_NVMe: disk_idx = 6; break;
 				default: disk_idx = 3; break;
 			}
 		}
@@ -2068,6 +2133,7 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 			disk_idx = 0; // virt machines have no IDE
 		}
 		ui.CB_Disk_Interface->setCurrentIndex( disk_idx );
+		Enforce_Disk_Bus_Honesty();
 	}
 
 	// RAM
@@ -2200,6 +2266,7 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 			{
 				ui.Machines_List->currentItem()->setIcon( QIcon( mac_icon ) );
 				ui.Machines_List->currentItem()->setData( 128, mac_icon );
+				ui.Machines_List->currentItem()->setData( 257, mac_icon );
 			}
 			tmp_vm->Save_VM();
 		}
@@ -3080,6 +3147,8 @@ void Main_Window::Show_State_Current( Virtual_Machine *vm)
 		ui.Machines_List->currentItem()->setIcon( QIcon(vm->Get_Icon_Path()) );
 		ui.Machines_List->currentItem()->setData( 128, vm->Get_Icon_Path() );
 	}
+	// Role 257 = persisted icon path (never the screenshot) (PR #1 / Qodo)
+	ui.Machines_List->currentItem()->setData( 257, vm->Get_Icon_Path() );
 
 	switch( vm->Get_State() )
 	{
@@ -4130,6 +4199,7 @@ void Main_Window::on_actionChange_Icon_triggered()
 		{
 			ui.Machines_List->currentItem()->setIcon( QIcon(icon_win.Get_New_Icon_Path()) );
 			ui.Machines_List->currentItem()->setData( 128, icon_win.Get_New_Icon_Path() );
+			ui.Machines_List->currentItem()->setData( 257, icon_win.Get_New_Icon_Path() );
 		}
 
 		Virtual_Machine *cur_vm = Get_Current_VM();
@@ -4299,6 +4369,7 @@ void Main_Window::on_actionShow_New_VM_Wizard_triggered()
 		item->setIcon( QIcon(vm->Get_Icon_Path()) );
 		item->setData( 256, vm->Get_UID() );
 		item->setData( 128, vm->Get_Icon_Path() );
+		item->setData( 257, vm->Get_Icon_Path() );
 
 		ui.Machines_List->setCurrentItem( item );
 
@@ -4461,6 +4532,7 @@ void Main_Window::on_actionShow_Advanced_Settings_Window_triggered()
 				ui.Machines_List->item(ix)->setIcon( QIcon(tmp_vm->Get_Icon_Path()) );
 				ui.Machines_List->item(ix)->setData( 128, tmp_vm->Get_Icon_Path() );
 			}
+			ui.Machines_List->item(ix)->setData( 257, tmp_vm->Get_Icon_Path() );
 		}
 
         // Adapted from old/merged Settings Window code, but this is/was a hack,
@@ -5335,6 +5407,7 @@ void Main_Window::Computer_Type_Changed()
 	Update_Win11_Lifecycle_Ui();
 	Update_Intel_MacOS_Settings_Ui();
 	Enforce_Accel_Honesty();
+	Enforce_Disk_Bus_Honesty();
 	Update_Disabled_Controls();
 }
 
@@ -5345,6 +5418,7 @@ void Main_Window::on_CB_Machine_Type_Main_currentIndexChanged( int index )
 	if( index < ui_arch.CB_Machine_Type->count() )
 		ui_arch.CB_Machine_Type->setCurrentIndex( index );
 	ui_arch.CB_Machine_Type->blockSignals(false);
+	Enforce_Disk_Bus_Honesty();
 	VM_Changed();
 }
 
@@ -5460,6 +5534,93 @@ void Main_Window::Enforce_Accel_Honesty()
 
 	ui.CB_Machine_Accelerator->blockSignals( false );
 	Update_Accelerator_Options();
+}
+
+int Main_Window::Disk_Interface_To_Combo_Index( VM::Device_Interface iface ) const
+{
+	switch( iface )
+	{
+		case VM::DI_Virtio: return 0;
+		case VM::DI_Virtio_SCSI: return 1;
+		case VM::DI_SCSI: return 2;
+		case VM::DI_IDE: return 3;
+		case VM::DI_AHCI: return 4;
+		case VM::DI_SD: return 5;
+		case VM::DI_NVMe: return 6;
+		default: return 3;
+	}
+}
+
+VM::Device_Interface Main_Window::Combo_Index_To_Disk_Interface( int index ) const
+{
+	switch( index )
+	{
+		case 0: return VM::DI_Virtio;
+		case 1: return VM::DI_Virtio_SCSI;
+		case 2: return VM::DI_SCSI;
+		case 3: return VM::DI_IDE;
+		case 4: return VM::DI_AHCI;
+		case 5: return VM::DI_SD;
+		case 6: return VM::DI_NVMe;
+		default: return VM::DI_IDE;
+	}
+}
+
+void Main_Window::Enforce_Disk_Bus_Honesty()
+{
+	bool ok = false;
+	const Available_Devices dev = Get_Current_Machine_Devices( &ok );
+	const QString computer = ok ? dev.System.QEMU_Name : QString();
+	const QString machine = ui.CB_Machine_Type_Main->currentText();
+
+	auto *model = qobject_cast<QStandardItemModel *>( ui.CB_Disk_Interface->model() );
+	ui.CB_Disk_Interface->blockSignals( true );
+
+	int first_enabled = -1;
+	for( int i = 0; i < ui.CB_Disk_Interface->count(); ++i )
+	{
+		const VM::Device_Interface iface = Combo_Index_To_Disk_Interface( i );
+		const bool allowed = computer.isEmpty()
+			? true
+			: System_Info::Is_Disk_Bus_Allowed( computer, machine, iface, false );
+
+		if( model )
+		{
+			QStandardItem *item = model->item( i );
+			if( item )
+			{
+				if( allowed )
+					item->setFlags( Qt::ItemIsEnabled | Qt::ItemIsSelectable );
+				else
+					item->setFlags( item->flags() & ~( Qt::ItemIsEnabled | Qt::ItemIsSelectable ) );
+			}
+		}
+		if( allowed && first_enabled < 0 )
+			first_enabled = i;
+	}
+
+	const int cur = ui.CB_Disk_Interface->currentIndex();
+	const VM::Device_Interface cur_iface = Combo_Index_To_Disk_Interface( cur );
+	if( ! computer.isEmpty() &&
+	    ! System_Info::Is_Disk_Bus_Allowed( computer, machine, cur_iface, false ) )
+	{
+		const VM::Device_Interface safe =
+			System_Info::Sanitize_Disk_Bus( computer, machine, cur_iface, false );
+		ui.CB_Disk_Interface->setCurrentIndex( Disk_Interface_To_Combo_Index( safe ) );
+	}
+	else if( cur < 0 && first_enabled >= 0 )
+		ui.CB_Disk_Interface->setCurrentIndex( first_enabled );
+
+	if( ! computer.isEmpty() )
+	{
+		ui.CB_Disk_Interface->setToolTip( tr(
+			"Drive interface for the primary hard disk. Options unsupported by "
+			"this guest architecture/machine are greyed out.\n"
+			"Computer: %1  Machine: %2" )
+			.arg( computer, machine.isEmpty() ? tr( "(default)" ) : machine ) );
+	}
+
+	ui.CB_Disk_Interface->blockSignals( false );
 }
 
 void Main_Window::Update_Accelerator_Options()
@@ -5990,11 +6151,40 @@ void Main_Window::Update_Intel_MacOS_Settings_Ui()
 
 void Main_Window::Update_Intel_Mac_GPU_Passthrough_Ui()
 {
-	System_Info::Update_Host_GPU();
-	const bool has_amd = System_Info::Has_AMD_Display_GPU();
-	ui.GB_Intel_Mac_GPU_Passthrough->setVisible( has_amd );
-	if( ! has_amd )
+	if( ! System_Info::Host_GPU_Was_Scanned() && ! GPU_Scan_Busy )
+	{
+		ui.Label_Intel_Mac_GPU_Status->setText( tr( "Scanning host GPUs…" ) );
+		Start_Host_GPU_Scan();
+	}
+	Apply_Intel_Mac_GPU_Passthrough_Ui_From_Cache();
+}
+
+void Main_Window::Start_Host_GPU_Scan()
+{
+	if( GPU_Scan_Busy )
 		return;
+	GPU_Scan_Busy = true;
+	QThread *th = QThread::create( []() {
+		System_Info::Update_Host_GPU();
+	} );
+	connect( th, &QThread::finished, this, [this, th]() {
+		GPU_Scan_Busy = false;
+		th->deleteLater();
+		Apply_Intel_Mac_GPU_Passthrough_Ui_From_Cache();
+	} );
+	th->start();
+}
+
+void Main_Window::Apply_Intel_Mac_GPU_Passthrough_Ui_From_Cache()
+{
+	const bool has_amd = System_Info::Has_AMD_Display_GPU();
+	ui.GB_Intel_Mac_GPU_Passthrough->setVisible( has_amd || ! System_Info::Host_GPU_Was_Scanned() );
+	if( ! has_amd )
+	{
+		if( System_Info::Host_GPU_Was_Scanned() )
+			ui.GB_Intel_Mac_GPU_Passthrough->setVisible( false );
+		return;
+	}
 
 	const bool can_pass = System_Info::Host_Supports_PCI_Passthrough() &&
 	                      ! ui.CH_Intel_Mac_WSL_Main->isChecked();
@@ -6009,7 +6199,7 @@ void Main_Window::Update_Intel_Mac_GPU_Passthrough_Ui()
 	const QString saved_bdf = ui.CB_Intel_Mac_GPU->currentData().toString();
 	ui.CB_Intel_Mac_GPU->blockSignals( true );
 	ui.CB_Intel_Mac_GPU->clear();
-	const QList<Host_GPU> &gpus = System_Info::Get_Host_GPU_List();
+	const QList<Host_GPU> &gpus = System_Info::Get_Cached_Host_GPU_List();
 	for( int i = 0; i < gpus.count(); ++i )
 	{
 		if( ! gpus[i].Is_Display || gpus[i].Vendor != QLatin1String( "AMD" ) )
@@ -6038,19 +6228,22 @@ void Main_Window::Update_Intel_Mac_GPU_Passthrough_Ui()
 		ui.Label_Intel_Mac_GPU_Status->setText( tr(
 			"AMD GPU detected. Metal passthrough needs QEMU on bare-metal Linux with VFIO — "
 			"WSLg can accelerate Linux apps but cannot PCIe-assign this GPU into the guest. "
-			"Software VMware SVGA remains the working default here." ) );
+			"Software VMware SVGA remains the working default here. "
+			"Saved passthrough settings are kept but cannot be changed here." ) );
 #else
 		ui.Label_Intel_Mac_GPU_Status->setText( tr(
 			"AMD GPU detected, but PCIe passthrough is not available in this environment "
-			"(WSL or no host PCI). Use bare-metal Linux for Metal." ) );
+			"(WSL or no host PCI). Use bare-metal Linux for Metal. "
+			"Saved passthrough settings are kept but cannot be changed here." ) );
 #endif
-		ui.CH_Intel_Mac_GPU_Passthrough->setChecked( false );
+		// Do not clear the checkbox — keep stored intent visible while disabled (PR #2 / Qodo)
 	}
 }
 
 void Main_Window::on_TB_Intel_Mac_GPU_Refresh_clicked()
 {
-	Update_Intel_Mac_GPU_Passthrough_Ui();
+	ui.Label_Intel_Mac_GPU_Status->setText( tr( "Scanning host GPUs…" ) );
+	Start_Host_GPU_Scan();
 	VM_Changed();
 }
 

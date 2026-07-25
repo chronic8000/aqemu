@@ -37,11 +37,13 @@
 #include <QFileDialog>
 #include <QTreeWidget>
 #include <QListWidget>
+#include <QComboBox>
 #include <QJsonObject>
 
 #include "VM.h"
 #include "ui_VM_Wizard_Window.h"
 #include "Create_HDD_Image_Window.h"
+#include "Guest_Capabilities.h"
 
 class VM_Wizard_Window: public QDialog
 {
@@ -90,6 +92,20 @@ class VM_Wizard_Window: public QDialog
 		void Intel_Mac_Disk_Browse_Clicked();
 		void Intel_Mac_Recovery_Browse_Clicked();
 		void Intel_Mac_New_Disk_Toggled( bool on );
+
+		void Typical_New_Disk_Toggled( bool on );
+		void Typical_Disk_Browse_Clicked();
+		void Refresh_Typical_HDD_Defaults();
+		bool Validate_Typical_HDD_Page();
+		QString Default_Typical_HDA_Path() const;
+		void Install_ISO_Browse_Clicked();
+		void Apply_Install_ISO_Guess();
+		void Storage_Browser_For_ISO_Clicked();
+		void Storage_Browser_For_Disk_Clicked();
+		void Install_Source_Mode_Changed();
+		void Download_Install_ISO_URL_Clicked();
+		void Download_Network_Kernel_Clicked();
+		void Download_Network_Initrd_Clicked();
 		
 	private:
         void applyTemplate();
@@ -105,6 +121,12 @@ class VM_Wizard_Window: public QDialog
 		void Show_Intel_MacOS_Page();
 		void Probe_WSL_For_Intel_Mac_Page();
 		void Update_Finish_Page_Guidance();
+		void Enhance_Typical_HDD_Page();
+
+		void Build_Devices_Page();
+		void Refresh_Devices_Page();
+		void Apply_Devices_Page_To_State();
+		Guest_Capabilities Current_Guest_Capabilities() const;
 
 		// Three-path wizard
 		void Build_Three_Path_Pages();
@@ -156,6 +178,38 @@ class VM_Wizard_Window: public QDialog
 		QLabel *Label_Win11_UEFI_Status;
 		QLabel *Label_Win11_Finish_Help;
 
+		// Typical (quick) HDD page — create new vs use existing + path
+		QRadioButton *RB_Typical_New_Disk;
+		QRadioButton *RB_Typical_Existing_Disk;
+		QLineEdit *Edit_Typical_Disk_Path;
+		QToolButton *TB_Typical_Disk_Browse;
+		QWidget *Widget_Typical_Size_Row;
+		QLineEdit *Edit_Install_ISO;
+		QToolButton *TB_Install_ISO_Browse;
+		QToolButton *TB_Install_ISO_Storage;
+		QLabel *Label_Install_ISO_Guess;
+		QString Guest_Install_ISO;
+
+		// URL / network install (virt-manager-style)
+		QRadioButton *RB_Install_Local;
+		QRadioButton *RB_Install_URL_ISO;
+		QRadioButton *RB_Install_Network_Kernel;
+		QWidget *Widget_Install_Local_Row;
+		QWidget *Widget_Install_URL_Row;
+		QWidget *Widget_Install_Kernel_Row;
+		QLineEdit *Edit_Install_ISO_URL;
+		QToolButton *TB_Download_ISO_URL;
+		QLineEdit *Edit_Kernel_URL;
+		QLineEdit *Edit_Initrd_URL;
+		QLineEdit *Edit_Kernel_Append;
+		QLineEdit *Edit_Kernel_Local;
+		QLineEdit *Edit_Initrd_Local;
+		QToolButton *TB_Download_Kernel;
+		QToolButton *TB_Download_Initrd;
+		QString Guest_Kernel_Path;
+		QString Guest_Initrd_Path;
+		QString Guest_Kernel_Append;
+
 		// Intel macOS guided page (created in code)
 		QWidget *Intel_MacOS_Page;
 		QRadioButton *RB_Intel_Mac_New_Disk;
@@ -181,6 +235,7 @@ class VM_Wizard_Window: public QDialog
 		QRadioButton *RB_Method_Platform;
 		QRadioButton *RB_Method_Architecture;
 		QRadioButton *RB_Method_Custom;
+		QRadioButton *RB_Method_Import;
 		QTreeWidget *Tree_OS;
 		QTreeWidget *Tree_Platform;
 		QListWidget *List_Arch;
@@ -198,14 +253,45 @@ class VM_Wizard_Window: public QDialog
 		QString Guest_NIC_Model;
 		VM::Sound_Cards Guest_Sound;
 		QString Guest_Compat_Tip;
+		QString Guest_Disk_Bus;
+		QString Guest_Video_Card;
+		bool Guest_Use_VirtIO_Extras;
+		bool Guest_Use_GPU_Passthrough;
+		QString Guest_GPU_PCI;
+
 		QLabel *Label_Guest_Compat_Tip;
 		QLabel *Label_Arch_Summary;
 		bool Guest_Suggest_Win2K_Hack;
+
+		// Guest-aware devices page
+		QWidget *Devices_Page;
+		QLabel *Label_Devices_Summary;
+		QComboBox *CB_Dev_Disk;
+		QComboBox *CB_Dev_NIC;
+		QComboBox *CB_Dev_Sound;
+		QComboBox *CB_Dev_Video;
+		QCheckBox *CH_Dev_VirtIO_Extras;
+		QCheckBox *CH_Dev_GPU_Passthrough;
+		QComboBox *CB_Dev_GPU;
+		QCheckBox *CH_Dev_Show_All;
+		QLabel *Label_Dev_GPU;
 
 		void Apply_Sound_Preset( const QString &preset );
 		void Update_Architecture_Page_Chrome();
 		void Update_Guest_Compat_Tip();
 		void Apply_Guest_Hardware_To_New_VM();
+
+		void Ensure_Machine_Catalog();
+		void Append_Catalog_Machines( QTreeWidgetItem *parent, const QString &target );
+		QStringList Probe_Live_Machines( const QString &target );
+		QString Find_Emulator_Binary_For_Target( const QString &target ) const;
+		void Refresh_Wizard_Machine_Combo();
+		void Sync_Selected_Machine_From_Combo();
+
+		QLabel *Label_Wizard_Machine;
+		QComboBox *CB_Wizard_Machine;
+		QJsonObject Machine_Catalog;
+		bool Machine_Catalog_Loaded;
 };
 
 #endif

@@ -39,16 +39,24 @@ class Add_New_Device_Window: public QDialog
 		void Set_Device( const VM_Native_Storage_Device &dev );
 		
 		void Set_Emulator_Devices( const Available_Devices &devices );
+		void Set_Machine_Type( const QString &machine_type );
 		
 		void Set_Enabled( bool enabled );
 	
 	private slots:
 		void on_CB_Interface_currentIndexChanged( const QString &text );
+		void on_CB_Media_currentIndexChanged( int index );
 		void on_TB_File_Path_Browse_clicked();
 		void done(int);
 	
 	private:
+		void Enforce_Interface_Honesty();
+		VM::Device_Interface Interface_From_Combo_Index( int index ) const;
+		int Combo_Index_From_Interface( VM::Device_Interface iface ) const;
+
 		VM_Native_Storage_Device Device;
+		QString Target_Computer;
+		QString Target_Machine;
 		Ui::Add_New_Device_Window ui;
 };
 

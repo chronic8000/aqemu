@@ -1247,8 +1247,11 @@ p, li { white-space: pre-wrap; }
       <layout class="QGridLayout" name="gridLayout_8">
        <item row="0" column="0">
         <widget class="QLabel" name="Label_Network_Type">
+         <property name="wordWrap">
+          <bool>true</bool>
+         </property>
          <property name="text">
-          <string>Select network type to use on your new virtual machine.</string>
+          <string>Choose how this VM reaches the network (virt-manager-style). User Mode works everywhere; Bridge/TAP need host setup.</string>
          </property>
         </widget>
        </item>
@@ -1270,8 +1273,11 @@ p, li { white-space: pre-wrap; }
        </item>
        <item row="2" column="0">
         <widget class="QRadioButton" name="RB_User_Mode_Network">
+         <property name="toolTip">
+          <string>SLIRP / usernet — NAT outbound, no host privileges. Best default (like virt-manager “NAT”).</string>
+         </property>
          <property name="text">
-          <string>&amp;User Mode Network Connection (Uses the user mode network stack)</string>
+          <string>&amp;User Mode / NAT (works on Windows &amp; Linux — recommended)</string>
          </property>
          <property name="checked">
           <bool>true</bool>
@@ -1279,9 +1285,29 @@ p, li { white-space: pre-wrap; }
         </widget>
        </item>
        <item row="3" column="0">
+        <widget class="QRadioButton" name="RB_Bridge_Network">
+         <property name="toolTip">
+          <string>Attach to a host bridge (Linux: virbr0/br0). Appears on your LAN.</string>
+         </property>
+         <property name="text">
+          <string>&amp;Bridge (LAN — needs a host bridge interface)</string>
+         </property>
+        </widget>
+       </item>
+       <item row="4" column="0">
+        <widget class="QRadioButton" name="RB_Tap_Network">
+         <property name="toolTip">
+          <string>TAP device (Linux/macOS). Advanced; configure interface name after create if needed.</string>
+         </property>
+         <property name="text">
+          <string>&amp;TAP (host virtual interface — advanced)</string>
+         </property>
+        </widget>
+       </item>
+       <item row="5" column="0">
         <widget class="QRadioButton" name="RB_No_Network">
          <property name="text">
-          <string>No Ne&amp;twork (No net cards installed on VM)</string>
+          <string>No Ne&amp;twork (no NIC)</string>
          </property>
         </widget>
        </item>

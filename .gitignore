@@ -35,6 +35,13 @@ Desktop.ini
 # Release staging (uploaded to GitHub Releases, not the repo)
 dist/
 *.zip
+installer/payload/
+installer/msix_layout/
+installer/out/
+installer/certs/
+installer/wix/.wix/
+*.msix
+*.msixbundle
 
 # Bundled QEMU build outputs
 third_party/qemu-build/
