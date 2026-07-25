@@ -207,15 +207,18 @@ Main_Window::Main_Window( QWidget *parent )
 	ui_kvm.setupUi( Accelerator_Options );
 	ui_arch.setupUi( Architecture_Options );
 
-	// Combos were truncating long QEMU machine/video names
+	// Combos: keep the closed field compact; show full names in the popup.
+	// AdjustToContents + MinimumContentsLength(28) stole width from labels
+	// ("Mouse device:" → "Mouse devic").
 	auto fixComboElide = []( QComboBox *cb ) {
 		if( ! cb ) return;
-		cb->setSizeAdjustPolicy( QComboBox::AdjustToContents );
-		cb->setMinimumContentsLength( 28 );
+		cb->setSizeAdjustPolicy( QComboBox::AdjustToMinimumContentsLengthWithIcon );
+		cb->setMinimumContentsLength( 8 );
+		cb->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Fixed );
 		if( cb->view() )
 		{
 			cb->view()->setTextElideMode( Qt::ElideNone );
-			cb->view()->setMinimumWidth( 360 );
+			cb->view()->setMinimumWidth( 280 );
 		}
 	};
 	fixComboElide( ui.CB_Computer_Type );
@@ -602,46 +605,39 @@ void Main_Window::Polish_Settings_Tabs_Layout()
 	{
 		ui.Tabs->setDocumentMode( false );
 		ui.Tabs->setStyleSheet( QString() );
+		ui.Tabs->setTabPosition( QTabWidget::West );
 		// Rename VM → Machine so the West rail matches the section header language.
 		const int gen_ix = ui.Tabs->indexOf( ui.Tab_General );
 		if( gen_ix >= 0 )
 			ui.Tabs->setTabText( gen_ix, tr( "Machine" ) );
 
-		AQ_Install_West_TabBar( ui.Tabs );
+		// Stock West tab bar — custom AQ_West_TabBar + QSS collapsed the rail to
+		// zero width (stylesheet overrides tabSizeHint). Keep it native + visible.
 		if( QTabBar *bar = ui.Tabs->tabBar() )
 		{
-			const QFontMetrics fm( bar->font() );
-			const int pad_along = qMax( 4, fm.height() / 4 );
-			const int pad_thick = qMax( 2, fm.averageCharWidth() / 2 );
-			const int accent = qMax( 2, fm.averageCharWidth() / 3 );
-			bar->setStyleSheet( QStringLiteral(
-				"QTabBar::tab {"
-				"  font-weight: 500;"
-				"  padding: %1px %2px;"
-				"  margin: 1px 0;"
-				"  border: none;"
-				"  border-right: %3px solid transparent;"
-				"  color: palette(window-text);"
-				"  background: transparent;"
-				"}"
-				"QTabBar::tab:selected {"
-				"  color: palette(highlight);"
-				"  border-right: %3px solid palette(highlight);"
-				"  background: palette(base);"
-				"}"
-				"QTabBar::tab:hover:!selected {"
-				"  background: palette(alternate-base);"
-				"}"
-			).arg( pad_along ).arg( pad_thick ).arg( accent ) );
+			bar->setExpanding( false );
+			bar->setDrawBase( true );
+			bar->setStyleSheet( QString() );
+			QStyle *st = style();
+			const int icon = st ? st->pixelMetric( QStyle::PM_SmallIconSize, nullptr, this ) : 16;
+			bar->setIconSize( QSize( icon, icon ) );
+			// Ensure the rail has a readable thickness without QSS padding tricks.
+			const int thick = qMax( icon + 16, QFontMetrics( bar->font() ).height() + 14 );
+			bar->setMinimumWidth( thick );
+			bar->show();
 		}
+		ui.Tabs->show();
 	}
 
 	// Soft floor so the layout can shrink; Media chip strip no longer locks width.
 	setMinimumSize( 640, 480 );
 	if( ui.splitter )
-		ui.splitter->setChildrenCollapsible( true );
+	{
+		ui.splitter->setChildrenCollapsible( false );
+		ui.splitter->setHandleWidth( qMax( 4, AQ_Px( 4, this ) ) );
+	}
 	if( ui.Machines_List )
-		ui.Machines_List->setMinimumWidth( 140 );
+		ui.Machines_List->setMinimumWidth( 160 );
 
 	// Keep the Machine / Memory / Audio… section headers; tighten the page.
 	if( ui.label )
@@ -691,11 +687,11 @@ void Main_Window::Polish_Settings_Tabs_Layout()
 	}
 
 	// Cap readable column from font metrics so ultrawide doesn't leave desert gaps.
+	// Do NOT cap ui.widget — the two-column Machine form needs room for full labels.
 	const int content_cap = AQ_Content_Max_Width( this );
 	auto cap_w = [content_cap]( QWidget *w ) {
 		if( w ) w->setMaximumWidth( content_cap );
 	};
-	cap_w( ui.widget );
 	cap_w( ui.GB_Memory );
 	cap_w( ui.GB_Audio );
 	cap_w( ui.GB_Disk_Bus );
@@ -721,13 +717,22 @@ void Main_Window::Polish_Settings_Tabs_Layout()
 	{
 		ui.widget->layout()->setContentsMargins( AQ_Px( 8, this ), AQ_Px( 4, this ),
 			AQ_Px( 8, this ), AQ_Px( 4, this ) );
-		ui.widget->layout()->setSpacing( AQ_Px( 4, this ) );
+		ui.widget->layout()->setSpacing( AQ_Px( 6, this ) );
 		if( QGridLayout *gl = qobject_cast<QGridLayout*>( ui.widget->layout() ) )
 		{
 			gl->setColumnStretch( 0, 0 );
 			gl->setColumnStretch( 1, 1 );
 			gl->setColumnStretch( 2, 0 );
 			gl->setColumnStretch( 3, 0 );
+			gl->setHorizontalSpacing( AQ_Px( 10, this ) );
+		}
+		// Labels must keep their full text width (don't let combos crush them).
+		const auto labels = ui.widget->findChildren<QLabel *>();
+		for( QLabel *lab : labels )
+		{
+			if( ! lab ) continue;
+			lab->setSizePolicy( QSizePolicy::Minimum, QSizePolicy::Preferred );
+			lab->setMinimumWidth( lab->sizeHint().width() );
 		}
 	}
 
