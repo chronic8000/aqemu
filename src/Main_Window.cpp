@@ -583,62 +583,25 @@ Virtual_Machine *Main_Window::Get_Current_VM()
 
 void Main_Window::Polish_Settings_Tabs_Layout()
 {
-	// Scrollable pages with stacked sections; nested-tab pages get chrome only.
-	AQ_Make_Tab_Scrollable( ui.Tab_General, QStringLiteral( "VM_Tab_Inner" ) );
-	AQ_Make_Tab_Scrollable( ui.Tab_Display, QStringLiteral( "Display_Tab_Inner" ) );
-
-	AQ_Style_Card( ui.widget, 980 ); // Machine
-	AQ_Style_Card( ui.GB_Memory, 920 );
-	AQ_Style_Card( ui.GB_Audio, 920 );
-	AQ_Style_Card( ui.GB_Disk_Bus, 920 );
-	AQ_Style_Card( ui.GB_Win11_Lifecycle, 920 );
-	AQ_Style_Card( ui.GB_Intel_MacOS_Settings, 920 );
-	AQ_Style_Card( ui.GB_Options, 920 );
-	AQ_Style_Card( ui.Widget_Use_Network, 960 );
-
-	if( ui.Memory_Size )
+	// Do NOT wrap West-tab pages in QScrollArea — that blanks the pane on Qt 5.
+	// Keep polish light: margins, list spacing, and clear any tab stylesheet.
+	if( ui.Tabs )
 	{
-		ui.Memory_Size->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Fixed );
-		ui.Memory_Size->setMaximumHeight( 28 );
-		ui.Memory_Size->setMinimumHeight( 22 );
-	}
-	if( ui.CB_RAM_Size )
-		ui.CB_RAM_Size->setMinimumWidth( 110 );
-
-	if( ui.TB_Show_Advanced_Options_Window )
-	{
-		ui.TB_Show_Advanced_Options_Window->setSizePolicy(
-			QSizePolicy::Maximum, QSizePolicy::Fixed );
-		ui.TB_Show_Advanced_Options_Window->setMinimumWidth( 120 );
+		ui.Tabs->setDocumentMode( false );
+		ui.Tabs->setStyleSheet( QString() ); // never inherit pane rules
 	}
 
-	if( ui.GB_Options )
+	if( ui.Tab_General && ui.Tab_General->layout() )
 	{
-		if( QGridLayout *gl = qobject_cast<QGridLayout*>( ui.GB_Options->layout() ) )
-			gl->setColumnStretch( 3, 1 );
+		ui.Tab_General->layout()->setContentsMargins( 8, 8, 10, 8 );
+		ui.Tab_General->layout()->setSpacing( 4 );
+		AQ_Tighten_Layout_Spacers( ui.Tab_General->layout(), 6 );
 	}
-
-	if( ui.GB_Guest_Display_Mode )
-		ui.GB_Guest_Display_Mode->setMaximumWidth( 960 );
-
-	auto polish_nested_tabs = []( QTabWidget *tw ) {
-		if( ! tw ) return;
-		tw->setDocumentMode( true );
-		tw->setElideMode( Qt::ElideRight );
-		AQ_Cap_Content_Width( tw, 960 );
-		if( QWidget *parent = tw->parentWidget() )
-		{
-			if( QLayout *lay = parent->layout() )
-			{
-				lay->setContentsMargins( 8, 8, 8, 8 );
-				AQ_Tighten_Layout_Spacers( lay, 6 );
-			}
-		}
-	};
-	polish_nested_tabs( ui.TabWidget_Media );
-	polish_nested_tabs( ui.TabWidget_Display );
-	polish_nested_tabs( ui.Network_Cards_Tabs );
-
+	if( ui.Tab_Display && ui.Tab_Display->layout() )
+	{
+		ui.Tab_Display->layout()->setContentsMargins( 8, 8, 10, 8 );
+		ui.Tab_Display->layout()->setSpacing( 8 );
+	}
 	if( ui.Tab_Media && ui.Tab_Media->layout() )
 	{
 		ui.Tab_Media->layout()->setContentsMargins( 8, 8, 8, 8 );
@@ -666,17 +629,42 @@ void Main_Window::Polish_Settings_Tabs_Layout()
 		}
 	}
 
+	if( ui.Memory_Size )
+	{
+		ui.Memory_Size->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Fixed );
+		ui.Memory_Size->setMaximumHeight( 28 );
+		ui.Memory_Size->setMinimumHeight( 22 );
+	}
+	if( ui.CB_RAM_Size )
+		ui.CB_RAM_Size->setMinimumWidth( 110 );
+
+	if( ui.TB_Show_Advanced_Options_Window )
+	{
+		ui.TB_Show_Advanced_Options_Window->setSizePolicy(
+			QSizePolicy::Maximum, QSizePolicy::Fixed );
+		ui.TB_Show_Advanced_Options_Window->setMinimumWidth( 120 );
+	}
+
+	if( ui.GB_Options )
+	{
+		if( QGridLayout *gl = qobject_cast<QGridLayout*>( ui.GB_Options->layout() ) )
+			gl->setColumnStretch( 3, 1 );
+	}
+
+	auto polish_nested_tabs = []( QTabWidget *tw ) {
+		if( ! tw ) return;
+		tw->setDocumentMode( false );
+		tw->setElideMode( Qt::ElideRight );
+	};
+	polish_nested_tabs( ui.TabWidget_Media );
+	polish_nested_tabs( ui.TabWidget_Display );
+	polish_nested_tabs( ui.Network_Cards_Tabs );
+
 	if( ui.Machines_List )
 	{
 		ui.Machines_List->setSpacing( 2 );
 		ui.Machines_List->setUniformItemSizes( true );
 	}
-
-	// Keep West tab bar in classic mode — documentMode blanks the content pane on Qt 5.
-	if( ui.Tabs )
-		ui.Tabs->setDocumentMode( false );
-
-	AQ_Cap_Content_Width( this, 980 );
 }
 
 void Main_Window::Connect_Signals()
