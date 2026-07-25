@@ -52,6 +52,7 @@
 #include <QUrl>
 
 #include "Utils.h"
+#include "AQ_UI_Style.h"
 #include "WSL_Launch.h"
 #include "VM_Wizard_Window.h"
 #include "System_Info.h"
@@ -65,6 +66,7 @@ VM_Wizard_Window::VM_Wizard_Window( QWidget *parent )
 	: QDialog(parent)
 {
 	ui.setupUi( this );
+	AQ_Cap_Content_Width( this, 900 );
 	
 	New_VM = new Virtual_Machine();
 	Win11_ARM_Page = nullptr;

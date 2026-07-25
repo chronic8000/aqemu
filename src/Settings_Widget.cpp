@@ -29,6 +29,7 @@
 #include <QSplitter>
 
 #include "Settings_Widget.h"
+#include "AQ_UI_Style.h"
 #include "Utils.h"
 
 #include <iostream>
@@ -150,7 +151,11 @@ Settings_Widget::Settings_Widget(QTabWidget* tab_widget, QBoxLayout::Direction d
     {
         if ( erase_margins )
             stack->setContentsMargins(0,0,0,0);
+        list->setSpacing( 3 );
+        list->setUniformItemSizes( true );
     }
+
+    AQ_Cap_Content_Width( this, 980 );
 }
 
 void Settings_Widget::setCurrentIndex(int i)

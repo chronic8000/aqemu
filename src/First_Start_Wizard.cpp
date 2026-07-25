@@ -31,6 +31,7 @@
 #include <QVBoxLayout>
 
 #include "First_Start_Wizard.h"
+#include "AQ_UI_Style.h"
 #include "Utils.h"
 #include "System_Info.h"
 #include "Advanced_Settings_Window.h"
@@ -41,6 +42,7 @@ First_Start_Wizard::First_Start_Wizard( QWidget *parent )
 	: QDialog( parent )
 {
 	ui.setupUi( this );
+	AQ_Cap_Content_Width( this, 720 );
 
 	RB_FS_QEMU_Built_In = nullptr;
 	RB_FS_QEMU_Custom = nullptr;

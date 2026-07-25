@@ -51,6 +51,7 @@
 #include <iostream>
 
 #include "Utils.h"
+#include "AQ_UI_Style.h"
 #include "Main_Window.h"
 #include "First_Start_Wizard.h"
 
@@ -188,6 +189,7 @@ int AQEMU_Main::main(int argc, char *argv[])
 
     // Create QApplication
     application = new QApplication( argc, argv );
+    AQ_Apply_App_Style( application );
     AQEMU_Startup_Log( "QApplication ok" );
 
     QString AQEMU_FILE;

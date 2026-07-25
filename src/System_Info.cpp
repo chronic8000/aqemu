@@ -2690,6 +2690,11 @@ const QList<VM_USB> &System_Info::Get_Cached_Host_USB()
 	return All_Host_USB;
 }
 
+void System_Info::Set_Cached_Host_USB( const QList<VM_USB> &list )
+{
+	All_Host_USB = list;
+}
+
 const QList<VM_USB> &System_Info::Get_Used_USB_List()
 {
 	return Used_Host_USB;
@@ -2712,32 +2717,34 @@ bool System_Info::Delete_From_Used_USB_List( const VM_USB &device )
 
 #ifdef Q_OS_LINUX
 
+bool System_Info::Scan_Host_USB_Snapshot( QList<VM_USB> &out )
+{
+	out.clear();
+
+	if( QFile::exists("/sys/bus/usb") )
+	{
+		if( Scan_USB_Sys(out) )
+			return true;
+	}
+
+	if( QFile::exists("/proc/bus/usb/devices") )
+	{
+		if( Scan_USB_Proc(out) )
+			return true;
+	}
+
+	AQError( "bool System_Info::Scan_Host_USB_Snapshot()",
+			 "Cannot read USB information from /sys, /proc, /dev!" );
+	return false;
+}
+
 bool System_Info::Update_Host_USB()
 {
 	QList<VM_USB> list;
-	
-	if( QFile::exists("/sys/bus/usb") )
-	{
-		if( Scan_USB_Sys(list) )
-		{
-			All_Host_USB = list;
-			return true;
-		}
-	}
-	
-	if( QFile::exists("/proc/bus/usb/devices") )
-	{
-		if( Scan_USB_Proc(list) )
-		{
-			All_Host_USB = list;
-			return true;
-		}
-	}
-	
-	// Error...
-	AQError( "bool System_Info::Update_Host_USB()",
-			 "Cannot read USB information from /sys, /proc, /dev!" );
-	return false;
+	if( ! Scan_Host_USB_Snapshot( list ) )
+		return false;
+	All_Host_USB = list;
+	return true;
 }
 
 bool System_Info::Scan_USB_Sys( QList<VM_USB> &list )
@@ -3335,6 +3342,14 @@ QStringList System_Info::Get_Host_CDROM_List()
 	return tmp_list;
 }
 
+bool System_Info::Scan_Host_USB_Snapshot( QList<VM_USB> &out )
+{
+	out.clear();
+	AQError( "System_Info::Scan_Host_USB_Snapshot()",
+			 "Not implemented!" );
+	return false;
+}
+
 bool System_Info::Update_Host_USB()
 {
 	AQError( "System_Info::Update_Host_USB()",
@@ -3425,9 +3440,9 @@ QStringList System_Info::Get_Host_CDROM_List()
 	return ret_list;
 }
 
-bool System_Info::Update_Host_USB()
+bool System_Info::Scan_Host_USB_Snapshot( QList<VM_USB> &out )
 {
-	All_Host_USB.clear();
+	out.clear();
 
 	// Enumerate present USB PnP devices via PowerShell (SetupAPI-free, works on Win10+)
 	QProcess ps;
@@ -3443,7 +3458,8 @@ bool System_Info::Update_Host_USB()
 			"  if ($_.InstanceId -match 'VID_([0-9A-Fa-f]{4}).*PID_([0-9A-Fa-f]{4})') { "
 			"    $vid=$matches[1].ToLower(); $pid=$matches[2].ToLower(); "
 			"    $name=($_.FriendlyName -replace '[\\|\\r\\n]',' '); "
-			"    Write-Output ($vid + '|' + $pid + '|' + $name) "
+			"    $iid=($_.InstanceId -replace '[\\|\\r\\n]',' '); "
+			"    Write-Output ($vid + '|' + $pid + '|' + $name + '|' + $iid) "
 			"  } "
 			"}"
 		) );
@@ -3451,13 +3467,13 @@ bool System_Info::Update_Host_USB()
 	ps.start();
 	if( ! ps.waitForFinished( 15000 ) )
 	{
-		AQError( "System_Info::Update_Host_USB()", "PowerShell USB enumeration timed out" );
+		AQError( "System_Info::Scan_Host_USB_Snapshot()", "PowerShell USB enumeration timed out" );
 		return false;
 	}
 
-	const QString out = QString::fromLocal8Bit( ps.readAllStandardOutput() );
-	QSet<QString> seen;
-	const QStringList lines = out.split( QRegExp( "[\\r\\n]+" ), QString::SkipEmptyParts );
+	const QString ps_out = QString::fromLocal8Bit( ps.readAllStandardOutput() );
+	QSet<QString> seen_instance;
+	const QStringList lines = ps_out.split( QRegExp( "[\\r\\n]+" ), QString::SkipEmptyParts );
 	for( int i = 0; i < lines.count(); ++i )
 	{
 		const QStringList parts = lines[i].split( QLatin1Char( '|' ) );
@@ -3467,27 +3483,45 @@ bool System_Info::Update_Host_USB()
 		const QString pid = parts[1].trimmed().toLower();
 		if( vid.size() != 4 || pid.size() != 4 )
 			continue;
-		const QString key = vid + QLatin1Char( ':' ) + pid;
-		if( seen.contains( key ) )
+		const QString instance = parts.size() >= 4 ? parts[3].trimmed() : QString();
+		const QString dedupe = instance.isEmpty()
+			? ( vid + QLatin1Char( ':' ) + pid + QLatin1Char( '#' ) + QString::number( i ) )
+			: instance;
+		if( seen_instance.contains( dedupe ) )
 			continue;
-		seen.insert( key );
+		seen_instance.insert( dedupe );
 
 		VM_USB u;
 		u.Set_Use_Host_Device( true );
 		u.Set_Vendor_ID( vid );
 		u.Set_Product_ID( pid );
 		u.Set_Manufacturer_Name( QStringLiteral( "USB" ) );
-		u.Set_Product_Name( parts.size() >= 3 ? parts[2].trimmed() : key );
+		u.Set_Product_Name( parts.size() >= 3 ? parts[2].trimmed()
+			: ( vid + QLatin1Char( ':' ) + pid ) );
+		if( ! instance.isEmpty() )
+			u.Set_DevPath( instance );
 		u.Set_Speed( QStringLiteral( "480" ) );
-		All_Host_USB << u;
+		out << u;
 	}
 
-	if( All_Host_USB.isEmpty() )
+	if( out.isEmpty() )
 	{
-		AQDebug( "System_Info::Update_Host_USB()",
+		AQDebug( "System_Info::Scan_Host_USB_Snapshot()",
 			 "No USB PnP devices found (or PowerShell blocked)." );
 		return false;
 	}
+	return true;
+}
+
+bool System_Info::Update_Host_USB()
+{
+	QList<VM_USB> list;
+	if( ! Scan_Host_USB_Snapshot( list ) )
+	{
+		All_Host_USB.clear();
+		return false;
+	}
+	All_Host_USB = list;
 	return true;
 }
 

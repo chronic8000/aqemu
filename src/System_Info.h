@@ -83,6 +83,10 @@ class System_Info
 		static const QList<VM_USB> &Get_All_Host_USB();
 		/** Cached list only — never blocks on host enumeration. */
 		static const QList<VM_USB> &Get_Cached_Host_USB();
+		/** Replace the USB cache (call only from the UI thread). */
+		static void Set_Cached_Host_USB( const QList<VM_USB> &list );
+		/** Enumerate host USB into `out` without touching the shared cache (thread-safe for the cache). */
+		static bool Scan_Host_USB_Snapshot( QList<VM_USB> &out );
 		static const QList<VM_USB> &Get_Used_USB_List();
 		static bool Add_To_Used_USB_List( const VM_USB &device );
 		static bool Delete_From_Used_USB_List( const VM_USB &device );

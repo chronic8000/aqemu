@@ -20,6 +20,10 @@
 #include <QSet>
 #include <QMenu>
 #include <QToolButton>
+#include <QThread>
+#include <QPointer>
+#include <QVariantMap>
+#include <QRegularExpression>
 
 #include "VM_Devices.h"
 #include "Serial_Console_Window.h"
@@ -121,7 +125,9 @@ class VM_Session_Widget : public QWidget
 		void Rebuild_USB_Menu();
 		void Start_USB_Host_Scan();
 		void Send_Hmp_Command( const QString &cmd );
-		QString USB_Device_Id( const QString &vid_pid ) const;
+		QString USB_Instance_Key( const VM_USB &u, int index ) const;
+		QString USB_Qemu_Device_Id( const QString &instance_key ) const;
+		QString USB_Device_Add_Command( const VM_USB &u, const QString &qemu_id ) const;
 
 		Virtual_Machine *VM;
 		QMP_Client *QMP;
@@ -148,8 +154,9 @@ class VM_Session_Widget : public QWidget
 		QAction *Act_Eject_FD1;
 		QToolButton *TB_USB;
 		QMenu *Menu_USB;
-		QSet<QString> Connected_USB_Ids; // "vid:pid"
+		QHash<QString, QString> Connected_USB_Ids; // instance key -> qemu device id
 		bool USB_Enum_Busy;
+		QPointer<QThread> USB_Scan_Thread;
 		Serial_Console_Window *Serial_Win;
 
 		QLabel *Light_FD0;

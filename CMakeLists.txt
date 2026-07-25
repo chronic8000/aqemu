@@ -51,6 +51,7 @@ SET( CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/resources/cmake/modules )
 SET( aqemu_headers
     src/No_Boot_Device.h
     src/Highlighted_Label.h
+    src/AQ_UI_Style.h
     src/Service.h
     src/Run_Guard.h
     src/QEMU_Docopt.h
@@ -108,6 +109,7 @@ SET( aqemu_headers
 SET( aqemu_sources
     src/No_Boot_Device.cpp
     src/Highlighted_Label.cpp
+    src/AQ_UI_Style.cpp
     src/Service.cpp
     src/Run_Guard.cpp
     src/QEMU_Docopt.cpp

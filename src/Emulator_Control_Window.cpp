@@ -49,11 +49,13 @@
 #include "QMP_Client.h"
 #include "Migrate_Progress_Dialog.h"
 #include "Migrate_URI_Dialog.h"
+#include "AQ_UI_Style.h"
 
 Emulator_Control_Window::Emulator_Control_Window( QWidget *parent )
 	: QMainWindow( parent )
 {
 	ui.setupUi( this );
+	AQ_Cap_Content_Width( this, 900 );
 	
 	First_Start = true;
 	Fullscreen_Menu_Added = false;
