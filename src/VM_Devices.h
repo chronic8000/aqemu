@@ -265,6 +265,99 @@ class VM
             return bootStr;
         }
 
+		// Full FDA..Network4 list (matches Virtual_Machine defaults). Truncated lists
+		// (e.g. Win11 lifecycle) break the boot-priority combo — selecting a type that
+		// is missing disables every entry and the UI falls back to "None".
+		static QList<Boot_Order> Make_Full_Boot_Order_List()
+		{
+			QList<Boot_Order> list;
+			const Boot_Device types[] = {
+				Boot_From_FDA, Boot_From_FDB, Boot_From_CDROM, Boot_From_HDD,
+				Boot_From_Network1, Boot_From_Network2, Boot_From_Network3, Boot_From_Network4
+			};
+			for( Boot_Device t : types )
+			{
+				Boot_Order b;
+				b.Type = t;
+				b.Enabled = false;
+				list << b;
+			}
+			return list;
+		}
+
+		static QList<Boot_Order> Expand_Boot_Order_List( const QList<Boot_Order> &src )
+		{
+			QList<Boot_Order> list = Make_Full_Boot_Order_List();
+			for( int i = 0; i < src.count(); ++i )
+			{
+				for( int j = 0; j < list.count(); ++j )
+				{
+					if( list[j].Type == src[i].Type )
+					{
+						list[j].Enabled = src[i].Enabled;
+						break;
+					}
+				}
+			}
+			// Preserve relative order of enabled devices from src for multi-boot
+			QList<Boot_Order> ordered;
+			QList<Boot_Device> seen;
+			for( int i = 0; i < src.count(); ++i )
+			{
+				if( ! src[i].Enabled )
+					continue;
+				for( int j = 0; j < list.count(); ++j )
+				{
+					if( list[j].Type == src[i].Type )
+					{
+						ordered << list[j];
+						seen << list[j].Type;
+						break;
+					}
+				}
+			}
+			for( int j = 0; j < list.count(); ++j )
+			{
+				if( seen.contains( list[j].Type ) )
+					continue;
+				ordered << list[j];
+			}
+			return ordered.isEmpty() ? list : ordered;
+		}
+
+		static void Set_Boot_Order_Single( QList<Boot_Order> &list, Boot_Device only )
+		{
+			list = Expand_Boot_Order_List( list );
+			for( int i = 0; i < list.count(); ++i )
+				list[i].Enabled = ( only != Boot_None && list[i].Type == only );
+		}
+
+		static void Set_Boot_Order_Enabled( QList<Boot_Order> &list,
+						   Boot_Device first,
+						   Boot_Device second = Boot_None )
+		{
+			list = Make_Full_Boot_Order_List();
+			// Put enabled devices first so multi-boot order is stable
+			QList<Boot_Order> ordered;
+			if( first != Boot_None )
+			{
+				Boot_Order b; b.Type = first; b.Enabled = true;
+				ordered << b;
+			}
+			if( second != Boot_None && second != first )
+			{
+				Boot_Order b; b.Type = second; b.Enabled = true;
+				ordered << b;
+			}
+			for( int i = 0; i < list.count(); ++i )
+			{
+				if( list[i].Type == first || list[i].Type == second )
+					continue;
+				ordered << list[i];
+			}
+			list = ordered;
+		}
+
 		// Kilobyte, Megabyte, Gigabyte
 		enum Size_Suffix { Size_Suf_Kb, Size_Suf_Mb, Size_Suf_Gb };
 		

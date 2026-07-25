@@ -4426,6 +4426,10 @@ bool Virtual_Machine::Load_VM( const QString &file_name )
 				}
 			}
 			
+			// Expand truncated boot lists (older Win11 saves) so the UI can
+			// select any device without wiping the order to "None".
+			Boot_Order_List = VM::Expand_Boot_Order_List( Boot_Order_List );
+
 			// Show Boot Menu
 			Show_Boot_Menu = (Child_Element.firstChildElement("Show_Boot_Menu").text() == "true");
 			
@@ -6086,16 +6090,33 @@ static bool Is_Network_Boot( VM::Boot_Device type )
 	       type == VM::Boot_From_Network3 || type == VM::Boot_From_Network4;
 }
 
+static QString Storage_Boot_Path( const VM_Storage_Device &dev )
+{
+	if( ! dev.Get_File_Name().isEmpty() )
+		return dev.Get_File_Name();
+	if( dev.Get_Native_Mode() && dev.Get_Native_Device().Use_File_Path() )
+		return dev.Get_Native_Device().Get_File_Path();
+	return QString();
+}
+
 static bool Media_Is_Bootable_Now( const Virtual_Machine &vm, VM::Boot_Device type )
 {
 	switch( type )
 	{
 		case VM::Boot_From_FDA:
-			return vm.Get_FD0().Get_Enabled() && QFile::exists( vm.Get_FD0().Get_File_Name() );
+		{
+			const QString p = Storage_Boot_Path( vm.Get_FD0() );
+			return vm.Get_FD0().Get_Enabled() && ! p.isEmpty() && QFile::exists( p );
+		}
 		case VM::Boot_From_FDB:
-			return vm.Get_FD1().Get_Enabled() && QFile::exists( vm.Get_FD1().Get_File_Name() );
+		{
+			const QString p = Storage_Boot_Path( vm.Get_FD1() );
+			return vm.Get_FD1().Get_Enabled() && ! p.isEmpty() && QFile::exists( p );
+		}
 		case VM::Boot_From_CDROM:
-			if( vm.Get_CD_ROM().Get_Enabled() && QFile::exists( vm.Get_CD_ROM().Get_File_Name() ) )
+		{
+			const QString p = Storage_Boot_Path( vm.Get_CD_ROM() );
+			if( vm.Get_CD_ROM().Get_Enabled() && ! p.isEmpty() && QFile::exists( p ) )
 				return true;
 			// Intel macOS: OpenCore / Recovery ISOs are the CD-class boot media
 			if( vm.Use_Intel_MacOS_Profile() )
@@ -6108,11 +6129,30 @@ static bool Media_Is_Bootable_Now( const Virtual_Machine &vm, VM::Boot_Device ty
 					return true;
 			}
 			return false;
+		}
 		case VM::Boot_From_HDD:
-			return ( vm.Get_HDA().Get_Enabled() && QFile::exists( vm.Get_HDA().Get_File_Name() ) ) ||
-			       ( vm.Get_HDB().Get_Enabled() && QFile::exists( vm.Get_HDB().Get_File_Name() ) ) ||
-			       ( vm.Get_HDC().Get_Enabled() && QFile::exists( vm.Get_HDC().Get_File_Name() ) ) ||
-			       ( vm.Get_HDD().Get_Enabled() && QFile::exists( vm.Get_HDD().Get_File_Name() ) );
+		{
+			const VM_HDD disks[] = { vm.Get_HDA(), vm.Get_HDB(), vm.Get_HDC(), vm.Get_HDD() };
+			for( const VM_HDD &d : disks )
+			{
+				const QString p = Storage_Boot_Path( d );
+				if( d.Get_Enabled() && ! p.isEmpty() && QFile::exists( p ) )
+					return true;
+			}
+			// Native / Device Manager extra storage (virtio, NVMe, …)
+			const QList<VM_Native_Storage_Device> &extra = vm.Get_Storage_Devices_List();
+			for( int i = 0; i < extra.count(); ++i )
+			{
+				if( ! extra[i].Use_File_Path() )
+					continue;
+				if( extra[i].Use_Media() && extra[i].Get_Media() == VM::DM_CD_ROM )
+					continue;
+				const QString p = extra[i].Get_File_Path();
+				if( ! p.isEmpty() && QFile::exists( p ) )
+					return true;
+			}
+			return false;
+		}
 		case VM::Boot_From_Network1:
 		case VM::Boot_From_Network2:
 		case VM::Boot_From_Network3:
@@ -6607,6 +6647,13 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		Computer_Type.contains( QLatin1String( "qemu-system-ppc" ), Qt::CaseInsensitive );
 	if( effective_machine.isEmpty() && is_virt_arch )
 		effective_machine = "virt";
+	// QEMU warns that old versioned virt-N.M aliases are deprecated; alias to current "virt".
+	if( is_virt_arch )
+	{
+		static const QRegExp virt_ver( QStringLiteral( "^virt-\\d+\\.\\d+$" ), Qt::CaseInsensitive );
+		if( virt_ver.exactMatch( effective_machine.trimmed() ) )
+			effective_machine = QStringLiteral( "virt" );
+	}
 	
 	// Keyboard Layout (language)
 	if( Keyboard_Layout != "Default" )
@@ -7012,12 +7059,17 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 
 	if( is_virt_arch )
 	{
-		// BVM firstboot attaches installer ISO; first_boot/normal omit it.
+		// BVM install attaches the ISO; first_boot omits it.
 		if( Win11_Lifecycle_Mode == VM::Win11_First_Boot )
 			attach_cdrom = false;
 		else if( Win11_Lifecycle_Mode == VM::Win11_Install &&
 				 QFile::exists( CD_ROM.Get_File_Name() ) )
 			attach_cdrom = true;
+		// HDD-only boot: do not present the installer as usb-storage.
+		// EDK2 names it "QEMU USB HARDDRIVE" and often prefers it over virtio-blk.
+		else if( Bootindex_For( *this, VM::Boot_From_CDROM ) <= 0 &&
+			 Bootindex_For( *this, VM::Boot_From_HDD ) > 0 )
+			attach_cdrom = false;
 	}
 
 	// Intel macOS Recovery/installer ISO is attached separately — do not also take IDE index 2.
@@ -7290,13 +7342,73 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		}
         else if( HDA.Get_Native_Mode() )
         {
-            // Testing for the interface type 'virtio-scsi'
-            VM::Device_Interface iftype = HDA.Get_Native_Device().Get_Interface();
+            VM_Native_Storage_Device native_hda = HDA.Get_Native_Device();
+			// aarch64/arm/riscv virt: never emit AHCI/IDE — UEFI cannot boot the
+			// guest disk and falls through to the USB installer ("USB HARDDRIVE").
+			if( is_virt_arch )
+			{
+				const VM::Device_Interface want = System_Info::Sanitize_Disk_Bus(
+					Computer_Type,
+					effective_machine.isEmpty() ? Machine_Type : effective_machine,
+					native_hda.Get_Interface(),
+					false );
+				if( want != native_hda.Get_Interface() )
+				{
+					native_hda.Set_Interface( want );
+					native_hda.Use_Interface( true );
+					if( ! native_hda.Use_File_Path() )
+					{
+						native_hda.Use_File_Path( true );
+						native_hda.Set_File_Path( HDA.Get_File_Name() );
+					}
+				}
+			}
+            VM::Device_Interface iftype = native_hda.Get_Interface();
             if (iftype == VM::DI_Virtio_SCSI)
             {
 				has_virt_scsi = true;
 			}
-            StorageArgs << Build_Native_Device_Args( HDA.Get_Native_Device(), Build_QEMU_Args_for_Tab_Info );
+			// Prefer the shared virtio-blk builder (bootindex) over raw if=virtio
+			if( is_virt_arch && iftype == VM::DI_Virtio &&
+			    ( ! native_hda.Use_Media() || native_hda.Get_Media() == VM::DM_Disk ) &&
+			    ( QFile::exists( HDA.Get_File_Name() ) || Build_QEMU_Args_for_Tab_Info ) )
+			{
+				const int hdd_boot = Bootindex_For( *this, VM::Boot_From_HDD );
+				const bool win11_disk_bvm =
+					Win11_Lifecycle_Mode != VM::Win11_Install;
+				// Windows: cache=none (O_DIRECT) lies with "Image is not in qcow2 format"
+				#ifdef Q_OS_WIN32
+				const QString cache = QStringLiteral( "writeback" );
+				#else
+				const QString cache = QStringLiteral( "none" );
+				#endif
+				QString drive;
+				if( win11_disk_bvm )
+				{
+					drive = QString(
+						"file=%1,if=none,id=aqhd0,cache=%2,aio=threads,discard=unmap" )
+						.arg( HDA.Get_File_Name(), cache );
+				}
+				else
+				{
+					drive = QString( "file=%1,if=none,id=aqhd0,cache=%2,aio=threads" )
+						.arg( HDA.Get_File_Name(), cache );
+				}
+				const QString virtio_dev = With_Bootindex(
+					QStringLiteral( "virtio-blk-pci,drive=aqhd0" ), hdd_boot );
+				if( Build_QEMU_Args_for_Script_Mode )
+				{
+					StorageArgs << "-device" << virtio_dev;
+					StorageArgs << "-drive" << "\"" + drive + "\"";
+				}
+				else
+				{
+					StorageArgs << "-device" << virtio_dev;
+					StorageArgs << "-drive" << drive;
+				}
+			}
+			else
+				StorageArgs << Build_Native_Device_Args( native_hda, Build_QEMU_Args_for_Tab_Info );
 		}
 		else
 		{
@@ -7309,22 +7421,24 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 					const bool win11_disk_bvm =
 						is_virt_arch &&
 						Win11_Lifecycle_Mode != VM::Win11_Install;
+					// Windows: cache=none (O_DIRECT) lies with "Image is not in qcow2 format"
+					#ifdef Q_OS_WIN32
+					const QString cache = QStringLiteral( "writeback" );
+					#else
+					const QString cache = QStringLiteral( "none" );
+					#endif
 					QString drive;
 					if( win11_disk_bvm )
 					{
 						drive = QString(
-							"file=%1,if=none,id=aqhd0,cache=none,aio=threads,discard=unmap" )
-							.arg( HDA.Get_File_Name() );
+							"file=%1,if=none,id=aqhd0,cache=%2,aio=threads,discard=unmap" )
+							.arg( HDA.Get_File_Name(), cache );
 					}
-					#ifdef Q_OS_WIN32
 					else
-						drive = QString( "file=%1,if=none,id=aqhd0,cache=writeback,aio=threads" )
-							.arg( HDA.Get_File_Name() );
-					#else
-					else
-						drive = QString( "file=%1,if=none,id=aqhd0,cache=none,aio=threads" )
-							.arg( HDA.Get_File_Name() );
-					#endif
+					{
+						drive = QString( "file=%1,if=none,id=aqhd0,cache=%2,aio=threads" )
+							.arg( HDA.Get_File_Name(), cache );
+					}
 					const QString virtio_dev = With_Bootindex(
 						QStringLiteral( "virtio-blk-pci,drive=aqhd0" ), hdd_boot );
 					if( Build_QEMU_Args_for_Script_Mode )
@@ -9334,6 +9448,14 @@ QStringList Virtual_Machine::Build_QEMU_Args_For_Script()
 QStringList Virtual_Machine::Build_Native_Device_Args( VM_Native_Storage_Device device, bool Build_QEMU_Args_for_Script_Mode )
 {
 	QStringList opt;
+
+	// Clamp illegal buses for this arch/machine (e.g. if=sd on generic virt).
+	if( device.Use_Interface() )
+	{
+		const bool optical = device.Use_Media() && device.Get_Media() == VM::DM_CD_ROM;
+		device.Set_Interface( System_Info::Sanitize_Disk_Bus(
+			Computer_Type, Machine_Type, device.Get_Interface(), optical ) );
+	}
 
 	QString vsname = (device.Get_Media() == VM::DM_CD_ROM ? "aqcd" : "aqhd")
                + QString::number (native_device_count++);

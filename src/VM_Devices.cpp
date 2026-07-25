@@ -2094,6 +2094,9 @@ const VM_Native_Storage_Device &VM_Storage_Device::Get_Native_Device() const
 void VM_Storage_Device::Set_Native_Device( const VM_Native_Storage_Device &device )
 {
     Native_Device = device;
+    // Keep File_Name in sync so boot-order / UI path checks see the image
+    if( device.Use_File_Path() && ! device.Get_File_Path().isEmpty() )
+        File_Name = device.Get_File_Path();
 }
 
 //===========================================================================

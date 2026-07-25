@@ -4348,17 +4348,14 @@ bool VM_Wizard_Window::Create_New_VM(bool simulate)
 		New_VM->Set_Initrd_Path( Guest_Initrd_Path );
 		New_VM->Set_Kernel_ComLine( Guest_Kernel_Append );
 		QList<VM::Boot_Order> boot;
-		VM::Boot_Order bhd; bhd.Enabled = true; bhd.Type = VM::Boot_From_HDD;
-		boot << bhd;
+		VM::Set_Boot_Order_Enabled( boot, VM::Boot_From_HDD );
 		New_VM->Set_Boot_Order_List( boot );
 	}
 	else if( ! Guest_Install_ISO.isEmpty() && QFile::exists( Guest_Install_ISO ) )
 	{
 		New_VM->Set_CD_ROM( VM_Storage_Device( true, Guest_Install_ISO ) );
 		QList<VM::Boot_Order> boot;
-		VM::Boot_Order bcd; bcd.Enabled = true; bcd.Type = VM::Boot_From_CDROM;
-		VM::Boot_Order bhd; bhd.Enabled = true; bhd.Type = VM::Boot_From_HDD;
-		boot << bcd << bhd;
+		VM::Set_Boot_Order_Enabled( boot, VM::Boot_From_CDROM, VM::Boot_From_HDD );
 		New_VM->Set_Boot_Order_List( boot );
 	}
 	
@@ -4588,10 +4585,7 @@ void VM_Wizard_Window::Apply_Windows11_ARM_Profile( bool simulate )
 	{
 		New_VM->Set_CD_ROM( VM_Storage_Device( false, "" ) );
 		QList<VM::Boot_Order> boot;
-		VM::Boot_Order b;
-		b.Type = VM::Boot_From_HDD;
-		b.Enabled = true;
-		boot << b;
+		VM::Set_Boot_Order_Enabled( boot, VM::Boot_From_HDD );
 		New_VM->Set_Boot_Order_List( boot );
 		New_VM->Set_Win11_Lifecycle_Mode( VM::Win11_Normal );
 		New_VM->Set_Video_Card( "virtio-gpu-pci" );
@@ -4602,14 +4596,7 @@ void VM_Wizard_Window::Apply_Windows11_ARM_Profile( bool simulate )
 		New_VM->Set_CD_ROM( cd );
 		
 		QList<VM::Boot_Order> boot;
-		VM::Boot_Order bcd;
-		bcd.Type = VM::Boot_From_CDROM;
-		bcd.Enabled = true;
-		boot << bcd;
-		VM::Boot_Order bhdd;
-		bhdd.Type = VM::Boot_From_HDD;
-		bhdd.Enabled = true;
-		boot << bhdd;
+		VM::Set_Boot_Order_Enabled( boot, VM::Boot_From_CDROM, VM::Boot_From_HDD );
 		New_VM->Set_Boot_Order_List( boot );
 		New_VM->Set_Win11_Lifecycle_Mode( VM::Win11_Install );
 		// BVM firstboot: ramfb only during install
@@ -4710,16 +4697,9 @@ void VM_Wizard_Window::Apply_Intel_MacOS_Profile( bool simulate )
 	QList<VM::Boot_Order> boot;
 	const QString oc_path = Edit_Intel_Mac_OpenCore->text().trimmed().toLower();
 	if( oc_path.endsWith( QLatin1String( ".iso" ) ) )
-	{
-		VM::Boot_Order bcd;
-		bcd.Type = VM::Boot_From_CDROM;
-		bcd.Enabled = true;
-		boot << bcd;
-	}
-	VM::Boot_Order bhdd;
-	bhdd.Type = VM::Boot_From_HDD;
-	bhdd.Enabled = true;
-	boot << bhdd;
+		VM::Set_Boot_Order_Enabled( boot, VM::Boot_From_CDROM, VM::Boot_From_HDD );
+	else
+		VM::Set_Boot_Order_Enabled( boot, VM::Boot_From_HDD );
 	New_VM->Set_Boot_Order_List( boot );
 }
 
