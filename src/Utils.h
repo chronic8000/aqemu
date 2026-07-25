@@ -62,6 +62,32 @@ bool Create_New_HDD_Image( const QString &file_name, VM::Device_Size size );
 bool Format_HDD_Image( const QString &file_name, VM::Disk_Info info );
 QString Get_QEMU_IMG_Path();
 
+/** Formats listed by `qemu-img -h` (cached per qemu-img path). Empty on failure. */
+QStringList Probe_QEMU_IMG_Formats();
+/** Prefer qcow2, else qcow, else first format. */
+QString Preferred_QEMU_IMG_Format( const QStringList &formats );
+/**
+ * Qt file-dialog filter for disk/optical/floppy images based on probed formats
+ * plus common hypervisor extensions (VHD/VHDX/DMG/ISO/…).
+ */
+QString Disk_Image_File_Filter( bool include_optical = false, bool include_floppy = false );
+/** Short help text for known formats (qemu-doc §3.7.7) + probed list. */
+QString QEMU_IMG_Format_Help_Text( const QStringList &formats );
+
+/** Directory next to aqemu.exe that contains qemu-system-* (portable / bundled build). Empty if none. */
+QString AQ_Get_Bundled_QEMU_Dir();
+bool AQ_Has_Bundled_QEMU();
+
+/**
+ * Replace configured emulators with one profile pointing at dir (must contain qemu-system-*).
+ * Also sets QEMU-IMG_Path from that directory. Returns false if no binaries found.
+ */
+bool AQ_Apply_QEMU_Dir_As_Default_Emulator( const QString &dir, const QString &display_name );
+
+/** QSettings "QEMU_Source": "bundled" | "custom" */
+QString AQ_Get_QEMU_Source_Mode();
+void AQ_Set_QEMU_Source_Mode( const QString &mode );
+
 QList<QString> Get_Templates_List();
 
 QString Get_FS_Compatible_VM_Name( const QString &name );

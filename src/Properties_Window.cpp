@@ -302,7 +302,7 @@ void Properties_Window::on_TB_FD_Image_Browse_clicked()
 {
 	QString fileName = QFileDialog::getOpenFileName( this, tr("Open Floppy Image File"),
 													 Get_Last_Dir_Path(ui.CB_FD_Devices->lineEdit()->text()),
-													 tr("All Files (*);;Images Files (*.img *.ima)") );
+													 Disk_Image_File_Filter( false, true ) );
 	
 	if( ! fileName.isEmpty() )
 	{
@@ -326,7 +326,7 @@ void Properties_Window::on_TB_CDROM_Image_Browse_clicked()
 {
 	QString fileName = QFileDialog::getOpenFileName( this, tr("Open CD\\DVD-ROM Image File"),
 													 Get_Last_Dir_Path(ui.CB_CDROM_Devices->lineEdit()->text()),
-													 tr("All Files (*);;Images Files (*.iso)") );
+													 Disk_Image_File_Filter( true, false ) );
 	
 	if( ! fileName.isEmpty() )
 	{
@@ -350,7 +350,7 @@ void Properties_Window::on_TB_HDD_Image_Browse_clicked()
 {
 	QString fileName = QFileDialog::getOpenFileName( this, tr("Open HDD Image File"),
 													 Get_Last_Dir_Path(ui.Edit_HDD_Image_Path->text()),
-													 tr("All Files (*);;Images Files (*.img *.qcow *.wmdk)") );
+													 Disk_Image_File_Filter( false, false ) );
 	
 	if( ! fileName.isEmpty() )
 		ui.Edit_HDD_Image_Path->setText( QDir::toNativeSeparators(fileName) );

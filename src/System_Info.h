@@ -65,6 +65,16 @@ class System_Info
 		                                    const QString &machine_type = QString() );
 		static QString Default_Video_Card( const QString &computer_type );
 		static bool Uses_Device_Based_Video( const QString &computer_type );
+
+		/** Disk interface allowed for guest arch/machine (grey-out policy). */
+		static bool Is_Disk_Bus_Allowed( const QString &computer_type, const QString &machine_type,
+			VM::Device_Interface iface, bool for_optical_or_floppy = false );
+		static VM::Device_Interface Default_Disk_Bus( const QString &computer_type,
+			const QString &machine_type );
+		static VM::Device_Interface Sanitize_Disk_Bus( const QString &computer_type,
+			const QString &machine_type, VM::Device_Interface iface,
+			bool for_optical_or_floppy = false );
+
 		static QString Get_Emulator_Help_Output( const QString &path );
 		static QString Get_Emulator_Output( const QString &path, const QStringList &args );
 		

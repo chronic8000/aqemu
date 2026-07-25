@@ -1310,9 +1310,20 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
 				case 1: native.Set_Interface( VM::DI_Virtio_SCSI ); break;
 				case 2: native.Set_Interface( VM::DI_SCSI ); break;
 				case 3: native.Set_Interface( VM::DI_IDE ); break;
-				case 4: native.Set_Interface( VM::DI_SD ); break;
-				case 5: native.Set_Interface( VM::DI_NVMe ); break;
+				case 4: native.Set_Interface( VM::DI_AHCI ); break;
+				case 5: native.Set_Interface( VM::DI_SD ); break;
+				case 6: native.Set_Interface( VM::DI_NVMe ); break;
 				default: native.Set_Interface( VM::DI_Virtio ); break;
+			}
+			// Clamp to what this arch/machine supports
+			{
+				bool dok = false;
+				const Available_Devices ddev = Get_Current_Machine_Devices( &dok );
+				const QString computer = dok ? ddev.System.QEMU_Name : QString();
+				const QString machine = ui.CB_Machine_Type_Main->currentText();
+				if( ! computer.isEmpty() )
+					native.Set_Interface( System_Info::Sanitize_Disk_Bus(
+						computer, machine, native.Get_Interface(), false ) );
 			}
 			if( ! native.Use_File_Path() )
 			{
@@ -2056,8 +2067,9 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 				case VM::DI_Virtio_SCSI: disk_idx = 1; break;
 				case VM::DI_SCSI: disk_idx = 2; break;
 				case VM::DI_IDE: disk_idx = 3; break;
-				case VM::DI_SD: disk_idx = 4; break;
-				case VM::DI_NVMe: disk_idx = 5; break;
+				case VM::DI_AHCI: disk_idx = 4; break;
+				case VM::DI_SD: disk_idx = 5; break;
+				case VM::DI_NVMe: disk_idx = 6; break;
 				default: disk_idx = 3; break;
 			}
 		}
@@ -2068,6 +2080,7 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 			disk_idx = 0; // virt machines have no IDE
 		}
 		ui.CB_Disk_Interface->setCurrentIndex( disk_idx );
+		Enforce_Disk_Bus_Honesty();
 	}
 
 	// RAM
@@ -5335,6 +5348,7 @@ void Main_Window::Computer_Type_Changed()
 	Update_Win11_Lifecycle_Ui();
 	Update_Intel_MacOS_Settings_Ui();
 	Enforce_Accel_Honesty();
+	Enforce_Disk_Bus_Honesty();
 	Update_Disabled_Controls();
 }
 
@@ -5345,6 +5359,7 @@ void Main_Window::on_CB_Machine_Type_Main_currentIndexChanged( int index )
 	if( index < ui_arch.CB_Machine_Type->count() )
 		ui_arch.CB_Machine_Type->setCurrentIndex( index );
 	ui_arch.CB_Machine_Type->blockSignals(false);
+	Enforce_Disk_Bus_Honesty();
 	VM_Changed();
 }
 
@@ -5460,6 +5475,93 @@ void Main_Window::Enforce_Accel_Honesty()
 
 	ui.CB_Machine_Accelerator->blockSignals( false );
 	Update_Accelerator_Options();
+}
+
+int Main_Window::Disk_Interface_To_Combo_Index( VM::Device_Interface iface ) const
+{
+	switch( iface )
+	{
+		case VM::DI_Virtio: return 0;
+		case VM::DI_Virtio_SCSI: return 1;
+		case VM::DI_SCSI: return 2;
+		case VM::DI_IDE: return 3;
+		case VM::DI_AHCI: return 4;
+		case VM::DI_SD: return 5;
+		case VM::DI_NVMe: return 6;
+		default: return 3;
+	}
+}
+
+VM::Device_Interface Main_Window::Combo_Index_To_Disk_Interface( int index ) const
+{
+	switch( index )
+	{
+		case 0: return VM::DI_Virtio;
+		case 1: return VM::DI_Virtio_SCSI;
+		case 2: return VM::DI_SCSI;
+		case 3: return VM::DI_IDE;
+		case 4: return VM::DI_AHCI;
+		case 5: return VM::DI_SD;
+		case 6: return VM::DI_NVMe;
+		default: return VM::DI_IDE;
+	}
+}
+
+void Main_Window::Enforce_Disk_Bus_Honesty()
+{
+	bool ok = false;
+	const Available_Devices dev = Get_Current_Machine_Devices( &ok );
+	const QString computer = ok ? dev.System.QEMU_Name : QString();
+	const QString machine = ui.CB_Machine_Type_Main->currentText();
+
+	auto *model = qobject_cast<QStandardItemModel *>( ui.CB_Disk_Interface->model() );
+	ui.CB_Disk_Interface->blockSignals( true );
+
+	int first_enabled = -1;
+	for( int i = 0; i < ui.CB_Disk_Interface->count(); ++i )
+	{
+		const VM::Device_Interface iface = Combo_Index_To_Disk_Interface( i );
+		const bool allowed = computer.isEmpty()
+			? true
+			: System_Info::Is_Disk_Bus_Allowed( computer, machine, iface, false );
+
+		if( model )
+		{
+			QStandardItem *item = model->item( i );
+			if( item )
+			{
+				if( allowed )
+					item->setFlags( Qt::ItemIsEnabled | Qt::ItemIsSelectable );
+				else
+					item->setFlags( item->flags() & ~( Qt::ItemIsEnabled | Qt::ItemIsSelectable ) );
+			}
+		}
+		if( allowed && first_enabled < 0 )
+			first_enabled = i;
+	}
+
+	const int cur = ui.CB_Disk_Interface->currentIndex();
+	const VM::Device_Interface cur_iface = Combo_Index_To_Disk_Interface( cur );
+	if( ! computer.isEmpty() &&
+	    ! System_Info::Is_Disk_Bus_Allowed( computer, machine, cur_iface, false ) )
+	{
+		const VM::Device_Interface safe =
+			System_Info::Sanitize_Disk_Bus( computer, machine, cur_iface, false );
+		ui.CB_Disk_Interface->setCurrentIndex( Disk_Interface_To_Combo_Index( safe ) );
+	}
+	else if( cur < 0 && first_enabled >= 0 )
+		ui.CB_Disk_Interface->setCurrentIndex( first_enabled );
+
+	if( ! computer.isEmpty() )
+	{
+		ui.CB_Disk_Interface->setToolTip( tr(
+			"Drive interface for the primary hard disk. Options unsupported by "
+			"this guest architecture/machine are greyed out.\n"
+			"Computer: %1  Machine: %2" )
+			.arg( computer, machine.isEmpty() ? tr( "(default)" ) : machine ) );
+	}
+
+	ui.CB_Disk_Interface->blockSignals( false );
 }
 
 void Main_Window::Update_Accelerator_Options()

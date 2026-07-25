@@ -480,6 +480,9 @@ void Virtual_Machine::Shared_Constructor()
 	HDB = VM_HDD();
 	HDC = VM_HDD();
 	HDD = VM_HDD();
+	native_device_count = 0;
+	ahci_unit_count = 0;
+	ahci_controller_added = false;
 	
 	USB_Hub = false;
 	
@@ -5583,6 +5586,8 @@ VM_Native_Storage_Device Virtual_Machine::Load_VM_Native_Storage_Device( const Q
 		tmp_device.Set_Interface( VM::DI_Virtio_SCSI );
 	else if( interface_str == "NVMe" || interface_str == "nvme" )
 		tmp_device.Set_Interface( VM::DI_NVMe );
+	else if( interface_str == "AHCI" || interface_str == "SATA" || interface_str == "ahci" )
+		tmp_device.Set_Interface( VM::DI_AHCI );
 	else if( interface_str == "" ) ; // No Value
 	else
 	{
@@ -5780,6 +5785,13 @@ void Virtual_Machine::Save_VM_Native_Storage_Device( QDomDocument &New_Dom_Docum
 			Sec_Element = New_Dom_Document.createElement( "Interface" );
 			Dom_Element.appendChild( Sec_Element );
 			Dom_Text = New_Dom_Document.createTextNode( "NVMe" );
+			Sec_Element.appendChild( Dom_Text );
+			break;
+
+		case VM::DI_AHCI:
+			Sec_Element = New_Dom_Document.createElement( "Interface" );
+			Dom_Element.appendChild( Sec_Element );
+			Dom_Text = New_Dom_Document.createTextNode( "AHCI" );
 			Sec_Element.appendChild( Dom_Text );
 			break;
 			
@@ -6579,12 +6591,15 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		Computer_Type.contains( "aarch64", Qt::CaseInsensitive ) ||
 		Computer_Type.contains( "qemu-system-arm", Qt::CaseInsensitive ) ||
 		Computer_Type.contains( "riscv", Qt::CaseInsensitive );
-	// pSeries / PowerNV / s390 have no ISA floppy or IDE buses (unlike pc/q35).
+	// pSeries / PowerNV / s390 / classic Mac (mac99) have no PC ISA floppy bus.
 	const bool no_pc_fdd_ide =
 		is_virt_arch ||
 		effective_machine.contains( QLatin1String( "pseries" ), Qt::CaseInsensitive ) ||
 		effective_machine.contains( QLatin1String( "powernv" ), Qt::CaseInsensitive ) ||
-		Computer_Type.contains( QLatin1String( "s390" ), Qt::CaseInsensitive );
+		effective_machine.contains( QLatin1String( "mac99" ), Qt::CaseInsensitive ) ||
+		effective_machine.contains( QLatin1String( "g3beige" ), Qt::CaseInsensitive ) ||
+		Computer_Type.contains( QLatin1String( "s390" ), Qt::CaseInsensitive ) ||
+		Computer_Type.contains( QLatin1String( "qemu-system-ppc" ), Qt::CaseInsensitive );
 	if( effective_machine.isEmpty() && is_virt_arch )
 		effective_machine = "virt";
 	
@@ -6777,9 +6792,15 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 
 	// TCG: multi-thread + larger TB cache (Gemini/Linaro tips). tb-size is an -accel prop, not -tb-size.
 	// Legacy Win9x (Force_TCG): thread=single — multi-thread TCG also breaks splash→desktop.
+	// PowerPC (and other non-MTTCG guests) warn/break with thread=multi — use single.
 	if( use_separate_tcg_accel )
 	{
-		if( legacy_force_tcg )
+		const bool no_mttcg =
+			legacy_force_tcg ||
+			Computer_Type.contains( QLatin1String( "qemu-system-ppc" ), Qt::CaseInsensitive ) ||
+			Computer_Type.contains( QLatin1String( "sparc" ), Qt::CaseInsensitive ) ||
+			Computer_Type.contains( QLatin1String( "mips" ), Qt::CaseInsensitive );
+		if( no_mttcg )
 			Args << "-accel" << "tcg,thread=single";
 		else
 			Args << "-accel" << "tcg,thread=multi,tb-size=1024";
@@ -6886,6 +6907,8 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	// (Virtio_SCSI) interface type ...
 	bool has_virt_scsi = false;
     native_device_count = 0;
+	ahci_unit_count = 0;
+	ahci_controller_added = false;
 
 	// FD0
 	if( FD0.Get_Enabled() )
@@ -9277,6 +9300,10 @@ QStringList Virtual_Machine::Build_Native_Device_Args( VM_Native_Storage_Device 
 				// SteamOS installer expects /dev/nvme0n1 — needs -device nvme + serial
 				opt << "if=none,id=" + vsname;
 				break;
+
+			case VM::DI_AHCI:
+				opt << "if=none,id=" + vsname;
+				break;
 				
 			default:
                 AQError( "QStringList Virtual_Machine::Build_Native_Device_Args( VM_Native_Storage_Device device, bool Build_QEMU_Args_for_Script_Mode )",
@@ -9417,6 +9444,24 @@ QStringList Virtual_Machine::Build_Native_Device_Args( VM_Native_Storage_Device 
 		// serial= is required by some guests (SteamOS recovery looks for NVMe)
 		args << "-device" << With_Bootindex(
 			"nvme,drive=" + vsname + ",serial=aqemu-nvme0", boot_idx );
+	}
+	else if( device.Get_Interface() == VM::DI_AHCI )
+	{
+		if( ! ahci_controller_added )
+		{
+			args << "-device" << QStringLiteral( "ich9-ahci,id=aqemu_ahci" );
+			ahci_controller_added = true;
+		}
+		const int unit = ahci_unit_count++;
+		const QString devtype =
+			( device.Get_Media() == VM::DM_CD_ROM ) ? QStringLiteral( "ide-cd" )
+								: QStringLiteral( "ide-hd" );
+		const int boot_idx = Bootindex_For( *this,
+			device.Get_Media() == VM::DM_CD_ROM ? VM::Boot_From_CDROM : VM::Boot_From_HDD );
+		args << "-device" << With_Bootindex(
+			QStringLiteral( "%1,bus=aqemu_ahci.%2,drive=%3" )
+				.arg( devtype ).arg( unit ).arg( vsname ),
+			boot_idx );
 	}
 	else if( device.Get_Interface() == VM::DI_Virtio && virt_arch_blk &&
 			 ( ! device.Use_Media() || device.Get_Media() == VM::DM_Disk ) )

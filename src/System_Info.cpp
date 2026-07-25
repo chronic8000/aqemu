@@ -1531,6 +1531,99 @@ QString Map_Cross_Arch_Video( Video_Arch_Family fam, const QString &name,
 
 } // namespace
 
+bool System_Info::Is_Disk_Bus_Allowed( const QString &computer_type, const QString &machine_type,
+	VM::Device_Interface iface, bool for_optical_or_floppy )
+{
+	if( for_optical_or_floppy &&
+	    ( iface == VM::DI_NVMe || iface == VM::DI_SD || iface == VM::DI_MTD || iface == VM::DI_PFlash ) )
+		return false;
+
+	const Video_Arch_Family fam = Get_Video_Arch_Family( computer_type );
+	const QString m = machine_type.toLower().trimmed();
+	const bool is_virt_machine = ( m == QLatin1String( "virt" ) ) || fam == VAF_VIRT;
+	const bool is_mac = m.contains( QLatin1String( "mac" ) );
+	const bool is_pseries = m.contains( QLatin1String( "pseries" ) ) || fam == VAF_PPC;
+	const bool is_q35 = m.contains( QLatin1String( "q35" ) );
+	const bool is_pc_x86 = ( fam == VAF_X86 );
+
+	switch( iface )
+	{
+		case VM::DI_IDE:
+			if( is_virt_machine || is_pseries )
+				return false;
+			return is_pc_x86 || fam == VAF_OTHER;
+
+		case VM::DI_AHCI:
+			if( is_virt_machine || is_pseries )
+				return false;
+			return is_pc_x86 || is_mac;
+
+		case VM::DI_SCSI:
+			if( is_mac )
+				return false;
+			return true;
+
+		case VM::DI_Virtio:
+		case VM::DI_Virtio_SCSI:
+			if( is_mac )
+				return false;
+			return true;
+
+		case VM::DI_NVMe:
+			if( is_mac || is_pseries || for_optical_or_floppy )
+				return false;
+			if( is_virt_machine || is_q35 )
+				return true;
+			if( is_pc_x86 )
+			{
+				if( m == QLatin1String( "pc" ) || m.contains( QLatin1String( "i440fx" ) ) )
+					return false;
+				return true;
+			}
+			return false;
+
+		case VM::DI_SD:
+			return is_virt_machine || fam == VAF_MIPS || fam == VAF_OTHER;
+
+		case VM::DI_Floppy:
+			return is_pc_x86 && ! is_virt_machine;
+
+		case VM::DI_MTD:
+		case VM::DI_PFlash:
+			return is_virt_machine || fam == VAF_OTHER || fam == VAF_MIPS;
+
+		default:
+			return true;
+	}
+}
+
+VM::Device_Interface System_Info::Default_Disk_Bus( const QString &computer_type,
+	const QString &machine_type )
+{
+	const Video_Arch_Family fam = Get_Video_Arch_Family( computer_type );
+	const QString m = machine_type.toLower().trimmed();
+	const bool is_mac = m.contains( QLatin1String( "mac" ) );
+	const bool is_virt = ( m == QLatin1String( "virt" ) ) || fam == VAF_VIRT;
+	const bool is_pseries = m.contains( QLatin1String( "pseries" ) ) || fam == VAF_PPC;
+	const bool is_q35 = m.contains( QLatin1String( "q35" ) );
+
+	if( is_mac )
+		return VM::DI_AHCI;
+	if( is_pseries )
+		return VM::DI_Virtio_SCSI;
+	if( is_virt || is_q35 )
+		return VM::DI_Virtio;
+	return VM::DI_IDE;
+}
+
+VM::Device_Interface System_Info::Sanitize_Disk_Bus( const QString &computer_type,
+	const QString &machine_type, VM::Device_Interface iface, bool for_optical_or_floppy )
+{
+	if( Is_Disk_Bus_Allowed( computer_type, machine_type, iface, for_optical_or_floppy ) )
+		return iface;
+	return Default_Disk_Bus( computer_type, machine_type );
+}
+
 void System_Info::Filter_Video_Card_List( Available_Devices &dev )
 {
 	const Video_Arch_Family fam = Get_Video_Arch_Family( dev.System.QEMU_Name );
@@ -3770,6 +3863,24 @@ bool System_Info::Update_Host_GPU()
 
 bool System_Info::Auto_Find_And_Save_Emulators()
 {
+	// Prefer portable/bundled QEMU next to aqemu when present.
+	if( AQ_Has_Bundled_QEMU() )
+	{
+		QSettings srcSet;
+		const QString mode = srcSet.value( QStringLiteral( "QEMU_Source" ), QString() )
+			.toString().trimmed().toLower();
+		if( mode != QLatin1String( "custom" ) )
+		{
+			if( AQ_Apply_QEMU_Dir_As_Default_Emulator(
+					AQ_Get_Bundled_QEMU_Dir(),
+					QObject::tr( "Built-in QEMU" ) ) )
+			{
+				AQ_Set_QEMU_Source_Mode( QStringLiteral( "bundled" ) );
+				return true;
+			}
+		}
+	}
+
 	QStringList sys_env = QProcess::systemEnvironment();
 	QStringList paths;
 	for( int ix = 0; ix < sys_env.count(); ix++ )
@@ -3787,6 +3898,10 @@ bool System_Info::Auto_Find_And_Save_Emulators()
 	#else
 	paths << "/usr/bin/" << "/usr/local/bin/";
 	#endif
+
+	const QString bundled = AQ_Get_Bundled_QEMU_Dir();
+	if( ! bundled.isEmpty() )
+		paths.prepend( bundled );
 	
 	for( int ix = 0; ix < paths.count(); ix++ )
 	{

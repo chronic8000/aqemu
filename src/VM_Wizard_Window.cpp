@@ -58,6 +58,11 @@ VM_Wizard_Window::VM_Wizard_Window( QWidget *parent )
 	
 	New_VM = new Virtual_Machine();
 	Win11_ARM_Page = nullptr;
+	RB_Typical_New_Disk = nullptr;
+	RB_Typical_Existing_Disk = nullptr;
+	Edit_Typical_Disk_Path = nullptr;
+	TB_Typical_Disk_Browse = nullptr;
+	Widget_Typical_Size_Row = nullptr;
 	Creation_Method_Page = nullptr;
 	OS_Tree_Page = nullptr;
 	Platform_Tree_Page = nullptr;
@@ -91,6 +96,7 @@ VM_Wizard_Window::VM_Wizard_Window( QWidget *parent )
 	Build_Three_Path_Pages();
 	Build_Windows11_ARM_Page();
 	Build_Intel_MacOS_Page();
+	Enhance_Typical_HDD_Page();
 
 	// Summary + tip labels on Template / Architecture page
 	Label_Arch_Summary = new QLabel( ui.Template_Page );
@@ -1194,6 +1200,10 @@ void VM_Wizard_Window::Apply_Guest_Hardware_To_New_VM()
 				else
 					native.Set_Interface( want_virtio_disk ? VM::DI_Virtio : VM::DI_IDE );
 			}
+			native.Set_Interface( System_Info::Sanitize_Disk_Bus(
+				New_VM->Get_Computer_Type(),
+				New_VM->Get_Machine_Type(),
+				native.Get_Interface(), false ) );
 			if( ! native.Use_File_Path() || native.Get_File_Path().trimmed().isEmpty() )
 			{
 				native.Use_File_Path( true );
@@ -1291,6 +1301,193 @@ void VM_Wizard_Window::Goto_Hardware_Flow()
 		"Confirm QEMU system and machine from the guest OS. Computer Type is fully editable:" ) );
 	ui.Button_Back->setEnabled( true );
 	ui.Button_Next->setEnabled( true );
+}
+
+void VM_Wizard_Window::Enhance_Typical_HDD_Page()
+{
+	// Keep size widgets; rebuild the page so users can create or attach an image.
+	// Reparent keepers first so clearing the old layout does not destroy them.
+	ui.Label_Typical_HDD->setParent( nullptr );
+	ui.Label_HDD_Size->setParent( nullptr );
+	ui.SB_HDD_Size->setParent( nullptr );
+
+	if( QLayout *old = ui.Typical_HDD_Page->layout() )
+	{
+		QLayoutItem *it;
+		while( ( it = old->takeAt( 0 ) ) != nullptr )
+		{
+			// QLayout inherits QLayoutItem — deleting `it` frees nested layouts.
+			// Do NOT also delete it->layout() (double-free / crash on wizard open).
+			if( QWidget *w = it->widget() )
+				delete w;
+			delete it;
+		}
+		delete old;
+	}
+
+	QVBoxLayout *lay = new QVBoxLayout( ui.Typical_HDD_Page );
+	lay->setContentsMargins( 9, 9, 9, 9 );
+	lay->setSpacing( 8 );
+
+	ui.Label_Typical_HDD->setText( tr(
+		"Create a new hard disk image, or connect an existing one. "
+		"Size is used only when creating a new image." ) );
+	ui.Label_Typical_HDD->setWordWrap( true );
+	lay->addWidget( ui.Label_Typical_HDD );
+
+	RB_Typical_New_Disk = new QRadioButton( tr( "Create a new disk image" ), ui.Typical_HDD_Page );
+	RB_Typical_Existing_Disk = new QRadioButton( tr( "Use an existing disk image" ), ui.Typical_HDD_Page );
+	RB_Typical_New_Disk->setChecked( true );
+	lay->addWidget( RB_Typical_New_Disk );
+
+	Widget_Typical_Size_Row = new QWidget( ui.Typical_HDD_Page );
+	QHBoxLayout *sizeLay = new QHBoxLayout( Widget_Typical_Size_Row );
+	sizeLay->setContentsMargins( 20, 0, 0, 0 );
+	sizeLay->addWidget( ui.Label_HDD_Size );
+	sizeLay->addWidget( ui.SB_HDD_Size );
+	sizeLay->addStretch( 1 );
+	lay->addWidget( Widget_Typical_Size_Row );
+
+	lay->addWidget( RB_Typical_Existing_Disk );
+
+	QHBoxLayout *pathLay = new QHBoxLayout();
+	pathLay->setContentsMargins( 0, 0, 0, 0 );
+	pathLay->addWidget( new QLabel( tr( "Disk image:" ), ui.Typical_HDD_Page ) );
+	Edit_Typical_Disk_Path = new QLineEdit( ui.Typical_HDD_Page );
+	TB_Typical_Disk_Browse = new QToolButton( ui.Typical_HDD_Page );
+	TB_Typical_Disk_Browse->setText( QStringLiteral( "..." ) );
+	TB_Typical_Disk_Browse->setToolTip( tr( "Browse for disk image" ) );
+	pathLay->addWidget( Edit_Typical_Disk_Path, 1 );
+	pathLay->addWidget( TB_Typical_Disk_Browse );
+	lay->addLayout( pathLay );
+
+	QLabel *hint = new QLabel( tr(
+		"New images default to your VM folder. Change the path to store the disk elsewhere." ),
+		ui.Typical_HDD_Page );
+	hint->setWordWrap( true );
+	hint->setStyleSheet( QStringLiteral( "color: palette(mid);" ) );
+	lay->addWidget( hint );
+	lay->addStretch( 1 );
+
+	connect( RB_Typical_New_Disk, SIGNAL(toggled(bool)), this, SLOT(Typical_New_Disk_Toggled(bool)) );
+	connect( TB_Typical_Disk_Browse, SIGNAL(clicked()), this, SLOT(Typical_Disk_Browse_Clicked()) );
+	Typical_New_Disk_Toggled( true );
+}
+
+QString VM_Wizard_Window::Default_Typical_HDA_Path() const
+{
+	const QString vm_base = Get_FS_Compatible_VM_Name( ui.Edit_VM_Name->text() );
+	QString dir = Settings.value( "VM_Directory", "~" ).toString();
+	if( ! dir.isEmpty() && ! dir.endsWith( QLatin1Char( '/' ) ) && ! dir.endsWith( QLatin1Char( '\\' ) ) )
+		dir += QDir::separator();
+
+	QString fmt = Settings.value( "Default_HDD_Image_Format", "qcow2" ).toString().toLower();
+	QString ext = QStringLiteral( "img" );
+	if( fmt == QLatin1String( "qcow2" ) || fmt == QLatin1String( "qcow" ) )
+		ext = QStringLiteral( "qcow2" );
+	else if( fmt == QLatin1String( "vmdk" ) )
+		ext = QStringLiteral( "vmdk" );
+	else if( fmt == QLatin1String( "vhdx" ) || fmt == QLatin1String( "vpc" ) )
+		ext = QStringLiteral( "vhdx" );
+	else if( fmt == QLatin1String( "raw" ) )
+		ext = QStringLiteral( "img" );
+
+	return QDir::toNativeSeparators( dir + vm_base + QStringLiteral( "_HDA." ) + ext );
+}
+
+void VM_Wizard_Window::Refresh_Typical_HDD_Defaults()
+{
+	if( ! Edit_Typical_Disk_Path )
+		return;
+	if( RB_Typical_New_Disk && RB_Typical_New_Disk->isChecked() )
+		Edit_Typical_Disk_Path->setText( Default_Typical_HDA_Path() );
+}
+
+void VM_Wizard_Window::Typical_New_Disk_Toggled( bool on )
+{
+	if( Widget_Typical_Size_Row )
+		Widget_Typical_Size_Row->setEnabled( on );
+	if( ui.SB_HDD_Size )
+		ui.SB_HDD_Size->setEnabled( on );
+	if( ui.Label_HDD_Size )
+		ui.Label_HDD_Size->setEnabled( on );
+	if( on )
+		Refresh_Typical_HDD_Defaults();
+}
+
+void VM_Wizard_Window::Typical_Disk_Browse_Clicked()
+{
+	if( ! Edit_Typical_Disk_Path )
+		return;
+	const bool create_new = RB_Typical_New_Disk && RB_Typical_New_Disk->isChecked();
+	const QString start = Get_Last_Dir_Path( Edit_Typical_Disk_Path->text().isEmpty()
+		? Default_Typical_HDA_Path()
+		: Edit_Typical_Disk_Path->text() );
+	const QString filter = Disk_Image_File_Filter( false, false );
+
+	QString file;
+	if( create_new )
+	{
+		file = QFileDialog::getSaveFileName( this, tr( "Save new disk image as" ),
+			start.isEmpty() ? Default_Typical_HDA_Path() : Edit_Typical_Disk_Path->text(),
+			filter );
+	}
+	else
+	{
+		file = QFileDialog::getOpenFileName( this, tr( "Select existing disk image" ),
+			start, filter );
+	}
+	if( ! file.isEmpty() )
+		Edit_Typical_Disk_Path->setText( QDir::toNativeSeparators( file ) );
+}
+
+bool VM_Wizard_Window::Validate_Typical_HDD_Page()
+{
+	if( ! Edit_Typical_Disk_Path )
+		return true;
+	const QString path = QDir::toNativeSeparators( Edit_Typical_Disk_Path->text().trimmed() );
+	Edit_Typical_Disk_Path->setText( path );
+
+	if( RB_Typical_Existing_Disk && RB_Typical_Existing_Disk->isChecked() )
+	{
+		if( path.isEmpty() )
+		{
+			AQGraphic_Warning( tr( "Hard Disk" ),
+				tr( "Please select an existing disk image, or choose \"Create a new disk image\"." ) );
+			return false;
+		}
+		if( ! QFileInfo( path ).exists() )
+		{
+			AQGraphic_Warning( tr( "Hard Disk" ),
+				tr( "The selected disk image does not exist:\n%1" ).arg( path ) );
+			return false;
+		}
+	}
+	else
+	{
+		if( path.isEmpty() )
+		{
+			AQGraphic_Warning( tr( "Hard Disk" ),
+				tr( "Please choose a location for the new disk image." ) );
+			return false;
+		}
+		const QFileInfo fi( path );
+		if( fi.exists() )
+		{
+			AQGraphic_Warning( tr( "Hard Disk" ),
+				tr( "A file already exists at that path. Choose a different location, "
+				    "or select \"Use an existing disk image\"." ) );
+			return false;
+		}
+		QDir parent = fi.dir();
+		if( ! parent.exists() )
+		{
+			AQGraphic_Warning( tr( "Hard Disk" ),
+				tr( "The folder for the new disk image does not exist:\n%1" ).arg( parent.path() ) );
+			return false;
+		}
+	}
+	return true;
 }
 
 void VM_Wizard_Window::Build_Windows11_ARM_Page()
@@ -1584,7 +1781,7 @@ void VM_Wizard_Window::Intel_Mac_Disk_Browse_Clicked()
 {
 	QString file = QFileDialog::getOpenFileName( this, tr("Select system disk image"),
 		Get_Last_Dir_Path( Edit_Intel_Mac_Existing_Disk->text() ),
-		tr("Disk Images (*.qcow2 *.qcow *.img *.vhd *.vhdx *.raw);;All Files (*)") );
+		Disk_Image_File_Filter( false, false ) );
 	if( ! file.isEmpty() )
 		Edit_Intel_Mac_Existing_Disk->setText( QDir::toNativeSeparators( file ) );
 }
@@ -1650,7 +1847,7 @@ void VM_Wizard_Window::Win11_Existing_Disk_Browse_Clicked()
 {
 	QString file = QFileDialog::getOpenFileName( this, tr("Select existing disk image"),
 		Get_Last_Dir_Path( Edit_Win11_Existing_Disk->text() ),
-		tr("Disk Images (*.qcow2 *.qcow *.img *.vhd *.vhdx *.raw);;All Files (*)") );
+		Disk_Image_File_Filter( false, false ) );
 	if( ! file.isEmpty() )
 		Edit_Win11_Existing_Disk->setText( QDir::toNativeSeparators( file ) );
 }
@@ -1806,8 +2003,9 @@ void VM_Wizard_Window::on_Button_Back_clicked()
 	{
 		if( ui.RB_Typical->isChecked() )
 		{
+			Refresh_Typical_HDD_Defaults();
 			ui.Wizard_Pages->setCurrentWidget( ui.Typical_HDD_Page );
-			ui.Label_Page->setText( tr("Hard Disk Size") );
+			ui.Label_Page->setText( tr("Virtual Hard Disk") );
 		}
 		else
 		{
@@ -1819,8 +2017,9 @@ void VM_Wizard_Window::on_Button_Back_clicked()
 	{
 		if( ui.RB_Typical->isChecked() )
 		{
+			Refresh_Typical_HDD_Defaults();
 			ui.Wizard_Pages->setCurrentWidget( ui.Typical_HDD_Page );
-			ui.Label_Page->setText( tr("Hard Disk Size") );
+			ui.Label_Page->setText( tr("Virtual Hard Disk") );
 		}
 		else
 		{
@@ -1846,8 +2045,9 @@ void VM_Wizard_Window::on_Button_Back_clicked()
 		}
 		else if( ui.RB_Typical->isChecked() ) // typical or custom mode
 		{
+			Refresh_Typical_HDD_Defaults();
 			ui.Wizard_Pages->setCurrentWidget( ui.Typical_HDD_Page );
-			ui.Label_Page->setText( tr("Hard Disk Size") );
+			ui.Label_Page->setText( tr("Virtual Hard Disk") );
 		}
 		else
 		{
@@ -2110,8 +2310,9 @@ void VM_Wizard_Window::on_Button_Next_clicked()
 
 		if( ui.RB_Typical->isChecked() )
 		{
+			Refresh_Typical_HDD_Defaults();
 			ui.Wizard_Pages->setCurrentWidget( ui.Typical_HDD_Page );
-			ui.Label_Page->setText( tr("Hard Disk Size") );
+			ui.Label_Page->setText( tr("Virtual Hard Disk") );
 		}
 		else
 		{
@@ -2127,6 +2328,9 @@ void VM_Wizard_Window::on_Button_Next_clicked()
 	}
 	else if( ui.Typical_HDD_Page == ui.Wizard_Pages->currentWidget() )
 	{
+		if( ! Validate_Typical_HDD_Page() )
+			return;
+
 		if( Is_Windows11_ARM_Template() )
 		{
 			// Refresh UEFI status label
@@ -2528,17 +2732,30 @@ bool VM_Wizard_Window::Create_New_VM(bool simulate)
 		{
 			New_VM->Set_HDA( VM_HDD(true, Edit_Intel_Mac_Existing_Disk->text()) );
 		}
+		else if( RB_Typical_Existing_Disk && RB_Typical_Existing_Disk->isChecked()
+		         && Edit_Typical_Disk_Path
+		         && ! Edit_Typical_Disk_Path->text().trimmed().isEmpty() )
+		{
+			New_VM->Set_HDA( VM_HDD( true,
+				QDir::toNativeSeparators( Edit_Typical_Disk_Path->text().trimmed() ) ) );
+		}
 		else
 		{
-			// Hard Disk
+			// Create new hard disk at chosen path (default: VM folder)
+			QString hda_file;
+			if( Edit_Typical_Disk_Path && ! Edit_Typical_Disk_Path->text().trimmed().isEmpty() )
+				hda_file = QDir::toNativeSeparators( Edit_Typical_Disk_Path->text().trimmed() );
+			else
+				hda_file = Default_Typical_HDA_Path();
+
 			VM::Device_Size hd_size;
 			hd_size.Size = ui.SB_HDD_Size->value();
 			hd_size.Suffix = VM::Size_Suf_Gb;
 
-			if ( ! simulate )
-				Create_New_HDD_Image( hd_path + "_HDA.img", hd_size );
+			if( ! simulate )
+				Create_New_HDD_Image( hda_file, hd_size );
 
-			New_VM->Set_HDA( VM_HDD(true, hd_path + "_HDA.img") );
+			New_VM->Set_HDA( VM_HDD( true, hda_file ) );
 		}
 
 		// Other HDD's

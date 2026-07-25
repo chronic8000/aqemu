@@ -17,6 +17,9 @@
 #include <QHash>
 #include <QJsonArray>
 #include <QPoint>
+#include <QSet>
+#include <QMenu>
+#include <QToolButton>
 
 #include "VM_Devices.h"
 
@@ -83,6 +86,8 @@ class VM_Session_Widget : public QWidget
 		void On_QMP_Connected();
 		void On_Drive_Poll();
 		void On_Block_Stats( const QJsonArray &stats );
+		void On_USB_Menu_About_To_Show();
+		void On_USB_Device_Toggled( bool checked );
 
 	private:
 		void Build_Toolbar();
@@ -111,6 +116,8 @@ class VM_Session_Widget : public QWidget
 		QLabel *Make_Drive_Light( const QString &letter );
 		QString Hmp_Device_Name( const QString &block_id ) const;
 		static QString Media_Base_Name( const QString &path );
+		void Rebuild_USB_Menu();
+		QString USB_Device_Id( const QString &vid_pid ) const;
 
 		Virtual_Machine *VM;
 		QMP_Client *QMP;
@@ -135,6 +142,9 @@ class VM_Session_Widget : public QWidget
 		QAction *Act_Eject_FD0;
 		QAction *Act_Insert_FD1;
 		QAction *Act_Eject_FD1;
+		QToolButton *TB_USB;
+		QMenu *Menu_USB;
+		QSet<QString> Connected_USB_Ids; // "vid:pid"
 
 		QLabel *Light_FD0;
 		QLabel *Light_FD1;

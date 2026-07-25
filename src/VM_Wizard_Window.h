@@ -90,6 +90,12 @@ class VM_Wizard_Window: public QDialog
 		void Intel_Mac_Disk_Browse_Clicked();
 		void Intel_Mac_Recovery_Browse_Clicked();
 		void Intel_Mac_New_Disk_Toggled( bool on );
+
+		void Typical_New_Disk_Toggled( bool on );
+		void Typical_Disk_Browse_Clicked();
+		void Refresh_Typical_HDD_Defaults();
+		bool Validate_Typical_HDD_Page();
+		QString Default_Typical_HDA_Path() const;
 		
 	private:
         void applyTemplate();
@@ -105,6 +111,7 @@ class VM_Wizard_Window: public QDialog
 		void Show_Intel_MacOS_Page();
 		void Probe_WSL_For_Intel_Mac_Page();
 		void Update_Finish_Page_Guidance();
+		void Enhance_Typical_HDD_Page();
 
 		// Three-path wizard
 		void Build_Three_Path_Pages();
@@ -155,6 +162,13 @@ class VM_Wizard_Window: public QDialog
 		QToolButton *TB_Win11_VirtIO_ISO_Browse;
 		QLabel *Label_Win11_UEFI_Status;
 		QLabel *Label_Win11_Finish_Help;
+
+		// Typical (quick) HDD page — create new vs use existing + path
+		QRadioButton *RB_Typical_New_Disk;
+		QRadioButton *RB_Typical_Existing_Disk;
+		QLineEdit *Edit_Typical_Disk_Path;
+		QToolButton *TB_Typical_Disk_Browse;
+		QWidget *Widget_Typical_Size_Row;
 
 		// Intel macOS guided page (created in code)
 		QWidget *Intel_MacOS_Page;

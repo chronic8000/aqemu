@@ -35,6 +35,7 @@
 #include <QRegExp>
 #include <QRegularExpression>
 #include <QHash>
+#include <QSet>
 #include <QProcess>
 #include <QProcessEnvironment>
 #include <QStringList>
@@ -317,6 +318,311 @@ QString Get_QEMU_IMG_Path()
 	if( ! configured.isEmpty() )
 		return configured;
 	return QString( "qemu-img" ) + exe_suffix;
+}
+
+QStringList Probe_QEMU_IMG_Formats()
+{
+	static QString cached_path;
+	static QStringList cached_formats;
+
+	const QString img = Get_QEMU_IMG_Path();
+	if( img == cached_path && ! cached_formats.isEmpty() )
+		return cached_formats;
+
+	QStringList formatsList;
+	QProcess proc;
+	proc.start( img, QStringList( QStringLiteral( "-h" ) ) );
+	if( ! proc.waitForStarted( 3000 ) )
+	{
+		AQError( "Probe_QEMU_IMG_Formats()", "Cannot start qemu-img!" );
+		return formatsList;
+	}
+	if( ! proc.waitForFinished( 5000 ) )
+	{
+		AQError( "Probe_QEMU_IMG_Formats()", "qemu-img timed out!" );
+		proc.kill();
+		return formatsList;
+	}
+
+	QString allText = QString::fromLocal8Bit( proc.readAllStandardError() );
+	allText += QString::fromLocal8Bit( proc.readAllStandardOutput() );
+	if( allText.isEmpty() )
+		return formatsList;
+
+	// Old: "Supported formats: a b c"  New (QEMU 8+): "Supported image formats:\n  a b\n  c d"
+	int marker = allText.indexOf( QStringLiteral( "Supported image formats:" ), 0, Qt::CaseInsensitive );
+	if( marker < 0 )
+		marker = allText.indexOf( QStringLiteral( "Supported formats:" ), 0, Qt::CaseInsensitive );
+	if( marker < 0 )
+	{
+		AQError( "Probe_QEMU_IMG_Formats()", "Cannot find Supported formats section" );
+		return formatsList;
+	}
+
+	QString section = allText.mid( marker );
+	// Stop at next blank-line paragraph that looks like footer, or "See <"
+	const int seeAt = section.indexOf( QStringLiteral( "See <" ), 0, Qt::CaseInsensitive );
+	if( seeAt > 0 )
+		section = section.left( seeAt );
+	section.replace( QRegExp( QStringLiteral( "Supported image formats:\\s*" ), Qt::CaseInsensitive ), QString() );
+	section.replace( QRegExp( QStringLiteral( "Supported formats:\\s*" ), Qt::CaseInsensitive ), QString() );
+
+	formatsList = section.split( QRegExp( QStringLiteral( "\\s+" ) ), QString::SkipEmptyParts );
+	formatsList.removeDuplicates();
+
+	// Drop protocol/filter drivers — not useful as create/attach file formats
+	static const QSet<QString> skip = QSet<QString>()
+		<< "blkdebug" << "blklogwrites" << "blkverify" << "compress"
+		<< "copy-before-write" << "copy-on-read" << "file" << "ftp" << "ftps"
+		<< "host_device" << "http" << "https" << "nbd" << "null-aio" << "null-co"
+		<< "preallocate" << "quorum" << "replication" << "snapshot-access"
+		<< "throttle";
+	QStringList cleaned;
+	for( int i = 0; i < formatsList.count(); ++i )
+	{
+		const QString f = formatsList.at( i ).trimmed().toLower();
+		if( f.isEmpty() || skip.contains( f ) )
+			continue;
+		if( f.startsWith( QLatin1Char( '<' ) ) || f.startsWith( QLatin1String( "http" ) ) )
+			continue;
+		cleaned << f;
+	}
+	cleaned.removeDuplicates();
+	cleaned.sort( Qt::CaseInsensitive );
+	formatsList = cleaned;
+
+	if( formatsList.isEmpty() )
+	{
+		formatsList << "qcow2" << "qcow" << "vmdk" << "raw" << "vpc" << "vhdx"
+			<< "qed" << "vdi" << "luks" << "parallels" << "bochs" << "cloop" << "dmg";
+		formatsList.sort( Qt::CaseInsensitive );
+	}
+
+	cached_path = img;
+	cached_formats = formatsList;
+	return formatsList;
+}
+
+QString Preferred_QEMU_IMG_Format( const QStringList &formats )
+{
+	if( formats.contains( QStringLiteral( "qcow2" ), Qt::CaseInsensitive ) )
+		return QStringLiteral( "qcow2" );
+	if( formats.contains( QStringLiteral( "qcow" ), Qt::CaseInsensitive ) )
+		return QStringLiteral( "qcow" );
+	if( ! formats.isEmpty() )
+		return formats.first();
+	return QStringLiteral( "qcow2" );
+}
+
+QString Disk_Image_File_Filter( bool include_optical, bool include_floppy )
+{
+	QStringList exts;
+	auto add = [&exts]( const QString &e ) {
+		const QString x = e.toLower();
+		if( ! exts.contains( x ) )
+			exts << x;
+	};
+
+	const QStringList formats = Probe_QEMU_IMG_Formats();
+	for( int i = 0; i < formats.count(); ++i )
+	{
+		const QString f = formats.at( i ).toLower();
+		if( f == QLatin1String( "raw" ) )
+		{
+			add( "*.img" ); add( "*.raw" ); add( "*.bin" );
+		}
+		else if( f == QLatin1String( "vpc" ) )
+		{
+			add( "*.vhd" ); add( "*.vpc" );
+		}
+		else if( f == QLatin1String( "vhdx" ) )
+			add( "*.vhdx" );
+		else if( f == QLatin1String( "vmdk" ) )
+			add( "*.vmdk" );
+		else if( f == QLatin1String( "qcow2" ) )
+			add( "*.qcow2" );
+		else if( f == QLatin1String( "qcow" ) )
+			add( "*.qcow" );
+		else if( f == QLatin1String( "qed" ) )
+			add( "*.qed" );
+		else if( f == QLatin1String( "parallels" ) )
+			add( "*.hdd" );
+		else if( f == QLatin1String( "dmg" ) )
+			add( "*.dmg" );
+		else if( f == QLatin1String( "cloop" ) )
+			add( "*.cloop" );
+		else if( f == QLatin1String( "bochs" ) )
+			add( "*.bochs" );
+		else
+			add( QStringLiteral( "*.%1" ).arg( f ) );
+	}
+
+	// Read-only / common hypervisor extras (qemu-doc §3.7.7.1)
+	add( "*.vmdk" ); add( "*.vhd" ); add( "*.vhdx" ); add( "*.dmg" );
+	add( "*.img" ); add( "*.raw" ); add( "*.qcow2" ); add( "*.qcow" );
+
+	if( include_optical )
+	{
+		add( "*.iso" ); add( "*.cdr" ); add( "*.toast" );
+	}
+	if( include_floppy )
+	{
+		add( "*.ima" ); add( "*.vfd" ); add( "*.dsk" ); add( "*.img" );
+	}
+
+	QString joined = exts.join( QLatin1Char( ' ' ) );
+	QString filter = QObject::tr( "Disk Images (%1)" ).arg( joined );
+	if( include_optical )
+		filter = QObject::tr( "Disk / CD / DVD Images (%1)" ).arg( joined )
+			+ QStringLiteral( ";;" ) + QObject::tr( "ISO CD/DVD (*.iso *.cdr)" );
+	if( include_floppy && ! include_optical )
+		filter = QObject::tr( "Floppy Images (%1)" ).arg( joined );
+	filter += QStringLiteral( ";;" ) + QObject::tr( "All Files (*)" );
+	return filter;
+}
+
+QString QEMU_IMG_Format_Help_Text( const QStringList &formats )
+{
+	QString text = QObject::tr(
+		"Formats available from your qemu-img:\n%1\n\n"
+		"Common formats (QEMU documentation §3.7.7):\n\n"
+		"raw — Simple raw disk; easily portable.\n\n"
+		"qcow2 — Preferred QEMU format (sparse, snapshots, compression).\n\n"
+		"qcow — Older QEMU format (compatibility).\n\n"
+		"vmdk — VMware compatible.\n\n"
+		"vpc — Virtual PC / Hyper-V VHD.\n\n"
+		"vhdx — Hyper-V VHDX.\n\n"
+		"qed — QEMU Enhanced Disk (legacy).\n\n"
+		"Read-only / specialty: cloop, dmg (Apple), parallels, bochs.\n"
+		"Attach existing images of any format QEMU can open; create uses formats qemu-img can write." )
+		.arg( formats.isEmpty() ? QObject::tr( "(none probed — check QEMU-IMG path)" )
+					: formats.join( QLatin1Char( ' ' ) ) );
+	return text;
+}
+
+QString AQ_Get_Bundled_QEMU_Dir()
+{
+	const QString app_dir = QDir::cleanPath( QCoreApplication::applicationDirPath() );
+#ifdef Q_OS_WIN32
+	const QString suf = QStringLiteral( ".exe" );
+#else
+	const QString suf;
+#endif
+	const QStringList probes = QStringList()
+		<< app_dir
+		<< ( app_dir + QDir::separator() + QStringLiteral( "qemu" ) )
+		<< ( app_dir + QDir::separator() + QStringLiteral( "bin" ) );
+
+	for( int i = 0; i < probes.count(); ++i )
+	{
+		const QString d = QDir::toNativeSeparators( probes[i] );
+		const QString marker = d + QDir::separator() + QStringLiteral( "qemu-system-x86_64" ) + suf;
+		const QString marker2 = d + QDir::separator() + QStringLiteral( "qemu-system-i386" ) + suf;
+		const QString marker3 = d + QDir::separator() + QStringLiteral( "qemu-system-aarch64" ) + suf;
+		if( QFile::exists( marker ) || QFile::exists( marker2 ) || QFile::exists( marker3 ) )
+			return d.endsWith( QDir::separator() ) ? d : ( d + QDir::separator() );
+	}
+	return QString();
+}
+
+bool AQ_Has_Bundled_QEMU()
+{
+	return ! AQ_Get_Bundled_QEMU_Dir().isEmpty();
+}
+
+QString AQ_Get_QEMU_Source_Mode()
+{
+	QSettings s;
+	const QString m = s.value( QStringLiteral( "QEMU_Source" ), QString() ).toString().trimmed().toLower();
+	if( m == QLatin1String( "bundled" ) || m == QLatin1String( "custom" ) )
+		return m;
+	// Default: portable builds ship QEMU next to aqemu — prefer that.
+	return AQ_Has_Bundled_QEMU() ? QStringLiteral( "bundled" ) : QStringLiteral( "custom" );
+}
+
+void AQ_Set_QEMU_Source_Mode( const QString &mode )
+{
+	QSettings s;
+	const QString m = mode.trimmed().toLower();
+	s.setValue( QStringLiteral( "QEMU_Source" ),
+		( m == QLatin1String( "bundled" ) ) ? QStringLiteral( "bundled" ) : QStringLiteral( "custom" ) );
+}
+
+bool AQ_Apply_QEMU_Dir_As_Default_Emulator( const QString &dir_in, const QString &display_name )
+{
+	QString dir = QDir::toNativeSeparators( dir_in.trimmed() );
+	if( dir.isEmpty() )
+		return false;
+	if( ! ( dir.endsWith( QLatin1Char( '/' ) ) || dir.endsWith( QLatin1Char( '\\' ) ) ) )
+		dir += QDir::separator();
+
+	QMap<QString, QString> qemu_list = System_Info::Find_QEMU_Binary_Files( dir );
+	bool found = false;
+	for( QMap<QString, QString>::const_iterator it = qemu_list.constBegin(); it != qemu_list.constEnd(); ++it )
+	{
+		if( ! it.value().isEmpty() && QFile::exists( it.value() ) )
+		{
+			found = true;
+			break;
+		}
+	}
+	if( ! found )
+		return false;
+
+	VM::Emulator_Version qemu_version = VM::Obsolete;
+	for( QMap<QString, QString>::const_iterator it = qemu_list.constBegin(); it != qemu_list.constEnd(); ++it )
+	{
+		if( QFile::exists( it.value() ) )
+		{
+			qemu_version = System_Info::Get_Emulator_Version( it.value() );
+			if( qemu_version != VM::Obsolete )
+				break;
+		}
+	}
+	if( qemu_version == VM::Obsolete )
+		qemu_version = VM::QEMU_2_0;
+
+	QMap<QString, Available_Devices> devList;
+	for( QMap<QString, QString>::const_iterator it = qemu_list.constBegin(); it != qemu_list.constEnd(); ++it )
+	{
+		if( it.value().isEmpty() || ! QFile::exists( it.value() ) )
+			continue;
+		bool ok = false;
+		Available_Devices tmpDev = System_Info::Get_Emulator_Info( it.value(), &ok, qemu_version, it.key() );
+		if( ok )
+			devList[ it.key() ] = tmpDev;
+	}
+
+	Remove_All_Emulators_Files();
+
+	Emulator emul;
+	QString name = display_name.trimmed();
+	if( name.isEmpty() )
+		name = Emulator_Version_To_String( qemu_version );
+	emul.Set_Name( name );
+	emul.Set_Version( qemu_version );
+	emul.Set_Path( dir );
+	emul.Set_Devices( devList );
+	emul.Set_Binary_Files( qemu_list );
+	emul.Set_Check_Version( false );
+	emul.Set_Check_Available_Options( false );
+	emul.Set_Force_Version( false );
+	emul.Set_Default( true );
+	if( ! emul.Save() )
+		return false;
+
+#ifdef Q_OS_WIN32
+	const QString suf = QStringLiteral( ".exe" );
+#else
+	const QString suf;
+#endif
+	QSettings settings;
+	const QString img = dir + QStringLiteral( "qemu-img" ) + suf;
+	if( QFile::exists( img ) )
+		settings.setValue( QStringLiteral( "QEMU-IMG_Path" ), QDir::toNativeSeparators( img ) );
+
+	Update_Emulators_List();
+	return true;
 }
 
 bool Create_New_HDD_Image( bool encrypted, const QString &base_image,

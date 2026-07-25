@@ -466,14 +466,14 @@ void Emulator_Control_Window::Open_Device_File()
 	if( devName.contains("-cd") )
 	{
 		lastDir = Cur_VM->Get_CD_ROM().Get_File_Name();
-		fileFilter = tr( "All Files (*);;Images Files (*.iso *.img)" );
+		fileFilter = Disk_Image_File_Filter( true, false );
 		cd = true;
 		fd = false;
 	}
 	else if( devName.contains("floppy") )
 	{
 		lastDir = Cur_VM->Get_CD_ROM().Get_File_Name();
-		fileFilter = tr( "All Files (*);;Images Files (*.img *.ima)" );
+		fileFilter = Disk_Image_File_Filter( false, true );
 		cd = false;
 		fd = true;
 	}
@@ -877,7 +877,7 @@ void Emulator_Control_Window::on_actionFD0_Other_triggered()
 	
 	QString fileName = QFileDialog::getOpenFileName( this, tr("Open Device or Image File"),
 													 Get_Last_Dir_Path(Cur_VM->Get_FD0().Get_File_Name()),
-													 tr("All Files (*);;Images Files (*.img *.ima)") );
+													 Disk_Image_File_Filter( false, true ) );
 	
 	if( ! fileName.isEmpty() )
 	{
@@ -935,7 +935,7 @@ void Emulator_Control_Window::on_actionFD1_Other_triggered()
 	
 	QString fileName = QFileDialog::getOpenFileName( this, tr("Open Device or Image File"),
 													 Get_Last_Dir_Path(Cur_VM->Get_FD1().Get_File_Name()),
-													 tr("All Files (*);;Images Files (*.img *.ima)") );
+													 Disk_Image_File_Filter( false, true ) );
 	
 	if( ! fileName.isEmpty() )
 	{
@@ -993,7 +993,7 @@ void Emulator_Control_Window::on_actionCDROM_Other_triggered()
 	
 	QString fileName = QFileDialog::getOpenFileName( this, tr("Open Device or Image File"),
 													 Get_Last_Dir_Path(Cur_VM->Get_CD_ROM().Get_File_Name()),
-													 tr("All Files (*);;Images Files (*.iso)") );
+													 Disk_Image_File_Filter( true, false ) );
 	
 	if( ! fileName.isEmpty() )
 	{

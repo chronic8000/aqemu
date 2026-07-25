@@ -21,14 +21,18 @@
 ****************************************************************************/
 
 #include <QFileDialog>
+#include <QStandardItemModel>
 
 #include "Utils.h"
+#include "System_Info.h"
 #include "Add_New_Device_Window.h"
 
 Add_New_Device_Window::Add_New_Device_Window( QWidget *parent )
 	: QDialog( parent )
 {
 	ui.setupUi( this );
+	connect( ui.CB_Media, SIGNAL(currentIndexChanged(int)),
+		 this, SLOT(on_CB_Media_currentIndexChanged(int)) );
 }
 
 VM_Native_Storage_Device Add_New_Device_Window::Get_Device() const
@@ -80,6 +84,10 @@ void Add_New_Device_Window::Set_Device( const VM_Native_Storage_Device &dev )
 
 		case VM::DI_NVMe:
 			ui.CB_Interface->setCurrentIndex( 8 );
+			break;
+
+		case VM::DI_AHCI:
+			ui.CB_Interface->setCurrentIndex( 9 );
 			break;
 			
 		default:
@@ -301,9 +309,93 @@ void Add_New_Device_Window::Set_Emulator_Devices( const Available_Devices &devic
 		ui.CH_Boot->setVisible( false );
 		ui.CB_Boot->setVisible( false );
 	}
+
+	Target_Computer = devices.System.QEMU_Name;
+	Enforce_Interface_Honesty();
 	
 	// Minimum Size
 	resize( minimumSizeHint().width(), minimumSizeHint().height() );
+}
+
+void Add_New_Device_Window::Set_Machine_Type( const QString &machine_type )
+{
+	Target_Machine = machine_type;
+	Enforce_Interface_Honesty();
+}
+
+VM::Device_Interface Add_New_Device_Window::Interface_From_Combo_Index( int index ) const
+{
+	switch( index )
+	{
+		case 0: return VM::DI_IDE;
+		case 1: return VM::DI_SCSI;
+		case 2: return VM::DI_SD;
+		case 3: return VM::DI_MTD;
+		case 4: return VM::DI_Floppy;
+		case 5: return VM::DI_PFlash;
+		case 6: return VM::DI_Virtio;
+		case 7: return VM::DI_Virtio_SCSI;
+		case 8: return VM::DI_NVMe;
+		case 9: return VM::DI_AHCI;
+		default: return VM::DI_IDE;
+	}
+}
+
+int Add_New_Device_Window::Combo_Index_From_Interface( VM::Device_Interface iface ) const
+{
+	switch( iface )
+	{
+		case VM::DI_IDE: return 0;
+		case VM::DI_SCSI: return 1;
+		case VM::DI_SD: return 2;
+		case VM::DI_MTD: return 3;
+		case VM::DI_Floppy: return 4;
+		case VM::DI_PFlash: return 5;
+		case VM::DI_Virtio: return 6;
+		case VM::DI_Virtio_SCSI: return 7;
+		case VM::DI_NVMe: return 8;
+		case VM::DI_AHCI: return 9;
+		default: return 0;
+	}
+}
+
+void Add_New_Device_Window::Enforce_Interface_Honesty()
+{
+	const bool optical = ( ui.CB_Media->currentIndex() == 1 );
+	auto *model = qobject_cast<QStandardItemModel *>( ui.CB_Interface->model() );
+	ui.CB_Interface->blockSignals( true );
+
+	for( int i = 0; i < ui.CB_Interface->count(); ++i )
+	{
+		const VM::Device_Interface iface = Interface_From_Combo_Index( i );
+		const bool allowed = Target_Computer.isEmpty()
+			? true
+			: System_Info::Is_Disk_Bus_Allowed( Target_Computer, Target_Machine, iface, optical );
+
+		if( model )
+		{
+			QStandardItem *item = model->item( i );
+			if( item )
+			{
+				if( allowed )
+					item->setFlags( Qt::ItemIsEnabled | Qt::ItemIsSelectable );
+				else
+					item->setFlags( item->flags() & ~( Qt::ItemIsEnabled | Qt::ItemIsSelectable ) );
+			}
+		}
+	}
+
+	const int cur = ui.CB_Interface->currentIndex();
+	const VM::Device_Interface cur_iface = Interface_From_Combo_Index( cur );
+	if( ! Target_Computer.isEmpty() &&
+	    ! System_Info::Is_Disk_Bus_Allowed( Target_Computer, Target_Machine, cur_iface, optical ) )
+	{
+		const VM::Device_Interface safe =
+			System_Info::Sanitize_Disk_Bus( Target_Computer, Target_Machine, cur_iface, optical );
+		ui.CB_Interface->setCurrentIndex( Combo_Index_From_Interface( safe ) );
+	}
+
+	ui.CB_Interface->blockSignals( false );
 }
 
 void Add_New_Device_Window::Set_Enabled( bool enabled )
@@ -313,7 +405,7 @@ void Add_New_Device_Window::Set_Enabled( bool enabled )
 
 void Add_New_Device_Window::on_CB_Interface_currentIndexChanged( const QString &text )
 {
-	if( text == "ide" || text == "floppy" )
+	if( text == "ide" || text == "floppy" || text == "ahci" )
 	{
 		ui.CH_Index->setEnabled( true );
 		ui.SB_Index->setEnabled( true );
@@ -351,11 +443,18 @@ void Add_New_Device_Window::on_CB_Interface_currentIndexChanged( const QString &
 	}
 }
 
+void Add_New_Device_Window::on_CB_Media_currentIndexChanged( int )
+{
+	Enforce_Interface_Honesty();
+}
+
 void Add_New_Device_Window::on_TB_File_Path_Browse_clicked()
 {
+	const bool optical = ( ui.CB_Media->currentIndex() == 1 );
+	const bool floppy = ( ui.CB_Interface->currentText() == QLatin1String( "floppy" ) );
 	QString file_name = QFileDialog::getOpenFileName( this, tr("Select your device"),
 													  Get_Last_Dir_Path(ui.Edit_File_Path->text()),
-													  tr("All Files (*)") );
+													  Disk_Image_File_Filter( optical, floppy ) );
 	
 	if( ! file_name.isEmpty() )
 		ui.Edit_File_Path->setText( QDir::toNativeSeparators(file_name) );
@@ -404,11 +503,21 @@ void Add_New_Device_Window::done(int r)
 			    Device.Set_Interface( VM::DI_NVMe );
 			    break;
 
+		    case 9:
+			    Device.Set_Interface( VM::DI_AHCI );
+			    break;
+
 		    default:
 			    AQError( "void Add_New_Device_Window::done(int)",
 					     "Invalid Interface Index! Use IDE" );
 			    Device.Set_Interface( VM::DI_IDE );
 			    break;
+	    }
+	    {
+		    const bool optical = ( ui.CB_Media->currentIndex() == 1 );
+		    if( ! Target_Computer.isEmpty() )
+			    Device.Set_Interface( System_Info::Sanitize_Disk_Bus(
+				    Target_Computer, Target_Machine, Device.Get_Interface(), optical ) );
 	    }
 	
 	    Device.Use_Interface( ui.CH_Interface->isChecked() );

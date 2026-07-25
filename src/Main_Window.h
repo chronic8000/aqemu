@@ -267,6 +267,9 @@ class Main_Window: public QMainWindow
         void Computer_Type_Changed();
         void Update_Machine_Accelerators();
         void Enforce_Accel_Honesty();
+	void Enforce_Disk_Bus_Honesty();
+	int Disk_Interface_To_Combo_Index( VM::Device_Interface iface ) const;
+	VM::Device_Interface Combo_Index_To_Disk_Interface( int index ) const;
         void Update_Accelerator_Options();
         void Update_Computer_Types();
 		void Fill_Display_Resolution_Combo();

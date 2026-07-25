@@ -827,6 +827,8 @@ class Virtual_Machine: public QObject
         QList<VM_Native_Storage_Device> Storage_Devices; // For QEMU 0.8.2 Device Style
         int native_device_count; // to keep track of the number of native devices when building
                                  // the argument list
+	int ahci_unit_count; // unit index on shared aqemu_ahci controller
+	bool ahci_controller_added;
 
         // shared folders
         QList<VM_Shared_Folder> Shared_Folders;
