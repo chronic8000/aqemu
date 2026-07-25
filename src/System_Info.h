@@ -52,6 +52,8 @@ class System_Info
 		static bool Auto_Find_And_Save_Emulators();
 		
 		static VM::Emulator_Version Get_Emulator_Version( const QString &path = "" );
+		/** Human label like "QEMU 7.2" from `qemu-system-* --version` (tobimensch#131). */
+		static QString Get_Emulator_Version_Label( const QString &path = "" );
 		
 		static QMap<QString, QString> Find_QEMU_Binary_Files( const QString &path );
 		//static QMap<QString, QString> Find_KVM_Binary_Files( const QString &path );
@@ -65,10 +67,22 @@ class System_Info
 		                                    const QString &machine_type = QString() );
 		static QString Default_Video_Card( const QString &computer_type );
 		static bool Uses_Device_Based_Video( const QString &computer_type );
+
+		/** Disk interface allowed for guest arch/machine (grey-out policy). */
+		static bool Is_Disk_Bus_Allowed( const QString &computer_type, const QString &machine_type,
+			VM::Device_Interface iface, bool for_optical_or_floppy = false );
+		static VM::Device_Interface Default_Disk_Bus( const QString &computer_type,
+			const QString &machine_type );
+		static VM::Device_Interface Sanitize_Disk_Bus( const QString &computer_type,
+			const QString &machine_type, VM::Device_Interface iface,
+			bool for_optical_or_floppy = false );
+
 		static QString Get_Emulator_Help_Output( const QString &path );
 		static QString Get_Emulator_Output( const QString &path, const QStringList &args );
 		
 		static const QList<VM_USB> &Get_All_Host_USB();
+		/** Cached list only — never blocks on host enumeration. */
+		static const QList<VM_USB> &Get_Cached_Host_USB();
 		static const QList<VM_USB> &Get_Used_USB_List();
 		static bool Add_To_Used_USB_List( const VM_USB &device );
 		static bool Delete_From_Used_USB_List( const VM_USB &device );
@@ -78,6 +92,9 @@ class System_Info
 		static QList<VM_USB> Get_Host_Gamepads();
 
 		static bool Update_Host_GPU();
+		/** Cached GPU list — never blocks. Empty until Update_Host_GPU has run. */
+		static const QList<Host_GPU> &Get_Cached_Host_GPU_List();
+		static bool Host_GPU_Was_Scanned();
 		static const QList<Host_GPU> &Get_Host_GPU_List();
 		static bool Has_AMD_Display_GPU();
 		/** Native Linux with PCI (not Windows, not WSL). Required for vfio-pci into QEMU. */
@@ -109,6 +126,7 @@ class System_Info
 		static QList<VM_USB> All_Host_USB;
 		static QList<VM_USB> Used_Host_USB;
 		static QList<Host_GPU> All_Host_GPU;
+		static bool Host_GPU_Scanned;
 };
 
 #endif

@@ -27,6 +27,7 @@
 #include <QSettings>
 #include <QObject>
 #include <QList>
+#include <QTranslator>
 
 class Virtual_Machine;
 class Run_Guard;
@@ -62,6 +63,7 @@ class AQEMU_Main : public QObject
         QSettings* settings;
         QApplication* application;
         Main_Window* window;
+        QTranslator appTranslator;
         bool settings_loaded;
 };
 

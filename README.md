@@ -36,7 +36,7 @@ This is the first **1.x** line we are pushing hard for outside testers. If you r
 | | |
 |--|--|
 | **Download** | [v1.0.0 Windows portable](https://github.com/chronic8000/aqemu/releases/tag/v1.0.0) |
-| **File bugs** | [Issues](https://github.com/chronic8000/aqemu/issues) — host OS, guest OS, and the exact error help a lot (QEMU path is configured in **File → Settings → Emulator**: built-in vs custom) |
+| **File bugs** | [Issues](https://github.com/chronic8000/aqemu/issues) — host OS, guest OS, and the exact error help a lot (QEMU path is configured in **File → Configure → Emulator**: built-in vs custom). Historical [tobimensch/aqemu issues](https://github.com/tobimensch/aqemu/issues) are archived context only; we cannot close them upstream — triage lives in [`docs/TOBIMENSCH_ISSUE_TRIAGE.md`](docs/TOBIMENSCH_ISSUE_TRIAGE.md) |
 | **What we care about** | Install wizards, embedded SPICE, Win9x/XP TCG, Win11 ARM, Intel macOS, Solaris x86, AIX/pseries, migrate/QMP tools |
 
 We keep shipping free GitHub zips while the **Microsoft Store** listing works through certification. Store = auto-updates later; GitHub = grab the zip yourself when we cut a new tag.
@@ -75,7 +75,7 @@ We keep the original authors’ names. We do **not** inherit their old donation 
 The last widely known community tree — [tobimensch/aqemu](https://github.com/tobimensch/aqemu) — went quiet years ago (Qt5 port, VNC-era display, you brought your own QEMU). **This fork is not a polish pass.** From that baseline we are **~+30,000 lines / −2,000 lines across ~120 files** of real product work. Here is why you should download **1.0.0**:
 
 ### 1. Built-in QEMU 11.0.2 (Windows portable)
-Old AQEMU assumed a system QEMU install. Our Release zip / Store build **ships QEMU next to `aqemu.exe`** — `qemu-system-x86_64`, `i386`, `aarch64`, `qemu-img`, firmware — with a Settings toggle for **built-in vs custom folder**. Unzip and run.
+Old AQEMU assumed a system QEMU install. Our Release zip / Store build **ships QEMU next to `aqemu.exe`** — `qemu-system-x86_64`, `i386`, `aarch64`, `qemu-img`, firmware — with a **File → Configure → Emulator** toggle for **built-in vs custom folder**. Unzip and run.
 
 ### 2. Embedded SPICE sessions (not a lost SDL window)
 QEMU runs headless; you see the guest **inside AQEMU** via modern **spice-client-glib**, with a real **session toolbar** (media, USB hotplug, net, power) and **QMP** control. Old AQEMU leaned on LibVNC / separate display chrome. This is how you actually *use* a VM in 2026.

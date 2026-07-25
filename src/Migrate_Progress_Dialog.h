@@ -18,7 +18,7 @@ class Migrate_Progress_Dialog : public QDialog
 	Q_OBJECT
 	public:
 		explicit Migrate_Progress_Dialog( QMP_Client *qmp, const QString &uri,
-		                                  QWidget *parent = 0 );
+		                                  QWidget *parent = 0, bool blk = false );
 
 	private slots:
 		void On_Poll();
@@ -28,6 +28,7 @@ class Migrate_Progress_Dialog : public QDialog
 	private:
 		QMP_Client *QMP;
 		QString URI;
+		bool Blk;
 		QLabel *Status_Label;
 		QLabel *Detail_Label;
 		QProgressBar *Bar;

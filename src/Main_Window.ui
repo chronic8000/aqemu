@@ -1639,6 +1639,11 @@
                  </item>
                  <item>
                   <property name="text">
+                   <string>AHCI (SATA)</string>
+                  </property>
+                 </item>
+                 <item>
+                  <property name="text">
                    <string>SD</string>
                   </property>
                  </item>

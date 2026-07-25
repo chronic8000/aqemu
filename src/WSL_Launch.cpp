@@ -215,14 +215,14 @@ bool WSL_Ensure_KVM_Access( const QString &distro )
 
 	QString script = QStringLiteral(
 		"getent group kvm >/dev/null 2>&1 || groupadd -r kvm 2>/dev/null || true; "
-		"if [ -c /dev/kvm ]; then chmod 666 /dev/kvm 2>/dev/null || true; fi; " );
+		"if [ -c /dev/kvm ]; then chgrp kvm /dev/kvm 2>/dev/null || true; chmod 660 /dev/kvm 2>/dev/null || true; fi; " );
 	if( ! user.isEmpty() && user != QLatin1String( "root" ) )
 	{
 		script += QStringLiteral( "usermod -aG kvm '%1' 2>/dev/null || true; " ).arg( user );
 		// Persist across WSL restarts when possible (udev/rules or module load)
 		script += QStringLiteral(
 			"mkdir -p /etc/udev/rules.d 2>/dev/null || true; "
-			"printf 'KERNEL==\"kvm\", GROUP=\"kvm\", MODE=\"0666\"\\n' "
+			"printf 'KERNEL==\"kvm\", GROUP=\"kvm\", MODE=\"0660\"\\n' "
 			"> /etc/udev/rules.d/99-aqemu-kvm.rules 2>/dev/null || true; " );
 	}
 	script += QStringLiteral( "exit 0" );
@@ -259,10 +259,44 @@ QString Windows_Path_To_WSL( const QString &windows_path )
 	return QStringLiteral( "/mnt/%1%2" ).arg( letter, rest );
 }
 
+static QStringList Split_Qemu_Option_Commas( const QString &opt )
+{
+	// QEMU uses ,, for a literal comma in option values (tobimensch/PR#1 / Qodo)
+	QStringList parts;
+	QString cur;
+	for( int i = 0; i < opt.size(); ++i )
+	{
+		if( opt.at( i ) == QLatin1Char( ',' ) )
+		{
+			if( i + 1 < opt.size() && opt.at( i + 1 ) == QLatin1Char( ',' ) )
+			{
+				cur += QLatin1Char( ',' );
+				++i;
+			}
+			else
+			{
+				parts << cur;
+				cur.clear();
+			}
+		}
+		else
+		{
+			cur += opt.at( i );
+		}
+	}
+	parts << cur;
+	return parts;
+}
+
+static QString Escape_Qemu_Option_Commas( QString val )
+{
+	return val.replace( QLatin1Char( ',' ), QLatin1String( ",," ) );
+}
+
 static QString Rewrite_Drive_File_Option( const QString &opt )
 {
 	// Rewrite file= / file.filename= path segments inside -drive / similar options
-	QStringList parts = opt.split( QLatin1Char( ',' ) );
+	QStringList parts = Split_Qemu_Option_Commas( opt );
 	for( int i = 0; i < parts.size(); ++i )
 	{
 		const QString &part = parts.at( i );
@@ -280,7 +314,7 @@ static QString Rewrite_Drive_File_Option( const QString &opt )
 		if( ! is_path_key )
 			continue;
 		QString val = AQ_Normalize_File_Path( part.mid( eq + 1 ) );
-		parts[i] = key + QLatin1Char( '=' ) + Windows_Path_To_WSL( val );
+		parts[i] = key + QLatin1Char( '=' ) + Escape_Qemu_Option_Commas( Windows_Path_To_WSL( val ) );
 	}
 	return parts.join( QLatin1Char( ',' ) );
 }

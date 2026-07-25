@@ -621,22 +621,29 @@ void VncClientThread::clientSetKeepalive()
     }
 
     optval = m_keepalive.intervalSeconds;
+#ifdef TCP_KEEPIDLE
     if (setsockopt(cl->sock, IPPROTO_TCP, TCP_KEEPIDLE, &optval, optlen) < 0) {
         qCritical(KRDC) << "setsockopt(TCP_KEEPIDLE)" << strerror(errno);
         return;
     }
+#endif
 
+#ifdef TCP_KEEPINTVL
     optval = m_keepalive.intervalSeconds;
     if (setsockopt(cl->sock, IPPROTO_TCP, TCP_KEEPINTVL, &optval, optlen) < 0) {
         qCritical(KRDC) << "setsockopt(TCP_KEEPINTVL)" << strerror(errno);
         return;
     }
+#endif
 
+#ifdef TCP_KEEPCNT
     optval = m_keepalive.failedProbes;
     if(setsockopt(cl->sock, IPPROTO_TCP, TCP_KEEPCNT, &optval, optlen) < 0) {
         qCritical(KRDC) << "setsockopt(TCP_KEEPCNT)" << strerror(errno);
         return;
     }
+#endif
+    Q_UNUSED(optval);
 #endif
     m_keepalive.set = true;
     qCDebug(KRDC) << "TCP keepalive set";

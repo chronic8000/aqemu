@@ -144,7 +144,11 @@ void Folder_Sharing_Widget::Update_Enabled_Actions()
 				{
 					found = true;
 					
-					ui.Label_Connected_To->setText( "# "+tr("The 9p filesystem module must be available on the guest")+"\nmkdir /tmp/shared"+QString::number(fx)+"; mount -t 9p -o trans=virtio shared"+QString::number(fx)+" /tmp/shared"+QString::number(fx)+" \\\n                          -o version=9p2000.L,posixacl,cache=mmap" );
+					ui.Label_Connected_To->setText(
+						"# "+tr("Linux/BSD guests: the 9p module must be available")+"\n"
+						"mkdir /tmp/shared"+QString::number(fx)+"; mount -t 9p -o trans=virtio shared"+QString::number(fx)+" /tmp/shared"+QString::number(fx)+" \\\n"
+						"                          -o version=9p2000.L,posixacl,cache=mmap\n"
+						"# "+tr("Windows/DOS guests: use Network → user + SMB share instead of virtfs/9p") );
 					
 					//ui.TB_Edit_Folder->setEnabled( true );
 					ui.actionProperties->setEnabled( true );

@@ -1116,6 +1116,28 @@ bool System_Info::Update_VM_Computers_List()
 	return true;
 }
 
+static bool AQ_Parse_QEMU_Version_Line( const QString &text, int *major_ver, int *minor_ver )
+{
+	if( ! major_ver || ! minor_ver ) return false;
+	// "QEMU emulator version 7.2.9 (Debian ...)" / "qemu-system-x86_64 version 11.0.2"
+	QRegExp re( QStringLiteral( "version\\s+(\\d+)\\.(\\d+)" ), Qt::CaseInsensitive );
+	if( re.indexIn( text ) < 0 ) return false;
+	bool ok1 = false, ok2 = false;
+	*major_ver = re.cap( 1 ).toInt( &ok1, 10 );
+	*minor_ver = re.cap( 2 ).toInt( &ok2, 10 );
+	return ok1 && ok2;
+}
+
+QString System_Info::Get_Emulator_Version_Label( const QString &path )
+{
+	if( path.isEmpty() ) return QStringLiteral( "QEMU" );
+	const QString verOut = Get_Emulator_Output( path, QStringList() << QStringLiteral( "--version" ) );
+	int major_ver = 0, minor_ver = 0;
+	if( AQ_Parse_QEMU_Version_Line( verOut, &major_ver, &minor_ver ) )
+		return QStringLiteral( "QEMU %1.%2" ).arg( major_ver ).arg( minor_ver );
+	return QStringLiteral( "QEMU" );
+}
+
 VM::Emulator_Version System_Info::Get_Emulator_Version( const QString &path )
 {
 	if( path.isEmpty() )
@@ -1124,89 +1146,28 @@ VM::Emulator_Version System_Info::Get_Emulator_Version( const QString &path )
 				   "path is Empty" );
 		return VM::Obsolete;
 	}
-	
-	// Get help text
-	QString emulHelpText = Get_Emulator_Help_Output( path );
-	QTextStream allHelpOutput( &emulHelpText, QIODevice::ReadOnly );
-	
-	QRegExp emulVerLineRegExp = QRegExp( ".*version.*" );
-	QString line = "";
-	
-	for( int ix = 0; ix < 5; ++ix )
-	{
-		QString tmpLine = allHelpOutput.readLine();
-		
-		if( tmpLine.isEmpty() )
-		{
-			AQError( "VM::Emulator_Version System_Info::Get_Emulator_Version( const QString &path )",
-					 "Result String is Empty!" );
-			break;
-		}
-		
-		if( ! emulVerLineRegExp.exactMatch(tmpLine) ) continue;
-		else
-		{
-			line = tmpLine;
-			break;
-		}
-	}
-	
-	if( line.isEmpty() )
+
+	// Prefer --version (help text often has no version line — tobimensch#131/#75)
+	QString verText = Get_Emulator_Output( path, QStringList() << QStringLiteral( "--version" ) );
+	if( verText.isEmpty() )
+		verText = Get_Emulator_Help_Output( path );
+
+	int major_ver = 0, minor_ver = 0;
+	if( ! AQ_Parse_QEMU_Version_Line( verText, &major_ver, &minor_ver ) )
 	{
 		AQError( "VM::Emulator_Version System_Info::Get_Emulator_Version( const QString &path )",
-				 "Cannot get emulator version!" );
+				 "Cannot parse QEMU version from: " + verText.left( 200 ) );
 		return VM::Obsolete;
 	}
-	
-	// This QEMU or KVM?
-	bool emulatorKVM = false;
-	if( path.contains("kvm", Qt::CaseInsensitive) ) emulatorKVM = true;
-	//if( path.contains("qemu", Qt::CaseInsensitive) ) emulatorKVM = false;
-	
-    // QEMU
-    //QRegExp emulVerRegExp = QRegExp( ".*version\\s+([\\d]+)[.]([\\d]+)[.]([\\d]+).*" );
-    QRegExp emulVerRegExpNew = QRegExp( ".*version\\s+([\\d]+)[.]([\\d]+).*" );
 
-    if( ! emulVerRegExpNew.exactMatch(line) )
-    {
-	    AQError( "VM::Emulator_Version System_Info::Get_Emulator_Version( const QString &path )",
-			     "Cannot match emulVerRegExp! Line: " + line );
-	    return VM::Obsolete;
-    }
-    else // Version like: 1.0
-    {
-	    QStringList versionLines = emulVerRegExpNew.capturedTexts();
-	    if( versionLines.count() < 3 )
-	    {
-		    AQError( "VM::Emulator_Version System_Info::Get_Emulator_Version( const QString &path )",
-				     "Cannot get major_ver, minor_ver vairables!" );
-		    return VM::Obsolete;
-	    }
-	
-	    int major_ver, minor_ver;
-	    bool ok1, ok2;
-	
-	    major_ver = versionLines[1].toInt( &ok1, 10 );
-	    minor_ver = versionLines[2].toInt( &ok2, 10 );
-	
-	    if( ! (ok1 && ok2) )
-	    {
-		    AQError( "VM::Emulator_Version System_Info::Get_Emulator_Version( const QString &path )",
-				     "Cannot Convert to Int! Line: " + versionLines[0] );
-		    return VM::Obsolete;
-	    }
-	
-	    if( major_ver > 1 || (major_ver == 1 && minor_ver > 0) )
-        {
-             return VM::QEMU_2_0;
-        }
-	    else
-	    {
-		    AQError( "VM::Emulator_Version System_Info::Get_Emulator_Version( const QString &path )",
-				     QString("QEMU Version %1.%2 not defined!").arg(major_ver).arg(minor_ver) );
-		    return VM::Obsolete;
-	    }
-    }
+	// Capability profile: everything >= 2.0 uses the modern device table (QEMU_2_0 enum).
+	// Display name comes from Get_Emulator_Version_Label(), not Emulator_Version_To_String().
+	if( major_ver >= 2 )
+		return VM::QEMU_2_0;
+
+	AQError( "VM::Emulator_Version System_Info::Get_Emulator_Version( const QString &path )",
+			 QString( "QEMU Version %1.%2 too old" ).arg( major_ver ).arg( minor_ver ) );
+	return VM::Obsolete;
 }
 
 QMap<QString, QString> System_Info::Find_QEMU_Binary_Files( const QString &path )
@@ -1530,6 +1491,99 @@ QString Map_Cross_Arch_Video( Video_Arch_Family fam, const QString &name,
 }
 
 } // namespace
+
+bool System_Info::Is_Disk_Bus_Allowed( const QString &computer_type, const QString &machine_type,
+	VM::Device_Interface iface, bool for_optical_or_floppy )
+{
+	if( for_optical_or_floppy &&
+	    ( iface == VM::DI_NVMe || iface == VM::DI_SD || iface == VM::DI_MTD || iface == VM::DI_PFlash ) )
+		return false;
+
+	const Video_Arch_Family fam = Get_Video_Arch_Family( computer_type );
+	const QString m = machine_type.toLower().trimmed();
+	const bool is_virt_machine = ( m == QLatin1String( "virt" ) ) || fam == VAF_VIRT;
+	const bool is_mac = m.contains( QLatin1String( "mac" ) );
+	const bool is_pseries = m.contains( QLatin1String( "pseries" ) ) || fam == VAF_PPC;
+	const bool is_q35 = m.contains( QLatin1String( "q35" ) );
+	const bool is_pc_x86 = ( fam == VAF_X86 );
+
+	switch( iface )
+	{
+		case VM::DI_IDE:
+			if( is_virt_machine || is_pseries )
+				return false;
+			return is_pc_x86 || fam == VAF_OTHER;
+
+		case VM::DI_AHCI:
+			if( is_virt_machine || is_pseries )
+				return false;
+			return is_pc_x86 || is_mac;
+
+		case VM::DI_SCSI:
+			if( is_mac )
+				return false;
+			return true;
+
+		case VM::DI_Virtio:
+		case VM::DI_Virtio_SCSI:
+			if( is_mac )
+				return false;
+			return true;
+
+		case VM::DI_NVMe:
+			if( is_mac || is_pseries || for_optical_or_floppy )
+				return false;
+			if( is_virt_machine || is_q35 )
+				return true;
+			if( is_pc_x86 )
+			{
+				if( m == QLatin1String( "pc" ) || m.contains( QLatin1String( "i440fx" ) ) )
+					return false;
+				return true;
+			}
+			return false;
+
+		case VM::DI_SD:
+			return is_virt_machine || fam == VAF_MIPS || fam == VAF_OTHER;
+
+		case VM::DI_Floppy:
+			return is_pc_x86 && ! is_virt_machine;
+
+		case VM::DI_MTD:
+		case VM::DI_PFlash:
+			return is_virt_machine || fam == VAF_OTHER || fam == VAF_MIPS;
+
+		default:
+			return true;
+	}
+}
+
+VM::Device_Interface System_Info::Default_Disk_Bus( const QString &computer_type,
+	const QString &machine_type )
+{
+	const Video_Arch_Family fam = Get_Video_Arch_Family( computer_type );
+	const QString m = machine_type.toLower().trimmed();
+	const bool is_mac = m.contains( QLatin1String( "mac" ) );
+	const bool is_virt = ( m == QLatin1String( "virt" ) ) || fam == VAF_VIRT;
+	const bool is_pseries = m.contains( QLatin1String( "pseries" ) ) || fam == VAF_PPC;
+	const bool is_q35 = m.contains( QLatin1String( "q35" ) );
+
+	if( is_mac )
+		return VM::DI_AHCI;
+	if( is_pseries )
+		return VM::DI_Virtio_SCSI;
+	if( is_virt || is_q35 )
+		return VM::DI_Virtio;
+	return VM::DI_IDE;
+}
+
+VM::Device_Interface System_Info::Sanitize_Disk_Bus( const QString &computer_type,
+	const QString &machine_type, VM::Device_Interface iface, bool for_optical_or_floppy )
+{
+	if( Is_Disk_Bus_Allowed( computer_type, machine_type, iface, for_optical_or_floppy ) )
+		return iface;
+	return Default_Disk_Bus( computer_type, machine_type );
+}
 
 void System_Info::Filter_Video_Card_List( Available_Devices &dev )
 {
@@ -2223,9 +2277,9 @@ Available_Devices System_Info::Get_Emulator_Info( const QString &path, bool *ok,
 		
 		QStringList regExpVariants;
 		regExpVariants << ".*x86\\s+([\\w-]+).*|.*x86\\s+\\[([\\w-]+)\\].*"	// x86 pentium3 | x86 [core2duo]
-					   << ".*PowerPC\\s+(.*)\\s+PVR.*"	// PowerPC 750 PVR 00080301
+					   << ".*PowerPC\\s+([\\w._-]+).*"	// PowerPC 750 / 750_v3.1 (tobimensch#130)
 					   << ".*MIPS\\s+\\'(.*)\\'.*"		// MIPS '4Kc'
-					   << ".*\\s*([\\w-]+).*";			// cortex-a9
+					   << ".*\\s*([\\w.-]+)\\s*$";			// cortex-a9 / trailing token
 		
 		// Get QEMU ID String
 		for( int lx = 0; lx < regExpVariants.count(); ++lx )
@@ -2627,7 +2681,12 @@ QString System_Info::Get_Emulator_Output( const QString &path, const QStringList
 const QList<VM_USB> &System_Info::Get_All_Host_USB()
 {
 	if( All_Host_USB.count() <= 0 ) Update_Host_USB();
-	
+
+	return All_Host_USB;
+}
+
+const QList<VM_USB> &System_Info::Get_Cached_Host_USB()
+{
 	return All_Host_USB;
 }
 
@@ -3540,14 +3599,25 @@ bool System_Info::Host_Supports_PCI_Passthrough()
 
 const QList<Host_GPU> &System_Info::Get_Host_GPU_List()
 {
-	if( All_Host_GPU.isEmpty() )
+	if( ! Host_GPU_Scanned )
 		Update_Host_GPU();
 	return All_Host_GPU;
 }
 
+const QList<Host_GPU> &System_Info::Get_Cached_Host_GPU_List()
+{
+	return All_Host_GPU;
+}
+
+bool System_Info::Host_GPU_Was_Scanned()
+{
+	return Host_GPU_Scanned;
+}
+
 bool System_Info::Has_AMD_Display_GPU()
 {
-	const QList<Host_GPU> &list = Get_Host_GPU_List();
+	// Cache only — never trigger a blocking scan from UI helpers (PR #2 / Qodo)
+	const QList<Host_GPU> &list = All_Host_GPU;
 	for( int i = 0; i < list.count(); ++i )
 	{
 		if( list[i].Is_Display && list[i].Vendor == QLatin1String( "AMD" ) )
@@ -3754,6 +3824,7 @@ bool System_Info::Update_Host_GPU()
 	if( Scan_Host_GPU_Sysfs( list ) )
 	{
 		All_Host_GPU = list;
+		Host_GPU_Scanned = true;
 		return true;
 	}
 #endif
@@ -3761,15 +3832,35 @@ bool System_Info::Update_Host_GPU()
 	if( Scan_Host_GPU_Windows( list ) )
 	{
 		All_Host_GPU = list;
+		Host_GPU_Scanned = true;
 		return true;
 	}
 #endif
 	All_Host_GPU = list;
+	Host_GPU_Scanned = true;
 	return false;
 }
 
 bool System_Info::Auto_Find_And_Save_Emulators()
 {
+	// Prefer portable/bundled QEMU next to aqemu when present.
+	if( AQ_Has_Bundled_QEMU() )
+	{
+		QSettings srcSet;
+		const QString mode = srcSet.value( QStringLiteral( "QEMU_Source" ), QString() )
+			.toString().trimmed().toLower();
+		if( mode != QLatin1String( "custom" ) )
+		{
+			if( AQ_Apply_QEMU_Dir_As_Default_Emulator(
+					AQ_Get_Bundled_QEMU_Dir(),
+					QObject::tr( "Built-in QEMU" ) ) )
+			{
+				AQ_Set_QEMU_Source_Mode( QStringLiteral( "bundled" ) );
+				return true;
+			}
+		}
+	}
+
 	QStringList sys_env = QProcess::systemEnvironment();
 	QStringList paths;
 	for( int ix = 0; ix < sys_env.count(); ix++ )
@@ -3787,6 +3878,10 @@ bool System_Info::Auto_Find_And_Save_Emulators()
 	#else
 	paths << "/usr/bin/" << "/usr/local/bin/";
 	#endif
+
+	const QString bundled = AQ_Get_Bundled_QEMU_Dir();
+	if( ! bundled.isEmpty() )
+		paths.prepend( bundled );
 	
 	for( int ix = 0; ix < paths.count(); ix++ )
 	{
@@ -3875,15 +3970,18 @@ bool System_Info::Auto_Find_And_Save_Emulators()
 		}
 		
 		Emulator emul;
-		QString emulName = Emulator_Version_To_String( qemu_version );
+		// Use real version label (e.g. "QEMU 11.0"), not the capability enum string "QEMU 2.0"
+		QString emulName = Get_Emulator_Version_Label( paths[qx] );
+		if( emulName.isEmpty() || emulName == QLatin1String( "QEMU" ) )
+			emulName = Emulator_Version_To_String( qemu_version );
 		int emulDublicateNameCount = 1;
+		const QString emulNameBase = emulName;
 		for( int ix = 0; ix < qemuEmulatorsList.count(); ++ix )
 		{
 			if( emulName == qemuEmulatorsList[ix].Get_Name() )
 			{
 				++emulDublicateNameCount;
-				emulName = QString("%1 #%2").arg( Emulator_Version_To_String(qemu_version) )
-											.arg( emulDublicateNameCount );
+				emulName = QString( "%1 #%2" ).arg( emulNameBase ).arg( emulDublicateNameCount );
 				ix = 0;
 			}
 		}

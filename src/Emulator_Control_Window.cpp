@@ -48,6 +48,7 @@
 #include "Service.h"
 #include "QMP_Client.h"
 #include "Migrate_Progress_Dialog.h"
+#include "Migrate_URI_Dialog.h"
 
 Emulator_Control_Window::Emulator_Control_Window( QWidget *parent )
 	: QMainWindow( parent )
@@ -466,14 +467,14 @@ void Emulator_Control_Window::Open_Device_File()
 	if( devName.contains("-cd") )
 	{
 		lastDir = Cur_VM->Get_CD_ROM().Get_File_Name();
-		fileFilter = tr( "All Files (*);;Images Files (*.iso *.img)" );
+		fileFilter = Disk_Image_File_Filter( true, false );
 		cd = true;
 		fd = false;
 	}
 	else if( devName.contains("floppy") )
 	{
 		lastDir = Cur_VM->Get_CD_ROM().Get_File_Name();
-		fileFilter = tr( "All Files (*);;Images Files (*.img *.ima)" );
+		fileFilter = Disk_Image_File_Filter( false, true );
 		cd = false;
 		fd = true;
 	}
@@ -789,18 +790,14 @@ void Emulator_Control_Window::on_actionMigrate_triggered()
 		return;
 	}
 
-	bool ok = false;
-	const QString uri = QInputDialog::getText(
-		this, tr("Migrate VM"),
-		tr("Destination URI (receiver must use -incoming):\n"
-		   "Examples: tcp:192.168.1.10:4444  unix:/tmp/migrate.sock"),
-		QLineEdit::Normal,
-		QStringLiteral( "tcp:127.0.0.1:4444" ),
-		&ok ).trimmed();
-	if( ! ok || uri.isEmpty() )
+	Migrate_URI_Dialog pick( this );
+	if( pick.exec() != QDialog::Accepted )
+		return;
+	const QString uri = pick.URI().trimmed();
+	if( uri.isEmpty() )
 		return;
 
-	Migrate_Progress_Dialog dlg( Cur_VM->Get_QMP(), uri, this );
+	Migrate_Progress_Dialog dlg( Cur_VM->Get_QMP(), uri, this, pick.Copy_Storage() );
 	dlg.exec();
 }
 
@@ -877,7 +874,7 @@ void Emulator_Control_Window::on_actionFD0_Other_triggered()
 	
 	QString fileName = QFileDialog::getOpenFileName( this, tr("Open Device or Image File"),
 													 Get_Last_Dir_Path(Cur_VM->Get_FD0().Get_File_Name()),
-													 tr("All Files (*);;Images Files (*.img *.ima)") );
+													 Disk_Image_File_Filter( false, true ) );
 	
 	if( ! fileName.isEmpty() )
 	{
@@ -935,7 +932,7 @@ void Emulator_Control_Window::on_actionFD1_Other_triggered()
 	
 	QString fileName = QFileDialog::getOpenFileName( this, tr("Open Device or Image File"),
 													 Get_Last_Dir_Path(Cur_VM->Get_FD1().Get_File_Name()),
-													 tr("All Files (*);;Images Files (*.img *.ima)") );
+													 Disk_Image_File_Filter( false, true ) );
 	
 	if( ! fileName.isEmpty() )
 	{
@@ -993,7 +990,7 @@ void Emulator_Control_Window::on_actionCDROM_Other_triggered()
 	
 	QString fileName = QFileDialog::getOpenFileName( this, tr("Open Device or Image File"),
 													 Get_Last_Dir_Path(Cur_VM->Get_CD_ROM().Get_File_Name()),
-													 tr("All Files (*);;Images Files (*.iso)") );
+													 Disk_Image_File_Filter( true, false ) );
 	
 	if( ! fileName.isEmpty() )
 	{
