@@ -20,12 +20,18 @@
 #include <QApplication>
 #include <QTcpSocket>
 #include <QHostAddress>
+#include <QMenu>
+#include <QToolButton>
+#include <QThread>
 
 #include "VM.h"
 #include "QMP_Client.h"
 #include "Migrate_Progress_Dialog.h"
+#include "Migrate_URI_Dialog.h"
 #include "Embedded_Display/Spice_View.h"
 #include "Utils.h"
+#include "System_Info.h"
+#include "Serial_Console_Window.h"
 
 #ifdef VNC_DISPLAY
 #include "Embedded_Display/Machine_View.h"
@@ -74,6 +80,10 @@ VM_Session_Widget::VM_Session_Widget( QWidget *parent )
 	, Act_Eject_FD0( nullptr )
 	, Act_Insert_FD1( nullptr )
 	, Act_Eject_FD1( nullptr )
+	, TB_USB( nullptr )
+	, Menu_USB( nullptr )
+	, USB_Enum_Busy( false )
+	, Serial_Win( nullptr )
 	, Light_FD0( nullptr )
 	, Light_FD1( nullptr )
 	, Light_CD( nullptr )
@@ -169,6 +179,22 @@ void VM_Session_Widget::Build_Toolbar()
 	Act_Eject_FD0 = Add_Toolbar_Action( QIcon( ":/eject.png" ), tr( "Eject floppy A" ), SLOT(On_Eject_FD0()) );
 	Act_Insert_FD1 = Add_Toolbar_Action( QIcon( ":/fdd.png" ), tr( "Insert floppy B image…" ), SLOT(On_Change_FD1()) );
 	Act_Eject_FD1 = Add_Toolbar_Action( QIcon( ":/eject.png" ), tr( "Eject floppy B" ), SLOT(On_Eject_FD1()) );
+	Toolbar->addSeparator();
+
+	// USB hotplug (VMware-style connect/disconnect menu)
+	Menu_USB = new QMenu( this );
+	TB_USB = new QToolButton( Toolbar );
+	TB_USB->setIcon( QIcon( ":/usb.png" ) );
+	TB_USB->setToolTip( tr( "USB devices — connect / disconnect host USB to this guest" ) );
+	TB_USB->setPopupMode( QToolButton::InstantPopup );
+	TB_USB->setMenu( Menu_USB );
+	TB_USB->setAutoRaise( true );
+	Toolbar->addWidget( TB_USB );
+	connect( Menu_USB, SIGNAL(aboutToShow()), this, SLOT(On_USB_Menu_About_To_Show()) );
+	Toolbar->addSeparator();
+
+	Add_Toolbar_Action( QIcon( ":/key.png" ), tr( "Serial console (guest COM / ttyS0)" ),
+	                    SLOT(On_Serial_Console()) );
 	Toolbar->addSeparator();
 
 	// Guest / display
@@ -581,6 +607,7 @@ void VM_Session_Widget::Detach()
 	Display_Connect_In_Progress = false;
 	Display_Connect_Attempts = 0;
 	Last_Drive_IO.clear();
+	Connected_USB_Ids.clear();
 	Toolbar_Show_Timer->stop();
 	Toolbar_Hide_Timer->stop();
 
@@ -607,6 +634,11 @@ void VM_Session_Widget::Detach()
 	if( Vnc )
 		Vnc->disconnectVNC();
 #endif
+	if( Serial_Win )
+	{
+		Serial_Win->Detach();
+		Serial_Win->hide();
+	}
 	if( QMP_Client *q = Active_QMP() )
 	{
 		disconnect( q, SIGNAL(Connected()), this, SLOT(On_QMP_Connected()) );
@@ -786,6 +818,210 @@ void VM_Session_Widget::Send_Monitor( const QString &cmd )
 	VM->Send_Emulator_Command( line );
 }
 
+QString VM_Session_Widget::USB_Instance_Key( const VM_USB &u, int index ) const
+{
+	if( ! u.Get_Bus().isEmpty() && ! u.Get_Addr().isEmpty() )
+		return QStringLiteral( "bus:%1.%2" ).arg( u.Get_Bus(), u.Get_Addr() );
+	if( ! u.Get_Serial_Number().isEmpty() )
+		return QStringLiteral( "ser:%1:%2:%3" )
+			.arg( u.Get_Vendor_ID().toLower(),
+			      u.Get_Product_ID().toLower(),
+			      u.Get_Serial_Number() );
+	if( ! u.Get_DevPath().isEmpty() )
+		return QStringLiteral( "path:%1" ).arg( u.Get_DevPath() );
+	return QStringLiteral( "vp:%1:%2#%3" )
+		.arg( u.Get_Vendor_ID().toLower(),
+		      u.Get_Product_ID().toLower(),
+		      QString::number( index ) );
+}
+
+QString VM_Session_Widget::USB_Qemu_Device_Id( const QString &instance_key ) const
+{
+	QString s = instance_key.toLower();
+	s.replace( QRegularExpression( QStringLiteral( "[^a-z0-9_]+" ) ), QStringLiteral( "_" ) );
+	while( s.contains( QStringLiteral( "__" ) ) )
+		s.replace( QStringLiteral( "__" ), QStringLiteral( "_" ) );
+	if( s.startsWith( QLatin1Char( '_' ) ) )
+		s.remove( 0, 1 );
+	if( s.isEmpty() )
+		s = QStringLiteral( "dev" );
+	return QStringLiteral( "aqusb_%1" ).arg( s.left( 48 ) );
+}
+
+QString VM_Session_Widget::USB_Device_Add_Command( const VM_USB &u, const QString &qemu_id ) const
+{
+	if( ! u.Get_Bus().isEmpty() && ! u.Get_Addr().isEmpty() )
+	{
+		bool ok_bus = false, ok_addr = false;
+		const int bus = u.Get_Bus().toInt( &ok_bus );
+		const int addr = u.Get_Addr().toInt( &ok_addr );
+		if( ok_bus && ok_addr )
+		{
+			return QStringLiteral( "device_add usb-host,hostbus=%1,hostaddr=%2,id=%3" )
+				.arg( bus ).arg( addr ).arg( qemu_id );
+		}
+	}
+	return QStringLiteral( "device_add usb-host,vendorid=0x%1,productid=0x%2,id=%3" )
+		.arg( u.Get_Vendor_ID().toLower(), u.Get_Product_ID().toLower(), qemu_id );
+}
+
+void VM_Session_Widget::Send_Hmp_Command( const QString &cmd )
+{
+	// Prefer QMP human-monitor-command; do not also write the legacy monitor (PR #10 / Qodo)
+	if( QMP_Client *q = Active_QMP() )
+	{
+		if( q->Is_Connected() )
+		{
+			q->Human_Monitor( cmd );
+			return;
+		}
+	}
+	Send_Monitor( cmd );
+}
+
+void VM_Session_Widget::On_USB_Menu_About_To_Show()
+{
+	if( System_Info::Get_Cached_Host_USB().isEmpty() && ! USB_Enum_Busy )
+		Start_USB_Host_Scan();
+	else
+		Rebuild_USB_Menu();
+}
+
+void VM_Session_Widget::Start_USB_Host_Scan()
+{
+	if( USB_Enum_Busy || ! Menu_USB )
+		return;
+	if( USB_Scan_Thread && USB_Scan_Thread->isRunning() )
+		return;
+
+	USB_Enum_Busy = true;
+	Menu_USB->clear();
+	QAction *loading = Menu_USB->addAction( tr( "Scanning USB devices…" ) );
+	loading->setEnabled( false );
+
+	// Scan into a heap list on a worker; publish to the cache only on the UI thread.
+	auto *holder = new QList<VM_USB>();
+	QThread *th = QThread::create( [holder]() {
+		System_Info::Scan_Host_USB_Snapshot( *holder );
+	} );
+	th->setParent( this );
+	USB_Scan_Thread = th;
+	connect( th, &QThread::finished, this, [this, th, holder]() {
+		if( USB_Scan_Thread == th )
+			USB_Scan_Thread.clear();
+		System_Info::Set_Cached_Host_USB( *holder );
+		delete holder;
+		USB_Enum_Busy = false;
+		th->deleteLater();
+		Rebuild_USB_Menu();
+	} );
+	th->start();
+}
+
+void VM_Session_Widget::Rebuild_USB_Menu()
+{
+	if( ! Menu_USB )
+		return;
+	if( USB_Enum_Busy )
+		return;
+
+	Menu_USB->clear();
+
+	QAction *hint = Menu_USB->addAction( tr( "Host USB devices (toggle to connect)" ) );
+	hint->setEnabled( false );
+	Menu_USB->addSeparator();
+
+	QAction *refresh = Menu_USB->addAction( QIcon( ":/update.png" ), tr( "Refresh list" ) );
+	connect( refresh, &QAction::triggered, this, [this]() { Start_USB_Host_Scan(); } );
+	Menu_USB->addSeparator();
+
+	const QList<VM_USB> host = System_Info::Get_Cached_Host_USB();
+	if( host.isEmpty() )
+	{
+		QAction *empty = Menu_USB->addAction( tr( "(No cached USB list — click Refresh)" ) );
+		empty->setEnabled( false );
+		return;
+	}
+
+	for( int i = 0; i < host.count(); ++i )
+	{
+		const VM_USB &u = host[i];
+		const QString vidpid = u.Get_ID_Line().toLower();
+		if( vidpid.isEmpty() || ! vidpid.contains( QLatin1Char( ':' ) ) )
+			continue;
+		const QString key = USB_Instance_Key( u, i );
+		const QString qemu_id = USB_Qemu_Device_Id( key );
+
+		QString label = u.Get_Product_Name().trimmed();
+		if( label.isEmpty() )
+			label = vidpid;
+		else
+			label = QStringLiteral( "%1  (%2)" ).arg( label, vidpid );
+		if( ! u.Get_Bus().isEmpty() && ! u.Get_Addr().isEmpty() )
+			label += QStringLiteral( "  [%1.%2]" ).arg( u.Get_Bus(), u.Get_Addr() );
+
+		QAction *act = Menu_USB->addAction( label );
+		act->setCheckable( true );
+		QVariantMap data;
+		data.insert( QStringLiteral( "key" ), key );
+		data.insert( QStringLiteral( "qemu_id" ), qemu_id );
+		data.insert( QStringLiteral( "vid" ), u.Get_Vendor_ID().toLower() );
+		data.insert( QStringLiteral( "pid" ), u.Get_Product_ID().toLower() );
+		data.insert( QStringLiteral( "bus" ), u.Get_Bus() );
+		data.insert( QStringLiteral( "addr" ), u.Get_Addr() );
+		act->setData( data );
+		act->blockSignals( true );
+		act->setChecked( Connected_USB_Ids.contains( key ) );
+		act->blockSignals( false );
+		connect( act, SIGNAL(toggled(bool)), this, SLOT(On_USB_Device_Toggled(bool)) );
+	}
+
+	if( ! Connected_USB_Ids.isEmpty() )
+	{
+		Menu_USB->addSeparator();
+		QAction *disc_all = Menu_USB->addAction( tr( "Disconnect all from guest" ) );
+		connect( disc_all, &QAction::triggered, this, [this]() {
+			const QStringList ids = Connected_USB_Ids.values();
+			for( int i = 0; i < ids.count(); ++i )
+			{
+				if( ! ids[i].isEmpty() )
+					Send_Hmp_Command( QStringLiteral( "device_del %1" ).arg( ids[i] ) );
+			}
+			Connected_USB_Ids.clear();
+		} );
+	}
+}
+
+void VM_Session_Widget::On_USB_Device_Toggled( bool checked )
+{
+	QAction *act = qobject_cast<QAction *>( sender() );
+	if( ! act )
+		return;
+	const QVariantMap data = act->data().toMap();
+	const QString key = data.value( QStringLiteral( "key" ) ).toString();
+	QString qemu_id = data.value( QStringLiteral( "qemu_id" ) ).toString();
+	if( key.isEmpty() )
+		return;
+	if( qemu_id.isEmpty() )
+		qemu_id = USB_Qemu_Device_Id( key );
+
+	if( checked )
+	{
+		VM_USB tmp;
+		tmp.Set_Vendor_ID( data.value( QStringLiteral( "vid" ) ).toString() );
+		tmp.Set_Product_ID( data.value( QStringLiteral( "pid" ) ).toString() );
+		tmp.Set_Bus( data.value( QStringLiteral( "bus" ) ).toString() );
+		tmp.Set_Addr( data.value( QStringLiteral( "addr" ) ).toString() );
+		Send_Hmp_Command( USB_Device_Add_Command( tmp, qemu_id ) );
+		Connected_USB_Ids.insert( key, qemu_id );
+	}
+	else
+	{
+		Send_Hmp_Command( QStringLiteral( "device_del %1" ).arg( qemu_id ) );
+		Connected_USB_Ids.remove( key );
+	}
+}
+
 bool VM_Session_Widget::Change_Medium_Id( const QString &block_id, const QString &path )
 {
 	const QString unix_path = QDir::fromNativeSeparators( path );
@@ -957,7 +1193,7 @@ void VM_Session_Widget::On_Change_CD()
 {
 	if( ! VM ) return;
 	QString file = QFileDialog::getOpenFileName( this, tr( "Select CD/DVD image" ),
-		QString(), tr( "Images (*.iso *.img *.cdr);;All (*)" ) );
+		QString(), Disk_Image_File_Filter( true, false ) );
 	if( file.isEmpty() ) return;
 	file = QDir::toNativeSeparators( file );
 	if( ! Change_Medium_Id( "aqemu-cdrom", file ) )
@@ -986,7 +1222,7 @@ void VM_Session_Widget::On_Change_FD0()
 {
 	if( ! VM ) return;
 	QString file = QFileDialog::getOpenFileName( this, tr( "Select floppy A image" ),
-		QString(), tr( "Floppy (*.img *.ima *.vfd *.dsk);;All (*)" ) );
+		QString(), Disk_Image_File_Filter( false, true ) );
 	if( file.isEmpty() ) return;
 	file = QDir::toNativeSeparators( file );
 	if( ! Change_Medium_Id( "aqemu-fd0", file ) )
@@ -1018,7 +1254,7 @@ void VM_Session_Widget::On_Change_FD1()
 {
 	if( ! VM ) return;
 	QString file = QFileDialog::getOpenFileName( this, tr( "Select floppy B image" ),
-		QString(), tr( "Floppy (*.img *.ima *.vfd *.dsk);;All (*)" ) );
+		QString(), Disk_Image_File_Filter( false, true ) );
 	if( file.isEmpty() ) return;
 	file = QDir::toNativeSeparators( file );
 	if( ! Change_Medium_Id( "aqemu-fd1", file ) )
@@ -1041,6 +1277,16 @@ void VM_Session_Widget::On_Eject_FD1()
 	Apply_Runtime_Boot_Order();
 	Persist_Media_Config();
 	Update_Media_Actions();
+}
+
+void VM_Session_Widget::On_Serial_Console()
+{
+	if( ! Serial_Win )
+		Serial_Win = new Serial_Console_Window( this );
+	Serial_Win->Attach( VM );
+	Serial_Win->show();
+	Serial_Win->raise();
+	Serial_Win->activateWindow();
 }
 
 void VM_Session_Widget::On_CAD()
@@ -1091,18 +1337,14 @@ void VM_Session_Widget::On_Migrate()
 		return;
 	}
 
-	bool ok = false;
-	const QString uri = QInputDialog::getText(
-		this, tr( "Migrate VM" ),
-		tr( "Destination URI (receiver must use Advanced Options → -incoming):\n"
-		    "Examples: tcp:192.168.1.10:4444" ),
-		QLineEdit::Normal,
-		QStringLiteral( "tcp:127.0.0.1:4444" ),
-		&ok ).trimmed();
-	if( ! ok || uri.isEmpty() )
+	Migrate_URI_Dialog pick( this );
+	if( pick.exec() != QDialog::Accepted )
+		return;
+	const QString uri = pick.URI().trimmed();
+	if( uri.isEmpty() )
 		return;
 
-	Migrate_Progress_Dialog dlg( q, uri, this );
+	Migrate_Progress_Dialog dlg( q, uri, this, pick.Copy_Storage() );
 	dlg.exec();
 }
 

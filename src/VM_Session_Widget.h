@@ -17,8 +17,16 @@
 #include <QHash>
 #include <QJsonArray>
 #include <QPoint>
+#include <QSet>
+#include <QMenu>
+#include <QToolButton>
+#include <QThread>
+#include <QPointer>
+#include <QVariantMap>
+#include <QRegularExpression>
 
 #include "VM_Devices.h"
+#include "Serial_Console_Window.h"
 
 class Virtual_Machine;
 class QMP_Client;
@@ -83,6 +91,9 @@ class VM_Session_Widget : public QWidget
 		void On_QMP_Connected();
 		void On_Drive_Poll();
 		void On_Block_Stats( const QJsonArray &stats );
+		void On_USB_Menu_About_To_Show();
+		void On_USB_Device_Toggled( bool checked );
+		void On_Serial_Console();
 
 	private:
 		void Build_Toolbar();
@@ -111,6 +122,12 @@ class VM_Session_Widget : public QWidget
 		QLabel *Make_Drive_Light( const QString &letter );
 		QString Hmp_Device_Name( const QString &block_id ) const;
 		static QString Media_Base_Name( const QString &path );
+		void Rebuild_USB_Menu();
+		void Start_USB_Host_Scan();
+		void Send_Hmp_Command( const QString &cmd );
+		QString USB_Instance_Key( const VM_USB &u, int index ) const;
+		QString USB_Qemu_Device_Id( const QString &instance_key ) const;
+		QString USB_Device_Add_Command( const VM_USB &u, const QString &qemu_id ) const;
 
 		Virtual_Machine *VM;
 		QMP_Client *QMP;
@@ -135,6 +152,12 @@ class VM_Session_Widget : public QWidget
 		QAction *Act_Eject_FD0;
 		QAction *Act_Insert_FD1;
 		QAction *Act_Eject_FD1;
+		QToolButton *TB_USB;
+		QMenu *Menu_USB;
+		QHash<QString, QString> Connected_USB_Ids; // instance key -> qemu device id
+		bool USB_Enum_Busy;
+		QPointer<QThread> USB_Scan_Thread;
+		Serial_Console_Window *Serial_Win;
 
 		QLabel *Light_FD0;
 		QLabel *Light_FD1;

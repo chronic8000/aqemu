@@ -73,6 +73,8 @@ class AQEMU_Service : public QObject
         bool call(const QString& command, Virtual_Machine *vm, const QString &param2, bool noblock);
         void setMainWindow( bool );
         void setMain( AQEMU_Main* );
+        /** Register D-Bus / service lock once without running a command (no console spam). */
+        bool ensureInitialized();
         int machineCount() const;
         void stop_all();
 

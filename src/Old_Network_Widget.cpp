@@ -228,6 +228,13 @@ void Old_Network_Widget::on_Button_Add_Net_Card_clicked()
 		
 		if( ui.Network_Cards_List->count() == 8 )
 			ui.Button_Add_Net_Card->setEnabled( false );
+
+		// Children were hide()'d while the parent was disabled (tobimensch#123).
+		// setCurrentIndex may not re-fire if mode is already 0 — force refresh.
+		Disconnect_Slots();
+		Set_Net_Card_To_Ui( Network_Cards.last() );
+		on_CB_Connection_Mode_currentIndexChanged( ui.CB_Connection_Mode->currentIndex() );
+		Connect_Slots();
 		
 		emit Changed();
 	}

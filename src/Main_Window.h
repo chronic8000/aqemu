@@ -165,6 +165,8 @@ class Main_Window: public QMainWindow
 		void Update_Win11_Lifecycle_Ui();
 		void Update_Intel_MacOS_Settings_Ui();
 		void Update_Intel_Mac_GPU_Passthrough_Ui();
+		void Apply_Intel_Mac_GPU_Passthrough_Ui_From_Cache();
+		void Start_Host_GPU_Scan();
 		void on_TB_Intel_Mac_OpenCore_Browse_Main_clicked();
 		void on_TB_Intel_Mac_Recovery_Browse_Main_clicked();
 		void on_TB_Intel_Mac_GPU_Refresh_clicked();
@@ -244,6 +246,7 @@ class Main_Window: public QMainWindow
         void init_dbus();
 		
 		void Connect_Signals();
+		void Polish_Settings_Tabs_Layout();
 		
 		const QMap<QString, Available_Devices> Get_Devices_Info( bool *ok ) const;
 		Available_Devices Get_Current_Machine_Devices( bool *ok ) const;
@@ -267,6 +270,9 @@ class Main_Window: public QMainWindow
         void Computer_Type_Changed();
         void Update_Machine_Accelerators();
         void Enforce_Accel_Honesty();
+	void Enforce_Disk_Bus_Honesty();
+	int Disk_Interface_To_Combo_Index( VM::Device_Interface iface ) const;
+	VM::Device_Interface Combo_Index_To_Disk_Interface( int index ) const;
         void Update_Accelerator_Options();
         void Update_Computer_Types();
 		void Fill_Display_Resolution_Combo();
@@ -348,6 +354,7 @@ class Main_Window: public QMainWindow
 		QString Idle_Window_Title;
 		bool Session_Mode_Active;
 		bool Session_User_Detached;
+		bool GPU_Scan_Busy;
 
 		QSystemTrayIcon *Tray_Icon;
 		QAction *Act_Tray_Show;

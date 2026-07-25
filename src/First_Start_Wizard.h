@@ -45,6 +45,11 @@ class First_Start_Wizard: public QDialog
 		void on_Button_Find_Emulators_clicked();
 		void on_Button_Skip_Find_clicked();
 		void on_Button_Edit_clicked();
+
+		void on_TB_Add_Emulator_Browse_clicked();
+		void on_Button_Add_Emulator_Find_clicked();
+		void on_Button_Add_Emulator_Manual_Mode_clicked();
+		void On_FS_QEMU_Source_Toggled( bool checked );
 		
 
 		
@@ -53,6 +58,7 @@ class First_Start_Wizard: public QDialog
 		void Load_Settings();
 		bool Save_Settings();
 		void retranslateUi();
+		void Setup_QEMU_Source_Page();
 	
 	private:
 		Ui::First_Start_Wizard ui;
@@ -61,6 +67,9 @@ class First_Start_Wizard: public QDialog
 		QStringList Header_Captions;
 		QSettings Settings;
 		Emulator Emul;
+
+		QRadioButton *RB_FS_QEMU_Built_In;
+		QRadioButton *RB_FS_QEMU_Custom;
 };
 
 #endif

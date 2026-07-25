@@ -51,6 +51,7 @@
 #include <iostream>
 
 #include "Utils.h"
+#include "AQ_UI_Style.h"
 #include "Main_Window.h"
 #include "First_Start_Wizard.h"
 
@@ -188,6 +189,7 @@ int AQEMU_Main::main(int argc, char *argv[])
 
     // Create QApplication
     application = new QApplication( argc, argv );
+    AQ_Apply_App_Style( application );
     AQEMU_Startup_Log( "QApplication ok" );
 
     QString AQEMU_FILE;
@@ -243,6 +245,8 @@ int AQEMU_Main::main(int argc, char *argv[])
     }
 
     service.setMainWindow( true );
+    // Register service/D-Bus without a noisy status probe (PR #7 / Qodo)
+    service.ensureInitialized();
 
     int ret = main_window();
 
@@ -331,9 +335,8 @@ int AQEMU_Main::main_window()
     }
     AQEMU_Startup_Log( "load_settings ok" );
     {
-	    const QByteArray host_arch_msg =
-		    QByteArray( "Host CPU architecture: " ) + AQ_Get_Host_CPU_Architecture().toUtf8();
-	    AQEMU_Startup_Log( host_arch_msg.constData() );
+	    AQEMU_Startup_Log(
+		    QStringLiteral( "Host CPU architecture: %1" ).arg( AQ_Get_Host_CPU_Architecture() ) );
     }
 
     // Show main window
@@ -349,14 +352,14 @@ int AQEMU_Main::main_window()
 
 void AQEMU_Main::load_language()
 {
-    // Load Language
-    QTranslator appTranslator;
-
+    // Translator must outlive this function (tobimensch#46)
     if( settings->value("Language", "").toString() != "en" )
     {
-        appTranslator.load( settings->value("AQEMU_Data_Folder", "").toString() + settings->value("Language", "").toString() + ".qm",
-                            application->applicationDirPath() );
-
+        const QString lang = settings->value("Language", "").toString();
+        const QString data = settings->value("AQEMU_Data_Folder", "").toString();
+        // Try data folder, then next to the binary (portable builds)
+        if( ! appTranslator.load( data + lang + ".qm", application->applicationDirPath() ) )
+            appTranslator.load( lang + ".qm", application->applicationDirPath() + "/translations" );
         application->installTranslator( &appTranslator );
     }
 }
@@ -417,7 +420,7 @@ void AQEMU_Main::upgrade_settings()
 		AQDebug( "AQEMU_Main::upgrade_settings()",
 			 QStringLiteral( "AQEMU Config Version: %1" ).arg( CURRENT_AQEMU_VERSION ) );
 		AQEMU_Startup_Log(
-			QByteArray( "settings: config version " ) + CURRENT_AQEMU_VERSION );
+			QStringLiteral( "settings: config version %1" ).arg( QLatin1String( CURRENT_AQEMU_VERSION ) ) );
 		return;
 	}
 
@@ -462,8 +465,8 @@ void AQEMU_Main::upgrade_settings()
 	// Normal minor upgrade (e.g. 0.9.8 → 0.9.9): keep user settings, stamp new version.
 	// Do NOT wipe the config — that old branch treated every unknown version as broken.
 	AQEMU_Startup_Log(
-		QByteArray( "settings: upgrading " ) + conf_ver.toUtf8() +
-		" -> " + CURRENT_AQEMU_VERSION );
+		QStringLiteral( "settings: upgrading %1 -> %2" )
+			.arg( conf_ver, QLatin1String( CURRENT_AQEMU_VERSION ) ) );
 	AQDebug( "AQEMU_Main::upgrade_settings()",
 		 QStringLiteral( "Upgrading AQEMU config %1 → %2 (settings preserved)" )
 			 .arg( conf_ver, QStringLiteral( CURRENT_AQEMU_VERSION ) ) );

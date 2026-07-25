@@ -51,6 +51,7 @@ SET( CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/resources/cmake/modules )
 SET( aqemu_headers
     src/No_Boot_Device.h
     src/Highlighted_Label.h
+    src/AQ_UI_Style.h
     src/Service.h
     src/Run_Guard.h
     src/QEMU_Docopt.h
@@ -108,6 +109,7 @@ SET( aqemu_headers
 SET( aqemu_sources
     src/No_Boot_Device.cpp
     src/Highlighted_Label.cpp
+    src/AQ_UI_Style.cpp
     src/Service.cpp
     src/Run_Guard.cpp
     src/QEMU_Docopt.cpp
@@ -153,6 +155,13 @@ SET( aqemu_sources
 	src/VM.cpp
 	src/VM_Devices.cpp
 	src/VM_Wizard_Window.cpp
+	src/Guest_Capabilities.cpp
+	src/ISO_Guess.cpp
+	src/Storage_Browser_Window.cpp
+	src/Serial_Console_Window.cpp
+	src/URL_Fetch.cpp
+	src/Remote_Host_Window.cpp
+	src/Migrate_URI_Dialog.cpp
 	src/WSL_Launch.cpp
 	src/VNC_Password_Window.cpp
 	src/QMP_Client.cpp
@@ -422,6 +431,18 @@ IF( EXISTS "${CMAKE_SOURCE_DIR}/third_party/opencore/OpenPartitionDxe.efi" )
 			"$<TARGET_FILE_DIR:aqemu>/OpenPartitionDxe.efi"
 		COMMENT "Bundle OpenPartitionDxe.efi for Intel macOS OpenCore patch"
 	)
+ENDIF()
+
+# Full QEMU -M catalog for New VM Wizard (Platform / Architecture paths)
+IF( EXISTS "${CMAKE_SOURCE_DIR}/docs/qemu_machine_catalog.json" )
+	ADD_CUSTOM_COMMAND( TARGET aqemu POST_BUILD
+		COMMAND ${CMAKE_COMMAND} -E copy_if_different
+			"${CMAKE_SOURCE_DIR}/docs/qemu_machine_catalog.json"
+			"$<TARGET_FILE_DIR:aqemu>/qemu_machine_catalog.json"
+		COMMENT "Bundle qemu_machine_catalog.json for New VM Wizard"
+	)
+	INSTALL( FILES "${CMAKE_SOURCE_DIR}/docs/qemu_machine_catalog.json"
+		DESTINATION share/aqemu )
 ENDIF()
 
 # Install files

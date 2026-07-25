@@ -241,8 +241,10 @@
     "MicroBlaze",
     "OpenRISC",
     "Xtensa",
+    "Xtensa EB",
     "RX",
     "SH4",
+    "SH4 EB",
     "TriCore",
     "LoongArch"
   ],
@@ -426,8 +428,10 @@
     "MicroBlaze": "microblaze",
     "OpenRISC": "or1k",
     "Xtensa": "xtensa",
+    "Xtensa EB": "xtensaeb",
     "RX": "rx",
     "SH4": "sh4",
+    "SH4 EB": "sh4eb",
     "TriCore": "tricore",
     "LoongArch": "loongarch64"
   },

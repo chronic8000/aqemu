@@ -31,6 +31,19 @@ Create_HDD_Image_Window::Create_HDD_Image_Window( QWidget *parent )
 	: QDialog( parent )
 {
 	ui.setupUi( this );
+
+	// Populate formats from live qemu-img (qemu-doc §3.7)
+	ui.CB_Format->clear();
+	const QStringList formats = Probe_QEMU_IMG_Formats();
+	if( ! formats.isEmpty() )
+		ui.CB_Format->addItems( formats );
+	else
+		ui.CB_Format->addItems( QStringList() << "qcow2" << "qcow" << "vmdk" << "raw" << "vpc" << "vhdx" << "cow" << "cloop" );
+	const QString pref = Preferred_QEMU_IMG_Format(
+		formats.isEmpty() ? QStringList() << "qcow2" : formats );
+	const int pref_ix = ui.CB_Format->findText( pref, Qt::MatchFixedString );
+	if( pref_ix >= 0 )
+		ui.CB_Format->setCurrentIndex( pref_ix );
 	
 	resize( width(), minimumSizeHint().height() );
 }
@@ -93,7 +106,7 @@ void Create_HDD_Image_Window::on_Button_Browse_Base_Image_clicked()
 {
 	QString fileName = QFileDialog::getOpenFileName( this, tr("Select Base HDD Image File"),
 													 Get_Last_Dir_Path(ui.Edit_Base_Image_File_Name->text()),
-													 tr("All Files (*);;Images Files (*.img *.qcow *.qcow2 *.wmdk)") );
+													 Disk_Image_File_Filter( false, false ) );
 	
 	if( ! fileName.isEmpty() )
 		ui.Edit_Base_Image_File_Name->setText( QDir::toNativeSeparators(fileName) );
@@ -103,7 +116,7 @@ void Create_HDD_Image_Window::on_Button_Browse_New_Image_clicked()
 {
 	QString fileName = QFileDialog::getSaveFileName( this, tr("Create HDD Image File"),
 													 Get_Last_Dir_Path(ui.Edit_File_Name->text()),
-													 tr("All Files (*);;Images Files (*.img *.qcow *.qcow2 *.wmdk)") );
+													 Disk_Image_File_Filter( false, false ) );
 	
 	if( ! fileName.isEmpty() )
 		ui.Edit_File_Name->setText( QDir::toNativeSeparators(fileName) );
@@ -188,18 +201,5 @@ void Create_HDD_Image_Window::on_Button_Create_clicked()
 void Create_HDD_Image_Window::on_Button_Format_Help_clicked()
 {
 	QMessageBox::information( this, tr("QEMU-IMG Supported formats"),
-		tr( "raw\nRaw disk image format. This format has the advantage of being simple and easily "
-			"exportable to all other emulators. If your file system supports holes (for example in "
-			"ext2 or ext3 on Linux or NTFS on Windows), then only the written sectors will reserve "
-			"space. Use qemu-img info to know the real size used by the image or ls -ls on Unix/Linux."
-			"\n\nqcow2\nQEMU image format, the most versatile format. Use it to have smaller images "
-			"(useful if your filesystem does not supports holes, for example on Windows), optional "
-			"AES encryption, zlib based compression and support of multiple VM snapshots."
-			"\n\nqcow\nOld QEMU image format. Left for compatibility."
-			"\n\ncow\nUser Mode Linux Copy On Write image format. Used to be the only growable image "
-			"format in QEMU. It is supported only for compatibility with previous versions. "
-			"It does not work on win32."
-			"\n\nvmdk\nVMware 3 and 4 compatible image format."
-			"\n\ncloop\nLinux Compressed Loop image, useful only to reuse directly compressed CD-ROM "
-			"images present for example in the Knoppix CD-ROMs." ) );
+		QEMU_IMG_Format_Help_Text( Probe_QEMU_IMG_Formats() ) );
 }

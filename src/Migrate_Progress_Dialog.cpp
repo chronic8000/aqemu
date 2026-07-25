@@ -16,10 +16,11 @@
 #include <QtGlobal>
 
 Migrate_Progress_Dialog::Migrate_Progress_Dialog( QMP_Client *qmp, const QString &uri,
-                                                  QWidget *parent )
+                                                  QWidget *parent, bool blk )
 	: QDialog( parent )
 	, QMP( qmp )
 	, URI( uri )
+	, Blk( blk )
 	, Finished( false )
 {
 	setWindowTitle( tr( "Migrating VM" ) );
@@ -62,7 +63,7 @@ Migrate_Progress_Dialog::Migrate_Progress_Dialog( QMP_Client *qmp, const QString
 		return;
 	}
 
-	if( ! QMP->Migrate( uri ) )
+	if( ! QMP->Migrate( uri, Blk ) )
 	{
 		Status_Label->setText( tr( "Failed to send migrate command." ) );
 		Cancel_Btn->setText( tr( "Close" ) );

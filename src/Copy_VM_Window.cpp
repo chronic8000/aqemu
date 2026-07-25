@@ -30,6 +30,10 @@ Copy_VM_Window::Copy_VM_Window( QWidget *parent )
 	: QDialog( parent )
 {
 	ui.setupUi( this );
+	setWindowTitle( tr( "Clone Virtual Machine" ) );
+	ui.CH_Copy_Disk_Images->setText( tr( "Clone disk images (independent copy)" ) );
+	ui.CH_Copy_Hard_Drive->setText( tr( "Clone hard drive images" ) );
+	ui.CH_Copy_Floppy->setText( tr( "Clone floppy images" ) );
 	
     All_Machine_Names.clear();
 

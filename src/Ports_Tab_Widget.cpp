@@ -26,6 +26,7 @@
 #include <QFile>
 #include <QProcess>
 #include <QHeaderView>
+#include <QLabel>
 
 #include "Utils.h"
 #include "System_Info.h"
@@ -49,6 +50,22 @@ Ports_Tab_Widget::Ports_Tab_Widget( QWidget *parent )
 	hv->setStretchLastSection( true );
 	hv->setSectionResizeMode( QHeaderView::ResizeToContents );
 	ui.Ports_Table->setHorizontalHeader( hv );
+
+	ui.TB_Add_USB_Port->setToolTip( tr(
+		"Add a USB device to attach when this VM starts "
+		"(host USB, tablet, keyboard, etc.). "
+		"While the guest is running, use the USB button on the session toolbar to hotplug." ) );
+
+	QLabel *usb_help = new QLabel( tr(
+		"USB devices in this list are connected at power-on. "
+		"Hotplug while the guest is running: open the USB menu on the session toolbar "
+		"(next to CD/floppy controls) to connect or disconnect host devices." ), this );
+	usb_help->setWordWrap( true );
+	usb_help->setStyleSheet( QStringLiteral( "color: palette(mid);" ) );
+	usb_help->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Minimum );
+	// Move the table down and put the USB note where the table was (row 2).
+	ui.gridLayout->addWidget( ui.Ports_Table, 3, 0, 1, 4 );
+	ui.gridLayout->addWidget( usb_help, 2, 0, 1, 4 );
 }
 
 void Ports_Tab_Widget::syncLayout(Device_Manager_Widget* dm)

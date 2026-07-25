@@ -704,6 +704,8 @@ class Virtual_Machine: public QObject
 		int Get_Embedded_Spice_Port() const { return Embedded_Spice_Port; }
 		int Get_Embedded_VNC_Port() const { return Embedded_VNC_Port; }
 		int Get_QMP_Port() const { return QMP_Port; }
+		/** TCP port for guest serial console (0 = none / not allocated this run). */
+		int Get_Serial_Console_Port() const { return Serial_Console_Port; }
 		class QMP_Client *Get_QMP() const { return QMP; }
 		
 		// Window for control qemu/kvm
@@ -827,6 +829,8 @@ class Virtual_Machine: public QObject
         QList<VM_Native_Storage_Device> Storage_Devices; // For QEMU 0.8.2 Device Style
         int native_device_count; // to keep track of the number of native devices when building
                                  // the argument list
+	int ahci_unit_count; // unit index on shared aqemu_ahci controller
+	bool ahci_controller_added;
 
         // shared folders
         QList<VM_Shared_Folder> Shared_Folders;
@@ -984,6 +988,7 @@ class Virtual_Machine: public QObject
 		int Embedded_Spice_Port;
 		int Embedded_VNC_Port;
 		int QMP_Port;
+		int Serial_Console_Port;
 		int QMP_Connect_Attempts;
 		class QMP_Client *QMP;
 		

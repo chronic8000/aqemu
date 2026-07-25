@@ -27,8 +27,11 @@
 #include <QTranslator>
 #include <QFileDialog>
 #include <QProgressDialog>
+#include <QRadioButton>
+#include <QVBoxLayout>
 
 #include "First_Start_Wizard.h"
+#include "AQ_UI_Style.h"
 #include "Utils.h"
 #include "System_Info.h"
 #include "Advanced_Settings_Window.h"
@@ -39,14 +42,51 @@ First_Start_Wizard::First_Start_Wizard( QWidget *parent )
 	: QDialog( parent )
 {
 	ui.setupUi( this );
+	AQ_Cap_Content_Width( this, 720 );
+
+	RB_FS_QEMU_Built_In = nullptr;
+	RB_FS_QEMU_Custom = nullptr;
 	
 	Emulators_Find_Done = false;
 	Next_Move = true;
 	
+	Setup_QEMU_Source_Page();
 	retranslateUi();
 	Load_Settings();
 
     ui.All_Pages->setCurrentIndex(1);
+}
+
+void First_Start_Wizard::Setup_QEMU_Source_Page()
+{
+	// Rebuild Add_Emulator_Page as built-in vs custom chooser
+	QVBoxLayout *lay = qobject_cast<QVBoxLayout *>( ui.Add_Emulator_Page->layout() );
+	if( ! lay )
+		return;
+
+	ui.Label_Add_Emulator_Help->setWordWrap( true );
+
+	RB_FS_QEMU_Built_In = new QRadioButton( ui.Add_Emulator_Page );
+	RB_FS_QEMU_Custom = new QRadioButton( ui.Add_Emulator_Page );
+	lay->insertWidget( 1, RB_FS_QEMU_Built_In );
+	lay->insertWidget( 2, RB_FS_QEMU_Custom );
+
+	const bool has_bundled = AQ_Has_Bundled_QEMU();
+	RB_FS_QEMU_Built_In->setEnabled( has_bundled );
+	if( has_bundled )
+	{
+		RB_FS_QEMU_Built_In->setChecked( true );
+		ui.Edit_Add_Emulator_Path->setText( QDir::toNativeSeparators( AQ_Get_Bundled_QEMU_Dir() ) );
+		Emulators_Find_Done = true;
+	}
+	else
+	{
+		RB_FS_QEMU_Custom->setChecked( true );
+	}
+
+	connect( RB_FS_QEMU_Built_In, SIGNAL(toggled(bool)), this, SLOT(On_FS_QEMU_Source_Toggled(bool)) );
+	connect( RB_FS_QEMU_Custom, SIGNAL(toggled(bool)), this, SLOT(On_FS_QEMU_Source_Toggled(bool)) );
+	On_FS_QEMU_Source_Toggled( RB_FS_QEMU_Built_In->isChecked() );
 }
 
 bool First_Start_Wizard::Find_Emulators()
@@ -90,13 +130,45 @@ void First_Start_Wizard::on_Button_Next_clicked()
 	}
 	else if( ui.All_Pages->currentWidget() == ui.General_Settings_Page )
 	{
-		#ifdef Q_OS_WIN32
+		// Always use the QEMU source page (built-in vs custom).
 		ui.All_Pages->setCurrentWidget( ui.Add_Emulator_Page );
-		#else
-		ui.All_Pages->setCurrentWidget( ui.Find_Emulators_Page );
-		#endif
-
+		ui.Button_Next->setEnabled( Emulators_Find_Done || AQ_Has_Bundled_QEMU() ||
+			! ui.Edit_Add_Emulator_Path->text().trimmed().isEmpty() );
 		return;
+	}
+	else if( ui.All_Pages->currentWidget() == ui.Add_Emulator_Page )
+	{
+		// Apply selected QEMU before finishing
+		if( RB_FS_QEMU_Built_In && RB_FS_QEMU_Built_In->isChecked() && AQ_Has_Bundled_QEMU() )
+		{
+			if( ! AQ_Apply_QEMU_Dir_As_Default_Emulator(
+					AQ_Get_Bundled_QEMU_Dir(), tr( "Built-in QEMU" ) ) )
+			{
+				QMessageBox::warning( this, tr( "QEMU" ),
+					tr( "Could not configure built-in QEMU." ) );
+				return;
+			}
+			AQ_Set_QEMU_Source_Mode( QStringLiteral( "bundled" ) );
+			Emulators_Find_Done = true;
+		}
+		else
+		{
+			const QString path = ui.Edit_Add_Emulator_Path->text().trimmed();
+			if( path.isEmpty() )
+			{
+				QMessageBox::warning( this, tr( "QEMU" ),
+					tr( "Select the built-in option or enter a QEMU folder path." ) );
+				return;
+			}
+			if( ! AQ_Apply_QEMU_Dir_As_Default_Emulator( path, tr( "Custom QEMU" ) ) )
+			{
+				QMessageBox::warning( this, tr( "QEMU" ),
+					tr( "No qemu-system-* binaries found in:\n%1" ).arg( path ) );
+				return;
+			}
+			AQ_Set_QEMU_Source_Mode( QStringLiteral( "custom" ) );
+			Emulators_Find_Done = true;
+		}
 	}
 	else if( ui.All_Pages->currentIndex() == ui.All_Pages->count()-1 )
 	{
@@ -113,13 +185,81 @@ void First_Start_Wizard::on_Button_Next_clicked()
 	Next_Move = true;
 	ui.All_Pages->setCurrentIndex( ui.All_Pages->currentIndex() +1 );
 
-    if ( ui.All_Pages->currentIndex() == 3 ) //FIXME: skipping this page but it could maybe be removed
+    if ( ui.All_Pages->currentIndex() == 3 ) // Skip obsolete Find_Emulators_Page
     	ui.All_Pages->setCurrentIndex( ui.All_Pages->currentIndex() + 1 );
 	
 	if( ui.All_Pages->currentWidget() == ui.Find_Emulators_Page )
 	{
 		if( ! Emulators_Find_Done ) ui.Button_Next->setEnabled( false );
 	}
+}
+
+void First_Start_Wizard::On_FS_QEMU_Source_Toggled( bool )
+{
+	const bool custom = RB_FS_QEMU_Custom && RB_FS_QEMU_Custom->isChecked();
+	ui.Edit_Add_Emulator_Path->setEnabled( custom );
+	ui.TB_Add_Emulator_Browse->setEnabled( custom );
+	ui.Button_Add_Emulator_Find->setEnabled( custom );
+	ui.Button_Add_Emulator_Manual_Mode->setEnabled( custom );
+	ui.Label_Add_Emulator_Path->setEnabled( custom );
+	if( ! custom && AQ_Has_Bundled_QEMU() )
+	{
+		ui.Edit_Add_Emulator_Path->setText( QDir::toNativeSeparators( AQ_Get_Bundled_QEMU_Dir() ) );
+		Emulators_Find_Done = true;
+		ui.Button_Next->setEnabled( true );
+	}
+}
+
+void First_Start_Wizard::on_TB_Add_Emulator_Browse_clicked()
+{
+	const QString folder = QFileDialog::getExistingDirectory(
+		this, tr( "Select QEMU installation folder" ),
+		ui.Edit_Add_Emulator_Path->text() );
+	if( folder.isEmpty() )
+		return;
+	ui.Edit_Add_Emulator_Path->setText( QDir::toNativeSeparators( folder ) );
+	if( RB_FS_QEMU_Custom )
+		RB_FS_QEMU_Custom->setChecked( true );
+}
+
+void First_Start_Wizard::on_Button_Add_Emulator_Find_clicked()
+{
+	const QString path = ui.Edit_Add_Emulator_Path->text().trimmed();
+	if( path.isEmpty() )
+	{
+		QMessageBox::information( this, tr( "QEMU" ),
+			tr( "Enter or browse to a folder that contains qemu-system-*." ) );
+		return;
+	}
+	if( ! AQ_Apply_QEMU_Dir_As_Default_Emulator( path, tr( "Custom QEMU" ) ) )
+	{
+		QMessageBox::warning( this, tr( "QEMU" ),
+			tr( "No qemu-system-* binaries found in:\n%1" ).arg( path ) );
+		return;
+	}
+	AQ_Set_QEMU_Source_Mode( QStringLiteral( "custom" ) );
+	Emulators_Find_Done = true;
+	ui.Button_Next->setEnabled( true );
+	ui.Label_Add_Emulator_Version->setText( tr( "Configured: %1" ).arg( path ) );
+}
+
+void First_Start_Wizard::on_Button_Add_Emulator_Manual_Mode_clicked()
+{
+	Emulator_Options_Window *win = new Emulator_Options_Window( this );
+	win->Set_Emulator( Emulator() );
+	if( win->exec() == QDialog::Accepted )
+	{
+		Emulator em = win->Get_Emulator();
+		em.Set_Default( true );
+		Remove_All_Emulators_Files();
+		em.Save();
+		AQ_Set_QEMU_Source_Mode( QStringLiteral( "custom" ) );
+		Emulators_Find_Done = true;
+		ui.Button_Next->setEnabled( true );
+		ui.Edit_Add_Emulator_Path->setText( em.Get_Path() );
+		ui.Label_Add_Emulator_Version->setText( tr( "Configured: %1" ).arg( em.Get_Name() ) );
+	}
+	delete win;
 }
 
 void First_Start_Wizard::on_Edit_VM_Dir_textChanged()
@@ -149,6 +289,18 @@ void First_Start_Wizard::on_Button_Find_Emulators_clicked()
 	// Clear old emulators list and remove emulators files
 	ui.Edit_Enulators_List->clear();
 	
+	// Prefer built-in first
+	if( AQ_Has_Bundled_QEMU() )
+	{
+		ui.Edit_Enulators_List->appendPlainText( tr( "Trying built-in QEMU: %1" ).arg( AQ_Get_Bundled_QEMU_Dir() ) );
+		if( AQ_Apply_QEMU_Dir_As_Default_Emulator( AQ_Get_Bundled_QEMU_Dir(), tr( "Built-in QEMU" ) ) )
+		{
+			AQ_Set_QEMU_Source_Mode( QStringLiteral( "bundled" ) );
+			ui.Edit_Enulators_List->appendPlainText( tr( "Using built-in QEMU." ) );
+			return;
+		}
+	}
+
 	// Remove old files
 	Remove_All_Emulators_Files();
 	
@@ -180,6 +332,8 @@ void First_Start_Wizard::on_Button_Find_Emulators_clicked()
 		#else
 		paths << "/usr/bin/" << "/usr/local/bin/";
 		#endif
+		if( AQ_Has_Bundled_QEMU() )
+			paths.prepend( AQ_Get_Bundled_QEMU_Dir() );
 		
 		// Delete /usr/bin/X11/ from PATH's list
 		for( int ix = 0; ix < paths.count(); ix++ )
@@ -332,15 +486,18 @@ void First_Start_Wizard::on_Button_Find_Emulators_clicked()
 				// Create new emulator
 				Emulator emul;
 				
-				// Emulator name
-				QString emulName = Emulator_Version_To_String( qemu_version );
+				// Emulator name — real version string (tobimensch#131)
+				QString emulName = System_Info::Get_Emulator_Version_Label( paths[qx] );
+				if( emulName.isEmpty() || emulName == QLatin1String( "QEMU" ) )
+					emulName = Emulator_Version_To_String( qemu_version );
+				const QString emulNameBase = emulName;
 				int emulDublicateNameCount = 1;
 				for( int ix = 0; ix < qemuEmulatorsList.count(); ++ix )
 				{
 					if( emulName == qemuEmulatorsList[ix].Get_Name() )
 					{
 						++emulDublicateNameCount;
-						emulName = QString("%1 #%2").arg( Emulator_Version_To_String(qemu_version) )
+						emulName = QString("%1 #%2").arg( emulNameBase )
 													.arg( emulDublicateNameCount );
 						ix = 0;
 					}
@@ -565,7 +722,7 @@ void First_Start_Wizard::retranslateUi()
 	Header_Captions << tr( "Welcome" );
 	Header_Captions << tr( "VM Folder" );
 	Header_Captions << tr( "Find QEMU" );
-	Header_Captions << tr( "Setup Emulator" );
+	Header_Captions << tr( "QEMU" );
 	Header_Captions << tr( "Finished" );
 	
 	ui.Label_Caption->setText( Header_Captions[0] );
@@ -577,14 +734,28 @@ void First_Start_Wizard::retranslateUi()
 	ui.Label_Welcome_Text->setText( tr("Welcome to the AQEMU settings wizard!\nThis wizard will help you to choose options AQEMU needs to work correctly. Click on \"Next\" to go to next page or the \"Back\" button to go to the previous page.") );
 	ui.Label_Select_Language->setText( tr("Here you can choose the interface language") );
 	ui.Label_VM_Dir->setText( tr("Please set the folder for virtual machine configurations:") );
-	ui.Label_Find_Emulators->setText( tr("To work correctly, AQEMU must find QEMU. To search automatically, click on \"Search\". If the search can't find QEMU, you can reconfigure AQEMU later. You can do it in the \"File->Settings\" dialog.") );
+	ui.Label_Find_Emulators->setText( tr(
+		"AQEMU can use the QEMU bundled next to aqemu (portable builds), or a QEMU "
+		"you installed yourself. Prefer built-in when available — no separate QEMU "
+		"install is required. You can change this later in File → Settings → Emulator." ) );
 	ui.Button_Find_Emulators->setText( tr("&Search") );
 	ui.Button_Skip_Find->setText( tr("S&kip Search") );
 	ui.Button_Edit->setText( tr("Set &Versions Manually") );
-	ui.Label_Add_Emulator_Help->setText( "Help text (not written...)" );
-	ui.Label_Add_Emulator_Path->setText( "Path to the emulator directory" );
-	ui.Label_Add_Emulator_Version->setText( "Emulator version" );
-	ui.Button_Add_Emulator_Find->setText( "Start &searching" );
-	ui.Button_Add_Emulator_Manual_Mode->setText( "Show all settings..." );
+	ui.Label_Add_Emulator_Help->setText( tr(
+		"Choose how AQEMU finds QEMU.\n\n"
+		"• Built-in — use the qemu-system-* shipped next to aqemu.exe (GitHub portable zip).\n"
+		"• Custom — point at your own QEMU folder (e.g. C:\\Program Files\\qemu)." ) );
+	if( RB_FS_QEMU_Built_In )
+	{
+		RB_FS_QEMU_Built_In->setText( AQ_Has_Bundled_QEMU()
+			? tr( "Use built-in QEMU (recommended) — %1" ).arg( AQ_Get_Bundled_QEMU_Dir() )
+			: tr( "Use built-in QEMU (not found next to aqemu)" ) );
+	}
+	if( RB_FS_QEMU_Custom )
+		RB_FS_QEMU_Custom->setText( tr( "Use a custom QEMU installation" ) );
+	ui.Label_Add_Emulator_Path->setText( tr( "Path to the QEMU folder (contains qemu-system-*)" ) );
+	ui.Label_Add_Emulator_Version->setText( tr( "Status: not configured yet" ) );
+	ui.Button_Add_Emulator_Find->setText( tr( "Use this &folder" ) );
+	ui.Button_Add_Emulator_Manual_Mode->setText( tr( "Advanced emulator settings…" ) );
     ui.Label_Finish_Text->setText( tr("Congratulations!\n\nYou can now configure and use virtual machines.\n\nClick on \"Finish\" to save these settings.") );
 }

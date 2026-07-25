@@ -117,6 +117,11 @@
        <string>nvme</string>
       </property>
      </item>
+     <item>
+      <property name="text">
+       <string>ahci</string>
+      </property>
+     </item>
     </widget>
    </item>
    <item row="2" column="0" colspan="3">

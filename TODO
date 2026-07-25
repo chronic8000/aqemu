@@ -1,5 +1,21 @@
 # Remaining optional polish
 
+
+
 * Tooltips on remaining dialogs (Emulator Control, wizards, SPICE settings, USB add, …)
 
+
+
 * Windows packaging: Microsoft Store package; clear leftover Linux-only path FIXMEs
+
+
+
+* virt-manager parity (see `docs/VIRT_MANAGER_COMPARISON.md`):
+
+  - Done: import disk, ISO OS-guess (ISO9660 + osinfo-detect), serial console,
+    storage browser, network UX, clone polish, URL/network install, remote hosts
+    (SSH + libvirt/Xen/LXC helpers), live migrate URI dialog
+
+  - Out of scope in-process: full Xen/LXC backends (use File → Remote Hosts)
+
+

@@ -36,9 +36,12 @@ Highlighted_Label::Highlighted_Label(QWidget* parent) : QLabel(parent)
         setStyleSheet(R"(
         Highlighted_Label
             {
-                font-size: medium;
+                font-size: 13px;
                 font-weight: 600;
                 color: palette(link);
+                padding: 8px 10px 4px 10px;
+                border-bottom: 1px solid palette(mid);
+                margin-top: 2px;
             }
         )");
     }
@@ -47,8 +50,11 @@ Highlighted_Label::Highlighted_Label(QWidget* parent) : QLabel(parent)
         setStyleSheet(R"(
         Highlighted_Label
             {
-                font-size: medium;
+                font-size: 13px;
                 font-weight: 600;
+                padding: 8px 10px 4px 10px;
+                border-bottom: 1px solid palette(mid);
+                margin-top: 2px;
             }
         )");
     }

@@ -96,9 +96,14 @@ Convert_HDD_Image_Window::Convert_HDD_Image_Window( QWidget *parent )
 		AQWarning( "Convert_HDD_Image_Window::Convert_HDD_Image_Window( QWidget *parent )",
 				   "Cannot get qemu-img info!" );
 		
-		QStringList formats;
-		formats << "qcow2" << "qcow" << "vmdk" << "cow" << "raw" << "cloop";
+		QStringList formats = Probe_QEMU_IMG_Formats();
+		if( formats.isEmpty() )
+			formats << "qcow2" << "qcow" << "vmdk" << "vpc" << "vhdx" << "cow" << "raw" << "cloop";
 		ui.CB_Output_Format->addItems( formats );
+		const QString pref = Preferred_QEMU_IMG_Format( formats );
+		const int ix = ui.CB_Output_Format->findText( pref, Qt::MatchFixedString );
+		if( ix >= 0 )
+			ui.CB_Output_Format->setCurrentIndex( ix );
 	}
 }
 
@@ -106,7 +111,7 @@ void Convert_HDD_Image_Window::on_Button_Browse_Base_clicked()
 {
 	QString fileName = QFileDialog::getOpenFileName( this, tr("Select Base HDD Image File"),
 													 Get_Last_Dir_Path(ui.Edit_Base_File_Name->text()),
-													 tr("All Files (*);;Images Files (*.img *.qcow *.qcow2 *.wmdk)") );
+													 Disk_Image_File_Filter( false, false ) );
 	
 	if( fileName.isEmpty() ) return;
 
@@ -150,7 +155,7 @@ void Convert_HDD_Image_Window::on_Button_Browse_Output_clicked()
 {
 	QString fileName = QFileDialog::getSaveFileName( this, tr("Save Out HDD Image File"),
 													 Get_Last_Dir_Path(ui.Edit_Output_File_Name->text()),
-													 tr("All Files (*);;Images Files (*.img *.qcow *.qcow2 *.wmdk)") );
+													 Disk_Image_File_Filter( false, false ) );
 	
 	if( ! fileName.isEmpty() )
 		ui.Edit_Output_File_Name->setText( QDir::toNativeSeparators(fileName) );
@@ -244,78 +249,21 @@ void Convert_HDD_Image_Window::Cancel_Convertion()
 
 bool Convert_HDD_Image_Window::Get_QEMU_IMG_Info()
 {
-	// Start process
-	QSettings settings;
-	QProcess *qemuImgProc = new QProcess( this );
-	qemuImgProc->start( Get_QEMU_IMG_Path(), QStringList("-h") );
-	
-	if( ! qemuImgProc->waitForStarted(2000) )
-		AQError( "bool Convert_HDD_Image_Window::Get_QEMU_IMG_Info()",
-				 "Cannot start qemu-img!" );
-	
-	if( ! qemuImgProc->waitForFinished(3000) )
-		AQError( "bool Convert_HDD_Image_Window::Get_QEMU_IMG_Info()",
-				 "Cannot finish qemu-img!" );
-	
-	// Read all output text
-	QString allText = qemuImgProc->readAllStandardError();
-	allText += qemuImgProc->readAllStandardOutput();
-	
-	delete qemuImgProc;
-	
-	if( allText.isEmpty() )
+	const QStringList formatsList = Probe_QEMU_IMG_Formats();
+	if( formatsList.isEmpty() )
 	{
 		AQError( "bool Convert_HDD_Image_Window::Get_QEMU_IMG_Info()",
-				 "qemu-img not send text!" );
+				 "No formats from qemu-img!" );
 		return false;
 	}
-	else // Parse text
-	{
-        /*
-		// Encryption
-		QRegExp possibleEncrypte = QRegExp( "-e\\s+" );
-		if( possibleEncrypte.exactMatch(allText) ) Possible_Encrypte = true;
-		else Possible_Encrypte = false; */
-		
-		// Formats
-		QRegExp formats = QRegExp( ".*Supported formats:\\s+(.*)\n" );
-		if( ! formats.exactMatch(allText) )
-		{
-			AQError( "bool Convert_HDD_Image_Window::Get_QEMU_IMG_Info()",
-					 "Cannot match RegExp!" );
-			return false;
-		}
-		
-		QStringList tmpList = formats.capturedTexts();
-		if( tmpList.count() < 2 )
-		{
-			AQError( "bool Convert_HDD_Image_Window::Get_QEMU_IMG_Info()",
-					 "Captured text lines < 2" );
-			return false;
-		}
-		
-		QStringList formatsList = tmpList[ 1 ].split( ' ', QString::SkipEmptyParts );
-		if( formatsList.isEmpty() )
-		{
-			AQError( "bool Convert_HDD_Image_Window::Get_QEMU_IMG_Info()",
-					 "Formats list is empty!" );
-			return false;
-		}
-		
-		// Add formats
-		formatsList.sort();
-		ui.CB_Output_Format->addItems( formatsList );
-		
-		// qcow2 - is default format
-		int qcow2 = ui.CB_Output_Format->findText( "qcow2" );
-		if( qcow2 != -1 ) ui.CB_Output_Format->setCurrentIndex( qcow2 );
-		else
-		{
-			// qcow2 not available use qcow
-			int qcow = ui.CB_Output_Format->findText( "qcow" );
-			if( qcow != -1 ) ui.CB_Output_Format->setCurrentIndex( qcow );
-		}
-		
-		return true;
-	}
+
+	ui.CB_Output_Format->clear();
+	ui.CB_Output_Format->addItems( formatsList );
+
+	const QString pref = Preferred_QEMU_IMG_Format( formatsList );
+	const int ix = ui.CB_Output_Format->findText( pref, Qt::MatchFixedString );
+	if( ix >= 0 )
+		ui.CB_Output_Format->setCurrentIndex( ix );
+
+	return true;
 }

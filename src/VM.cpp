@@ -101,6 +101,7 @@ Virtual_Machine::Virtual_Machine( const Virtual_Machine &vm )
 	Embedded_Spice_Port = 0;
 	Embedded_VNC_Port = 0;
 	QMP_Port = 0;
+	Serial_Console_Port = 0;
 	QMP = nullptr;
 	QMP_Connect_Attempts = 0;
 	
@@ -480,6 +481,9 @@ void Virtual_Machine::Shared_Constructor()
 	HDB = VM_HDD();
 	HDC = VM_HDD();
 	HDD = VM_HDD();
+	native_device_count = 0;
+	ahci_unit_count = 0;
+	ahci_controller_added = false;
 	
 	USB_Hub = false;
 	
@@ -612,6 +616,7 @@ void Virtual_Machine::Shared_Constructor()
 	Embedded_Spice_Port = 0;
 	Embedded_VNC_Port = 0;
 	QMP_Port = 0;
+	Serial_Console_Port = 0;
 	QMP = nullptr;
 	QMP_Connect_Attempts = 0;
 	
@@ -5583,6 +5588,8 @@ VM_Native_Storage_Device Virtual_Machine::Load_VM_Native_Storage_Device( const Q
 		tmp_device.Set_Interface( VM::DI_Virtio_SCSI );
 	else if( interface_str == "NVMe" || interface_str == "nvme" )
 		tmp_device.Set_Interface( VM::DI_NVMe );
+	else if( interface_str == "AHCI" || interface_str == "SATA" || interface_str == "ahci" )
+		tmp_device.Set_Interface( VM::DI_AHCI );
 	else if( interface_str == "" ) ; // No Value
 	else
 	{
@@ -5616,7 +5623,10 @@ VM_Native_Storage_Device Virtual_Machine::Load_VM_Native_Storage_Device( const Q
 	else if( media_str.compare( QLatin1String( "CD_ROM" ), Qt::CaseInsensitive ) == 0 ||
 	         media_str.compare( QLatin1String( "CDROM" ), Qt::CaseInsensitive ) == 0 ||
 	         media_str.compare( QLatin1String( "CD-ROM" ), Qt::CaseInsensitive ) == 0 )
+	{
 		tmp_device.Set_Media( VM::DM_CD_ROM );
+		tmp_device.Use_Media( true ); // ensure media=cdrom survives reload (tobimensch#110)
+	}
 	else
 	{
 		AQWarning( "VM_Native_Storage_Device Virtual_Machine::Load_VM_Native_Storage_Device( const QDomElement &Second_Element ) const",
@@ -5780,6 +5790,13 @@ void Virtual_Machine::Save_VM_Native_Storage_Device( QDomDocument &New_Dom_Docum
 			Sec_Element = New_Dom_Document.createElement( "Interface" );
 			Dom_Element.appendChild( Sec_Element );
 			Dom_Text = New_Dom_Document.createTextNode( "NVMe" );
+			Sec_Element.appendChild( Dom_Text );
+			break;
+
+		case VM::DI_AHCI:
+			Sec_Element = New_Dom_Document.createElement( "Interface" );
+			Dom_Element.appendChild( Sec_Element );
+			Dom_Text = New_Dom_Document.createTextNode( "AHCI" );
 			Sec_Element.appendChild( Dom_Text );
 			break;
 			
@@ -6579,12 +6596,15 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		Computer_Type.contains( "aarch64", Qt::CaseInsensitive ) ||
 		Computer_Type.contains( "qemu-system-arm", Qt::CaseInsensitive ) ||
 		Computer_Type.contains( "riscv", Qt::CaseInsensitive );
-	// pSeries / PowerNV / s390 have no ISA floppy or IDE buses (unlike pc/q35).
+	// pSeries / PowerNV / s390 / classic Mac (mac99) have no PC ISA floppy bus.
 	const bool no_pc_fdd_ide =
 		is_virt_arch ||
 		effective_machine.contains( QLatin1String( "pseries" ), Qt::CaseInsensitive ) ||
 		effective_machine.contains( QLatin1String( "powernv" ), Qt::CaseInsensitive ) ||
-		Computer_Type.contains( QLatin1String( "s390" ), Qt::CaseInsensitive );
+		effective_machine.contains( QLatin1String( "mac99" ), Qt::CaseInsensitive ) ||
+		effective_machine.contains( QLatin1String( "g3beige" ), Qt::CaseInsensitive ) ||
+		Computer_Type.contains( QLatin1String( "s390" ), Qt::CaseInsensitive ) ||
+		Computer_Type.contains( QLatin1String( "qemu-system-ppc" ), Qt::CaseInsensitive );
 	if( effective_machine.isEmpty() && is_virt_arch )
 		effective_machine = "virt";
 	
@@ -6777,9 +6797,15 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 
 	// TCG: multi-thread + larger TB cache (Gemini/Linaro tips). tb-size is an -accel prop, not -tb-size.
 	// Legacy Win9x (Force_TCG): thread=single — multi-thread TCG also breaks splash→desktop.
+	// PowerPC (and other non-MTTCG guests) warn/break with thread=multi — use single.
 	if( use_separate_tcg_accel )
 	{
-		if( legacy_force_tcg )
+		const bool no_mttcg =
+			legacy_force_tcg ||
+			Computer_Type.contains( QLatin1String( "qemu-system-ppc" ), Qt::CaseInsensitive ) ||
+			Computer_Type.contains( QLatin1String( "sparc" ), Qt::CaseInsensitive ) ||
+			Computer_Type.contains( QLatin1String( "mips" ), Qt::CaseInsensitive );
+		if( no_mttcg )
 			Args << "-accel" << "tcg,thread=single";
 		else
 			Args << "-accel" << "tcg,thread=multi,tb-size=1024";
@@ -6886,6 +6912,8 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	// (Virtio_SCSI) interface type ...
 	bool has_virt_scsi = false;
     native_device_count = 0;
+	ahci_unit_count = 0;
+	ahci_controller_added = false;
 
 	// FD0
 	if( FD0.Get_Enabled() )
@@ -7557,8 +7585,10 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 						break;
 				}
 				
-				// Create String
-				if( Network_Cards_Nativ[nc].Use_VLAN() && u_vlan )
+				// Create String — never emit deprecated vlan= on modern QEMU (tobimensch#44/#58)
+				if( Network_Cards_Nativ[nc].Use_VLAN() && u_vlan &&
+				    Current_Emulator.Get_Version() == VM::Obsolete &&
+				    Network_Cards_Nativ[nc].Get_VLAN() > 0 )
 					nic_str += ",vlan=" + QString::number( Network_Cards_Nativ[nc].Get_VLAN() );
 				
 				if( Network_Cards_Nativ[nc].Use_MAC_Address() && u_macaddr )
@@ -7675,7 +7705,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 					nic_str += ",host=" + Network_Cards_Nativ[ nc ].Get_Host();
 				
 				if( Network_Cards_Nativ[nc].Use_Restrict() && u_restrict && Current_Emulator_Devices.PSO_Net_restrict )
-					nic_str += ",restrict=" + Network_Cards_Nativ[nc].Get_Restrict() ? "y" : "n";
+					nic_str += QStringLiteral( ",restrict=" ) + ( Network_Cards_Nativ[nc].Get_Restrict() ? QStringLiteral( "y" ) : QStringLiteral( "n" ) );
 				
 				if( Network_Cards_Nativ[nc].Use_DHCPstart() && u_dhcpstart && Current_Emulator_Devices.PSO_Net_dhcpstart )
 					nic_str += ",dhcpstart=" + Network_Cards_Nativ[ nc ].Get_DHCPstart();
@@ -7720,10 +7750,10 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 					nic_str += ",sndbuf=" + QString::number( Network_Cards_Nativ[nc].Get_Sndbuf() );
 				
 				if( Network_Cards_Nativ[nc].Use_VNet_hdr() && u_vnet_hdr && Current_Emulator_Devices.PSO_Net_vnet_hdr )
-					nic_str += ",vnet_hdr=" + Network_Cards_Nativ[ nc ].Get_VNet_hdr() ? "on" : "off";
+					nic_str += QStringLiteral( ",vnet_hdr=" ) + ( Network_Cards_Nativ[ nc ].Get_VNet_hdr() ? QStringLiteral( "on" ) : QStringLiteral( "off" ) );
 				
 				if( Network_Cards_Nativ[nc].Get_VHost() && u_vhost && Current_Emulator_Devices.PSO_Net_vhost )
-					nic_str += ",vhost=" + Network_Cards_Nativ[ nc ].Get_VHost() ? "on" : "off";
+					nic_str += QStringLiteral( ",vhost=" ) + ( Network_Cards_Nativ[ nc ].Get_VHost() ? QStringLiteral( "on" ) : QStringLiteral( "off" ) );
 				
 				if( Network_Cards_Nativ[nc].Use_VHostFd() && u_vhostfd && Current_Emulator_Devices.PSO_Net_vhostfd )
 					nic_str += ",vhostfd=" + QString::number( Network_Cards_Nativ[nc].Get_VHostFd() );
@@ -7815,7 +7845,9 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 
 				Args << "-net";
 				QString nic_str = "nic";
-				if( Network_Cards[nc].Get_VLAN() > 0 )
+				// vlan= is removed on modern QEMU (tobimensch#44/#58/#134 hub warnings)
+				if( Current_Emulator.Get_Version() == VM::Obsolete &&
+				    Network_Cards[nc].Get_VLAN() > 0 )
 					nic_str += ",vlan=" + QString::number( Network_Cards[nc].Get_VLAN() );
 				
 				if( ! Network_Cards[nc].Get_MAC_Address().isEmpty() ) // Use MAC?
@@ -7837,7 +7869,8 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 					case VM::Net_Mode_Usermode:
 						{
 							QString user_str = "user";
-							if( Network_Cards[nc].Get_VLAN() > 0 )
+							if( Current_Emulator.Get_Version() == VM::Obsolete &&
+							    Network_Cards[nc].Get_VLAN() > 0 )
 								user_str += ",vlan=" + QString::number( Network_Cards[nc].Get_VLAN() );
 							if( ! Network_Cards[nc].Get_Hostname().isEmpty() )
 								user_str += ",hostname=" + Network_Cards[nc].Get_Hostname();
@@ -7849,7 +7882,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 						Args << "-net" ;
 						
 						tap_tmp = "tap";
-						if( Network_Cards[nc].Get_VLAN() > 0 )
+						if( Current_Emulator.Get_Version() == VM::Obsolete && Network_Cards[nc].Get_VLAN() > 0 )
 							tap_tmp += ",vlan=" + QString::number( Network_Cards[nc].Get_VLAN() );
 						
 						if( ! Network_Cards[nc].Get_Interface_Name().isEmpty() )
@@ -7876,7 +7909,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 					case VM::Net_Mode_Tuntapfd:
 						{
 							QString tap_fd_str = "tap";
-							if( Network_Cards[nc].Get_VLAN() > 0 )
+							if( Current_Emulator.Get_Version() == VM::Obsolete && Network_Cards[nc].Get_VLAN() > 0 )
 								tap_fd_str += ",vlan=" + QString::number( Network_Cards[nc].Get_VLAN() );
 							if( Network_Cards[nc].Get_File_Descriptor() > 0 )
 								tap_fd_str += ",fd=" + QString::number( Network_Cards[nc].Get_File_Descriptor() );
@@ -7889,7 +7922,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 					case VM::Net_Mode_Tcplisten:
 						{
 							QString sock_str = "socket";
-							if( Network_Cards[nc].Get_VLAN() > 0 )
+							if( Current_Emulator.Get_Version() == VM::Obsolete && Network_Cards[nc].Get_VLAN() > 0 )
 								sock_str += ",vlan=" + QString::number( Network_Cards[nc].Get_VLAN() );
 							if( Network_Cards[nc].Get_IP_Address().isEmpty() )
 								sock_str += ",listen=:" + QString::number( Network_Cards[nc].Get_Port() );
@@ -7902,7 +7935,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 					case VM::Net_Mode_Tcpfd:
 						{
 							QString sock_fd_str = "socket";
-							if( Network_Cards[nc].Get_VLAN() > 0 )
+							if( Current_Emulator.Get_Version() == VM::Obsolete && Network_Cards[nc].Get_VLAN() > 0 )
 								sock_fd_str += ",vlan=" + QString::number( Network_Cards[nc].Get_VLAN() );
 							sock_fd_str += ",fd=" + QString::number( Network_Cards[nc].Get_File_Descriptor() );
 							Args << "-net" << sock_fd_str;
@@ -7912,7 +7945,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 					case VM::Net_Mode_Tcpconnect:
 						{
 							QString sock_conn_str = "socket";
-							if( Network_Cards[nc].Get_VLAN() > 0 )
+							if( Current_Emulator.Get_Version() == VM::Obsolete && Network_Cards[nc].Get_VLAN() > 0 )
 								sock_conn_str += ",vlan=" + QString::number( Network_Cards[nc].Get_VLAN() );
 							if( Network_Cards[nc].Get_IP_Address().isEmpty() )
 								sock_conn_str += ",connect=:" + QString::number( Network_Cards[nc].Get_Port() );
@@ -7925,7 +7958,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 					case VM::Net_Mode_Multicast:
 						{
 							QString sock_mcast_str = "socket";
-							if( Network_Cards[nc].Get_VLAN() > 0 )
+							if( Current_Emulator.Get_Version() == VM::Obsolete && Network_Cards[nc].Get_VLAN() > 0 )
 								sock_mcast_str += ",vlan=" + QString::number( Network_Cards[nc].Get_VLAN() );
 							if( Network_Cards[nc].Get_IP_Address().isEmpty() )
 								sock_mcast_str += ",mcast=:" + QString::number( Network_Cards[nc].Get_Port() );
@@ -7938,7 +7971,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 					case VM::Net_Mode_Multicastfd:
 						{
 							QString sock_mcastfd_str = "socket";
-							if( Network_Cards[nc].Get_VLAN() > 0 )
+							if( Current_Emulator.Get_Version() == VM::Obsolete && Network_Cards[nc].Get_VLAN() > 0 )
 								sock_mcastfd_str += ",vlan=" + QString::number( Network_Cards[nc].Get_VLAN() );
 							sock_mcastfd_str += ",fd=" + QString::number( Network_Cards[nc].Get_File_Descriptor() );
 							Args << "-net" << sock_mcastfd_str;
@@ -7952,69 +7985,137 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			}
 		}
 		
-		// Network Tab. Redirections
+		// Network Tab. Redirections — merge into one -net user (tobimensch#59)
 		if( Use_Redirections )
 		{
-			QString redir_str = "";
-			Args << "-net";
-
-            QStringList hostfwds;
-
+			QStringList hostfwds;
 			for( int rx = 0; rx < Get_Network_Redirections_Count(); rx++ )
 			{
-				redir_str = "hostfwd=";
-				
+				QString redir_str = "hostfwd=";
 				if( Get_Network_Redirection(rx).Get_Protocol() == "TCP" )
 					redir_str += "tcp:";
 				else if( Get_Network_Redirection(rx).Get_Protocol() == "UDP" )
 					redir_str += "udp:";
 				else
-					redir_str += ":"; //qemu uses TCP by default
-
-
-                //FIXME/TODO: host_address doesn't get taken into account
-				
+					redir_str += "tcp:"; // qemu default is TCP
+				// host IP empty → omit (tobimensch#54 ... placeholder)
 				redir_str += ":" + QString::number( Get_Network_Redirection(rx).Get_Host_Port() ) + "-";
-				redir_str += Get_Network_Redirection(rx).Get_Guest_IP() + ":";
-				redir_str += QString::number( Get_Network_Redirection(rx).Get_Guest_Port() );
-				
+				const QString guest_ip = Get_Network_Redirection(rx).Get_Guest_IP().trimmed();
+				if( ! guest_ip.isEmpty() && guest_ip != QLatin1String( "..." ) )
+					redir_str += guest_ip;
+				redir_str += ":" + QString::number( Get_Network_Redirection(rx).Get_Guest_Port() );
 				hostfwds << redir_str;
 			}
 
-            Args << "user," + hostfwds.join(",");
+			if( ! hostfwds.isEmpty() )
+			{
+				// Prefer appending to an existing -net user,... already in Args
+				bool merged = false;
+				for( int ai = 0; ai + 1 < Args.size(); ++ai )
+				{
+					if( Args.at( ai ) == QLatin1String( "-net" ) &&
+					    Args.at( ai + 1 ).startsWith( QLatin1String( "user" ) ) )
+					{
+						Args[ ai + 1 ] = Args.at( ai + 1 ) + "," + hostfwds.join( "," );
+						merged = true;
+						break;
+					}
+				}
+				if( ! merged )
+					Args << "-net" << ( "user," + hostfwds.join( "," ) );
+			}
 		}
 	}
 	
-	// TFTP Prefix
+	// TFTP Prefix — merge into existing user netdev when possible (tobimensch#19)
 	if( ! TFTP_Prefix.isEmpty() )
 	{
-		if( Build_QEMU_Args_for_Script_Mode )
-			Args << "-net" << "user,tftp=" + QString("\"") + TFTP_Prefix + "\"";
-		else
-			Args << "-net" << "user,tftp=" + TFTP_Prefix;
+		const QString tftp_part = Build_QEMU_Args_for_Script_Mode
+			? ( "tftp=\"" + TFTP_Prefix + "\"" )
+			: ( "tftp=" + TFTP_Prefix );
+		bool merged = false;
+		for( int ai = 0; ai + 1 < Args.size(); ++ai )
+		{
+			if( Args.at( ai ) == QLatin1String( "-net" ) &&
+			    Args.at( ai + 1 ).startsWith( QLatin1String( "user" ) ) )
+			{
+				Args[ ai + 1 ] = Args.at( ai + 1 ) + "," + tftp_part;
+				merged = true;
+				break;
+			}
+		}
+		if( ! merged )
+			Args << "-net" << ( "user," + tftp_part );
 	}
 	
 	// SMB Dir
 	if( ! SMB_Directory.isEmpty() )
 	{
-		if( Build_QEMU_Args_for_Script_Mode )
-			Args << "-net" << "user,smb=" + QString("\"") + SMB_Directory + "\"";
-		else
-			Args << "-net" << "user,smb=" + SMB_Directory;
+		const QString smb_part = Build_QEMU_Args_for_Script_Mode
+			? ( "smb=\"" + SMB_Directory + "\"" )
+			: ( "smb=" + SMB_Directory );
+		bool merged = false;
+		for( int ai = 0; ai + 1 < Args.size(); ++ai )
+		{
+			if( Args.at( ai ) == QLatin1String( "-net" ) &&
+			    Args.at( ai + 1 ).startsWith( QLatin1String( "user" ) ) )
+			{
+				Args[ ai + 1 ] = Args.at( ai + 1 ) + "," + smb_part;
+				merged = true;
+				break;
+			}
+		}
+		if( ! merged )
+			Args << "-net" << ( "user," + smb_part );
 	}
 	
-	// Ports Tabs
-	for( int ix = 0; ix < Serial_Ports.count(); ix++ )
+	// Ports Tabs — allocate a TCP serial for the session console without mutating saved config
+	Serial_Console_Port = 0;
+	QList<VM_Port> serial_for_args = Serial_Ports;
 	{
-		if( Serial_Ports[ix].Get_Port_Redirection() == VM::PR_Default ) continue;
+		bool have_tcp_serial = false;
+		for( int ix = 0; ix < serial_for_args.count(); ++ix )
+		{
+			const VM::Port_Redirection pr = serial_for_args[ix].Get_Port_Redirection();
+			if( pr == VM::PR_tcp || pr == VM::PR_telnet )
+			{
+				have_tcp_serial = true;
+				const QString params = serial_for_args[ix].Get_Parametrs_Line();
+				const QString port_s = params.contains( QLatin1Char( ':' ) )
+					? params.section( QLatin1Char( ':' ), 1 ).section( QLatin1Char( ',' ), 0, 0 )
+					: params.section( QLatin1Char( ',' ), 0, 0 );
+				bool ok = false;
+				const int p = port_s.toInt( &ok );
+				if( ok && p > 0 )
+					Serial_Console_Port = p;
+				break;
+			}
+		}
+		if( ! have_tcp_serial )
+		{
+			const quint16 sport = Find_Free_TCP_Port( 4555 );
+			if( sport > 0 )
+			{
+				Serial_Console_Port = sport;
+				VM_Port cons;
+				cons.Set_Port_Redirection( VM::PR_tcp );
+				cons.Set_Parametrs_Line( QStringLiteral( "127.0.0.1:%1,server,nowait" ).arg( sport ) );
+				serial_for_args.prepend( cons );
+			}
+		}
+	}
+
+	for( int ix = 0; ix < serial_for_args.count(); ix++ )
+	{
+		if( serial_for_args[ix].Get_Port_Redirection() == VM::PR_Default ) continue;
 
 		// Modern -chardev path (qemu-doc Character devices)
 		if( Modern_Chardev )
 		{
 			const QString cid = QStringLiteral( "aqchr%1" ).arg( ix );
 			QString cdev;
-			const VM::Port_Redirection pr = Serial_Ports[ix].Get_Port_Redirection();
-			const QString params = Serial_Ports[ix].Get_Parametrs_Line();
+			const VM::Port_Redirection pr = serial_for_args[ix].Get_Port_Redirection();
+			const QString params = serial_for_args[ix].Get_Parametrs_Line();
 			switch( pr )
 			{
 				case VM::PR_null: cdev = QStringLiteral( "null,id=" ) + cid; break;
@@ -8029,11 +8130,12 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 				case VM::PR_tcp:
 					cdev = QStringLiteral( "socket,id=" ) + cid + QStringLiteral( ",host=," )
 					       + QStringLiteral( "port=" ) + params + QStringLiteral( ",server=on,wait=off" );
-					// params often "host:port" — if contains ':', split
+					// params often "host:port" or "host:port,server,nowait"
 					if( params.contains( QLatin1Char( ':' ) ) )
 					{
 						const QString host = params.section( QLatin1Char( ':' ), 0, 0 );
-						const QString port = params.section( QLatin1Char( ':' ), 1 );
+						const QString port = params.section( QLatin1Char( ':' ), 1 )
+							.section( QLatin1Char( ',' ), 0, 0 );
 						cdev = QStringLiteral( "socket,id=" ) + cid + QStringLiteral( ",host=" )
 						       + host + QStringLiteral( ",port=" ) + port + QStringLiteral( ",server=on,wait=off" );
 					}
@@ -8105,10 +8207,10 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		
 		Args << "-serial";
 		
-		switch( Serial_Ports[ix].Get_Port_Redirection() )
+		switch( serial_for_args[ix].Get_Port_Redirection() )
 		{
 			case VM::PR_vc:
-				Args << "vc:" + Serial_Ports[ix].Get_Parametrs_Line();
+				Args << "vc:" + serial_for_args[ix].Get_Parametrs_Line();
 				break;
 				
 			case VM::PR_pty:
@@ -8124,11 +8226,11 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 				break;
 				
 			case VM::PR_dev:
-				Args << Serial_Ports[ix].Get_Parametrs_Line();
+				Args << serial_for_args[ix].Get_Parametrs_Line();
 				break;
 				
 			case VM::PR_file:
-				Args << "file:" + Serial_Ports[ix].Get_Parametrs_Line();
+				Args << "file:" + serial_for_args[ix].Get_Parametrs_Line();
 				break;
 				
 			case VM::PR_stdio:
@@ -8136,27 +8238,27 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 				break;
 				
 			case VM::PR_pipe:
-				Args << "pipe:" + Serial_Ports[ix].Get_Parametrs_Line();
+				Args << "pipe:" + serial_for_args[ix].Get_Parametrs_Line();
 				break;
 				
 			case VM::PR_udp:
-				Args << "udp:" + Serial_Ports[ix].Get_Parametrs_Line();
+				Args << "udp:" + serial_for_args[ix].Get_Parametrs_Line();
 				break;
 				
 			case VM::PR_tcp:
-				Args << "tcp:" + Serial_Ports[ix].Get_Parametrs_Line();
+				Args << "tcp:" + serial_for_args[ix].Get_Parametrs_Line();
 				break;
 				
 			case VM::PR_telnet:
-				Args << "telnet:" + Serial_Ports[ix].Get_Parametrs_Line();
+				Args << "telnet:" + serial_for_args[ix].Get_Parametrs_Line();
 				break;
 				
 			case VM::PR_unix:
-				Args << "unix:" + Serial_Ports[ix].Get_Parametrs_Line();
+				Args << "unix:" + serial_for_args[ix].Get_Parametrs_Line();
 				break;
 				
 			case VM::PR_com:
-				Args << "COM" + Serial_Ports[ix].Get_Parametrs_Line();
+				Args << "COM" + serial_for_args[ix].Get_Parametrs_Line();
 				break;
 				
 			case VM::PR_msmouse:
@@ -8164,7 +8266,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 				break;
 				
 			case VM::PR_mon:
-				Args << "mon:" << Serial_Ports[ix].Get_Parametrs_Line();
+				Args << "mon:" << serial_for_args[ix].Get_Parametrs_Line();
 				break;
 				
 			case VM::PR_braille:
@@ -8397,19 +8499,23 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 							
 							usbControllerID = "ehci.0";
 						}
-						else // USB 1.1
+						else // USB 1.1 — modern QEMU uses usb-bus.0 (tobimensch#76/#111)
 						{
-							usbControllerID = "usb.0";
+							usbControllerID = "usb-bus.0";
 						}
 
 						const QString id_style = Settings.value("USB_ID_Style","").toString();
 						const bool no_bus_path =
-							current_USB_Device.Get_Bus().isEmpty() ||
-							( current_USB_Device.Get_Addr().isEmpty() &&
-							  current_USB_Device.Get_DevPath().isEmpty() );
-						// Windows PnP enum has VID/PID only — force vendorid style.
+							current_USB_Device.Get_Bus().trimmed().isEmpty() ||
+							( current_USB_Device.Get_Addr().trimmed().isEmpty() &&
+							  current_USB_Device.Get_DevPath().trimmed().isEmpty() );
+						const bool have_vid_pid =
+							! current_USB_Device.Get_Vendor_ID().trimmed().isEmpty() &&
+							! current_USB_Device.Get_Product_ID().trimmed().isEmpty();
+						// Prefer vendorid when bus/port incomplete (tobimensch#111)
 						const bool use_vid_pid =
-							id_style == "VendorProduct" || no_bus_path;
+							have_vid_pid &&
+							( id_style == "VendorProduct" || no_bus_path );
 
 						auto hex_id = []( QString id ) -> QString {
 							id = id.trimmed().toLower();
@@ -8417,6 +8523,17 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 								return id;
 							return QLatin1String( "0x" ) + id;
 						};
+
+						// Skip devices that would emit empty hostbus=/hostport= and fail start
+						if( ! use_vid_pid && no_bus_path )
+						{
+							AQWarning( "QStringList Virtual_Machine::Build_QEMU_Args()",
+								QStringLiteral( "Skipping USB device %1 — no bus/port or VID:PID" )
+									.arg( current_USB_Device.Get_Product_Name().isEmpty()
+										? current_USB_Device.Get_ID_Line()
+										: current_USB_Device.Get_Product_Name() ) );
+							continue;
+						}
 						
 						
 						// Add USB devices
@@ -9059,7 +9176,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		}
 		else
 		{
-			spiceArgs << "disable-ticketing";
+			spiceArgs << "disable-ticketing=on";
 		}
 
 		if( SPICE_Agent_Mouse == "on" )
@@ -9277,6 +9394,10 @@ QStringList Virtual_Machine::Build_Native_Device_Args( VM_Native_Storage_Device 
 				// SteamOS installer expects /dev/nvme0n1 — needs -device nvme + serial
 				opt << "if=none,id=" + vsname;
 				break;
+
+			case VM::DI_AHCI:
+				opt << "if=none,id=" + vsname;
+				break;
 				
 			default:
                 AQError( "QStringList Virtual_Machine::Build_Native_Device_Args( VM_Native_Storage_Device device, bool Build_QEMU_Args_for_Script_Mode )",
@@ -9418,6 +9539,24 @@ QStringList Virtual_Machine::Build_Native_Device_Args( VM_Native_Storage_Device 
 		args << "-device" << With_Bootindex(
 			"nvme,drive=" + vsname + ",serial=aqemu-nvme0", boot_idx );
 	}
+	else if( device.Get_Interface() == VM::DI_AHCI )
+	{
+		if( ! ahci_controller_added )
+		{
+			args << "-device" << QStringLiteral( "ich9-ahci,id=aqemu_ahci" );
+			ahci_controller_added = true;
+		}
+		const int unit = ahci_unit_count++;
+		const QString devtype =
+			( device.Get_Media() == VM::DM_CD_ROM ) ? QStringLiteral( "ide-cd" )
+								: QStringLiteral( "ide-hd" );
+		const int boot_idx = Bootindex_For( *this,
+			device.Get_Media() == VM::DM_CD_ROM ? VM::Boot_From_CDROM : VM::Boot_From_HDD );
+		args << "-device" << With_Bootindex(
+			QStringLiteral( "%1,bus=aqemu_ahci.%2,drive=%3" )
+				.arg( devtype ).arg( unit ).arg( vsname ),
+			boot_idx );
+	}
 	else if( device.Get_Interface() == VM::DI_Virtio && virt_arch_blk &&
 			 ( ! device.Use_Media() || device.Get_Media() == VM::DM_Disk ) )
 	{
@@ -9519,6 +9658,7 @@ bool Virtual_Machine::Start_impl()
 
 	// Drop ports from a previous run so we allocate fresh free ones
 	QMP_Port = 0;
+	Serial_Console_Port = 0;
 	QMP_Connect_Attempts = 0;
 	Embedded_Spice_Port = 0;
 	Embedded_VNC_Port = 0;
@@ -10078,33 +10218,40 @@ void Virtual_Machine::Kill_Orphan_QEMU_Using_Disks()
 		const QString base = QFileInfo( d ).fileName();
 		if( base.isEmpty() )
 			continue;
-		// Keep pattern shell-safe (alphanumeric, dot, underscore, dash)
-		QString safe = base;
-		safe.replace( QRegularExpression( QStringLiteral( "[^A-Za-z0-9._-]" ) ),
-		              QStringLiteral( "." ) );
-		if( ! safe.isEmpty() && ! basenames.contains( safe ) )
-			basenames << safe;
+		if( ! basenames.contains( base ) )
+			basenames << base;
 	}
 	if( ! basenames.isEmpty() && WSL_Is_Available( false ) )
 	{
-		// pgrep/pkill -f against qemu cmdline; ignore failures if none match.
-		const QString pat = basenames.join( QLatin1Char( '|' ) );
+		// Fixed-string match only (grep -F) — never regex wildcards (PR #1 / Qodo)
+		QString hit_checks;
+		for( const QString &b : basenames )
+		{
+			QString q = b;
+			q.replace( QLatin1Char( '\'' ), QLatin1String( "'\\''" ) );
+			hit_checks += QStringLiteral(
+				"echo \"$cmd\" | grep -Fq -- '%1' && hit=1; " ).arg( q );
+		}
 		const QString sh =
 			QStringLiteral(
 				"pids=$(pgrep -f 'qemu-system' 2>/dev/null || true); "
 				"for p in $pids; do "
 				"  cmd=$(tr '\\0' ' ' </proc/$p/cmdline 2>/dev/null || true); "
-				"  echo \"$cmd\" | grep -Eq '%1' || continue; "
+				"  hit=0; "
+				"  %1 "
+				"  [ \"$hit\" = 1 ] || continue; "
 				"  kill -TERM \"$p\" 2>/dev/null || true; "
 				"done; "
 				"sleep 0.4; "
 				"pids=$(pgrep -f 'qemu-system' 2>/dev/null || true); "
 				"for p in $pids; do "
 				"  cmd=$(tr '\\0' ' ' </proc/$p/cmdline 2>/dev/null || true); "
-				"  echo \"$cmd\" | grep -Eq '%1' || continue; "
+				"  hit=0; "
+				"  %1 "
+				"  [ \"$hit\" = 1 ] || continue; "
 				"  kill -KILL \"$p\" 2>/dev/null || true; "
 				"done" )
-				.arg( pat );
+				.arg( hit_checks );
 
 		QProcess wsl_killer;
 		wsl_killer.start( QStringLiteral( "wsl.exe" ),
@@ -12753,6 +12900,7 @@ void Virtual_Machine::QEMU_Finished( int exitCode, QProcess::ExitStatus exitStat
 		QMP->Disconnect();
 	}
 	QMP_Port = 0;
+	Serial_Console_Port = 0;
 	Embedded_Spice_Port = 0;
 	Embedded_VNC_Port = 0;
 }
