@@ -262,7 +262,7 @@ Main_Window::Main_Window( QWidget *parent )
 	ui.TabWidget_Display->insertTab( 1, SPICE_Widget, QIcon(":/pepper.png"), tr("SPICE Remote") );
 
     Display_Settings_Widget = new Settings_Widget( ui.TabWidget_Display, QBoxLayout::LeftToRight, true );
-    Display_Settings_Widget->setIconSize(QSize(24,24));
+    Display_Settings_Widget->setIconSize( AQ_Nav_Icon_Size( this ) );
     Display_Settings_Widget->addToGroup("Main");
 
 	// Update Emulators Information
@@ -314,7 +314,7 @@ Main_Window::Main_Window( QWidget *parent )
     ui.TabWidget_Media->setCurrentWidget(Dev_Manager);
 
     Media_Settings_Widget = new Settings_Widget( ui.TabWidget_Media, QBoxLayout::LeftToRight, true );
-    Media_Settings_Widget->setIconSize(QSize(24,24));
+    Media_Settings_Widget->setIconSize( AQ_Nav_Icon_Size( this ) );
     Media_Settings_Widget->addToGroup("Main");
 	
 
@@ -324,7 +324,7 @@ Main_Window::Main_Window( QWidget *parent )
     ////
 
     Network_Settings_Widget = new Settings_Widget( ui.Network_Cards_Tabs, QBoxLayout::LeftToRight, true );
-    Network_Settings_Widget->setIconSize(QSize(24,24));
+    Network_Settings_Widget->setIconSize( AQ_Nav_Icon_Size( this ) );
     Network_Settings_Widget->addToGroup("Main");
 
 	// This For Network Redirections Table
@@ -601,30 +601,38 @@ void Main_Window::Polish_Settings_Tabs_Layout()
 		if( gen_ix >= 0 )
 			ui.Tabs->setTabText( gen_ix, tr( "Machine" ) );
 
-		// Larger, clearer West tab labels (style the bar only — never the pane).
+		// Clearer West tab labels — sizes from host DPI / font, not fixed px.
 		if( QTabBar *bar = ui.Tabs->tabBar() )
 		{
 			bar->setExpanding( false );
+			QFont tabFont = bar->font();
+			tabFont.setWeight( QFont::DemiBold );
+			bar->setFont( tabFont );
+			const int pad_v = AQ_Px( 10, this );
+			const int pad_h = AQ_Px( 6, this );
+			const int min_w = AQ_Px( 44, this );
+			const int accent = AQ_Px( 3, this );
 			bar->setStyleSheet( QStringLiteral(
 				"QTabBar::tab {"
-				"  font-size: 12px;"
 				"  font-weight: 600;"
-				"  padding: 14px 8px;"
-				"  min-width: 52px;"
-				"  margin: 2px 0;"
+				"  padding: %1px %2px;"
+				"  min-width: %3px;"
+				"  margin: %4px 0;"
 				"  border: none;"
-				"  border-right: 3px solid transparent;"
+				"  border-right: %5px solid transparent;"
 				"  color: palette(window-text);"
 				"  background: transparent;"
 				"}"
 				"QTabBar::tab:selected {"
 				"  color: palette(highlight);"
-				"  border-right: 3px solid palette(highlight);"
+				"  border-right: %5px solid palette(highlight);"
 				"  background: palette(base);"
 				"}"
 				"QTabBar::tab:hover:!selected {"
 				"  background: palette(alternate-base);"
-				"}" ) );
+				"}"
+			).arg( pad_v ).arg( pad_h ).arg( min_w ).arg( AQ_Px( 2, this ) ).arg( accent ) );
+			bar->setIconSize( AQ_Nav_Icon_Size( this ) );
 		}
 	}
 
@@ -634,28 +642,33 @@ void Main_Window::Polish_Settings_Tabs_Layout()
 
 	if( ui.Tab_General && ui.Tab_General->layout() )
 	{
-		ui.Tab_General->layout()->setContentsMargins( 10, 6, 12, 10 );
-		ui.Tab_General->layout()->setSpacing( 2 );
-		AQ_Tighten_Layout_Spacers( ui.Tab_General->layout(), 4 );
+		const int m = AQ_Px( 8, this );
+		ui.Tab_General->layout()->setContentsMargins( m, AQ_Px( 6, this ), AQ_Px( 10, this ), m );
+		ui.Tab_General->layout()->setSpacing( AQ_Px( 2, this ) );
+		AQ_Tighten_Layout_Spacers( ui.Tab_General->layout() );
 	}
 	if( ui.Tab_Display && ui.Tab_Display->layout() )
 	{
-		ui.Tab_Display->layout()->setContentsMargins( 10, 8, 12, 8 );
-		ui.Tab_Display->layout()->setSpacing( 6 );
+		const int m = AQ_Px( 8, this );
+		ui.Tab_Display->layout()->setContentsMargins( m, m, AQ_Px( 10, this ), m );
+		ui.Tab_Display->layout()->setSpacing( AQ_Px( 6, this ) );
 	}
 	if( ui.Tab_Media && ui.Tab_Media->layout() )
 	{
-		ui.Tab_Media->layout()->setContentsMargins( 8, 6, 8, 8 );
-		ui.Tab_Media->layout()->setSpacing( 6 );
+		const int m = AQ_Px( 6, this );
+		ui.Tab_Media->layout()->setContentsMargins( m, m, m, AQ_Px( 8, this ) );
+		ui.Tab_Media->layout()->setSpacing( AQ_Px( 6, this ) );
 	}
 	if( ui.Tab_Network && ui.Tab_Network->layout() )
 	{
-		ui.Tab_Network->layout()->setContentsMargins( 8, 6, 8, 8 );
-		ui.Tab_Network->layout()->setSpacing( 6 );
+		const int m = AQ_Px( 6, this );
+		ui.Tab_Network->layout()->setContentsMargins( m, m, m, AQ_Px( 8, this ) );
+		ui.Tab_Network->layout()->setSpacing( AQ_Px( 6, this ) );
 	}
 	if( ui.Tab_Info && ui.Tab_Info->layout() )
 	{
-		ui.Tab_Info->layout()->setContentsMargins( 8, 8, 8, 8 );
+		const int m = AQ_Px( 8, this );
+		ui.Tab_Info->layout()->setContentsMargins( m, m, m, m );
 		if( ui.VM_Information_Text )
 		{
 			ui.VM_Information_Text->setFrameShape( QFrame::StyledPanel );
@@ -663,15 +676,15 @@ void Main_Window::Polish_Settings_Tabs_Layout()
 				QStringLiteral(
 					"QTextEdit {"
 					"  border: 1px solid palette(mid);"
-					"  border-radius: 6px;"
+					"  border-radius: %1px;"
 					"  background: palette(base);"
-					"  padding: 8px;"
-					"}" ) );
+					"  padding: %2px;"
+					"}" ).arg( AQ_Px( 6, this ) ).arg( AQ_Px( 8, this ) ) );
 		}
 	}
 
-	// Cap readable column width so ultrawide screens don't leave desert gaps.
-	const int content_cap = 760;
+	// Cap readable column from font metrics so ultrawide doesn't leave desert gaps.
+	const int content_cap = AQ_Content_Max_Width( this );
 	auto cap_w = [content_cap]( QWidget *w ) {
 		if( w ) w->setMaximumWidth( content_cap );
 	};
@@ -687,20 +700,20 @@ void Main_Window::Polish_Settings_Tabs_Layout()
 	if( ui.Memory_Size )
 	{
 		ui.Memory_Size->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Fixed );
-		ui.Memory_Size->setMaximumHeight( 28 );
-		ui.Memory_Size->setMinimumHeight( 22 );
-		ui.Memory_Size->setMaximumWidth( content_cap - 80 );
+		ui.Memory_Size->setMaximumHeight( AQ_Px( 28, this ) );
+		ui.Memory_Size->setMinimumHeight( AQ_Px( 22, this ) );
+		ui.Memory_Size->setMaximumWidth( content_cap - AQ_Px( 80, this ) );
 	}
 	if( ui.CB_RAM_Size )
-		ui.CB_RAM_Size->setMinimumWidth( 110 );
+		ui.CB_RAM_Size->setMinimumWidth( AQ_Px( 110, this ) );
 
 	if( ui.widget && ui.widget->layout() )
 	{
-		ui.widget->layout()->setContentsMargins( 8, 4, 8, 4 );
-		ui.widget->layout()->setSpacing( 4 );
+		ui.widget->layout()->setContentsMargins( AQ_Px( 8, this ), AQ_Px( 4, this ),
+			AQ_Px( 8, this ), AQ_Px( 4, this ) );
+		ui.widget->layout()->setSpacing( AQ_Px( 4, this ) );
 		if( QGridLayout *gl = qobject_cast<QGridLayout*>( ui.widget->layout() ) )
 		{
-			// Prefer left-packed columns; don't stretch the middle into a void.
 			gl->setColumnStretch( 0, 0 );
 			gl->setColumnStretch( 1, 1 );
 			gl->setColumnStretch( 2, 0 );
@@ -712,7 +725,7 @@ void Main_Window::Polish_Settings_Tabs_Layout()
 	{
 		ui.TB_Show_Advanced_Options_Window->setSizePolicy(
 			QSizePolicy::Maximum, QSizePolicy::Fixed );
-		ui.TB_Show_Advanced_Options_Window->setMinimumWidth( 120 );
+		ui.TB_Show_Advanced_Options_Window->setMinimumWidth( AQ_Px( 120, this ) );
 	}
 
 	if( ui.GB_Options )
@@ -1902,9 +1915,14 @@ bool Main_Window::Load_Settings()
 	ui.splitter->restoreState( Settings.value("General_Splitter",
 							   QByteArray("\0\0\0\xff\0\0\0\0\0\0\0\x2\0\0\0\xbc\0\0\x2$\0\0\0\0\x4\x1\0\0\0\x1")).toByteArray() );
 
-	// VM Icons Size
-	ui.Machines_List->setIconSize( QSize( Settings.value("VM_Icons_Size", "48").toInt(),
-								   Settings.value("VM_Icons_Size", "48").toInt()) );
+	// VM Icons Size — user override if set, else host DPI / style metric.
+	{
+		const QSize dpi_icon = AQ_Vm_List_Icon_Size( this );
+		const int sz = Settings.contains( QStringLiteral( "VM_Icons_Size" ) )
+			? Settings.value( QStringLiteral( "VM_Icons_Size" ) ).toInt()
+			: dpi_icon.width();
+		ui.Machines_List->setIconSize( QSize( sz, sz ) );
+	}
 
 	// Load CD Exists Images List
 	VM_Folder = QDir::toNativeSeparators( Settings.value("VM_Directory", "~").toString() );

@@ -5,6 +5,10 @@
 #include "AQ_UI_Style.h"
 
 #include <QApplication>
+#include <QGuiApplication>
+#include <QScreen>
+#include <QStyle>
+#include <QFontMetrics>
 #include <QWidget>
 #include <QLayout>
 #include <QLayoutItem>
@@ -17,6 +21,95 @@
 #include <QGroupBox>
 #include <QTabWidget>
 #include <QListWidget>
+#include <QtGlobal>
+#include <QCoreApplication>
+#include <QWindow>
+
+void AQ_Enable_High_Dpi()
+{
+#if QT_VERSION < QT_VERSION_CHECK( 6, 0, 0 )
+	QCoreApplication::setAttribute( Qt::AA_EnableHighDpiScaling );
+	QCoreApplication::setAttribute( Qt::AA_UseHighDpiPixmaps );
+#if QT_VERSION >= QT_VERSION_CHECK( 5, 14, 0 )
+	QGuiApplication::setHighDpiScaleFactorRoundingPolicy(
+		Qt::HighDpiScaleFactorRoundingPolicy::PassThrough );
+#endif
+#endif
+}
+
+static QScreen *AQ_Hint_Screen( const QWidget *hint )
+{
+	if( hint )
+	{
+		if( QScreen *s = hint->screen() )
+			return s;
+		if( QWidget *top = hint->window() )
+		{
+			if( QWindow *wh = top->windowHandle() )
+			{
+				if( QScreen *s = wh->screen() )
+					return s;
+			}
+		}
+	}
+	return QGuiApplication::primaryScreen();
+}
+
+qreal AQ_Ui_Scale( const QWidget *hint )
+{
+	QScreen *screen = AQ_Hint_Screen( hint );
+	if( ! screen )
+		return 1.0;
+	// logicalDotsPerInch is already "CSS pixels" aware with HighDpiScaling;
+	// still normalize to the classic 96-DPI design baseline.
+	const qreal dpi = screen->logicalDotsPerInch();
+	if( dpi <= 0.0 )
+		return 1.0;
+	return qMax( qreal( 1.0 ), dpi / qreal( 96.0 ) );
+}
+
+int AQ_Px( int baseline_96dpi, const QWidget *hint )
+{
+	if( baseline_96dpi <= 0 )
+		return 0;
+	return qMax( 1, qRound( qreal( baseline_96dpi ) * AQ_Ui_Scale( hint ) ) );
+}
+
+static QSize AQ_Style_Icon( QStyle::PixelMetric metric, qreal bump, const QWidget *hint )
+{
+	QStyle *style = hint && hint->style()
+		? hint->style()
+		: QApplication::style();
+	int px = style ? style->pixelMetric( metric, nullptr, hint ) : 16;
+	px = qMax( 16, qRound( qreal( px ) * bump ) );
+	// Also respect DPI when the style metric lags behind (some Windows styles).
+	px = qMax( px, AQ_Px( metric == QStyle::PM_LargeIconSize ? 32 : 16, hint ) );
+	return QSize( px, px );
+}
+
+QSize AQ_Toolbar_Icon_Size( const QWidget *hint )
+{
+	return AQ_Style_Icon( QStyle::PM_ToolBarIconSize, 1.0, hint );
+}
+
+QSize AQ_Nav_Icon_Size( const QWidget *hint )
+{
+	// Slightly above small-icon metric — readable next to text on HiDPI.
+	return AQ_Style_Icon( QStyle::PM_ListViewIconSize, 1.15, hint );
+}
+
+QSize AQ_Vm_List_Icon_Size( const QWidget *hint )
+{
+	return AQ_Style_Icon( QStyle::PM_LargeIconSize, 1.25, hint );
+}
+
+int AQ_Content_Max_Width( const QWidget *hint )
+{
+	const QFont font = hint ? hint->font() : QApplication::font();
+	const QFontMetrics fm( font );
+	const int ch = qMax( 1, fm.averageCharWidth() );
+	return ch * 72; // ~readable column, scales with font/DPI
+}
 
 void AQ_Apply_App_Style( QApplication *app )
 {
@@ -183,6 +276,8 @@ void AQ_Tighten_Layout_Spacers( QLayout *layout, int gap_px )
 {
 	if( ! layout )
 		return;
+	if( gap_px < 0 )
+		gap_px = AQ_Px( 6 );
 	for( int i = 0; i < layout->count(); ++i )
 	{
 		QLayoutItem *it = layout->itemAt( i );
@@ -192,9 +287,9 @@ void AQ_Tighten_Layout_Spacers( QLayout *layout, int gap_px )
 		{
 			QSizePolicy::Policy vp = sp->sizePolicy().verticalPolicy();
 			if( vp == QSizePolicy::Expanding || vp == QSizePolicy::MinimumExpanding ||
-			    sp->sizeHint().height() > gap_px + 4 )
+			    sp->sizeHint().height() > gap_px + AQ_Px( 4 ) )
 			{
-				sp->changeSize( 20, gap_px, QSizePolicy::Minimum, QSizePolicy::Fixed );
+				sp->changeSize( AQ_Px( 20 ), gap_px, QSizePolicy::Minimum, QSizePolicy::Fixed );
 			}
 		}
 		else if( QLayout *sub = it->layout() )
@@ -279,6 +374,8 @@ void AQ_Cap_Content_Width( QWidget *root, int max_width )
 {
 	if( ! root )
 		return;
+	if( max_width < 0 )
+		max_width = AQ_Content_Max_Width( root );
 	const auto boxes = root->findChildren<QGroupBox*>();
 	for( QGroupBox *gb : boxes )
 	{

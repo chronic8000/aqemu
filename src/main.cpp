@@ -650,5 +650,6 @@ void AQEMU_Main::vm_dir_exists_or_create()
 
 int main( int argc, char *argv[] )
 {
-    return AQEMU_Main().main(argc,argv);
+	AQ_Enable_High_Dpi();
+	return AQEMU_Main().main(argc,argv);
 }

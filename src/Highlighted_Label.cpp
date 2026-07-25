@@ -20,17 +20,23 @@
 **
 ****************************************************************************/
 
+#include <QApplication>
 #include <QFont>
 #include <QPalette>
 
 #include "Utils.h"
+#include "AQ_UI_Style.h"
 #include "Highlighted_Label.h"
 
 Highlighted_Label::Highlighted_Label( QWidget *parent )
 	: QLabel( parent )
 {
-	QFont f = font();
-	f.setPointSize( qMax( 12, f.pointSize() + 2 ) );
+	// Scale from the application font — no fixed pixel type size.
+	QFont f = QApplication::font();
+	if( f.pointSizeF() > 0 )
+		f.setPointSizeF( f.pointSizeF() * 1.25 );
+	else if( f.pixelSize() > 0 )
+		f.setPixelSize( qRound( f.pixelSize() * 1.25 ) );
 	f.setWeight( QFont::DemiBold );
 	setFont( f );
 
@@ -39,20 +45,23 @@ Highlighted_Label::Highlighted_Label( QWidget *parent )
 	const QColor link_color = pal.color( QPalette::Link );
 	const bool use_link = calculateContrast( background_color, link_color ) > 3.0;
 
-	// Modern section header — larger type, clear rule, no tiny blue scrap.
+	const int pad_t = AQ_Px( 8, this );
+	const int pad_b = AQ_Px( 5, this );
+	const int rule = qMax( 1, AQ_Px( 2, this ) );
+
 	setStyleSheet( QStringLiteral(
 		"Highlighted_Label {"
-		"  font-size: 15px;"
 		"  font-weight: 600;"
-		"  letter-spacing: 0.3px;"
 		"  color: %1;"
-		"  padding: 10px 4px 6px 2px;"
-		"  border-bottom: 2px solid palette(mid);"
-		"  margin-top: 4px;"
-		"  margin-bottom: 2px;"
+		"  padding: %2px %3px %4px %3px;"
+		"  border-bottom: %5px solid palette(mid);"
+		"  margin-top: %6px;"
+		"  margin-bottom: %7px;"
 		"  background: transparent;"
 		"}"
-	).arg( use_link ? QStringLiteral( "palette(link)" ) : QStringLiteral( "palette(window-text)" ) ) );
+	).arg( use_link ? QStringLiteral( "palette(link)" ) : QStringLiteral( "palette(window-text)" ) )
+	 .arg( pad_t ).arg( AQ_Px( 2, this ) ).arg( pad_b )
+	 .arg( rule ).arg( AQ_Px( 4, this ) ).arg( AQ_Px( 2, this ) ) );
 }
 
 Highlighted_Label::Highlighted_Label()

@@ -135,19 +135,21 @@ Settings_Widget::Settings_Widget(QTabWidget* tab_widget, QBoxLayout::Direction d
     {
         list->setVerticalScrollBarPolicy( Qt::ScrollBarAlwaysOff );
         list->setHorizontalScrollBarPolicy( Qt::ScrollBarAsNeeded );
-        list->setSpacing( 4 );
+        list->setSpacing( AQ_Px( 4, this ) );
+        const int pad = AQ_Px( 6, this );
+        const int rad = AQ_Px( 6, this );
         list->setStyleSheet( QStringLiteral(
 			"QListWidget {"
 			"  background: transparent;"
 			"  border: none;"
 			"  border-bottom: 1px solid palette(mid);"
-			"  padding: 4px 2px;"
+			"  padding: %1px %2px;"
 			"  outline: 0;"
 			"}"
 			"QListWidget::item {"
-			"  padding: 6px 12px;"
-			"  margin-right: 4px;"
-			"  border-radius: 6px;"
+			"  padding: %1px %3px;"
+			"  margin-right: %2px;"
+			"  border-radius: %4px;"
 			"}"
 			"QListWidget::item:selected {"
 			"  background: palette(highlight);"
@@ -155,10 +157,11 @@ Settings_Widget::Settings_Widget(QTabWidget* tab_widget, QBoxLayout::Direction d
 			"}"
 			"QListWidget::item:hover:!selected {"
 			"  background: palette(alternate-base);"
-			"}" ) );
-        // Height fits icon + single line of text side-by-side.
-        list->setMinimumHeight( 44 );
-        list->setMaximumHeight( 52 );
+			"}" ).arg( pad ).arg( AQ_Px( 2, this ) ).arg( AQ_Px( 10, this ) ).arg( rad ) );
+        const int row = qMax( AQ_Nav_Icon_Size( this ).height(), QFontMetrics( list->font() ).height() )
+			+ AQ_Px( 12, this );
+        list->setMinimumHeight( row );
+        list->setMaximumHeight( row + AQ_Px( 8, this ) );
     }
     else
     {
@@ -168,7 +171,7 @@ Settings_Widget::Settings_Widget(QTabWidget* tab_widget, QBoxLayout::Direction d
         list->setUniformItemSizes( true );
     }
 
-    AQ_Cap_Content_Width( this, 980 );
+    AQ_Cap_Content_Width( this );
 }
 
 void Settings_Widget::setCurrentIndex(int i)
@@ -193,43 +196,47 @@ void Settings_Widget::syncGroupIconSizes(QString g)
     QList<Settings_Widget*> list = groups[g];
 
     QList<int> max_width;
-    const int row_h = 40;
 
-    // Measure full text + icon so captions are never truncated.
     for( int i = 0; i < list.count(); i++ )
     {
         auto sw = list.at(i);
+        const int row_h = qMax( sw->list->iconSize().height(),
+			QFontMetrics( sw->list->font() ).height() ) + AQ_Px( 12, sw );
 
         for ( int j = 0; j < sw->list->count(); j++ )
         {
             QListWidgetItem *it = sw->list->item(j);
             const int icon_w = sw->list->iconSize().width() > 0
-                ? sw->list->iconSize().width() + 10 : 28;
+                ? sw->list->iconSize().width() + AQ_Px( 10, sw ) : AQ_Px( 28, sw );
             QFontMetrics fm( sw->list->font() );
-            const int text_w = fm.horizontalAdvance( it->text() ) + 24;
+            const int text_w = fm.horizontalAdvance( it->text() ) + AQ_Px( 24, sw );
             const int w = icon_w + text_w;
 
             if ( max_width.count() < j + 1 )
                 max_width.append( w );
             else if ( w > max_width.at(j) )
                 max_width.replace( j, w );
+
+            Q_UNUSED( row_h );
         }
     }
 
-    int min_total_list_width = 20;
+    int min_total_list_width = AQ_Px( 20 );
     for ( int j = 0; j < max_width.count(); j++ )
-        min_total_list_width += max_width.at(j) + 8;
+        min_total_list_width += max_width.at(j) + AQ_Px( 8 );
 
     for( int i = 0; i < list.count(); i++ )
     {
         auto sw = list.at(i);
+        const int row_h = qMax( sw->list->iconSize().height(),
+			QFontMetrics( sw->list->font() ).height() ) + AQ_Px( 12, sw );
 
         for ( int j = 0; j < sw->list->count(); j++ )
             sw->list->item(j)->setSizeHint( QSize( max_width.at(j), row_h ) );
 
-        sw->list->setMinimumHeight( row_h + 12 );
-        sw->list->setMaximumHeight( row_h + 16 );
-        sw->list->setMinimumWidth( qMin( min_total_list_width, 1200 ) );
+        sw->list->setMinimumHeight( row_h + AQ_Px( 10, sw ) );
+        sw->list->setMaximumHeight( row_h + AQ_Px( 14, sw ) );
+        sw->list->setMinimumWidth( qMin( min_total_list_width, AQ_Px( 1200, sw ) ) );
     }
 }
 
