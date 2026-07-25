@@ -818,13 +818,51 @@ void VM_Session_Widget::Send_Monitor( const QString &cmd )
 	VM->Send_Emulator_Command( line );
 }
 
-QString VM_Session_Widget::USB_Device_Id( const QString &vid_pid ) const
+QString VM_Session_Widget::USB_Instance_Key( const VM_USB &u, int index ) const
 {
-	const QStringList vp = vid_pid.split( QLatin1Char( ':' ) );
-	if( vp.count() != 2 )
-		return QString();
-	return QStringLiteral( "aqusb_%1_%2" )
-		.arg( vp.at( 0 ).toLower(), vp.at( 1 ).toLower() );
+	if( ! u.Get_Bus().isEmpty() && ! u.Get_Addr().isEmpty() )
+		return QStringLiteral( "bus:%1.%2" ).arg( u.Get_Bus(), u.Get_Addr() );
+	if( ! u.Get_Serial_Number().isEmpty() )
+		return QStringLiteral( "ser:%1:%2:%3" )
+			.arg( u.Get_Vendor_ID().toLower(),
+			      u.Get_Product_ID().toLower(),
+			      u.Get_Serial_Number() );
+	if( ! u.Get_DevPath().isEmpty() )
+		return QStringLiteral( "path:%1" ).arg( u.Get_DevPath() );
+	return QStringLiteral( "vp:%1:%2#%3" )
+		.arg( u.Get_Vendor_ID().toLower(),
+		      u.Get_Product_ID().toLower(),
+		      QString::number( index ) );
+}
+
+QString VM_Session_Widget::USB_Qemu_Device_Id( const QString &instance_key ) const
+{
+	QString s = instance_key.toLower();
+	s.replace( QRegularExpression( QStringLiteral( "[^a-z0-9_]+" ) ), QStringLiteral( "_" ) );
+	while( s.contains( QStringLiteral( "__" ) ) )
+		s.replace( QStringLiteral( "__" ), QStringLiteral( "_" ) );
+	if( s.startsWith( QLatin1Char( '_' ) ) )
+		s.remove( 0, 1 );
+	if( s.isEmpty() )
+		s = QStringLiteral( "dev" );
+	return QStringLiteral( "aqusb_%1" ).arg( s.left( 48 ) );
+}
+
+QString VM_Session_Widget::USB_Device_Add_Command( const VM_USB &u, const QString &qemu_id ) const
+{
+	if( ! u.Get_Bus().isEmpty() && ! u.Get_Addr().isEmpty() )
+	{
+		bool ok_bus = false, ok_addr = false;
+		const int bus = u.Get_Bus().toInt( &ok_bus );
+		const int addr = u.Get_Addr().toInt( &ok_addr );
+		if( ok_bus && ok_addr )
+		{
+			return QStringLiteral( "device_add usb-host,hostbus=%1,hostaddr=%2,id=%3" )
+				.arg( bus ).arg( addr ).arg( qemu_id );
+		}
+	}
+	return QStringLiteral( "device_add usb-host,vendorid=0x%1,productid=0x%2,id=%3" )
+		.arg( u.Get_Vendor_ID().toLower(), u.Get_Product_ID().toLower(), qemu_id );
 }
 
 void VM_Session_Widget::Send_Hmp_Command( const QString &cmd )
@@ -853,15 +891,26 @@ void VM_Session_Widget::Start_USB_Host_Scan()
 {
 	if( USB_Enum_Busy || ! Menu_USB )
 		return;
+	if( USB_Scan_Thread && USB_Scan_Thread->isRunning() )
+		return;
+
 	USB_Enum_Busy = true;
 	Menu_USB->clear();
 	QAction *loading = Menu_USB->addAction( tr( "Scanning USB devices…" ) );
 	loading->setEnabled( false );
 
-	QThread *th = QThread::create( []() {
-		System_Info::Update_Host_USB();
+	// Scan into a heap list on a worker; publish to the cache only on the UI thread.
+	auto *holder = new QList<VM_USB>();
+	QThread *th = QThread::create( [holder]() {
+		System_Info::Scan_Host_USB_Snapshot( *holder );
 	} );
-	connect( th, &QThread::finished, this, [this, th]() {
+	th->setParent( this );
+	USB_Scan_Thread = th;
+	connect( th, &QThread::finished, this, [this, th, holder]() {
+		if( USB_Scan_Thread == th )
+			USB_Scan_Thread.clear();
+		System_Info::Set_Cached_Host_USB( *holder );
+		delete holder;
 		USB_Enum_Busy = false;
 		th->deleteLater();
 		Rebuild_USB_Menu();
@@ -886,7 +935,6 @@ void VM_Session_Widget::Rebuild_USB_Menu()
 	connect( refresh, &QAction::triggered, this, [this]() { Start_USB_Host_Scan(); } );
 	Menu_USB->addSeparator();
 
-	// Cache only on menu open — never block the UI thread (Qodo / PR #10)
 	const QList<VM_USB> host = System_Info::Get_Cached_Host_USB();
 	if( host.isEmpty() )
 	{
@@ -898,20 +946,32 @@ void VM_Session_Widget::Rebuild_USB_Menu()
 	for( int i = 0; i < host.count(); ++i )
 	{
 		const VM_USB &u = host[i];
-		const QString id = u.Get_ID_Line().toLower();
-		if( id.isEmpty() || ! id.contains( QLatin1Char( ':' ) ) )
+		const QString vidpid = u.Get_ID_Line().toLower();
+		if( vidpid.isEmpty() || ! vidpid.contains( QLatin1Char( ':' ) ) )
 			continue;
+		const QString key = USB_Instance_Key( u, i );
+		const QString qemu_id = USB_Qemu_Device_Id( key );
+
 		QString label = u.Get_Product_Name().trimmed();
 		if( label.isEmpty() )
-			label = id;
+			label = vidpid;
 		else
-			label = QStringLiteral( "%1  (%2)" ).arg( label, id );
+			label = QStringLiteral( "%1  (%2)" ).arg( label, vidpid );
+		if( ! u.Get_Bus().isEmpty() && ! u.Get_Addr().isEmpty() )
+			label += QStringLiteral( "  [%1.%2]" ).arg( u.Get_Bus(), u.Get_Addr() );
 
 		QAction *act = Menu_USB->addAction( label );
 		act->setCheckable( true );
-		act->setData( id );
+		QVariantMap data;
+		data.insert( QStringLiteral( "key" ), key );
+		data.insert( QStringLiteral( "qemu_id" ), qemu_id );
+		data.insert( QStringLiteral( "vid" ), u.Get_Vendor_ID().toLower() );
+		data.insert( QStringLiteral( "pid" ), u.Get_Product_ID().toLower() );
+		data.insert( QStringLiteral( "bus" ), u.Get_Bus() );
+		data.insert( QStringLiteral( "addr" ), u.Get_Addr() );
+		act->setData( data );
 		act->blockSignals( true );
-		act->setChecked( Connected_USB_Ids.contains( id ) );
+		act->setChecked( Connected_USB_Ids.contains( key ) );
 		act->blockSignals( false );
 		connect( act, SIGNAL(toggled(bool)), this, SLOT(On_USB_Device_Toggled(bool)) );
 	}
@@ -924,9 +984,8 @@ void VM_Session_Widget::Rebuild_USB_Menu()
 			const QStringList ids = Connected_USB_Ids.values();
 			for( int i = 0; i < ids.count(); ++i )
 			{
-				const QString devid = USB_Device_Id( ids[i] );
-				if( ! devid.isEmpty() )
-					Send_Hmp_Command( QStringLiteral( "device_del %1" ).arg( devid ) );
+				if( ! ids[i].isEmpty() )
+					Send_Hmp_Command( QStringLiteral( "device_del %1" ).arg( ids[i] ) );
 			}
 			Connected_USB_Ids.clear();
 		} );
@@ -938,26 +997,28 @@ void VM_Session_Widget::On_USB_Device_Toggled( bool checked )
 	QAction *act = qobject_cast<QAction *>( sender() );
 	if( ! act )
 		return;
-	const QString id = act->data().toString().toLower();
-	const QStringList vp = id.split( QLatin1Char( ':' ) );
-	if( vp.count() != 2 )
+	const QVariantMap data = act->data().toMap();
+	const QString key = data.value( QStringLiteral( "key" ) ).toString();
+	QString qemu_id = data.value( QStringLiteral( "qemu_id" ) ).toString();
+	if( key.isEmpty() )
 		return;
-	const QString vid = vp.at( 0 );
-	const QString pid = vp.at( 1 );
-	const QString devid = USB_Device_Id( id );
+	if( qemu_id.isEmpty() )
+		qemu_id = USB_Qemu_Device_Id( key );
 
 	if( checked )
 	{
-		const QString cmd = QStringLiteral(
-			"device_add usb-host,vendorid=0x%1,productid=0x%2,id=%3" )
-			.arg( vid, pid, devid );
-		Send_Hmp_Command( cmd );
-		Connected_USB_Ids.insert( id );
+		VM_USB tmp;
+		tmp.Set_Vendor_ID( data.value( QStringLiteral( "vid" ) ).toString() );
+		tmp.Set_Product_ID( data.value( QStringLiteral( "pid" ) ).toString() );
+		tmp.Set_Bus( data.value( QStringLiteral( "bus" ) ).toString() );
+		tmp.Set_Addr( data.value( QStringLiteral( "addr" ) ).toString() );
+		Send_Hmp_Command( USB_Device_Add_Command( tmp, qemu_id ) );
+		Connected_USB_Ids.insert( key, qemu_id );
 	}
 	else
 	{
-		Send_Hmp_Command( QStringLiteral( "device_del %1" ).arg( devid ) );
-		Connected_USB_Ids.remove( id );
+		Send_Hmp_Command( QStringLiteral( "device_del %1" ).arg( qemu_id ) );
+		Connected_USB_Ids.remove( key );
 	}
 }
 

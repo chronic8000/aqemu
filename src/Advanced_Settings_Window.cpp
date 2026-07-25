@@ -37,6 +37,7 @@
 #include <QRadioButton>
 
 #include "Advanced_Settings_Window.h"
+#include "AQ_UI_Style.h"
 #include "System_Info.h"
 #include "Utils.h"
 #include "WSL_Launch.h"
@@ -49,6 +50,8 @@ Advanced_Settings_Window::Advanced_Settings_Window( QWidget *parent )
 	: QDialog( parent )
 {
 	ui.setupUi( this );
+
+	AQ_Cap_Content_Width( this, 980 );
 
     settings_widget = new Settings_Widget( ui.All_Tabs, QBoxLayout::TopToBottom, true, false );
 

@@ -22,6 +22,7 @@
 #include <QDesktopServices>
 #include <QUrl>
 #include <QInputDialog>
+#include <QIntValidator>
 
 Remote_Host_Window::Remote_Host_Window( QWidget *parent )
 	: QDialog( parent )
@@ -52,6 +53,10 @@ Remote_Host_Window::Remote_Host_Window( QWidget *parent )
 	Edit_Ssh_Port = new QLineEdit( QStringLiteral( "22" ) );
 	Edit_Qmp_Port = new QLineEdit( QStringLiteral( "4444" ) );
 	Edit_Spice_Port = new QLineEdit( QStringLiteral( "5930" ) );
+	auto *port_val = new QIntValidator( 1, 65535, this );
+	Edit_Ssh_Port->setValidator( port_val );
+	Edit_Qmp_Port->setValidator( port_val );
+	Edit_Spice_Port->setValidator( port_val );
 	Edit_Libvirt_Uri = new QLineEdit();
 	Edit_Libvirt_Uri->setPlaceholderText( QStringLiteral( "qemu+ssh://user@host/system" ) );
 	form->addRow( tr( "Name" ), Edit_Name );
@@ -198,18 +203,42 @@ void Remote_Host_Window::Open_Ssh_Tunnels()
 	}
 	const QString user = Edit_User->text().trimmed().isEmpty()
 		? QStringLiteral( "root" ) : Edit_User->text().trimmed();
-	const QString ssh_port = Edit_Ssh_Port->text().trimmed().isEmpty()
-		? QStringLiteral( "22" ) : Edit_Ssh_Port->text().trimmed();
-	const QString qmp = Edit_Qmp_Port->text().trimmed().isEmpty()
-		? QStringLiteral( "4444" ) : Edit_Qmp_Port->text().trimmed();
-	const QString spice = Edit_Spice_Port->text().trimmed().isEmpty()
-		? QStringLiteral( "5930" ) : Edit_Spice_Port->text().trimmed();
+
+	auto parse_port = [this]( QLineEdit *edit, const QString &label, int fallback, int *out ) -> bool {
+		const QString t = edit->text().trimmed();
+		const QString use = t.isEmpty() ? QString::number( fallback ) : t;
+		bool ok = false;
+		const int p = use.toInt( &ok );
+		if( ! ok || p < 1 || p > 65535 )
+		{
+			QMessageBox::warning( this, tr( "SSH" ),
+				tr( "%1 must be a TCP port between 1 and 65535." ).arg( label ) );
+			return false;
+		}
+		*out = p;
+		return true;
+	};
+
+	int ssh_port = 22, qmp = 4444, spice = 5930;
+	if( ! parse_port( Edit_Ssh_Port, tr( "SSH port" ), 22, &ssh_port ) )
+		return;
+	if( ! parse_port( Edit_Qmp_Port, tr( "Remote QMP port" ), 4444, &qmp ) )
+		return;
+	if( ! parse_port( Edit_Spice_Port, tr( "Remote SPICE port" ), 5930, &spice ) )
+		return;
+
+	// Canonical decimal strings for the SSH command line.
+	Edit_Ssh_Port->setText( QString::number( ssh_port ) );
+	Edit_Qmp_Port->setText( QString::number( qmp ) );
+	Edit_Spice_Port->setText( QString::number( spice ) );
 
 	const QStringList args = QStringList()
 		<< QStringLiteral( "-N" )
-		<< QStringLiteral( "-p" ) << ssh_port
-		<< QStringLiteral( "-L" ) << QString( "127.0.0.1:%1:127.0.0.1:%1" ).arg( qmp )
-		<< QStringLiteral( "-L" ) << QString( "127.0.0.1:%1:127.0.0.1:%1" ).arg( spice )
+		<< QStringLiteral( "-p" ) << QString::number( ssh_port )
+		<< QStringLiteral( "-L" )
+		<< QStringLiteral( "127.0.0.1:%1:127.0.0.1:%1" ).arg( qmp )
+		<< QStringLiteral( "-L" )
+		<< QStringLiteral( "127.0.0.1:%1:127.0.0.1:%1" ).arg( spice )
 		<< ( user + QLatin1Char( '@' ) + host );
 
 	const bool ok = QProcess::startDetached( QStringLiteral( "ssh" ), args );
@@ -218,14 +247,14 @@ void Remote_Host_Window::Open_Ssh_Tunnels()
 		QMessageBox::information( this, tr( "SSH tunnels" ),
 			tr( "Could not start ssh. Run manually:\n\nssh -N -p %1 -L 127.0.0.1:%2:127.0.0.1:%2 "
 			    "-L 127.0.0.1:%3:127.0.0.1:%3 %4@%5" )
-				.arg( ssh_port, qmp, spice, user, host ) );
+				.arg( ssh_port ).arg( qmp ).arg( spice ).arg( user, host ) );
 		return;
 	}
 	QMessageBox::information( this, tr( "SSH tunnels" ),
 		tr( "SSH tunnel started (background).\n"
 		    "Local QMP: 127.0.0.1:%1\nLocal SPICE: 127.0.0.1:%2\n"
 		    "Point a remote viewer / future AQEMU remote session at those ports." )
-			.arg( qmp, spice ) );
+			.arg( qmp ).arg( spice ) );
 }
 
 void Remote_Host_Window::Launch_Libvirt_Helper()

@@ -8,7 +8,7 @@
 #include <QNetworkRequest>
 #include <QNetworkReply>
 #include <QEventLoop>
-#include <QFile>
+#include <QSaveFile>
 #include <QFileInfo>
 #include <QDir>
 #include <QProgressDialog>
@@ -40,6 +40,14 @@ QString AQ_Download_URL_To_File( QWidget *parent,
 	                  QNetworkRequest::NoLessSafeRedirectPolicy );
 #endif
 
+	QSaveFile out( dest_path );
+	if( ! out.open( QIODevice::WriteOnly ) )
+	{
+		QMessageBox::warning( parent, QObject::tr( "Download" ),
+			QObject::tr( "Cannot write:\n%1" ).arg( dest_path ) );
+		return QString();
+	}
+
 	QNetworkReply *reply = nam.get( req );
 	QProgressDialog prog( title.isEmpty()
 		? QObject::tr( "Downloading %1…" ).arg( qurl.fileName() )
@@ -49,9 +57,29 @@ QString AQ_Download_URL_To_File( QWidget *parent,
 	prog.setMinimumDuration( 0 );
 	prog.setValue( 0 );
 
+	bool write_ok = true;
+	QString write_err;
+
 	QEventLoop loop;
 	QObject::connect( reply, &QNetworkReply::finished, &loop, &QEventLoop::quit );
 	QObject::connect( &prog, &QProgressDialog::canceled, reply, &QNetworkReply::abort );
+	QObject::connect( reply, &QNetworkReply::readyRead, &prog, [reply, &out, &write_ok, &write_err, &loop]() {
+		if( ! write_ok )
+			return;
+		const QByteArray chunk = reply->readAll();
+		if( chunk.isEmpty() )
+			return;
+		const qint64 n = out.write( chunk );
+		if( n != chunk.size() )
+		{
+			write_ok = false;
+			write_err = out.errorString().isEmpty()
+				? QObject::tr( "Short write (disk full?)" )
+				: out.errorString();
+			reply->abort();
+			loop.quit();
+		}
+	} );
 	QObject::connect( reply, &QNetworkReply::downloadProgress,
 		&prog, [&prog]( qint64 rec, qint64 total ) {
 			if( total > 0 )
@@ -65,30 +93,69 @@ QString AQ_Download_URL_To_File( QWidget *parent,
 			}
 		} );
 
+	// Overall idle timeout: abort if no progress for 10 minutes.
+	QTimer watchdog;
+	watchdog.setInterval( 10 * 60 * 1000 );
+	watchdog.setSingleShot( true );
+	QObject::connect( &watchdog, &QTimer::timeout, &prog, [reply, &loop]() {
+		reply->abort();
+		loop.quit();
+	} );
+	QObject::connect( reply, &QNetworkReply::downloadProgress, &watchdog, [&watchdog]( qint64, qint64 ) {
+		watchdog.start();
+	} );
+	watchdog.start();
+
 	loop.exec();
 	prog.reset();
 
-	if( reply->error() != QNetworkReply::NoError )
+	// Drain any remaining buffered data after finished.
+	if( write_ok && reply->error() == QNetworkReply::NoError && reply->bytesAvailable() > 0 )
 	{
-		if( reply->error() != QNetworkReply::OperationCanceledError )
+		const QByteArray rest = reply->readAll();
+		if( ! rest.isEmpty() )
 		{
-			QMessageBox::warning( parent, QObject::tr( "Download" ),
-				QObject::tr( "Download failed:\n%1" ).arg( reply->errorString() ) );
+			const qint64 n = out.write( rest );
+			if( n != rest.size() )
+			{
+				write_ok = false;
+				write_err = out.errorString().isEmpty()
+					? QObject::tr( "Short write (disk full?)" )
+					: out.errorString();
+			}
 		}
-		reply->deleteLater();
+	}
+
+	const QNetworkReply::NetworkError net_err = reply->error();
+	const QString net_err_str = reply->errorString();
+	reply->deleteLater();
+
+	if( ! write_ok )
+	{
+		out.cancelWriting();
+		QMessageBox::warning( parent, QObject::tr( "Download" ),
+			QObject::tr( "Failed to write file:\n%1\n%2" ).arg( dest_path, write_err ) );
 		return QString();
 	}
 
-	QFile out( dest_path );
-	if( ! out.open( QIODevice::WriteOnly ) )
+	if( net_err != QNetworkReply::NoError )
 	{
-		QMessageBox::warning( parent, QObject::tr( "Download" ),
-			QObject::tr( "Cannot write:\n%1" ).arg( dest_path ) );
-		reply->deleteLater();
+		out.cancelWriting();
+		if( net_err != QNetworkReply::OperationCanceledError )
+		{
+			QMessageBox::warning( parent, QObject::tr( "Download" ),
+				QObject::tr( "Download failed:\n%1" ).arg( net_err_str ) );
+		}
 		return QString();
 	}
-	out.write( reply->readAll() );
-	out.close();
-	reply->deleteLater();
+
+	if( ! out.commit() )
+	{
+		QMessageBox::warning( parent, QObject::tr( "Download" ),
+			QObject::tr( "Failed to finalize file:\n%1\n%2" )
+				.arg( dest_path, out.errorString() ) );
+		return QString();
+	}
+
 	return QDir::toNativeSeparators( dest_path );
 }

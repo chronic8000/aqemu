@@ -50,9 +50,15 @@
 #include <QTextEdit>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
+#include <QGridLayout>
 #include <QLabel>
 #include <QPushButton>
 #include <QClipboard>
+#include <QScrollArea>
+#include <QFrame>
+#include <QSizePolicy>
+#include <QSpacerItem>
+#include <QGroupBox>
 #ifndef Q_OS_WIN32
 #include <QtDBus>
 #endif
@@ -84,6 +90,7 @@
 #include "Settings_Widget.h"
 #include "Storage_Browser_Window.h"
 #include "Remote_Host_Window.h"
+#include "AQ_UI_Style.h"
 #include "Utils.h"
 #include "Blockdev_Graph_Window.h"
 #include "Service.h"
@@ -213,6 +220,8 @@ Main_Window::Main_Window( QWidget *parent )
 	fixComboElide( ui.CB_Disk_Interface );
 	fixComboElide( ui_arch.CB_Machine_Type );
 	fixComboElide( ui_arch.CB_CPU_Type );
+
+	Polish_Settings_Tabs_Layout();
 
 	Fill_Display_Resolution_Combo();
 	Update_Display_Resolution_Enabled();
@@ -570,6 +579,103 @@ Virtual_Machine *Main_Window::Get_Current_VM()
         return NULL;
 
 	return Get_VM_By_UID( ui.Machines_List->currentItem()->data(256).toString() );
+}
+
+void Main_Window::Polish_Settings_Tabs_Layout()
+{
+	// Scrollable pages with stacked sections; nested-tab pages get chrome only.
+	AQ_Make_Tab_Scrollable( ui.Tab_General, QStringLiteral( "VM_Tab_Inner" ) );
+	AQ_Make_Tab_Scrollable( ui.Tab_Display, QStringLiteral( "Display_Tab_Inner" ) );
+
+	AQ_Style_Card( ui.widget, 980 ); // Machine
+	AQ_Style_Card( ui.GB_Memory, 920 );
+	AQ_Style_Card( ui.GB_Audio, 920 );
+	AQ_Style_Card( ui.GB_Disk_Bus, 920 );
+	AQ_Style_Card( ui.GB_Win11_Lifecycle, 920 );
+	AQ_Style_Card( ui.GB_Intel_MacOS_Settings, 920 );
+	AQ_Style_Card( ui.GB_Options, 920 );
+	AQ_Style_Card( ui.Widget_Use_Network, 960 );
+
+	if( ui.Memory_Size )
+	{
+		ui.Memory_Size->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Fixed );
+		ui.Memory_Size->setMaximumHeight( 28 );
+		ui.Memory_Size->setMinimumHeight( 22 );
+	}
+	if( ui.CB_RAM_Size )
+		ui.CB_RAM_Size->setMinimumWidth( 110 );
+
+	if( ui.TB_Show_Advanced_Options_Window )
+	{
+		ui.TB_Show_Advanced_Options_Window->setSizePolicy(
+			QSizePolicy::Maximum, QSizePolicy::Fixed );
+		ui.TB_Show_Advanced_Options_Window->setMinimumWidth( 120 );
+	}
+
+	if( ui.GB_Options )
+	{
+		if( QGridLayout *gl = qobject_cast<QGridLayout*>( ui.GB_Options->layout() ) )
+			gl->setColumnStretch( 3, 1 );
+	}
+
+	if( ui.GB_Guest_Display_Mode )
+		ui.GB_Guest_Display_Mode->setMaximumWidth( 960 );
+
+	auto polish_nested_tabs = []( QTabWidget *tw ) {
+		if( ! tw ) return;
+		tw->setDocumentMode( true );
+		tw->setElideMode( Qt::ElideRight );
+		AQ_Cap_Content_Width( tw, 960 );
+		if( QWidget *parent = tw->parentWidget() )
+		{
+			if( QLayout *lay = parent->layout() )
+			{
+				lay->setContentsMargins( 8, 8, 8, 8 );
+				AQ_Tighten_Layout_Spacers( lay, 6 );
+			}
+		}
+	};
+	polish_nested_tabs( ui.TabWidget_Media );
+	polish_nested_tabs( ui.TabWidget_Display );
+	polish_nested_tabs( ui.Network_Cards_Tabs );
+
+	if( ui.Tab_Media && ui.Tab_Media->layout() )
+	{
+		ui.Tab_Media->layout()->setContentsMargins( 8, 8, 8, 8 );
+		ui.Tab_Media->layout()->setSpacing( 6 );
+	}
+	if( ui.Tab_Network && ui.Tab_Network->layout() )
+	{
+		ui.Tab_Network->layout()->setContentsMargins( 8, 8, 8, 8 );
+		ui.Tab_Network->layout()->setSpacing( 6 );
+	}
+	if( ui.Tab_Info && ui.Tab_Info->layout() )
+	{
+		ui.Tab_Info->layout()->setContentsMargins( 8, 8, 8, 8 );
+		if( ui.VM_Information_Text )
+		{
+			ui.VM_Information_Text->setFrameShape( QFrame::StyledPanel );
+			ui.VM_Information_Text->setStyleSheet(
+				QStringLiteral(
+					"QTextEdit {"
+					"  border: 1px solid palette(mid);"
+					"  border-radius: 6px;"
+					"  background: palette(base);"
+					"  padding: 8px;"
+					"}" ) );
+		}
+	}
+
+	if( ui.Machines_List )
+	{
+		ui.Machines_List->setSpacing( 2 );
+		ui.Machines_List->setUniformItemSizes( true );
+	}
+
+	if( ui.Tabs )
+		ui.Tabs->setDocumentMode( true );
+
+	AQ_Cap_Content_Width( this, 980 );
 }
 
 void Main_Window::Connect_Signals()
