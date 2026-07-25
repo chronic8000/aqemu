@@ -36,7 +36,7 @@ This is the first **1.x** line we are pushing hard for outside testers. If you r
 | | |
 |--|--|
 | **Download** | [v1.0.0 Windows portable](https://github.com/chronic8000/aqemu/releases/tag/v1.0.0) |
-| **File bugs** | [Issues](https://github.com/chronic8000/aqemu/issues) — OS host, guest, QEMU path, and the exact error help a lot |
+| **File bugs** | [Issues](https://github.com/chronic8000/aqemu/issues) — host OS, guest OS, and the exact error help a lot (QEMU path is configured in **File → Settings → Emulator**: built-in vs custom) |
 | **What we care about** | Install wizards, embedded SPICE, Win9x/XP TCG, Win11 ARM, Intel macOS, Solaris x86, AIX/pseries, migrate/QMP tools |
 
 We keep shipping free GitHub zips while the **Microsoft Store** listing works through certification. Store = auto-updates later; GitHub = grab the zip yourself when we cut a new tag.
@@ -62,6 +62,7 @@ We keep the original authors’ names. We do **not** inherit their old donation 
 |--|--|
 | **Home** | https://github.com/chronic8000/aqemu |
 | **Issues** | https://github.com/chronic8000/aqemu/issues |
+| **Discussions** | https://github.com/chronic8000/aqemu/discussions |
 | **Releases** | https://github.com/chronic8000/aqemu/releases |
 | **License** | [GNU GPLv2](LICENSE) |
 | **Privacy** | [PRIVACY.md](PRIVACY.md) |
@@ -185,6 +186,7 @@ Details: [`third_party/README.md`](third_party/README.md).
 
 ## Feature highlights
 
+- **QEMU installation** — Settings / First Start: **Use built-in QEMU** (portable zip) or **custom folder**; separate system install is optional
 - **Embedded SPICE + QMP** session UI (CD/FD/HDD/USB/net toolbar while the guest runs)
 - **Full arch discovery** — every `qemu-system-*` QEMU exposes
 - **Windows 11 ARM** guided install / first boot / normal modes
