@@ -23,6 +23,8 @@
 #include <QMenu>
 #include <QToolButton>
 #include <QThread>
+#include <QFontMetrics>
+#include <QLabel>
 
 #include "VM.h"
 #include "QMP_Client.h"
@@ -32,31 +34,45 @@
 #include "Utils.h"
 #include "System_Info.h"
 #include "Serial_Console_Window.h"
+#include "AQ_UI_Style.h"
 
 #ifdef VNC_DISPLAY
 #include "Embedded_Display/Machine_View.h"
 #endif
 
-static const int kHotZoneHeight = 48;
 static const int kHotZoneDwellMs = 1000; // hold top-center ~1s to reveal (Chrome-like)
 static const int kToolbarHideMs = 700;   // hide soon after leaving the toolbar
 static const int kDrivePollMs = 200;
 
-static const char *kToolbarStyle =
-	"QToolBar { background: #2d2d30; border: none; border-bottom: 1px solid #1a1a1a; spacing: 4px; padding: 4px; }"
-	"QToolButton { color: #eee; padding: 4px 6px; border-radius: 3px; }"
-	"QToolButton:hover { background: rgba(255,255,255,30); }"
-	"QToolButton:pressed { background: rgba(255,255,255,50); }";
+static int AQ_Hot_Zone_Height( const QWidget *w )
+{
+	return qMax( AQ_Px( 40, w ), AQ_Toolbar_Icon_Size( w ).height() + AQ_Px( 20, w ) );
+}
 
-static const char *kLightOff =
-	"QLabel { min-width: 12px; max-width: 12px; min-height: 12px; max-height: 12px;"
-	" border-radius: 6px; background: #3a3a3a; border: 1px solid #222; margin: 0 3px; }";
-static const char *kLightLoaded =
-	"QLabel { min-width: 12px; max-width: 12px; min-height: 12px; max-height: 12px;"
-	" border-radius: 6px; background: #1a6b2a; border: 1px solid #0d3d18; margin: 0 3px; }";
-static const char *kLightActive =
-	"QLabel { min-width: 12px; max-width: 12px; min-height: 12px; max-height: 12px;"
-	" border-radius: 6px; background: #5dff6a; border: 1px solid #2a8a35; margin: 0 3px; }";
+static QString AQ_Toolbar_Style( const QWidget *w )
+{
+	const int pad = AQ_Px( 4, w );
+	const int btn_pad_h = AQ_Px( 6, w );
+	const int rad = AQ_Px( 3, w );
+	return QStringLiteral(
+		"QToolBar { background: #2d2d30; border: none; border-bottom: 1px solid #1a1a1a;"
+		" spacing: %1px; padding: %1px; }"
+		"QToolButton { color: #eee; padding: %1px %2px; border-radius: %3px; }"
+		"QToolButton:hover { background: rgba(255,255,255,30); }"
+		"QToolButton:pressed { background: rgba(255,255,255,50); }"
+	).arg( pad ).arg( btn_pad_h ).arg( rad );
+}
+
+static QString AQ_Drive_Light_Style( const QWidget *w, const QString &bg, const QString &border )
+{
+	const int d = qMax( AQ_Px( 14, w ), QFontMetrics( w ? w->font() : QApplication::font() ).height() / 2 );
+	const int rad = d / 2;
+	const int margin = AQ_Px( 3, w );
+	return QStringLiteral(
+		"QLabel { min-width: %1px; max-width: %1px; min-height: %1px; max-height: %1px;"
+		" border-radius: %2px; background: %3; border: 1px solid %4; margin: 0 %5px; }"
+	).arg( d ).arg( rad ).arg( bg ).arg( border ).arg( margin );
+}
 
 VM_Session_Widget::VM_Session_Widget( QWidget *parent )
 	: QWidget( parent )
@@ -158,9 +174,9 @@ void VM_Session_Widget::Build_Toolbar()
 	Toolbar = new QToolBar( this );
 	Toolbar->setMovable( false );
 	Toolbar->setFloatable( false );
-	Toolbar->setIconSize( QSize( 22, 22 ) );
+	Toolbar->setIconSize( AQ_Toolbar_Icon_Size( this ) );
 	Toolbar->setToolButtonStyle( Qt::ToolButtonIconOnly );
-	Toolbar->setStyleSheet( kToolbarStyle );
+	Toolbar->setStyleSheet( AQ_Toolbar_Style( this ) );
 
 	// Runtime power controls (replaces left Tool_Bar_VM_Control in session mode)
 	Act_Pause = Add_Toolbar_Action( QIcon( ":/pause.png" ), tr( "Pause / Resume" ), SLOT(On_Pause()) );
@@ -216,7 +232,8 @@ void VM_Session_Widget::Build_Toolbar()
 	Toolbar->addWidget( spacer );
 
 	QLabel *lights_label = new QLabel( tr( "Drives" ), Toolbar );
-	lights_label->setStyleSheet( "QLabel { color: #888; font-size: 10px; margin-right: 2px; }" );
+	lights_label->setStyleSheet( QStringLiteral(
+		"QLabel { color: #888; margin-right: %1px; }" ).arg( AQ_Px( 2, this ) ) );
 	Toolbar->addWidget( lights_label );
 
 	Light_FD0 = Make_Drive_Light( "A" );
@@ -232,7 +249,7 @@ void VM_Session_Widget::Build_Toolbar()
 QLabel *VM_Session_Widget::Make_Drive_Light( const QString &letter )
 {
 	QLabel *l = new QLabel( Toolbar );
-	l->setStyleSheet( kLightOff );
+	l->setStyleSheet( AQ_Drive_Light_Style( this, QStringLiteral( "#3a3a3a" ), QStringLiteral( "#222" ) ) );
 	l->setToolTip( letter );
 	l->setAlignment( Qt::AlignCenter );
 	return l;
@@ -282,7 +299,8 @@ void VM_Session_Widget::Show_Fullscreen_Toolbar()
 	Toolbar_Show_Timer->stop();
 	Toolbar_Hide_Timer->stop();
 
-	const int th = qMax( Toolbar->sizeHint().height(), 36 );
+	const int th = qMax( Toolbar->sizeHint().height(),
+		AQ_Toolbar_Icon_Size( this ).height() + AQ_Px( 16, this ) );
 	QRect start( 0, -th, width(), th );
 	QRect end( 0, 0, width(), th );
 
@@ -323,7 +341,7 @@ void VM_Session_Widget::Hide_Fullscreen_Toolbar()
 bool VM_Session_Widget::Hot_Zone_Contains_Global( const QPoint &global_pos ) const
 {
 	const QPoint local = mapFromGlobal( global_pos );
-	if( local.y() < 0 || local.y() > kHotZoneHeight )
+	if( local.y() < 0 || local.y() > AQ_Hot_Zone_Height( this ) )
 		return false;
 	// Top-center band (middle third), like Chrome's F11 exit chip.
 	const int cx = width() / 2;
@@ -1086,11 +1104,11 @@ void VM_Session_Widget::Set_Drive_Light( QLabel *light, bool loaded, bool active
 		return;
 	light->setToolTip( tip );
 	if( active && loaded )
-		light->setStyleSheet( kLightActive );
+		light->setStyleSheet( AQ_Drive_Light_Style( this, QStringLiteral( "#5dff6a" ), QStringLiteral( "#2a8a35" ) ) );
 	else if( loaded )
-		light->setStyleSheet( kLightLoaded );
+		light->setStyleSheet( AQ_Drive_Light_Style( this, QStringLiteral( "#1a6b2a" ), QStringLiteral( "#0d3d18" ) ) );
 	else
-		light->setStyleSheet( kLightOff );
+		light->setStyleSheet( AQ_Drive_Light_Style( this, QStringLiteral( "#3a3a3a" ), QStringLiteral( "#222" ) ) );
 }
 
 void VM_Session_Widget::Update_Media_Actions()

@@ -41,6 +41,8 @@ class My_List_Widget : public QListWidget
     
     public:
         My_List_Widget(QWidget* parent);
+		QSize minimumSizeHint() const override;
+		QSize sizeHint() const override;
 
     protected:
         virtual void wheelEvent(QWheelEvent* e);
