@@ -63,6 +63,9 @@ class VM_Wizard_Window: public QDialog
 		
 		void on_Button_Back_clicked();
 		void on_Button_Next_clicked();
+
+	protected:
+		bool eventFilter( QObject *watched, QEvent *event ) override;
 		
 		void on_RB_VM_Template_toggled( bool on );
 		void on_RB_Generate_VM_toggled( bool on );
@@ -122,6 +125,10 @@ class VM_Wizard_Window: public QDialog
 		void Probe_WSL_For_Intel_Mac_Page();
 		void Update_Finish_Page_Guidance();
 		void Enhance_Typical_HDD_Page();
+
+		void Polish_Wizard_Chrome();
+		void Sync_Wizard_Side_Steps();
+		QFrame *Add_Method_Card( QVBoxLayout *parent_lay, QRadioButton *rb, const QString &hint );
 
 		void Build_Devices_Page();
 		void Refresh_Devices_Page();
@@ -292,6 +299,7 @@ class VM_Wizard_Window: public QDialog
 		QComboBox *CB_Wizard_Machine;
 		QJsonObject Machine_Catalog;
 		bool Machine_Catalog_Loaded;
+		QListWidget *List_Wizard_Steps;
 };
 
 #endif
