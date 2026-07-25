@@ -601,38 +601,42 @@ void Main_Window::Polish_Settings_Tabs_Layout()
 		if( gen_ix >= 0 )
 			ui.Tabs->setTabText( gen_ix, tr( "Machine" ) );
 
-		// Clearer West tab labels — sizes from host DPI / font, not fixed px.
+		// Compact West rail — Qt High-DPI already scales DIPs; keep the strip slim.
 		if( QTabBar *bar = ui.Tabs->tabBar() )
 		{
 			bar->setExpanding( false );
-			QFont tabFont = bar->font();
-			tabFont.setWeight( QFont::DemiBold );
+			QFont tabFont = QApplication::font();
+			tabFont.setStyleHint( QFont::SansSerif, QFont::PreferAntialias );
+			tabFont.setStyleStrategy( QFont::PreferAntialias );
+			tabFont.setWeight( QFont::Medium );
 			bar->setFont( tabFont );
-			const int pad_v = AQ_Px( 10, this );
-			const int pad_h = AQ_Px( 6, this );
-			const int min_w = AQ_Px( 44, this );
-			const int accent = AQ_Px( 3, this );
+			const QFontMetrics fm( tabFont );
+			const int pad_along = qMax( 4, fm.height() / 4 );
+			const int pad_thick = qMax( 2, fm.averageCharWidth() / 2 );
+			const int accent = qMax( 2, fm.averageCharWidth() / 3 );
 			bar->setStyleSheet( QStringLiteral(
 				"QTabBar::tab {"
-				"  font-weight: 600;"
+				"  font-weight: 500;"
 				"  padding: %1px %2px;"
-				"  min-width: %3px;"
-				"  margin: %4px 0;"
+				"  margin: 1px 0;"
 				"  border: none;"
-				"  border-right: %5px solid transparent;"
+				"  border-right: %3px solid transparent;"
 				"  color: palette(window-text);"
 				"  background: transparent;"
 				"}"
 				"QTabBar::tab:selected {"
 				"  color: palette(highlight);"
-				"  border-right: %5px solid palette(highlight);"
+				"  border-right: %3px solid palette(highlight);"
 				"  background: palette(base);"
 				"}"
 				"QTabBar::tab:hover:!selected {"
 				"  background: palette(alternate-base);"
 				"}"
-			).arg( pad_v ).arg( pad_h ).arg( min_w ).arg( AQ_Px( 2, this ) ).arg( accent ) );
-			bar->setIconSize( AQ_Nav_Icon_Size( this ) );
+			).arg( pad_along ).arg( pad_thick ).arg( accent ) );
+			// Small icons for the thin West rail (not list/nav size).
+			QStyle *st = style();
+			const int icon = st ? st->pixelMetric( QStyle::PM_SmallIconSize, nullptr, this ) : 16;
+			bar->setIconSize( QSize( icon, icon ) );
 		}
 	}
 

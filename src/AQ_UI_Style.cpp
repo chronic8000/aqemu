@@ -57,22 +57,20 @@ static QScreen *AQ_Hint_Screen( const QWidget *hint )
 
 qreal AQ_Ui_Scale( const QWidget *hint )
 {
-	QScreen *screen = AQ_Hint_Screen( hint );
-	if( ! screen )
-		return 1.0;
-	// logicalDotsPerInch is already "CSS pixels" aware with HighDpiScaling;
-	// still normalize to the classic 96-DPI design baseline.
-	const qreal dpi = screen->logicalDotsPerInch();
-	if( dpi <= 0.0 )
-		return 1.0;
-	return qMax( qreal( 1.0 ), dpi / qreal( 96.0 ) );
+	Q_UNUSED( hint );
+	// With AA_EnableHighDpiScaling, widget sizes are already device-independent
+	// pixels — multiplying by logicalDPI/96 double-scales (huge West tabs on 4K).
+	// Keep scale at 1; rely on QStyle / font metrics for proportional chrome.
+	return qreal( 1.0 );
 }
 
 int AQ_Px( int baseline_96dpi, const QWidget *hint )
 {
+	Q_UNUSED( hint );
 	if( baseline_96dpi <= 0 )
 		return 0;
-	return qMax( 1, qRound( qreal( baseline_96dpi ) * AQ_Ui_Scale( hint ) ) );
+	// Baselines are DIP design sizes; Qt High-DPI maps them to physical pixels.
+	return baseline_96dpi;
 }
 
 static QSize AQ_Style_Icon( QStyle::PixelMetric metric, qreal bump, const QWidget *hint )
@@ -81,9 +79,9 @@ static QSize AQ_Style_Icon( QStyle::PixelMetric metric, qreal bump, const QWidge
 		? hint->style()
 		: QApplication::style();
 	int px = style ? style->pixelMetric( metric, nullptr, hint ) : 16;
-	px = qMax( 16, qRound( qreal( px ) * bump ) );
-	// Also respect DPI when the style metric lags behind (some Windows styles).
-	px = qMax( px, AQ_Px( metric == QStyle::PM_LargeIconSize ? 32 : 16, hint ) );
+	if( px < 8 )
+		px = 16;
+	px = qMax( 8, qRound( qreal( px ) * bump ) );
 	return QSize( px, px );
 }
 
@@ -94,13 +92,12 @@ QSize AQ_Toolbar_Icon_Size( const QWidget *hint )
 
 QSize AQ_Nav_Icon_Size( const QWidget *hint )
 {
-	// Slightly above small-icon metric — readable next to text on HiDPI.
-	return AQ_Style_Icon( QStyle::PM_ListViewIconSize, 1.15, hint );
+	return AQ_Style_Icon( QStyle::PM_ListViewIconSize, 1.0, hint );
 }
 
 QSize AQ_Vm_List_Icon_Size( const QWidget *hint )
 {
-	return AQ_Style_Icon( QStyle::PM_LargeIconSize, 1.25, hint );
+	return AQ_Style_Icon( QStyle::PM_LargeIconSize, 1.0, hint );
 }
 
 int AQ_Content_Max_Width( const QWidget *hint )
@@ -108,7 +105,7 @@ int AQ_Content_Max_Width( const QWidget *hint )
 	const QFont font = hint ? hint->font() : QApplication::font();
 	const QFontMetrics fm( font );
 	const int ch = qMax( 1, fm.averageCharWidth() );
-	return ch * 72; // ~readable column, scales with font/DPI
+	return ch * 72; // ~readable column, scales with font (and High-DPI)
 }
 
 void AQ_Apply_App_Style( QApplication *app )

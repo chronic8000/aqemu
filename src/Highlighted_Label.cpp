@@ -31,12 +31,14 @@
 Highlighted_Label::Highlighted_Label( QWidget *parent )
 	: QLabel( parent )
 {
-	// Scale from the application font — no fixed pixel type size.
+	// Stay on the UI sans-serif — never fall into a serif display face.
 	QFont f = QApplication::font();
+	f.setStyleHint( QFont::SansSerif, QFont::PreferAntialias );
+	f.setStyleStrategy( QFont::PreferAntialias );
 	if( f.pointSizeF() > 0 )
-		f.setPointSizeF( f.pointSizeF() * 1.25 );
+		f.setPointSizeF( f.pointSizeF() * 1.15 );
 	else if( f.pixelSize() > 0 )
-		f.setPixelSize( qRound( f.pixelSize() * 1.25 ) );
+		f.setPixelSize( qRound( f.pixelSize() * 1.15 ) );
 	f.setWeight( QFont::DemiBold );
 	setFont( f );
 
@@ -48,18 +50,21 @@ Highlighted_Label::Highlighted_Label( QWidget *parent )
 	const int pad_t = AQ_Px( 8, this );
 	const int pad_b = AQ_Px( 5, this );
 	const int rule = qMax( 1, AQ_Px( 2, this ) );
+	const QString family = f.family().replace( QLatin1Char( '\'' ), QString() );
 
 	setStyleSheet( QStringLiteral(
 		"Highlighted_Label {"
+		"  font-family: '%1';"
 		"  font-weight: 600;"
-		"  color: %1;"
-		"  padding: %2px %3px %4px %3px;"
-		"  border-bottom: %5px solid palette(mid);"
-		"  margin-top: %6px;"
-		"  margin-bottom: %7px;"
+		"  color: %2;"
+		"  padding: %3px %4px %5px %4px;"
+		"  border-bottom: %6px solid palette(mid);"
+		"  margin-top: %7px;"
+		"  margin-bottom: %8px;"
 		"  background: transparent;"
 		"}"
-	).arg( use_link ? QStringLiteral( "palette(link)" ) : QStringLiteral( "palette(window-text)" ) )
+	).arg( family )
+	 .arg( use_link ? QStringLiteral( "palette(link)" ) : QStringLiteral( "palette(window-text)" ) )
 	 .arg( pad_t ).arg( AQ_Px( 2, this ) ).arg( pad_b )
 	 .arg( rule ).arg( AQ_Px( 4, this ) ).arg( AQ_Px( 2, this ) ) );
 }
