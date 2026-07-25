@@ -672,8 +672,9 @@ void Main_Window::Polish_Settings_Tabs_Layout()
 		ui.Machines_List->setUniformItemSizes( true );
 	}
 
+	// Keep West tab bar in classic mode — documentMode blanks the content pane on Qt 5.
 	if( ui.Tabs )
-		ui.Tabs->setDocumentMode( true );
+		ui.Tabs->setDocumentMode( false );
 
 	AQ_Cap_Content_Width( this, 980 );
 }

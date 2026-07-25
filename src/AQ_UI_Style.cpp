@@ -45,29 +45,11 @@ QGroupBox::title {
 	color: palette(window-text);
 }
 
+/* Do NOT set QTabWidget::pane top/left offsets or heavy QTabBar::tab chrome
+   globally — they break West (vertical) tab widgets (blank content pane). */
 QTabWidget::pane {
 	border: 1px solid palette(mid);
-	border-radius: 4px;
-	top: -1px;
 	background: palette(window);
-	padding: 4px;
-}
-QTabBar::tab {
-	padding: 6px 14px;
-	margin-right: 2px;
-	border: 1px solid transparent;
-	border-top-left-radius: 4px;
-	border-top-right-radius: 4px;
-	background: transparent;
-}
-QTabBar::tab:selected {
-	background: palette(base);
-	border: 1px solid palette(mid);
-	border-bottom-color: palette(base);
-	font-weight: 600;
-}
-QTabBar::tab:hover:!selected {
-	background: palette(alternate-base);
 }
 
 QListWidget, QTreeWidget, QTableWidget {
@@ -296,13 +278,14 @@ void AQ_Make_Tab_Scrollable( QWidget *tab, const QString &inner_object_name )
 	scroll->setObjectName( QStringLiteral( "AQ_Tab_Scroll" ) );
 	scroll->setWidgetResizable( true );
 	scroll->setFrameShape( QFrame::NoFrame );
-	scroll->setHorizontalScrollBarPolicy( Qt::ScrollBarAlwaysOff );
+	scroll->setHorizontalScrollBarPolicy( Qt::ScrollBarAsNeeded );
+	scroll->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Expanding );
 	scroll->setWidget( inner );
 
 	QVBoxLayout *outer = new QVBoxLayout( tab );
 	outer->setContentsMargins( 0, 0, 0, 0 );
 	outer->setSpacing( 0 );
-	outer->addWidget( scroll );
+	outer->addWidget( scroll, 1 );
 }
 
 void AQ_Cap_Content_Width( QWidget *root, int max_width )
