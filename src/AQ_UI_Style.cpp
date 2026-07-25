@@ -158,16 +158,6 @@ QSplitter::handle {
 	height: 1px;
 }
 
-/* Section headers used on the VM page */
-Highlighted_Label {
-	font-size: 13px;
-	font-weight: 600;
-	color: palette(link);
-	padding: 8px 10px 4px 10px;
-	border-bottom: 1px solid palette(mid);
-	margin-top: 2px;
-	background: transparent;
-}
 )" ) );
 }
 
