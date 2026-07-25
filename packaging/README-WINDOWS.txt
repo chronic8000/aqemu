@@ -1,7 +1,7 @@
 AQEMU 1.0.0 — Windows portable (x64)
 ====================================
 
-Updated build: 2026-07-25 (Machine section full-width + UI polish).
+Updated build: 2026-07-25 (Media/Display nav labels fully visible).
 
 Please file bugs:
   https://github.com/chronic8000/aqemu/issues
@@ -16,10 +16,10 @@ This zip includes:
   - qemu_machine_catalog.json (New VM wizard machine list)
 
 What's new in this zip:
-  - Machine Name/Accelerator/… fields span full width (same as Memory/Audio/…)
-  - White main chrome; West Info/Machine/Media/Display/Network rail
-  - No clipped combo/button text on HiDPI
-  - Resize / maximize / minimize-to-tray geometry fixes
+  - Media/Display/Network top nav shows full labels (no "Device Mana…")
+  - Machine section full width; white chrome; West tab rail
+  - HiDPI without clipped form text; resize / maximize / tray fixes
+  - Bundled QEMU 11.0.2
 
 Notes:
   - GitHub Release zips are NOT auto-updated. Grab a newer zip when we publish one.

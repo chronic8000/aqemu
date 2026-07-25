@@ -90,6 +90,7 @@ Settings_Widget::Settings_Widget(QTabWidget* tab_widget, QBoxLayout::Direction d
     splitter = nullptr;
     stack = new QStackedWidget(this);
     list = new My_List_Widget(this);
+	list->setTextElideMode( Qt::ElideNone );
 
     if ( dir == QBoxLayout::TopToBottom )
     {
@@ -105,13 +106,17 @@ Settings_Widget::Settings_Widget(QTabWidget* tab_widget, QBoxLayout::Direction d
     {
         l = new QBoxLayout(QBoxLayout::TopToBottom);
 
-        // Icon beside text (like the VM list) — not tiny truncated IconMode captions.
+        // Icon beside text (like the VM list) — never IconMode (that truncates captions).
         list->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Fixed );
         list->setFlow( QListView::LeftToRight );
         list->setViewMode( QListView::ListMode );
         list->setMovement( QListView::Static );
         list->setWrapping( false );
+        list->setResizeMode( QListView::Adjust );
         list->setHorizontalScrollMode( QAbstractItemView::ScrollPerPixel );
+        list->setHorizontalScrollBarPolicy( Qt::ScrollBarAsNeeded );
+        list->setVerticalScrollBarPolicy( Qt::ScrollBarAlwaysOff );
+        list->setWordWrap( false );
 
         stack->setSizePolicy( QSizePolicy::MinimumExpanding, QSizePolicy::Expanding );
     }
@@ -155,8 +160,6 @@ Settings_Widget::Settings_Widget(QTabWidget* tab_widget, QBoxLayout::Direction d
 
     if ( dir != QBoxLayout::TopToBottom )
     {
-        list->setVerticalScrollBarPolicy( Qt::ScrollBarAlwaysOff );
-        list->setHorizontalScrollBarPolicy( Qt::ScrollBarAsNeeded );
         list->setSpacing( AQ_Px( 4, this ) );
         const int pad = AQ_Px( 6, this );
         const int rad = AQ_Px( 6, this );
@@ -184,6 +187,17 @@ Settings_Widget::Settings_Widget(QTabWidget* tab_widget, QBoxLayout::Direction d
 			+ AQ_Px( 12, this );
         list->setMinimumHeight( row );
         list->setMaximumHeight( row + AQ_Px( 8, this ) );
+		// Size each chip to its full label now (syncGroupIconSizes re-runs later).
+		const QFontMetrics fm( list->font() );
+		const int icon_w = AQ_Nav_Icon_Size( this ).width() + AQ_Px( 10, this );
+		const int h_pad = pad * 2 + AQ_Px( 10, this ) * 2 + AQ_Px( 8, this );
+		for( int j = 0; j < list->count(); ++j )
+		{
+			QListWidgetItem *it = list->item( j );
+			const int tw = fm.horizontalAdvance( it->text() );
+			it->setSizeHint( QSize( icon_w + tw + h_pad, row ) );
+			it->setToolTip( it->text() );
+		}
     }
     else
     {
@@ -215,54 +229,54 @@ void Settings_Widget::addToGroup(QString g)
 
 void Settings_Widget::syncGroupIconSizes(QString g)
 {
-    QList<Settings_Widget*> list = groups[g];
+    QList<Settings_Widget*> widgets = groups[g];
 
-    QList<int> max_width;
+	// Sync row height / icon metrics only. Each chip keeps ITS OWN full text width —
+	// never share widths by index across Media/Display/Network (that crushed labels).
+	int max_icon = 0;
+	int max_row_h = 0;
+	for( Settings_Widget *sw : widgets )
+	{
+		if( ! sw || ! sw->list ) continue;
+		sw->list->setTextElideMode( Qt::ElideNone );
+		max_icon = qMax( max_icon, sw->list->iconSize().width() );
+		const int row_h = qMax( sw->list->iconSize().height(),
+			QFontMetrics( sw->list->font() ).height() ) + AQ_Px( 16, sw );
+		max_row_h = qMax( max_row_h, row_h );
+	}
+	if( max_icon < 8 )
+		max_icon = AQ_Nav_Icon_Size().width();
+	if( max_row_h < 8 )
+		max_row_h = AQ_Nav_Icon_Size().height() + 16;
 
-    for( int i = 0; i < list.count(); i++ )
-    {
-        auto sw = list.at(i);
-        const int row_h = qMax( sw->list->iconSize().height(),
-			QFontMetrics( sw->list->font() ).height() ) + AQ_Px( 12, sw );
+	for( Settings_Widget *sw : widgets )
+	{
+		if( ! sw || ! sw->list ) continue;
+		if( sw->list->flow() != QListView::LeftToRight )
+			continue;
 
-        for ( int j = 0; j < sw->list->count(); j++ )
-        {
-            QListWidgetItem *it = sw->list->item(j);
-            const int icon_w = sw->list->iconSize().width() > 0
-                ? sw->list->iconSize().width() + AQ_Px( 10, sw ) : AQ_Px( 28, sw );
-            QFontMetrics fm( sw->list->font() );
-            const int text_w = fm.horizontalAdvance( it->text() ) + AQ_Px( 24, sw );
-            const int w = icon_w + text_w;
+		sw->list->setIconSize( QSize( max_icon, max_icon ) );
+		const QFontMetrics fm( sw->list->font() );
+		const int pad = AQ_Px( 6, sw );
+		const int h_pad = pad * 2 + AQ_Px( 10, sw ) * 2 + AQ_Px( 12, sw );
+		const int icon_w = max_icon + AQ_Px( 12, sw );
 
-            if ( max_width.count() < j + 1 )
-                max_width.append( w );
-            else if ( w > max_width.at(j) )
-                max_width.replace( j, w );
+		for( int j = 0; j < sw->list->count(); ++j )
+		{
+			QListWidgetItem *it = sw->list->item( j );
+			if( ! it ) continue;
+			const int tw = fm.horizontalAdvance( it->text() );
+			// Full label + icon + stylesheet padding — never elide.
+			it->setSizeHint( QSize( icon_w + tw + h_pad, max_row_h ) );
+			it->setToolTip( it->text() );
+		}
 
-            Q_UNUSED( row_h );
-        }
-    }
-
-    int min_total_list_width = AQ_Px( 20 );
-    for ( int j = 0; j < max_width.count(); j++ )
-        min_total_list_width += max_width.at(j) + AQ_Px( 8 );
-
-    for( int i = 0; i < list.count(); i++ )
-    {
-        auto sw = list.at(i);
-        const int row_h = qMax( sw->list->iconSize().height(),
-			QFontMetrics( sw->list->font() ).height() ) + AQ_Px( 12, sw );
-
-        for ( int j = 0; j < sw->list->count(); j++ )
-            sw->list->item(j)->setSizeHint( QSize( max_width.at(j), row_h ) );
-
-        sw->list->setMinimumHeight( row_h + AQ_Px( 10, sw ) );
-        sw->list->setMaximumHeight( row_h + AQ_Px( 14, sw ) );
-		// Prefer scroll over locking the main window to the full chip strip width.
-		Q_UNUSED( min_total_list_width );
+		sw->list->setMinimumHeight( max_row_h + AQ_Px( 10, sw ) );
+		sw->list->setMaximumHeight( max_row_h + AQ_Px( 14, sw ) );
 		sw->list->setMinimumWidth( 0 );
 		sw->list->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Fixed );
-    }
+		sw->list->setTextElideMode( Qt::ElideNone );
+	}
 }
 
 void Settings_Widget::setIconSize(QSize s)
