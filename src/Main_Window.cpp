@@ -118,6 +118,7 @@ Main_Window::Main_Window( QWidget *parent )
 	, Act_Tray_Show( nullptr )
 	, Act_Tray_Quit( nullptr )
 	, Auto_Save_Timer( nullptr )
+	, VM_Ui_Refresh_Timer( nullptr )
 {
     Advanced_Options = new QDialog(this);
     Accelerator_Options = new QDialog(this);
@@ -128,6 +129,12 @@ Main_Window::Main_Window( QWidget *parent )
 	Auto_Save_Timer->setSingleShot( true );
 	Auto_Save_Timer->setInterval( 400 );
 	connect( Auto_Save_Timer, SIGNAL(timeout()), this, SLOT(on_Button_Apply_clicked()) );
+
+	// Coalesce rapid VM-list clicks so we don't rebuild the whole form per click.
+	VM_Ui_Refresh_Timer = new QTimer( this );
+	VM_Ui_Refresh_Timer->setSingleShot( true );
+	VM_Ui_Refresh_Timer->setInterval( 60 );
+	connect( VM_Ui_Refresh_Timer, &QTimer::timeout, this, [this]() { Update_VM_Ui(); } );
 
     ui.setupUi( this );
 	ui_ao.setupUi( Advanced_Options );
@@ -583,62 +590,31 @@ Virtual_Machine *Main_Window::Get_Current_VM()
 
 void Main_Window::Polish_Settings_Tabs_Layout()
 {
-	// Scrollable pages with stacked sections; nested-tab pages get chrome only.
-	AQ_Make_Tab_Scrollable( ui.Tab_General, QStringLiteral( "VM_Tab_Inner" ) );
-	AQ_Make_Tab_Scrollable( ui.Tab_Display, QStringLiteral( "Display_Tab_Inner" ) );
-
-	AQ_Style_Card( ui.widget, 980 ); // Machine
-	AQ_Style_Card( ui.GB_Memory, 920 );
-	AQ_Style_Card( ui.GB_Audio, 920 );
-	AQ_Style_Card( ui.GB_Disk_Bus, 920 );
-	AQ_Style_Card( ui.GB_Win11_Lifecycle, 920 );
-	AQ_Style_Card( ui.GB_Intel_MacOS_Settings, 920 );
-	AQ_Style_Card( ui.GB_Options, 920 );
-	AQ_Style_Card( ui.Widget_Use_Network, 960 );
-
-	if( ui.Memory_Size )
+	// Do NOT wrap West-tab pages in QScrollArea — that blanks the pane on Qt 5.
+	// Keep polish light: margins, list spacing, and clear any tab stylesheet.
+	if( ui.Tabs )
 	{
-		ui.Memory_Size->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Fixed );
-		ui.Memory_Size->setMaximumHeight( 28 );
-		ui.Memory_Size->setMinimumHeight( 22 );
-	}
-	if( ui.CB_RAM_Size )
-		ui.CB_RAM_Size->setMinimumWidth( 110 );
-
-	if( ui.TB_Show_Advanced_Options_Window )
-	{
-		ui.TB_Show_Advanced_Options_Window->setSizePolicy(
-			QSizePolicy::Maximum, QSizePolicy::Fixed );
-		ui.TB_Show_Advanced_Options_Window->setMinimumWidth( 120 );
+		ui.Tabs->setDocumentMode( false );
+		ui.Tabs->setStyleSheet( QString() ); // never inherit pane rules
 	}
 
-	if( ui.GB_Options )
+	// Redundant with the left VM list + Name field — drop the blue "Machine" header.
+	if( ui.label )
+		ui.label->hide();
+	if( ui.widget && ui.widget->layout() )
+		ui.widget->layout()->setContentsMargins( 12, 4, 6, 6 );
+
+	if( ui.Tab_General && ui.Tab_General->layout() )
 	{
-		if( QGridLayout *gl = qobject_cast<QGridLayout*>( ui.GB_Options->layout() ) )
-			gl->setColumnStretch( 3, 1 );
+		ui.Tab_General->layout()->setContentsMargins( 8, 4, 10, 8 );
+		ui.Tab_General->layout()->setSpacing( 4 );
+		AQ_Tighten_Layout_Spacers( ui.Tab_General->layout(), 6 );
 	}
-
-	if( ui.GB_Guest_Display_Mode )
-		ui.GB_Guest_Display_Mode->setMaximumWidth( 960 );
-
-	auto polish_nested_tabs = []( QTabWidget *tw ) {
-		if( ! tw ) return;
-		tw->setDocumentMode( true );
-		tw->setElideMode( Qt::ElideRight );
-		AQ_Cap_Content_Width( tw, 960 );
-		if( QWidget *parent = tw->parentWidget() )
-		{
-			if( QLayout *lay = parent->layout() )
-			{
-				lay->setContentsMargins( 8, 8, 8, 8 );
-				AQ_Tighten_Layout_Spacers( lay, 6 );
-			}
-		}
-	};
-	polish_nested_tabs( ui.TabWidget_Media );
-	polish_nested_tabs( ui.TabWidget_Display );
-	polish_nested_tabs( ui.Network_Cards_Tabs );
-
+	if( ui.Tab_Display && ui.Tab_Display->layout() )
+	{
+		ui.Tab_Display->layout()->setContentsMargins( 8, 8, 10, 8 );
+		ui.Tab_Display->layout()->setSpacing( 8 );
+	}
 	if( ui.Tab_Media && ui.Tab_Media->layout() )
 	{
 		ui.Tab_Media->layout()->setContentsMargins( 8, 8, 8, 8 );
@@ -666,21 +642,52 @@ void Main_Window::Polish_Settings_Tabs_Layout()
 		}
 	}
 
+	if( ui.Memory_Size )
+	{
+		ui.Memory_Size->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Fixed );
+		ui.Memory_Size->setMaximumHeight( 28 );
+		ui.Memory_Size->setMinimumHeight( 22 );
+	}
+	if( ui.CB_RAM_Size )
+		ui.CB_RAM_Size->setMinimumWidth( 110 );
+
+	if( ui.TB_Show_Advanced_Options_Window )
+	{
+		ui.TB_Show_Advanced_Options_Window->setSizePolicy(
+			QSizePolicy::Maximum, QSizePolicy::Fixed );
+		ui.TB_Show_Advanced_Options_Window->setMinimumWidth( 120 );
+	}
+
+	if( ui.GB_Options )
+	{
+		if( QGridLayout *gl = qobject_cast<QGridLayout*>( ui.GB_Options->layout() ) )
+			gl->setColumnStretch( 3, 1 );
+	}
+
+	auto polish_nested_tabs = []( QTabWidget *tw ) {
+		if( ! tw ) return;
+		tw->setDocumentMode( false );
+		tw->setElideMode( Qt::ElideRight );
+	};
+	polish_nested_tabs( ui.TabWidget_Media );
+	polish_nested_tabs( ui.TabWidget_Display );
+	polish_nested_tabs( ui.Network_Cards_Tabs );
+
 	if( ui.Machines_List )
 	{
 		ui.Machines_List->setSpacing( 2 );
 		ui.Machines_List->setUniformItemSizes( true );
 	}
-
-	// Keep West tab bar in classic mode — documentMode blanks the content pane on Qt 5.
-	if( ui.Tabs )
-		ui.Tabs->setDocumentMode( false );
-
-	AQ_Cap_Content_Width( this, 980 );
 }
 
 void Main_Window::Connect_Signals()
 {
+	// Refresh Info HTML when that tab becomes visible (deferred while on other tabs).
+	connect( ui.Tabs, &QTabWidget::currentChanged, this, [this]( int ) {
+		if( ui.Tabs->currentWidget() == ui.Tab_Info )
+			Update_Info_Text();
+	} );
+
 	// General Tab
 	connect( ui.Edit_Machine_Name, SIGNAL(textChanged(const QString &)),
 			 this, SLOT(VM_Changed()) );
@@ -1990,9 +1997,21 @@ bool Main_Window::Save_Virtual_Machines()
 	return true;
 }
 
+void Main_Window::Schedule_Update_VM_Ui()
+{
+	if( VM_Ui_Refresh_Timer )
+		VM_Ui_Refresh_Timer->start();
+	else
+		Update_VM_Ui();
+}
+
 void Main_Window::Update_VM_Ui(bool update_info_tab)
 {
-    Block_VM_Changed_Signals bvmcs(this);
+	// Do not sync dirty-state on exit — that re-ran Create_VM_From_Ui and often
+	// falsely enabled Apply + auto-save after every list selection.
+	Block_VM_Changed_Signals bvmcs( this, false );
+
+	setUpdatesEnabled( false );
 
 	Update_VM_Port_Number();
 
@@ -2000,9 +2019,7 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 	{
 		AQWarning( "void Main_Window::Update_VM_Ui()",
 				   "VM Index Out of Range" );
-		/*
-		AQGraphic_Error( "void Main_Window::Update_VM_Ui()", tr("Critical Error!"),
-						 tr("VM Index Out of Range! Close AQEMU?"), true );*/
+		setUpdatesEnabled( true );
 		return;
 	}
 
@@ -2012,6 +2029,7 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 	{
 		AQError( "void Main_Window::Update_VM_Ui()",
 				 "Cannot Find VM!" );
+		setUpdatesEnabled( true );
 		return;
 	}
 
@@ -2025,6 +2043,7 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 	{
 		AQError( "void Main_Window::Update_VM_Ui()",
 				 "VM in VM::VMS_In_Error state!" );
+		setUpdatesEnabled( true );
 		return;
 	}
 
@@ -2073,6 +2092,7 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 	{
 		AQError( "void Main_Window::Update_VM_Ui()",
 				 "cur_comp not valid!" );
+		setUpdatesEnabled( true );
 		return;
 	}
 
@@ -2085,6 +2105,7 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 	{
 		AQError( "void Main_Window::Update_VM_Ui()",
 				 "Cannot find computer type index!" );
+		setUpdatesEnabled( true );
 		return;
 	}
 
@@ -2243,19 +2264,11 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 		Enforce_Disk_Bus_Honesty();
 	}
 
-	// RAM
+	// RAM — clamp silently while switching VMs (no popup thrash).
 	if( tmp_vm->Get_Memory_Size() < 1 )
-	{
-		AQGraphic_Warning( tr("Error!"),
-						   tr("Memory size < 1! Using default value: 256 MB") );
 		ui.Memory_Size->setValue( 256 );
-	}
 	else if( tmp_vm->Get_Memory_Size() >= ui.Memory_Size->maximum() )
-	{
-		AQGraphic_Warning( tr("Error!"),
-						   tr("Memory size > all free memory on this system!") );
 		ui.Memory_Size->setValue( ui.Memory_Size->maximum() );
-	}
 	else ui.Memory_Size->setValue( tmp_vm->Get_Memory_Size() );
 
 	ui.CH_Remove_RAM_Size_Limitation->setChecked( tmp_vm->Get_Remove_RAM_Size_Limitation() );
@@ -2618,10 +2631,9 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 	// x509 Folder
 	ui.Edit_x509verify_Folder->setText( tmp_vm->Get_VNC_x509verify_Folder_Path() );
 
-    if ( update_info_tab )
-    {
-    	Update_Info_Text();
-    }
+	// Skip heavy HTML Info rebuild unless that tab is visible.
+	if( update_info_tab && ui.Tabs && ui.Tabs->currentWidget() == ui.Tab_Info )
+		Update_Info_Text();
 	Update_Win11_Lifecycle_Ui();
 	Update_Intel_MacOS_Settings_Ui();
 	Update_Disabled_Controls(); // FIXME
@@ -2631,16 +2643,11 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 	SMP_Settings->Set_Values( tmp_vm->Get_SMP(), curComp.PSO_SMP_Count, curComp.PSO_SMP_Cores,
 							  curComp.PSO_SMP_Threads, curComp.PSO_SMP_Sockets, curComp.PSO_SMP_MaxCPUs );
 
-    /* TODO: POST 0.9.1
-    QString info_text = tr("Machine:") + " " + tmp_vm->Get_Machine_Name();
-    info_text += " " + tr("State:") + " " + tmp_vm->Get_State_Text();
-
-    ui.Label_Machine_Info->setText(info_text);
-    */
-
 	// For VM Changes Signals
 	ui.Button_Apply->setEnabled( false );
-    ui.Button_Cancel->setEnabled( false );
+	ui.Button_Cancel->setEnabled( false );
+
+	setUpdatesEnabled( true );
 }
 
 void Main_Window::Update_VM_Port_Number()
@@ -3752,7 +3759,6 @@ void Main_Window::on_Machines_List_currentItemChanged( QListWidgetItem *current,
 
 	if( ui.Machines_List->row(previous) < 0 ) return;
 
-    Virtual_Machine tmp_vm;
 	Virtual_Machine *old_vm = Get_VM_By_UID( previous->data(256).toString() );
 
 	if( old_vm == NULL )
@@ -3762,52 +3768,41 @@ void Main_Window::on_Machines_List_currentItemChanged( QListWidgetItem *current,
 		return;
 	}
 
-    if( Create_VM_From_Ui(&tmp_vm, old_vm) == false &&
-		old_vm->Get_State() != VM::VMS_In_Error )
+	// Skip expensive Create_VM_From_Ui when there are no pending edits.
+	if( ui.Button_Apply->isEnabled() && old_vm->Get_State() != VM::VMS_In_Error )
 	{
-		AQError( "void Main_Window::on_Machines_List_currentItemChanged( QListWidgetItem* current, QListWidgetItem* previous )",
-				 "Cannot Create VM! Discarding UI changes for previous VM." );
-
-		// Don't block switching — leave previous VM as-is on disk.
-		if( ui.Machines_List->row(current) >= 0 &&
-			ui.Machines_List->row(current) < ui.Machines_List->count() )
+		Virtual_Machine tmp_vm;
+		if( Create_VM_From_Ui( &tmp_vm, old_vm ) == false )
 		{
-			Update_VM_Ui();
+			AQError( "void Main_Window::on_Machines_List_currentItemChanged( QListWidgetItem* current, QListWidgetItem* previous )",
+					 "Cannot Create VM! Discarding UI changes for previous VM." );
 		}
-		return;
+		else if( *old_vm != tmp_vm )
+		{
+			if( Auto_Save_Timer )
+				Auto_Save_Timer->stop();
+
+			disconnect( old_vm, SIGNAL(State_Changed(Virtual_Machine*, VM::VM_State)),
+						this, SLOT(VM_State_Changed(Virtual_Machine*, VM::VM_State)) );
+
+			*old_vm = tmp_vm;
+
+			connect( old_vm, SIGNAL(State_Changed(Virtual_Machine*, VM::VM_State)),
+					 this, SLOT(VM_State_Changed(Virtual_Machine*, VM::VM_State)) );
+
+			old_vm->Save_VM();
+		}
 	}
 
-	// if previous machine settings were changed — auto-save, never ask
-    if( *old_vm != tmp_vm &&
-		old_vm->Get_State() != VM::VMS_In_Error && ui.Button_Apply->isEnabled() )
+	if( ui.Machines_List->row(current) >= 0 &&
+		ui.Machines_List->row(current) < ui.Machines_List->count() )
 	{
-		if( Auto_Save_Timer )
-			Auto_Save_Timer->stop();
-
-		disconnect( old_vm, SIGNAL(State_Changed(Virtual_Machine*, VM::VM_State)),
-					this, SLOT(VM_State_Changed(Virtual_Machine*, VM::VM_State)) );
-
-		*old_vm = tmp_vm;
-
-		connect( old_vm, SIGNAL(State_Changed(Virtual_Machine*, VM::VM_State)),
-				 this, SLOT(VM_State_Changed(Virtual_Machine*, VM::VM_State)) );
-
-		old_vm->Save_VM();
-		Update_VM_Ui();
-		return;
+		Schedule_Update_VM_Ui();
 	}
 	else
 	{
-		if( ui.Machines_List->row(current) >= 0 &&
-			ui.Machines_List->row(current) < ui.Machines_List->count() )
-		{
-			Update_VM_Ui();
-		}
-		else
-		{
-			AQError( "void Main_Window::on_Machines_List_currentItemChanged( QListWidgetItem* current, QListWidgetItem* previous )",
-					 "Index Invalid!" );
-		}
+		AQError( "void Main_Window::on_Machines_List_currentItemChanged( QListWidgetItem* current, QListWidgetItem* previous )",
+				 "Index Invalid!" );
 	}
 }
 

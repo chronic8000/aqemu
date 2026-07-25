@@ -24,6 +24,8 @@
 #define HDD_IMAGE_INFO_H
 
 #include <QProcess>
+#include <QHash>
+#include <QString>
 #include "VM_Devices.h"
 
 class HDD_Image_Info : public QObject
@@ -48,6 +50,7 @@ class HDD_Image_Info : public QObject
 	private:
 		VM::Disk_Info Info;
 		QProcess* QEMU_IMG_Proc;
+		static QHash<QString, VM::Disk_Info> Info_Cache;
 };
 
 #endif

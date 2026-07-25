@@ -28,6 +28,8 @@
 #include "Utils.h"
 #include "HDD_Image_Info.h"
 
+QHash<QString, VM::Disk_Info> HDD_Image_Info::Info_Cache;
+
 HDD_Image_Info::HDD_Image_Info( QObject *parent )
 		: QObject( parent )
 {
@@ -47,34 +49,46 @@ VM::Disk_Info HDD_Image_Info::Get_Disk_Info() const
 void HDD_Image_Info::Update_Disk_Info( const QString &path )
 {
 	Info.Image_File_Name = path;
-	
+
 	if( Info.Image_File_Name.isEmpty() )
 	{
 		Clear_Info();
 		return;
 	}
-	
+
+	// Reuse cached qemu-img results when switching between VMs that share disks.
+	if( Info_Cache.contains( Info.Image_File_Name ) )
+	{
+		Info = Info_Cache.value( Info.Image_File_Name );
+		emit Completed( true );
+		return;
+	}
+
 	if( QFile::exists(Info.Image_File_Name) == false )
 	{
 		AQWarning( "void HDD_Image_Info::Update_Disk_Info( const QString &path )",
-                   "Image \"" + Info.Image_File_Name + "\" does not exist!" );
+				   "Image \"" + Info.Image_File_Name + "\" does not exist!" );
 		Clear_Info();
 		return;
 	}
-	else
+
+	if( QEMU_IMG_Proc->state() != QProcess::NotRunning )
 	{
-		QStringList args;
-		args << "info" << Info.Image_File_Name;
-		
-		QEMU_IMG_Proc = new QProcess( this );
-		QEMU_IMG_Proc->start( Get_QEMU_IMG_Path(), args );
-		
-		connect( QEMU_IMG_Proc, SIGNAL(finished(int, QProcess::ExitStatus)),
-				 this, SLOT(Parse_Info(int, QProcess::ExitStatus)), Qt::DirectConnection );
-		
-		connect( QEMU_IMG_Proc, SIGNAL(error(QProcess::ProcessError)),
-				 this, SLOT(Clear_Info()), Qt::DirectConnection );
+		QEMU_IMG_Proc->disconnect( this );
+		QEMU_IMG_Proc->kill();
+		QEMU_IMG_Proc->waitForFinished( 200 );
 	}
+
+	QStringList args;
+	args << "info" << Info.Image_File_Name;
+
+	connect( QEMU_IMG_Proc, SIGNAL(finished(int, QProcess::ExitStatus)),
+			 this, SLOT(Parse_Info(int, QProcess::ExitStatus)), Qt::UniqueConnection );
+
+	connect( QEMU_IMG_Proc, SIGNAL(error(QProcess::ProcessError)),
+			 this, SLOT(Clear_Info()), Qt::UniqueConnection );
+
+	QEMU_IMG_Proc->start( Get_QEMU_IMG_Path(), args );
 }
 
 void HDD_Image_Info::Clear_Info()
@@ -200,5 +214,6 @@ void HDD_Image_Info::Parse_Info( int exitCode, QProcess::ExitStatus exitStatus )
 	Info.Disk_Size = tmp_hdd.String_to_Device_Size( disk_size.isEmpty() ? virtual_size : disk_size );
 	Info.Cluster_Size = cluster_size.isEmpty() ? 0 : cluster_size.toInt();
 
+	Info_Cache.insert( Info.Image_File_Name, Info );
 	emit Completed( true );
 }

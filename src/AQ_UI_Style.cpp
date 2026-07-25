@@ -45,12 +45,9 @@ QGroupBox::title {
 	color: palette(window-text);
 }
 
-/* Do NOT set QTabWidget::pane top/left offsets or heavy QTabBar::tab chrome
-   globally — they break West (vertical) tab widgets (blank content pane). */
-QTabWidget::pane {
-	border: 1px solid palette(mid);
-	background: palette(window);
-}
+/* Never style QTabWidget::pane / QTabBar globally — any pane rule breaks
+   QTabWidget::West on Qt 5 (content area paints blank). Style North tabs
+   on specific widgets only if needed. */
 
 QListWidget, QTreeWidget, QTableWidget {
 	border: 1px solid palette(mid);
@@ -161,16 +158,6 @@ QSplitter::handle {
 	height: 1px;
 }
 
-/* Section headers used on the VM page */
-Highlighted_Label {
-	font-size: 13px;
-	font-weight: 600;
-	color: palette(link);
-	padding: 8px 10px 4px 10px;
-	border-bottom: 1px solid palette(mid);
-	margin-top: 2px;
-	background: transparent;
-}
 )" ) );
 }
 
@@ -178,13 +165,13 @@ void AQ_Style_Card( QWidget *w, int max_width )
 {
 	if( ! w || w->objectName().isEmpty() )
 		return;
+	// Avoid CSS margin on QWidget — it breaks layout geometry on Qt 5.
 	w->setStyleSheet(
 		QStringLiteral(
 			"QWidget#%1 {"
 			"  background-color: palette(base);"
 			"  border: 1px solid palette(mid);"
 			"  border-radius: 6px;"
-			"  margin: 0px 4px 6px 4px;"
 			"  padding: 4px;"
 			"}"
 		).arg( w->objectName() ) );
