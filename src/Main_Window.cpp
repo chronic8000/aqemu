@@ -56,6 +56,7 @@
 #include <QGridLayout>
 #include <QLabel>
 #include <QPushButton>
+#include <QLineEdit>
 #include <QClipboard>
 #include <QScrollArea>
 #include <QFrame>
@@ -725,19 +726,51 @@ void Main_Window::Polish_Settings_Tabs_Layout()
 		ui.widget->layout()->setSpacing( AQ_Px( 6, this ) );
 		if( QGridLayout *gl = qobject_cast<QGridLayout*>( ui.widget->layout() ) )
 		{
-			gl->setColumnStretch( 0, 0 );
-			gl->setColumnStretch( 1, 1 );
-			gl->setColumnStretch( 2, 0 );
-			gl->setColumnStretch( 3, 1 );
-			gl->setHorizontalSpacing( AQ_Px( 10, this ) );
+			// gridLayout_12: 0=left fields, 1=5px gap, 2=right fields, 3=trailing spacer.
+			// Stretch field columns — stretching col 1/3 left Machine bunched left.
+			gl->setColumnStretch( 0, 1 );
+			gl->setColumnStretch( 1, 0 );
+			gl->setColumnStretch( 2, 1 );
+			gl->setColumnStretch( 3, 0 );
+			gl->setHorizontalSpacing( AQ_Px( 16, this ) );
 		}
-		// Labels must keep their full text width (don't let combos crush them).
+		if( ui.Widget_for_General_Tab )
+		{
+			ui.Widget_for_General_Tab->setMaximumWidth( AQ_Px( 12, this ) );
+			ui.Widget_for_General_Tab->setMinimumWidth( AQ_Px( 8, this ) );
+			ui.Widget_for_General_Tab->setSizePolicy( QSizePolicy::Fixed, QSizePolicy::Preferred );
+		}
+		// Nested left/right grids: labels fixed, value columns expand.
+		const auto nested = ui.widget->findChildren<QGridLayout *>();
+		for( QGridLayout *sub : nested )
+		{
+			if( ! sub || sub == ui.widget->layout() ) continue;
+			sub->setColumnStretch( 0, 0 );
+			sub->setColumnStretch( 1, 1 );
+			if( sub->columnCount() > 2 )
+				sub->setColumnStretch( 2, 0 );
+			sub->setHorizontalSpacing( AQ_Px( 8, this ) );
+		}
 		const auto labels = ui.widget->findChildren<QLabel *>();
 		for( QLabel *lab : labels )
 		{
 			if( ! lab ) continue;
 			lab->setSizePolicy( QSizePolicy::Minimum, QSizePolicy::Preferred );
 			lab->setMinimumWidth( lab->sizeHint().width() );
+		}
+		const auto combos = ui.widget->findChildren<QComboBox *>();
+		for( QComboBox *cb : combos )
+		{
+			if( ! cb ) continue;
+			cb->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Fixed );
+			cb->setSizeAdjustPolicy( QComboBox::AdjustToMinimumContentsLengthWithIcon );
+			cb->setMinimumContentsLength( 6 );
+		}
+		const auto edits = ui.widget->findChildren<QLineEdit *>();
+		for( QLineEdit *le : edits )
+		{
+			if( ! le ) continue;
+			le->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Fixed );
 		}
 	}
 

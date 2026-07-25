@@ -1,7 +1,7 @@
 AQEMU 1.0.0 — Windows portable (x64)
 ====================================
 
-Updated build: 2026-07-25 (wizard + virt-manager-inspired UX refresh).
+Updated build: 2026-07-25 (Machine section full-width + UI polish).
 
 Please file bugs:
   https://github.com/chronic8000/aqemu/issues
@@ -15,11 +15,11 @@ This zip includes:
   - OpenPartitionDxe.efi (Intel macOS OpenCore prep)
   - qemu_machine_catalog.json (New VM wizard machine list)
 
-What's new in this zip (vs the first 1.0.0 drop):
-  - New VM wizard: Platform / Architecture paths, guest-aware devices
-  - Import disk, ISO OS-guess, URL / kernel+initrd network install
-  - File → Storage Browser…, File → Remote Hosts…
-  - Serial console + live migrate URI dialog in the session toolbar
+What's new in this zip:
+  - Machine Name/Accelerator/… fields span full width (same as Memory/Audio/…)
+  - White main chrome; West Info/Machine/Media/Display/Network rail
+  - No clipped combo/button text on HiDPI
+  - Resize / maximize / minimize-to-tray geometry fixes
 
 Notes:
   - GitHub Release zips are NOT auto-updated. Grab a newer zip when we publish one.
