@@ -45,6 +45,9 @@
 #include <QSystemTrayIcon>
 #include <QMenu>
 #include <QEvent>
+#include <QWindowStateChangeEvent>
+#include <QGuiApplication>
+#include <QScreen>
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QTextEdit>
@@ -53,12 +56,14 @@
 #include <QGridLayout>
 #include <QLabel>
 #include <QPushButton>
+#include <QLineEdit>
 #include <QClipboard>
 #include <QScrollArea>
 #include <QFrame>
 #include <QSizePolicy>
 #include <QSpacerItem>
 #include <QGroupBox>
+#include <QTabBar>
 #ifndef Q_OS_WIN32
 #include <QtDBus>
 #endif
@@ -117,6 +122,7 @@ Main_Window::Main_Window( QWidget *parent )
 	, Tray_Icon( nullptr )
 	, Act_Tray_Show( nullptr )
 	, Act_Tray_Quit( nullptr )
+	, Tray_Restore_Maximized( false )
 	, Auto_Save_Timer( nullptr )
 	, VM_Ui_Refresh_Timer( nullptr )
 {
@@ -202,15 +208,18 @@ Main_Window::Main_Window( QWidget *parent )
 	ui_kvm.setupUi( Accelerator_Options );
 	ui_arch.setupUi( Architecture_Options );
 
-	// Combos were truncating long QEMU machine/video names
+	// Combos: keep the closed field compact; show full names in the popup.
+	// AdjustToContents + MinimumContentsLength(28) stole width from labels
+	// ("Mouse device:" → "Mouse devic").
 	auto fixComboElide = []( QComboBox *cb ) {
 		if( ! cb ) return;
-		cb->setSizeAdjustPolicy( QComboBox::AdjustToContents );
-		cb->setMinimumContentsLength( 28 );
+		cb->setSizeAdjustPolicy( QComboBox::AdjustToMinimumContentsLengthWithIcon );
+		cb->setMinimumContentsLength( 8 );
+		cb->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Fixed );
 		if( cb->view() )
 		{
 			cb->view()->setTextElideMode( Qt::ElideNone );
-			cb->view()->setMinimumWidth( 360 );
+			cb->view()->setMinimumWidth( 280 );
 		}
 	};
 	fixComboElide( ui.CB_Computer_Type );
@@ -261,7 +270,7 @@ Main_Window::Main_Window( QWidget *parent )
 	ui.TabWidget_Display->insertTab( 1, SPICE_Widget, QIcon(":/pepper.png"), tr("SPICE Remote") );
 
     Display_Settings_Widget = new Settings_Widget( ui.TabWidget_Display, QBoxLayout::LeftToRight, true );
-    Display_Settings_Widget->setIconSize(QSize(32,32));
+    Display_Settings_Widget->setIconSize( AQ_Nav_Icon_Size( this ) );
     Display_Settings_Widget->addToGroup("Main");
 
 	// Update Emulators Information
@@ -313,7 +322,7 @@ Main_Window::Main_Window( QWidget *parent )
     ui.TabWidget_Media->setCurrentWidget(Dev_Manager);
 
     Media_Settings_Widget = new Settings_Widget( ui.TabWidget_Media, QBoxLayout::LeftToRight, true );
-    Media_Settings_Widget->setIconSize(QSize(32,32));
+    Media_Settings_Widget->setIconSize( AQ_Nav_Icon_Size( this ) );
     Media_Settings_Widget->addToGroup("Main");
 	
 
@@ -323,7 +332,7 @@ Main_Window::Main_Window( QWidget *parent )
     ////
 
     Network_Settings_Widget = new Settings_Widget( ui.Network_Cards_Tabs, QBoxLayout::LeftToRight, true );
-    Network_Settings_Widget->setIconSize(QSize(32,32));
+    Network_Settings_Widget->setIconSize( AQ_Nav_Icon_Size( this ) );
     Network_Settings_Widget->addToGroup("Main");
 
 	// This For Network Redirections Table
@@ -424,7 +433,7 @@ void Main_Window::Update_System_Tray()
 	if( ! Tray_Icon )
 		return;
 
-	const bool enable = Settings.value( "Minimize_To_Tray", "no" ).toString() == "yes";
+	const bool enable = Settings.value( "Minimize_To_Tray", "yes" ).toString() == "yes";
 	if( ! enable )
 	{
 		Tray_Icon->hide();
@@ -442,7 +451,10 @@ void Main_Window::Update_System_Tray()
 
 void Main_Window::On_Tray_Show()
 {
-	showNormal();
+	if( Tray_Restore_Maximized )
+		showMaximized();
+	else
+		showNormal();
 	raise();
 	activateWindow();
 	if( Tray_Icon )
@@ -457,23 +469,22 @@ void Main_Window::On_Tray_Activated( QSystemTrayIcon::ActivationReason reason )
 
 void Main_Window::changeEvent( QEvent *event )
 {
-	QMainWindow::changeEvent( event );
-	if( event->type() != QEvent::WindowStateChange )
-		return;
-	if( Settings.value( "Minimize_To_Tray", "no" ).toString() != "yes" )
-		return;
-	if( ! Tray_Icon )
-		return;
-
-	if( isMinimized() )
+	if( event->type() == QEvent::WindowStateChange )
 	{
-		QTimer::singleShot( 0, this, SLOT(Hide_To_Tray()) );
+		auto *se = static_cast<QWindowStateChangeEvent *>( event );
+		if( Settings.value( "Minimize_To_Tray", "yes" ).toString() == "yes" &&
+		    Tray_Icon && isMinimized() )
+		{
+			Tray_Restore_Maximized = se->oldState().testFlag( Qt::WindowMaximized );
+			QTimer::singleShot( 0, this, SLOT(Hide_To_Tray()) );
+		}
 	}
+	QMainWindow::changeEvent( event );
 }
 
 void Main_Window::Hide_To_Tray()
 {
-	if( Settings.value( "Minimize_To_Tray", "no" ).toString() != "yes" )
+	if( Settings.value( "Minimize_To_Tray", "yes" ).toString() != "yes" )
 		return;
 	if( ! Tray_Icon )
 		return;
@@ -591,43 +602,77 @@ Virtual_Machine *Main_Window::Get_Current_VM()
 void Main_Window::Polish_Settings_Tabs_Layout()
 {
 	// Do NOT wrap West-tab pages in QScrollArea — that blanks the pane on Qt 5.
-	// Keep polish light: margins, list spacing, and clear any tab stylesheet.
 	if( ui.Tabs )
 	{
 		ui.Tabs->setDocumentMode( false );
-		ui.Tabs->setStyleSheet( QString() ); // never inherit pane rules
+		ui.Tabs->setStyleSheet( QString() );
+		ui.Tabs->setTabPosition( QTabWidget::West );
+		// Rename VM → Machine so the West rail matches the section header language.
+		const int gen_ix = ui.Tabs->indexOf( ui.Tab_General );
+		if( gen_ix >= 0 )
+			ui.Tabs->setTabText( gen_ix, tr( "Machine" ) );
+
+		// Stock West tab bar — custom AQ_West_TabBar + QSS collapsed the rail to
+		// zero width (stylesheet overrides tabSizeHint). Keep it native + visible.
+		if( QTabBar *bar = ui.Tabs->tabBar() )
+		{
+			bar->setExpanding( false );
+			bar->setDrawBase( true );
+			bar->setStyleSheet( QString() );
+			QStyle *st = style();
+			const int icon = st ? st->pixelMetric( QStyle::PM_SmallIconSize, nullptr, this ) : 16;
+			bar->setIconSize( QSize( icon, icon ) );
+			// Ensure the rail has a readable thickness without QSS padding tricks.
+			const int thick = qMax( icon + 16, QFontMetrics( bar->font() ).height() + 14 );
+			bar->setMinimumWidth( thick );
+			bar->show();
+		}
+		ui.Tabs->show();
 	}
 
-	// Redundant with the left VM list + Name field — drop the blue "Machine" header.
+	// Soft floor so the layout can shrink; Media chip strip no longer locks width.
+	setMinimumSize( 640, 480 );
+	if( ui.splitter )
+	{
+		ui.splitter->setChildrenCollapsible( false );
+		ui.splitter->setHandleWidth( qMax( 4, AQ_Px( 4, this ) ) );
+	}
+	if( ui.Machines_List )
+		ui.Machines_List->setMinimumWidth( 160 );
+
+	// Keep the Machine / Memory / Audio… section headers; tighten the page.
 	if( ui.label )
-		ui.label->hide();
-	if( ui.widget && ui.widget->layout() )
-		ui.widget->layout()->setContentsMargins( 12, 4, 6, 6 );
+		ui.label->show();
 
 	if( ui.Tab_General && ui.Tab_General->layout() )
 	{
-		ui.Tab_General->layout()->setContentsMargins( 8, 4, 10, 8 );
-		ui.Tab_General->layout()->setSpacing( 4 );
-		AQ_Tighten_Layout_Spacers( ui.Tab_General->layout(), 6 );
+		const int m = AQ_Px( 8, this );
+		ui.Tab_General->layout()->setContentsMargins( m, AQ_Px( 6, this ), AQ_Px( 10, this ), m );
+		ui.Tab_General->layout()->setSpacing( AQ_Px( 2, this ) );
+		AQ_Tighten_Layout_Spacers( ui.Tab_General->layout() );
 	}
 	if( ui.Tab_Display && ui.Tab_Display->layout() )
 	{
-		ui.Tab_Display->layout()->setContentsMargins( 8, 8, 10, 8 );
-		ui.Tab_Display->layout()->setSpacing( 8 );
+		const int m = AQ_Px( 8, this );
+		ui.Tab_Display->layout()->setContentsMargins( m, m, AQ_Px( 10, this ), m );
+		ui.Tab_Display->layout()->setSpacing( AQ_Px( 6, this ) );
 	}
 	if( ui.Tab_Media && ui.Tab_Media->layout() )
 	{
-		ui.Tab_Media->layout()->setContentsMargins( 8, 8, 8, 8 );
-		ui.Tab_Media->layout()->setSpacing( 6 );
+		const int m = AQ_Px( 6, this );
+		ui.Tab_Media->layout()->setContentsMargins( m, m, m, AQ_Px( 8, this ) );
+		ui.Tab_Media->layout()->setSpacing( AQ_Px( 6, this ) );
 	}
 	if( ui.Tab_Network && ui.Tab_Network->layout() )
 	{
-		ui.Tab_Network->layout()->setContentsMargins( 8, 8, 8, 8 );
-		ui.Tab_Network->layout()->setSpacing( 6 );
+		const int m = AQ_Px( 6, this );
+		ui.Tab_Network->layout()->setContentsMargins( m, m, m, AQ_Px( 8, this ) );
+		ui.Tab_Network->layout()->setSpacing( AQ_Px( 6, this ) );
 	}
 	if( ui.Tab_Info && ui.Tab_Info->layout() )
 	{
-		ui.Tab_Info->layout()->setContentsMargins( 8, 8, 8, 8 );
+		const int m = AQ_Px( 8, this );
+		ui.Tab_Info->layout()->setContentsMargins( m, m, m, m );
 		if( ui.VM_Information_Text )
 		{
 			ui.VM_Information_Text->setFrameShape( QFrame::StyledPanel );
@@ -635,39 +680,183 @@ void Main_Window::Polish_Settings_Tabs_Layout()
 				QStringLiteral(
 					"QTextEdit {"
 					"  border: 1px solid palette(mid);"
-					"  border-radius: 6px;"
+					"  border-radius: %1px;"
 					"  background: palette(base);"
-					"  padding: 8px;"
-					"}" ) );
+					"  padding: %2px;"
+					"}" ).arg( AQ_Px( 6, this ) ).arg( AQ_Px( 8, this ) ) );
 		}
 	}
 
+	// Cap readable column from font metrics so ultrawide doesn't leave desert gaps.
+	// Machine (ui.widget) and every section below must share the full content width.
 	if( ui.Memory_Size )
 	{
 		ui.Memory_Size->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Fixed );
-		ui.Memory_Size->setMaximumHeight( 28 );
-		ui.Memory_Size->setMinimumHeight( 22 );
+		ui.Memory_Size->setMaximumHeight( QWIDGETSIZE_MAX );
+		ui.Memory_Size->setMaximumWidth( QWIDGETSIZE_MAX );
 	}
 	if( ui.CB_RAM_Size )
-		ui.CB_RAM_Size->setMinimumWidth( 110 );
+	{
+		ui.CB_RAM_Size->setMinimumWidth( AQ_Px( 110, this ) );
+		ui.CB_RAM_Size->setSizePolicy( QSizePolicy::Preferred, QSizePolicy::Fixed );
+	}
+
+	// Expand EVERY section under Machine across the page (all VMs, not just Win11).
+	auto expand_section = []( QWidget *w ) {
+		if( ! w ) return;
+		w->setMaximumWidth( QWIDGETSIZE_MAX );
+		w->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Preferred );
+		if( QLayout *lay = w->layout() )
+			lay->setSizeConstraint( QLayout::SetDefaultConstraint );
+	};
+	expand_section( ui.widget );
+	expand_section( ui.GB_Memory );
+	expand_section( ui.GB_Audio );
+	expand_section( ui.GB_Disk_Bus );
+	expand_section( ui.GB_Win11_Lifecycle );
+	expand_section( ui.GB_Intel_MacOS_Settings );
+	expand_section( ui.GB_Options );
+	expand_section( ui.Widget_Use_Network );
+	expand_section( ui.GB_Guest_Display_Mode );
+
+	if( ui.widget && ui.widget->layout() )
+	{
+		ui.widget->layout()->setContentsMargins( AQ_Px( 8, this ), AQ_Px( 4, this ),
+			AQ_Px( 8, this ), AQ_Px( 4, this ) );
+		ui.widget->layout()->setSpacing( AQ_Px( 6, this ) );
+		if( QGridLayout *gl = qobject_cast<QGridLayout*>( ui.widget->layout() ) )
+		{
+			// gridLayout_12: 0=left fields, 1=5px gap, 2=right fields, 3=trailing spacer.
+			// Stretch field columns — stretching col 1/3 left Machine bunched left.
+			gl->setColumnStretch( 0, 1 );
+			gl->setColumnStretch( 1, 0 );
+			gl->setColumnStretch( 2, 1 );
+			gl->setColumnStretch( 3, 0 );
+			gl->setHorizontalSpacing( AQ_Px( 16, this ) );
+		}
+		if( ui.Widget_for_General_Tab )
+		{
+			ui.Widget_for_General_Tab->setMaximumWidth( AQ_Px( 12, this ) );
+			ui.Widget_for_General_Tab->setMinimumWidth( AQ_Px( 8, this ) );
+			ui.Widget_for_General_Tab->setSizePolicy( QSizePolicy::Fixed, QSizePolicy::Preferred );
+		}
+		// Nested left/right grids: labels fixed, value columns expand.
+		const auto nested = ui.widget->findChildren<QGridLayout *>();
+		for( QGridLayout *sub : nested )
+		{
+			if( ! sub || sub == ui.widget->layout() ) continue;
+			sub->setColumnStretch( 0, 0 );
+			sub->setColumnStretch( 1, 1 );
+			if( sub->columnCount() > 2 )
+				sub->setColumnStretch( 2, 0 );
+			sub->setHorizontalSpacing( AQ_Px( 8, this ) );
+		}
+		const auto labels = ui.widget->findChildren<QLabel *>();
+		for( QLabel *lab : labels )
+		{
+			if( ! lab ) continue;
+			lab->setSizePolicy( QSizePolicy::Minimum, QSizePolicy::Preferred );
+			lab->setMinimumWidth( lab->sizeHint().width() );
+		}
+		const auto combos = ui.widget->findChildren<QComboBox *>();
+		for( QComboBox *cb : combos )
+		{
+			if( ! cb ) continue;
+			cb->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Fixed );
+			cb->setSizeAdjustPolicy( QComboBox::AdjustToMinimumContentsLengthWithIcon );
+			cb->setMinimumContentsLength( 6 );
+		}
+		const auto edits = ui.widget->findChildren<QLineEdit *>();
+		for( QLineEdit *le : edits )
+		{
+			if( ! le ) continue;
+			le->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Fixed );
+		}
+	}
 
 	if( ui.TB_Show_Advanced_Options_Window )
 	{
 		ui.TB_Show_Advanced_Options_Window->setSizePolicy(
 			QSizePolicy::Maximum, QSizePolicy::Fixed );
-		ui.TB_Show_Advanced_Options_Window->setMinimumWidth( 120 );
+		ui.TB_Show_Advanced_Options_Window->setMinimumWidth( 0 );
+		ui.TB_Show_Advanced_Options_Window->setMinimumHeight( 0 );
+		ui.TB_Show_Advanced_Options_Window->setMaximumHeight( QWIDGETSIZE_MAX );
+	}
+
+	// Disk / Win11 action rows — expand controls so they aren't glued left.
+	auto polish_btn = []( QPushButton *b ) {
+		if( ! b ) return;
+		b->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Fixed );
+		b->setMinimumHeight( 0 );
+		b->setMaximumHeight( QWIDGETSIZE_MAX );
+	};
+	polish_btn( ui.Button_Win11_Install );
+	polish_btn( ui.Button_Win11_First_Boot );
+	polish_btn( ui.Button_Win11_Normal );
+	polish_btn( ui.Button_Win11_Repair );
+	polish_btn( ui.Button_VirtIO_Defaults );
+	if( ui.CB_Disk_Interface )
+		ui.CB_Disk_Interface->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Fixed );
+
+	// Trailing spacers in those rows should not steal all remaining width.
+	auto soft_trailing_spacer = []( QLayout *lay ) {
+		if( ! lay ) return;
+		for( int i = 0; i < lay->count(); ++i )
+		{
+			QLayoutItem *it = lay->itemAt( i );
+			if( ! it || ! it->spacerItem() ) continue;
+			if( i == lay->count() - 1 )
+				it->spacerItem()->changeSize( 8, 0, QSizePolicy::Minimum, QSizePolicy::Minimum );
+		}
+	};
+	if( ui.GB_Disk_Bus )
+		soft_trailing_spacer( ui.GB_Disk_Bus->layout() );
+	if( ui.GB_Win11_Lifecycle )
+	{
+		if( QVBoxLayout *vl = qobject_cast<QVBoxLayout *>( ui.GB_Win11_Lifecycle->layout() ) )
+		{
+			for( int i = 0; i < vl->count(); ++i )
+			{
+				if( QLayout *sub = vl->itemAt( i )->layout() )
+					soft_trailing_spacer( sub );
+			}
+		}
 	}
 
 	if( ui.GB_Options )
 	{
 		if( QGridLayout *gl = qobject_cast<QGridLayout*>( ui.GB_Options->layout() ) )
+		{
+			gl->setColumnStretch( 0, 1 );
+			gl->setColumnStretch( 1, 1 );
+			gl->setColumnStretch( 2, 1 );
 			gl->setColumnStretch( 3, 1 );
+		}
 	}
+
+	// White page behind Machine / Memory / … (avoid grey Window chrome bleed).
+	auto paint_white = []( QWidget *w ) {
+		if( ! w ) return;
+		w->setAutoFillBackground( true );
+		QPalette p = w->palette();
+		p.setColor( QPalette::Window, Qt::white );
+		p.setColor( QPalette::Base, Qt::white );
+		w->setPalette( p );
+	};
+	paint_white( ui.centralwidget );
+	paint_white( ui.Widget_for_Tabs );
+	paint_white( ui.Tabs );
+	paint_white( ui.Tab_General );
+	paint_white( ui.Tab_Info );
+	paint_white( ui.Tab_Media );
+	paint_white( ui.Tab_Display );
+	paint_white( ui.Tab_Network );
+	paint_white( ui.Machines_List );
 
 	auto polish_nested_tabs = []( QTabWidget *tw ) {
 		if( ! tw ) return;
 		tw->setDocumentMode( false );
-		tw->setElideMode( Qt::ElideRight );
+		tw->setElideMode( Qt::ElideNone );
 	};
 	polish_nested_tabs( ui.TabWidget_Media );
 	polish_nested_tabs( ui.TabWidget_Display );
@@ -1827,12 +2016,34 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
 
 bool Main_Window::Load_Settings()
 {
-	// Main Window Size
-	resize( Settings.value("General_Window_Width", "885").toInt(),
-			Settings.value("General_Window_Height", "544").toInt() );
+	// Main Window Size — clamp to the available screen so a prior maximized
+	// save cannot leave the window stuck at "whole desktop" normal size.
+	int w = Settings.value( "General_Window_Width", 885 ).toInt();
+	int h = Settings.value( "General_Window_Height", 544 ).toInt();
+	QPoint pos = Settings.value( "General_Window_Position", QPoint( 300, 300 ) ).toPoint();
 
-	// Main Window Position
-	move( Settings.value("General_Window_Position", QPoint(300, 300)).toPoint() );
+	QScreen *screen = QGuiApplication::screenAt( pos );
+	if( ! screen )
+		screen = QGuiApplication::primaryScreen();
+	if( screen )
+	{
+		const QRect avail = screen->availableGeometry();
+		w = qBound( 640, w, avail.width() );
+		h = qBound( 480, h, avail.height() );
+		if( ! avail.contains( pos ) )
+		{
+			pos.setX( qBound( avail.left(), pos.x(), avail.right() - w ) );
+			pos.setY( qBound( avail.top(), pos.y(), avail.bottom() - h ) );
+		}
+	}
+	else
+	{
+		w = qMax( 640, w );
+		h = qMax( 480, h );
+	}
+
+	resize( w, h );
+	move( pos );
 
 	// Toolbar State
 	restoreState( Settings.value("General_Window_State").toByteArray());
@@ -1845,9 +2056,17 @@ bool Main_Window::Load_Settings()
 	ui.splitter->restoreState( Settings.value("General_Splitter",
 							   QByteArray("\0\0\0\xff\0\0\0\0\0\0\0\x2\0\0\0\xbc\0\0\x2$\0\0\0\0\x4\x1\0\0\0\x1")).toByteArray() );
 
-	// VM Icons Size
-	ui.Machines_List->setIconSize( QSize( Settings.value("VM_Icons_Size", "48").toInt(),
-								   Settings.value("VM_Icons_Size", "48").toInt()) );
+	if( Settings.value( "General_Window_Maximized", false ).toBool() )
+		showMaximized();
+
+	// VM Icons Size — user override if set, else host DPI / style metric.
+	{
+		const QSize dpi_icon = AQ_Vm_List_Icon_Size( this );
+		const int sz = Settings.contains( QStringLiteral( "VM_Icons_Size" ) )
+			? Settings.value( QStringLiteral( "VM_Icons_Size" ) ).toInt()
+			: dpi_icon.width();
+		ui.Machines_List->setIconSize( QSize( sz, sz ) );
+	}
 
 	// Load CD Exists Images List
 	VM_Folder = QDir::toNativeSeparators( Settings.value("VM_Directory", "~").toString() );
@@ -1873,9 +2092,14 @@ bool Main_Window::Save_Settings()
 	// Current VM Index
 	Settings.setValue( "Current_VM_Index", ui.Machines_List->currentRow() );
 
-	// Save Windows Size
-	Settings.setValue( "General_Window_Width", QString::number(this->width()) );
-	Settings.setValue( "General_Window_Height", QString::number(this->height()) );
+	// Persist the restored (non-maximized) geometry so Maximize does not
+	// permanently inflate the next normal session size.
+	const QRect geo = normalGeometry();
+	Settings.setValue( "General_Window_Width", QString::number( geo.width() ) );
+	Settings.setValue( "General_Window_Height", QString::number( geo.height() ) );
+	Settings.setValue( "General_Window_Position", geo.topLeft() );
+	Settings.setValue( "General_Window_Maximized",
+		isMaximized() || ( ! isVisible() && Tray_Restore_Maximized ) );
 
 	// Save Toolbar State — never persist session-hidden left bars
 	const bool manage_vis = ui.Tool_Bar_VM_Manage->isVisible();
@@ -1885,9 +2109,6 @@ bool Main_Window::Save_Settings()
 	Settings.setValue( "General_Window_State", saveState() );
 	ui.Tool_Bar_VM_Manage->setVisible( manage_vis );
 	ui.Tool_Bar_VM_Control->setVisible( control_vis );
-
-	// Save Main Window Position
-	Settings.setValue( "General_Window_Position", pos() );
 
 	// Splitter
 	Settings.setValue( "General_Splitter", ui.splitter->saveState() );

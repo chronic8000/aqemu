@@ -19,3 +19,8 @@
   - Out of scope in-process: full Xen/LXC backends (use File → Remote Hosts)
 
 
+# Window chrome (done)
+
+* Main window resizes freely (Media chip strip no longer sets a ~1200px floor)
+* Maximize / restore geometry saved correctly; minimize-to-tray defaults on
+  (Advanced Settings → Minimize to tray)
