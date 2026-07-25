@@ -60,20 +60,25 @@ class Main_Window: public QMainWindow
     class Block_VM_Changed_Signals
     {
         public:
-            Block_VM_Changed_Signals(Main_Window* _mw)
+            // sync_on_exit=false: used by Update_VM_Ui — do not re-run dirty detection
+            // (that falsely marks Apply and triggers auto-save thrash when switching VMs).
+            Block_VM_Changed_Signals( Main_Window * _mw, bool sync_on_exit = true )
             {
                 mw = _mw;
+                call_VM_Changed = sync_on_exit;
                 mw->block_VM_changed_signals = true;
             }
 
             ~Block_VM_Changed_Signals()
             {
                 mw->block_VM_changed_signals = false;
-                mw->VM_Changed();
+                if( call_VM_Changed )
+                    mw->VM_Changed();
             }
 
         private:
-            Main_Window* mw;
+            Main_Window *mw;
+            bool call_VM_Changed;
     };
 
 	Q_OBJECT
@@ -262,6 +267,7 @@ class Main_Window: public QMainWindow
 		void setStateActionsEnabled(bool enabled);
         void Change_The_Icon(Virtual_Machine*,QString);
 		void Update_VM_Ui( bool update_info_tab = true );
+		void Schedule_Update_VM_Ui();
 		void Update_VM_Port_Number();
 		void Update_Info_Text( int info_mode = 0 );
 		void Update_Disabled_Controls();
@@ -362,6 +368,7 @@ class Main_Window: public QMainWindow
 
         bool block_VM_changed_signals;
 		QTimer *Auto_Save_Timer;
+		QTimer *VM_Ui_Refresh_Timer;
 };
 
 #endif

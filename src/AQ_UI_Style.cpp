@@ -45,30 +45,9 @@ QGroupBox::title {
 	color: palette(window-text);
 }
 
-QTabWidget::pane {
-	border: 1px solid palette(mid);
-	border-radius: 4px;
-	top: -1px;
-	background: palette(window);
-	padding: 4px;
-}
-QTabBar::tab {
-	padding: 6px 14px;
-	margin-right: 2px;
-	border: 1px solid transparent;
-	border-top-left-radius: 4px;
-	border-top-right-radius: 4px;
-	background: transparent;
-}
-QTabBar::tab:selected {
-	background: palette(base);
-	border: 1px solid palette(mid);
-	border-bottom-color: palette(base);
-	font-weight: 600;
-}
-QTabBar::tab:hover:!selected {
-	background: palette(alternate-base);
-}
+/* Never style QTabWidget::pane / QTabBar globally — any pane rule breaks
+   QTabWidget::West on Qt 5 (content area paints blank). Style North tabs
+   on specific widgets only if needed. */
 
 QListWidget, QTreeWidget, QTableWidget {
 	border: 1px solid palette(mid);
@@ -179,16 +158,6 @@ QSplitter::handle {
 	height: 1px;
 }
 
-/* Section headers used on the VM page */
-Highlighted_Label {
-	font-size: 13px;
-	font-weight: 600;
-	color: palette(link);
-	padding: 8px 10px 4px 10px;
-	border-bottom: 1px solid palette(mid);
-	margin-top: 2px;
-	background: transparent;
-}
 )" ) );
 }
 
@@ -196,13 +165,13 @@ void AQ_Style_Card( QWidget *w, int max_width )
 {
 	if( ! w || w->objectName().isEmpty() )
 		return;
+	// Avoid CSS margin on QWidget — it breaks layout geometry on Qt 5.
 	w->setStyleSheet(
 		QStringLiteral(
 			"QWidget#%1 {"
 			"  background-color: palette(base);"
 			"  border: 1px solid palette(mid);"
 			"  border-radius: 6px;"
-			"  margin: 0px 4px 6px 4px;"
 			"  padding: 4px;"
 			"}"
 		).arg( w->objectName() ) );
@@ -296,13 +265,14 @@ void AQ_Make_Tab_Scrollable( QWidget *tab, const QString &inner_object_name )
 	scroll->setObjectName( QStringLiteral( "AQ_Tab_Scroll" ) );
 	scroll->setWidgetResizable( true );
 	scroll->setFrameShape( QFrame::NoFrame );
-	scroll->setHorizontalScrollBarPolicy( Qt::ScrollBarAlwaysOff );
+	scroll->setHorizontalScrollBarPolicy( Qt::ScrollBarAsNeeded );
+	scroll->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Expanding );
 	scroll->setWidget( inner );
 
 	QVBoxLayout *outer = new QVBoxLayout( tab );
 	outer->setContentsMargins( 0, 0, 0, 0 );
 	outer->setSpacing( 0 );
-	outer->addWidget( scroll );
+	outer->addWidget( scroll, 1 );
 }
 
 void AQ_Cap_Content_Width( QWidget *root, int max_width )
