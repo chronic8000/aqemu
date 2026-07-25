@@ -25,6 +25,8 @@
 #include <QTabWidget>
 #include <QTabBar>
 #include <QListWidget>
+#include <QPalette>
+#include <QColor>
 #include <QtGlobal>
 #include <QCoreApplication>
 #include <QWindow>
@@ -193,22 +195,29 @@ void AQ_Apply_App_Style( QApplication *app )
 	if( ! app )
 		return;
 
+	// Light chrome: white page background (Windows palette(window) is grey).
+	QPalette pal = app->palette();
+	pal.setColor( QPalette::Window, QColor( 255, 255, 255 ) );
+	pal.setColor( QPalette::Base, QColor( 255, 255, 255 ) );
+	pal.setColor( QPalette::AlternateBase, QColor( 248, 248, 248 ) );
+	app->setPalette( pal );
+
 	// CRITICAL (Qt 5 + Windows HiDPI): never put padding / min-height / border-radius
 	// on QComboBox, QLineEdit, QSpinBox, QPushButton, QCheckBox, QRadioButton, or
 	// QToolButton in a global stylesheet. Those rules shrink the content rect and
 	// clip glyphs mid-letter. Keep chrome-only styling; leave form controls native.
 	app->setStyleSheet( QStringLiteral( R"(
 QMainWindow, QDialog {
-	background-color: palette(window);
+	background-color: #ffffff;
 }
 
 QGroupBox {
 	font-weight: 600;
-	border: 1px solid palette(mid);
+	border: 1px solid #e0e0e0;
 	border-radius: 6px;
 	margin-top: 12px;
 	padding-top: 8px;
-	background-color: palette(base);
+	background-color: #ffffff;
 }
 QGroupBox::title {
 	subcontrol-origin: margin;
@@ -221,9 +230,9 @@ QGroupBox::title {
 /* Never style QTabWidget::pane / QTabBar globally — blanks West panes on Qt 5. */
 
 QListWidget, QTreeWidget, QTableWidget {
-	border: 1px solid palette(mid);
+	border: 1px solid #e0e0e0;
 	border-radius: 4px;
-	background: palette(base);
+	background: #ffffff;
 	outline: 0;
 }
 QListWidget::item:selected, QTreeWidget::item:selected {
@@ -233,18 +242,19 @@ QListWidget::item:selected, QTreeWidget::item:selected {
 
 QScrollArea {
 	border: none;
-	background: transparent;
+	background: #ffffff;
 }
 QSplitter::handle {
-	background: palette(mid);
+	background: #e8e8e8;
 }
 
 QStatusBar {
-	border-top: 1px solid palette(mid);
+	border-top: 1px solid #e0e0e0;
+	background: #ffffff;
 }
 QMenuBar {
-	background: palette(window);
-	border-bottom: 1px solid palette(mid);
+	background: #ffffff;
+	border-bottom: 1px solid #e0e0e0;
 }
 QMenuBar::item:selected {
 	background: palette(highlight);
@@ -256,8 +266,8 @@ QMenu::item:selected {
 }
 
 QToolTip {
-	border: 1px solid palette(mid);
-	background: palette(base);
+	border: 1px solid #e0e0e0;
+	background: #ffffff;
 	color: palette(window-text);
 }
 )" ) );
@@ -293,9 +303,12 @@ void AQ_Tighten_Layout_Spacers( QLayout *layout, int gap_px )
 			continue;
 		if( QSpacerItem *sp = it->spacerItem() )
 		{
-			QSizePolicy::Policy vp = sp->sizePolicy().verticalPolicy();
-			if( vp == QSizePolicy::Expanding || vp == QSizePolicy::MinimumExpanding ||
-			    sp->sizeHint().height() > gap_px + AQ_Px( 4 ) )
+			// Only collapse *vertical* expanding spacers. Touching horizontal ones
+			// (sizeHint height ~20) left Memory/Audio/Win11 bunched on the left.
+			const QSizePolicy::Policy vp = sp->sizePolicy().verticalPolicy();
+			const QSizePolicy::Policy hp = sp->sizePolicy().horizontalPolicy();
+			if( ( vp == QSizePolicy::Expanding || vp == QSizePolicy::MinimumExpanding ) &&
+			    hp != QSizePolicy::Expanding && hp != QSizePolicy::MinimumExpanding )
 			{
 				sp->changeSize( AQ_Px( 20 ), gap_px, QSizePolicy::Minimum, QSizePolicy::Fixed );
 			}

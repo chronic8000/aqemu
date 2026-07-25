@@ -687,31 +687,36 @@ void Main_Window::Polish_Settings_Tabs_Layout()
 	}
 
 	// Cap readable column from font metrics so ultrawide doesn't leave desert gaps.
-	// Do NOT cap ui.widget — the two-column Machine form needs room for full labels.
-	const int content_cap = AQ_Content_Max_Width( this );
-	auto cap_w = [content_cap]( QWidget *w ) {
-		if( w ) w->setMaximumWidth( content_cap );
-	};
-	cap_w( ui.GB_Memory );
-	cap_w( ui.GB_Audio );
-	cap_w( ui.GB_Disk_Bus );
-	cap_w( ui.GB_Win11_Lifecycle );
-	cap_w( ui.GB_Intel_MacOS_Settings );
-	cap_w( ui.GB_Options );
-	cap_w( ui.Widget_Use_Network );
-	cap_w( ui.GB_Guest_Display_Mode );
+	// Machine (ui.widget) and every section below must share the full content width.
 	if( ui.Memory_Size )
 	{
 		ui.Memory_Size->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Fixed );
-		// .ui locked this to 28px — too short with tick labels on HiDPI.
 		ui.Memory_Size->setMaximumHeight( QWIDGETSIZE_MAX );
-		ui.Memory_Size->setMaximumWidth( content_cap - AQ_Px( 80, this ) );
+		ui.Memory_Size->setMaximumWidth( QWIDGETSIZE_MAX );
 	}
 	if( ui.CB_RAM_Size )
 	{
 		ui.CB_RAM_Size->setMinimumWidth( AQ_Px( 110, this ) );
 		ui.CB_RAM_Size->setSizePolicy( QSizePolicy::Preferred, QSizePolicy::Fixed );
 	}
+
+	// Expand EVERY section under Machine across the page (all VMs, not just Win11).
+	auto expand_section = []( QWidget *w ) {
+		if( ! w ) return;
+		w->setMaximumWidth( QWIDGETSIZE_MAX );
+		w->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Preferred );
+		if( QLayout *lay = w->layout() )
+			lay->setSizeConstraint( QLayout::SetDefaultConstraint );
+	};
+	expand_section( ui.widget );
+	expand_section( ui.GB_Memory );
+	expand_section( ui.GB_Audio );
+	expand_section( ui.GB_Disk_Bus );
+	expand_section( ui.GB_Win11_Lifecycle );
+	expand_section( ui.GB_Intel_MacOS_Settings );
+	expand_section( ui.GB_Options );
+	expand_section( ui.Widget_Use_Network );
+	expand_section( ui.GB_Guest_Display_Mode );
 
 	if( ui.widget && ui.widget->layout() )
 	{
@@ -723,7 +728,7 @@ void Main_Window::Polish_Settings_Tabs_Layout()
 			gl->setColumnStretch( 0, 0 );
 			gl->setColumnStretch( 1, 1 );
 			gl->setColumnStretch( 2, 0 );
-			gl->setColumnStretch( 3, 0 );
+			gl->setColumnStretch( 3, 1 );
 			gl->setHorizontalSpacing( AQ_Px( 10, this ) );
 		}
 		// Labels must keep their full text width (don't let combos crush them).
@@ -745,10 +750,10 @@ void Main_Window::Polish_Settings_Tabs_Layout()
 		ui.TB_Show_Advanced_Options_Window->setMaximumHeight( QWIDGETSIZE_MAX );
 	}
 
-	// Win11 lifecycle buttons — Preferred width so long labels aren't truncated.
+	// Disk / Win11 action rows — expand controls so they aren't glued left.
 	auto polish_btn = []( QPushButton *b ) {
 		if( ! b ) return;
-		b->setSizePolicy( QSizePolicy::Preferred, QSizePolicy::Fixed );
+		b->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Fixed );
 		b->setMinimumHeight( 0 );
 		b->setMaximumHeight( QWIDGETSIZE_MAX );
 	};
@@ -757,12 +762,63 @@ void Main_Window::Polish_Settings_Tabs_Layout()
 	polish_btn( ui.Button_Win11_Normal );
 	polish_btn( ui.Button_Win11_Repair );
 	polish_btn( ui.Button_VirtIO_Defaults );
+	if( ui.CB_Disk_Interface )
+		ui.CB_Disk_Interface->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Fixed );
+
+	// Trailing spacers in those rows should not steal all remaining width.
+	auto soft_trailing_spacer = []( QLayout *lay ) {
+		if( ! lay ) return;
+		for( int i = 0; i < lay->count(); ++i )
+		{
+			QLayoutItem *it = lay->itemAt( i );
+			if( ! it || ! it->spacerItem() ) continue;
+			if( i == lay->count() - 1 )
+				it->spacerItem()->changeSize( 8, 0, QSizePolicy::Minimum, QSizePolicy::Minimum );
+		}
+	};
+	if( ui.GB_Disk_Bus )
+		soft_trailing_spacer( ui.GB_Disk_Bus->layout() );
+	if( ui.GB_Win11_Lifecycle )
+	{
+		if( QVBoxLayout *vl = qobject_cast<QVBoxLayout *>( ui.GB_Win11_Lifecycle->layout() ) )
+		{
+			for( int i = 0; i < vl->count(); ++i )
+			{
+				if( QLayout *sub = vl->itemAt( i )->layout() )
+					soft_trailing_spacer( sub );
+			}
+		}
+	}
 
 	if( ui.GB_Options )
 	{
 		if( QGridLayout *gl = qobject_cast<QGridLayout*>( ui.GB_Options->layout() ) )
-			gl->setColumnStretch( 3, 0 );
+		{
+			gl->setColumnStretch( 0, 1 );
+			gl->setColumnStretch( 1, 1 );
+			gl->setColumnStretch( 2, 1 );
+			gl->setColumnStretch( 3, 1 );
+		}
 	}
+
+	// White page behind Machine / Memory / … (avoid grey Window chrome bleed).
+	auto paint_white = []( QWidget *w ) {
+		if( ! w ) return;
+		w->setAutoFillBackground( true );
+		QPalette p = w->palette();
+		p.setColor( QPalette::Window, Qt::white );
+		p.setColor( QPalette::Base, Qt::white );
+		w->setPalette( p );
+	};
+	paint_white( ui.centralwidget );
+	paint_white( ui.Widget_for_Tabs );
+	paint_white( ui.Tabs );
+	paint_white( ui.Tab_General );
+	paint_white( ui.Tab_Info );
+	paint_white( ui.Tab_Media );
+	paint_white( ui.Tab_Display );
+	paint_white( ui.Tab_Network );
+	paint_white( ui.Machines_List );
 
 	auto polish_nested_tabs = []( QTabWidget *tw ) {
 		if( ! tw ) return;
