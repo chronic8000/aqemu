@@ -45,6 +45,9 @@
 #include <QSystemTrayIcon>
 #include <QMenu>
 #include <QEvent>
+#include <QWindowStateChangeEvent>
+#include <QGuiApplication>
+#include <QScreen>
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QTextEdit>
@@ -118,6 +121,7 @@ Main_Window::Main_Window( QWidget *parent )
 	, Tray_Icon( nullptr )
 	, Act_Tray_Show( nullptr )
 	, Act_Tray_Quit( nullptr )
+	, Tray_Restore_Maximized( false )
 	, Auto_Save_Timer( nullptr )
 	, VM_Ui_Refresh_Timer( nullptr )
 {
@@ -425,7 +429,7 @@ void Main_Window::Update_System_Tray()
 	if( ! Tray_Icon )
 		return;
 
-	const bool enable = Settings.value( "Minimize_To_Tray", "no" ).toString() == "yes";
+	const bool enable = Settings.value( "Minimize_To_Tray", "yes" ).toString() == "yes";
 	if( ! enable )
 	{
 		Tray_Icon->hide();
@@ -443,7 +447,10 @@ void Main_Window::Update_System_Tray()
 
 void Main_Window::On_Tray_Show()
 {
-	showNormal();
+	if( Tray_Restore_Maximized )
+		showMaximized();
+	else
+		showNormal();
 	raise();
 	activateWindow();
 	if( Tray_Icon )
@@ -458,23 +465,22 @@ void Main_Window::On_Tray_Activated( QSystemTrayIcon::ActivationReason reason )
 
 void Main_Window::changeEvent( QEvent *event )
 {
-	QMainWindow::changeEvent( event );
-	if( event->type() != QEvent::WindowStateChange )
-		return;
-	if( Settings.value( "Minimize_To_Tray", "no" ).toString() != "yes" )
-		return;
-	if( ! Tray_Icon )
-		return;
-
-	if( isMinimized() )
+	if( event->type() == QEvent::WindowStateChange )
 	{
-		QTimer::singleShot( 0, this, SLOT(Hide_To_Tray()) );
+		auto *se = static_cast<QWindowStateChangeEvent *>( event );
+		if( Settings.value( "Minimize_To_Tray", "yes" ).toString() == "yes" &&
+		    Tray_Icon && isMinimized() )
+		{
+			Tray_Restore_Maximized = se->oldState().testFlag( Qt::WindowMaximized );
+			QTimer::singleShot( 0, this, SLOT(Hide_To_Tray()) );
+		}
 	}
+	QMainWindow::changeEvent( event );
 }
 
 void Main_Window::Hide_To_Tray()
 {
-	if( Settings.value( "Minimize_To_Tray", "no" ).toString() != "yes" )
+	if( Settings.value( "Minimize_To_Tray", "yes" ).toString() != "yes" )
 		return;
 	if( ! Tray_Icon )
 		return;
@@ -601,16 +607,10 @@ void Main_Window::Polish_Settings_Tabs_Layout()
 		if( gen_ix >= 0 )
 			ui.Tabs->setTabText( gen_ix, tr( "Machine" ) );
 
-		// Compact West rail — Qt High-DPI already scales DIPs; keep the strip slim.
+		AQ_Install_West_TabBar( ui.Tabs );
 		if( QTabBar *bar = ui.Tabs->tabBar() )
 		{
-			bar->setExpanding( false );
-			QFont tabFont = QApplication::font();
-			tabFont.setStyleHint( QFont::SansSerif, QFont::PreferAntialias );
-			tabFont.setStyleStrategy( QFont::PreferAntialias );
-			tabFont.setWeight( QFont::Medium );
-			bar->setFont( tabFont );
-			const QFontMetrics fm( tabFont );
+			const QFontMetrics fm( bar->font() );
 			const int pad_along = qMax( 4, fm.height() / 4 );
 			const int pad_thick = qMax( 2, fm.averageCharWidth() / 2 );
 			const int accent = qMax( 2, fm.averageCharWidth() / 3 );
@@ -633,12 +633,15 @@ void Main_Window::Polish_Settings_Tabs_Layout()
 				"  background: palette(alternate-base);"
 				"}"
 			).arg( pad_along ).arg( pad_thick ).arg( accent ) );
-			// Small icons for the thin West rail (not list/nav size).
-			QStyle *st = style();
-			const int icon = st ? st->pixelMetric( QStyle::PM_SmallIconSize, nullptr, this ) : 16;
-			bar->setIconSize( QSize( icon, icon ) );
 		}
 	}
+
+	// Soft floor so the layout can shrink; Media chip strip no longer locks width.
+	setMinimumSize( 640, 480 );
+	if( ui.splitter )
+		ui.splitter->setChildrenCollapsible( true );
+	if( ui.Machines_List )
+		ui.Machines_List->setMinimumWidth( 140 );
 
 	// Keep the Machine / Memory / Audio… section headers; tighten the page.
 	if( ui.label )
@@ -1901,12 +1904,34 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
 
 bool Main_Window::Load_Settings()
 {
-	// Main Window Size
-	resize( Settings.value("General_Window_Width", "885").toInt(),
-			Settings.value("General_Window_Height", "544").toInt() );
+	// Main Window Size — clamp to the available screen so a prior maximized
+	// save cannot leave the window stuck at "whole desktop" normal size.
+	int w = Settings.value( "General_Window_Width", 885 ).toInt();
+	int h = Settings.value( "General_Window_Height", 544 ).toInt();
+	QPoint pos = Settings.value( "General_Window_Position", QPoint( 300, 300 ) ).toPoint();
 
-	// Main Window Position
-	move( Settings.value("General_Window_Position", QPoint(300, 300)).toPoint() );
+	QScreen *screen = QGuiApplication::screenAt( pos );
+	if( ! screen )
+		screen = QGuiApplication::primaryScreen();
+	if( screen )
+	{
+		const QRect avail = screen->availableGeometry();
+		w = qBound( 640, w, avail.width() );
+		h = qBound( 480, h, avail.height() );
+		if( ! avail.contains( pos ) )
+		{
+			pos.setX( qBound( avail.left(), pos.x(), avail.right() - w ) );
+			pos.setY( qBound( avail.top(), pos.y(), avail.bottom() - h ) );
+		}
+	}
+	else
+	{
+		w = qMax( 640, w );
+		h = qMax( 480, h );
+	}
+
+	resize( w, h );
+	move( pos );
 
 	// Toolbar State
 	restoreState( Settings.value("General_Window_State").toByteArray());
@@ -1918,6 +1943,9 @@ bool Main_Window::Load_Settings()
 	// Splitter
 	ui.splitter->restoreState( Settings.value("General_Splitter",
 							   QByteArray("\0\0\0\xff\0\0\0\0\0\0\0\x2\0\0\0\xbc\0\0\x2$\0\0\0\0\x4\x1\0\0\0\x1")).toByteArray() );
+
+	if( Settings.value( "General_Window_Maximized", false ).toBool() )
+		showMaximized();
 
 	// VM Icons Size — user override if set, else host DPI / style metric.
 	{
@@ -1952,9 +1980,14 @@ bool Main_Window::Save_Settings()
 	// Current VM Index
 	Settings.setValue( "Current_VM_Index", ui.Machines_List->currentRow() );
 
-	// Save Windows Size
-	Settings.setValue( "General_Window_Width", QString::number(this->width()) );
-	Settings.setValue( "General_Window_Height", QString::number(this->height()) );
+	// Persist the restored (non-maximized) geometry so Maximize does not
+	// permanently inflate the next normal session size.
+	const QRect geo = normalGeometry();
+	Settings.setValue( "General_Window_Width", QString::number( geo.width() ) );
+	Settings.setValue( "General_Window_Height", QString::number( geo.height() ) );
+	Settings.setValue( "General_Window_Position", geo.topLeft() );
+	Settings.setValue( "General_Window_Maximized",
+		isMaximized() || ( ! isVisible() && Tray_Restore_Maximized ) );
 
 	// Save Toolbar State — never persist session-hidden left bars
 	const bool manage_vis = ui.Tool_Bar_VM_Manage->isVisible();
@@ -1964,9 +1997,6 @@ bool Main_Window::Save_Settings()
 	Settings.setValue( "General_Window_State", saveState() );
 	ui.Tool_Bar_VM_Manage->setVisible( manage_vis );
 	ui.Tool_Bar_VM_Control->setVisible( control_vis );
-
-	// Save Main Window Position
-	Settings.setValue( "General_Window_Position", pos() );
 
 	// Splitter
 	Settings.setValue( "General_Splitter", ui.splitter->saveState() );

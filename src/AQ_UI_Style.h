@@ -6,19 +6,37 @@
 
 #include <QString>
 #include <QSize>
+#include <QTabBar>
 
 class QApplication;
 class QWidget;
 class QLayout;
+class QTabWidget;
 
 /** Must run before QApplication is constructed (Qt 5 High-DPI). */
 void AQ_Enable_High_Dpi();
 
 /**
- * Host UI scale vs a 96-DPI baseline (logicalDotsPerInch / 96, floored at 1).
- * Prefer this over hard-coded pixel sizes anywhere in the UI.
+ * Extra layout multiplier. With High-DPI enabled this stays 1.0 — Qt already
+ * maps DIPs; multiplying by logicalDPI/96 double-scales chrome on 4K.
  */
 qreal AQ_Ui_Scale( const QWidget *hint = nullptr );
+
+/**
+ * West (vertical) tab bar with a slim rail and antialiased rotated labels.
+ * Replaces the stock bar on a QTabWidget (avoids fat/pixelated West tabs).
+ */
+class AQ_West_TabBar : public QTabBar
+{
+public:
+	explicit AQ_West_TabBar( QWidget *parent = nullptr );
+	QSize tabSizeHint( int index ) const override;
+
+protected:
+	void paintEvent( QPaintEvent *event ) override;
+};
+
+void AQ_Install_West_TabBar( QTabWidget *tabs );
 
 /** Scale a size that was designed for 96 DPI into current logical pixels. */
 int AQ_Px( int baseline_96dpi, const QWidget *hint = nullptr );

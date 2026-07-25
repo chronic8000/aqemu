@@ -8,6 +8,9 @@
 #include <QGuiApplication>
 #include <QScreen>
 #include <QStyle>
+#include <QStylePainter>
+#include <QStyleOptionTab>
+#include <QPainter>
 #include <QFontMetrics>
 #include <QWidget>
 #include <QLayout>
@@ -20,10 +23,12 @@
 #include <QSizePolicy>
 #include <QGroupBox>
 #include <QTabWidget>
+#include <QTabBar>
 #include <QListWidget>
 #include <QtGlobal>
 #include <QCoreApplication>
 #include <QWindow>
+#include <QPaintEvent>
 
 void AQ_Enable_High_Dpi()
 {
@@ -106,6 +111,81 @@ int AQ_Content_Max_Width( const QWidget *hint )
 	const QFontMetrics fm( font );
 	const int ch = qMax( 1, fm.averageCharWidth() );
 	return ch * 72; // ~readable column, scales with font (and High-DPI)
+}
+
+AQ_West_TabBar::AQ_West_TabBar( QWidget *parent )
+	: QTabBar( parent )
+{
+	setExpanding( false );
+	setUsesScrollButtons( true );
+	QFont f = QApplication::font();
+	f.setStyleHint( QFont::SansSerif, QFont::PreferAntialias );
+	f.setStyleStrategy( QFont::PreferAntialias );
+	f.setWeight( QFont::Medium );
+	setFont( f );
+	QStyle *st = style();
+	const int icon = st ? st->pixelMetric( QStyle::PM_SmallIconSize, nullptr, this ) : 16;
+	setIconSize( QSize( icon, icon ) );
+}
+
+QSize AQ_West_TabBar::tabSizeHint( int index ) const
+{
+	const QFontMetrics fm( font() );
+	const QSize ic = iconSize();
+	const int pad = qMax( 6, fm.height() / 3 );
+	const int text_len = fm.horizontalAdvance( tabText( index ) );
+	// West rail: width = thickness, height = length along the bar.
+	const int thick = qMax( ic.width(), fm.height() ) + pad;
+	const int along = qMax( text_len, ic.height() ) + pad * 2;
+	return QSize( thick, along );
+}
+
+void AQ_West_TabBar::paintEvent( QPaintEvent *event )
+{
+	Q_UNUSED( event );
+	QStylePainter painter( this );
+	painter.setRenderHint( QPainter::Antialiasing, true );
+	painter.setRenderHint( QPainter::TextAntialiasing, true );
+	painter.setRenderHint( QPainter::SmoothPixmapTransform, true );
+
+	for( int i = 0; i < count(); ++i )
+	{
+		QStyleOptionTab opt;
+		initStyleOption( &opt, i );
+		painter.drawControl( QStyle::CE_TabBarTabShape, opt );
+
+		painter.save();
+		QSize s = opt.rect.size();
+		s.transpose();
+		QRect r( QPoint(), s );
+		r.moveCenter( opt.rect.center() );
+		opt.shape = QTabBar::RoundedNorth;
+		opt.rect = r;
+
+		const QPoint c = tabRect( i ).center();
+		painter.translate( c );
+		painter.rotate( 90 );
+		painter.translate( -c );
+		painter.drawControl( QStyle::CE_TabBarTabLabel, opt );
+		painter.restore();
+	}
+}
+
+void AQ_Install_West_TabBar( QTabWidget *tabs )
+{
+	if( ! tabs )
+		return;
+	if( tabs->property( "aq_west_tabbar" ).toBool() )
+		return;
+
+	// setTabBar() is protected — access via a thin derived type.
+	struct Tab_Access : public QTabWidget {
+		using QTabWidget::setTabBar;
+	};
+	auto *bar = new AQ_West_TabBar( tabs );
+	static_cast<Tab_Access *>( tabs )->setTabBar( bar );
+	tabs->setTabPosition( QTabWidget::West );
+	tabs->setProperty( "aq_west_tabbar", true );
 }
 
 void AQ_Apply_App_Style( QApplication *app )

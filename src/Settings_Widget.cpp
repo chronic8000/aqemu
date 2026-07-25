@@ -29,6 +29,7 @@
 #include <QSplitter>
 #include <QFontMetrics>
 #include <QAbstractItemView>
+#include <QSizePolicy>
 
 #include "Settings_Widget.h"
 #include "AQ_UI_Style.h"
@@ -39,6 +40,27 @@
 My_List_Widget::My_List_Widget(QWidget* parent) : QListWidget(parent)
 {
   
+}
+
+QSize My_List_Widget::minimumSizeHint() const
+{
+	// Horizontal Media/Display/Network chip strips must not dictate the
+	// main window's minimum width (sum of all chips was ~1200px on HiDPI).
+	if( flow() == QListView::LeftToRight )
+	{
+		const QFontMetrics fm( font() );
+		const int h = qMax( iconSize().height(), fm.height() ) + 16;
+		const int w = qMax( 160, iconSize().width() + fm.horizontalAdvance( QStringLiteral( "MMMMMMMM" ) ) + 24 );
+		return QSize( w, h );
+	}
+	return QListWidget::minimumSizeHint();
+}
+
+QSize My_List_Widget::sizeHint() const
+{
+	if( flow() == QListView::LeftToRight )
+		return minimumSizeHint();
+	return QListWidget::sizeHint();
 }
 
 void My_List_Widget::wheelEvent(QWheelEvent* e)
@@ -236,7 +258,10 @@ void Settings_Widget::syncGroupIconSizes(QString g)
 
         sw->list->setMinimumHeight( row_h + AQ_Px( 10, sw ) );
         sw->list->setMaximumHeight( row_h + AQ_Px( 14, sw ) );
-        sw->list->setMinimumWidth( qMin( min_total_list_width, AQ_Px( 1200, sw ) ) );
+		// Prefer scroll over locking the main window to the full chip strip width.
+		Q_UNUSED( min_total_list_width );
+		sw->list->setMinimumWidth( 0 );
+		sw->list->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Fixed );
     }
 }
 

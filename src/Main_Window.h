@@ -365,6 +365,7 @@ class Main_Window: public QMainWindow
 		QSystemTrayIcon *Tray_Icon;
 		QAction *Act_Tray_Show;
 		QAction *Act_Tray_Quit;
+		bool Tray_Restore_Maximized;
 
         bool block_VM_changed_signals;
 		QTimer *Auto_Save_Timer;
