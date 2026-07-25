@@ -1544,7 +1544,19 @@ bool System_Info::Is_Disk_Bus_Allowed( const QString &computer_type, const QStri
 			return false;
 
 		case VM::DI_SD:
-			return is_virt_machine || fam == VAF_MIPS || fam == VAF_OTHER;
+			// if=sd needs a board with an SD controller (raspi, etc.).
+			// Generic aarch64/arm "virt" / "virt-*" has no SD bus — QEMU errors with
+			// "machine type does not support if=sd".
+			if( m.startsWith( QLatin1String( "virt" ) ) )
+				return false;
+			if( m.contains( QLatin1String( "raspi" ) ) ||
+			    m.contains( QLatin1String( "sabrelite" ) ) ||
+			    m.contains( QLatin1String( "cubie" ) ) ||
+			    m.contains( QLatin1String( "orangepi" ) ) ||
+			    m.contains( QLatin1String( "npcm" ) ) ||
+			    m.contains( QLatin1String( "bpim" ) ) )
+				return true;
+			return fam == VAF_MIPS || fam == VAF_OTHER;
 
 		case VM::DI_Floppy:
 			return is_pc_x86 && ! is_virt_machine;

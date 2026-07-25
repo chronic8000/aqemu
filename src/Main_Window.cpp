@@ -56,6 +56,10 @@
 #include <QGridLayout>
 #include <QLabel>
 #include <QPushButton>
+#include <QToolButton>
+#include <QAbstractButton>
+#include <QStyle>
+#include <QFontMetrics>
 #include <QLineEdit>
 #include <QClipboard>
 #include <QScrollArea>
@@ -133,7 +137,7 @@ Main_Window::Main_Window( QWidget *parent )
 
 	Auto_Save_Timer = new QTimer( this );
 	Auto_Save_Timer->setSingleShot( true );
-	Auto_Save_Timer->setInterval( 400 );
+	Auto_Save_Timer->setInterval( 150 );
 	connect( Auto_Save_Timer, SIGNAL(timeout()), this, SLOT(on_Button_Apply_clicked()) );
 
 	// Coalesce rapid VM-list clicks so we don't rebuild the whole form per click.
@@ -601,7 +605,6 @@ Virtual_Machine *Main_Window::Get_Current_VM()
 
 void Main_Window::Polish_Settings_Tabs_Layout()
 {
-	// Do NOT wrap West-tab pages in QScrollArea — that blanks the pane on Qt 5.
 	if( ui.Tabs )
 	{
 		ui.Tabs->setDocumentMode( false );
@@ -701,13 +704,13 @@ void Main_Window::Polish_Settings_Tabs_Layout()
 		ui.CB_RAM_Size->setSizePolicy( QSizePolicy::Preferred, QSizePolicy::Fixed );
 	}
 
-	// Expand EVERY section under Machine across the page (all VMs, not just Win11).
+	// Expand horizontally; never shrink vertically below content (scroll instead).
 	auto expand_section = []( QWidget *w ) {
 		if( ! w ) return;
 		w->setMaximumWidth( QWIDGETSIZE_MAX );
-		w->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Preferred );
+		w->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Minimum );
 		if( QLayout *lay = w->layout() )
-			lay->setSizeConstraint( QLayout::SetDefaultConstraint );
+			lay->setSizeConstraint( QLayout::SetMinimumSize );
 	};
 	expand_section( ui.widget );
 	expand_section( ui.GB_Memory );
@@ -779,15 +782,19 @@ void Main_Window::Polish_Settings_Tabs_Layout()
 		ui.TB_Show_Advanced_Options_Window->setSizePolicy(
 			QSizePolicy::Maximum, QSizePolicy::Fixed );
 		ui.TB_Show_Advanced_Options_Window->setMinimumWidth( 0 );
-		ui.TB_Show_Advanced_Options_Window->setMinimumHeight( 0 );
+		const int btn_h = style()->pixelMetric( QStyle::PM_ButtonDefaultIndicator, nullptr, this );
+		Q_UNUSED( btn_h );
+		ui.TB_Show_Advanced_Options_Window->setMinimumHeight(
+			qMax( AQ_Px( 24, this ), fontMetrics().height() + AQ_Px( 8, this ) ) );
 		ui.TB_Show_Advanced_Options_Window->setMaximumHeight( QWIDGETSIZE_MAX );
 	}
 
 	// Disk / Win11 action rows — expand controls so they aren't glued left.
-	auto polish_btn = []( QPushButton *b ) {
+	const int ctrl_h = qMax( AQ_Px( 28, this ), fontMetrics().height() + AQ_Px( 10, this ) );
+	auto polish_btn = [ctrl_h]( QPushButton *b ) {
 		if( ! b ) return;
 		b->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Fixed );
-		b->setMinimumHeight( 0 );
+		b->setMinimumHeight( ctrl_h );
 		b->setMaximumHeight( QWIDGETSIZE_MAX );
 	};
 	polish_btn( ui.Button_Win11_Install );
@@ -797,6 +804,20 @@ void Main_Window::Polish_Settings_Tabs_Layout()
 	polish_btn( ui.Button_VirtIO_Defaults );
 	if( ui.CB_Disk_Interface )
 		ui.CB_Disk_Interface->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Fixed );
+
+	// Never allow checkboxes / radios on the Machine page to squash into unreadability.
+	if( ui.Tab_General )
+	{
+		const auto boxes = ui.Tab_General->findChildren<QAbstractButton *>();
+		for( QAbstractButton *b : boxes )
+		{
+			if( ! b ) continue;
+			if( qobject_cast<QPushButton *>( b ) && ! qobject_cast<QToolButton *>( b ) )
+				continue; // already polished above / size policy set
+			b->setSizePolicy( b->sizePolicy().horizontalPolicy(), QSizePolicy::Fixed );
+			b->setMinimumHeight( qMax( b->minimumHeight(), fontMetrics().height() + AQ_Px( 4, this ) ) );
+		}
+	}
 
 	// Trailing spacers in those rows should not steal all remaining width.
 	auto soft_trailing_spacer = []( QLayout *lay ) {
@@ -867,6 +888,10 @@ void Main_Window::Polish_Settings_Tabs_Layout()
 		ui.Machines_List->setSpacing( 2 );
 		ui.Machines_List->setUniformItemSizes( true );
 	}
+
+	// Scroll when the Machine page is taller than the window — never crush controls.
+	if( ui.Tab_General )
+		AQ_Make_Tab_Scrollable( ui.Tab_General, QStringLiteral( "AQ_Machine_Tab_Inner" ) );
 }
 
 void Main_Window::Connect_Signals()
@@ -899,9 +924,9 @@ void Main_Window::Connect_Signals()
 	connect( ui.CB_CPU_Type_Main, SIGNAL(currentIndexChanged(int)),
 			 this, SLOT(on_CB_CPU_Type_Main_currentIndexChanged(int)) );
 
-	connect( ui.CB_Boot_Priority, SIGNAL(currentIndexChanged(int)),
-			 this, SLOT(VM_Changed()) );
-
+	// Boot priority: only CB_Boot_Priority_currentIndexChanged — it updates
+	// Boot_Order_List then calls VM_Changed(). A prior VM_Changed() here ran
+	// with a stale list and could cancel a pending auto-save.
 	connect( ui.CB_Boot_Priority, SIGNAL(currentIndexChanged(int)),
 			 this, SLOT(CB_Boot_Priority_currentIndexChanged(int)) );
 
@@ -1516,6 +1541,7 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
 		tmp_vm->Set_Keyboard_Layout( ui.CB_Keyboard_Layout->currentText() );
 
 	// Boot Priority
+	Boot_Order_List = VM::Expand_Boot_Order_List( Boot_Order_List );
 	tmp_vm->Set_Boot_Order_List( Boot_Order_List );
 	tmp_vm->Set_Show_Boot_Menu( Show_Boot_Menu );
 
@@ -2409,9 +2435,9 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 	Apply_Mouse_Settings_To_Ui( tmp_vm );
 	Update_Mouse_Options_Enabled();
 
-	// Boot
-	Set_Boot_Order( tmp_vm->Get_Boot_Order_List() );
-	Boot_Order_List = tmp_vm->Get_Boot_Order_List();
+	// Boot — expand truncated lists so the combo can select any device type
+	Boot_Order_List = VM::Expand_Boot_Order_List( tmp_vm->Get_Boot_Order_List() );
+	Set_Boot_Order( Boot_Order_List );
 	Show_Boot_Menu = tmp_vm->Get_Show_Boot_Menu();
 
 	// Audio Cards
@@ -3872,7 +3898,13 @@ void Main_Window::VM_Changed()
     {
         auto tmp_vm = new Virtual_Machine();
 
-        Create_VM_From_Ui(tmp_vm,old_vm,false);
+        // Incomplete Create_VM_From_Ui must not mark dirty / schedule save —
+        // that would race Apply with a half-built VM and drop edits.
+        if( ! Create_VM_From_Ui( tmp_vm, old_vm, false ) )
+        {
+            delete tmp_vm;
+            return;
+        }
 
         bool test = ( *old_vm != *tmp_vm );
 
@@ -5899,6 +5931,7 @@ void Main_Window::Enforce_Disk_Bus_Honesty()
 	auto *model = qobject_cast<QStandardItemModel *>( ui.CB_Disk_Interface->model() );
 	ui.CB_Disk_Interface->blockSignals( true );
 
+	const int prev_index = ui.CB_Disk_Interface->currentIndex();
 	int first_enabled = -1;
 	for( int i = 0; i < ui.CB_Disk_Interface->count(); ++i )
 	{
@@ -5943,7 +5976,13 @@ void Main_Window::Enforce_Disk_Bus_Honesty()
 			.arg( computer, machine.isEmpty() ? tr( "(default)" ) : machine ) );
 	}
 
+	const int new_index = ui.CB_Disk_Interface->currentIndex();
 	ui.CB_Disk_Interface->blockSignals( false );
+
+	// Persist AHCI→VirtIO (etc.) clamps — previously the combo was fixed in the UI
+	// only, so Start kept emitting ich9-ahci on aarch64.
+	if( new_index != prev_index && ! block_VM_changed_signals )
+		VM_Changed();
 }
 
 void Main_Window::Update_Accelerator_Options()
@@ -6036,12 +6075,24 @@ void Main_Window::Apply_Emulator( int mode )
 
 void Main_Window::CB_Boot_Priority_currentIndexChanged( int index )
 {
-	// Clear old string
-	if( ui.CB_Boot_Priority->count() >= 5 ) ui.CB_Boot_Priority->removeItem( 5 );
+	// Custom multi-boot row (index 5+) already matches Boot_Order_List — do not
+	// strip it or map through the single-device enable logic (that wiped the list
+	// to all-disabled → UI "None" and UEFI shell).
+	if( index >= 5 )
+	{
+		VM_Changed();
+		return;
+	}
+
+	// Drop the dynamic multi-boot label only (base items are indices 0–4).
+	while( ui.CB_Boot_Priority->count() > 5 )
+		ui.CB_Boot_Priority->removeItem( 5 );
 
 	VM::Boot_Device bootDev;
 
-	switch( ui.CB_Boot_Priority->currentIndex() )
+	// Use the signal's index — not currentIndex() after removeItem, which can
+	// jump to "None" when the removed row was selected.
+	switch( index )
 	{
 		case 0:
 			bootDev = VM::Boot_From_FDA;
@@ -6064,19 +6115,16 @@ void Main_Window::CB_Boot_Priority_currentIndexChanged( int index )
 			break;
 
 		default:
-			AQWarning( "void Main_Window::on_CB_Boot_Priority_currentIndexChanged( int index )",
+			AQWarning( "void Main_Window::CB_Boot_Priority_currentIndexChanged( int index )",
 					   "Use Default Boot Device: CD-ROM" );
 			bootDev = VM::Boot_From_CDROM;
 			break;
 	}
 
-	for( int bx = 0; bx < Boot_Order_List.count(); bx++ )
-	{
-		if( Boot_Order_List[bx].Type == bootDev ) Boot_Order_List[ bx ].Enabled = true;
-		else Boot_Order_List[ bx ].Enabled = false;
-	}
+	// Expand truncated lists (Win11 lifecycle / wizard) so the chosen type exists.
+	VM::Set_Boot_Order_Single( Boot_Order_List, bootDev );
 
-    VM_Changed();
+	VM_Changed();
 }
 
 void Main_Window::Set_Boot_Order( const QList<VM::Boot_Order> &list )
@@ -6084,10 +6132,12 @@ void Main_Window::Set_Boot_Order( const QList<VM::Boot_Order> &list )
 	disconnect( ui.CB_Boot_Priority, SIGNAL(currentIndexChanged(int)),
 				this, SLOT(CB_Boot_Priority_currentIndexChanged(int)) );
 
-    QStringList bootStr = VM::Boot_Order_To_String_List(list);
+	const QList<VM::Boot_Order> expanded = VM::Expand_Boot_Order_List( list );
+	QStringList bootStr = VM::Boot_Order_To_String_List( expanded );
 
-	// Clear old string
-	if( ui.CB_Boot_Priority->count() >= 5 ) ui.CB_Boot_Priority->removeItem( 5 );
+	// Clear dynamic multi-boot label (indices 0–4 are fixed)
+	while( ui.CB_Boot_Priority->count() > 5 )
+		ui.CB_Boot_Priority->removeItem( 5 );
 
 	// Select boot device
 	if( bootStr.count() < 1 ) // None
@@ -6133,11 +6183,13 @@ void Main_Window::on_TB_Show_Boot_Settings_Window_clicked()
 
 	if( boot_win.exec() == QDialog::Accepted )
 	{
-		Boot_Order_List = boot_win.data();
+		Boot_Order_List = VM::Expand_Boot_Order_List( boot_win.data() );
 		Show_Boot_Menu = boot_win.useBootMenu();
 
-		// Apply data to UI
+		// Apply data to UI and persist (Set_Boot_Order alone may not emit
+		// currentIndexChanged when the combo index stays the same).
 		Set_Boot_Order( Boot_Order_List );
+		VM_Changed();
 	}
 }
 
@@ -6154,24 +6206,29 @@ void Main_Window::on_TB_Show_Architecture_Options_Window_clicked()
 void Main_Window::Discard_Changes(QDialog* dialog)
 {
     auto old_vm = Get_Current_VM();
-    Virtual_Machine old_vm_copy(*old_vm);
-    Virtual_Machine tmp_vm;
-    bool ok = Create_VM_From_Ui(&tmp_vm, old_vm, false);
-    bool a = ui.Button_Apply->isEnabled();
-    bool c = ui.Button_Cancel->isEnabled();
-
-    if ( dialog->exec() == QDialog::Accepted )
+    if( ! old_vm )
         return;
 
-    if ( ok )
+    Virtual_Machine old_vm_copy( *old_vm );
+    Virtual_Machine tmp_vm;
+    bool ok = Create_VM_From_Ui( &tmp_vm, old_vm, false );
+
+    if( dialog->exec() == QDialog::Accepted )
+    {
+        // Dialog widgets may already have fired VM_Changed; force a flush so
+        // Accept never leaves unsaved edits (index-unchanged combos, etc.).
+        VM_Changed();
+        if( ui.Button_Apply->isEnabled() )
+            on_Button_Apply_clicked();
+        return;
+    }
+
+    // Cancel: restore UI to the pre-dialog snapshot
+    if( ok )
     {
         *old_vm = tmp_vm;
-        Update_VM_Ui(false);
-
+        Update_VM_Ui( false );
         *old_vm = old_vm_copy;
-
-	    ui.Button_Apply->setEnabled( a );
-	    ui.Button_Cancel->setEnabled( c );
     }
 }
 
@@ -6678,9 +6735,6 @@ void Main_Window::Apply_Win11_Lifecycle_Mode( VM::Win11_Lifecycle_Mode mode )
 			ui.CB_Mouse_Type->setCurrentIndex( by_text );
 	}
 
-	QList<VM::Boot_Order> boot;
-	VM::Boot_Order b;
-
 	if( mode == VM::Win11_Install )
 	{
 		const int vix = ui.CB_Video_Card->findData( "ramfb" );
@@ -6694,13 +6748,8 @@ void Main_Window::Apply_Win11_Lifecycle_Mode( VM::Win11_Lifecycle_Mode mode )
 		if( ! Dev_Manager->CD_ROM.Get_File_Name().isEmpty() )
 			Dev_Manager->CD_ROM.Set_Enabled( true );
 
-		b.Type = VM::Boot_From_CDROM;
-		b.Enabled = true;
-		boot << b;
-		b.Type = VM::Boot_From_HDD;
-		b.Enabled = true;
-		boot << b;
-		Boot_Order_List = boot;
+		// Full boot list (CD then HDD) — truncated lists break the boot combo
+		VM::Set_Boot_Order_Enabled( Boot_Order_List, VM::Boot_From_CDROM, VM::Boot_From_HDD );
 		Set_Boot_Order( Boot_Order_List );
 	}
 	else if( mode == VM::Win11_First_Boot )
@@ -6716,10 +6765,7 @@ void Main_Window::Apply_Win11_Lifecycle_Mode( VM::Win11_Lifecycle_Mode mode )
 		// Keep path but detach ISO for this phase
 		Dev_Manager->CD_ROM.Set_Enabled( false );
 
-		b.Type = VM::Boot_From_HDD;
-		b.Enabled = true;
-		boot << b;
-		Boot_Order_List = boot;
+		VM::Set_Boot_Order_Enabled( Boot_Order_List, VM::Boot_From_HDD );
 		Set_Boot_Order( Boot_Order_List );
 	}
 	else // Normal
@@ -6730,10 +6776,7 @@ void Main_Window::Apply_Win11_Lifecycle_Mode( VM::Win11_Lifecycle_Mode mode )
 
 		Dev_Manager->CD_ROM.Set_Enabled( false );
 
-		b.Type = VM::Boot_From_HDD;
-		b.Enabled = true;
-		boot << b;
-		Boot_Order_List = boot;
+		VM::Set_Boot_Order_Enabled( Boot_Order_List, VM::Boot_From_HDD );
 		Set_Boot_Order( Boot_Order_List );
 	}
 

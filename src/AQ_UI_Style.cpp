@@ -335,44 +335,43 @@ void AQ_Make_Tab_Scrollable( QWidget *tab, const QString &inner_object_name )
 	QWidget *inner = new QWidget();
 	inner->setObjectName( inner_object_name.isEmpty()
 		? QStringLiteral( "AQ_Tab_Inner" ) : inner_object_name );
+	// Minimum vertical: grow with content so the scroll area scrolls instead of crushing.
+	inner->setSizePolicy( QSizePolicy::Preferred, QSizePolicy::Minimum );
+	inner->setAutoFillBackground( true );
 
 	QVBoxLayout *innerLay = new QVBoxLayout( inner );
 	innerLay->setContentsMargins( 10, 8, 14, 12 );
 	innerLay->setSpacing( 6 );
+	innerLay->setSizeConstraint( QLayout::SetMinimumSize );
 
-	if( QVBoxLayout *vold = qobject_cast<QVBoxLayout*>( old ) )
+	// Drain the old layout. Must use addWidget/addLayout — addItem() does NOT
+	// reparent widgets, which left them as invisible siblings of the scroll area
+	// (blank Machine tab on Qt 5 West tabs).
+	QList<QLayoutItem *> items;
+	while( old->count() > 0 )
+		items.append( old->takeAt( 0 ) );
+	delete old;
+
+	for( QLayoutItem *it : items )
 	{
-		while( vold->count() > 0 )
+		if( ! it )
+			continue;
+		if( QWidget *w = it->widget() )
 		{
-			QLayoutItem *it = vold->takeAt( 0 );
-			if( ! it )
-				continue;
+			innerLay->addWidget( w ); // reparents onto inner
+			delete it;
+		}
+		else if( QLayout *sub = it->layout() )
+		{
+			innerLay->addLayout( sub );
+			delete it;
+		}
+		else
+		{
 			if( QSpacerItem *sp = it->spacerItem() )
 				sp->changeSize( 20, 6, QSizePolicy::Minimum, QSizePolicy::Fixed );
 			innerLay->addItem( it );
 		}
-		delete vold;
-	}
-	else if( QGridLayout *gold = qobject_cast<QGridLayout*>( old ) )
-	{
-		// Lift the single primary child (usually a nested tab widget) into the scroll page.
-		QList<QLayoutItem*> items;
-		while( gold->count() > 0 )
-			items.append( gold->takeAt( 0 ) );
-		delete gold;
-		for( QLayoutItem *it : items )
-		{
-			if( ! it )
-				continue;
-			if( QSpacerItem *sp = it->spacerItem() )
-				sp->changeSize( 20, 6, QSizePolicy::Minimum, QSizePolicy::Fixed );
-			innerLay->addItem( it );
-		}
-	}
-	else
-	{
-		delete inner;
-		return;
 	}
 
 	innerLay->addStretch( 1 );
@@ -382,6 +381,7 @@ void AQ_Make_Tab_Scrollable( QWidget *tab, const QString &inner_object_name )
 	scroll->setWidgetResizable( true );
 	scroll->setFrameShape( QFrame::NoFrame );
 	scroll->setHorizontalScrollBarPolicy( Qt::ScrollBarAsNeeded );
+	scroll->setVerticalScrollBarPolicy( Qt::ScrollBarAsNeeded );
 	scroll->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Expanding );
 	scroll->setWidget( inner );
 
@@ -389,6 +389,9 @@ void AQ_Make_Tab_Scrollable( QWidget *tab, const QString &inner_object_name )
 	outer->setContentsMargins( 0, 0, 0, 0 );
 	outer->setSpacing( 0 );
 	outer->addWidget( scroll, 1 );
+
+	inner->adjustSize();
+	inner->show();
 }
 
 void AQ_Cap_Content_Width( QWidget *root, int max_width )
