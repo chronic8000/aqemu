@@ -193,215 +193,72 @@ void AQ_Apply_App_Style( QApplication *app )
 	if( ! app )
 		return;
 
-	// Prefer font metrics over hard-coded min-heights — QSS min-height + padding
-	// clips QComboBox/QLineEdit text and top-aligns QPushButton labels on HiDPI.
-	const QFontMetrics fm( app->font() );
-	const int pad_v = qMax( 4, fm.height() / 5 );
-	const int pad_h = qMax( 8, fm.averageCharWidth() );
-	const int btn_pad_v = qMax( 5, fm.height() / 4 );
-	const int btn_pad_h = qMax( 12, fm.averageCharWidth() * 2 );
-	const int drop_w = qMax( 18, fm.height() );
-
-	app->setStyleSheet( QStringLiteral(
-"/* —— Global chrome —— */\n"
-"QMainWindow, QDialog {\n"
-"	background-color: palette(window);\n"
-"}\n"
-"\n"
-"QGroupBox {\n"
-"	font-weight: 600;\n"
-"	border: 1px solid palette(mid);\n"
-"	border-radius: 6px;\n"
-"	margin-top: 12px;\n"
-"	padding: 10px 8px 8px 8px;\n"
-"	background-color: palette(base);\n"
-"}\n"
-"QGroupBox::title {\n"
-"	subcontrol-origin: margin;\n"
-"	subcontrol-position: top left;\n"
-"	left: 10px;\n"
-"	padding: 0 6px;\n"
-"	color: palette(window-text);\n"
-"}\n"
-"\n"
-"/* Never style QTabWidget::pane / QTabBar globally — any pane rule breaks\n"
-"   QTabWidget::West on Qt 5 (content area paints blank). Style North tabs\n"
-"   on specific widgets only if needed. */\n"
-"\n"
-"QListWidget, QTreeWidget, QTableWidget {\n"
-"	border: 1px solid palette(mid);\n"
-"	border-radius: 4px;\n"
-"	background: palette(base);\n"
-"	padding: 2px;\n"
-"	outline: 0;\n"
-"}\n"
-"QListWidget::item, QTreeWidget::item {\n"
-"	padding: 4px 6px;\n"
-"	border-radius: 3px;\n"
-"}\n"
-"QListWidget::item:selected, QTreeWidget::item:selected {\n"
-"	background: palette(highlight);\n"
-"	color: palette(highlighted-text);\n"
-"}\n"
-"\n"
-"QLineEdit, QSpinBox, QDoubleSpinBox, QTextEdit, QPlainTextEdit {\n"
-"	padding: %1px %2px;\n"
-"	border: 1px solid palette(mid);\n"
-"	border-radius: 4px;\n"
-"	background: palette(base);\n"
-"	selection-background-color: palette(highlight);\n"
-"}\n"
-"QComboBox {\n"
-"	padding: %1px %2px;\n"
-"	padding-right: %3px;\n"
-"	border: 1px solid palette(mid);\n"
-"	border-radius: 4px;\n"
-"	background: palette(base);\n"
-"	selection-background-color: palette(highlight);\n"
-"}\n"
-"QComboBox:editable {\n"
-"	padding: 0px;\n"
-"}\n"
-"QComboBox:editable QLineEdit {\n"
-"	padding: %1px %2px;\n"
-"	border: none;\n"
-"	background: transparent;\n"
-"}\n"
-"QComboBox::drop-down {\n"
-"	border: none;\n"
-"	width: %3px;\n"
-"}\n"
-"QComboBox QAbstractItemView {\n"
-"	border: 1px solid palette(mid);\n"
-"	selection-background-color: palette(highlight);\n"
-"	padding: 2px;\n"
-"}\n"
-"\n"
-"QPushButton {\n"
-"	padding: %4px %5px;\n"
-"	border: 1px solid palette(mid);\n"
-"	border-radius: 4px;\n"
-"	background: palette(button);\n"
-"}\n"
-"QPushButton:hover {\n"
-"	background: palette(light);\n"
-"}\n"
-"QPushButton:pressed {\n"
-"	background: palette(midlight);\n"
-"}\n"
-"QPushButton:default {\n"
-"	font-weight: 600;\n"
-"	border-color: palette(highlight);\n"
-"}\n"
-"QToolButton {\n"
-"	padding: %1px %2px;\n"
-"	border-radius: 4px;\n"
-"}\n"
-"\n"
-"QCheckBox, QRadioButton {\n"
-"	spacing: 6px;\n"
-"	padding: 2px 0;\n"
-"}\n"
-	).arg( pad_v ).arg( pad_h ).arg( drop_w ).arg( btn_pad_v ).arg( btn_pad_h )
-	+ QStringLiteral( R"(
-QScrollBar:vertical {
-	width: 12px;
-	margin: 0;
-}
-QScrollBar:horizontal {
-	height: 12px;
-	margin: 0;
+	// CRITICAL (Qt 5 + Windows HiDPI): never put padding / min-height / border-radius
+	// on QComboBox, QLineEdit, QSpinBox, QPushButton, QCheckBox, QRadioButton, or
+	// QToolButton in a global stylesheet. Those rules shrink the content rect and
+	// clip glyphs mid-letter. Keep chrome-only styling; leave form controls native.
+	app->setStyleSheet( QStringLiteral( R"(
+QMainWindow, QDialog {
+	background-color: palette(window);
 }
 
-QSlider::groove:horizontal {
-	height: 6px;
-	background: palette(mid);
-	border-radius: 3px;
-}
-QSlider::handle:horizontal {
-	width: 14px;
-	margin: -5px 0;
-	background: palette(highlight);
-	border-radius: 7px;
-}
-
-QStatusBar {
-	min-height: 24px;
-}
-
-QToolTip {
-	padding: 4px 8px;
+QGroupBox {
+	font-weight: 600;
 	border: 1px solid palette(mid);
-	background: palette(base);
+	border-radius: 6px;
+	margin-top: 12px;
+	padding-top: 8px;
+	background-color: palette(base);
+}
+QGroupBox::title {
+	subcontrol-origin: margin;
+	subcontrol-position: top left;
+	left: 10px;
+	padding: 0 6px;
 	color: palette(window-text);
 }
 
-QHeaderView::section {
-	padding: 4px 8px;
-	border: none;
-	border-right: 1px solid palette(mid);
-	border-bottom: 1px solid palette(mid);
-	background: palette(button);
-}
+/* Never style QTabWidget::pane / QTabBar globally — blanks West panes on Qt 5. */
 
-QProgressBar {
+QListWidget, QTreeWidget, QTableWidget {
 	border: 1px solid palette(mid);
 	border-radius: 4px;
-	text-align: center;
-	min-height: 16px;
-}
-QProgressBar::chunk {
-	background: palette(highlight);
-	border-radius: 3px;
-}
-
-QMenuBar {
-	padding: 2px;
-	background: palette(window);
-}
-QMenuBar::item {
-	padding: 4px 10px;
-	border-radius: 3px;
-}
-QMenuBar::item:selected {
-	background: palette(highlight);
-	color: palette(highlighted-text);
-}
-QMenu {
-	border: 1px solid palette(mid);
 	background: palette(base);
-	padding: 4px;
+	outline: 0;
 }
-QMenu::item {
-	padding: 5px 28px 5px 24px;
-	border-radius: 3px;
-}
-QMenu::item:selected {
+QListWidget::item:selected, QTreeWidget::item:selected {
 	background: palette(highlight);
 	color: palette(highlighted-text);
-}
-QMenu::separator {
-	height: 1px;
-	background: palette(mid);
-	margin: 4px 8px;
 }
 
 QScrollArea {
 	border: none;
 	background: transparent;
 }
-QScrollBar::handle:vertical {
-	background: palette(mid);
-	border-radius: 4px;
-	min-height: 24px;
-}
-QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
-	height: 0;
-}
 QSplitter::handle {
 	background: palette(mid);
-	width: 1px;
-	height: 1px;
+}
+
+QStatusBar {
+	border-top: 1px solid palette(mid);
+}
+QMenuBar {
+	background: palette(window);
+	border-bottom: 1px solid palette(mid);
+}
+QMenuBar::item:selected {
+	background: palette(highlight);
+	color: palette(highlighted-text);
+}
+QMenu::item:selected {
+	background: palette(highlight);
+	color: palette(highlighted-text);
+}
+
+QToolTip {
+	border: 1px solid palette(mid);
+	background: palette(base);
+	color: palette(window-text);
 }
 )" ) );
 }
@@ -410,14 +267,13 @@ void AQ_Style_Card( QWidget *w, int max_width )
 {
 	if( ! w || w->objectName().isEmpty() )
 		return;
-	// Avoid CSS margin on QWidget — it breaks layout geometry on Qt 5.
+	// Avoid CSS margin/padding on QWidget — it breaks layout geometry on Qt 5.
 	w->setStyleSheet(
 		QStringLiteral(
 			"QWidget#%1 {"
 			"  background-color: palette(base);"
 			"  border: 1px solid palette(mid);"
 			"  border-radius: 6px;"
-			"  padding: 4px;"
 			"}"
 		).arg( w->objectName() ) );
 	if( max_width > 0 )

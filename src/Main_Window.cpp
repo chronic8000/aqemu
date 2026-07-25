@@ -707,7 +707,8 @@ void Main_Window::Polish_Settings_Tabs_Layout()
 	if( ui.Memory_Size )
 	{
 		ui.Memory_Size->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Fixed );
-		// Don't clamp slider height — HiDPI + QSS already size it; hard caps clip neighbors.
+		// .ui locked this to 28px — too short with tick labels on HiDPI.
+		ui.Memory_Size->setMaximumHeight( QWIDGETSIZE_MAX );
 		ui.Memory_Size->setMaximumWidth( content_cap - AQ_Px( 80, this ) );
 	}
 	if( ui.CB_RAM_Size )
