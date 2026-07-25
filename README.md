@@ -6,8 +6,8 @@
 
 <p align="center">
   <b>The QEMU frontend that refused to stay dead.</b><br/>
-  Everything QEMU can do — in a modern GUI — with embedded SPICE, guided wizards, and optional QEMU <b>11.0.2</b> built in.<br/>
-  <b>v1.0.0 — curtain time.</b> We need your bug reports.<br/>
+  ~30k lines beyond the old community tree — embedded SPICE, bundled QEMU <b>11.0.2</b>, Win11 ARM, Win9x done right, classic Mac + Intel macOS.<br/>
+  <b>v1.0.0 — curtain time.</b> Download it. Break it. File issues.<br/>
   Maintained by <a href="https://github.com/chronic8000">Chronic Engineering</a>
 </p>
 
@@ -50,11 +50,11 @@ AQEMU started with **Andrey Rijov (RDron)**, then the community era under **Tobi
 - Historical community GitHub: [tobimensch/aqemu](https://github.com/tobimensch/aqemu) *(history only — not our homepage)*
 - Abandoned / third-party mirrors (including old SourceForge pages) — **not operated by us**
 
-**Chronic Engineering picked it up.** This is the active fork:
+**Chronic Engineering picked it up.** This is the active fork — not a mirror of a dead tree:
 
 ### https://github.com/chronic8000/aqemu
 
-New hosts. New wizards. Embedded SPICE. Win11 ARM. Win9x done properly. Classic Mac + experimental Intel macOS. Solaris / AIX / OS/2 profiles. Optional WSL/KVM. Vendored **QEMU 11.0.2**. Free GitHub Release zips for now; **Microsoft Store** (with updates) when certification clears.
+Compared to [tobimensch/aqemu](https://github.com/tobimensch/aqemu): **embedded SPICE sessions**, **bundled QEMU 11.0.2**, **Win11 ARM**, proper **Win9x TCG**, **classic Mac + Intel macOS** (WSL/KVM), Solaris/AIX/OS/2 recipes, QMP/blockdev/migrate UI, Windows portable + Store packaging. Roughly **+30,000 lines** of new work. Free GitHub zips now; **Microsoft Store** updates when certification clears.
 
 We keep the original authors’ names. We do **not** inherit their old donation pages, crowdfunding, or SourceForge homepage.
 
@@ -70,15 +70,38 @@ We keep the original authors’ names. We do **not** inherit their old donation 
 
 ---
 
-## What’s new in 1.0.0
+## What’s new vs the old AQEMU (tobimensch / ~0.9.x)
 
-- **CLI parity** in Advanced Options — NUMA, watchdog, TPM, secret objects, `-incoming`, SMBIOS, `fw_cfg`, audiodev, icount/sandbox, richer chardev / blockdev hooks
-- **Blockdev graph** editor and **migrate progress / cancel** via QMP
-- **Smoother VM start** — busy dialog, async QMP (UI no longer freezes waiting on connect)
-- **Guest recipes** — Solaris 11.4 x86 (known-good QEMU flags), AIX on `ppc64`/`pseries` (TCG-only on Windows; no PC floppy/IDE), stronger OS/2 / ReactOS / Win9x / XP defaults
-- **Windows host fixes** — do not pass WHPX/HAX to non-x86 guests; quoted Additional Args; `qemu-img` VMDK size parse; quieter false startup noise
+The last widely known community tree — [tobimensch/aqemu](https://github.com/tobimensch/aqemu) — went quiet years ago (Qt5 port, VNC-era display, you brought your own QEMU). **This fork is not a polish pass.** From that baseline we are **~+30,000 lines / −2,000 lines across ~120 files** of real product work. Here is why you should download **1.0.0**:
 
-Full notes: [`CHANGELOG`](CHANGELOG).
+### 1. Built-in QEMU 11.0.2 (Windows portable)
+Old AQEMU assumed a system QEMU install. Our Release zip / Store build **ships QEMU next to `aqemu.exe`** — `qemu-system-x86_64`, `i386`, `aarch64`, `qemu-img`, firmware — with a Settings toggle for **built-in vs custom folder**. Unzip and run.
+
+### 2. Embedded SPICE sessions (not a lost SDL window)
+QEMU runs headless; you see the guest **inside AQEMU** via modern **spice-client-glib**, with a real **session toolbar** (media, USB hotplug, net, power) and **QMP** control. Old AQEMU leaned on LibVNC / separate display chrome. This is how you actually *use* a VM in 2026.
+
+### 3. Guests people fight with today — with recipes that work
+| Guest | What we added |
+|--|--|
+| **Windows 11 ARM** | Wizard + lifecycle on **x64 Windows hosts via TCG** (and KVM on Pi 5 / aarch64) |
+| **Windows 95 / 98 / ME** | **Force pure TCG** — WHPX hangs classic 9x; we stop that footgun |
+| **Intel macOS** | OpenCore + OVMF + OSK UI, host-matching resolution, optional **WSL/KVM** on Windows |
+| **Classic Mac OS (PPC)** | `mac99` / PowerPC profiles, no PC floppy nonsense |
+| **Solaris 11.4 / AIX / OS/2 / ReactOS** | Wizard defaults matching real QEMU flags (AIX = `ppc64`/`pseries`, TCG on Windows) |
+
+### 4. Deeper QEMU — without living in a shell
+Advanced Options grew serious CLI parity: **NUMA, TPM, watchdog, secrets, SMBIOS, fw_cfg, audiodev, icount/sandbox**, richer chardev/blockdev hooks, a **blockdev graph** editor, and **migrate progress/cancel** over QMP. Old AQEMU could launch VMs; this one can express much more of what modern QEMU can do.
+
+### 5. Windows + Pi hosts that match how people work
+- **WHPX** when the guest arch allows it; **never** shoved onto PPC/ARM guests that cannot use it  
+- **WSL/KVM** launch path for heavy guests (Intel macOS) when `/dev/kvm` is there  
+- **Raspberry Pi 5** build flags and aarch64 friendliness  
+- Portable packaging + **Microsoft Store** track (MSIX) for updates later  
+
+### 6. Still AQEMU — just alive
+Same GPLv2 soul, same authors credited, same “GUI over QEMU” mission. New home, new maintainers, **Issues + Discussions open**, Release zips you can actually run.
+
+Full chronology: [`CHANGELOG`](CHANGELOG). Historical tree (not our homepage): [tobimensch/aqemu](https://github.com/tobimensch/aqemu).
 
 ---
 
@@ -87,10 +110,10 @@ Full notes: [`CHANGELOG`](CHANGELOG).
 QEMU already speaks almost every guest architecture and machine type under the sun. AQEMU’s job is to **stop making you hand-write 40-flag command lines** and give you:
 
 - A real **desktop app** (Qt5) on **Windows** and **Linux** (including **Raspberry Pi 5**)
-- **Embedded sessions**: QEMU runs headless (`-display none`); you see the guest through **modern SPICE** (plus QMP control) inside AQEMU’s window — not a separate SDL window you lose track of
-- **First-start discovery** of every `qemu-system-*` on the machine
-- **Wizards and profiles** for the guests people actually fight with in 2026
-- **More coming** — deeper session UX, packaging, Store builds, richer Mac / ARM flows
+- **Embedded SPICE + QMP** sessions — guest display and controls in one window
+- **Built-in or custom QEMU** — portable zip includes **11.0.2**
+- **Wizards and profiles** for Win9x → Win11 ARM, classic Mac, Intel macOS, Solaris, AIX, and more
+- **Active maintenance** — this is the fork that ships builds and wants your bug reports
 
 If QEMU can boot it, AQEMU aims to **configure and launch it**. Bring your own ISOs, disks, firmware, and keys where the law requires it.
 
@@ -186,17 +209,17 @@ Details: [`third_party/README.md`](third_party/README.md).
 
 ## Feature highlights
 
-- **QEMU installation** — Settings / First Start: **Use built-in QEMU** (portable zip) or **custom folder**; separate system install is optional
-- **Embedded SPICE + QMP** session UI (CD/FD/HDD/USB/net toolbar while the guest runs)
+- **vs old AQEMU** — ~+30k lines: SPICE-in-app, bundled QEMU, modern guest recipes (see [What’s new](#whats-new-vs-the-old-aqemu-tobimensch--09x))
+- **QEMU installation** — **Use built-in QEMU** (portable zip) or **custom folder**
+- **Embedded SPICE + QMP** session UI (CD/FD/HDD/USB hotplug/net toolbar while the guest runs)
 - **Full arch discovery** — every `qemu-system-*` QEMU exposes
 - **Windows 11 ARM** guided install / first boot / normal modes
 - **Force pure TCG** for pre-ME Windows that WHPX breaks
-- **Classic PPC Mac** + **experimental Intel macOS** profiles
+- **Classic PPC Mac** + **experimental Intel macOS** (OpenCore / WSL-KVM)
 - **Solaris / AIX / OS/2 / ReactOS** wizard defaults that match real QEMU recipes
 - **Advanced QEMU options** — NUMA, TPM, migrate, SMBIOS, fw_cfg, blockdev graph, …
 - **WSL/KVM launch** path on Windows (probe `/dev/kvm` in Settings)
 - **Pi 5** optimizations (`-mcpu=cortex-a76`, 64KB page alignment, Wayland)
-- **Mouse/pointer** controls (PS/2, USB tablet, VirtIO, VMware mouse, USB controller version)
 - **Microsoft Store–ready** posture: GPLv2 source public, [privacy policy](PRIVACY.md), no proprietary OS media in the box
 
 ---
