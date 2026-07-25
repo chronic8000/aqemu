@@ -21,17 +21,18 @@
 **
 ****************************************************************************/
 
-#include <QDir>
-#include <QRegExp>
-#include <QFileDialog>
-#include <QLabel>
-#include <QRadioButton>
-#include <QCheckBox>
-#include <QLineEdit>
-#include <QToolButton>
-#include <QGroupBox>
-#include <QVBoxLayout>
-#include <QHBoxLayout>
+#include <QFrame>
+#include <QScrollArea>
+#include <QSizePolicy>
+#include <QAbstractButton>
+#include <QButtonGroup>
+#include <QSpacerItem>
+#include <QFont>
+#include <QGridLayout>
+#include <QStyle>
+#include <QMouseEvent>
+#include <QEvent>
+#include <QAbstractItemView>
 #include <QFile>
 #include <QFileInfo>
 #include <QTreeWidget>
@@ -66,7 +67,6 @@ VM_Wizard_Window::VM_Wizard_Window( QWidget *parent )
 	: QDialog(parent)
 {
 	ui.setupUi( this );
-	AQ_Cap_Content_Width( this, 900 );
 	
 	New_VM = new Virtual_Machine();
 	Win11_ARM_Page = nullptr;
@@ -138,6 +138,7 @@ VM_Wizard_Window::VM_Wizard_Window( QWidget *parent )
 	Guest_Video_Card = QStringLiteral( "std" );
 	Guest_Use_VirtIO_Extras = false;
 	Guest_Use_GPU_Passthrough = false;
+	List_Wizard_Steps = nullptr;
 	
 	// Hide release date widgets
 	ui.Label_Relese_Date->hide();
@@ -182,9 +183,7 @@ VM_Wizard_Window::VM_Wizard_Window( QWidget *parent )
 	Label_Wizard_Machine->hide();
 	CB_Wizard_Machine->hide();
 
-	// Fixed wizard size — do not grow/shrink when changing pages
-	setMinimumSize( 640, 620 );
-	resize( 640, 620 );
+	Polish_Wizard_Chrome();
 
 	// Loading All Templates
 	if( Load_OS_Templates() )
@@ -205,57 +204,348 @@ VM_Wizard_Window::VM_Wizard_Window( QWidget *parent )
 	ui.Wizard_Pages->setCurrentWidget( Creation_Method_Page );
 	ui.Label_Page->setText( tr("Creation Method") );
 	ui.Button_Back->setEnabled( false );
+	Sync_Wizard_Side_Steps();
 
     connect(ui.RB_Emulator_KVM, SIGNAL(toggled(bool)),this, SLOT(KVM_toggled(bool)));
+}
+
+void VM_Wizard_Window::Polish_Wizard_Chrome()
+{
+	// Virt-manager-style wide dialog — room for cards + side steps.
+	setMinimumSize( 860, 640 );
+	resize( 920, 700 );
+	setSizeGripEnabled( true );
+
+	setStyleSheet( QStringLiteral( R"(
+QDialog#VM_Wizard_Window {
+	background: palette(window);
+}
+QFrame#WizardSideRail {
+	background: palette(base);
+	border: none;
+	border-right: 1px solid palette(mid);
+}
+QLabel#WizardSideTitle {
+	font-size: 15px;
+	font-weight: 700;
+	color: palette(window-text);
+	padding: 4px 2px 10px 2px;
+}
+QLabel#WizardSideHint {
+	color: palette(mid);
+	font-size: 11px;
+	padding: 0 2px 8px 2px;
+}
+QListWidget#WizardStepList {
+	background: transparent;
+	border: none;
+	outline: 0;
+	font-size: 12px;
+}
+QListWidget#WizardStepList::item {
+	padding: 8px 10px;
+	margin: 2px 0;
+	border-radius: 6px;
+	color: palette(window-text);
+}
+QListWidget#WizardStepList::item:selected {
+	background: palette(highlight);
+	color: palette(highlighted-text);
+	font-weight: 600;
+}
+QLabel#Label_Page {
+	font-size: 18px;
+	font-weight: 700;
+	padding: 4px 2px 2px 2px;
+	background: transparent;
+	border: none;
+	min-height: 36px;
+}
+QFrame#WizardMethodCard {
+	background: palette(base);
+	border: 1px solid palette(mid);
+	border-radius: 8px;
+}
+QFrame#WizardMethodCard[selected="true"] {
+	border: 2px solid palette(highlight);
+	background: palette(alternate-base);
+}
+QPushButton#Button_Back, QPushButton#Button_Next, QPushButton#Button_Cancel {
+	min-width: 96px;
+	min-height: 28px;
+	padding: 6px 18px;
+}
+QPushButton#Button_Next {
+	font-weight: 600;
+}
+)" ) );
+
+	QGridLayout *root = qobject_cast<QGridLayout*>( layout() );
+	if( ! root )
+		return;
+
+	// Pull known pieces out of the designer grid (order in .ui is not row order).
+	root->removeWidget( ui.Label_Page );
+	root->removeWidget( ui.Wizard_Pages );
+	root->removeWidget( ui.line_2 );
+
+	QHBoxLayout *buttonRow = nullptr;
+	for( int i = root->count() - 1; i >= 0; --i )
+	{
+		QLayoutItem *it = root->itemAt( i );
+		if( it && it->layout() )
+		{
+			buttonRow = qobject_cast<QHBoxLayout*>( it->layout() );
+			root->takeAt( i );
+			break;
+		}
+	}
+
+	// Clear any leftover placeholders
+	while( root->count() > 0 )
+	{
+		QLayoutItem *it = root->takeAt( 0 );
+		if( it && it->widget() )
+			it->widget()->setParent( nullptr );
+		delete it;
+	}
+
+	root->setContentsMargins( 0, 0, 0, 0 );
+	root->setHorizontalSpacing( 0 );
+	root->setVerticalSpacing( 0 );
+
+	QFrame *rail = new QFrame( this );
+	rail->setObjectName( QStringLiteral( "WizardSideRail" ) );
+	rail->setFixedWidth( 210 );
+	QVBoxLayout *railLay = new QVBoxLayout( rail );
+	railLay->setContentsMargins( 16, 18, 12, 16 );
+	railLay->setSpacing( 4 );
+
+	QLabel *sideTitle = new QLabel( tr( "New Virtual Machine" ), rail );
+	sideTitle->setObjectName( QStringLiteral( "WizardSideTitle" ) );
+	sideTitle->setWordWrap( true );
+	railLay->addWidget( sideTitle );
+
+	QLabel *sideHint = new QLabel(
+		tr( "Pick a path, then fine-tune hardware. You can change architecture and machine later." ),
+		rail );
+	sideHint->setObjectName( QStringLiteral( "WizardSideHint" ) );
+	sideHint->setWordWrap( true );
+	railLay->addWidget( sideHint );
+
+	List_Wizard_Steps = new QListWidget( rail );
+	List_Wizard_Steps->setObjectName( QStringLiteral( "WizardStepList" ) );
+	List_Wizard_Steps->setFocusPolicy( Qt::NoFocus );
+	List_Wizard_Steps->setSelectionMode( QAbstractItemView::SingleSelection );
+	List_Wizard_Steps->setEditTriggers( QAbstractItemView::NoEditTriggers );
+	List_Wizard_Steps->setVerticalScrollBarPolicy( Qt::ScrollBarAlwaysOff );
+	List_Wizard_Steps->setHorizontalScrollBarPolicy( Qt::ScrollBarAlwaysOff );
+	const QStringList steps = {
+		tr( "1. Creation method" ),
+		tr( "2. Guest / platform" ),
+		tr( "3. Hardware" ),
+		tr( "4. Storage & memory" ),
+		tr( "5. Network" ),
+		tr( "6. Finish" )
+	};
+	for( const QString &s : steps )
+		List_Wizard_Steps->addItem( s );
+	List_Wizard_Steps->setCurrentRow( 0 );
+	List_Wizard_Steps->setEnabled( false ); // navigation stays Back/Next
+	railLay->addWidget( List_Wizard_Steps, 1 );
+
+	QWidget *content = new QWidget( this );
+	content->setObjectName( QStringLiteral( "WizardContent" ) );
+	QVBoxLayout *contentLay = new QVBoxLayout( content );
+	contentLay->setContentsMargins( 22, 16, 22, 14 );
+	contentLay->setSpacing( 10 );
+
+	ui.Label_Page->setObjectName( QStringLiteral( "Label_Page" ) );
+	ui.Label_Page->setAutoFillBackground( false );
+	ui.Label_Page->setMinimumHeight( 36 );
+	ui.Wizard_Pages->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Expanding );
+
+	contentLay->addWidget( ui.Label_Page );
+	contentLay->addWidget( ui.Wizard_Pages, 1 );
+	contentLay->addWidget( ui.line_2 );
+
+	if( buttonRow )
+	{
+		QWidget *footer = new QWidget( content );
+		QHBoxLayout *fl = new QHBoxLayout( footer );
+		fl->setContentsMargins( 0, 8, 0, 0 );
+		fl->setSpacing( 10 );
+		while( buttonRow->count() > 0 )
+		{
+			QLayoutItem *bi = buttonRow->takeAt( 0 );
+			if( bi )
+				fl->addItem( bi );
+		}
+		delete buttonRow;
+		contentLay->addWidget( footer );
+	}
+
+	root->addWidget( rail, 0, 0 );
+	root->addWidget( content, 0, 1 );
+	root->setColumnStretch( 1, 1 );
+
+	ui.Button_Back->setMinimumWidth( 96 );
+	ui.Button_Next->setMinimumWidth( 104 );
+	ui.Button_Cancel->setMinimumWidth( 96 );
+	ui.Button_Next->setAutoDefault( true );
+	ui.Button_Next->setDefault( true );
+
+	connect( ui.Wizard_Pages, &QStackedWidget::currentChanged, this, [this]( int ) {
+		Sync_Wizard_Side_Steps();
+	} );
+}
+
+void VM_Wizard_Window::Sync_Wizard_Side_Steps()
+{
+	if( ! List_Wizard_Steps )
+		return;
+
+	QWidget *w = ui.Wizard_Pages ? ui.Wizard_Pages->currentWidget() : nullptr;
+	int step = 0;
+	if( w == Creation_Method_Page )
+		step = 0;
+	else if( w == OS_Tree_Page || w == Platform_Tree_Page || w == Arch_List_Page ||
+	         w == Arch_Machines_Page || w == ui.Wizard_Mode_Page )
+		step = 1;
+	else if( w == ui.Template_Page || w == ui.Accelerator_Page || w == ui.General_Settings_Page ||
+	         w == Devices_Page || w == Intel_MacOS_Page )
+		step = 2;
+	else if( w == ui.Typical_HDD_Page || w == ui.Custom_HDD_Page || w == ui.Memory_Page ||
+	         w == Win11_ARM_Page )
+		step = 3;
+	else if( w == ui.Network_Page )
+		step = 4;
+	else if( w == ui.Finish_Page )
+		step = 5;
+
+	List_Wizard_Steps->blockSignals( true );
+	List_Wizard_Steps->setCurrentRow( step );
+	List_Wizard_Steps->blockSignals( false );
+}
+
+bool VM_Wizard_Window::eventFilter( QObject *watched, QEvent *event )
+{
+	if( event->type() == QEvent::MouseButtonPress )
+	{
+		if( QFrame *card = qobject_cast<QFrame*>( watched ) )
+		{
+			if( card->objectName() == QLatin1String( "WizardMethodCard" ) )
+			{
+				if( QRadioButton *rb = card->findChild<QRadioButton*>() )
+					rb->setChecked( true );
+				return true;
+			}
+		}
+	}
+	return QDialog::eventFilter( watched, event );
+}
+
+QFrame *VM_Wizard_Window::Add_Method_Card( QVBoxLayout *parent_lay, QRadioButton *rb, const QString &hint )
+{
+	QFrame *card = new QFrame();
+	card->setObjectName( QStringLiteral( "WizardMethodCard" ) );
+	card->setProperty( "selected", rb->isChecked() );
+	card->setCursor( Qt::PointingHandCursor );
+	card->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Minimum );
+
+	QVBoxLayout *cardLay = new QVBoxLayout( card );
+	cardLay->setContentsMargins( 14, 10, 14, 10 );
+	cardLay->setSpacing( 4 );
+
+	rb->setStyleSheet( QStringLiteral( "QRadioButton { font-weight: 600; font-size: 13px; spacing: 8px; }" ) );
+	cardLay->addWidget( rb );
+
+	QLabel *h = new QLabel( hint );
+	h->setWordWrap( true );
+	h->setStyleSheet( QStringLiteral(
+		"QLabel { color: palette(mid); margin-left: 24px; font-size: 12px; }" ) );
+	cardLay->addWidget( h );
+
+	auto refresh = [card, rb]() {
+		card->setProperty( "selected", rb->isChecked() );
+		card->style()->unpolish( card );
+		card->style()->polish( card );
+		card->update();
+	};
+	connect( rb, &QRadioButton::toggled, card, [refresh]( bool ) { refresh(); } );
+
+	// Clicking empty card area selects the option.
+	card->installEventFilter( this );
+
+	parent_lay->addWidget( card );
+	return card;
 }
 
 void VM_Wizard_Window::Build_Three_Path_Pages()
 {
 	Load_Wizard_Trees();
 
-	// --- Creation method ---
+	// --- Creation method (card list) ---
 	Creation_Method_Page = new QWidget();
-	QVBoxLayout *methodLay = new QVBoxLayout( Creation_Method_Page );
-	methodLay->addWidget( new QLabel( tr(
-		"<b>How do you want to create this virtual machine?</b><br/>"
-		"<span style=\"color:gray;\">Any path can reach any QEMU architecture — "
-		"you can always override Computer Type and machine later.</span>") ) );
+	QVBoxLayout *methodOuter = new QVBoxLayout( Creation_Method_Page );
+	methodOuter->setContentsMargins( 0, 0, 0, 0 );
+	methodOuter->setSpacing( 0 );
 
-	RB_Method_Guest_OS = new QRadioButton( tr("Guest Operating System") );
-	RB_Method_Platform = new QRadioButton( tr("System / Machine Platform") );
-	RB_Method_Architecture = new QRadioButton( tr("CPU Architecture") );
-	RB_Method_Custom = new QRadioButton( tr("Custom / Advanced") );
+	QScrollArea *scroll = new QScrollArea( Creation_Method_Page );
+	scroll->setWidgetResizable( true );
+	scroll->setFrameShape( QFrame::NoFrame );
+	scroll->setHorizontalScrollBarPolicy( Qt::ScrollBarAlwaysOff );
+
+	QWidget *inner = new QWidget();
+	QVBoxLayout *methodLay = new QVBoxLayout( inner );
+	methodLay->setContentsMargins( 4, 4, 12, 8 );
+	methodLay->setSpacing( 10 );
+
+	QLabel *intro = new QLabel( tr(
+		"<span style='font-size:13px;'>How do you want to create this virtual machine?</span><br/>"
+		"<span style='color:gray; font-size:12px;'>"
+		"Any path can reach any QEMU architecture — you can always override Computer Type "
+		"and machine later.</span>" ) );
+	intro->setWordWrap( true );
+	intro->setTextFormat( Qt::RichText );
+	methodLay->addWidget( intro );
+
+	RB_Method_Guest_OS = new QRadioButton( tr( "Guest Operating System" ) );
+	RB_Method_Platform = new QRadioButton( tr( "System / Machine Platform" ) );
+	RB_Method_Architecture = new QRadioButton( tr( "CPU Architecture" ) );
+	RB_Method_Custom = new QRadioButton( tr( "Custom / Advanced" ) );
+	RB_Method_Import = new QRadioButton( tr( "Import Existing Disk" ) );
 	RB_Method_Guest_OS->setChecked( true );
 
-	auto add_method = [methodLay]( QRadioButton *rb, const QString &hint ) {
-		methodLay->addWidget( rb );
-		QLabel *h = new QLabel( hint );
-		h->setWordWrap( true );
-		h->setStyleSheet( QStringLiteral( "color: gray; margin-left: 22px; margin-bottom: 8px;" ) );
-		methodLay->addWidget( h );
-	};
-	add_method( RB_Method_Guest_OS,
+	Add_Method_Card( methodLay, RB_Method_Guest_OS,
 		tr( "Best for Windows, Linux, macOS, DOS, BSD… — AQEMU picks a matching QEMU binary and machine, then you confirm." ) );
-	add_method( RB_Method_Platform,
+	Add_Method_Card( methodLay, RB_Method_Platform,
 		tr( "Best for Raspberry Pi, SGI Indy, PowerMac, SPARCstation, PC (Q35)… — choose the board/platform first." ) );
-	add_method( RB_Method_Architecture,
+	Add_Method_Card( methodLay, RB_Method_Architecture,
 		tr( "Best when you know the CPU family (x86-64, ARM64, MIPS, RISC-V…) — then pick any machine QEMU offers for it." ) );
-	add_method( RB_Method_Custom,
+	Add_Method_Card( methodLay, RB_Method_Custom,
 		tr( "Full manual control: Typical or Custom disk/RAM flow, any qemu-system-* binary, templates or generate." ) );
-	RB_Method_Import = new QRadioButton( tr( "Import Existing Disk" ) );
-	add_method( RB_Method_Import,
+	Add_Method_Card( methodLay, RB_Method_Import,
 		tr( "Attach an existing qcow2/raw/vmdk (and optional ISO). Fastest path when you already have an image." ) );
 
 	methodLay->addStretch( 1 );
+	scroll->setWidget( inner );
+	methodOuter->addWidget( scroll );
+
 	ui.Wizard_Pages->insertWidget( 0, Creation_Method_Page );
 
 	// --- Guest OS / Select OS tree ---
 	OS_Tree_Page = new QWidget();
 	QVBoxLayout *osLay = new QVBoxLayout( OS_Tree_Page );
-	osLay->addWidget( new QLabel( tr("Select a guest operating system:") ) );
+	osLay->setContentsMargins( 4, 4, 8, 4 );
+	osLay->setSpacing( 10 );
+	QLabel *osIntro = new QLabel( tr( "Select a guest operating system:" ) );
+	osIntro->setStyleSheet( QStringLiteral( "font-weight: 600;" ) );
+	osLay->addWidget( osIntro );
 	Tree_OS = new QTreeWidget();
 	Tree_OS->setHeaderHidden( true );
 	Tree_OS->setRootIsDecorated( true );
+	Tree_OS->setAlternatingRowColors( true );
 	osLay->addWidget( Tree_OS );
 	Populate_OS_Tree();
 	connect( Tree_OS, &QTreeWidget::itemDoubleClicked, this, [this]( QTreeWidgetItem *item, int ) {
@@ -267,11 +557,16 @@ void VM_Wizard_Window::Build_Three_Path_Pages()
 	// --- Platform tree ---
 	Platform_Tree_Page = new QWidget();
 	QVBoxLayout *platLay = new QVBoxLayout( Platform_Tree_Page );
-	platLay->addWidget( new QLabel( tr(
+	platLay->setContentsMargins( 4, 4, 8, 4 );
+	platLay->setSpacing( 10 );
+	QLabel *platIntro = new QLabel( tr(
 		"Select a system / machine platform:\n"
-		"(This sets the QEMU binary and -machine; you can change both on the next page.)" ) ) );
+		"(This sets the QEMU binary and -machine; you can change both on the next page.)" ) );
+	platIntro->setWordWrap( true );
+	platLay->addWidget( platIntro );
 	Tree_Platform = new QTreeWidget();
 	Tree_Platform->setHeaderHidden( true );
+	Tree_Platform->setAlternatingRowColors( true );
 	platLay->addWidget( Tree_Platform );
 	Populate_Platform_Tree();
 	connect( Tree_Platform, &QTreeWidget::itemDoubleClicked, this, [this]( QTreeWidgetItem *item, int ) {
@@ -283,8 +578,12 @@ void VM_Wizard_Window::Build_Three_Path_Pages()
 	// --- Architecture list ---
 	Arch_List_Page = new QWidget();
 	QVBoxLayout *archLay = new QVBoxLayout( Arch_List_Page );
-	archLay->addWidget( new QLabel( tr("Select a CPU architecture (qemu-system-* target):") ) );
+	archLay->setContentsMargins( 4, 4, 8, 4 );
+	archLay->setSpacing( 10 );
+	archLay->addWidget( new QLabel( tr( "Select a CPU architecture (qemu-system-* target):" ) ) );
 	List_Arch = new QListWidget();
+	List_Arch->setAlternatingRowColors( true );
+	List_Arch->setSpacing( 2 );
 	archLay->addWidget( List_Arch );
 	Populate_Arch_List();
 	connect( List_Arch, &QListWidget::itemDoubleClicked, this, [this]( QListWidgetItem * ) {
@@ -295,11 +594,16 @@ void VM_Wizard_Window::Build_Three_Path_Pages()
 	// --- Machines filtered by arch ---
 	Arch_Machines_Page = new QWidget();
 	QVBoxLayout *machLay = new QVBoxLayout( Arch_Machines_Page );
-	machLay->addWidget( new QLabel( tr(
+	machLay->setContentsMargins( 4, 4, 8, 4 );
+	machLay->setSpacing( 10 );
+	QLabel *machIntro = new QLabel( tr(
 		"Select a machine for this architecture:\n"
-		"(Recommended boards first; expand “All available machines…” for the full QEMU list when catalog is present.)" ) ) );
+		"(Recommended boards first; expand “All available machines…” for the full QEMU list when catalog is present.)" ) );
+	machIntro->setWordWrap( true );
+	machLay->addWidget( machIntro );
 	Tree_Arch_Machines = new QTreeWidget();
 	Tree_Arch_Machines->setHeaderHidden( true );
+	Tree_Arch_Machines->setAlternatingRowColors( true );
 	machLay->addWidget( Tree_Arch_Machines );
 	connect( Tree_Arch_Machines, &QTreeWidget::itemDoubleClicked, this, [this]( QTreeWidgetItem *item, int ) {
 		if( item && item->childCount() == 0 )
