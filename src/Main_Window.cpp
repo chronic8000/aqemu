@@ -59,6 +59,7 @@
 #include <QSizePolicy>
 #include <QSpacerItem>
 #include <QGroupBox>
+#include <QTabBar>
 #ifndef Q_OS_WIN32
 #include <QtDBus>
 #endif
@@ -261,7 +262,7 @@ Main_Window::Main_Window( QWidget *parent )
 	ui.TabWidget_Display->insertTab( 1, SPICE_Widget, QIcon(":/pepper.png"), tr("SPICE Remote") );
 
     Display_Settings_Widget = new Settings_Widget( ui.TabWidget_Display, QBoxLayout::LeftToRight, true );
-    Display_Settings_Widget->setIconSize(QSize(32,32));
+    Display_Settings_Widget->setIconSize(QSize(24,24));
     Display_Settings_Widget->addToGroup("Main");
 
 	// Update Emulators Information
@@ -313,7 +314,7 @@ Main_Window::Main_Window( QWidget *parent )
     ui.TabWidget_Media->setCurrentWidget(Dev_Manager);
 
     Media_Settings_Widget = new Settings_Widget( ui.TabWidget_Media, QBoxLayout::LeftToRight, true );
-    Media_Settings_Widget->setIconSize(QSize(32,32));
+    Media_Settings_Widget->setIconSize(QSize(24,24));
     Media_Settings_Widget->addToGroup("Main");
 	
 
@@ -323,7 +324,7 @@ Main_Window::Main_Window( QWidget *parent )
     ////
 
     Network_Settings_Widget = new Settings_Widget( ui.Network_Cards_Tabs, QBoxLayout::LeftToRight, true );
-    Network_Settings_Widget->setIconSize(QSize(32,32));
+    Network_Settings_Widget->setIconSize(QSize(24,24));
     Network_Settings_Widget->addToGroup("Main");
 
 	// This For Network Redirections Table
@@ -591,38 +592,65 @@ Virtual_Machine *Main_Window::Get_Current_VM()
 void Main_Window::Polish_Settings_Tabs_Layout()
 {
 	// Do NOT wrap West-tab pages in QScrollArea — that blanks the pane on Qt 5.
-	// Keep polish light: margins, list spacing, and clear any tab stylesheet.
 	if( ui.Tabs )
 	{
 		ui.Tabs->setDocumentMode( false );
-		ui.Tabs->setStyleSheet( QString() ); // never inherit pane rules
+		ui.Tabs->setStyleSheet( QString() );
+		// Rename VM → Machine so the West rail matches the section header language.
+		const int gen_ix = ui.Tabs->indexOf( ui.Tab_General );
+		if( gen_ix >= 0 )
+			ui.Tabs->setTabText( gen_ix, tr( "Machine" ) );
+
+		// Larger, clearer West tab labels (style the bar only — never the pane).
+		if( QTabBar *bar = ui.Tabs->tabBar() )
+		{
+			bar->setExpanding( false );
+			bar->setStyleSheet( QStringLiteral(
+				"QTabBar::tab {"
+				"  font-size: 12px;"
+				"  font-weight: 600;"
+				"  padding: 14px 8px;"
+				"  min-width: 52px;"
+				"  margin: 2px 0;"
+				"  border: none;"
+				"  border-right: 3px solid transparent;"
+				"  color: palette(window-text);"
+				"  background: transparent;"
+				"}"
+				"QTabBar::tab:selected {"
+				"  color: palette(highlight);"
+				"  border-right: 3px solid palette(highlight);"
+				"  background: palette(base);"
+				"}"
+				"QTabBar::tab:hover:!selected {"
+				"  background: palette(alternate-base);"
+				"}" ) );
+		}
 	}
 
-	// Redundant with the left VM list + Name field — drop the blue "Machine" header.
+	// Keep the Machine / Memory / Audio… section headers; tighten the page.
 	if( ui.label )
-		ui.label->hide();
-	if( ui.widget && ui.widget->layout() )
-		ui.widget->layout()->setContentsMargins( 12, 4, 6, 6 );
+		ui.label->show();
 
 	if( ui.Tab_General && ui.Tab_General->layout() )
 	{
-		ui.Tab_General->layout()->setContentsMargins( 8, 4, 10, 8 );
-		ui.Tab_General->layout()->setSpacing( 4 );
-		AQ_Tighten_Layout_Spacers( ui.Tab_General->layout(), 6 );
+		ui.Tab_General->layout()->setContentsMargins( 10, 6, 12, 10 );
+		ui.Tab_General->layout()->setSpacing( 2 );
+		AQ_Tighten_Layout_Spacers( ui.Tab_General->layout(), 4 );
 	}
 	if( ui.Tab_Display && ui.Tab_Display->layout() )
 	{
-		ui.Tab_Display->layout()->setContentsMargins( 8, 8, 10, 8 );
-		ui.Tab_Display->layout()->setSpacing( 8 );
+		ui.Tab_Display->layout()->setContentsMargins( 10, 8, 12, 8 );
+		ui.Tab_Display->layout()->setSpacing( 6 );
 	}
 	if( ui.Tab_Media && ui.Tab_Media->layout() )
 	{
-		ui.Tab_Media->layout()->setContentsMargins( 8, 8, 8, 8 );
+		ui.Tab_Media->layout()->setContentsMargins( 8, 6, 8, 8 );
 		ui.Tab_Media->layout()->setSpacing( 6 );
 	}
 	if( ui.Tab_Network && ui.Tab_Network->layout() )
 	{
-		ui.Tab_Network->layout()->setContentsMargins( 8, 8, 8, 8 );
+		ui.Tab_Network->layout()->setContentsMargins( 8, 6, 8, 8 );
 		ui.Tab_Network->layout()->setSpacing( 6 );
 	}
 	if( ui.Tab_Info && ui.Tab_Info->layout() )
@@ -642,14 +670,43 @@ void Main_Window::Polish_Settings_Tabs_Layout()
 		}
 	}
 
+	// Cap readable column width so ultrawide screens don't leave desert gaps.
+	const int content_cap = 760;
+	auto cap_w = [content_cap]( QWidget *w ) {
+		if( w ) w->setMaximumWidth( content_cap );
+	};
+	cap_w( ui.widget );
+	cap_w( ui.GB_Memory );
+	cap_w( ui.GB_Audio );
+	cap_w( ui.GB_Disk_Bus );
+	cap_w( ui.GB_Win11_Lifecycle );
+	cap_w( ui.GB_Intel_MacOS_Settings );
+	cap_w( ui.GB_Options );
+	cap_w( ui.Widget_Use_Network );
+	cap_w( ui.GB_Guest_Display_Mode );
 	if( ui.Memory_Size )
 	{
 		ui.Memory_Size->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Fixed );
 		ui.Memory_Size->setMaximumHeight( 28 );
 		ui.Memory_Size->setMinimumHeight( 22 );
+		ui.Memory_Size->setMaximumWidth( content_cap - 80 );
 	}
 	if( ui.CB_RAM_Size )
 		ui.CB_RAM_Size->setMinimumWidth( 110 );
+
+	if( ui.widget && ui.widget->layout() )
+	{
+		ui.widget->layout()->setContentsMargins( 8, 4, 8, 4 );
+		ui.widget->layout()->setSpacing( 4 );
+		if( QGridLayout *gl = qobject_cast<QGridLayout*>( ui.widget->layout() ) )
+		{
+			// Prefer left-packed columns; don't stretch the middle into a void.
+			gl->setColumnStretch( 0, 0 );
+			gl->setColumnStretch( 1, 1 );
+			gl->setColumnStretch( 2, 0 );
+			gl->setColumnStretch( 3, 0 );
+		}
+	}
 
 	if( ui.TB_Show_Advanced_Options_Window )
 	{
@@ -661,13 +718,13 @@ void Main_Window::Polish_Settings_Tabs_Layout()
 	if( ui.GB_Options )
 	{
 		if( QGridLayout *gl = qobject_cast<QGridLayout*>( ui.GB_Options->layout() ) )
-			gl->setColumnStretch( 3, 1 );
+			gl->setColumnStretch( 3, 0 );
 	}
 
 	auto polish_nested_tabs = []( QTabWidget *tw ) {
 		if( ! tw ) return;
 		tw->setDocumentMode( false );
-		tw->setElideMode( Qt::ElideRight );
+		tw->setElideMode( Qt::ElideNone );
 	};
 	polish_nested_tabs( ui.TabWidget_Media );
 	polish_nested_tabs( ui.TabWidget_Display );

@@ -27,6 +27,8 @@
 #include <QBoxLayout>
 #include <QApplication>
 #include <QSplitter>
+#include <QFontMetrics>
+#include <QAbstractItemView>
 
 #include "Settings_Widget.h"
 #include "AQ_UI_Style.h"
@@ -73,31 +75,21 @@ Settings_Widget::Settings_Widget(QTabWidget* tab_widget, QBoxLayout::Direction d
 
         list->setFlow( QListView::TopToBottom );
         list->setSizePolicy( QSizePolicy::Minimum, QSizePolicy::Preferred );
+        list->setViewMode( QListView::ListMode );
+        list->setMovement( QListView::Static );
+        list->setWrapping( false );
     }
     else
     {
         l = new QBoxLayout(QBoxLayout::TopToBottom);
 
-        //list->setSizePolicy( QSizePolicy::Preferred, QSizePolicy::Maximum );
-        //list->setMaximumHeight(60); //FIXME: dynamic would be preferred 
-
-        /*auto app = dynamic_cast<QApplication*>(QApplication::instance());
-        if ( app != nullptr )
-        {
-            QPalette pal = list->palette();
-            pal.setColor(QPalette::Base, app->palette("QWidget").color(QPalette::Midlight));
-            list->setPalette(pal);
-        }*/
-
-        //stack->setSizePolicy( QSizePolicy::Preferred, QSizePolicy::Expanding );
-
-
-        list->setSizePolicy( QSizePolicy::MinimumExpanding, QSizePolicy::Preferred );
-
+        // Icon beside text (like the VM list) — not tiny truncated IconMode captions.
+        list->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Fixed );
         list->setFlow( QListView::LeftToRight );
-        list->setViewMode( QListView::IconMode );
+        list->setViewMode( QListView::ListMode );
         list->setMovement( QListView::Static );
         list->setWrapping( false );
+        list->setHorizontalScrollMode( QAbstractItemView::ScrollPerPixel );
 
         stack->setSizePolicy( QSizePolicy::MinimumExpanding, QSizePolicy::Expanding );
     }
@@ -141,11 +133,32 @@ Settings_Widget::Settings_Widget(QTabWidget* tab_widget, QBoxLayout::Direction d
 
     if ( dir != QBoxLayout::TopToBottom )
     {
-        list->setVerticalScrollBarPolicy (Qt::ScrollBarAlwaysOff);
-        list->setHorizontalScrollBarPolicy (Qt::ScrollBarAlwaysOff);
-        list->setSpacing(5);
-        list->setMinimumHeight(list->sizeHintForRow(0)+15);
-        list->setMaximumHeight(list->sizeHintForRow(0)+15);
+        list->setVerticalScrollBarPolicy( Qt::ScrollBarAlwaysOff );
+        list->setHorizontalScrollBarPolicy( Qt::ScrollBarAsNeeded );
+        list->setSpacing( 4 );
+        list->setStyleSheet( QStringLiteral(
+			"QListWidget {"
+			"  background: transparent;"
+			"  border: none;"
+			"  border-bottom: 1px solid palette(mid);"
+			"  padding: 4px 2px;"
+			"  outline: 0;"
+			"}"
+			"QListWidget::item {"
+			"  padding: 6px 12px;"
+			"  margin-right: 4px;"
+			"  border-radius: 6px;"
+			"}"
+			"QListWidget::item:selected {"
+			"  background: palette(highlight);"
+			"  color: palette(highlighted-text);"
+			"}"
+			"QListWidget::item:hover:!selected {"
+			"  background: palette(alternate-base);"
+			"}" ) );
+        // Height fits icon + single line of text side-by-side.
+        list->setMinimumHeight( 44 );
+        list->setMaximumHeight( 52 );
     }
     else
     {
@@ -180,86 +193,44 @@ void Settings_Widget::syncGroupIconSizes(QString g)
     QList<Settings_Widget*> list = groups[g];
 
     QList<int> max_width;
+    const int row_h = 40;
 
-    int max_list_height = 0;
-
-    //first find max_width for each index
+    // Measure full text + icon so captions are never truncated.
     for( int i = 0; i < list.count(); i++ )
     {
         auto sw = list.at(i);
 
         for ( int j = 0; j < sw->list->count(); j++ )
         {
-            int w = sw->list->item(j)->sizeHint().width();
+            QListWidgetItem *it = sw->list->item(j);
+            const int icon_w = sw->list->iconSize().width() > 0
+                ? sw->list->iconSize().width() + 10 : 28;
+            QFontMetrics fm( sw->list->font() );
+            const int text_w = fm.horizontalAdvance( it->text() ) + 24;
+            const int w = icon_w + text_w;
 
-            int list_h = sw->list->minimumSizeHint().height();
-
-            if ( list_h > 0 )
-            {
-                if ( max_list_height == 0 )
-                    max_list_height = list_h;
-                else if ( max_list_height > list_h )
-                    max_list_height = list_h;
-            }
-
-            if ( w == -1 ) // which will always be the case :-(
-            {
-                QString t = sw->list->item(j)->text();
-                QLabel l(t);
-
-                w = l.sizeHint().width() + 20;
-            }
-
-            
             if ( max_width.count() < j + 1 )
-            {
-                //index number not in list
-                max_width.append( w);
-            }
-            else
-            {
-                //index number is in list
-                if ( w > max_width.at(j) )
-                    max_width.replace(j, w);
-            }
-            
+                max_width.append( w );
+            else if ( w > max_width.at(j) )
+                max_width.replace( j, w );
         }
     }
 
-    //minimum total list width
-    int min_total_list_width = 15;
+    int min_total_list_width = 20;
     for ( int j = 0; j < max_width.count(); j++ )
-    {
-        //int h = sw->list->item(j)->sizeHint().height();
-        min_total_list_width += max_width.at(j) +5;
-    }
+        min_total_list_width += max_width.at(j) + 8;
 
-    if ( max_list_height > 0  && max_list_height <= 58 )
-    {
-        max_list_height = 68;
-    }
-
-    //then apply max_width to all
     for( int i = 0; i < list.count(); i++ )
     {
         auto sw = list.at(i);
 
         for ( int j = 0; j < sw->list->count(); j++ )
-        {
-            //int h = sw->list->item(j)->sizeHint().height();
-            sw->list->item(j)->setSizeHint(QSize(max_width.at(j),58));
-        }
+            sw->list->item(j)->setSizeHint( QSize( max_width.at(j), row_h ) );
 
-        if ( max_list_height > 0 )
-        {
-            sw->list->setMinimumHeight(max_list_height);
-            sw->list->setMaximumHeight(max_list_height);
-        }
-        sw->list->setMinimumWidth(min_total_list_width);
-        sw->stack->setMinimumWidth(min_total_list_width);
+        sw->list->setMinimumHeight( row_h + 12 );
+        sw->list->setMaximumHeight( row_h + 16 );
+        sw->list->setMinimumWidth( qMin( min_total_list_width, 1200 ) );
     }
-
-    
 }
 
 void Settings_Widget::setIconSize(QSize s)
