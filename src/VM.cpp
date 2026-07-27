@@ -6056,11 +6056,14 @@ static quint16 Allocate_Embedded_Monitor_Port( int embedded_display_port, quint1
 	                      + ( embedded_display_port >= 0 ? embedded_display_port : 0 );
 	quint16 candidate = Find_Free_TCP_Port( (quint16)qMax( 26000, preferred ) );
 
-	for( int attempt = 0; candidate != 0 && attempt < 2000; ++attempt )
+	for( int attempt = 0; attempt < 200; ++attempt )
 	{
-		if( candidate != qmp_port && candidate != (quint16)spice_port && candidate != (quint16)vnc_port )
+		if( candidate != 0 && candidate != qmp_port &&
+		    candidate != (quint16)spice_port && candidate != (quint16)vnc_port )
+		{
 			return candidate;
-		candidate = Find_Free_TCP_Port( candidate + 1 );
+		}
+		candidate = Find_Free_TCP_Port( ( candidate > 0 ? candidate + 1 : (quint16)qMax( 26000, preferred ) + attempt + 1 ) );
 	}
 
 	return candidate != 0 ? candidate : (quint16)qMax( 26000, preferred );
@@ -6328,12 +6331,8 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	QString monitor_host = Settings.value("Emulator_Monitor_Hostname", "127.0.0.1").toString();
 	if( monitor_host.toLower() == "localhost" ) monitor_host = "127.0.0.1";
 
-	if( embedded_session )
-		Monitor_Port = Allocate_Embedded_Monitor_Port( Embedded_Display_Port, (quint16)QMP_Port,
-		                                               Embedded_Spice_Port, Embedded_VNC_Port );
-	else
-		Monitor_Port = (unsigned int)( Get_Emulator_Monitor_Base_Port()
-		                               + ( Embedded_Display_Port >= 0 ? Embedded_Display_Port : 0 ) );
+	Monitor_Port = Allocate_Embedded_Monitor_Port( Embedded_Display_Port, (quint16)QMP_Port,
+	                                               Embedded_Spice_Port, Embedded_VNC_Port );
 
 	Args << "-monitor" << QString("tcp:%1:%2,server,nowait")
 						  .arg(monitor_host)
@@ -6343,12 +6342,8 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	QString monitor_host = Settings.value("Emulator_Monitor_Hostname", "127.0.0.1").toString();
 	if( Settings.value("Emulator_Monitor_Type", "stdio").toString() == "tcp" )
 	{
-		if( embedded_session )
-			Monitor_Port = Allocate_Embedded_Monitor_Port( Embedded_Display_Port, (quint16)QMP_Port,
-			                                               Embedded_Spice_Port, Embedded_VNC_Port );
-		else
-			Monitor_Port = (unsigned int)( Get_Emulator_Monitor_Base_Port()
-			                               + ( Embedded_Display_Port >= 0 ? Embedded_Display_Port : 0 ) );
+		Monitor_Port = Allocate_Embedded_Monitor_Port( Embedded_Display_Port, (quint16)QMP_Port,
+		                                               Embedded_Spice_Port, Embedded_VNC_Port );
 
 		Args << "-monitor" << QString("tcp:%1:%2,server,nowait")
 							  .arg(monitor_host)
