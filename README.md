@@ -5,41 +5,55 @@
 </p>
 
 <p align="center">
-  <b>The QEMU frontend that refused to stay dead.</b><br/>
-  ~30k lines beyond the old community tree — embedded SPICE, bundled QEMU <b>11.0.2</b>, Win11 ARM, Win9x done right, classic Mac + Intel macOS.<br/>
-  <b>v1.0.0 — curtain time.</b> Download it. Break it. File issues.<br/>
+  <b>The QEMU virtual machine manager built for maximum power and modern ease.</b><br/>
+  ~30k lines beyond the legacy community tree — embedded SPICE, bundled QEMU <b>11.0.2</b>, Win11 ARM on x86, Win9x done right, classic Mac PPC + Intel macOS.<br/>
+  <b>Now Available on the Microsoft Store!</b><br/>
   Maintained by <a href="https://github.com/chronic8000">Chronic Engineering</a>
 </p>
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--2.0-blue.svg" alt="License: GPL-2.0"/></a>
-  <a href="https://github.com/chronic8000/aqemu/releases/tag/v1.0.0"><img src="https://img.shields.io/badge/release-v1.0.0-brightgreen.svg" alt="v1.0.0"/></a>
+  <a href="https://apps.microsoft.com/detail/9p0hgkhq9w19"><img src="https://img.shields.io/badge/Microsoft%20Store-AQEMU%20VM%20Manager-0078D4?logo=microsoftstore" alt="Microsoft Store"/></a>
   <a href="https://github.com/chronic8000/aqemu/releases"><img src="https://img.shields.io/badge/QEMU-11.0.2%20bundle-orange.svg" alt="QEMU 11.0.2"/></a>
   <a href="https://github.com/chronic8000/aqemu"><img src="https://img.shields.io/badge/host-Windows%20%7C%20Linux%20%7C%20Pi%205-success.svg" alt="Hosts"/></a>
   <a href="PRIVACY.md"><img src="https://img.shields.io/badge/privacy-policy-lightgrey.svg" alt="Privacy"/></a>
 </p>
 
 <p align="center">
-  <img src="screenshots/macos-sonoma-about.png" alt="macOS Sonoma running in AQEMU — About This Mac" width="920"/>
+  <img src="screenshots/win98-setup.png" alt="Windows 98 running in AQEMU" width="920"/>
 </p>
 
 <p align="center">
-  <i>macOS Sonoma 14 in AQEMU — real guest desktop, About This Mac, host-matching resolution.</i>
+  <i>AQEMU VM Manager on Windows — high-fidelity emulation with built-in QEMU 11.0.2 & embedded SPICE display.</i>
 </p>
 
 ---
 
-## Help us test 1.0.0
+## 🛒 Get AQEMU VM Manager
 
-This is the first **1.x** line we are pushing hard for outside testers. If you run odd guests, weird hosts, or find a wizard default that lies — **open an issue**.
+AQEMU is open-source under the **GNU General Public License v2 (GPL-2.0)**. You can freely compile the source code yourself or build custom packages anytime! 
+
+If you want to support ongoing development, maintenance, and future feature releases while enjoying seamless automatic updates directly on Windows, purchase **AQEMU VM Manager** on the Microsoft Store:
+
+<p align="center">
+  <a href="ms-windows-store://pdp/?productid=9P0HGKHQ9W19">
+    <b>👉 Open in Microsoft Store app (`ms-windows-store://pdp/?productid=9P0HGKHQ9W19`)</b>
+  </a><br/>
+  <a href="https://apps.microsoft.com/detail/9p0hgkhq9w19">
+    <b>🌐 View on Web (`https://apps.microsoft.com/detail/9p0hgkhq9w19`)</b>
+  </a>
+</p>
+
+---
+
+## Help us test & refine
 
 | | |
 |--|--|
-| **Download** | [v1.0.0 Windows portable](https://github.com/chronic8000/aqemu/releases/tag/v1.0.0) |
-| **File bugs** | [Issues](https://github.com/chronic8000/aqemu/issues) — host OS, guest OS, and the exact error help a lot (QEMU path is configured in **File → Configure → Emulator**: built-in vs custom). Historical [tobimensch/aqemu issues](https://github.com/tobimensch/aqemu/issues) are archived context only; we cannot close them upstream — triage lives in [`docs/TOBIMENSCH_ISSUE_TRIAGE.md`](docs/TOBIMENSCH_ISSUE_TRIAGE.md) |
+| **Microsoft Store** | [AQEMU VM Manager on Microsoft Store](https://apps.microsoft.com/detail/9p0hgkhq9w19) (Auto-updates & direct developer support) |
+| **Download / Source** | [GitHub Releases](https://github.com/chronic8000/aqemu/releases) or build from source |
+| **File bugs** | [Issues](https://github.com/chronic8000/aqemu/issues) — host OS, guest OS, and exact log outputs help us triage quickly. Historical [tobimensch/aqemu issues](https://github.com/tobimensch/aqemu/issues) are archived context only; triage lives in [`docs/TOBIMENSCH_ISSUE_TRIAGE.md`](docs/TOBIMENSCH_ISSUE_TRIAGE.md) |
 | **What we care about** | Install wizards, embedded SPICE, Win9x/XP TCG, Win11 ARM, Intel macOS, Solaris x86, AIX/pseries, migrate/QMP tools |
-
-We keep shipping free GitHub zips while the **Microsoft Store** listing works through certification. Store = auto-updates later; GitHub = grab the zip yourself when we cut a new tag.
 
 ---
 
