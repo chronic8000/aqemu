@@ -10,7 +10,7 @@
   <b>v1.0.0 — curtain time.</b> Download it. Break it. File issues.<br/>
   Maintained by <a href="https://github.com/chronic8000">Chronic Engineering</a>
 </p>
-
+https://neonsovereign.store/aqemu.html
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--2.0-blue.svg" alt="License: GPL-2.0"/></a>
   <a href="https://github.com/chronic8000/aqemu/releases/tag/v1.0.0"><img src="https://img.shields.io/badge/release-v1.0.0-brightgreen.svg" alt="v1.0.0"/></a>
