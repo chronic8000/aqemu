@@ -122,6 +122,7 @@ Main_Window::Main_Window( QWidget *parent )
 	, Session_VM( nullptr )
 	, Session_Mode_Active( false )
 	, Session_User_Detached( false )
+	, Session_Block_During_Start( false )
 	, GPU_Scan_Busy( false )
 	, Tray_Icon( nullptr )
 	, Act_Tray_Show( nullptr )
@@ -204,6 +205,11 @@ Main_Window::Main_Window( QWidget *parent )
 		Settings.setValue( "Embedded_Display_Backend", "spice" );
 #endif
 	}
+#ifdef Q_OS_WIN32
+	// Migrate existing installs off spice-client-glib (process crashes on channel errors).
+	if( Settings.value( "Embedded_Display_Backend" ).toString().toLower() == QLatin1String( "spice" ) )
+		Settings.setValue( "Embedded_Display_Backend", "vnc" );
+#endif
 
     connect(ui_ao.CH_Start_Date,SIGNAL(toggled(bool)),this,SLOT(adv_on_CH_Start_Date_toggled(bool)));
 	connect(ui_ao.TB_Refresh_Gamepads, SIGNAL(clicked()), this, SLOT(AO_Refresh_Gamepads_clicked()));
@@ -3232,12 +3238,18 @@ void Main_Window::VM_State_Changed( Virtual_Machine *vm, VM::VM_State s )
 		else if( ( s == VM::VMS_Running || s == VM::VMS_Pause ) &&
 		         ! vm->Prefer_Native_VGA_Window() )
 		{
-			// Refresh attach while viewing this VM (e.g. Preparing → Running).
-			// Do not auto-reopen after the user explicitly left with Exit view.
-			if( Session_Mode_Active && Session_VM == vm )
-				Enter_Session_Mode( vm );
-			else if( ! Session_Mode_Active && ! Session_User_Detached )
-				Enter_Session_Mode( vm );
+			// Never attach SPICE/VNC while Start() is still inside the modal
+			// "Please wait" dialog — waitForStarted() pumps events and nested
+			// spice-glib teardown was crashing the whole app.
+			if( ! Session_Block_During_Start )
+			{
+				// Refresh attach while viewing this VM (e.g. Preparing → Running).
+				// Do not auto-reopen after the user explicitly left with Exit view.
+				if( Session_Mode_Active && Session_VM == vm )
+					Enter_Session_Mode( vm );
+				else if( ! Session_Mode_Active && ! Session_User_Detached )
+					Enter_Session_Mode( vm );
+			}
 		}
 	}
 
@@ -3279,7 +3291,11 @@ void Main_Window::Enter_Session_Mode( Virtual_Machine *vm )
 	const int vnc_tcp = vm->Get_Embedded_VNC_Port() > 0
 		? vm->Get_Embedded_VNC_Port()
 		: ( vm->Get_Embedded_Display_Port() + Settings.value( "First_VNC_Port", "5910" ).toString().toInt() );
-	QString backend = Settings.value( "Embedded_Display_Backend", "spice" ).toString();
+	QString backend = Settings.value( "Embedded_Display_Backend", "vnc" ).toString();
+#ifdef Q_OS_WIN32
+	if( backend.toLower() == QLatin1String( "spice" ) )
+		backend = QStringLiteral( "vnc" );
+#endif
 
 	Session_Widget->Attach_VM( vm, vm->Get_QMP(),
 	                           QStringLiteral( "127.0.0.1" ),
@@ -3303,7 +3319,11 @@ void Main_Window::Enter_Session_Mode_Preparing( Virtual_Machine *vm )
 	ui.Tool_Bar_VM_Manage->setVisible( false );
 	ui.Tool_Bar_VM_Control->setVisible( false );
 
-	QString backend = Settings.value( "Embedded_Display_Backend", "spice" ).toString();
+	QString backend = Settings.value( "Embedded_Display_Backend", "vnc" ).toString();
+#ifdef Q_OS_WIN32
+	if( backend.toLower() == QLatin1String( "spice" ) )
+		backend = QStringLiteral( "vnc" );
+#endif
 	// Ports are allocated during Start — show the session shell first so QEMU
 	// does not race ahead of the UI.
 	Session_Widget->Attach_VM( vm, nullptr,
@@ -4997,21 +5017,34 @@ void Main_Window::on_actionPower_On_triggered()
 
 	// Show the session window first, then start QEMU (display connects when Running).
 	// Legacy Win9x/XP use QEMU's own SDL/GTK window — skip embed (VNC can't do text mode).
-	if( Settings.value( "Embedded_Session", "yes" ).toString() == "yes" &&
-	    ! cur_vm->Prefer_Native_VGA_Window() )
+	const bool embed = Settings.value( "Embedded_Session", "yes" ).toString() == "yes" &&
+	                   ! cur_vm->Prefer_Native_VGA_Window();
+	if( embed )
 		Enter_Session_Mode_Preparing( cur_vm );
 
 	bool started = false;
+	Session_Block_During_Start = true;
 	AQ_Run_With_Busy_Dialog( this, tr( "Starting virtual machine…" ), [ & ]() {
 		started = AQEMU_Service::get().call( "start", cur_vm );
 	} );
+	Session_Block_During_Start = false;
 
 	if( ! started )
 	{
-		AQError( "void Main_Window::on_action_Power_On_triggered()", "Cannot Start VM!" );
+		AQGraphic_Error( "void Main_Window::on_action_Power_On_triggered()",
+		                 tr( "Cannot start VM" ),
+		                 tr( "QEMU did not start. Check the emulator binary path, "
+		                     "machine settings, and the QEMU error log." ),
+		                 false );
 		if( Session_Mode_Active && Session_VM == cur_vm )
 			Exit_Session_Mode();
+		return;
 	}
+
+	// Attach display only after the busy dialog closes (ports are allocated).
+	if( embed &&
+	    ( cur_vm->Get_State() == VM::VMS_Running || cur_vm->Get_State() == VM::VMS_Pause ) )
+		Enter_Session_Mode( cur_vm );
 }
 
 void Main_Window::on_actionSave_triggered()

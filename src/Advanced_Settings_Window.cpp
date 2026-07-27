@@ -325,7 +325,7 @@ Advanced_Settings_Window::Advanced_Settings_Window( QWidget *parent )
 	ui.RB_Monitor_TCP->setChecked( Settings.value("Emulator_Monitor_Type", "stdio").toString() == "tcp" );
 	#endif
 	ui.CB_Monitor_Hostname->setEditText( Settings.value("Emulator_Monitor_Hostname", "127.0.0.1").toString() );
-	ui.SB_Monitor_Port->setValue( Settings.value("Emulator_Monitor_Port", Settings.value("Emulator_MonGitor_Port", 26000)).toInt() );
+	ui.SB_Monitor_Port->setValue( Settings.value("Emulator_Monitor_Port", Settings.value("Emulator_MonGitor_Port", 36000)).toInt() );
 
 	// QEMU_AUDIO
 	ui.CH_Audio_Default->setChecked( Settings.value("QEMU_AUDIO/Use_Default_Driver", "yes").toString() == "no" );
@@ -786,7 +786,15 @@ void Advanced_Settings_Window::done(int r)
 	    if( ! Settings.contains( "Embedded_Session" ) )
 		    Settings.setValue( "Embedded_Session", "yes" );
 	    if( ! Settings.contains( "Embedded_Display_Backend" ) )
+#ifdef Q_OS_WIN32
+		    Settings.setValue( "Embedded_Display_Backend", "vnc" );
+#else
 		    Settings.setValue( "Embedded_Display_Backend", "spice" );
+#endif
+#ifdef Q_OS_WIN32
+	    if( Settings.value( "Embedded_Display_Backend" ).toString().toLower() == QLatin1String( "spice" ) )
+		    Settings.setValue( "Embedded_Display_Backend", "vnc" );
+#endif
 	
 	    // QEMU Monitor Type
 	    #ifdef Q_OS_WIN32

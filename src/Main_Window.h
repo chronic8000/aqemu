@@ -360,6 +360,8 @@ class Main_Window: public QMainWindow
 		QString Idle_Window_Title;
 		bool Session_Mode_Active;
 		bool Session_User_Detached;
+		/** True while Start() runs under the busy dialog — do not attach SPICE yet. */
+		bool Session_Block_During_Start;
 		bool GPU_Scan_Busy;
 
 		QSystemTrayIcon *Tray_Icon;

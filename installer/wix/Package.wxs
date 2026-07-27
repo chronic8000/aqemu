@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  AQEMU MSI — WiX Toolset (not InstallShield).
+  Stable UpgradeCode: keep this GUID for all 1.x upgrades.
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+
+  <Package Name="AQEMU"
+           Manufacturer="AQEMU Contributors"
+           Version="$(var.ProductVersion)"
+           UpgradeCode="8f3c2e91-4a7b-4d6e-9c1f-2b8e5a7d3f01"
+           Scope="perMachine"
+           Language="1033">
+    <SummaryInformation Description="AQEMU — Qt GUI for QEMU" />
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed. Remove it first if you need to install this version."
+                  Schedule="afterInstallInitialize" />
+
+    <!-- Single embedded cabinet — good for Store upload of one MSI -->
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+
+    <Feature Id="ProductFeature" Title="AQEMU" Level="1">
+      <ComponentGroupRef Id="PayloadFiles" />
+      <ComponentRef Id="StartMenuShortcut" />
+      <ComponentRef Id="DesktopShortcut" />
+    </Feature>
+
+    <!-- Standard MSI UI; silent install still works with msiexec /qn -->
+    <ui:WixUI Id="WixUI_Minimal" />
+    <WixVariable Id="WixUILicenseRtf" Value="$(var.LicenseRtf)" />
+  </Package>
+
+  <Fragment>
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="AQEMU" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationProgramsFolder" Name="AQEMU" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="DesktopFolder" />
+  </Fragment>
+
+  <!-- Harvested payload from staged build_win tree (see build-msi.ps1) -->
+  <Fragment>
+    <ComponentGroup Id="PayloadFiles" Directory="INSTALLFOLDER">
+      <Files Include="!(bindpath.Payload)\**" />
+    </ComponentGroup>
+  </Fragment>
+
+  <Fragment>
+    <Component Id="StartMenuShortcut" Directory="ApplicationProgramsFolder" Guid="b2d4e6f8-1a3c-4e5f-9b7d-0c2e4a6f8b10">
+      <Shortcut Id="AQEMUStartMenu"
+                Name="AQEMU"
+                Description="Qt GUI for QEMU"
+                Target="[INSTALLFOLDER]aqemu.exe"
+                WorkingDirectory="INSTALLFOLDER" />
+      <RemoveFolder Id="RemoveApplicationProgramsFolder" Directory="ApplicationProgramsFolder" On="uninstall" />
+      <RegistryValue Root="HKLM"
+                     Key="Software\AQEMU"
+                     Name="StartMenuShortcut"
+                     Type="integer"
+                     Value="1"
+                     KeyPath="yes" />
+    </Component>
+
+    <Component Id="DesktopShortcut" Directory="DesktopFolder" Guid="c3e5f7a9-2b4d-4f6a-8c0e-1d3f5a7b9c21">
+      <Shortcut Id="AQEMUDesktop"
+                Name="AQEMU"
+                Description="Qt GUI for QEMU"
+                Target="[INSTALLFOLDER]aqemu.exe"
+                WorkingDirectory="INSTALLFOLDER" />
+      <RegistryValue Root="HKLM"
+                     Key="Software\AQEMU"
+                     Name="DesktopShortcut"
+                     Type="integer"
+                     Value="1"
+                     KeyPath="yes" />
+    </Component>
+  </Fragment>
+</Wix>

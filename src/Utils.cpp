@@ -1963,6 +1963,57 @@ QString AQ_QEMU_Pick_Native_Display( const QString &qemu_binary )
 	return QString();
 }
 
+static bool AQ_Looks_Like_QEMU_Data_Dir( const QString &dir )
+{
+	if( dir.isEmpty() || ! QDir( dir ).exists() )
+		return false;
+	const QString d = QDir::cleanPath( dir );
+	// SeaBIOS (x86) or EDK2 (any arch) marks a usable firmware tree.
+	return QFile::exists( d + QLatin1String( "/bios-256k.bin" ) ) ||
+	       QFile::exists( d + QLatin1String( "/bios.bin" ) ) ||
+	       QFile::exists( d + QLatin1String( "/edk2-x86_64-code.fd" ) ) ||
+	       QFile::exists( d + QLatin1String( "/edk2-aarch64-code.fd" ) ) ||
+	       QFile::exists( d + QLatin1String( "/edk2-arm-code.fd" ) );
+}
+
+QString AQ_Get_QEMU_Data_Dir( const QString &qemu_binary_path )
+{
+	QStringList probes;
+
+	const QFileInfo bin( qemu_binary_path );
+	if( bin.exists() )
+	{
+		const QString bin_dir = bin.absolutePath();
+		probes << ( bin_dir + QLatin1String( "/share" ) )
+		       << bin_dir
+		       << ( bin_dir + QLatin1String( "/../share" ) )
+		       << ( bin_dir + QLatin1String( "/../share/qemu" ) );
+	}
+
+	const QString bundled = AQ_Get_Bundled_QEMU_Dir();
+	if( ! bundled.isEmpty() )
+	{
+		probes << ( bundled + QLatin1String( "share" ) )
+		       << bundled
+		       << ( bundled + QLatin1String( "share/qemu" ) );
+	}
+
+	const QString app_dir = QCoreApplication::applicationDirPath();
+	if( ! app_dir.isEmpty() )
+	{
+		probes << ( app_dir + QLatin1String( "/share" ) )
+		       << ( app_dir + QLatin1String( "/share/qemu" ) );
+	}
+
+	for( int i = 0; i < probes.count(); ++i )
+	{
+		const QString cand = QDir::cleanPath( probes.at( i ) );
+		if( AQ_Looks_Like_QEMU_Data_Dir( cand ) )
+			return QDir::toNativeSeparators( cand );
+	}
+	return QString();
+}
+
 QString AQ_Find_QEMU_Binary_With_Native_Display( const QString &system_name,
                                                  const QString &preferred_path )
 {

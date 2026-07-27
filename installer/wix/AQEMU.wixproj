@@ -1,0 +1,20 @@
+<Project Sdk="WixToolset.Sdk/7.0.0">
+  <!--
+    Optional: open this folder in Visual Studio with the WiX extension.
+    Preferred build path: installer\build-msi.ps1 (WiX CLI).
+    InstallShield is not used (commercial Flexera product).
+  -->
+  <PropertyGroup>
+    <OutputType>Package</OutputType>
+    <OutputName>AQEMU-1.0.0-win64</OutputName>
+    <InstallerPlatform>x64</InstallerPlatform>
+    <DefineConstants>ProductVersion=1.0.0</DefineConstants>
+    <AcceptEula>wix7</AcceptEula>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="WixToolset.UI.wixext" Version="7.0.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <BindPath Include="..\payload" BindName="Payload" />
+  </ItemGroup>
+</Project>

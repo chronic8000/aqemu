@@ -6046,27 +6046,46 @@ static int Get_Emulator_Monitor_Base_Port()
 	QSettings settings;
 	if( settings.contains( "Emulator_Monitor_Port" ) )
 		return settings.value( "Emulator_Monitor_Port" ).toInt();
-	return settings.value( "Emulator_MonGitor_Port", 26000 ).toInt();
+	return settings.value( "Emulator_MonGitor_Port", 36000 ).toInt();
+}
+
+static bool Port_Looks_HyperV_Reserved( int port )
+{
+	// Common dynamic exclusions seen on Win10/11 with Hyper-V / WSL / NAT.
+	// Also treat the historical AQEMU default 26000 band as unsafe.
+	if( port >= 25995 && port <= 26094 )
+		return true;
+	if( port >= 26129 && port <= 26228 )
+		return true;
+	return false;
 }
 
 static quint16 Allocate_Embedded_Monitor_Port( int embedded_display_port, quint16 qmp_port,
                                                int spice_port, int vnc_port )
 {
-	const int preferred = Get_Emulator_Monitor_Base_Port()
-	                      + ( embedded_display_port >= 0 ? embedded_display_port : 0 );
-	quint16 candidate = Find_Free_TCP_Port( (quint16)qMax( 26000, preferred ) );
+	int preferred = Get_Emulator_Monitor_Base_Port()
+	                + ( embedded_display_port >= 0 ? embedded_display_port : 0 );
+	// Old installs defaulted to 26000, which Hyper-V often reserves → QEMU aborts.
+	if( preferred < 1024 || Port_Looks_HyperV_Reserved( preferred ) )
+		preferred = 36000;
+
+	quint16 candidate = Find_Free_TCP_Port( (quint16)preferred );
 
 	for( int attempt = 0; attempt < 200; ++attempt )
 	{
-		if( candidate != 0 && candidate != qmp_port &&
-		    candidate != (quint16)spice_port && candidate != (quint16)vnc_port )
+		if( candidate != 0 &&
+		    ! Port_Looks_HyperV_Reserved( (int)candidate ) &&
+		    candidate != qmp_port &&
+		    candidate != (quint16)spice_port &&
+		    candidate != (quint16)vnc_port )
 		{
 			return candidate;
 		}
-		candidate = Find_Free_TCP_Port( ( candidate > 0 ? candidate + 1 : (quint16)qMax( 26000, preferred ) + attempt + 1 ) );
+		candidate = Find_Free_TCP_Port( 0 ); // OS ephemeral — avoids reserved ranges
 	}
 
-	return candidate != 0 ? candidate : (quint16)qMax( 26000, preferred );
+	candidate = Find_Free_TCP_Port( 0 );
+	return candidate != 0 ? candidate : (quint16)36000;
 }
 
 static QChar Boot_Letter( VM::Boot_Device type )
@@ -6242,6 +6261,32 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 
 	QStringList Args;
 
+	// Portable / bundled QEMU: always pin -L to the share/ next to the binary
+	// so embedded (-display none) sessions find SeaBIOS/EDK2 without relying on
+	// a compile-time install prefix.
+	if( ! Build_QEMU_Args_for_Tab_Info )
+	{
+		QString system_name = Current_Emulator_Devices.System.QEMU_Name;
+		if( system_name.isEmpty() )
+			system_name = Computer_Type;
+		const QString bin_path = Get_Current_Emulator_Binary_Path( system_name );
+		const QString data_dir = AQ_Get_QEMU_Data_Dir( bin_path );
+		if( ! data_dir.isEmpty() )
+		{
+			if( Build_QEMU_Args_for_Script_Mode )
+				Args << "-L" << ( QStringLiteral( "\"" ) + data_dir + QLatin1Char( '"' ) );
+			else
+				Args << "-L" << data_dir;
+		}
+		else if( ! bin_path.isEmpty() )
+		{
+			AQWarning( "Virtual_Machine::Build_QEMU_Args()",
+			           QString( "No QEMU firmware share/ found near \"%1\". "
+			                    "Guest may fail to start (missing BIOS/EDK2)." )
+			               .arg( bin_path ) );
+		}
+	}
+
 	if( No_Defaults )
 		Args << "-nodefaults";
 
@@ -6315,8 +6360,12 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	{
 		if( QMP_Port <= 0 )
 			QMP_Port = Find_Free_TCP_Port( 4444 );
+#ifndef Q_OS_WIN32
 		if( Embedded_Spice_Port <= 0 )
 			Embedded_Spice_Port = Find_Free_TCP_Port( 5930 );
+#else
+		Embedded_Spice_Port = 0;
+#endif
 		if( Embedded_VNC_Port <= 0 )
 		{
 			const int first_vnc = Settings.value( "First_VNC_Port", "5910" ).toString().toInt();
@@ -7590,15 +7639,27 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	//      (further) problems ...
 	Args << StorageArgs;
 
-	// Boot Device ? PC BIOS only. aarch64/arm/riscv UEFI uses bootindex on devices.
+	// Boot Device — PC BIOS only. aarch64/arm/riscv UEFI uses bootindex on devices.
+	//
+	// Windows + our bundled QEMU 11.0.2: ANY `-boot …` argument triggers
+	// STATUS_ACCESS_VIOLATION / HEAP_CORRUPTION (0xC0000005 / 0xC0000374) with
+	// empty stderr. System QEMU is fine; this is a Windows softmmu build bug.
+	// Skip `-boot` on Windows so VMs can actually start; SeaBIOS still boots
+	// from the first available disk/CD/floppy.
 	if( Current_Emulator_Devices.PSO_Boot_Order && ! is_virt_arch )
 	{
+#ifdef Q_OS_WIN32
+		AQWarning( "QStringList Virtual_Machine::Build_QEMU_Args()",
+		           "Omitting -boot on Windows (bundled QEMU crashes on -boot). "
+		           "Use device boot order / boot menu inside the guest firmware if needed." );
+#else
 		const QString bootStr = Build_X86_Boot_Arg( *this, Show_Boot_Menu );
 		if( ! bootStr.isEmpty() )
 			Args << "-boot" << bootStr;
 		else
 			AQWarning( "QStringList Virtual_Machine::Build_QEMU_Args()",
-					   "No bootable media in order list ? omitting -boot" );
+					   "No bootable media in order list — omitting -boot" );
+#endif
 	}
 	
 	// Network Cards
@@ -9117,23 +9178,37 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	}
 	else if( embedded_session )
 	{
-		// Headless: no QEMU SDL/GTK chrome ? AQEMU owns the window
+		// Headless: no QEMU SDL/GTK chrome — AQEMU owns the window
 		Args << "-display" << "none";
 
-		QStringList spiceArgs;
-		spiceArgs << QString( "port=%1" ).arg( Embedded_Spice_Port > 0 ? Embedded_Spice_Port : 5930 );
-		spiceArgs << "addr=127.0.0.1";
-		spiceArgs << "disable-ticketing=on";
-		// Local profile: avoid compression overhead on localhost
-		spiceArgs << "image-compression=off";
-		spiceArgs << "playback-compression=off";
-		if( SPICE_Agent_Mouse == "on" )
-			spiceArgs << "agent-mouse=on";
-		else if( SPICE_Agent_Mouse == "off" )
-			spiceArgs << "agent-mouse=off";
-		Args << "-spice" << spiceArgs.join( "," );
+#ifdef Q_OS_WIN32
+		// On Windows, embedded display uses LibVNC. Skip -spice so spice-client-glib
+		// is never needed (channel ERROR_LINK teardown was crashing AQEMU).
+		const bool win_vnc_only = true;
+#else
+		const bool win_vnc_only = false;
+#endif
+		if( ! win_vnc_only )
+		{
+			QStringList spiceArgs;
+			spiceArgs << QString( "port=%1" ).arg( Embedded_Spice_Port > 0 ? Embedded_Spice_Port : 5930 );
+			spiceArgs << "addr=127.0.0.1";
+			spiceArgs << "disable-ticketing=on";
+			// Local profile: avoid compression overhead on localhost
+			spiceArgs << "image-compression=off";
+			spiceArgs << "playback-compression=off";
+			if( SPICE_Agent_Mouse == "on" )
+				spiceArgs << "agent-mouse=on";
+			else if( SPICE_Agent_Mouse == "off" )
+				spiceArgs << "agent-mouse=off";
+			Args << "-spice" << spiceArgs.join( "," );
+		}
+		else
+		{
+			Embedded_Spice_Port = 0;
+		}
 
-		// VNC for LibVNC client ? bind a free TCP port (not a fixed display index)
+		// VNC for LibVNC client — bind a free TCP port (not a fixed display index)
 		if( Embedded_VNC_Port <= 0 )
 		{
 			const int first_vnc = Settings.value( "First_VNC_Port", "5910" ).toString().toInt();
@@ -9874,14 +9949,34 @@ bool Virtual_Machine::Start_impl()
 	if( QEMU_Process && QEMU_Process->state() != QProcess::NotRunning )
 	{
 		AQWarning( "bool Virtual_Machine::Start_impl()",
-		           "Previous QEMU process still running ? terminating it before restart" );
+		           "Previous QEMU process still running — terminating it before restart" );
 		QEMU_Process->kill();
-		QEMU_Process->waitForFinished( 3000 );
+		if( ! QEMU_Process->waitForFinished( 5000 ) )
+		{
+			AQGraphic_Error( "bool Virtual_Machine::Start_impl()", tr( "Error!" ),
+			                 tr( "A previous QEMU process for this VM is still running and "
+			                     "could not be stopped. End it in Task Manager (qemu-system-*) "
+			                     "and try Start again." ), false );
+			return false;
+		}
 	}
 
 	// Also kill orphan qemu-system-* processes that still hold this VM's disks
 	// (e.g. after monitor quit failed and AQEMU lost the child handle).
 	Kill_Orphan_QEMU_Using_Disks();
+
+	// Ensure our QProcess handle is idle after orphan cleanup.
+	if( QEMU_Process && QEMU_Process->state() != QProcess::NotRunning )
+	{
+		QEMU_Process->kill();
+		QEMU_Process->waitForFinished( 3000 );
+		if( QEMU_Process->state() != QProcess::NotRunning )
+		{
+			AQGraphic_Error( "bool Virtual_Machine::Start_impl()", tr( "Error!" ),
+			                 tr( "Cannot start: QEMU process handle is still busy." ), false );
+			return false;
+		}
+	}
 
     delete QEMU_Error_Win;
     QEMU_Error_Win = new Error_Log_Window();
@@ -10107,7 +10202,7 @@ bool Virtual_Machine::Start_impl()
         }
 
         QStringList qemu_args = this->Build_QEMU_Args();
-        AQDebug( "bool Virtual_Machine::Start()",
+        AQWarning( "bool Virtual_Machine::Start()",
                  QString( "Starting: \"%1\" %2" ).arg( bin_path, qemu_args.join( " " ) ) );
         QEMU_Process->start( bin_path, qemu_args );
 		if( ! QEMU_Process->waitForStarted( 15000 ) )
@@ -12907,6 +13002,9 @@ void Virtual_Machine::QEMU_Started()
 	{
 		QProcess *before_proc = new QProcess();
 		before_proc->start( Settings.value("Run_Before_QEMU", "").toString() );
+		if( before_proc->state() == QProcess::NotRunning )
+			AQWarning( "Virtual_Machine::QEMU_Started()",
+			           "Run_Before_QEMU failed to start: " + before_proc->errorString() );
 	}
 	
 	// Connect monitor?
@@ -12959,25 +13057,50 @@ void Virtual_Machine::QEMU_Finished( int exitCode, QProcess::ExitStatus exitStat
 {
 	AQDebug( "void Virtual_Machine::QEMU_Finished( int exitCode, QProcess::ExitStatus exitStatus )" ,
 			 "QEMU Finished" );
+
+	// Drain any remaining QEMU output before deciding what to show the user.
+	// Fast failures (e.g. missing -netdev user) otherwise leave an empty dialog.
+	if( QEMU_Process )
+	{
+		QEMU_Process->setReadChannel( QProcess::StandardError );
+		const QByteArray err_left = QEMU_Process->readAllStandardError();
+		if( ! err_left.isEmpty() )
+			QEMU_Stderr_History.append( QString::fromLocal8Bit( err_left ) );
+		const QByteArray out_left = QEMU_Process->readAllStandardOutput();
+		if( ! out_left.isEmpty() )
+			QEMU_Stdout_History.append( QString::fromLocal8Bit( out_left ) );
+	}
 	
 	emit QEMU_End();
 	
 	Start_Snapshot_Tag = "";
 	Set_State( VM::VMS_Power_Off );
-	
-    if (exitStatus == QProcess::CrashExit)
-	{
-		AQError( "QEMU Crashed!", "QEMU Crashed!" );
-	}
-    else if ( (exitCode != 0) ) 
-    {
-        QString error = QEMU_Stderr_History;
-        if( error.isEmpty() )
-            error = QEMU_Stdout_History;
-        AQError( "QEMU return value != 0", error );
 
-        Show_QEMU_Error( error );
-    }
+	const bool failed = ( exitStatus == QProcess::CrashExit ) || ( exitCode != 0 );
+	if( failed )
+	{
+		QString error = QEMU_Stderr_History;
+		if( error.trimmed().isEmpty() )
+			error = QEMU_Stdout_History;
+		if( error.trimmed().isEmpty() )
+		{
+			if( exitStatus == QProcess::CrashExit )
+			{
+				error = tr( "QEMU crashed while starting or running this VM "
+				            "(Windows exit code 0x%1)." )
+					.arg( QString::number( static_cast<quint32>( exitCode ), 16 ).toUpper() );
+			}
+			else
+				error = tr( "QEMU exited with code %1." ).arg( exitCode );
+		}
+		AQError( exitStatus == QProcess::CrashExit ? "QEMU Crashed!" : "QEMU return value != 0",
+		         error );
+		Show_QEMU_Error( error );
+		AQGraphic_Error( "Virtual_Machine::QEMU_Finished",
+		                 exitStatus == QProcess::CrashExit ? tr( "QEMU crashed" )
+		                                                   : tr( "QEMU failed to start" ),
+		                 error, false );
+	}
 	else
 	{
 		AQDebug( "void Virtual_Machine::QEMU_Finished( int exitCode, QProcess::ExitStatus exitStatus )",

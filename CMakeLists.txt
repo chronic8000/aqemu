@@ -398,7 +398,7 @@ IF( AQEMU_WITH_SPICE_GTK )
 	ENDIF( WIN32 )
 ENDIF( AQEMU_WITH_SPICE_GTK )
 
-# Bundle QEMU binaries next to aqemu when requested
+# Bundle QEMU binaries + firmware share next to aqemu when requested
 IF( AQEMU_BUNDLE_QEMU )
 	IF( EXISTS "${AQEMU_QEMU_PREFIX}/bin" )
 		SET( _qemu_bin_dir "${AQEMU_QEMU_PREFIX}/bin" )
@@ -409,17 +409,66 @@ IF( AQEMU_BUNDLE_QEMU )
 		SET( _qemu_bin_dir "" )
 	ENDIF()
 	IF( _qemu_bin_dir )
+		# Every qemu-system-* (all softmmu targets) + qemu-img / helpers
 		FILE( GLOB _qemu_bins
 			"${_qemu_bin_dir}/qemu-system-*"
 			"${_qemu_bin_dir}/qemu-img*"
+			"${_qemu_bin_dir}/qemu-edid*"
+			"${_qemu_bin_dir}/qemu-io*"
+			"${_qemu_bin_dir}/qemu-nbd*"
+			"${_qemu_bin_dir}/qemu-storage-daemon*"
 		)
+		LIST( LENGTH _qemu_bins _qemu_bin_count )
+		IF( _qemu_bin_count LESS 4 )
+			MESSAGE( WARNING "AQEMU_BUNDLE_QEMU: only ${_qemu_bin_count} QEMU tool(s) under ${_qemu_bin_dir} — expected every softmmu qemu-system-*. Rebuild with scripts/build_qemu_windows_msys.sh / build_qemu_linux.sh" )
+		ENDIF()
 		FOREACH( _qb ${_qemu_bins} )
 			ADD_CUSTOM_COMMAND( TARGET aqemu POST_BUILD
 				COMMAND ${CMAKE_COMMAND} -E copy_if_different "${_qb}" "$<TARGET_FILE_DIR:aqemu>/"
 				COMMENT "Bundle QEMU: ${_qb}"
 			)
 		ENDFOREACH()
-		MESSAGE( STATUS "Will copy QEMU binaries from ${_qemu_bin_dir} next to aqemu" )
+		# Firmware tree is mandatory for Store/portable embedded sessions (-display none).
+		SET( _qemu_share "" )
+		IF( EXISTS "${AQEMU_QEMU_PREFIX}/share/bios-256k.bin" )
+			SET( _qemu_share "${AQEMU_QEMU_PREFIX}/share" )
+		ELSEIF( EXISTS "${AQEMU_QEMU_PREFIX}/share/qemu/bios-256k.bin" )
+			SET( _qemu_share "${AQEMU_QEMU_PREFIX}/share/qemu" )
+		ELSEIF( EXISTS "${_qemu_bin_dir}/share/bios-256k.bin" )
+			SET( _qemu_share "${_qemu_bin_dir}/share" )
+		ENDIF()
+		IF( _qemu_share )
+			ADD_CUSTOM_COMMAND( TARGET aqemu POST_BUILD
+				COMMAND ${CMAKE_COMMAND} -E copy_directory "${_qemu_share}" "$<TARGET_FILE_DIR:aqemu>/share"
+				COMMENT "Bundle QEMU firmware share/ from ${_qemu_share}"
+			)
+			MESSAGE( STATUS "Will copy QEMU firmware share from ${_qemu_share}" )
+		ELSE()
+			MESSAGE( WARNING "AQEMU_BUNDLE_QEMU: no share/bios-256k.bin under ${AQEMU_QEMU_PREFIX} — embedded VMs will fail to start" )
+		ENDIF()
+		# Also copy runtime DLLs required by the full feature set (slirp/user net, usb, …)
+		SET( _qemu_dll_globs
+			"${_qemu_bin_dir}/libslirp*.dll"
+			"${_qemu_bin_dir}/libusb*.dll"
+			"${_qemu_bin_dir}/libusbredir*.dll"
+		)
+		FILE( GLOB _qemu_dlls ${_qemu_dll_globs} )
+		# MSYS2 install often leaves these only under /mingw64/bin — probe that too on Windows.
+		IF( WIN32 AND EXISTS "C:/msys64/mingw64/bin" )
+			FILE( GLOB _msys_dlls
+				"C:/msys64/mingw64/bin/libslirp*.dll"
+				"C:/msys64/mingw64/bin/libusb-1.0*.dll"
+				"C:/msys64/mingw64/bin/libusbredir*.dll"
+			)
+			LIST( APPEND _qemu_dlls ${_msys_dlls} )
+		ENDIF()
+		FOREACH( _qd ${_qemu_dlls} )
+			ADD_CUSTOM_COMMAND( TARGET aqemu POST_BUILD
+				COMMAND ${CMAKE_COMMAND} -E copy_if_different "${_qd}" "$<TARGET_FILE_DIR:aqemu>/"
+				COMMENT "Bundle QEMU runtime DLL: ${_qd}"
+			)
+		ENDFOREACH()
+		MESSAGE( STATUS "Will copy ${_qemu_bin_count} QEMU binary(ies) from ${_qemu_bin_dir} next to aqemu" )
 	ENDIF()
 ENDIF( AQEMU_BUNDLE_QEMU )
 

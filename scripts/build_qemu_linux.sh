@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Build bundled QEMU targets for Linux / Raspberry Pi (AQEMU)
 # Usage: scripts/build_qemu_linux.sh [PREFIX]
+#
+# Builds EVERY softmmu target with the full AQEMU feature set.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -13,29 +15,28 @@ if [[ ! -f "${QEMU_SRC}/configure" && ! -f "${QEMU_SRC}/meson.build" ]]; then
   exit 1
 fi
 
+export PKG_CONFIG="${PKG_CONFIG:-pkg-config}"
+
 mkdir -p "${BUILD_DIR}" "${PREFIX}"
 cd "${BUILD_DIR}"
 
-# Targets used by AQEMU wizard / templates
-TARGETS="x86_64-softmmu,i386-softmmu,aarch64-softmmu"
+# shellcheck source=qemu_softmmu_targets.sh
+source "${ROOT}/scripts/qemu_softmmu_targets.sh"
+TARGETS="$(qemu_softmmu_target_list "${QEMU_SRC}")"
+echo "Building ALL softmmu targets: ${TARGETS}"
 
-EXTRA=()
-if pkg-config --exists spice-server 2>/dev/null; then
-  EXTRA+=(--enable-spice)
-else
-  echo "WARNING: spice-server not found; building without SPICE server (VNC fallback in AQEMU)."
-fi
+# shellcheck source=qemu_feature_flags.sh
+source "${ROOT}/scripts/qemu_feature_flags.sh"
+aqemu_qemu_feature_flags
 
 "${QEMU_SRC}/configure" \
   --prefix="${PREFIX}" \
   --target-list="${TARGETS}" \
-  --enable-vnc \
-  --disable-docs \
-  --disable-guest-agent \
-  "${EXTRA[@]}"
+  "${AQEMU_QEMU_EXTRA_CONFIGURE[@]}"
 
 ninja -C "${BUILD_DIR}" -j"$(nproc 2>/dev/null || echo 4)"
 ninja -C "${BUILD_DIR}" install
 
 echo "Installed QEMU bundle to ${PREFIX}"
 ls -la "${PREFIX}/bin"/qemu-system-* "${PREFIX}/bin"/qemu-img 2>/dev/null || true
+aqemu_qemu_verify_install "${PREFIX}"

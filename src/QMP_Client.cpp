@@ -13,17 +13,45 @@
 
 quint16 Find_Free_TCP_Port( quint16 start )
 {
+	// Windows Hyper-V / excluded-port ranges make many "well-known" ports
+	// (e.g. 26000) unusable: QTcpServer may appear to succeed while QEMU's
+	// subsequent bind fails with "Failed to bind socket: Input/output error".
+	// Prefer an OS-assigned ephemeral port when possible.
+	auto listen_ok = []( quint16 port ) -> quint16 {
+		QTcpServer probe;
+		if( ! probe.listen( QHostAddress::LocalHost, port ) )
+			return 0;
+		const quint16 ok = probe.serverPort();
+		probe.close();
+		return ok;
+	};
+
+	auto is_risky_windows_port = []( quint16 p ) -> bool {
+#ifdef Q_OS_WIN32
+		// Common Hyper-V excluded bands observed on Win10/11 hosts.
+		if( p >= 25995 && p <= 26094 ) return true;
+		if( p >= 59013 && p <= 59112 ) return true;
+		if( p >= 50000 && p <= 50059 ) return true;
+#else
+		Q_UNUSED( p );
+#endif
+		return false;
+	};
+
+	if( start == 0 )
+		return listen_ok( 0 );
+
 	for( quint16 p = start; p < start + 2000; ++p )
 	{
-		QTcpServer probe;
-		if( probe.listen( QHostAddress::LocalHost, p ) )
-		{
-			quint16 ok = probe.serverPort();
-			probe.close();
+		if( is_risky_windows_port( p ) )
+			continue;
+		const quint16 ok = listen_ok( p );
+		if( ok != 0 )
 			return ok;
-		}
 	}
-	return 0;
+
+	// Last resort: any free ephemeral port
+	return listen_ok( 0 );
 }
 
 QMP_Client::QMP_Client( QObject *parent )
