@@ -91,6 +91,9 @@ class Spice_View : public Guest_Display_View
 		void Emit_Connected_Once();
 		void Handle_Channel_Event( SpiceChannel *channel, int event );
 		void Refresh_Mouse_Mode();
+		void Set_Mouse_Captured( bool captured );
+		void Update_Keyboard_Grab();
+		void Warp_Pointer_To_Center();
 		void Send_Pointer( const QPoint &guest_pos, bool have_pos );
 		void Send_Mouse_Buttons( int spice_button, bool press );
 		void Send_Key( QKeyEvent *event, bool press );
@@ -109,6 +112,7 @@ class Spice_View : public Guest_Display_View
 		bool Connected_Flag;
 		bool Connected_Emitted;
 		bool Error_Emitted;
+		bool Disconnecting; // true while tearing down — ignore GObject callbacks
 
 		QImage Frame;
 		QByteArray Primary_Bytes;

@@ -471,19 +471,30 @@ QString VM_Session_Widget::Pick_Backend( const QString &preferred ) const
 {
 	QString p = preferred.toLower();
 	if( p.isEmpty() )
-		p = QSettings().value( "Embedded_Display_Backend", "spice" ).toString().toLower();
+		p = QSettings().value( "Embedded_Display_Backend", "vnc" ).toString().toLower();
 
-	// Prefer SPICE whenever the spice-client-glib viewer was compiled in.
-	if( Spice && Spice->Spice_Available() && ( p.isEmpty() || p == "spice" || p == "auto" ) )
-		return "spice";
-	if( p == "spice" && Spice && Spice->Spice_Available() )
-		return "spice";
+#ifdef Q_OS_WIN32
+	// Windows: spice-client-glib channel teardown / ERROR_LINK retries have been
+	// crashing the whole AQEMU process. Prefer LibVNC (QEMU already opens -vnc).
+	if( p != QLatin1String( "spice" ) )
+	{
 #ifdef VNC_DISPLAY
-	return "vnc";
+		return QStringLiteral( "vnc" );
+#endif
+	}
+	// Explicit "spice" still allowed for debugging, but fall through carefully.
+#endif
+
+	if( Spice && Spice->Spice_Available() &&
+	    ( p == QLatin1String( "spice" ) ) )
+		return QStringLiteral( "spice" );
+
+#ifdef VNC_DISPLAY
+	return QStringLiteral( "vnc" );
 #else
-	if( p == "spice" )
-		return "spice";
-	return "none";
+	if( Spice && Spice->Spice_Available() )
+		return QStringLiteral( "spice" );
+	return QStringLiteral( "none" );
 #endif
 }
 
@@ -531,7 +542,8 @@ void VM_Session_Widget::Attach_VM( Virtual_Machine *vm, QMP_Client *qmp,
 	// "incomplete link header" and a broken VNC fallback popup.
 	Placeholder->setText( tr( "Waiting for guest display…" ) );
 	Stack->setCurrentWidget( Placeholder );
-	Schedule_Display_Connect( 250 );
+	// Give spice-server a moment after TCP accept before the first handshake.
+	Schedule_Display_Connect( 600 );
 
 	if( ! Fullscreen_Active )
 		Set_Toolbar_In_Layout();
@@ -572,8 +584,17 @@ void VM_Session_Widget::Try_Connect_Display()
 		// Check if the underlying VM process has already exited
 		if( VM && VM->Get_State() == VM::VMS_Power_Off )
 		{
-			Placeholder->setText( tr( "VM execution terminated." ) );
+			QString detail = VM->QEMU_Stderr_History.trimmed();
+			if( detail.isEmpty() )
+				detail = VM->QEMU_Stdout_History.trimmed();
+			const QString err_msg = detail.isEmpty()
+				? tr( "The virtual machine exited before the guest display was ready." )
+				: tr( "The virtual machine exited before the guest display was ready:\n\n%1" )
+					.arg( detail );
+			Placeholder->setText( err_msg );
 			Stack->setCurrentWidget( Placeholder );
+			AQGraphic_Error( "VM_Session_Widget::Try_Connect_Display",
+			                 tr( "Virtual machine failed" ), err_msg, false );
 			return;
 		}
 
@@ -592,7 +613,8 @@ void VM_Session_Widget::Try_Connect_Display()
 			.arg( Host ).arg( port );
 		Placeholder->setText( err_msg );
 		Stack->setCurrentWidget( Placeholder );
-		AQError( tr( "Guest Display Failure" ), err_msg );
+		AQGraphic_Error( "VM_Session_Widget::Try_Connect_Display",
+		                 tr( "Guest Display Failure" ), err_msg, false );
 		return;
 	}
 
@@ -803,22 +825,48 @@ void VM_Session_Widget::On_Display_Error( const QString &msg )
 
 	// Retry SPICE — QEMU often accepts TCP before the SPICE handshake is ready.
 	if( Backend == "spice" && Spice_Port > 0 && Spice && Spice->Spice_Available()
-	    && Display_Connect_Attempts < 40 )
+	    && Display_Connect_Attempts < 12 )
 	{
 		++Display_Connect_Attempts;
-		if( Spice )
-			Spice->Disconnect();
 		Placeholder->setText( tr( "Retrying guest display… (%1)" )
 			.arg( Display_Connect_Attempts ) );
 		Stack->setCurrentWidget( Placeholder );
-		Schedule_Display_Connect( 500 );
+		// Defer disconnect one tick so we never tear down spice-glib while it
+		// is still unwinding a channel-event (process crash on Windows).
+		QTimer::singleShot( 0, this, [this]() {
+			if( Spice )
+				Spice->Disconnect();
+			Schedule_Display_Connect( 700 );
+		} );
 		return;
 	}
+
+#ifdef VNC_DISPLAY
+	// SPICE link errors are common on the first seconds of boot — fall back to
+	// the VNC listener QEMU already opened for embedded sessions.
+	if( Backend == "spice" && Vnc && Vnc_Port > 0 &&
+	    Tcp_Port_Is_Open( Host, Vnc_Port ) )
+	{
+		AQWarning( "VM_Session_Widget",
+		           QString( "SPICE failed (%1) — falling back to VNC :%2" )
+		               .arg( msg ).arg( Vnc_Port ) );
+		if( Spice )
+			Spice->Disconnect();
+		Backend = "vnc";
+		Display_Connect_Attempts = 0;
+		Placeholder->setText( tr( "Falling back to VNC display…" ) );
+		Stack->setCurrentWidget( Placeholder );
+		Schedule_Display_Connect( 300 );
+		return;
+	}
+#endif
 
 	Display_Connect_In_Progress = false;
 	Placeholder->setText( tr( "Display error: %1\nWaiting / retry from Start if the guest is still booting." )
 		.arg( msg ) );
 	Stack->setCurrentWidget( Placeholder );
+	AQGraphic_Error( "VM_Session_Widget::On_Display_Error",
+	                 tr( "Guest Display Failure" ), msg, false );
 }
 
 QMP_Client *VM_Session_Widget::Active_QMP() const

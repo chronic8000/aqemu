@@ -80,6 +80,7 @@ Spice_View::Spice_View( QWidget *parent )
 	, Connected_Flag( false )
 	, Connected_Emitted( false )
 	, Error_Emitted( false )
+	, Disconnecting( false )
 	, Primary_Width( 0 )
 	, Primary_Height( 0 )
 	, Primary_Stride( 0 )
@@ -147,6 +148,8 @@ QString Spice_View::Backend_Name() const
 void Spice_View::Pump_GLib()
 {
 #if defined(AQEMU_HAVE_SPICE_GLIB) || defined(AQEMU_HAVE_SPICE_GTK)
+	if( Disconnecting )
+		return;
 	// Drain the default GLib context on the Qt GUI thread.
 	while( g_main_context_pending( nullptr ) )
 		g_main_context_iteration( nullptr, FALSE );
@@ -157,6 +160,18 @@ void Spice_View::Connect_To( const QString &host, int port )
 {
 	Host = host;
 	Port = port;
+
+#if defined(AQEMU_HAVE_SPICE_GLIB) || defined(AQEMU_HAVE_SPICE_GTK)
+	// Never start a new session while the previous one is still tearing down.
+	if( Disconnecting )
+	{
+		QTimer::singleShot( 50, this, [this, host, port]() {
+			Connect_To( host, port );
+		} );
+		return;
+	}
+#endif
+
 	Disconnect();
 
 #if defined(AQEMU_HAVE_SPICE_GLIB) || defined(AQEMU_HAVE_SPICE_GTK)
@@ -188,7 +203,9 @@ void Spice_View::Connect_To( const QString &host, int port )
 		if( ! Error_Emitted )
 		{
 			Error_Emitted = true;
-			emit Connection_Error( tr( "spice_session_connect failed" ) );
+			QTimer::singleShot( 0, this, [this]() {
+				emit Connection_Error( tr( "spice_session_connect failed" ) );
+			} );
 		}
 		return;
 	}
@@ -208,22 +225,40 @@ void Spice_View::Disconnect()
 	Glib_Timer->stop();
 
 #if defined(AQEMU_HAVE_SPICE_GLIB) || defined(AQEMU_HAVE_SPICE_GTK)
+	// Never tear down the session from inside a channel-event callback —
+	// spice_session_disconnect re-enters GObject and used to crash AQEMU.
+	if( Disconnecting )
+		return;
+	Disconnecting = true;
+
 	if( Session )
 	{
 		g_signal_handlers_disconnect_by_data( Session, this );
-		spice_session_disconnect( Session );
-		// Pump a few times so disconnect completes without hanging the UI.
-		for( int i = 0; i < 50; ++i )
+
+		// Disconnect handlers on every channel (not only display/inputs/main).
+		GList *channels = spice_session_get_channels( Session );
+		for( GList *l = channels; l != nullptr; l = l->next )
 		{
-			if( ! g_main_context_pending( nullptr ) )
-				break;
-			g_main_context_iteration( nullptr, FALSE );
+			auto *ch = SPICE_CHANNEL( l->data );
+			if( ch )
+				g_signal_handlers_disconnect_by_data( ch, this );
 		}
+		g_list_free( channels );
+
+		Display = nullptr;
+		Inputs = nullptr;
+		Main = nullptr;
+
+		spice_session_disconnect( Session );
+		// Do NOT pump GLib here — that re-enters channel-event and crashes.
 		g_clear_object( &Session );
 	}
-	Display = nullptr;
-	Inputs = nullptr;
-	Main = nullptr;
+	else
+	{
+		Display = nullptr;
+		Inputs = nullptr;
+		Main = nullptr;
+	}
 	Primary_Data = nullptr;
 	Button_Mask = 0;
 	Client_Mouse_Mode = false;
@@ -243,6 +278,7 @@ void Spice_View::Disconnect()
 #if defined(AQEMU_HAVE_SPICE_GLIB) || defined(AQEMU_HAVE_SPICE_GTK)
 	qApp->removeEventFilter( this );
 	Update_Keyboard_Grab();
+	Disconnecting = false;
 #endif
 
 	if( was )
@@ -483,6 +519,9 @@ void Spice_View::Send_Pointer( const QPoint &guest_pos, bool have_pos )
 
 void Spice_View::Attach_Channel( SpiceChannel *channel )
 {
+	if( Disconnecting || ! channel )
+		return;
+
 	g_signal_connect( channel, "channel-event",
 	                  G_CALLBACK( Spice_View::On_Channel_Event ), this );
 
@@ -520,6 +559,9 @@ void Spice_View::Attach_Channel( SpiceChannel *channel )
 
 void Spice_View::Detach_Channel( SpiceChannel *channel )
 {
+	if( channel )
+		g_signal_handlers_disconnect_by_data( channel, this );
+
 	if( channel == SPICE_CHANNEL( Display ) )
 		Display = nullptr;
 	if( channel == SPICE_CHANNEL( Inputs ) )
@@ -534,6 +576,9 @@ void Spice_View::Detach_Channel( SpiceChannel *channel )
 
 void Spice_View::Handle_Channel_Event( SpiceChannel *channel, int event )
 {
+	if( Disconnecting )
+		return;
+
 	Q_UNUSED( channel );
 	switch( event )
 	{
@@ -542,16 +587,33 @@ void Spice_View::Handle_Channel_Event( SpiceChannel *channel, int event )
 		case SPICE_CHANNEL_ERROR_LINK:
 		case SPICE_CHANNEL_ERROR_AUTH:
 		case SPICE_CHANNEL_ERROR_IO:
+		{
 			Connected_Flag = false;
 			Status->show();
-			Status->setText( tr( "SPICE channel error (%1)" ).arg( event ) );
+
+			QString detail = tr( "SPICE channel error (%1)" ).arg( event );
+			if( channel )
+			{
+				const GError *err = spice_channel_get_error( channel );
+				if( err && err->message )
+					detail += QStringLiteral( ": %1" ).arg( QString::fromUtf8( err->message ) );
+			}
+			Status->setText( detail );
+
 			// Debounce: one error per Connect_To attempt (channels fire many events).
+			// IMPORTANT: emit asynchronously — On_Display_Error calls Disconnect(),
+			// and destroying the session inside this GObject callback crashes on Windows.
 			if( ! Error_Emitted )
 			{
 				Error_Emitted = true;
-				emit Connection_Error( tr( "SPICE channel error %1" ).arg( event ) );
+				const QString msg = detail;
+				QTimer::singleShot( 0, this, [this, msg]() {
+					if( ! Disconnecting )
+						emit Connection_Error( msg );
+				} );
 			}
 			break;
+		}
 		default:
 			break;
 	}

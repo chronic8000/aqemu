@@ -56,20 +56,25 @@ rm -rf "${BUILD_DIR}"
 mkdir -p "${BUILD_DIR}"
 cd "${BUILD_DIR}"
 
-EXTRA=(--enable-vnc --disable-docs --disable-guest-agent)
-if "$PKG_CONFIG" --exists spice-server 2>/dev/null; then
-  EXTRA+=(--enable-spice)
-  echo "SPICE enabled"
-else
-  echo "WARNING: spice-server not found — building without SPICE server"
-fi
+EXTRA=(--disable-werror)
+# shellcheck source=qemu_feature_flags.sh
+source "${ROOT}/scripts/qemu_feature_flags.sh"
+# WinLibs build still uses MSYS2 pkg-config for libs
+aqemu_qemu_feature_flags
+# Drop --disable-werror duplicate if feature flags already set it
+EXTRA=("${AQEMU_QEMU_EXTRA_CONFIGURE[@]}")
+
+# Every softmmu target — Microsoft Store / portable packages must ship them all.
+# shellcheck source=qemu_softmmu_targets.sh
+source "${ROOT}/scripts/qemu_softmmu_targets.sh"
+TARGETS="$(qemu_softmmu_target_list "${QEMU_SRC}")"
+echo "Building ALL softmmu targets: ${TARGETS}"
 
 "${QEMU_SRC}/configure" \
   --prefix="${PREFIX}" \
   --cc="${CC}" \
   --cxx="${CXX}" \
-  --target-list=x86_64-softmmu,i386-softmmu,aarch64-softmmu \
-  --disable-werror \
+  --target-list="${TARGETS}" \
   "${EXTRA[@]}"
 
 # Do NOT add -I${MSYS_MINGW}/include globally: WinLibs stdlib.h clashes with
@@ -79,3 +84,4 @@ ninja -j"$(nproc 2>/dev/null || echo 4)"
 ninja install
 echo "Installed to ${PREFIX}"
 ls -la "${PREFIX}/bin"/qemu-system-* "${PREFIX}/bin"/qemu-img* 2>/dev/null || true
+aqemu_qemu_verify_install "${PREFIX}"

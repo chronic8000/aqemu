@@ -228,5 +228,12 @@ QString AQ_QEMU_Pick_Native_Display( const QString &qemu_binary );
 QString AQ_Find_QEMU_Binary_With_Native_Display( const QString &system_name,
                                                  const QString &preferred_path );
 
+/**
+ * Resolve QEMU's firmware/data directory (-L) for a given qemu-system-* binary.
+ * Prefers a portable share/ folder next to the binary (bundled layout), then
+ * other common relative locations. Empty if nothing usable is found.
+ */
+QString AQ_Get_QEMU_Data_Dir( const QString &qemu_binary_path );
+
 #endif
 

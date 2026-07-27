@@ -134,6 +134,38 @@ if ($LASTEXITCODE -ge 8) {
     Write-Error "robocopy failed with exit code $LASTEXITCODE"
 }
 
+# Ensure QEMU firmware share/ is present (required for Store embedded sessions).
+$shareBios = Join-Path $layoutDir "share\bios-256k.bin"
+if (-not (Test-Path $shareBios)) {
+    $qemuPrefix = Join-Path $RepoRoot "third_party\qemu-install"
+    $shareSrc = $null
+    foreach ($cand in @(
+        (Join-Path $qemuPrefix "share"),
+        (Join-Path $qemuPrefix "share\qemu"),
+        (Join-Path $BuildDir "share")
+    )) {
+        if (Test-Path (Join-Path $cand "bios-256k.bin")) {
+            $shareSrc = $cand
+            break
+        }
+    }
+    if (-not $shareSrc) {
+        Write-Error "MSIX layout is missing share\bios-256k.bin. Rebuild/bundle QEMU with firmware (scripts/build_qemu_windows_msys.sh + -DAQEMU_BUNDLE_QEMU=ON)."
+    }
+    Write-Host "Copying QEMU firmware share from $shareSrc ..."
+    New-Item -ItemType Directory -Path (Join-Path $layoutDir "share") -Force | Out-Null
+    & robocopy $shareSrc (Join-Path $layoutDir "share") /E /NFL /NDL /NJH /NJS /nc /ns /np | Out-Null
+    if ($LASTEXITCODE -ge 8 -or -not (Test-Path $shareBios)) {
+        Write-Error "Failed to stage QEMU share/ firmware into MSIX layout."
+    }
+}
+
+$qemuSystems = @(Get-ChildItem (Join-Path $layoutDir "qemu-system-*.exe") -ErrorAction SilentlyContinue)
+Write-Host ("Staged qemu-system-* count: {0}" -f $qemuSystems.Count)
+if ($qemuSystems.Count -lt 10) {
+    Write-Warning "Only $($qemuSystems.Count) qemu-system-* binaries staged. Store packages should include EVERY softmmu target — rebuild with scripts/build_qemu_windows_msys.sh (all targets)."
+}
+
 if (-not (Test-Path (Join-Path $layoutDir "aqemu.exe"))) {
     Write-Error "Staging failed - aqemu.exe not in layout."
 }
@@ -182,7 +214,7 @@ if (-not $SkipSign) {
             $secure = ConvertTo-SecureString -String $PfxPassword -Force -AsPlainText
             Export-PfxCertificate -Cert $cert -FilePath $pfxPath -Password $secure | Out-Null
             Export-Certificate -Cert $cert -FilePath $cerPath | Out-Null
-            Write-Host "Test PFX: $pfxPath (password not printed — use -PfxPassword or AQEMU_MSIX_PFX_PASSWORD)"
+            Write-Host "Test PFX: $pfxPath (password not printed - use -PfxPassword or AQEMU_MSIX_PFX_PASSWORD)"
             Write-Host "Install $cerPath into Trusted People for local sideload testing."
         }
 
@@ -196,9 +228,6 @@ if (-not $SkipSign) {
 
 $item = Get-Item $msixPath
 $mb = [math]::Round($item.Length / 1MB, 1)
-Write-Host ("OK: " + $item.FullName + " (" + $mb + " MB)")
+Write-Host "OK: $($item.FullName) ($mb MB)"
 Write-Host ""
-Write-Host "Store submission: create an MSIX (or PWA) app product, set a price tier,"
-Write-Host "then replace Publisher/IdentityName with Product identity values and rebuild."
-Write-Host "Example:"
-Write-Host '  .\installer\build-msix.ps1 -Publisher "CN=YOUR-STORE-ID" -IdentityName "Your.Store.Identity"'
+Write-Host "Store submission: upload this MSIX package to Microsoft Partner Center."
