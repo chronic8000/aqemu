@@ -1349,7 +1349,7 @@ VM::Emulator_Version String_To_Emulator_Version( const QString &str )
 	else if( str == "QEMU 0.14.X" ) return VM::QEMU_2_0;
 	else if( str == "QEMU 0.15.X" ) return VM::QEMU_2_0;
 	else if( str == "QEMU 1.0" ) return VM::QEMU_2_0;
-	else if( str == "QEMU 2.0" ) return VM::QEMU_2_0;
+	else if( str == "QEMU 2.0" || str == "QEMU 2.0+" || str.contains( "QEMU" ) ) return VM::QEMU_2_0;
 	else if( str == "KVM 7X" ) return VM::QEMU_2_0;
 	else if( str == "KVM 8X" ) return VM::QEMU_2_0;
 	else if( str == "KVM 0.11.X" ) return VM::QEMU_2_0;
@@ -1361,9 +1361,7 @@ VM::Emulator_Version String_To_Emulator_Version( const QString &str )
 	else if( str == "Obsolete" ) return VM::Obsolete;
 	else
 	{
-		AQError( "VM::Emulator_Version String_To_Emulator_Version( const QString &str )",
-				 QString("Emulator version \"%1\" not valid!").arg(str) );
-		return VM::Obsolete;
+		return VM::QEMU_2_0;
 	}
 }
 
@@ -1979,8 +1977,25 @@ QString AQ_Find_QEMU_Binary_With_Native_Display( const QString &system_name,
 	}
 
 	QStringList candidates;
-	if( ! preferred_path.trimmed().isEmpty() )
-		candidates << QDir::toNativeSeparators( preferred_path );
+	const QString mode = AQ_Get_QEMU_Source_Mode();
+	const QString bundled_dir = AQ_Get_Bundled_QEMU_Dir();
+
+	if( mode == QLatin1String( "custom" ) )
+	{
+		if( ! preferred_path.trimmed().isEmpty() )
+			candidates << QDir::toNativeSeparators( preferred_path );
+	}
+	else
+	{
+		if( ! bundled_dir.isEmpty() )
+			candidates << QDir::toNativeSeparators( bundled_dir + exe );
+		if( ! preferred_path.trimmed().isEmpty() )
+			candidates << QDir::toNativeSeparators( preferred_path );
+	}
+
+	const QString app_dir = QCoreApplication::applicationDirPath();
+	if( ! app_dir.isEmpty() )
+		candidates << QDir::toNativeSeparators( app_dir + QLatin1Char( '/' ) + exe );
 
 #ifdef Q_OS_WIN32
 	candidates << QDir::toNativeSeparators(
@@ -1988,10 +2003,6 @@ QString AQ_Find_QEMU_Binary_With_Native_Display( const QString &system_name,
 	candidates << QDir::toNativeSeparators(
 		QStringLiteral( "C:/Program Files (x86)/qemu/" ) + exe );
 #endif
-
-	const QString app_dir = QCoreApplication::applicationDirPath();
-	if( ! app_dir.isEmpty() )
-		candidates << QDir::toNativeSeparators( app_dir + QLatin1Char( '/' ) + exe );
 
 	for( int i = 0; i < candidates.count(); ++i )
 	{

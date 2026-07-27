@@ -485,7 +485,7 @@ void Advanced_Settings_Window::Load_Templates()
 	// no items found
 	if( ui.CB_Default_VM_Template->count() < 1 )
 	{
-		AQGraphic_Warning( tr("Warning"), tr("AQEMU VM Templates Not Found!") );
+		AQDebug( "Advanced_Settings_Window::Load_Templates()", "No templates found in template directories" );
 	}
 	else
 	{

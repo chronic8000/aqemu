@@ -17,6 +17,7 @@
 #include <QApplication>
 #include <QCursor>
 #include <cstring>
+#include <cmath>
 
 #include "Utils.h"
 
@@ -650,6 +651,7 @@ void Spice_View::Copy_Invalidate( int x, int y, int w, int h )
 	// Full widget update avoids partial-scale edge artifacts on dirty strips.
 	update();
 }
+#endif // AQEMU_HAVE_SPICE_*
 
 QRectF Spice_View::Scaled_Dest_Rect() const
 {
@@ -672,13 +674,19 @@ QPoint Spice_View::Guest_From_Widget( const QPoint &widget_pos ) const
 
 	const qreal gx = ( widget_pos.x() - dest.x() ) * Primary_Width / dest.width();
 	const qreal gy = ( widget_pos.y() - dest.y() ) * Primary_Height / dest.height();
-	const int ix = qBound( 0, int( gx ), Primary_Width - 1 );
-	const int iy = qBound( 0, int( gy ), Primary_Height - 1 );
-	if( gx < 0 || gy < 0 || gx >= Primary_Width || gy >= Primary_Height )
+	const int ix = qBound( 0, int( std::floor( gx ) ), Primary_Width - 1 );
+	const int iy = qBound( 0, int( std::floor( gy ) ), Primary_Height - 1 );
+
+	// Allow a small margin around the destination rect for seamless edge reaching
+	const qreal margin = 4.0;
+	if( widget_pos.x() < dest.x() - margin || widget_pos.y() < dest.y() - margin ||
+	    widget_pos.x() > dest.right() + margin || widget_pos.y() > dest.bottom() + margin )
 		return QPoint( -1, -1 );
+
 	return QPoint( ix, iy );
 }
 
+#if defined(AQEMU_HAVE_SPICE_GLIB) || defined(AQEMU_HAVE_SPICE_GTK)
 int Spice_View::Qt_Button_To_Spice( Qt::MouseButton button )
 {
 	switch( button )

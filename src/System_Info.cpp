@@ -2670,23 +2670,20 @@ QString System_Info::Get_Emulator_Help_Output( const QString &path )
 
 QString System_Info::Get_Emulator_Output( const QString &path, const QStringList &args )
 {
-	QProcess *qemu_pr = new QProcess();
+	QProcess qemu_pr;
+	qemu_pr.start( path, args );
 	
-	qemu_pr->start( path, args );
-	
-	if( ! qemu_pr->waitForFinished(2000) )
+	if( ! qemu_pr.waitForFinished( 5000 ) )
 	{
-		AQError( "QStringList System_Info::Get_Emulator_Output( const QString &path, const QStringList &args )",
-				 QString("Time left. File: \"%1\" Args: \"%1\"").arg(path).arg(args.join(" ")) );
+		AQDebug( "System_Info::Get_Emulator_Output",
+				 QString("Process probe timeout (5s). File: \"%1\" Args: \"%2\"").arg( path, args.join( " " ) ) );
 		
-		qemu_pr->kill();
+		qemu_pr.kill();
 		return QString();
 	}
 	
-	QString result = qemu_pr->readAllStandardOutput();
-	result += qemu_pr->readAllStandardError(); // readAll() not read cerr messages...
-	delete qemu_pr;
-	
+	QString result = QString::fromLocal8Bit( qemu_pr.readAllStandardOutput() );
+	result += QString::fromLocal8Bit( qemu_pr.readAllStandardError() );
 	return result;
 }
 

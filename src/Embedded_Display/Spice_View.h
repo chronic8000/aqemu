@@ -92,12 +92,6 @@ class Spice_View : public Guest_Display_View
 		void Handle_Channel_Event( SpiceChannel *channel, int event );
 		void Refresh_Mouse_Mode();
 		void Send_Pointer( const QPoint &guest_pos, bool have_pos );
-		void Set_Mouse_Captured( bool captured );
-		void Warp_Pointer_To_Center();
-		void Update_Keyboard_Grab();
-
-		QPoint Guest_From_Widget( const QPoint &widget_pos ) const;
-		QRectF Scaled_Dest_Rect() const;
 		void Send_Mouse_Buttons( int spice_button, bool press );
 		void Send_Key( QKeyEvent *event, bool press );
 		static int Qt_Button_To_Spice( Qt::MouseButton button );
@@ -105,6 +99,8 @@ class Spice_View : public Guest_Display_View
 		static unsigned Qt_Key_To_XT( int qt_key, quint32 native_scan );
 #endif
 		void Set_Local_Cursor_Hidden( bool hidden );
+		QPoint Guest_From_Widget( const QPoint &widget_pos ) const;
+		QRectF Scaled_Dest_Rect() const;
 
 		QLabel *Status;
 		QTimer *Glib_Timer;
