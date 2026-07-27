@@ -14,7 +14,8 @@
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--2.0-blue.svg" alt="License: GPL-2.0"/></a>
   <a href="https://apps.microsoft.com/detail/9p0hgkhq9w19"><img src="https://img.shields.io/badge/Microsoft%20Store-AQEMU%20VM%20Manager-0078D4?logo=microsoftstore" alt="Microsoft Store"/></a>
-  <a href="https://github.com/chronic8000/aqemu/releases"><img src="https://img.shields.io/badge/QEMU-11.0.2%20bundle-orange.svg" alt="QEMU 11.0.2"/></a>
+  <a href="https://neonsovereign.store/aqemu.html"><img src="https://img.shields.io/badge/website-neonsovereign.store-brightgreen.svg" alt="Official Website"/></a>
+  <a href="https://github.com/chronic8000/aqemu"><img src="https://img.shields.io/badge/QEMU-11.0.2%20bundle-orange.svg" alt="QEMU 11.0.2"/></a>
   <a href="https://github.com/chronic8000/aqemu"><img src="https://img.shields.io/badge/host-Windows%20%7C%20Linux%20%7C%20Pi%205-success.svg" alt="Hosts"/></a>
   <a href="PRIVACY.md"><img src="https://img.shields.io/badge/privacy-policy-lightgrey.svg" alt="Privacy"/></a>
 </p>
@@ -50,36 +51,35 @@ If you want to support ongoing development, maintenance, and future feature rele
 
 | | |
 |--|--|
-| **Microsoft Store** | [AQEMU VM Manager on Microsoft Store](https://apps.microsoft.com/detail/9p0hgkhq9w19) (Auto-updates & direct developer support) |
-| **Download / Source** | [GitHub Releases](https://github.com/chronic8000/aqemu/releases) or build from source |
-| **File bugs** | [Issues](https://github.com/chronic8000/aqemu/issues) — host OS, guest OS, and exact log outputs help us triage quickly. Historical [tobimensch/aqemu issues](https://github.com/tobimensch/aqemu/issues) are archived context only; triage lives in [`docs/TOBIMENSCH_ISSUE_TRIAGE.md`](docs/TOBIMENSCH_ISSUE_TRIAGE.md) |
+| **Microsoft Store** | [AQEMU VM Manager on Microsoft Store](https://apps.microsoft.com/detail/9p0hgkhq9w19) (Official Windows installation with automatic updates) |
+| **Website** | [AQEMU Official Website](https://neonsovereign.store/aqemu.html) |
+| **File bugs** | [GitHub Issues](https://github.com/chronic8000/aqemu/issues) — host OS, guest OS, and exact log outputs help us triage quickly. Historical [tobimensch/aqemu issues](https://github.com/tobimensch/aqemu/issues) are archived context only; triage lives in [`docs/TOBIMENSCH_ISSUE_TRIAGE.md`](docs/TOBIMENSCH_ISSUE_TRIAGE.md) |
 | **What we care about** | Install wizards, embedded SPICE, Win9x/XP TCG, Win11 ARM, Intel macOS, Solaris x86, AIX/pseries, migrate/QMP tools |
 
 ---
 
 ## This project is alive again
 
-<a href="https://neonsovereign.store/aqemu.html">New website now live!</a>
-
 AQEMU started with **Andrey Rijov (RDron)**, then the community era under **Tobias Gläßer** (Qt5 / 0.9.x). Development went quiet. People still bump into old trees online:
 
 - Historical community GitHub: [tobimensch/aqemu](https://github.com/tobimensch/aqemu) *(history only — not our homepage)*
 - Abandoned / third-party mirrors (including old SourceForge pages) — **not operated by us**
 
-**Chronic Engineering picked it up.** This is the active fork — not a mirror of a dead tree:
+**Chronic Engineering picked it up.** This is the active project repository:
 
 ### https://github.com/chronic8000/aqemu
 
-Compared to [tobimensch/aqemu](https://github.com/tobimensch/aqemu): **embedded SPICE sessions**, **bundled QEMU 11.0.2**, **Win11 ARM**, proper **Win9x TCG**, **classic Mac + Intel macOS** (WSL/KVM), Solaris/AIX/OS/2 recipes, QMP/blockdev/migrate UI, Windows portable + Store packaging. Roughly **+30,000 lines** of new work. Free GitHub zips now; **Microsoft Store** updates when certification clears.
+Compared to [tobimensch/aqemu](https://github.com/tobimensch/aqemu): **embedded SPICE sessions**, **bundled QEMU 11.0.2**, **Win11 ARM**, proper **Win9x TCG**, **classic Mac + Intel macOS** (WSL/KVM), Solaris/AIX/OS/2 recipes, QMP/blockdev/migrate UI, Windows packaging + **Microsoft Store**. Roughly **+30,000 lines** of new work.
 
 We keep the original authors’ names. We do **not** inherit their old donation pages, crowdfunding, or SourceForge homepage.
 
 | | |
 |--|--|
 | **Home** | https://github.com/chronic8000/aqemu |
+| **Store** | https://apps.microsoft.com/detail/9p0hgkhq9w19 |
+| **Website** | https://neonsovereign.store/aqemu.html |
 | **Issues** | https://github.com/chronic8000/aqemu/issues |
 | **Discussions** | https://github.com/chronic8000/aqemu/discussions |
-| **Releases** | https://github.com/chronic8000/aqemu/releases |
 | **License** | [GNU GPLv2](LICENSE) |
 | **Privacy** | [PRIVACY.md](PRIVACY.md) |
 | **Authors** | [AUTHORS](AUTHORS) |
@@ -260,25 +260,27 @@ You point at files you obtained lawfully.
 
 ## Install
 
-### GitHub Releases (free portable builds — no auto-updates)
+### Microsoft Store (Windows)
 
-https://github.com/chronic8000/aqemu/releases
+Get the official **AQEMU VM Manager** package on the Microsoft Store:
 
-Until the **Microsoft Store** listing is live, you can grab a free Windows portable zip from GitHub Releases. That is intentional so people who cannot compile from source still have something to run.
+<p align="center">
+  <a href="ms-windows-store://pdp/?productid=9P0HGKHQ9W19">
+    <b>👉 Open in Microsoft Store app (`ms-windows-store://pdp/?productid=9P0HGKHQ9W19`)</b>
+  </a><br/>
+  <a href="https://apps.microsoft.com/detail/9p0hgkhq9w19">
+    <b>🌐 View on Web (`https://apps.microsoft.com/detail/9p0hgkhq9w19`)</b>
+  </a>
+</p>
 
-**Important:** GitHub Release builds are **point-in-time downloads**. They do **not** receive automatic updates from GitHub. When a newer zip appears, you install it yourself. Once AQEMU is published on the **Microsoft Store**, that channel is where Windows users should install for **Store-managed updates** (after Microsoft validation / certification). The Store build is the same GPLv2 project; privacy → [PRIVACY.md](PRIVACY.md).
+The Microsoft Store version includes:
+- **Bundled QEMU 11.0.2** binaries (no separate QEMU setup required)
+- **Automatic background updates** via the Microsoft Store
+- Dedicated Windows app installation & single-click launcher
 
-**Windows (portable zip):**
+### Build from Source (Linux / Pi 5 / Windows)
 
-1. Download `aqemu-1.0.0-win64.zip` from [Releases](https://github.com/chronic8000/aqemu/releases/tag/v1.0.0)
-2. Unzip anywhere and run `aqemu.exe` (QEMU 11.0.2 binaries + UEFI firmware are bundled in the zip)
-3. Complete **First Start** if prompted
-
-**Linux / Raspberry Pi:** build from source for now (see below), or use a `.deb` when one is attached to a release.
-
-### Microsoft Store (coming)
-
-Same GPLv2 code, Store updates, privacy URL → [PRIVACY.md](PRIVACY.md). Prefer the Store once it ships if you want ongoing updates without hunting zips.
+AQEMU is 100% open-source software under **GPLv2**. You can clone and build the application directly from source on Linux, Raspberry Pi 5, or Windows (see [Build instructions](#build) below).
 
 ---
 
