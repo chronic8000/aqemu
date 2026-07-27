@@ -3279,10 +3279,7 @@ void Main_Window::Enter_Session_Mode( Virtual_Machine *vm )
 	const int vnc_tcp = vm->Get_Embedded_VNC_Port() > 0
 		? vm->Get_Embedded_VNC_Port()
 		: ( vm->Get_Embedded_Display_Port() + Settings.value( "First_VNC_Port", "5910" ).toString().toInt() );
-	// SPICE often blacks out DOS/Win9x/XP text-mode setup; VNC shows it reliably.
 	QString backend = Settings.value( "Embedded_Display_Backend", "spice" ).toString();
-	if( vm->Is_Legacy_Windows_Text_Mode_Guest() )
-		backend = QStringLiteral( "vnc" );
 
 	Session_Widget->Attach_VM( vm, vm->Get_QMP(),
 	                           QStringLiteral( "127.0.0.1" ),
@@ -3307,8 +3304,6 @@ void Main_Window::Enter_Session_Mode_Preparing( Virtual_Machine *vm )
 	ui.Tool_Bar_VM_Control->setVisible( false );
 
 	QString backend = Settings.value( "Embedded_Display_Backend", "spice" ).toString();
-	if( vm->Is_Legacy_Windows_Text_Mode_Guest() )
-		backend = QStringLiteral( "vnc" );
 	// Ports are allocated during Start — show the session shell first so QEMU
 	// does not race ahead of the UI.
 	Session_Widget->Attach_VM( vm, nullptr,
