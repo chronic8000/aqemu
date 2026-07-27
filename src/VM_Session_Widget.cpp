@@ -569,8 +569,16 @@ void VM_Session_Widget::Try_Connect_Display()
 
 	if( ! Tcp_Port_Is_Open( Host, port ) )
 	{
+		// Check if the underlying VM process has already exited
+		if( VM && VM->Get_State() == VM::VMS_Power_Off )
+		{
+			Placeholder->setText( tr( "VM execution terminated." ) );
+			Stack->setCurrentWidget( Placeholder );
+			return;
+		}
+
 		++Display_Connect_Attempts;
-		if( Display_Connect_Attempts < 40 )
+		if( Display_Connect_Attempts < 15 )
 		{
 			Placeholder->setText( tr( "Waiting for guest display… (%1)" )
 				.arg( Display_Connect_Attempts ) );
@@ -578,11 +586,13 @@ void VM_Session_Widget::Try_Connect_Display()
 			Schedule_Display_Connect( 400 );
 			return;
 		}
-		Placeholder->setText( tr(
-			"Guest display did not open on %1:%2.\n"
-			"QEMU may still be starting, or SPICE/VNC failed to bind." )
-			.arg( Host ).arg( port ) );
+		const QString err_msg = tr(
+			"Guest display failed to open on %1:%2 after 6 seconds.\n\n"
+			"Please verify that QEMU binary path and machine settings are valid in VM settings." )
+			.arg( Host ).arg( port );
+		Placeholder->setText( err_msg );
 		Stack->setCurrentWidget( Placeholder );
+		AQError( tr( "Guest Display Failure" ), err_msg );
 		return;
 	}
 
