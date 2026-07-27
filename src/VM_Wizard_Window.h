@@ -28,6 +28,7 @@
 #include <QSettings>
 #include <QLabel>
 #include <QRadioButton>
+#include <QButtonGroup>
 #include <QCheckBox>
 #include <QLineEdit>
 #include <QToolButton>
@@ -55,6 +56,9 @@ class VM_Wizard_Window: public QDialog
 		
 		Virtual_Machine *New_VM;
 		
+	protected:
+		bool eventFilter( QObject *watched, QEvent *event ) override;
+		
 	private slots:
         void KVM_toggled(bool toggled);
 		bool Load_OS_Templates();
@@ -64,9 +68,7 @@ class VM_Wizard_Window: public QDialog
 		void on_Button_Back_clicked();
 		void on_Button_Next_clicked();
 
-	protected:
-		bool eventFilter( QObject *watched, QEvent *event ) override;
-		
+	protected slots:
 		void on_RB_VM_Template_toggled( bool on );
 		void on_RB_Generate_VM_toggled( bool on );
 		void on_CB_OS_Type_currentIndexChanged( int index );
@@ -186,6 +188,7 @@ class VM_Wizard_Window: public QDialog
 		QLabel *Label_Win11_Finish_Help;
 
 		// Typical (quick) HDD page — create new vs use existing + path
+		QButtonGroup *Group_Typical_Disk_Mode;
 		QRadioButton *RB_Typical_New_Disk;
 		QRadioButton *RB_Typical_Existing_Disk;
 		QLineEdit *Edit_Typical_Disk_Path;
@@ -198,6 +201,7 @@ class VM_Wizard_Window: public QDialog
 		QString Guest_Install_ISO;
 
 		// URL / network install (virt-manager-style)
+		QButtonGroup *Group_Typical_Install_Media;
 		QRadioButton *RB_Install_Local;
 		QRadioButton *RB_Install_URL_ISO;
 		QRadioButton *RB_Install_Network_Kernel;
@@ -238,6 +242,7 @@ class VM_Wizard_Window: public QDialog
 		QWidget *Platform_Tree_Page;
 		QWidget *Arch_List_Page;
 		QWidget *Arch_Machines_Page;
+		QButtonGroup *Group_Creation_Method;
 		QRadioButton *RB_Method_Guest_OS;
 		QRadioButton *RB_Method_Platform;
 		QRadioButton *RB_Method_Architecture;

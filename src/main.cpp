@@ -522,6 +522,12 @@ int AQEMU_Main::find_data_folders()
         // Found?
         if( settings->value("AQEMU_Data_Folder", "").toString().isEmpty() )
         {
+            #ifdef Q_OS_WIN32
+            // Windows portable release: silently fallback to application directory
+            const QString defaultAppDir = QDir::toNativeSeparators( QDir::cleanPath( QCoreApplication::applicationDirPath() ) + "/" );
+            settings->setValue( "AQEMU_Data_Folder", defaultAppDir );
+            AQDebug( "int main( int argc, char *argv[] )", "Windows fallback AQEMU_Data_Folder: " + defaultAppDir );
+            #else
             QMessageBox::information( NULL, QObject::tr("Error!"),
                                       QObject::tr("Cannot Locate AQEMU Data Folder!\n"
                                                   "You Should Select This Folder in Next Window!"),
@@ -541,6 +547,7 @@ int AQEMU_Main::find_data_folders()
                 if( ! aqemuDataDir.endsWith("/") && ! aqemuDataDir.endsWith("\\") ) aqemuDataDir += "/";
                 settings->setValue( "AQEMU_Data_Folder", QDir::toNativeSeparators(aqemuDataDir) );
             }
+            #endif
         }
     }
 

@@ -289,14 +289,13 @@ void First_Start_Wizard::on_Button_Find_Emulators_clicked()
 	// Clear old emulators list and remove emulators files
 	ui.Edit_Enulators_List->clear();
 	
-	// Prefer built-in first
+	// Built-in QEMU is always used by default when present
 	if( AQ_Has_Bundled_QEMU() )
 	{
-		ui.Edit_Enulators_List->appendPlainText( tr( "Trying built-in QEMU: %1" ).arg( AQ_Get_Bundled_QEMU_Dir() ) );
+		ui.Edit_Enulators_List->appendPlainText( tr( "Using built-in QEMU: %1" ).arg( AQ_Get_Bundled_QEMU_Dir() ) );
 		if( AQ_Apply_QEMU_Dir_As_Default_Emulator( AQ_Get_Bundled_QEMU_Dir(), tr( "Built-in QEMU" ) ) )
 		{
 			AQ_Set_QEMU_Source_Mode( QStringLiteral( "bundled" ) );
-			ui.Edit_Enulators_List->appendPlainText( tr( "Using built-in QEMU." ) );
 			return;
 		}
 	}
@@ -654,12 +653,14 @@ void First_Start_Wizard::Load_Settings()
 	
 	// Virtual Machines Folder
 	#ifdef Q_OS_WIN32
-	ui.Edit_Add_Emulator_Path->setText( QDir::toNativeSeparators(QDir::currentPath() + "/QEMU/") );
+	if( AQ_Has_Bundled_QEMU() )
+		ui.Edit_Add_Emulator_Path->setText( QDir::toNativeSeparators( AQ_Get_Bundled_QEMU_Dir() ) );
+	else
+		ui.Edit_Add_Emulator_Path->setText( QDir::toNativeSeparators( QDir::currentPath() + "/QEMU/" ) );
 	ui.Edit_VM_Dir->setText( QDir::toNativeSeparators(Settings.value("VM_Directory", QDir::homePath() + "/AQEMU_VM/").toString()) );
 	#else
 	ui.Edit_VM_Dir->setText( QDir::toNativeSeparators(Settings.value("VM_Directory", QDir::homePath() + "/.aqemu/").toString()) );
 	#endif
-	
 }
 
 bool First_Start_Wizard::Save_Settings()

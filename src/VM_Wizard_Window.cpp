@@ -197,8 +197,8 @@ VM_Wizard_Window::VM_Wizard_Window( QWidget *parent )
 	}
 	else
 	{
-		AQWarning( "void VM_Wizard_Window::on_Button_Next_clicked()",
-				   "No VM Templates Found!" );
+		AQDebug( "VM_Wizard_Window::Load_OS_Templates()",
+				 "No legacy .aqvmt VM Templates Found (using new guided wizard profiles)" );
 	}
 
 	ui.Wizard_Pages->setCurrentWidget( Creation_Method_Page );
@@ -379,7 +379,11 @@ QPushButton#Button_Next {
 		{
 			QLayoutItem *bi = buttonRow->takeAt( 0 );
 			if( bi )
+			{
+				if( bi->widget() )
+					bi->widget()->setParent( footer );
 				fl->addItem( bi );
+			}
 		}
 		delete buttonRow;
 		contentLay->addWidget( footer );
@@ -442,6 +446,33 @@ bool VM_Wizard_Window::eventFilter( QObject *watched, QEvent *event )
 			}
 		}
 	}
+
+	if( event->type() == QEvent::FocusIn || event->type() == QEvent::MouseButtonPress )
+	{
+		if( watched == Edit_Typical_Disk_Path )
+		{
+			if( RB_Typical_Existing_Disk && ! RB_Typical_Existing_Disk->isChecked() )
+				RB_Typical_Existing_Disk->setChecked( true );
+		}
+		else if( watched == Edit_Install_ISO )
+		{
+			if( RB_Install_Local && ! RB_Install_Local->isChecked() )
+				RB_Install_Local->setChecked( true );
+		}
+		else if( watched == Edit_Install_ISO_URL )
+		{
+			if( RB_Install_URL_ISO && ! RB_Install_URL_ISO->isChecked() )
+				RB_Install_URL_ISO->setChecked( true );
+		}
+		else if( watched == Edit_Kernel_URL || watched == Edit_Initrd_URL ||
+		         watched == Edit_Kernel_Append || watched == Edit_Kernel_Local ||
+		         watched == Edit_Initrd_Local )
+		{
+			if( RB_Install_Network_Kernel && ! RB_Install_Network_Kernel->isChecked() )
+				RB_Install_Network_Kernel->setChecked( true );
+		}
+	}
+
 	return QDialog::eventFilter( watched, event );
 }
 
@@ -510,11 +541,19 @@ void VM_Wizard_Window::Build_Three_Path_Pages()
 	intro->setTextFormat( Qt::RichText );
 	methodLay->addWidget( intro );
 
+	Group_Creation_Method = new QButtonGroup( this );
 	RB_Method_Guest_OS = new QRadioButton( tr( "Guest Operating System" ) );
 	RB_Method_Platform = new QRadioButton( tr( "System / Machine Platform" ) );
 	RB_Method_Architecture = new QRadioButton( tr( "CPU Architecture" ) );
 	RB_Method_Custom = new QRadioButton( tr( "Custom / Advanced" ) );
 	RB_Method_Import = new QRadioButton( tr( "Import Existing Disk" ) );
+
+	Group_Creation_Method->addButton( RB_Method_Guest_OS, 0 );
+	Group_Creation_Method->addButton( RB_Method_Platform, 1 );
+	Group_Creation_Method->addButton( RB_Method_Architecture, 2 );
+	Group_Creation_Method->addButton( RB_Method_Custom, 3 );
+	Group_Creation_Method->addButton( RB_Method_Import, 4 );
+
 	RB_Method_Guest_OS->setChecked( true );
 
 	Add_Method_Card( methodLay, RB_Method_Guest_OS,
@@ -654,6 +693,13 @@ void VM_Wizard_Window::Populate_OS_Tree()
 			leaf->setText( 0, children.at(i).toString() );
 		}
 	}
+	connect( Tree_OS, &QTreeWidget::itemDoubleClicked, this, [this]( QTreeWidgetItem *item, int ) {
+		if( item && item->childCount() == 0 )
+		{
+			Apply_OS_Defaults( item->text( 0 ) );
+			on_Button_Next_clicked();
+		}
+	} );
 	Tree_OS->expandToDepth( 0 );
 }
 
@@ -993,8 +1039,27 @@ QString VM_Wizard_Window::Selected_Tree_Leaf( QTreeWidget *tree ) const
 
 bool VM_Wizard_Window::Ensure_Emulator_Ready()
 {
+	// Always prioritize built-in QEMU unless user explicitly chose "custom" in Settings
+	if( AQ_Has_Bundled_QEMU() && AQ_Get_QEMU_Source_Mode() != QLatin1String( "custom" ) )
+	{
+		const QString bundled = AQ_Get_Bundled_QEMU_Dir();
+		AQ_Apply_QEMU_Dir_As_Default_Emulator( bundled, tr( "Built-in QEMU" ) );
+	}
+
 	Current_Emulator = Get_Default_Emulator();
 	All_Systems = Current_Emulator.Get_Devices();
+
+	// If missing or incomplete, attempt auto-refresh from built-in bundled QEMU
+	if( All_Systems.isEmpty() || All_Systems.count() < 5 )
+	{
+		const QString bundled = AQ_Get_Bundled_QEMU_Dir();
+		if( AQ_Apply_QEMU_Dir_As_Default_Emulator( bundled, tr( "Built-in QEMU" ) ) )
+		{
+			Current_Emulator = Get_Default_Emulator();
+			All_Systems = Current_Emulator.Get_Devices();
+		}
+	}
+
 	if( All_Systems.isEmpty() )
 	{
 		AQGraphic_Warning( tr("Emulator"), tr("Cannot get emulator devices. Check QEMU installation.") );
@@ -1041,10 +1106,40 @@ bool VM_Wizard_Window::Apply_Selected_Computer_Type( const QString &target )
 		}
 		if( ! found )
 		{
-			AQGraphic_Warning( tr("Architecture"),
-				tr("No QEMU binary for target \"%1\" is configured in AQEMU.\nExpected: %2")
-					.arg( target ).arg( "qemu-system-" + target ) );
-			return false;
+			// Try auto-refreshing built-in bundled QEMU binaries
+			const QString bundled = AQ_Get_Bundled_QEMU_Dir();
+			if( AQ_Apply_QEMU_Dir_As_Default_Emulator( bundled, tr( "Built-in QEMU" ) ) )
+			{
+				Current_Emulator = Get_Default_Emulator();
+				All_Systems = Current_Emulator.Get_Devices();
+				if( All_Systems.contains( qemu_name ) )
+				{
+					found = true;
+				}
+				else
+				{
+					for( QMap<QString, Available_Devices>::const_iterator it = All_Systems.constBegin(); it != All_Systems.constEnd(); ++it )
+					{
+						if( it.key().compare( suffix, Qt::CaseInsensitive ) == 0 ||
+						    it.value().System.QEMU_Name.compare( suffix, Qt::CaseInsensitive ) == 0 ||
+						    it.key().endsWith( target, Qt::CaseInsensitive ) )
+						{
+							qemu_name = it.key();
+							found = true;
+							break;
+						}
+					}
+				}
+			}
+		}
+		if( ! found )
+		{
+			// Create a synthetic fallback device entry for this target so wizard never blocks navigation
+			Available_Devices fallbackDev;
+			fallbackDev.System.QEMU_Name = qemu_name;
+			fallbackDev.System.Caption = tr( "QEMU %1 System" ).arg( target );
+			All_Systems[ qemu_name ] = fallbackDev;
+			found = true;
 		}
 	}
 
@@ -1183,8 +1278,7 @@ void VM_Wizard_Window::Apply_Sound_Preset( const QString &preset )
 void VM_Wizard_Window::Apply_OS_Defaults( const QString &os_name )
 {
 	Selected_OS_Name = os_name;
-	if( ui.Edit_VM_Name->text().isEmpty() || ui.Edit_VM_Name->text().startsWith( "Virtual Machine" ) )
-		ui.Edit_VM_Name->setText( os_name );
+	ui.Edit_VM_Name->setText( os_name );
 
 	Guest_Suggest_Win2K_Hack = false;
 	Guest_Sound = VM::Sound_Cards();
@@ -2459,8 +2553,11 @@ void VM_Wizard_Window::Enhance_Typical_HDD_Page()
 	ui.Label_Typical_HDD->setWordWrap( true );
 	lay->addWidget( ui.Label_Typical_HDD );
 
+	Group_Typical_Disk_Mode = new QButtonGroup( ui.Typical_HDD_Page );
 	RB_Typical_New_Disk = new QRadioButton( tr( "Create a new disk image" ), ui.Typical_HDD_Page );
 	RB_Typical_Existing_Disk = new QRadioButton( tr( "Use an existing disk image" ), ui.Typical_HDD_Page );
+	Group_Typical_Disk_Mode->addButton( RB_Typical_New_Disk );
+	Group_Typical_Disk_Mode->addButton( RB_Typical_Existing_Disk );
 	RB_Typical_New_Disk->setChecked( true );
 	lay->addWidget( RB_Typical_New_Disk );
 
@@ -2490,9 +2587,13 @@ void VM_Wizard_Window::Enhance_Typical_HDD_Page()
 	lay->addLayout( pathLay );
 
 	lay->addWidget( new QLabel( tr( "Install media:" ), ui.Typical_HDD_Page ) );
+	Group_Typical_Install_Media = new QButtonGroup( ui.Typical_HDD_Page );
 	RB_Install_Local = new QRadioButton( tr( "Local ISO / image file" ), ui.Typical_HDD_Page );
 	RB_Install_URL_ISO = new QRadioButton( tr( "Download ISO from URL" ), ui.Typical_HDD_Page );
 	RB_Install_Network_Kernel = new QRadioButton( tr( "Network install (kernel + initrd URLs)" ), ui.Typical_HDD_Page );
+	Group_Typical_Install_Media->addButton( RB_Install_Local );
+	Group_Typical_Install_Media->addButton( RB_Install_URL_ISO );
+	Group_Typical_Install_Media->addButton( RB_Install_Network_Kernel );
 	RB_Install_Local->setChecked( true );
 	lay->addWidget( RB_Install_Local );
 
@@ -2573,19 +2674,38 @@ void VM_Wizard_Window::Enhance_Typical_HDD_Page()
 	lay->addWidget( hint );
 	lay->addStretch( 1 );
 
-	connect( RB_Typical_New_Disk, SIGNAL(toggled(bool)), this, SLOT(Typical_New_Disk_Toggled(bool)) );
-	connect( TB_Typical_Disk_Browse, SIGNAL(clicked()), this, SLOT(Typical_Disk_Browse_Clicked()) );
-	connect( tb_disk_pool, SIGNAL(clicked()), this, SLOT(Storage_Browser_For_Disk_Clicked()) );
-	connect( TB_Install_ISO_Browse, SIGNAL(clicked()), this, SLOT(Install_ISO_Browse_Clicked()) );
-	connect( TB_Install_ISO_Storage, SIGNAL(clicked()), this, SLOT(Storage_Browser_For_ISO_Clicked()) );
-	connect( Edit_Install_ISO, SIGNAL(editingFinished()), this, SLOT(Apply_Install_ISO_Guess()) );
-	connect( RB_Install_Local, SIGNAL(toggled(bool)), this, SLOT(Install_Source_Mode_Changed()) );
-	connect( RB_Install_URL_ISO, SIGNAL(toggled(bool)), this, SLOT(Install_Source_Mode_Changed()) );
-	connect( RB_Install_Network_Kernel, SIGNAL(toggled(bool)), this, SLOT(Install_Source_Mode_Changed()) );
-	connect( TB_Download_ISO_URL, SIGNAL(clicked()), this, SLOT(Download_Install_ISO_URL_Clicked()) );
-	connect( TB_Download_Kernel, SIGNAL(clicked()), this, SLOT(Download_Network_Kernel_Clicked()) );
-	connect( TB_Download_Initrd, SIGNAL(clicked()), this, SLOT(Download_Network_Initrd_Clicked()) );
-	Typical_New_Disk_Toggled( true );
+	connect( RB_Typical_New_Disk, &QRadioButton::toggled, this, &VM_Wizard_Window::Typical_New_Disk_Toggled );
+	connect( RB_Typical_Existing_Disk, &QRadioButton::toggled, this, [this]( bool on ){ Typical_New_Disk_Toggled( ! on ); } );
+	connect( TB_Typical_Disk_Browse, &QToolButton::clicked, this, &VM_Wizard_Window::Typical_Disk_Browse_Clicked );
+	connect( tb_disk_pool, &QToolButton::clicked, this, &VM_Wizard_Window::Storage_Browser_For_Disk_Clicked );
+	connect( TB_Install_ISO_Browse, &QToolButton::clicked, this, &VM_Wizard_Window::Install_ISO_Browse_Clicked );
+	connect( TB_Install_ISO_Storage, &QToolButton::clicked, this, &VM_Wizard_Window::Storage_Browser_For_ISO_Clicked );
+	connect( Edit_Install_ISO, &QLineEdit::editingFinished, this, &VM_Wizard_Window::Apply_Install_ISO_Guess );
+	connect( RB_Install_Local, &QRadioButton::toggled, this, &VM_Wizard_Window::Install_Source_Mode_Changed );
+	connect( RB_Install_URL_ISO, &QRadioButton::toggled, this, &VM_Wizard_Window::Install_Source_Mode_Changed );
+	connect( RB_Install_Network_Kernel, &QRadioButton::toggled, this, &VM_Wizard_Window::Install_Source_Mode_Changed );
+	connect( TB_Download_ISO_URL, &QToolButton::clicked, this, &VM_Wizard_Window::Download_Install_ISO_URL_Clicked );
+	connect( TB_Download_Kernel, &QToolButton::clicked, this, &VM_Wizard_Window::Download_Network_Kernel_Clicked );
+	connect( TB_Download_Initrd, &QToolButton::clicked, this, &VM_Wizard_Window::Download_Network_Initrd_Clicked );
+
+	// Auto-highlight corresponding radio button when user clicks or focuses any text input box
+	const QList<QLineEdit*> input_filters = {
+		Edit_Typical_Disk_Path,
+		Edit_Install_ISO,
+		Edit_Install_ISO_URL,
+		Edit_Kernel_URL,
+		Edit_Initrd_URL,
+		Edit_Kernel_Append,
+		Edit_Kernel_Local,
+		Edit_Initrd_Local
+	};
+	for( QLineEdit *ed : input_filters )
+	{
+		if( ed )
+			ed->installEventFilter( this );
+	}
+
+	Typical_New_Disk_Toggled( RB_Typical_New_Disk->isChecked() );
 	Install_Source_Mode_Changed();
 }
 
@@ -2626,6 +2746,12 @@ void VM_Wizard_Window::Typical_New_Disk_Toggled( bool on )
 		ui.SB_HDD_Size->setEnabled( on );
 	if( ui.Label_HDD_Size )
 		ui.Label_HDD_Size->setEnabled( on );
+	if( Edit_Typical_Disk_Path )
+	{
+		Edit_Typical_Disk_Path->setPlaceholderText( on
+			? tr( "Path where new virtual disk image will be created" )
+			: tr( "Path to existing virtual disk image file (.qcow2, .vmdk, .raw, .vhdx, etc.)" ) );
+	}
 	if( on )
 		Refresh_Typical_HDD_Defaults();
 }
@@ -2964,12 +3090,12 @@ void VM_Wizard_Window::Build_Windows11_ARM_Page()
 	
 	ui.Wizard_Pages->addWidget( Win11_ARM_Page );
 	
-	connect( RB_Win11_New_Disk, SIGNAL(toggled(bool)), this, SLOT(Win11_New_Disk_Toggled(bool)) );
-	connect( CH_Win11_Already_Installed, SIGNAL(toggled(bool)), this, SLOT(Win11_Already_Installed_Toggled(bool)) );
-	connect( TB_Win11_ISO_Browse, SIGNAL(clicked()), this, SLOT(Win11_ISO_Browse_Clicked()) );
-	connect( TB_Win11_Existing_Disk_Browse, SIGNAL(clicked()), this, SLOT(Win11_Existing_Disk_Browse_Clicked()) );
-	connect( TB_Win11_VirtIO_ISO_Browse, SIGNAL(clicked()), this, SLOT(Win11_VirtIO_ISO_Browse_Clicked()) );
-	connect( CH_Win11_VirtIO_ISO, SIGNAL(toggled(bool)), this, SLOT(Win11_VirtIO_ISO_Toggled(bool)) );
+	connect( RB_Win11_New_Disk, &QRadioButton::toggled, this, &VM_Wizard_Window::Win11_New_Disk_Toggled );
+	connect( CH_Win11_Already_Installed, &QCheckBox::toggled, this, &VM_Wizard_Window::Win11_Already_Installed_Toggled );
+	connect( TB_Win11_ISO_Browse, &QToolButton::clicked, this, &VM_Wizard_Window::Win11_ISO_Browse_Clicked );
+	connect( TB_Win11_Existing_Disk_Browse, &QToolButton::clicked, this, &VM_Wizard_Window::Win11_Existing_Disk_Browse_Clicked );
+	connect( TB_Win11_VirtIO_ISO_Browse, &QToolButton::clicked, this, &VM_Wizard_Window::Win11_VirtIO_ISO_Browse_Clicked );
+	connect( CH_Win11_VirtIO_ISO, &QCheckBox::toggled, this, &VM_Wizard_Window::Win11_VirtIO_ISO_Toggled );
 }
 
 void VM_Wizard_Window::Build_Intel_MacOS_Page()
@@ -3111,10 +3237,10 @@ void VM_Wizard_Window::Build_Intel_MacOS_Page()
 
 	ui.Wizard_Pages->addWidget( Intel_MacOS_Page );
 
-	connect( RB_Intel_Mac_New_Disk, SIGNAL(toggled(bool)), this, SLOT(Intel_Mac_New_Disk_Toggled(bool)) );
-	connect( TB_Intel_Mac_OpenCore_Browse, SIGNAL(clicked()), this, SLOT(Intel_Mac_OpenCore_Browse_Clicked()) );
-	connect( TB_Intel_Mac_Disk_Browse, SIGNAL(clicked()), this, SLOT(Intel_Mac_Disk_Browse_Clicked()) );
-	connect( TB_Intel_Mac_Recovery_Browse, SIGNAL(clicked()), this, SLOT(Intel_Mac_Recovery_Browse_Clicked()) );
+	connect( RB_Intel_Mac_New_Disk, &QRadioButton::toggled, this, &VM_Wizard_Window::Intel_Mac_New_Disk_Toggled );
+	connect( TB_Intel_Mac_OpenCore_Browse, &QToolButton::clicked, this, &VM_Wizard_Window::Intel_Mac_OpenCore_Browse_Clicked );
+	connect( TB_Intel_Mac_Disk_Browse, &QToolButton::clicked, this, &VM_Wizard_Window::Intel_Mac_Disk_Browse_Clicked );
+	connect( TB_Intel_Mac_Recovery_Browse, &QToolButton::clicked, this, &VM_Wizard_Window::Intel_Mac_Recovery_Browse_Clicked );
 }
 
 void VM_Wizard_Window::Show_Intel_MacOS_Page()
