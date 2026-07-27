@@ -11023,27 +11023,11 @@ bool Virtual_Machine::Is_Windows_XP_Family() const
 bool Virtual_Machine::Prefer_Native_VGA_Window() const
 {
 	const QString mode = Display_Window_Mode.trimmed().toLower();
-	bool want = false;
 	if( mode == QLatin1String( "native" ) )
-		want = true;
-	else if( mode == QLatin1String( "embedded" ) )
-		want = false;
-	else
-		// auto: legacy DOS/Win9x/XP text-mode guests need SDL/GTK
-		want = Is_Legacy_Windows_Text_Mode_Guest();
-
-	if( ! want )
-		return false;
-
-	QString system_name = Current_Emulator_Devices.System.QEMU_Name;
-	if( system_name.isEmpty() )
-		system_name = Computer_Type;
-	if( system_name.isEmpty() )
-		system_name = QStringLiteral( "qemu-system-i386" );
-
-	const QString preferred = Get_Current_Emulator_Binary_Path( system_name );
-	const QString found = AQ_Find_QEMU_Binary_With_Native_Display( system_name, preferred );
-	return ! AQ_QEMU_Pick_Native_Display( found ).isEmpty();
+		return true;
+	
+	// Default to embedded window for all guests (including legacy Windows text mode)
+	return false;
 }
 
 void Virtual_Machine::Ensure_Windows_XP_Family_Defaults()
