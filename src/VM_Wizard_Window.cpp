@@ -2203,6 +2203,12 @@ void VM_Wizard_Window::Apply_Guest_Hardware_To_New_VM()
 	}
 
 	// Devices page / capability overrides (always win over class heuristics when set)
+	const Guest_Capabilities caps = Current_Guest_Capabilities();
+	if( caps.default_sound == QLatin1String( "none" ) || caps.sound_options.isEmpty() )
+	{
+		VM::Sound_Cards no_sound;
+		New_VM->Set_Audio_Cards( no_sound );
+	}
 	if( ! Guest_Video_Card.isEmpty() )
 		New_VM->Set_Video_Card( Guest_Video_Card );
 	else if( Current_Guest_Capabilities().guest_class == Guest_Capabilities::Classic_Mac )
