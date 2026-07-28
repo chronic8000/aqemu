@@ -1136,18 +1136,19 @@ bool VM_Wizard_Window::Ensure_Emulator_Ready()
 	if( ! All_Systems.isEmpty() && All_Systems.count() >= 5 )
 		return true;
 
-	// Always prioritize built-in QEMU unless user explicitly chose "custom" in Settings
-	if( AQ_Has_Bundled_QEMU() && AQ_Get_QEMU_Source_Mode() != QLatin1String( "custom" ) )
-	{
-		const QString bundled = AQ_Get_Bundled_QEMU_Dir();
-		AQ_Apply_QEMU_Dir_As_Default_Emulator( bundled, tr( "Built-in QEMU" ) );
-	}
-
 	Current_Emulator = Get_Default_Emulator();
 	All_Systems = Current_Emulator.Get_Devices();
 
-	// If missing or incomplete, attempt auto-refresh from built-in bundled QEMU
-	if( All_Systems.isEmpty() || All_Systems.count() < 5 )
+	if( ! All_Systems.isEmpty() && All_Systems.count() >= 5 )
+	{
+		ui.CB_Computer_Type->clear();
+		for( QMap<QString, Available_Devices>::const_iterator it = All_Systems.constBegin(); it != All_Systems.constEnd(); ++it )
+			ui.CB_Computer_Type->addItem( it.value().System.Caption );
+		return true;
+	}
+
+	// Only trigger disk/binary scan if devices list is uninitialized in settings
+	if( AQ_Has_Bundled_QEMU() && AQ_Get_QEMU_Source_Mode() != QLatin1String( "custom" ) )
 	{
 		const QString bundled = AQ_Get_Bundled_QEMU_Dir();
 		if( AQ_Apply_QEMU_Dir_As_Default_Emulator( bundled, tr( "Built-in QEMU" ) ) )
