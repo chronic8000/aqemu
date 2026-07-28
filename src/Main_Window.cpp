@@ -4717,11 +4717,8 @@ void Main_Window::on_actionExit_triggered()
 
 void Main_Window::on_actionShow_New_VM_Wizard_triggered()
 {
-	VM_Wizard_Window *Wizard_Win = nullptr;
-	AQ_Run_With_Busy_Dialog( this, tr( "Preparing New VM wizard…" ), [ & ]() {
-		Wizard_Win = new VM_Wizard_Window( this );
-		Wizard_Win->Set_VM_List( &VM_List );
-	} );
+	VM_Wizard_Window *Wizard_Win = new VM_Wizard_Window( this );
+	Wizard_Win->Set_VM_List( &VM_List );
 
 	if( ! Wizard_Win )
 		return;
