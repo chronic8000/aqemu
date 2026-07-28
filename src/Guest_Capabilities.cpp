@@ -540,6 +540,89 @@ Guest_Capabilities AQ_Compute_Guest_Capabilities(
 		c.sound_options.clear(); c.sound_options << N( "none", "No sound" );
 		c.video_options.clear(); c.video_options << N( "none", "No display" );
 	}
+	else if( tgt.startsWith( QLatin1String( "mips" ) ) )
+	{
+		c.summary = QObject::tr( "MIPS platform (Malta / SGI Magnum): IDE/SCSI disk, pcnet/e1000/dp83932 NIC, std/cirrus VGA." );
+		c.force_tcg = true;
+		c.allow_kvm_whpx = false;
+		c.allow_virtio_disk = false;
+		c.allow_virtio_net = false;
+		c.allow_virtio_gpu = false;
+		c.default_disk = QStringLiteral( "ide" );
+		c.default_nic = QStringLiteral( "pcnet" );
+		c.default_sound = QStringLiteral( "none" );
+		c.default_video = QStringLiteral( "std" );
+		c.disk_options.clear(); c.disk_options << D( "ide", "IDE" ) << D( "scsi", "SCSI" );
+		c.nic_options.clear(); c.nic_options << N( "pcnet", "AMD PCNet" ) << N( "e1000", "e1000" ) << N( "dp83932", "SONIC dp83932" );
+		c.sound_options.clear(); c.sound_options << N( "none", "No sound" );
+		c.video_options.clear(); c.video_options << N( "std", "Standard VGA" ) << N( "cirrus", "Cirrus VGA" );
+	}
+	else if( tgt == QLatin1String( "m68k" ) )
+	{
+		c.summary = QObject::tr( "Motorola 68k (q800 / NeXTcube / ColdFire): SCSI/IDE disk, mcf_fec/dp83932 NIC, onboard video." );
+		c.force_tcg = true;
+		c.allow_kvm_whpx = false;
+		c.allow_virtio_disk = false;
+		c.allow_virtio_net = false;
+		c.allow_virtio_gpu = false;
+		c.default_disk = QStringLiteral( "scsi" );
+		c.default_nic = QStringLiteral( "mcf_fec" );
+		c.default_sound = QStringLiteral( "none" );
+		c.default_video = QString();
+		c.disk_options.clear(); c.disk_options << D( "scsi", "SCSI" ) << D( "ide", "IDE" );
+		c.nic_options.clear(); c.nic_options << N( "mcf_fec", "ColdFire FEC" ) << N( "dp83932", "SONIC dp83932" );
+		c.sound_options.clear(); c.sound_options << N( "none", "No sound / onboard" );
+		c.video_options.clear(); c.video_options << N( "", "Board default" );
+	}
+	else if( tgt == QLatin1String( "loongarch64" ) )
+	{
+		c.summary = QObject::tr( "LoongArch 64-bit virt: VirtIO disk/net/GPU preferred." );
+		c.force_tcg = true;
+		c.allow_kvm_whpx = false;
+		c.allow_virtio_disk = true;
+		c.allow_virtio_net = true;
+		c.allow_virtio_gpu = true;
+		c.default_disk = QStringLiteral( "virtio" );
+		c.default_nic = QStringLiteral( "virtio-net-pci" );
+		c.default_sound = QStringLiteral( "none" );
+		c.default_video = QStringLiteral( "virtio" );
+		c.disk_options.clear(); c.disk_options << D( "virtio", "VirtIO disk" ) << D( "scsi", "SCSI" );
+		c.nic_options.clear(); c.nic_options << N( "virtio-net-pci", "VirtIO network" ) << N( "e1000", "e1000" );
+		c.sound_options.clear(); c.sound_options << N( "none", "No sound" );
+		c.video_options.clear(); c.video_options << N( "virtio", "VirtIO-GPU" ) << N( "std", "Standard VGA" );
+	}
+	else if( tgt.startsWith( QLatin1String( "microblaze" ) ) || tgt == QLatin1String( "or1k" ) || tgt.startsWith( QLatin1String( "xtensa" ) ) )
+	{
+		c.summary = QObject::tr( "Embedded soft-core target: VirtIO or onboard ethernet (xilinx_ethlite/open_eth)." );
+		c.force_tcg = true;
+		c.allow_kvm_whpx = false;
+		c.allow_virtio_disk = true;
+		c.allow_virtio_net = true;
+		c.allow_virtio_gpu = false;
+		c.default_disk = QStringLiteral( "virtio" );
+		c.default_nic = ( tgt.startsWith( QLatin1String( "microblaze" ) ) ) ? QStringLiteral( "xilinx_ethlite" ) : QStringLiteral( "open_eth" );
+		c.default_sound = QStringLiteral( "none" );
+		c.default_video = QStringLiteral( "none" );
+		c.disk_options.clear(); c.disk_options << D( "virtio", "VirtIO device" );
+		c.nic_options.clear(); c.nic_options << N( "xilinx_ethlite", "Xilinx EthLite" ) << N( "open_eth", "OpenEthernet" ) << N( "none", "No network" );
+		c.sound_options.clear(); c.sound_options << N( "none", "No sound" );
+		c.video_options.clear(); c.video_options << N( "none", "Headless / Console" );
+	}
+	else if( tgt.startsWith( QLatin1String( "sh4" ) ) )
+	{
+		c.summary = QObject::tr( "Hitachi SuperH 4 (r2d): IDE disk, Realtek RTL8139 network, SM501 / std video." );
+		c.force_tcg = true;
+		c.allow_kvm_whpx = false;
+		c.allow_virtio_disk = false;
+		c.default_disk = QStringLiteral( "ide" );
+		c.default_nic = QStringLiteral( "rtl8139" );
+		c.default_sound = QStringLiteral( "none" );
+		c.default_video = QStringLiteral( "std" );
+		c.disk_options.clear(); c.disk_options << D( "ide", "IDE" );
+		c.nic_options.clear(); c.nic_options << N( "rtl8139", "Realtek RTL8139" );
+		c.sound_options.clear(); c.sound_options << N( "none", "No sound" );
+		c.video_options.clear(); c.video_options << N( "std", "Standard VGA" ) << N( "sm501", "Silicon Motion SM501" );
+	}
 	else if( os.isEmpty() )
 	{
 		if( mach.contains( QLatin1String( "mac99" ) ) )

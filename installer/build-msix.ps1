@@ -163,7 +163,7 @@ if (-not (Test-Path $shareBios)) {
 $qemuSystems = @(Get-ChildItem (Join-Path $layoutDir "qemu-system-*.exe") -ErrorAction SilentlyContinue)
 Write-Host ("Staged qemu-system-* count: {0}" -f $qemuSystems.Count)
 if ($qemuSystems.Count -lt 10) {
-    Write-Warning "Only $($qemuSystems.Count) qemu-system-* binaries staged. Store packages should include EVERY softmmu target — rebuild with scripts/build_qemu_windows_msys.sh (all targets)."
+    Write-Warning ("Only {0} qemu-system-* binaries staged. Store packages should include EVERY softmmu target." -f $qemuSystems.Count)
 }
 
 if (-not (Test-Path (Join-Path $layoutDir "aqemu.exe"))) {
