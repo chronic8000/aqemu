@@ -557,15 +557,15 @@ void VM_Wizard_Window::Build_Three_Path_Pages()
 	RB_Method_Guest_OS->setChecked( true );
 
 	Add_Method_Card( methodLay, RB_Method_Guest_OS,
-		tr( "Best for Windows, Linux, macOS, DOS, BSD… — AQEMU picks a matching QEMU binary and machine, then you confirm." ) );
+		tr( "1. Guest Operating System: Pick Windows, Linux, macOS, DOS, BSD… — AQEMU selects the optimal QEMU target and machine." ) );
 	Add_Method_Card( methodLay, RB_Method_Platform,
-		tr( "Best for Raspberry Pi, SGI Indy, PowerMac, SPARCstation, PC (Q35)… — choose the board/platform first." ) );
+		tr( "2. System / Machine Platform: Pick board category (ARM Virt, Apple PowerMac, Sun SPARCstation, SBC, Retro…) — locks in target & machine." ) );
 	Add_Method_Card( methodLay, RB_Method_Architecture,
-		tr( "Best when you know the CPU family (x86-64, ARM64, MIPS, RISC-V…) — then pick any machine QEMU offers for it." ) );
+		tr( "3. CPU Architecture: Pick any of the 29 QEMU targets (x86_64, aarch64, ppc64, riscv64, s390x, sparc…) — then pick machine." ) );
 	Add_Method_Card( methodLay, RB_Method_Custom,
-		tr( "Full manual control: Typical or Custom disk/RAM flow, any qemu-system-* binary, templates or generate." ) );
+		tr( "4. Custom / Advanced: Full manual control over QEMU binary, machine type, RAM, and hardware controller configurations." ) );
 	Add_Method_Card( methodLay, RB_Method_Import,
-		tr( "Attach an existing qcow2/raw/vmdk (and optional ISO). Fastest path when you already have an image." ) );
+		tr( "5. Import Existing Disk: Select an existing qcow2, raw, vmdk, or vhdx disk image — AQEMU resolves format & default controller." ) );
 
 	methodLay->addStretch( 1 );
 	scroll->setWidget( inner );
@@ -775,6 +775,41 @@ void VM_Wizard_Window::Populate_Arch_List()
 		seen.insert( name );
 	}
 
+	// Ensure all 29 QEMU target executables are explicitly listed
+	const QStringList all_29_targets = {
+		"x86-64 (qemu-system-x86_64)", "x86 32-bit (qemu-system-i386)", "ARM64 / AArch64 (qemu-system-aarch64)",
+		"ARM 32-bit (qemu-system-arm)", "PowerPC 32-bit (qemu-system-ppc)", "PowerPC 64-bit (qemu-system-ppc64)",
+		"RISC-V 64-bit (qemu-system-riscv64)", "RISC-V 32-bit (qemu-system-riscv32)", "MIPS Big Endian (qemu-system-mips)",
+		"MIPS Little Endian (qemu-system-mipsel)", "MIPS64 Big Endian (qemu-system-mips64)", "MIPS64 Little Endian (qemu-system-mips64el)",
+		"SPARC 32-bit (qemu-system-sparc)", "SPARC 64-bit (qemu-system-sparc64)", "IBM S/390x (qemu-system-s390x)",
+		"HPPA (qemu-system-hppa)", "DEC Alpha (qemu-system-alpha)", "LoongArch 64-bit (qemu-system-loongarch64)",
+		"Motorola 68k (qemu-system-m68k)", "SuperH 4 (qemu-system-sh4)", "SuperH 4 Big Endian (qemu-system-sh4eb)",
+		"MicroBlaze (qemu-system-microblaze)", "MicroBlaze Little Endian (qemu-system-microblazeel)", "OpenRISC 1000 (qemu-system-or1k)",
+		"Xtensa (qemu-system-xtensa)", "Xtensa Big Endian (qemu-system-xtensaeb)", "AVR Microcontroller (qemu-system-avr)",
+		"Renesas RX (qemu-system-rx)", "Infineon TriCore (qemu-system-tricore)"
+	};
+	QJsonObject targets = Wizard_Trees.value( "architecture_targets" ).toObject();
+	for( const QString &t : all_29_targets )
+	{
+		if( ! seen.contains( t ) )
+		{
+			List_Arch->addItem( t );
+			seen.insert( t );
+			int p1 = t.indexOf( '(' );
+			int p2 = t.indexOf( ')' );
+			if( p1 > 0 && p2 > p1 )
+			{
+				QString bin = t.mid( p1 + 1, p2 - p1 - 1 );
+				if( bin.startsWith( "qemu-system-" ) )
+				{
+					QString tgt = bin.mid( 12 );
+					targets.insert( t, tgt );
+				}
+			}
+		}
+	}
+	Wizard_Trees.insert( QStringLiteral( "architecture_targets" ), targets );
+
 	// Append any configured emulator binaries not already listed
 	{
 		Emulator em = Get_Default_Emulator();
@@ -831,21 +866,78 @@ void VM_Wizard_Window::Ensure_Machine_Catalog()
 	Machine_Catalog_Loaded = true;
 
 	QStringList catalogPaths;
-	catalogPaths << QCoreApplication::applicationDirPath() + "/qemu_machine_catalog.json"
+	catalogPaths << QCoreApplication::applicationDirPath() + "/qemu_probe_full_v3"
+	             << QCoreApplication::applicationDirPath() + "/qemu_machine_catalog.json"
 	             << QCoreApplication::applicationDirPath() + "/../docs/qemu_machine_catalog.json"
+	             << QDir::currentPath() + "/build_win/qemu_probe_full_v3"
 	             << QDir::currentPath() + "/docs/qemu_machine_catalog.json"
 	             << QDir( QCoreApplication::applicationDirPath() ).absoluteFilePath( "../docs/qemu_machine_catalog.json" );
 	for( int p = 0; p < catalogPaths.size(); ++p )
 	{
-		QFile cf( catalogPaths[p] );
-		if( ! cf.open( QIODevice::ReadOnly ) )
-			continue;
-		QJsonDocument cdoc = QJsonDocument::fromJson( cf.readAll() );
-		cf.close();
-		if( cdoc.isObject() )
+		QFileInfo fi( catalogPaths[p] );
+		if( fi.isDir() )
 		{
-			Machine_Catalog = cdoc.object();
-			return;
+			// Load from qemu_probe_full_v3 folder containing individual target JSONs
+			QDir pdir( catalogPaths[p] );
+			QStringList jsonFiles = pdir.entryList( QStringList() << "*.json", QDir::Files );
+			if( ! jsonFiles.isEmpty() )
+			{
+				QJsonArray binaries;
+				for( const QString &jf : jsonFiles )
+				{
+					QFile f( pdir.absoluteFilePath( jf ) );
+					if( f.open( QIODevice::ReadOnly ) )
+					{
+						QJsonDocument doc = QJsonDocument::fromJson( f.readAll() );
+						f.close();
+						if( doc.isObject() )
+						{
+							QJsonObject obj = doc.object();
+							QString arch = obj.value( "architecture" ).toString();
+							if( arch.isEmpty() )
+								arch = jf.section( '.', 0, 0 );
+							QJsonObject bobj;
+							bobj.insert( QStringLiteral( "target" ), arch );
+							QJsonArray machs;
+							QJsonArray mlist = obj.value( "machines" ).toArray();
+							for( int mi = 0; mi < mlist.size(); ++mi )
+							{
+								QString line = mlist.at( mi ).toString().trimmed();
+								if( line.startsWith( "Supported machines" ) || line.isEmpty() )
+									continue;
+								int sp = line.indexOf( ' ' );
+								QString mname = ( sp > 0 ) ? line.left( sp ).trimmed() : line;
+								QString mdesc = ( sp > 0 ) ? line.mid( sp ).trimmed() : line;
+								if( mname.isEmpty() || mname == "none" )
+									continue;
+								QJsonObject mentry;
+								mentry.insert( QStringLiteral( "name" ), mname );
+								mentry.insert( QStringLiteral( "display_name" ), QString( "%1 (%2)" ).arg( mname, mdesc ) );
+								machs.append( mentry );
+							}
+							bobj.insert( QStringLiteral( "machines" ), machs );
+							binaries.append( bobj );
+						}
+					}
+				}
+				QJsonObject cat;
+				cat.insert( QStringLiteral( "binaries" ), binaries );
+				Machine_Catalog = cat;
+				return;
+			}
+		}
+		else if( fi.isFile() )
+		{
+			QFile cf( catalogPaths[p] );
+			if( ! cf.open( QIODevice::ReadOnly ) )
+				continue;
+			QJsonDocument cdoc = QJsonDocument::fromJson( cf.readAll() );
+			cf.close();
+			if( cdoc.isObject() )
+			{
+				Machine_Catalog = cdoc.object();
+				return;
+			}
 		}
 	}
 }
@@ -2340,6 +2432,9 @@ void VM_Wizard_Window::Refresh_Devices_Page()
 
 	if( show_all )
 	{
+		const QString tgt = Selected_Target.toLower();
+		const bool is_pcish = ( tgt == QLatin1String( "x86_64" ) || tgt == QLatin1String( "i386" ) ||
+		                        tgt == QLatin1String( "aarch64" ) || tgt == QLatin1String( "arm" ) );
 		// Append common QEMU PC devices without removing safe defaults
 		auto append_disk = [&]( const char *id, const char *cap ) {
 			for( int i = 0; i < disks.size(); ++i )
@@ -2352,27 +2447,34 @@ void VM_Wizard_Window::Refresh_Devices_Page()
 			Guest_Named_Option o; o.id = QString::fromUtf8( id ); o.caption = tr( cap ); list << o;
 		};
 		append_disk( "ide", "IDE" );
-		append_disk( "virtio", "VirtIO disk" );
-		append_disk( "virtio-scsi", "VirtIO-SCSI" );
-		append_disk( "sata", "AHCI / SATA" );
+		if( caps.allow_virtio_disk || is_pcish )
+		{
+			append_disk( "virtio", "VirtIO disk" );
+			append_disk( "virtio-scsi", "VirtIO-SCSI" );
+			append_disk( "sata", "AHCI / SATA" );
+		}
 		append_disk( "scsi", "SCSI" );
-		append_named( nics, "virtio-net-pci", "VirtIO network" );
-		append_named( nics, "e1000", "Intel e1000" );
-		append_named( nics, "rtl8139", "RTL8139" );
-		append_named( nics, "ne2k_pci", "NE2000 PCI" );
-		append_named( nics, "pcnet", "PCNet" );
-		append_named( nics, "sungem", "SunGEM" );
-		append_named( sounds, "sb16", "Sound Blaster 16" );
-		append_named( sounds, "sb16_adlib_pcspk", "SB16 + AdLib + PC Speaker" );
-		append_named( sounds, "ac97", "AC97" );
-		append_named( sounds, "hda", "Intel HDA" );
-		append_named( sounds, "hda_virtio", "HDA + VirtIO" );
-		append_named( sounds, "virtio", "VirtIO sound" );
+		if( caps.allow_virtio_net || is_pcish )
+			append_named( nics, "virtio-net-pci", "VirtIO network" );
+		if( is_pcish )
+		{
+			append_named( nics, "e1000", "Intel e1000" );
+			append_named( nics, "rtl8139", "RTL8139" );
+			append_named( nics, "ne2k_pci", "NE2000 PCI" );
+			append_named( nics, "pcnet", "PCNet" );
+			append_named( sounds, "sb16", "Sound Blaster 16" );
+			append_named( sounds, "sb16_adlib_pcspk", "SB16 + AdLib + PC Speaker" );
+			append_named( sounds, "ac97", "AC97" );
+			append_named( sounds, "hda", "Intel HDA" );
+			append_named( videos, "std", "Standard VGA" );
+			append_named( videos, "cirrus", "Cirrus VGA" );
+		}
 		append_named( sounds, "none", "No sound" );
-		append_named( videos, "std", "Standard VGA" );
-		append_named( videos, "cirrus", "Cirrus VGA" );
-		append_named( videos, "virtio", "VirtIO-GPU" );
-		append_named( videos, "qxl", "QXL" );
+		if( caps.allow_virtio_gpu || is_pcish )
+		{
+			append_named( videos, "virtio", "VirtIO-GPU" );
+			append_named( videos, "qxl", "QXL" );
+		}
 		append_named( videos, "VGA", "VGA" );
 		if( Current_Devices )
 		{
