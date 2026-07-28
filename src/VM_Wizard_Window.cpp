@@ -201,6 +201,8 @@ VM_Wizard_Window::VM_Wizard_Window( QWidget *parent )
 				 "No legacy .aqvmt VM Templates Found (using new guided wizard profiles)" );
 	}
 
+	Ensure_Emulator_Ready();
+
 	ui.Wizard_Pages->setCurrentWidget( Creation_Method_Page );
 	ui.Label_Page->setText( tr("Creation Method") );
 	ui.Button_Back->setEnabled( false );
@@ -1131,6 +1133,9 @@ QString VM_Wizard_Window::Selected_Tree_Leaf( QTreeWidget *tree ) const
 
 bool VM_Wizard_Window::Ensure_Emulator_Ready()
 {
+	if( ! All_Systems.isEmpty() && All_Systems.count() >= 5 )
+		return true;
+
 	// Always prioritize built-in QEMU unless user explicitly chose "custom" in Settings
 	if( AQ_Has_Bundled_QEMU() && AQ_Get_QEMU_Source_Mode() != QLatin1String( "custom" ) )
 	{
