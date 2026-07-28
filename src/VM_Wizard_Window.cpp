@@ -1026,7 +1026,7 @@ QStringList VM_Wizard_Window::Probe_Live_Machines( const QString &target )
 	QProcess proc;
 	proc.setProcessChannelMode( QProcess::MergedChannels );
 	proc.start( bin, QStringList() << QStringLiteral( "-machine" ) << QStringLiteral( "help" ) );
-	if( ! proc.waitForFinished( 8000 ) )
+	if( ! proc.waitForFinished( 500 ) )
 	{
 		proc.kill();
 		return out;

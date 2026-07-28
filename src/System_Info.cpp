@@ -3804,8 +3804,11 @@ bool System_Info::Scan_Host_GPU_Windows( QList<Host_GPU> &list )
 		<< QStringLiteral(
 			"Get-CimInstance Win32_VideoController | "
 			"Select-Object Name,PNPDeviceID | ConvertTo-Json -Compress" ) );
-	if( ! proc.waitForFinished( 15000 ) )
+	if( ! proc.waitForFinished( 800 ) )
+	{
+		proc.kill();
 		return false;
+	}
 
 	const QByteArray out = proc.readAllStandardOutput().trimmed();
 	if( out.isEmpty() )
