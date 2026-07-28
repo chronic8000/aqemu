@@ -1389,6 +1389,9 @@ static Emulator Empty_Emul;
 
 bool Update_Emulators_List()
 {
+	if( ! Emulators_List.isEmpty() )
+		return true;
+
 	// Clear old emulator list
 	Emulators_List.clear();
 	

@@ -201,6 +201,8 @@ VM_Wizard_Window::VM_Wizard_Window( QWidget *parent )
 				 "No legacy .aqvmt VM Templates Found (using new guided wizard profiles)" );
 	}
 
+	Ensure_Emulator_Ready();
+
 	ui.Wizard_Pages->setCurrentWidget( Creation_Method_Page );
 	ui.Label_Page->setText( tr("Creation Method") );
 	ui.Button_Back->setEnabled( false );
@@ -608,6 +610,25 @@ void VM_Wizard_Window::Build_Three_Path_Pages()
 	Tree_Platform->setAlternatingRowColors( true );
 	platLay->addWidget( Tree_Platform );
 	Populate_Platform_Tree();
+	connect( Tree_Platform, &QTreeWidget::itemExpanded, this, [this]( QTreeWidgetItem *item ) {
+		if( item && item->data( 0, Qt::UserRole ).toString() == QLatin1String( "lazy:all_machines" ) )
+		{
+			item->setData( 0, Qt::UserRole, QString() );
+			Ensure_Machine_Catalog();
+			QJsonArray binaries = Machine_Catalog.value( "binaries" ).toArray();
+			for( int bi = 0; bi < binaries.size(); ++bi )
+			{
+				QJsonObject bo = binaries.at( bi ).toObject();
+				const QString target = bo.value( "target" ).toString();
+				if( target.isEmpty() )
+					continue;
+				QTreeWidgetItem *arch = new QTreeWidgetItem( item );
+				arch->setText( 0, tr( "qemu-system-%1" ).arg( target ) );
+				arch->setFlags( arch->flags() & ~Qt::ItemIsSelectable );
+				Append_Catalog_Machines( arch, target );
+			}
+		}
+	} );
 	connect( Tree_Platform, &QTreeWidget::itemDoubleClicked, this, [this]( QTreeWidgetItem *item, int ) {
 		if( item && item->childCount() == 0 )
 			on_Button_Next_clicked();
@@ -738,26 +759,10 @@ void VM_Wizard_Window::Populate_Platform_Tree()
 		custom->setData( 0, Qt::UserRole, QStringLiteral( "action:custom" ) );
 	}
 
-	// Full QEMU machine catalog under Platform (any board, any order)
-	Ensure_Machine_Catalog();
-	QJsonArray binaries = Machine_Catalog.value( "binaries" ).toArray();
-	if( ! binaries.isEmpty() )
-	{
-		QTreeWidgetItem *all = new QTreeWidgetItem( Tree_Platform );
-		all->setText( 0, tr( "All QEMU machines…" ) );
-		all->setFlags( all->flags() & ~Qt::ItemIsSelectable );
-		for( int bi = 0; bi < binaries.size(); ++bi )
-		{
-			QJsonObject bo = binaries.at( bi ).toObject();
-			const QString target = bo.value( "target" ).toString();
-			if( target.isEmpty() )
-				continue;
-			QTreeWidgetItem *arch = new QTreeWidgetItem( all );
-			arch->setText( 0, tr( "qemu-system-%1" ).arg( target ) );
-			arch->setFlags( arch->flags() & ~Qt::ItemIsSelectable );
-			Append_Catalog_Machines( arch, target );
-		}
-	}
+	// Full QEMU machine catalog under Platform (lazy populated on demand)
+	QTreeWidgetItem *all = new QTreeWidgetItem( Tree_Platform );
+	all->setText( 0, tr( "All QEMU machines…" ) );
+	all->setData( 0, Qt::UserRole, QStringLiteral( "lazy:all_machines" ) );
 
 	Tree_Platform->expandToDepth( 0 );
 }
@@ -1026,7 +1031,7 @@ QStringList VM_Wizard_Window::Probe_Live_Machines( const QString &target )
 	QProcess proc;
 	proc.setProcessChannelMode( QProcess::MergedChannels );
 	proc.start( bin, QStringList() << QStringLiteral( "-machine" ) << QStringLiteral( "help" ) );
-	if( ! proc.waitForFinished( 8000 ) )
+	if( ! proc.waitForFinished( 500 ) )
 	{
 		proc.kill();
 		return out;
@@ -1131,18 +1136,22 @@ QString VM_Wizard_Window::Selected_Tree_Leaf( QTreeWidget *tree ) const
 
 bool VM_Wizard_Window::Ensure_Emulator_Ready()
 {
-	// Always prioritize built-in QEMU unless user explicitly chose "custom" in Settings
-	if( AQ_Has_Bundled_QEMU() && AQ_Get_QEMU_Source_Mode() != QLatin1String( "custom" ) )
-	{
-		const QString bundled = AQ_Get_Bundled_QEMU_Dir();
-		AQ_Apply_QEMU_Dir_As_Default_Emulator( bundled, tr( "Built-in QEMU" ) );
-	}
+	if( ! All_Systems.isEmpty() && All_Systems.count() >= 5 )
+		return true;
 
 	Current_Emulator = Get_Default_Emulator();
 	All_Systems = Current_Emulator.Get_Devices();
 
-	// If missing or incomplete, attempt auto-refresh from built-in bundled QEMU
-	if( All_Systems.isEmpty() || All_Systems.count() < 5 )
+	if( ! All_Systems.isEmpty() && All_Systems.count() >= 5 )
+	{
+		ui.CB_Computer_Type->clear();
+		for( QMap<QString, Available_Devices>::const_iterator it = All_Systems.constBegin(); it != All_Systems.constEnd(); ++it )
+			ui.CB_Computer_Type->addItem( it.value().System.Caption );
+		return true;
+	}
+
+	// Only trigger disk/binary scan if devices list is uninitialized in settings
+	if( AQ_Has_Bundled_QEMU() && AQ_Get_QEMU_Source_Mode() != QLatin1String( "custom" ) )
 	{
 		const QString bundled = AQ_Get_Bundled_QEMU_Dir();
 		if( AQ_Apply_QEMU_Dir_As_Default_Emulator( bundled, tr( "Built-in QEMU" ) ) )
@@ -4318,6 +4327,14 @@ void VM_Wizard_Window::applyTemplate()
 
 void VM_Wizard_Window::Typical_Or_Custom()
 {
+	if( ui.Edit_VM_Name->text().trimmed().isEmpty() )
+	{
+		QString def_name = ! Selected_OS_Name.isEmpty() ? Selected_OS_Name :
+			(! Selected_Platform_Name.isEmpty() ? Selected_Platform_Name :
+			(! Selected_Arch_Name.isEmpty() ? Selected_Arch_Name : QStringLiteral( "My_Virtual_Machine" )));
+		ui.Edit_VM_Name->setText( def_name );
+	}
+
 	if( ui.RB_Typical->isChecked() )
 	{
 		ui.Label_Page->setText( tr("Virtual Machine Name") );
@@ -4348,6 +4365,8 @@ void VM_Wizard_Window::Typical_Or_Custom()
 		ui.Label_CPU_Cores->setVisible( true );
 		ui.SB_CPU_Cores->setVisible( true );
 	}
+
+	ui.Edit_VM_Name->setFocus();
 }
 
 bool VM_Wizard_Window::Load_OS_Templates()

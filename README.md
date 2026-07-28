@@ -209,6 +209,24 @@ More of the guest zoo — Win11 ARM and classic Windows under the same session U
 
 ![AQEMU session UI](screenshots/session-ui-boot-console.png)
 
+### 🛠️ Overhauled VM Creation Wizard (5 Creation Paths & 29 QEMU Targets)
+
+**1. Creation Method** — Select from 5 creation paths: Guest OS, System/Board Platform, CPU Architecture, Custom/Advanced, or Import Existing Disk:
+
+![AQEMU Creation Method Page](screenshots/wizard-1-creation-method.png)
+
+**2. System / Machine Platform** — Categorized boards and hardware platforms (ARM Virt, Apple PowerMac, Sun SPARCstation, Retro/SBCs):
+
+![AQEMU System Machine Platform Tree](screenshots/wizard-2-system-platform.png)
+
+**3. CPU Architecture** — Direct access to all 29 QEMU target executables (x86_64, aarch64, ppc64, riscv64, s390x, sparc, mips, alpha, hppa...):
+
+![AQEMU CPU Architecture Selection](screenshots/wizard-3-cpu-architecture.png)
+
+**4. Machine Selection & Ground-Truth Catalog** — Probe-driven machine selection with recommended defaults and complete QEMU machine catalogs:
+
+![AQEMU Machine Selection Tree](screenshots/wizard-4-select-machine.png)
+
 More captures live in [`screenshots/`](screenshots/).
 
 ---
