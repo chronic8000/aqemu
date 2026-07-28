@@ -1690,7 +1690,13 @@ void VM_Wizard_Window::Update_Guest_Compat_Tip()
 
 void VM_Wizard_Window::Apply_Guest_Hardware_To_New_VM()
 {
-	if( Three_Path_Active )
+	const Guest_Capabilities caps = Current_Guest_Capabilities();
+	if( caps.default_sound == QLatin1String( "none" ) || caps.sound_options.isEmpty() )
+	{
+		VM::Sound_Cards no_sound;
+		New_VM->Set_Audio_Cards( no_sound );
+	}
+	else if( Three_Path_Active )
 	{
 		if( ! Selected_Machine_Id.isEmpty() )
 			New_VM->Set_Machine_Type( Selected_Machine_Id );
@@ -2203,9 +2209,14 @@ void VM_Wizard_Window::Apply_Guest_Hardware_To_New_VM()
 	}
 
 	// Devices page / capability overrides (always win over class heuristics when set)
+	if( caps.default_sound == QLatin1String( "none" ) || caps.sound_options.isEmpty() )
+	{
+		VM::Sound_Cards no_sound;
+		New_VM->Set_Audio_Cards( no_sound );
+	}
 	if( ! Guest_Video_Card.isEmpty() )
 		New_VM->Set_Video_Card( Guest_Video_Card );
-	else if( Current_Guest_Capabilities().guest_class == Guest_Capabilities::Classic_Mac )
+	else if( caps.guest_class == Guest_Capabilities::Classic_Mac )
 		New_VM->Set_Video_Card( QString() );
 
 	if( ! Guest_Disk_Bus.isEmpty() )
@@ -2345,6 +2356,24 @@ void VM_Wizard_Window::Build_Devices_Page()
 	add_row( tr( "Network card:" ), &CB_Dev_NIC );
 	add_row( tr( "Sound:" ), &CB_Dev_Sound );
 	add_row( tr( "Display:" ), &CB_Dev_Video );
+
+	QHBoxLayout *biosRow = new QHBoxLayout();
+	QLabel *lblBios = new QLabel( tr( "Machine BIOS / ROM:" ) );
+	lblBios->setMinimumWidth( 110 );
+	Edit_Dev_BIOS_File = new QLineEdit();
+	Edit_Dev_BIOS_File->setPlaceholderText( tr( "Optional custom firmware file (e.g. Rev_2.5_v66.bin for NeXT Cube)" ) );
+	QPushButton *btnBrowseBios = new QPushButton( tr( "Browse…" ) );
+	biosRow->addWidget( lblBios );
+	biosRow->addWidget( Edit_Dev_BIOS_File, 1 );
+	biosRow->addWidget( btnBrowseBios );
+	lay->addLayout( biosRow );
+
+	connect( btnBrowseBios, &QPushButton::clicked, this, [this]() {
+		const QString f = QFileDialog::getOpenFileName( this, tr( "Select BIOS / Firmware File" ),
+			QString(), tr( "ROM / Firmware Files (*.bin *.rom *.fd *.elf);;All Files (*)" ) );
+		if( ! f.isEmpty() && Edit_Dev_BIOS_File )
+			Edit_Dev_BIOS_File->setText( QDir::toNativeSeparators( f ) );
+	} );
 
 	CH_Dev_VirtIO_Extras = new QCheckBox( tr(
 		"VirtIO extras (RNG, balloon, keyboard) — only when the guest has VirtIO drivers" ) );
@@ -2577,6 +2606,8 @@ void VM_Wizard_Window::Apply_Devices_Page_To_State()
 	Guest_Video_Card = CB_Dev_Video ? CB_Dev_Video->currentData().toString() : Guest_Video_Card;
 	if( CB_Dev_Sound )
 		Apply_Sound_Preset( CB_Dev_Sound->currentData().toString() );
+	if( Edit_Dev_BIOS_File && ! Edit_Dev_BIOS_File->text().trimmed().isEmpty() )
+		New_VM->Set_BIOS_File( Edit_Dev_BIOS_File->text().trimmed() );
 	Guest_Use_VirtIO_Extras = CH_Dev_VirtIO_Extras && CH_Dev_VirtIO_Extras->isChecked();
 	Guest_Use_GPU_Passthrough = CH_Dev_GPU_Passthrough && CH_Dev_GPU_Passthrough->isChecked();
 	Guest_GPU_PCI = ( CB_Dev_GPU && Guest_Use_GPU_Passthrough )

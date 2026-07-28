@@ -214,6 +214,12 @@ Main_Window::Main_Window( QWidget *parent )
     connect(ui_ao.CH_Start_Date,SIGNAL(toggled(bool)),this,SLOT(adv_on_CH_Start_Date_toggled(bool)));
 	connect(ui_ao.TB_Refresh_Gamepads, SIGNAL(clicked()), this, SLOT(AO_Refresh_Gamepads_clicked()));
 	connect(ui_ao.TB_Edit_Blockdev_Graph, SIGNAL(clicked()), this, SLOT(AO_Edit_Blockdev_Graph_clicked()));
+	connect(ui_ao.TB_BIOS_File_Browse, &QToolButton::clicked, this, [this]() {
+		const QString file = QFileDialog::getOpenFileName( this, tr( "Select BIOS / Board Firmware File" ),
+			QString(), tr( "ROM / Firmware Files (*.bin *.rom *.fd *.elf);;All Files (*)" ) );
+		if( ! file.isEmpty() )
+			ui_ao.Edit_BIOS_File->setText( QDir::toNativeSeparators( file ) );
+	} );
 
 	ui_kvm.setupUi( Accelerator_Options );
 	ui_arch.setupUi( Architecture_Options );

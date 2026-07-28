@@ -282,6 +282,7 @@ class VM_Wizard_Window: public QDialog
 		QComboBox *CB_Dev_NIC;
 		QComboBox *CB_Dev_Sound;
 		QComboBox *CB_Dev_Video;
+		QLineEdit *Edit_Dev_BIOS_File;
 		QCheckBox *CH_Dev_VirtIO_Extras;
 		QCheckBox *CH_Dev_GPU_Passthrough;
 		QComboBox *CB_Dev_GPU;
