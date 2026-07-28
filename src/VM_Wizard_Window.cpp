@@ -610,6 +610,25 @@ void VM_Wizard_Window::Build_Three_Path_Pages()
 	Tree_Platform->setAlternatingRowColors( true );
 	platLay->addWidget( Tree_Platform );
 	Populate_Platform_Tree();
+	connect( Tree_Platform, &QTreeWidget::itemExpanded, this, [this]( QTreeWidgetItem *item ) {
+		if( item && item->data( 0, Qt::UserRole ).toString() == QLatin1String( "lazy:all_machines" ) )
+		{
+			item->setData( 0, Qt::UserRole, QString() );
+			Ensure_Machine_Catalog();
+			QJsonArray binaries = Machine_Catalog.value( "binaries" ).toArray();
+			for( int bi = 0; bi < binaries.size(); ++bi )
+			{
+				QJsonObject bo = binaries.at( bi ).toObject();
+				const QString target = bo.value( "target" ).toString();
+				if( target.isEmpty() )
+					continue;
+				QTreeWidgetItem *arch = new QTreeWidgetItem( item );
+				arch->setText( 0, tr( "qemu-system-%1" ).arg( target ) );
+				arch->setFlags( arch->flags() & ~Qt::ItemIsSelectable );
+				Append_Catalog_Machines( arch, target );
+			}
+		}
+	} );
 	connect( Tree_Platform, &QTreeWidget::itemDoubleClicked, this, [this]( QTreeWidgetItem *item, int ) {
 		if( item && item->childCount() == 0 )
 			on_Button_Next_clicked();
@@ -740,26 +759,10 @@ void VM_Wizard_Window::Populate_Platform_Tree()
 		custom->setData( 0, Qt::UserRole, QStringLiteral( "action:custom" ) );
 	}
 
-	// Full QEMU machine catalog under Platform (any board, any order)
-	Ensure_Machine_Catalog();
-	QJsonArray binaries = Machine_Catalog.value( "binaries" ).toArray();
-	if( ! binaries.isEmpty() )
-	{
-		QTreeWidgetItem *all = new QTreeWidgetItem( Tree_Platform );
-		all->setText( 0, tr( "All QEMU machines…" ) );
-		all->setFlags( all->flags() & ~Qt::ItemIsSelectable );
-		for( int bi = 0; bi < binaries.size(); ++bi )
-		{
-			QJsonObject bo = binaries.at( bi ).toObject();
-			const QString target = bo.value( "target" ).toString();
-			if( target.isEmpty() )
-				continue;
-			QTreeWidgetItem *arch = new QTreeWidgetItem( all );
-			arch->setText( 0, tr( "qemu-system-%1" ).arg( target ) );
-			arch->setFlags( arch->flags() & ~Qt::ItemIsSelectable );
-			Append_Catalog_Machines( arch, target );
-		}
-	}
+	// Full QEMU machine catalog under Platform (lazy populated on demand)
+	QTreeWidgetItem *all = new QTreeWidgetItem( Tree_Platform );
+	all->setText( 0, tr( "All QEMU machines…" ) );
+	all->setData( 0, Qt::UserRole, QStringLiteral( "lazy:all_machines" ) );
 
 	Tree_Platform->expandToDepth( 0 );
 }
