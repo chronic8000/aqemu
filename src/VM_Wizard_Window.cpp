@@ -4318,6 +4318,14 @@ void VM_Wizard_Window::applyTemplate()
 
 void VM_Wizard_Window::Typical_Or_Custom()
 {
+	if( ui.Edit_VM_Name->text().trimmed().isEmpty() )
+	{
+		QString def_name = ! Selected_OS_Name.isEmpty() ? Selected_OS_Name :
+			(! Selected_Platform_Name.isEmpty() ? Selected_Platform_Name :
+			(! Selected_Arch_Name.isEmpty() ? Selected_Arch_Name : QStringLiteral( "My_Virtual_Machine" )));
+		ui.Edit_VM_Name->setText( def_name );
+	}
+
 	if( ui.RB_Typical->isChecked() )
 	{
 		ui.Label_Page->setText( tr("Virtual Machine Name") );
@@ -4348,6 +4356,8 @@ void VM_Wizard_Window::Typical_Or_Custom()
 		ui.Label_CPU_Cores->setVisible( true );
 		ui.SB_CPU_Cores->setVisible( true );
 	}
+
+	ui.Edit_VM_Name->setFocus();
 }
 
 bool VM_Wizard_Window::Load_OS_Templates()
