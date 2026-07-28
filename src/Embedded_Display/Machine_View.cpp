@@ -45,7 +45,7 @@ MachineView::MachineView( QWidget *parent, Virtual_Machine* cur_vm ) : QScrollAr
 	showSplash( true );
 	setFrameShape( QFrame::NoFrame );
 	setAlignment( Qt::AlignCenter );
-	setWidgetResizable( false );
+	setWidgetResizable( true );
 	// Session / embed mode: scale guest to fit window (aspect preserved in VncView)
 	Scaling = true;
 	Reinit_Timer = new QTimer( this );
@@ -105,7 +105,8 @@ void MachineView::Set_Fullscreen( bool on )
 
 void MachineView::resizeEvent( QResizeEvent *event )
 {
-	resizeView( event->size().width(), event->size().height() );
+	const QSize vp = viewport() ? viewport()->size() : event->size();
+	resizeView( vp.width(), vp.height() );
 	QScrollArea::resizeEvent( event );
 }
 
@@ -326,8 +327,8 @@ void MachineView::newViewSize( int w, int h )
 		VNC_Height = h;
 	}
 	
-	resizeView( maximumViewportSize().width(),
-				maximumViewportSize().height() );
+	const QSize vp = viewport() ? viewport()->size() : maximumViewportSize();
+	resizeView( vp.width(), vp.height() );
 	
 	emit Full_Size( VNC_Width, VNC_Height );
 }
