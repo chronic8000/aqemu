@@ -6688,7 +6688,10 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		effective_machine.contains( QLatin1String( "mac99" ), Qt::CaseInsensitive ) ||
 		effective_machine.contains( QLatin1String( "g3beige" ), Qt::CaseInsensitive ) ||
 		Computer_Type.contains( QLatin1String( "s390" ), Qt::CaseInsensitive ) ||
-		Computer_Type.contains( QLatin1String( "qemu-system-ppc" ), Qt::CaseInsensitive );
+		Computer_Type.contains( QLatin1String( "qemu-system-ppc" ), Qt::CaseInsensitive ) ||
+		Computer_Type.contains( QLatin1String( "m68k" ), Qt::CaseInsensitive ) ||
+		Computer_Type.contains( QLatin1String( "sparc" ), Qt::CaseInsensitive ) ||
+		Computer_Type.contains( QLatin1String( "mips" ), Qt::CaseInsensitive );
 	if( effective_machine.isEmpty() && is_virt_arch )
 		effective_machine = "virt";
 	// QEMU warns that old versioned virt-N.M aliases are deprecated; alias to current "virt".
@@ -6894,6 +6897,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		const bool no_mttcg =
 			legacy_force_tcg ||
 			Computer_Type.contains( QLatin1String( "qemu-system-ppc" ), Qt::CaseInsensitive ) ||
+			Computer_Type.contains( QLatin1String( "m68k" ), Qt::CaseInsensitive ) ||
 			Computer_Type.contains( QLatin1String( "sparc" ), Qt::CaseInsensitive ) ||
 			Computer_Type.contains( QLatin1String( "mips" ), Qt::CaseInsensitive );
 		if( no_mttcg )
