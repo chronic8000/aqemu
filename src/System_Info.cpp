@@ -1307,6 +1307,7 @@ enum Video_Arch_Family
 	VAF_SPARC,
 	VAF_PPC,
 	VAF_MIPS,
+	VAF_M68K,
 	VAF_S390,
 	VAF_OTHER
 };
@@ -1326,6 +1327,8 @@ Video_Arch_Family Get_Video_Arch_Family( const QString &computer_type )
 		return VAF_PPC;
 	if( bin.contains( "mips" ) )
 		return VAF_MIPS;
+	if( bin.contains( "m68k" ) )
+		return VAF_M68K;
 	if( bin.contains( "s390" ) )
 		return VAF_S390;
 	return VAF_OTHER;
@@ -1372,6 +1375,8 @@ bool Is_Video_Card_Allowed( Video_Arch_Family fam, const QString &raw_name )
 			return name == "std" || name == "vmware" || name == "none";
 		case VAF_MIPS:
 			return name == "std" || name == "vmware" || name == "none";
+		case VAF_M68K:
+			return name == "none" || name == "nubus-macfb";
 		case VAF_S390:
 			return name == "virtio-gpu-pci" || name == "none";
 		default:
@@ -1389,6 +1394,7 @@ QString Default_Video_For_Family( Video_Arch_Family fam )
 		case VAF_SPARC: return "cg3";
 		case VAF_PPC: return "std";
 		case VAF_MIPS: return "std";
+		case VAF_M68K: return "none";
 		case VAF_S390: return "none";
 		default: return "std";
 	}
@@ -1428,6 +1434,10 @@ QList<Device_Map> Default_Video_List_For_Family( Video_Arch_Family fam )
 		case VAF_MIPS:
 			add( QObject::tr("Standard VGA"), "std" );
 			add( QObject::tr("VMWare Video Card"), "vmware" );
+			break;
+		case VAF_M68K:
+			add( QObject::tr("Integrated / Built-in Framebuffer"), "none" );
+			add( QObject::tr("Nubus Macintosh Framebuffer"), "nubus-macfb" );
 			break;
 		case VAF_S390:
 			add( QObject::tr("VirtIO GPU (PCI)"), "virtio-gpu-pci" );
