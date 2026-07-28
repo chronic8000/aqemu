@@ -1,0 +1,131 @@
+{
+  "binary": "C:\\Users\\chron\\CURSOR-PROJECTS\\aqemu\\build_win\\qemu-system-avr.exe",
+  "architecture": "avr",
+  "probed_at": "2026-07-28T15:02:03.425337",
+  "fallback_machine": "none",
+  "machines": [
+    "Supported machines are:",
+    "2009                 Arduino Duemilanove (ATmega168) (alias of arduino-duemilanove)",
+    "arduino-duemilanove  Arduino Duemilanove (ATmega168)",
+    "mega2560             Arduino Mega 2560 (ATmega2560) (alias of arduino-mega-2560-v3)",
+    "arduino-mega-2560-v3 Arduino Mega 2560 (ATmega2560)",
+    "mega                 Arduino Mega (ATmega1280) (alias of arduino-mega)",
+    "arduino-mega         Arduino Mega (ATmega1280)",
+    "uno                  Arduino UNO (ATmega328P) (alias of arduino-uno)",
+    "arduino-uno          Arduino UNO (ATmega328P)",
+    "none                 empty machine"
+  ],
+  "cpus": [
+    "Available CPUs:",
+    "  avr5",
+    "  avr51",
+    "  avr6"
+  ],
+  "devices": [
+    "Misc devices:",
+    "name \"loader\", desc \"Generic Loader\"",
+    "name \"uefi-vars-sysbus\", bus System",
+    "name \"uefi-vars-x64\", bus System"
+  ],
+  "accelerators": [
+    "Accelerators supported in QEMU binary:",
+    "tcg"
+  ],
+  "netdev": [
+    "Available netdev backend types:",
+    "socket",
+    "stream",
+    "dgram",
+    "hubport",
+    "tap",
+    "passt",
+    "user"
+  ],
+  "drive_formats": [
+    "Supported formats: blkdebug blklogwrites blkreplay blkverify bochs cloop compress copy-before-write copy-on-read dmg file ftp ftps host_device http https luks nbd null-aio null-co parallels preallocate qcow qcow2 qed quorum raw replication snapshot-access throttle vdi vhdx vmdk vpc vvfat",
+    "Supported formats (read-only): blkdebug blklogwrites blkreplay blkverify bochs cloop compress copy-before-write copy-on-read dmg file ftp ftps host_device http https luks nbd null-aio null-co parallels preallocate qcow qcow2 qed quorum raw replication snapshot-access throttle vdi vhdx vmdk vpc vvfat"
+  ],
+  "chardev_backends": [
+    "Available chardev backend types:",
+    "  file",
+    "  spicevmc",
+    "  pipe",
+    "  console",
+    "  msmouse",
+    "  testdev",
+    "  wctablet",
+    "  hub",
+    "  qemu-vdagent",
+    "  null",
+    "  stdio",
+    "  vc",
+    "  memory",
+    "  socket",
+    "  serial",
+    "  dbus",
+    "  spiceport",
+    "  ringbuf",
+    "  udp",
+    "  mux"
+  ],
+  "display_backends": [
+    "Available display backend types:",
+    "none",
+    "curses",
+    "spice-app",
+    "dbus",
+    "Some display backends support suboptions, which can be set with",
+    "   -display backend,option=value,option=value...",
+    "For a short list of the suboptions for each display, see the top-level -help output; more detail is in the documentation."
+  ],
+  "audio_backends": [
+    "Available audio drivers:",
+    "none",
+    "dbus",
+    "dsound",
+    "spice",
+    "wav"
+  ],
+  "object_types": [
+    "List of user creatable objects:",
+    "  authz-list",
+    "  authz-list-file",
+    "  authz-simple",
+    "  colo-compare",
+    "  cryptodev-backend",
+    "  cryptodev-backend-builtin",
+    "  dbus-display",
+    "  dbus-vmstate",
+    "  filter-buffer",
+    "  filter-dump",
+    "  filter-mirror",
+    "  filter-redirector",
+    "  filter-replay",
+    "  filter-rewriter",
+    "  input-barrier",
+    "  iothread",
+    "  main-loop",
+    "  memory-backend-ram",
+    "  qtest",
+    "  rng-builtin",
+    "  rng-egd",
+    "  secret",
+    "  throttle-group",
+    "  tls-cipher-suites",
+    "  tls-creds-anon",
+    "  tls-creds-psk",
+    "  tls-creds-x509"
+  ],
+  "raw": {
+    "machines": "Supported machines are:\n2009                 Arduino Duemilanove (ATmega168) (alias of arduino-duemilanove)\narduino-duemilanove  Arduino Duemilanove (ATmega168)\nmega2560             Arduino Mega 2560 (ATmega2560) (alias of arduino-mega-2560-v3)\narduino-mega-2560-v3 Arduino Mega 2560 (ATmega2560)\nmega                 Arduino Mega (ATmega1280) (alias of arduino-mega)\narduino-mega         Arduino Mega (ATmega1280)\nuno                  Arduino UNO (ATmega328P) (alias of arduino-uno)\narduino-uno          Arduino UNO (ATmega328P)\nnone                 empty machine\n",
+    "cpus": "Available CPUs:\n  avr5\n  avr51\n  avr6\n",
+    "devices": "\nMisc devices:\nname \"loader\", desc \"Generic Loader\"\nname \"uefi-vars-sysbus\", bus System\nname \"uefi-vars-x64\", bus System\n",
+    "accelerators": "Accelerators supported in QEMU binary:\ntcg\n",
+    "netdev": "Available netdev backend types:\nsocket\nstream\ndgram\nhubport\ntap\npasst\nuser\n",
+    "drive_formats": "Supported formats: blkdebug blklogwrites blkreplay blkverify bochs cloop compress copy-before-write copy-on-read dmg file ftp ftps host_device http https luks nbd null-aio null-co parallels preallocate qcow qcow2 qed quorum raw replication snapshot-access throttle vdi vhdx vmdk vpc vvfat\nSupported formats (read-only): blkdebug blklogwrites blkreplay blkverify bochs cloop compress copy-before-write copy-on-read dmg file ftp ftps host_device http https luks nbd null-aio null-co parallels preallocate qcow qcow2 qed quorum raw replication snapshot-access throttle vdi vhdx vmdk vpc vvfat\n",
+    "chardev_backends": "Available chardev backend types: \n  file\n  spicevmc\n  pipe\n  console\n  msmouse\n  testdev\n  wctablet\n  hub\n  qemu-vdagent\n  null\n  stdio\n  vc\n  memory\n  socket\n  serial\n  dbus\n  spiceport\n  ringbuf\n  udp\n  mux\n",
+    "display": "Available display backend types:\nnone\ncurses\nspice-app\ndbus\n\nSome display backends support suboptions, which can be set with\n   -display backend,option=value,option=value...\nFor a short list of the suboptions for each display, see the top-level -help output; more detail is in the documentation.\n",
+    "audio": "Available audio drivers:\nnone\ndbus\ndsound\nspice\nwav\n",
+    "objects": "List of user creatable objects:\n  authz-list\n  authz-list-file\n  authz-simple\n  colo-compare\n  cryptodev-backend\n  cryptodev-backend-builtin\n  dbus-display\n  dbus-vmstate\n  filter-buffer\n  filter-dump\n  filter-mirror\n  filter-redirector\n  filter-replay\n  filter-rewriter\n  input-barrier\n  iothread\n  main-loop\n  memory-backend-ram\n  qtest\n  rng-builtin\n  rng-egd\n  secret\n  throttle-group\n  tls-cipher-suites\n  tls-creds-anon\n  tls-creds-psk\n  tls-creds-x509\n"
+  }
+}
