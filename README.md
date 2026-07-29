@@ -1,6 +1,8 @@
 # AQEMU
 
-**AQEMU is a graphical virtual machine manager for QEMU that lets you create and run virtual machines without memorising complex command-line options.**
+<p align="center">
+  <b>AQEMU is a graphical virtual machine manager for QEMU that lets you create and run virtual machines without memorising complex command-line options.</b>
+</p>
 
 <p align="center">
   <img src="resources/icons/aqemu_logo.png" alt="AQEMU logo" width="260"/>
