@@ -189,6 +189,11 @@ It is **not as fast as a Pi 5 + KVM** or an ARM laptop. It **is usable**: you ca
 
 On **Raspberry Pi 5 / Linux aarch64** hosts, the same profile can lean on **KVM** where available — much snappier.
 
+<p align="center">
+  <img src="screenshots/win11-arm-profile.png" alt="AQEMU Windows 11 ARM virtual machine profile" width="900"/>
+  <br/><i>AQEMU keeps the complete Windows 11 ARM machine profile visible: AArch64, TCG, VirtIO GPU, UEFI and lifecycle mode.</i>
+</p>
+
 ---
 
 ## Windows from 1.x through modern
@@ -201,6 +206,11 @@ On **Raspberry Pi 5 / Linux aarch64** hosts, the same profile can lean on **KVM*
 | **Windows 11 ARM** | Dedicated wizard + lifecycle modes, VirtIO, UEFI, embedded SPICE |
 
 From **Win9x setup screens** to **Windows 11 ARM “Almost there”** — same app, same session chrome.
+
+<p align="center">
+  <img src="screenshots/windows-xp-welcome.png" alt="Windows XP welcome screen running inside AQEMU" width="900"/>
+  <br/><i>Windows XP booting inside AQEMU's embedded session—vintage guests remain first-class targets.</i>
+</p>
 
 ---
 
@@ -225,6 +235,11 @@ From **Win9x setup screens** to **Windows 11 ARM “Almost there”** — same a
 - **You supply** the boot CD/ISO or HDD image — we never ship Apple install media
 - Clear warning if `qemu-system-ppc` isn’t installed
 
+<p align="center">
+  <img src="screenshots/mac-os-x-tiger-ppc.png" alt="Mac OS X Tiger PowerPC running inside AQEMU" width="900"/>
+  <br/><i>Mac OS X Tiger on an emulated PowerPC G4, running inside AQEMU on Windows.</i>
+</p>
+
 ### Intel macOS / Darwin (experimental)
 
 - `qemu-system-x86_64`, **q35**, dual-pflash **OVMF**, OpenCore as first disk, Apple SMC **only if you paste your own OSK**
@@ -232,6 +247,16 @@ From **Win9x setup screens** to **Windows 11 ARM “Almost there”** — same a
 - Native **WHPX** on Windows, or **WSL/KVM** when `/dev/kvm` works (`wsl.exe` + Linux QEMU, SPICE still on localhost)
 - Host-matching resolution via OpenCore; AMD Metal passthrough UI on bare-metal Linux (see [`docs/intel-macos-gpu.md`](docs/intel-macos-gpu.md))
 - **AQEMU does not ship** OpenCore, OVMF bundles as Apple IP, OS images, or a pre-filled OSK
+
+<p align="center">
+  <img src="screenshots/opencore-boot-picker.png" alt="OpenCore boot picker for an Intel macOS guest in AQEMU" width="900"/>
+  <br/><i>OpenCore boot selection inside AQEMU—users provide their own lawful OpenCore, firmware and macOS media.</i>
+</p>
+
+<p align="center">
+  <img src="screenshots/intel-macos-sonoma-session.png" alt="Intel macOS Sonoma running inside AQEMU" width="900"/>
+  <br/><i>Intel macOS Sonoma running as an experimental AQEMU guest, with the AQEMU session toolbar still visible.</i>
+</p>
 
 ### Out of scope (for now)
 
