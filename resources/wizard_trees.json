@@ -1073,7 +1073,7 @@
     "RHEL": {
       "target": "x86_64",
       "machine": "q35",
-      "ram_mb": 2048,
+      "ram_mb": 4096,
       "hdd_gb": 20,
       "nic": "virtio-net-pci",
       "sound": "hda_virtio",
@@ -1083,7 +1083,7 @@
     "Rocky Linux": {
       "target": "x86_64",
       "machine": "q35",
-      "ram_mb": 2048,
+      "ram_mb": 4096,
       "hdd_gb": 20,
       "nic": "virtio-net-pci",
       "sound": "hda_virtio",
@@ -1093,7 +1093,7 @@
     "AlmaLinux": {
       "target": "x86_64",
       "machine": "q35",
-      "ram_mb": 2048,
+      "ram_mb": 4096,
       "hdd_gb": 20,
       "nic": "virtio-net-pci",
       "sound": "hda_virtio",
@@ -1103,7 +1103,7 @@
     "SUSE Linux": {
       "target": "x86_64",
       "machine": "q35",
-      "ram_mb": 2048,
+      "ram_mb": 4096,
       "hdd_gb": 20,
       "nic": "virtio-net-pci",
       "sound": "hda_virtio",
@@ -1113,7 +1113,7 @@
     "Gentoo": {
       "target": "x86_64",
       "machine": "q35",
-      "ram_mb": 2048,
+      "ram_mb": 4096,
       "hdd_gb": 20,
       "nic": "virtio-net-pci",
       "sound": "hda_virtio",
@@ -1123,7 +1123,7 @@
     "Slackware": {
       "target": "x86_64",
       "machine": "q35",
-      "ram_mb": 2048,
+      "ram_mb": 4096,
       "hdd_gb": 20,
       "nic": "virtio-net-pci",
       "sound": "hda_virtio",
@@ -1133,7 +1133,7 @@
     "Kali Linux": {
       "target": "x86_64",
       "machine": "q35",
-      "ram_mb": 2048,
+      "ram_mb": 4096,
       "hdd_gb": 20,
       "nic": "virtio-net-pci",
       "sound": "hda_virtio",
@@ -1577,7 +1577,7 @@
     "CentOS Stream": {
       "target": "x86_64",
       "machine": "q35",
-      "ram_mb": 2048,
+      "ram_mb": 4096,
       "hdd_gb": 20,
       "nic": "virtio-net-pci",
       "sound": "hda_virtio",
@@ -1613,7 +1613,7 @@
     "Void Linux": {
       "target": "x86_64",
       "machine": "q35",
-      "ram_mb": 2048,
+      "ram_mb": 4096,
       "hdd_gb": 20,
       "nic": "virtio-net-pci",
       "sound": "hda_virtio",
@@ -1866,11 +1866,11 @@
     "Ubuntu (64-bit)": {
       "target": "x86_64",
       "machine": "q35",
-      "ram_mb": 2048,
+      "ram_mb": 4096,
       "hdd_gb": 20,
       "nic": "virtio-net-pci",
       "sound": "hda_virtio",
-      "tip": "Ubuntu → x86_64 (PC) + Q35. VirtIO net suggested; change Computer Type if needed.",
+      "tip": "Ubuntu desktop → x86_64 + Q35, 4 GB RAM recommended (GNOME live/install fails on 2 GB under TCG). Prefer WHPX/KVM; CPU max.",
       "cpu": "max"
     },
     "Ubuntu (32-bit)": {
@@ -1886,7 +1886,7 @@
     "Debian (64-bit)": {
       "target": "x86_64",
       "machine": "q35",
-      "ram_mb": 2048,
+      "ram_mb": 4096,
       "hdd_gb": 20,
       "nic": "virtio-net-pci",
       "sound": "hda_virtio",
@@ -1906,7 +1906,7 @@
     "Fedora (64-bit)": {
       "target": "x86_64",
       "machine": "q35",
-      "ram_mb": 2048,
+      "ram_mb": 4096,
       "hdd_gb": 20,
       "nic": "virtio-net-pci",
       "sound": "hda_virtio",
@@ -1926,7 +1926,7 @@
     "Alpine Linux (64-bit)": {
       "target": "x86_64",
       "machine": "q35",
-      "ram_mb": 2048,
+      "ram_mb": 1024,
       "hdd_gb": 20,
       "nic": "virtio-net-pci",
       "sound": "hda_virtio",
@@ -1936,7 +1936,7 @@
     "Alpine Linux (32-bit)": {
       "target": "i386",
       "machine": "pc",
-      "ram_mb": 1024,
+      "ram_mb": 512,
       "hdd_gb": 10,
       "nic": "virtio-net-pci",
       "sound": "ac97",
@@ -1946,7 +1946,7 @@
     "Tiny Core Linux (64-bit)": {
       "target": "x86_64",
       "machine": "q35",
-      "ram_mb": 2048,
+      "ram_mb": 512,
       "hdd_gb": 20,
       "nic": "virtio-net-pci",
       "sound": "hda_virtio",
@@ -1956,7 +1956,7 @@
     "Tiny Core Linux (32-bit)": {
       "target": "i386",
       "machine": "pc",
-      "ram_mb": 1024,
+      "ram_mb": 256,
       "hdd_gb": 10,
       "nic": "virtio-net-pci",
       "sound": "ac97",
@@ -1966,7 +1966,7 @@
     "Generic Linux (64-bit)": {
       "target": "x86_64",
       "machine": "q35",
-      "ram_mb": 2048,
+      "ram_mb": 4096,
       "hdd_gb": 20,
       "nic": "virtio-net-pci",
       "sound": "hda_virtio",
@@ -1986,7 +1986,7 @@
     "Arch Linux (64-bit)": {
       "target": "x86_64",
       "machine": "q35",
-      "ram_mb": 2048,
+      "ram_mb": 4096,
       "hdd_gb": 20,
       "nic": "virtio-net-pci",
       "sound": "hda_virtio",
@@ -2006,7 +2006,7 @@
     "openSUSE (64-bit)": {
       "target": "x86_64",
       "machine": "q35",
-      "ram_mb": 2048,
+      "ram_mb": 4096,
       "hdd_gb": 20,
       "nic": "virtio-net-pci",
       "sound": "hda_virtio",
@@ -2026,7 +2026,7 @@
     "Linux Mint (64-bit)": {
       "target": "x86_64",
       "machine": "q35",
-      "ram_mb": 2048,
+      "ram_mb": 4096,
       "hdd_gb": 20,
       "nic": "virtio-net-pci",
       "sound": "hda_virtio",
@@ -2046,7 +2046,7 @@
     "FreeBSD (64-bit)": {
       "target": "x86_64",
       "machine": "q35",
-      "ram_mb": 2048,
+      "ram_mb": 4096,
       "hdd_gb": 20,
       "nic": "virtio-net-pci",
       "sound": "hda_virtio",
@@ -2066,7 +2066,7 @@
     "OpenBSD (64-bit)": {
       "target": "x86_64",
       "machine": "q35",
-      "ram_mb": 2048,
+      "ram_mb": 4096,
       "hdd_gb": 20,
       "nic": "virtio-net-pci",
       "sound": "hda_virtio",
@@ -2086,7 +2086,7 @@
     "NetBSD (64-bit)": {
       "target": "x86_64",
       "machine": "q35",
-      "ram_mb": 2048,
+      "ram_mb": 4096,
       "hdd_gb": 20,
       "nic": "virtio-net-pci",
       "sound": "hda_virtio",
@@ -2106,7 +2106,7 @@
     "Haiku (64-bit)": {
       "target": "x86_64",
       "machine": "q35",
-      "ram_mb": 2048,
+      "ram_mb": 4096,
       "hdd_gb": 20,
       "nic": "virtio-net-pci",
       "sound": "hda_virtio",
@@ -2136,7 +2136,7 @@
     "ReactOS (64-bit)": {
       "target": "x86_64",
       "machine": "pc",
-      "ram_mb": 2048,
+      "ram_mb": 4096,
       "hdd_gb": 8,
       "nic": "e1000",
       "sound": "ac97",
