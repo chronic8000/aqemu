@@ -3,6 +3,7 @@
 ****************************************************************************/
 
 #include "Storage_Browser_Window.h"
+#include "Utils.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -24,8 +25,13 @@ Storage_Browser_Window::Storage_Browser_Window( QWidget *parent )
 	resize( 560, 420 );
 
 	QSettings s;
+	#ifdef Q_OS_WIN32
+	Root = s.value( QStringLiteral( "VM_Directory" ),
+		AQEMU_Default_VM_Directory() ).toString();
+	#else
 	Root = s.value( QStringLiteral( "VM_Directory" ),
 		QDir::homePath() + QStringLiteral( "/.aqemu/" ) ).toString();
+	#endif
 
 	QVBoxLayout *lay = new QVBoxLayout( this );
 	lay->addWidget( new QLabel( tr(

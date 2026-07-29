@@ -24,8 +24,8 @@
 #ifndef UTILS_H
 #define UTILS_H
 
-#define CURRENT_AQEMU_VERSION "1.0.0"
-#define CURRENT_AQEMU_RELEASE_DATE "2026-07-25"
+#define CURRENT_AQEMU_VERSION "1.1.0"
+#define CURRENT_AQEMU_RELEASE_DATE "2026-07-29"
 
 #include <functional>
 #include <QString>
@@ -33,6 +33,8 @@
 #include <QList>
 
 #include "VM_Devices.h"
+
+class QSettings;
 
 class Disable_User_Graphic_Warning
 {
@@ -58,6 +60,29 @@ void AQUse_Log( bool use );
 void AQUse_Debug_Output( bool use, bool d, bool w, bool e );
 void AQLog_Path( const QString &path );
 void AQSave_To_Log( const QString &mes_type, const QString &sender, const QString &mes );
+
+/**
+ * Writable per-user data root (trailing separator).
+ * Windows: %LOCALAPPDATA%\aqemu\AQEMU\ (Store-safe; never next to the exe).
+ * Other OS: QStandardPaths::AppLocalDataLocation.
+ * Creates the directory if needed.
+ */
+QString AQEMU_User_Data_Dir();
+
+/** Default VM folder: <User_Data>/VMs/ (trailing separator). Creates it. */
+QString AQEMU_Default_VM_Directory();
+
+/** Default log file: <User_Data>/aqemu.log */
+QString AQEMU_Default_Log_Path();
+
+/** True if path is under the install / WindowsApps tree (not writable). */
+bool AQEMU_Path_Is_Install_Dir( const QString &path );
+
+/**
+ * Ensure VM_Directory and Log/Log_Path are writable user locations.
+ * Relocates empty paths and any path under the install directory to AppData.
+ */
+void AQEMU_Ensure_Writable_User_Paths( QSettings &settings );
 
 bool Create_New_HDD_Image( bool encrypted, const QString &base_image,
 						   const QString &file_name, const QString &format, VM::Device_Size size, bool verbose );

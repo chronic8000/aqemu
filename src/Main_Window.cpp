@@ -101,6 +101,7 @@
 #include "Remote_Host_Window.h"
 #include "AQ_UI_Style.h"
 #include "Utils.h"
+#include "QEMU_Probe_Catalog.h"
 #include "Blockdev_Graph_Window.h"
 #include "Service.h"
 #include "No_Boot_Device.h"
@@ -1363,6 +1364,9 @@ Available_Devices Main_Window::Get_Current_Machine_Devices( bool *ok ) const
 				d.PSO_SMP_MaxCPUs = d.PSO_SMP_MaxCPUs || fb.PSO_SMP_MaxCPUs;
 			}
 			System_Info::Normalize_Virt_Arch_Devices( d );
+			// Full QEMU option lists for this architecture (Main Window only;
+			// wizard stays on Guest_Capabilities curated defaults).
+			QEMU_Probe_Catalog::Merge_Into( d );
 			return d;
 		}
     }
@@ -1821,8 +1825,8 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
 	tmp_vm->Set_UEFI_VARS_File( old_vm->Get_UEFI_VARS_File() );
 	tmp_vm->Use_USB_Hub( old_vm->Use_USB_Hub() );
 	tmp_vm->Set_Win11_Lifecycle_Mode( old_vm->Get_Win11_Lifecycle_Mode() );
-	tmp_vm->Use_Intel_MacOS_Profile( ui_ao.CH_Intel_MacOS_Profile->isChecked() ||
-	                                 old_vm->Use_Intel_MacOS_Profile() );
+	// Honor the checkbox — do not OR with old_vm (that made Intel Mac / WSL sticky forever).
+	tmp_vm->Use_Intel_MacOS_Profile( ui_ao.CH_Intel_MacOS_Profile->isChecked() );
 	{
 		// Prefer main VM-page Intel macOS fields when that section is shown; else Advanced Options;
 		// finally preserve wizard-set values from old_vm.
@@ -1842,9 +1846,10 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
 		if( recovery.isEmpty() )
 			recovery = old_vm->Get_Mac_Recovery_Image_Path();
 
+		// WSL launch is opt-in from visible UI only — never sticky-OR old_vm (that forced
+		// accel=kvm on Mac OS X PPC and other TCG guests after one accidental enable).
 		const bool wsl = ui.CH_Intel_Mac_WSL_Main->isChecked() ||
-		                 ui_ao.CH_Launch_Via_WSL->isChecked() ||
-		                 old_vm->Use_Launch_Via_WSL();
+		                 ui_ao.CH_Launch_Via_WSL->isChecked();
 
 		tmp_vm->Set_Apple_SMC_OSK( osk );
 		tmp_vm->Set_OpenCore_Boot_Path( oc );
@@ -5962,58 +5967,28 @@ void Main_Window::Enforce_Disk_Bus_Honesty()
 	auto *model = qobject_cast<QStandardItemModel *>( ui.CB_Disk_Interface->model() );
 	ui.CB_Disk_Interface->blockSignals( true );
 
-	const int prev_index = ui.CB_Disk_Interface->currentIndex();
-	int first_enabled = -1;
+	// Main Window power-user path: expose every drive interface. QEMU may still
+	// reject a bad combo at launch — that is intentional (unlike the wizard).
 	for( int i = 0; i < ui.CB_Disk_Interface->count(); ++i )
 	{
-		const VM::Device_Interface iface = Combo_Index_To_Disk_Interface( i );
-		const bool allowed = computer.isEmpty()
-			? true
-			: System_Info::Is_Disk_Bus_Allowed( computer, machine, iface, false );
-
 		if( model )
 		{
 			QStandardItem *item = model->item( i );
 			if( item )
-			{
-				if( allowed )
-					item->setFlags( Qt::ItemIsEnabled | Qt::ItemIsSelectable );
-				else
-					item->setFlags( item->flags() & ~( Qt::ItemIsEnabled | Qt::ItemIsSelectable ) );
-			}
+				item->setFlags( Qt::ItemIsEnabled | Qt::ItemIsSelectable );
 		}
-		if( allowed && first_enabled < 0 )
-			first_enabled = i;
 	}
-
-	const int cur = ui.CB_Disk_Interface->currentIndex();
-	const VM::Device_Interface cur_iface = Combo_Index_To_Disk_Interface( cur );
-	if( ! computer.isEmpty() &&
-	    ! System_Info::Is_Disk_Bus_Allowed( computer, machine, cur_iface, false ) )
-	{
-		const VM::Device_Interface safe =
-			System_Info::Sanitize_Disk_Bus( computer, machine, cur_iface, false );
-		ui.CB_Disk_Interface->setCurrentIndex( Disk_Interface_To_Combo_Index( safe ) );
-	}
-	else if( cur < 0 && first_enabled >= 0 )
-		ui.CB_Disk_Interface->setCurrentIndex( first_enabled );
 
 	if( ! computer.isEmpty() )
 	{
 		ui.CB_Disk_Interface->setToolTip( tr(
-			"Drive interface for the primary hard disk. Options unsupported by "
-			"this guest architecture/machine are greyed out.\n"
+			"Drive interface for the primary hard disk. All QEMU interfaces are "
+			"selectable here; pick one that matches the guest machine.\n"
 			"Computer: %1  Machine: %2" )
 			.arg( computer, machine.isEmpty() ? tr( "(default)" ) : machine ) );
 	}
 
-	const int new_index = ui.CB_Disk_Interface->currentIndex();
 	ui.CB_Disk_Interface->blockSignals( false );
-
-	// Persist AHCI→VirtIO (etc.) clamps — previously the combo was fixed in the UI
-	// only, so Start kept emitting ich9-ahci on aarch64.
-	if( new_index != prev_index && ! block_VM_changed_signals )
-		VM_Changed();
 }
 
 void Main_Window::Update_Accelerator_Options()

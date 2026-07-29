@@ -58,6 +58,7 @@
 #include "VM_Wizard_Window.h"
 #include "System_Info.h"
 #include "VM_Devices.h"
+#include "QEMU_Probe_Catalog.h"
 #include "Guest_Capabilities.h"
 #include "ISO_Guess.h"
 #include "URL_Fetch.h"
@@ -115,6 +116,7 @@ VM_Wizard_Window::VM_Wizard_Window( QWidget *parent )
 	Guest_RAM_MB = 2048;
 	Guest_HDD_GB = 20.0;
 	Guest_NIC_Model = "e1000";
+	Guest_CPU_Type.clear();
 	Guest_Sound = VM::Sound_Cards();
 	Guest_Sound.Audio_HDA = true;
 	Guest_Suggest_Win2K_Hack = false;
@@ -1142,6 +1144,10 @@ bool VM_Wizard_Window::Ensure_Emulator_Ready()
 	Current_Emulator = Get_Default_Emulator();
 	All_Systems = Current_Emulator.Get_Devices();
 
+	// Overlay qemu_probe_full_v3 so Machine/CPU lists are complete (not stale First-Start XML).
+	for( QMap<QString, Available_Devices>::iterator it = All_Systems.begin(); it != All_Systems.end(); ++it )
+		QEMU_Probe_Catalog::Merge_Into( it.value() );
+
 	if( ! All_Systems.isEmpty() && All_Systems.count() >= 5 )
 	{
 		ui.CB_Computer_Type->clear();
@@ -1386,6 +1392,7 @@ void VM_Wizard_Window::Apply_OS_Defaults( const QString &os_name )
 	Guest_RAM_MB = 2048;
 	Guest_HDD_GB = 20.0;
 	Guest_NIC_Model = "e1000";
+	Guest_CPU_Type.clear();
 	Guest_Compat_Tip.clear();
 
 	const QString host = AQ_Get_Host_CPU_Architecture();
@@ -1428,6 +1435,7 @@ void VM_Wizard_Window::Apply_OS_Defaults( const QString &os_name )
 		Guest_RAM_MB = profile.value( "ram_mb" ).toInt( 2048 );
 		Guest_HDD_GB = profile.value( "hdd_gb" ).toDouble( 20.0 );
 		Guest_NIC_Model = profile.value( "nic" ).toString( "e1000" );
+		Guest_CPU_Type = profile.value( "cpu" ).toString();
 		Apply_Sound_Preset( profile.value( "sound" ).toString( "hda" ) );
 		Guest_Compat_Tip = profile.value( "tip" ).toString();
 
@@ -1688,8 +1696,122 @@ void VM_Wizard_Window::Update_Guest_Compat_Tip()
 	Update_Architecture_Page_Chrome();
 }
 
+QString VM_Wizard_Window::Recommended_CPU_Type() const
+{
+	QString target = Selected_Target;
+	if( target.isEmpty() && Current_Devices )
+	{
+		target = Current_Devices->System.QEMU_Name;
+		target.remove( QStringLiteral( "qemu-system-" ) );
+	}
+	if( target.isEmpty() )
+		target = QStringLiteral( "x86_64" );
+
+	const QString binary = QStringLiteral( "qemu-system-" ) + target;
+	const QString os = Selected_OS_Name;
+
+	// 1) Explicit cpu from wizard_trees.json os_profiles (probe-validated offline)
+	if( ! Guest_CPU_Type.isEmpty() )
+	{
+		const QString from_profile = QEMU_Probe_Catalog::First_Available_CPU(
+			binary, QStringList() << Guest_CPU_Type );
+		if( ! from_profile.isEmpty() )
+			return from_profile;
+	}
+
+	// 2) Era / OS class heuristics, always filtered through qemu_probe_full_v3
+	QStringList candidates;
+
+	const bool dos_or_win16 =
+		os.contains( QLatin1String( "MS-DOS" ) ) ||
+		os.contains( QLatin1String( "PC DOS" ) ) ||
+		os.contains( QLatin1String( "DR-DOS" ) ) ||
+		os.startsWith( QLatin1String( "Windows 1" ) ) ||
+		os.startsWith( QLatin1String( "Windows 2" ) ) ||
+		os.startsWith( QLatin1String( "Windows 3" ) );
+	const bool win9x =
+		os == QLatin1String( "Windows 95" ) ||
+		os == QLatin1String( "Windows 98" ) ||
+		os == QLatin1String( "Windows ME" ) ||
+		os.startsWith( QLatin1String( "Windows NT 3" ) ) ||
+		os == QLatin1String( "Windows NT 4.0" );
+	const bool xp_family =
+		os == QLatin1String( "Windows 2000" ) ||
+		os.startsWith( QLatin1String( "Windows XP" ) ) ||
+		os == QLatin1String( "Windows Server 2000" ) ||
+		os == QLatin1String( "Windows Server 2003" );
+	const bool classic_mac =
+		os.contains( QLatin1String( "Mac OS 7" ) ) ||
+		os.contains( QLatin1String( "Mac OS 8" ) ) ||
+		os.contains( QLatin1String( "Mac OS 9" ) ) ||
+		os.contains( QLatin1String( "Mac OS X PPC" ) );
+
+	if( dos_or_win16 )
+		candidates << "486" << "pentium" << "pentium2";
+	else if( win9x )
+		candidates << "pentium2" << "pentium" << "qemu32";
+	else if( xp_family || os.contains( QLatin1String( "OS/2" ) ) ||
+	         os.contains( QLatin1String( "ReactOS" ) ) )
+	{
+		if( os.contains( QLatin1String( "64-bit" ) ) || target == QLatin1String( "x86_64" ) )
+			candidates << "qemu64" << "max";
+		else
+			candidates << "pentium3" << "qemu32";
+	}
+	else if( classic_mac || target == QLatin1String( "ppc" ) )
+		candidates << "g4" << "750" << "ppc";
+	else if( target == QLatin1String( "ppc64" ) || os == QLatin1String( "AIX" ) )
+		candidates << "power8_v2.0" << "power8" << "power9_v2.0";
+	else if( target == QLatin1String( "aarch64" ) )
+		candidates << "max" << "cortex-a72" << "cortex-a57";
+	else if( target == QLatin1String( "arm" ) )
+		candidates << "max" << "cortex-a15" << "cortex-a9";
+	else if( target.startsWith( QLatin1String( "riscv" ) ) )
+		candidates << "max" << "rv64" << "rv32";
+	else if( target == QLatin1String( "s390x" ) )
+		candidates << "max" << "qemu";
+	else if( target.startsWith( QLatin1String( "sparc" ) ) )
+		candidates << "TI-UltraSparc-II" << "Fujitsu-Sparc64";
+	else if( target == QLatin1String( "hppa" ) )
+		candidates << "pa-8700" << "pa-8500";
+	else if( target == QLatin1String( "i386" ) )
+		candidates << "qemu32" << "pentium3" << "max";
+	else // x86_64 and everything else modern
+		candidates << "max" << "qemu64" << "host";
+
+	return QEMU_Probe_Catalog::First_Available_CPU( binary, candidates );
+}
+
+void VM_Wizard_Window::Select_Recommended_CPU_In_Combo()
+{
+	if( ! Current_Devices || ui.CB_CPU_Type->count() <= 0 )
+		return;
+
+	const QString want = Recommended_CPU_Type();
+	if( want.isEmpty() )
+		return;
+
+	for( int i = 0; i < Current_Devices->CPU_List.count() && i < ui.CB_CPU_Type->count(); ++i )
+	{
+		if( Current_Devices->CPU_List[i].QEMU_Name.compare( want, Qt::CaseInsensitive ) == 0 )
+		{
+			ui.CB_CPU_Type->setCurrentIndex( i );
+			return;
+		}
+	}
+}
+
 void VM_Wizard_Window::Apply_Guest_Hardware_To_New_VM()
 {
+	// Always apply a probe-validated CPU before special-case overrides.
+	// Typical mode hides the CPU combo, which previously left index 0 (= 486 from
+	// qemu_probe_full_v3) as the saved CPU for Ubuntu and other modern guests.
+	{
+		const QString cpu = Recommended_CPU_Type();
+		if( ! cpu.isEmpty() )
+			New_VM->Set_CPU_Type( cpu );
+	}
+
 	const Guest_Capabilities caps = Current_Guest_Capabilities();
 	if( caps.default_sound == QLatin1String( "none" ) || caps.sound_options.isEmpty() )
 	{
@@ -1885,13 +2007,44 @@ void VM_Wizard_Window::Apply_Guest_Hardware_To_New_VM()
 		}
 		else if( classic_mac )
 		{
+			// Always classic Mac hardware — never leave Machine_Type empty on ppc64
+			// (QEMU defaults to pseries/SLOF, which is AIX/Linux, not Mac OS X).
+			New_VM->Set_Computer_Type( QStringLiteral( "qemu-system-ppc" ) );
+			New_VM->Set_Machine_Type( QStringLiteral( "mac99" ) );
+			New_VM->Set_CPU_Type( QStringLiteral( "g4" ) );
+			New_VM->Set_Memory_Size( qMin( New_VM->Get_Memory_Size(), 2048 ) );
+			if( New_VM->Get_Memory_Size() < 512 )
+				New_VM->Set_Memory_Size( 512 );
 			// mac99 uses onboard video/USB; do not force x86 cirrus / virtio-gpu.
 			New_VM->Set_Video_Card( QString() );
 			New_VM->Set_Mouse_Type( QStringLiteral( "usb-tablet" ) );
 			New_VM->Set_Mouse_USB_Controller( QStringLiteral( "auto" ) );
 			New_VM->Set_SMP_CPU_Count( 1 );
 			New_VM->Use_ACPI( false );
-			New_VM->Use_Force_TCG( false );
+			New_VM->Use_Force_TCG( true );
+			New_VM->Set_Machine_Accelerator( VM::TCG );
+			New_VM->Use_Intel_MacOS_Profile( false );
+			New_VM->Use_Launch_Via_WSL( false );
+			New_VM->Set_OpenCore_Boot_Path( QString() );
+			New_VM->Set_Mac_Recovery_Image_Path( QString() );
+			{
+				VM::Sound_Cards audio; // board Screamer via -device, not PC HDA
+				New_VM->Set_Audio_Cards( audio );
+			}
+			VM_HDD hda = New_VM->Get_HDA();
+			if( hda.Get_Enabled() )
+			{
+				VM_Native_Storage_Device native = hda.Get_Native_Device();
+				native.Use_Interface( true );
+				native.Set_Interface( VM::DI_IDE );
+				if( ! native.Use_File_Path() || native.Get_File_Path().trimmed().isEmpty() )
+				{
+					native.Use_File_Path( true );
+					native.Set_File_Path( hda.Get_File_Name() );
+				}
+				hda.Set_Native_Device( native );
+				New_VM->Set_HDA( hda );
+			}
 			// Prefer sungem / macio-nic when the probed PPC device list has them
 			if( Current_Devices )
 			{
@@ -1909,6 +2062,8 @@ void VM_Wizard_Window::Apply_Guest_Hardware_To_New_VM()
 				}
 				Guest_NIC_Model = nic; // empty = leave unset rather than e1000
 			}
+			if( Guest_NIC_Model.isEmpty() )
+				Guest_NIC_Model = QStringLiteral( "sungem" );
 			// Screamer is not a modern -device checkbox; hint via additional args if empty.
 			if( New_VM->Get_Additional_Args().trimmed().isEmpty() )
 				New_VM->Set_Additional_Args( QStringLiteral( "-device screamer" ) );
@@ -4345,10 +4500,12 @@ void VM_Wizard_Window::applyTemplate()
 	}
 	else
 	{
-		// Add CPU's
+		// Add CPUs from emulator/probe list, then select the OS-recommended model
+		// (never leave the combo on list[0] — that is often 486 on x86_64).
 		ui.CB_CPU_Type->clear();
 		for( int cx = 0; cx < Current_Devices->CPU_List.count(); ++cx )
 			ui.CB_CPU_Type->addItem( Current_Devices->CPU_List[cx].Caption );
+		Select_Recommended_CPU_In_Combo();
 	}
 
 	// Typical or custom mode
@@ -4565,7 +4722,16 @@ bool VM_Wizard_Window::Create_New_VM(bool simulate)
 			return false;
 		}
 		
-		New_VM->Set_CPU_Type( Current_Devices->CPU_List[ui.CB_CPU_Type->currentIndex()].QEMU_Name );
+		New_VM->Set_CPU_Type( Recommended_CPU_Type() );
+		// Custom mode: honour the user's combo selection when it is a real choice
+		if( ! ui.RB_Typical->isChecked() &&
+		    Current_Devices &&
+		    ui.CB_CPU_Type->currentIndex() >= 0 &&
+		    ui.CB_CPU_Type->currentIndex() < Current_Devices->CPU_List.count() )
+		{
+			New_VM->Set_CPU_Type(
+				Current_Devices->CPU_List[ui.CB_CPU_Type->currentIndex()].QEMU_Name );
+		}
 		
 		// Hard Disk
 		if( ! ui.Edit_HDA_File_Name->text().isEmpty() )

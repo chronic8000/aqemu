@@ -657,7 +657,8 @@ void First_Start_Wizard::Load_Settings()
 		ui.Edit_Add_Emulator_Path->setText( QDir::toNativeSeparators( AQ_Get_Bundled_QEMU_Dir() ) );
 	else
 		ui.Edit_Add_Emulator_Path->setText( QDir::toNativeSeparators( QDir::currentPath() + "/QEMU/" ) );
-	ui.Edit_VM_Dir->setText( QDir::toNativeSeparators(Settings.value("VM_Directory", QDir::homePath() + "/AQEMU_VM/").toString()) );
+	ui.Edit_VM_Dir->setText( QDir::toNativeSeparators(
+		Settings.value( "VM_Directory", AQEMU_Default_VM_Directory() ).toString() ) );
 	#else
 	ui.Edit_VM_Dir->setText( QDir::toNativeSeparators(Settings.value("VM_Directory", QDir::homePath() + "/.aqemu/").toString()) );
 	#endif

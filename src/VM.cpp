@@ -6676,6 +6676,13 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	// Effective machine type. aarch64/arm/riscv have no QEMU default ? must pass virt
 	// (matches win11-pi5-kiosk: -M virt,accel=kvm).
 	QString effective_machine = Machine_Type;
+	// qemu-system-ppc64 with an empty -M defaults to pseries (SLOF) — fine for AIX,
+	// catastrophic for classic Mac OS X if the user left Machine blank after a bad import.
+	// qemu-system-ppc defaults to g3beige; prefer mac99 (New World / OS X era).
+	if( effective_machine.isEmpty() &&
+	    Computer_Type.contains( QLatin1String( "qemu-system-ppc" ), Qt::CaseInsensitive ) &&
+	    ! Computer_Type.contains( QLatin1String( "ppc64" ), Qt::CaseInsensitive ) )
+		effective_machine = QStringLiteral( "mac99" );
 	const bool is_virt_arch =
 		Computer_Type.contains( "aarch64", Qt::CaseInsensitive ) ||
 		Computer_Type.contains( "qemu-system-arm", Qt::CaseInsensitive ) ||
@@ -6692,6 +6699,9 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		Computer_Type.contains( QLatin1String( "m68k" ), Qt::CaseInsensitive ) ||
 		Computer_Type.contains( QLatin1String( "sparc" ), Qt::CaseInsensitive ) ||
 		Computer_Type.contains( QLatin1String( "mips" ), Qt::CaseInsensitive );
+	// NeXT Cube: onboard ESP SCSI + framebuffer; no PCI virtio, firmware via -bios.
+	const bool is_next_cube =
+		effective_machine.contains( QLatin1String( "next-cube" ), Qt::CaseInsensitive );
 	if( effective_machine.isEmpty() && is_virt_arch )
 		effective_machine = "virt";
 	// QEMU warns that old versioned virt-N.M aliases are deprecated; alias to current "virt".
@@ -6719,10 +6729,18 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		( Win11_Lifecycle_Mode == VM::Win11_First_Boot ||
 		  Win11_Lifecycle_Mode == VM::Win11_Normal );
 
+	const bool legacy_vga =
+		effective_video == "std" || effective_video == "cirrus" ||
+		effective_video == "vmware" || effective_video == "qxl" ||
+		effective_video == "xenfb" || effective_video == "virtio" ||
+		effective_video == "cg3" || effective_video == "tcx" ||
+		effective_video == "none";
+
 	const bool device_based_video = System_Info::Uses_Device_Based_Video( Computer_Type ) ||
 	                                effective_video == "virtio-gpu-pci" || effective_video == "virtio-gpu-gl-pci" ||
 	                                effective_video == "virtio-vga-gl" ||
-	                                effective_video == "ramfb";
+	                                effective_video == "ramfb" ||
+	                                ( ! effective_video.isEmpty() && ! legacy_vga );
 
 	if( device_based_video )
 	{
@@ -6734,7 +6752,9 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			Args << "-device" << "virtio-gpu-gl-pci";
 		else if( effective_video == "virtio-vga-gl" )
 			Args << "-device" << "virtio-vga-gl";
-		else
+		else if( effective_video == "virtio-gpu-pci" ||
+		         ( effective_video.isEmpty() &&
+		           System_Info::Uses_Device_Based_Video( Computer_Type ) ) )
 		{
 			// VirtIO-GPU with EDID. Do NOT auto-add ramfb here (BVM normal/boot mode):
 			// combining ramfb + virtio-gpu causes "Display output is not active" reboot loops.
@@ -6769,6 +6789,11 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 				virtio += QString( ",xres=%1,yres=%2" ).arg( rw ).arg( rh );
 
 			Args << "-device" << virtio;
+		}
+		else
+		{
+			// Arbitrary display device from -device help / probe catalog (ati-vga, sm501, …)
+			Args << "-device" << effective_video;
 		}
 	}
 	else if( Current_Emulator_Devices.PSO_Std_VGA ) // QEMU before 0.10 style
@@ -6833,26 +6858,31 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	const bool is_x86_guest =
 		Computer_Type.contains( QLatin1String( "x86_64" ), Qt::CaseInsensitive ) ||
 		Computer_Type.contains( QLatin1String( "i386" ), Qt::CaseInsensitive );
+	// UI "TCG" / Force_TCG / cross-arch must win. Never upgrade TCG→KVM/WHPX silently,
+	// and never force KVM just because Launch_Via_WSL is set (PPC/ARM on x86 WSL).
+	const bool want_native_accel =
+		( Machine_Accelerator == VM::KVM ) && ! legacy_force_tcg && is_x86_guest;
 	#ifdef Q_OS_WIN32
 	if( Launch_Via_WSL && ! is_virt_arch )
 	{
-		// Linux QEMU inside WSL: KVM only when /dev/kvm is writable; else pure TCG.
+		// Linux QEMU inside WSL: KVM only when the UI asked for KVM, guest is x86,
+		// and /dev/kvm is writable. Otherwise honor TCG (e.g. Mac OS X PPC).
 		const QString distro = Settings.value( QStringLiteral( "WSL_Launch/Distro" ), QString() ).toString();
-		if( WSL_Has_KVM( distro, false ) )
+		if( want_native_accel && WSL_Has_KVM( distro, false ) )
 			props << "accel=kvm";
 		else
-			props << "accel=tcg";
+			use_separate_tcg_accel = true;
 	}
 	else if( is_virt_arch )
 		use_separate_tcg_accel = true;
 	else if( legacy_force_tcg )
 		// Win95/98: WHPX hangs at splash. XP: WHPX disables SMM → black text mode.
 		use_separate_tcg_accel = true;
-	else if( ! is_x86_guest )
-		// WHPX/HAX only accelerate x86 guests. ppc64/sparc/mips/etc must use TCG
-		// (otherwise QEMU prints "invalid accelerator whpx/hax" then may fail RAM setup).
+	else if( ! is_x86_guest || Machine_Accelerator == VM::TCG )
+		// WHPX/HAX only accelerate x86. Also: selecting TCG in the UI must mean TCG
+		// (do not silently map it to whpx:hax:tcg — that is what "KVM" means on Windows).
 		use_separate_tcg_accel = true;
-	else if( Machine_Accelerator == VM::KVM || Machine_Accelerator == VM::TCG )
+	else if( want_native_accel )
 		// Prefer Hyper-V WHPX (or HAX) for x86; fall back to TCG. Pure TCG makes
 		// DOS IDE/ATAPI CD (PIO) feel like a 1x optical drive.
 		props << "accel=whpx:hax:tcg";
@@ -6861,9 +6891,9 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	else
 		props << "accel="+VM::Accel_To_String( Machine_Accelerator );
 	#else
-	if( legacy_force_tcg )
+	if( legacy_force_tcg || Machine_Accelerator == VM::TCG )
 		use_separate_tcg_accel = true;
-	else if( Machine_Accelerator == VM::KVM || Launch_Via_WSL )
+	else if( want_native_accel )
 		props << "accel=kvm:tcg";
 	else if( Machine_Accelerator == VM::XEN )
 		props << "accel=xen:tcg";
@@ -7167,6 +7197,22 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 					StorageArgs << "-drive" << drive;
 					StorageArgs << "-device" << usb_dev;
 				}
+			}
+		}
+		else if( is_next_cube )
+		{
+			// NeXT Cube has onboard ESP SCSI (block_default_type=IF_SCSI).
+			// Do NOT invent virtio-scsi-pci — that device does not exist on m68k.
+			// Keep CD off SCSI ID 0: NeXT `bsd` / default sd boots unit 0 (the HD).
+			if( QFile::exists( CD_ROM.Get_File_Name() ) || Build_QEMU_Args_for_Tab_Info )
+			{
+				const QString drive = QString(
+					"file=%1,if=scsi,media=cdrom,readonly=on,format=raw,unit=3" )
+					.arg( CD_ROM.Get_File_Name() );
+				if( Build_QEMU_Args_for_Script_Mode )
+					StorageArgs << "-drive" << "\"" + drive + "\"";
+				else
+					StorageArgs << "-drive" << drive;
 			}
 		}
 		else if( no_pc_fdd_ide && ! is_virt_arch )
@@ -7635,7 +7681,9 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	//
     if (has_virt_scsi)
     {
-		Args << "-device" << "virtio-scsi-pci,id=aq-vscsi";
+		// Never invent virtio-scsi-pci on NeXT Cube / non-PCI m68k boards.
+		if( ! Machine_Type.contains( QLatin1String( "next-cube" ), Qt::CaseInsensitive ) )
+			Args << "-device" << "virtio-scsi-pci,id=aq-vscsi";
 	}
 
 	//      After the storage adapter has been added to the argument list,
@@ -8802,10 +8850,16 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		}
 		else
 		{
+			// next-cube loads board firmware with -bios (not PC option ROM).
+			const bool next_cube_rom =
+				Machine_Type.contains( QLatin1String( "next-cube" ), Qt::CaseInsensitive );
+			const QString rom_flag = next_cube_rom
+				? QStringLiteral( "-bios" )
+				: QStringLiteral( "-option-rom" );
 			if( Build_QEMU_Args_for_Script_Mode )
-				Args << "-option-rom" << "\"" + ROM_File + "\"";
+				Args << rom_flag << "\"" + ROM_File + "\"";
 			else
-				Args << "-option-rom" << ROM_File;
+				Args << rom_flag << ROM_File;
 		}
 	}
 	
@@ -10156,6 +10210,28 @@ bool Virtual_Machine::Start_impl()
 		}
 
 #ifdef Q_OS_WIN32
+		// Bundled qemu-system-ppc 11.0.2 aborts on mac99/g3beige (0xC0000409). Prefer a
+		// system install that can actually run OpenBIOS (e.g. C:\Program Files\qemu).
+		if( find_name.contains( QLatin1String( "qemu-system-ppc" ), Qt::CaseInsensitive ) &&
+		    ! find_name.contains( QLatin1String( "ppc64" ), Qt::CaseInsensitive ) )
+		{
+			const QStringList ppc_candidates = QStringList()
+				<< QStringLiteral( "C:/Program Files/qemu/qemu-system-ppc.exe" )
+				<< QStringLiteral( "C:/Program Files (x86)/qemu/qemu-system-ppc.exe" );
+			for( int ci = 0; ci < ppc_candidates.count(); ++ci )
+			{
+				if( QFile::exists( ppc_candidates[ci] ) )
+				{
+					if( bin_path != ppc_candidates[ci] )
+						AQDebug( "bool Virtual_Machine::Start()",
+						         QString( "Classic PPC: using \"%1\" (bundled mac99 is broken on Windows)" )
+						             .arg( ppc_candidates[ci] ) );
+					bin_path = ppc_candidates[ci];
+					break;
+				}
+			}
+		}
+
 		if( Launch_Via_WSL )
 		{
 			QSettings s;
