@@ -29,10 +29,12 @@
 #include <QFileDialog>
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QDateTime>
 #include <QTextStream>
 #include <QMutex>
 #include <QMutexLocker>
+#include <QStandardPaths>
 #ifndef Q_OS_WIN32
 #include <QtDBus>
 #endif
@@ -273,6 +275,7 @@ int AQEMU_Main::load_settings()
     AQEMU_Startup_Log( "settings: init" );
     init_qsettings();
 
+    AQEMU_Ensure_Writable_User_Paths( *settings );
     log_settings();
 
     Set_Show_Error_Window( true );
@@ -564,8 +567,8 @@ void AQEMU_Main::log_settings()
 
         QString log_path = settings->value("Log/Log_Path", "").toString();
         #ifdef Q_OS_WIN32
-        // Portable Windows builds: always write a fresh log beside aqemu.exe.
-        log_path = QDir::toNativeSeparators( QCoreApplication::applicationDirPath() + "/aqemu.log" );
+        // Always AppData on Windows (Store-safe; never write next to the exe).
+        log_path = AQEMU_Default_Log_Path();
         settings->setValue( "Log/Log_Path", log_path );
         #else
         if( log_path.isEmpty() )
@@ -595,6 +598,23 @@ void AQEMU_Main::log_settings()
             QTextStream out( &reset_file );
             out << "AQEMU " << CURRENT_AQEMU_VERSION << " run log\n";
             out << "Started: " << QDateTime::currentDateTime().toString( "yyyy.MM.dd hh:mm:ss zzz" ) << "\n\n";
+            out << "User data: " << AQEMU_User_Data_Dir() << "\n";
+            out << "VM directory: " << settings->value( "VM_Directory" ).toString() << "\n\n";
+        }
+        else
+        {
+            QString fallback = QStandardPaths::writableLocation(
+                QStandardPaths::TempLocation ) + "/aqemu.log";
+            fallback = QDir::toNativeSeparators( fallback );
+            settings->setValue( "Log/Log_Path", fallback );
+            log_path = fallback;
+            QFile tmp( fallback );
+            if( tmp.open( QIODevice::WriteOnly | QIODevice::Text | QIODevice::Truncate ) )
+            {
+                QTextStream out( &tmp );
+                out << "AQEMU " << CURRENT_AQEMU_VERSION << " run log (temp fallback)\n";
+                out << "Started: " << QDateTime::currentDateTime().toString( "yyyy.MM.dd hh:mm:ss zzz" ) << "\n\n";
+            }
         }
     }
     else AQUse_Log( false );
@@ -638,20 +658,21 @@ void AQEMU_Main::vm_dir_exists_or_create()
 {
     // VM Directory Exists?
     QDir vm_dir;
-    if( ! vm_dir.exists(settings->value("VM_Directory", "").toString()) )
+    const QString configured = settings->value("VM_Directory", "").toString();
+    if( ! vm_dir.exists(configured) )
     {
+        #ifdef Q_OS_WIN32
+        const QString create_path = AQEMU_Default_VM_Directory();
+        settings->setValue( "VM_Directory", create_path );
+        AQEMU_Startup_Log( QStringLiteral( "Created VM directory: %1" ).arg( create_path ) );
+        #else
         int ret = QMessageBox::question( NULL, QObject::tr("Warning!"),
                                          QObject::tr("AQEMU VM Folder doesn't Exists! Create It?"),
                                          QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes );
 
         if( ret == QMessageBox::Yes )
-        {
-            #ifdef Q_OS_WIN32
-            vm_dir.mkpath( QDir::toNativeSeparators(QDir::homePath() + "/AQEMU_VM/") );
-            #else
             vm_dir.mkpath( QDir::homePath() + "/.aqemu" );
-            #endif
-        }
+        #endif
     }
 }
 

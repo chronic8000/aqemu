@@ -11,7 +11,7 @@
 param(
     [string] $RepoRoot = "",
     [string] $BuildDir = "",
-    [string] $Version = "1.0.0.0",
+    [string] $Version = "1.1.0.0",
     [string] $OutDir = "",
     # Must match Partner Center Product identity Publisher (CN=...)
     [string] $Publisher = "CN=16318CB3-C262-4B44-BCCF-310B0DDA3950",
@@ -163,7 +163,7 @@ if (-not (Test-Path $shareBios)) {
 $qemuSystems = @(Get-ChildItem (Join-Path $layoutDir "qemu-system-*.exe") -ErrorAction SilentlyContinue)
 Write-Host ("Staged qemu-system-* count: {0}" -f $qemuSystems.Count)
 if ($qemuSystems.Count -lt 10) {
-    Write-Warning "Only $($qemuSystems.Count) qemu-system-* binaries staged. Store packages should include EVERY softmmu target — rebuild with scripts/build_qemu_windows_msys.sh (all targets)."
+    Write-Warning ("Only {0} qemu-system-* binaries staged. Store packages should include EVERY softmmu target - rebuild with scripts/build_qemu_windows_msys.sh (all targets)." -f $qemuSystems.Count)
 }
 
 if (-not (Test-Path (Join-Path $layoutDir "aqemu.exe"))) {
@@ -228,6 +228,7 @@ if (-not $SkipSign) {
 
 $item = Get-Item $msixPath
 $mb = [math]::Round($item.Length / 1MB, 1)
-Write-Host "OK: $($item.FullName) ($mb MB)"
-Write-Host ""
-Write-Host "Store submission: upload this MSIX package to Microsoft Partner Center."
+$okMsg = 'OK: ' + $item.FullName + ' (' + $mb.ToString() + ' MB)'
+Write-Host $okMsg
+Write-Host ''
+Write-Host 'Store submission: upload this MSIX package to Microsoft Partner Center.'

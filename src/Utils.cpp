@@ -32,6 +32,7 @@
 #include <QScreen>
 #include <QCoreApplication>
 #include <QSettings>
+#include <QStandardPaths>
 #include <QRegExp>
 #include <QRegularExpression>
 #include <QHash>
@@ -250,6 +251,93 @@ void AQLog_Path( const QString& path )
 	Log_Path = path;
 }
 
+static QString AQEMU_With_Trailing_Sep( QString path )
+{
+	path = QDir::cleanPath( path );
+	path = QDir::toNativeSeparators( path );
+	if( ! path.endsWith( QLatin1Char( '/' ) ) && ! path.endsWith( QLatin1Char( '\\' ) ) )
+		path += QDir::separator();
+	return path;
+}
+
+QString AQEMU_User_Data_Dir()
+{
+	QString root = QStandardPaths::writableLocation( QStandardPaths::AppLocalDataLocation );
+	if( root.isEmpty() )
+	{
+		#ifdef Q_OS_WIN32
+		root = QDir::homePath() + QStringLiteral( "/AppData/Local/aqemu/AQEMU" );
+		#else
+		root = QDir::homePath() + QStringLiteral( "/.local/share/AQEMU" );
+		#endif
+	}
+	root = AQEMU_With_Trailing_Sep( root );
+	QDir().mkpath( root );
+	return root;
+}
+
+QString AQEMU_Default_VM_Directory()
+{
+	const QString vms = AQEMU_With_Trailing_Sep( AQEMU_User_Data_Dir() + QStringLiteral( "VMs" ) );
+	QDir().mkpath( vms );
+	QDir().mkpath( vms + QStringLiteral( "os_templates" ) );
+	return vms;
+}
+
+QString AQEMU_Default_Log_Path()
+{
+	return QDir::toNativeSeparators( AQEMU_User_Data_Dir() + QStringLiteral( "aqemu.log" ) );
+}
+
+bool AQEMU_Path_Is_Install_Dir( const QString &path )
+{
+	if( path.isEmpty() )
+		return false;
+	const QString native = QDir::toNativeSeparators( QDir::cleanPath( path ) );
+	const QString app_dir = QDir::toNativeSeparators(
+		QDir::cleanPath( QCoreApplication::applicationDirPath() ) );
+	if( ! app_dir.isEmpty() &&
+	    ( native.compare( app_dir, Qt::CaseInsensitive ) == 0 ||
+	      native.startsWith( app_dir + QDir::separator(), Qt::CaseInsensitive ) ) )
+		return true;
+	if( native.contains( QLatin1String( "WindowsApps" ), Qt::CaseInsensitive ) )
+		return true;
+	return false;
+}
+
+void AQEMU_Ensure_Writable_User_Paths( QSettings &settings )
+{
+	QString vm_dir = settings.value( QStringLiteral( "VM_Directory" ), QString() ).toString().trimmed();
+	#ifdef Q_OS_WIN32
+	// Store / Windows: default VMs under AppData (never next to the exe / WindowsApps).
+	if( vm_dir.isEmpty() || AQEMU_Path_Is_Install_Dir( vm_dir ) ||
+	    vm_dir == QLatin1String( "~" ) )
+	{
+		vm_dir = AQEMU_Default_VM_Directory();
+		settings.setValue( QStringLiteral( "VM_Directory" ), vm_dir );
+	}
+	else
+	{
+		vm_dir = AQEMU_With_Trailing_Sep( vm_dir );
+		settings.setValue( QStringLiteral( "VM_Directory" ), vm_dir );
+		QDir().mkpath( vm_dir );
+		QDir().mkpath( vm_dir + QStringLiteral( "os_templates" ) );
+	}
+
+	settings.setValue( QStringLiteral( "Log/Log_Path" ), AQEMU_Default_Log_Path() );
+	settings.setValue( QStringLiteral( "Log/Save_In_File" ), QStringLiteral( "yes" ) );
+	#else
+	if( vm_dir.isEmpty() || vm_dir == QLatin1String( "~" ) )
+	{
+		vm_dir = AQEMU_With_Trailing_Sep(
+			QDir::homePath() + QStringLiteral( "/.aqemu" ) );
+		settings.setValue( QStringLiteral( "VM_Directory" ), vm_dir );
+		QDir().mkpath( vm_dir );
+		QDir().mkpath( vm_dir + QStringLiteral( "os_templates" ) );
+	}
+	#endif
+}
+
 void AQSave_To_Log( const QString &mes_type, const QString &sender, const QString &mes )
 {
 	if( Log_Path.isEmpty() ) return;
@@ -258,9 +346,12 @@ void AQSave_To_Log( const QString &mes_type, const QString &sender, const QStrin
 	
 	if( ! log_file.open(QIODevice::Append | QIODevice::Text) )
 	{
-		AQUse_Log( false ); // off loging
-		AQError( "void AQSave_To_Log( const QString& mes_type, const QString& sender, const QString& mes )",
-				 "Cannot Open Log file to Write! Log Path: \"" + Log_Path + "\"" );
+		// Disable before reporting — avoids recursive AQError → AQSave_To_Log loops
+		// when the path is under a read-only Store/MSIX install dir.
+		AQUse_Log( false );
+		Log_Path.clear();
+		fprintf( stderr, "AQEMU: cannot open log file for write: %s\n",
+			 qPrintable( log_file.fileName() ) );
 	}
 	else
 	{

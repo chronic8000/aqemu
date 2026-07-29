@@ -151,6 +151,7 @@ SET( aqemu_sources
 	src/Snapshots_Window.cpp
 	src/SPICE_Settings_Widget.cpp
 	src/System_Info.cpp
+	src/QEMU_Probe_Catalog.cpp
 	src/Utils.cpp
 	src/VM.cpp
 	src/VM_Devices.cpp
@@ -494,6 +495,21 @@ IF( EXISTS "${CMAKE_SOURCE_DIR}/docs/qemu_machine_catalog.json" )
 		DESTINATION share/aqemu )
 ENDIF()
 
+# Per-architecture full QEMU probe catalogs (Main Window VM config panel)
+IF( EXISTS "${CMAKE_SOURCE_DIR}/qemu_probe_full_v3" )
+	ADD_CUSTOM_COMMAND( TARGET aqemu POST_BUILD
+		COMMAND ${CMAKE_COMMAND} -E make_directory
+			"$<TARGET_FILE_DIR:aqemu>/qemu_probe_full_v3"
+		COMMAND ${CMAKE_COMMAND} -E copy_directory
+			"${CMAKE_SOURCE_DIR}/qemu_probe_full_v3"
+			"$<TARGET_FILE_DIR:aqemu>/qemu_probe_full_v3"
+		COMMENT "Bundle qemu_probe_full_v3 for full VM config option lists"
+	)
+	INSTALL( DIRECTORY "${CMAKE_SOURCE_DIR}/qemu_probe_full_v3/"
+		DESTINATION share/aqemu/qemu_probe_full_v3
+		FILES_MATCHING PATTERN "*.json" )
+ENDIF()
+
 # Install files
 INSTALL( TARGETS aqemu DESTINATION bin )
 
@@ -580,7 +596,7 @@ ENDIF( INSTALL_MAN )
 # CPack Packaging Configuration
 SET( CPACK_GENERATOR "DEB" )
 SET( CPACK_PACKAGE_NAME "aqemu" )
-SET( CPACK_PACKAGE_VERSION "1.0.0" )
+SET( CPACK_PACKAGE_VERSION "1.1.0" )
 SET( CPACK_PACKAGE_CONTACT "chronic8000" )
 SET( CPACK_PACKAGE_DESCRIPTION_SUMMARY "AQEMU is a graphical user interface for the QEMU emulator." )
 SET( CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON )

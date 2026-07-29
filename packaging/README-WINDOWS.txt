@@ -1,7 +1,7 @@
-AQEMU 1.0.0 — Windows portable (x64)
+AQEMU 1.1.0 — Windows portable (x64)
 ====================================
 
-Updated build: 2026-07-25 (Machine section full-width + UI polish).
+Updated build: 2026-07-29 (full QEMU probe catalogs + wizard CPU defaults).
 
 Please file bugs:
   https://github.com/chronic8000/aqemu/issues
@@ -9,23 +9,17 @@ Please file bugs:
 Run:  aqemu.exe
 
 This zip includes:
-  - AQEMU 1.0.0 (Qt5 + embedded SPICE)
-  - QEMU 11.0.2 (qemu-system-x86_64, i386, aarch64, qemu-img)
+  - AQEMU 1.1.0 (Qt5 + embedded SPICE)
+  - QEMU 11.0.2 (full softmmu set + qemu-img)
   - UEFI/BIOS firmware under share/
   - OpenPartitionDxe.efi (Intel macOS OpenCore prep)
   - qemu_machine_catalog.json (New VM wizard machine list)
+  - qemu_probe_full_v3/*.json (full per-arch QEMU option lists for VM config)
 
 What's new in this zip:
-  - Machine Name/Accelerator/… fields span full width (same as Memory/Audio/…)
-  - White main chrome; West Info/Machine/Media/Display/Network rail
-  - No clipped combo/button text on HiDPI
-  - Resize / maximize / minimize-to-tray geometry fixes
+  - Main Window / Custom: full machines, CPUs, NICs, display devices per arch from probes
+  - Wizard: curated OS defaults with probe-validated CPUs (no more 486 for Ubuntu)
+  - Architecture switch refreshes full option lists without re-running the wizard
 
 Notes:
   - GitHub Release zips are NOT auto-updated. Grab a newer zip when we publish one.
-  - Microsoft Store (pending certification) will be the update channel for Store installs.
-  - You must supply your own OS ISOs / disks / OpenCore / OSK where required.
-  - License: GNU GPLv2 — source at https://github.com/chronic8000/aqemu
-  - Privacy: https://github.com/chronic8000/aqemu/blob/master/PRIVACY.md
-
-If Windows SmartScreen warns on first run, use More info → Run anyway (unsigned portable build).

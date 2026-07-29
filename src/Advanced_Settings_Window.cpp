@@ -304,7 +304,7 @@ Advanced_Settings_Window::Advanced_Settings_Window( QWidget *parent )
 	ui.CH_Log_Print_in_STDIO->setChecked( Settings.value("Log/Print_In_STDOUT", "yes").toString() == "yes" );
 	
 	// Log File Path
-	ui.Edit_Log_Path->setText( Settings.value("Log/Log_Path", Settings.value("VM_Directory", "").toString() + "aqemu.log").toString() );
+	ui.Edit_Log_Path->setText( Settings.value("Log/Log_Path", AQEMU_Default_Log_Path()).toString() );
 	
 	// Save to AQEMU Log
 	ui.CH_Log_Debug->setChecked( Settings.value("Log/Save_Debug", "no").toString() == "yes" );
@@ -397,7 +397,12 @@ Advanced_Settings_Window::Advanced_Settings_Window( QWidget *parent )
 #endif
 	
 	// Virtual Machines Folder
+	#ifdef Q_OS_WIN32
+	ui.Edit_VM_Folder->setText( QDir::toNativeSeparators(
+		Settings.value( "VM_Directory", AQEMU_Default_VM_Directory() ).toString() ) );
+	#else
 	ui.Edit_VM_Folder->setText( QDir::toNativeSeparators(Settings.value("VM_Directory", QDir::homePath() + "/.aqemu/").toString()) );
+	#endif
 	
 	// Use New Emulator Control Removable Device Menu
 	ui.CH_Use_New_Device_Changer->setChecked( Settings.value("Use_New_Device_Changer", "no").toString() == "yes" );
@@ -829,6 +834,20 @@ void Advanced_Settings_Window::done(int r)
 	    // VM Folder
 	    if( ! (ui.Edit_VM_Folder->text().endsWith("/") || ui.Edit_VM_Folder->text().endsWith("\\")) )
 		    ui.Edit_VM_Folder->setText( ui.Edit_VM_Folder->text() + QDir::toNativeSeparators("/") );
+
+	    #ifdef Q_OS_WIN32
+	    if( AQEMU_Path_Is_Install_Dir( ui.Edit_VM_Folder->text() ) )
+	    {
+		    AQGraphic_Warning( tr("Invalid folder"),
+			    tr("VM data cannot be stored in the AQEMU install folder "
+			       "(including Microsoft Store / WindowsApps).\n\n"
+			       "Using the AppData VMs folder instead:\n%1")
+				    .arg( AQEMU_Default_VM_Directory() ) );
+		    ui.Edit_VM_Folder->setText( AQEMU_Default_VM_Directory() );
+	    }
+	    if( AQEMU_Path_Is_Install_Dir( ui.Edit_Log_Path->text() ) )
+		    ui.Edit_Log_Path->setText( AQEMU_Default_Log_Path() );
+	    #endif
 	
 	    if( dir.exists(ui.Edit_VM_Folder->text()) )
 	    {

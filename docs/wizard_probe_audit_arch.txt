@@ -1,0 +1,28 @@
+x86_64       mach= 41 cpu= 241 dev= 388 plats= 4 os= 58 refs=3
+i386         mach= 41 cpu= 240 dev= 387 plats= 2 os= 47 refs=2
+ppc64        mach= 38 cpu= 420 dev= 361 plats= 6 os=  1 refs=5
+aarch64      mach=112 cpu=  36 dev= 353 plats=10 os=  7 refs=7
+arm          mach= 98 cpu=  24 dev= 352 plats=39 os= 37 refs=38
+riscv32      mach=  7 cpu=   8 dev= 302 plats= 3 os=  2 refs=2
+riscv64      mach= 10 cpu=  26 dev= 302 plats= 4 os=  2 refs=3
+ppc          mach= 13 cpu= 384 dev= 191 plats=13 os= 17 refs=11
+mips64el     mach=  7 cpu=  34 dev= 180 plats= 4 os=  3 refs=3
+s390x        mach= 20 cpu= 503 dev= 170 plats= 1 os=  1 refs=1
+mips         mach=  2 cpu=  18 dev= 166 plats= 2 os=  2 refs=2
+mips64       mach=  4 cpu=  34 dev= 166 plats= 2 os=  2 refs=2
+mipsel       mach=  2 cpu=  18 dev= 166 plats= 1 os=  0 refs=1
+sparc64      mach=  4 cpu=  17 dev= 166 plats= 2 os=  1 refs=2
+alpha        mach=  2 cpu=   7 dev= 165 plats= 1 os=  2 refs=1
+loongarch64  mach=  2 cpu=   3 dev= 164 plats= 0 os=  0 refs=0
+sh4          mach=  2 cpu=   3 dev= 162 plats= 1 os=  1 refs=1
+sh4eb        mach=  2 cpu=   3 dev= 162 plats= 0 os=  0 refs=0
+hppa         mach=  5 cpu=   3 dev= 158 plats= 4 os=  1 refs=2
+or1k         mach=  3 cpu=   2 dev= 152 plats= 0 os=  0 refs=0
+xtensa       mach= 11 cpu=   8 dev= 148 plats= 0 os=  0 refs=0
+xtensaeb     mach= 11 cpu=   2 dev= 148 plats= 0 os=  0 refs=0
+microblaze   mach=  4 cpu=   1 dev= 141 plats= 1 os=  1 refs=1
+m68k         mach= 22 cpu=  10 dev=  25 plats= 2 os=  4 refs=2
+rx           mach=  3 cpu=   1 dev=   6 plats= 0 os=  0 refs=0
+sparc        mach= 11 cpu=  13 dev=   6 plats= 0 os=  0 refs=0
+avr          mach=  9 cpu=   3 dev=   3 plats= 3 os=  3 refs=3
+tricore      mach=  3 cpu=   4 dev=   3 plats= 0 os=  0 refs=0

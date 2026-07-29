@@ -263,6 +263,7 @@ class VM_Wizard_Window: public QDialog
 		int Guest_RAM_MB;
 		double Guest_HDD_GB;
 		QString Guest_NIC_Model;
+		QString Guest_CPU_Type;
 		VM::Sound_Cards Guest_Sound;
 		QString Guest_Compat_Tip;
 		QString Guest_Disk_Bus;
@@ -293,6 +294,9 @@ class VM_Wizard_Window: public QDialog
 		void Update_Architecture_Page_Chrome();
 		void Update_Guest_Compat_Tip();
 		void Apply_Guest_Hardware_To_New_VM();
+		/** Probe-validated default CPU for the selected OS / target (never blind list[0]). */
+		QString Recommended_CPU_Type() const;
+		void Select_Recommended_CPU_In_Combo();
 
 		void Ensure_Machine_Catalog();
 		void Append_Catalog_Machines( QTreeWidgetItem *parent, const QString &target );
