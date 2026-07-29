@@ -64,18 +64,17 @@ class VM
 
         static Machine_Accelerator String_To_Accel(QString accel)
         {
-            if (accel.toLower() == "qemu")
+            const QString a = accel.toLower().trimmed();
+            if (a == "qemu" || a == "tcg")
                 return VM::TCG;
-            else if (accel.toLower() == "tcg")
-                return VM::TCG;
-            else if (accel.toLower() == "kvm")
+            else if (a == "kvm" || a == "qemu-kvm" || a == "whpx" || a == "hax" || a == "hvf")
                 return VM::KVM;
-            else if (accel.toLower() == "qemu-kvm")
-                return VM::KVM;
-            else if (accel.toLower() == "xen")
+            else if (a == "xen")
                 return VM::XEN;
             else
-                return VM::KVM; //default //FIXME? is this a good default?
+                // Unknown / empty must not become KVM — that made TCG selections
+                // silently launch as WHPX/KVM when UserRole/text failed to parse.
+                return VM::TCG;
         }
 		
 		// Guest audio devices ( one or more )
