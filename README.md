@@ -6,7 +6,7 @@
 
 <p align="center">
   <b>The QEMU virtual machine manager built for maximum power and modern ease.</b><br/>
-  ~30k lines beyond the legacy community tree — embedded SPICE, bundled QEMU <b>11.0.2</b>, Win11 ARM on x86, Win9x done right, classic Mac PPC + Intel macOS.<br/>
+  69k+ additions beyond the legacy community tree — probe-driven hardware catalogs, embedded displays, QMP, bundled QEMU <b>11.0.2</b>, and 193 guest profiles.<br/>
   <b>Now Available on the Microsoft Store!</b><br/>
   Maintained by <a href="https://github.com/chronic8000">Chronic Engineering</a>
 </p>
@@ -69,7 +69,18 @@ AQEMU started with **Andrey Rijov (RDron)**, then the community era under **Tobi
 
 ### https://github.com/chronic8000/aqemu
 
-Compared to [tobimensch/aqemu](https://github.com/tobimensch/aqemu): **embedded SPICE sessions**, **bundled QEMU 11.0.2**, **Win11 ARM**, proper **Win9x TCG**, **classic Mac + Intel macOS** (WSL/KVM), Solaris/AIX/OS/2 recipes, QMP/blockdev/migrate UI, Windows packaging + **Microsoft Store**. Roughly **+30,000 lines** of new work.
+Compared to [tobimensch/aqemu](https://github.com/tobimensch/aqemu): **probe-driven QEMU catalogs**, **five-path VM creation**, **embedded SPICE/VNC sessions**, **bundled QEMU 11.0.2**, **Win11 ARM**, proper **Win9x TCG**, **classic Mac + Intel macOS** (WSL/KVM), Solaris/AIX/OS/2 recipes, QMP/blockdev/migrate UI, Windows packaging + **Microsoft Store**.
+
+This is not a reskin. Measured from the final inactive upstream baseline, the revival represents approximately:
+
+- **69,000 additions / 2,400 deletions**
+- **250+ changed files** and **100+ fork-era commits**
+- **30 merged pull requests**
+- **193 curated guest OS profiles**
+- **29 selectable QEMU target architectures**
+- Probe data covering **28 architectures, 490 machines, 2,074 CPUs, 604 NICs and 194 display models**
+
+The work reaches through QEMU discovery, command generation, device compatibility, VM persistence, process supervision, display transport, runtime control, migration, packaging and the creation wizard. The interface changed because the system underneath it changed.
 
 We keep the original authors’ names. We do **not** inherit their old donation pages, crowdfunding, or SourceForge homepage.
 
@@ -88,15 +99,36 @@ We keep the original authors’ names. We do **not** inherit their old donation 
 
 ## What’s new vs the old AQEMU (tobimensch / ~0.9.x)
 
-The last widely known community tree — [tobimensch/aqemu](https://github.com/tobimensch/aqemu) — went quiet years ago (Qt5 port, VNC-era display, you brought your own QEMU). **This fork is not a polish pass.** From that baseline we are **~+30,000 lines / −2,000 lines across ~120 files** of real product work. Here is why you should download **1.0.0**:
+The last widely known community tree — [tobimensch/aqemu](https://github.com/tobimensch/aqemu) — went quiet in 2020 (Qt5 port, VNC-era display, you brought your own QEMU). **Calling this revival a reskin misses nearly all of the engineering.** AQEMU 1.1.0 changes the capability model, runtime architecture, VM creation flow, platform support and distribution pipeline—not just the appearance.
 
-### 1. Built-in QEMU 11.0.2 (Windows portable)
-Old AQEMU assumed a system QEMU install. Our Release zip / Store build **ships QEMU next to `aqemu.exe`** — `qemu-system-x86_64`, `i386`, `aarch64`, `qemu-img`, firmware — with a **File → Configure → Emulator** toggle for **built-in vs custom folder**. Unzip and run.
+### 1. Ground-truth capability engine
 
-### 2. Embedded SPICE sessions (not a lost SDL window)
-QEMU runs headless; you see the guest **inside AQEMU** via modern **spice-client-glib**, with a real **session toolbar** (media, USB hotplug, net, power) and **QMP** control. Old AQEMU leaned on LibVNC / separate display chrome. This is how you actually *use* a VM in 2026.
+AQEMU now consumes generated QEMU 11.0.2 probe catalogs instead of assuming that PC hardware exists on every target. The checked-in data covers **28 architectures, 490 machines, 2,074 CPUs, 604 network models and 194 display models**. It is merged with live QEMU discovery and used to validate architecture, machine, CPU, disk bus, NIC, video and audio choices.
 
-### 3. Guests people fight with today — with recipes that work
+The two UI paths intentionally serve different users:
+
+- The **wizard** uses conservative, guest-compatible recommendations.
+- The **main configuration and Custom flow** expose the complete probed machine/CPU/NIC/display lists.
+
+This prevents combinations such as PC floppy controllers on non-PC boards or Intel HDA on machines that cannot provide it, while preserving valid expert choices.
+
+### 2. Five creation paths and 193 guest profiles
+
+The rebuilt wizard can start from a **Guest OS**, **System/Board**, **CPU Architecture**, **Custom/Advanced configuration**, or **Existing Disk**. It supports ISO and disk import, URL downloads, kernel/initrd network installs, ISO9660 identification and optional `osinfo-detect`.
+
+Its 193 profiles span DOS and Windows 1.x through Windows 11 ARM, Linux/BSD, Haiku, ReactOS, OS/2, Solaris, AIX, IRIX, HP-UX, classic Mac, PowerPC OS X, experimental Intel macOS, RISC-V, IBM Z and embedded boards. Profiles carry architecture-aware machine, CPU, memory, storage, video, input, audio, NIC and boot recommendations.
+
+### 3. Built-in QEMU 11.0.2
+
+Old AQEMU assumed a system QEMU install. The portable and Store builds can ship a complete runtime beside `aqemu.exe`: all packaged `qemu-system-*` targets, `qemu-img`, `qemu-io`, `qemu-nbd`, firmware, ROMs and runtime libraries. Users can switch between **built-in QEMU** and an explicit **custom QEMU folder**.
+
+### 4. Embedded sessions and a new runtime architecture
+
+QEMU can run headless while AQEMU embeds the guest through **SPICE** or **LibVNCClient**, with native SDL/GTK routing where appropriate. The session UI provides fullscreen mode, removable-media controls, USB hotplug, serial console, power controls, Ctrl+Alt+Del, Shift+F10 and drive activity.
+
+An asynchronous **QMP client** drives pause/resume, ACPI shutdown, reset, media changes, block queries and live migration. Monitor ports are dynamically allocated outside Hyper-V's reserved ranges, and QEMU output is captured so launch failures are shown instead of disappearing in a separate process.
+
+### 5. Guests people fight with today — with recipes that work
 | Guest | What we added |
 |--|--|
 | **Windows 11 ARM** | Wizard + lifecycle on **x64 Windows hosts via TCG** (and KVM on Pi 5 / aarch64) |
@@ -105,23 +137,37 @@ QEMU runs headless; you see the guest **inside AQEMU** via modern **spice-client
 | **Classic Mac OS (PPC)** | `mac99` / PowerPC profiles, no PC floppy nonsense |
 | **Solaris 11.4 / AIX / OS/2 / ReactOS** | Wizard defaults matching real QEMU flags (AIX = `ppc64`/`pseries`, TCG on Windows) |
 
-### 4. Deeper QEMU — without living in a shell
-Advanced Options grew serious CLI parity: **NUMA, TPM, watchdog, secrets, SMBIOS, fw_cfg, audiodev, icount/sandbox**, richer chardev/blockdev hooks, a **blockdev graph** editor, and **migrate progress/cancel** over QMP. Old AQEMU could launch VMs; this one can express much more of what modern QEMU can do.
+### 6. Deeper QEMU without living in a shell
 
-### 5. Windows + Pi hosts that match how people work
+Advanced Options grew serious CLI coverage: **SMP topology, NUMA, memory backends, I/O threads, TPM, watchdog, secrets, UUID, SMBIOS, fw_cfg, audiodev, icount, sandboxing**, richer chardev/netdev/blockdev hooks, a **blockdev graph editor**, incoming migration and raw Additional Arguments.
+
+Storage tooling now covers image creation, backing files, conversion, compression, inspection, cloning and multiple IDE/AHCI/SCSI/VirtIO/NVMe/floppy/SD/MTD/pflash devices. Networking covers user/NAT forwarding, bridge, TAP, sockets, multicast, VDE, TFTP, SMB and modern `-netdev`/`-device` generation.
+
+### 7. Acceleration that respects the guest architecture
+
+AQEMU distinguishes explicit **TCG**, native acceleration and Xen. On Windows, the native path maps compatible x86 guests to WHPX/HAX with fallback; selecting TCG means pure TCG. Cross-architecture guests stay on TCG rather than being silently pushed toward an accelerator that cannot execute them.
+
+Compatibility guardrails handle vintage Windows guests that hang under WHPX, non-x86 guests on x86 hosts and KVM-capable AArch64 Linux hosts. Configuration refreshes preserve user-selected accelerator, machine and CPU values instead of resetting them to the first list entry.
+
+### 8. Windows, Linux and Pi hosts that match how people work
 - **WHPX** when the guest arch allows it; **never** shoved onto PPC/ARM guests that cannot use it  
 - **WSL/KVM** launch path for heavy guests (Intel macOS) when `/dev/kvm` is there  
 - **Raspberry Pi 5** build flags and aarch64 friendliness  
-- Portable packaging + **Microsoft Store** track (MSIX) for updates later  
+- Store-safe writable data under `%LOCALAPPDATA%`
 
-### 6. Still AQEMU — just alive
-Same GPLv2 soul, same authors credited, same “GUI over QEMU” mission. New home, new maintainers, **Issues + Discussions open**, Release zips you can actually run.
+### 9. A complete Windows distribution pipeline
+
+The repository now builds a portable application, WiX MSI and signed full-trust MSIX. Packaging stages QEMU, firmware, plugins and dependencies and validates that required runtime pieces are present. The Microsoft Store package adds managed installation and updates while the GPLv2 source remains public.
+
+### 10. Still AQEMU—just alive
+
+The project remains a QEMU frontend and manager, not a replacement hypervisor. It keeps the original GPLv2 mission and credits while modernizing nearly every layer needed to make that mission practical in 2026. Issues, Discussions and pull requests are open to everyone with a GitHub account.
 
 Full chronology: [`CHANGELOG`](CHANGELOG). Historical tree (not our homepage): [tobimensch/aqemu](https://github.com/tobimensch/aqemu).
 
 ---
 
-## The pitch: everything QEMU does — with a GUI
+## The pitch: QEMU's power—without hand-writing every command
 
 QEMU already speaks almost every guest architecture and machine type under the sun. AQEMU’s job is to **stop making you hand-write 40-flag command lines** and give you:
 
@@ -243,10 +289,12 @@ Details: [`third_party/README.md`](third_party/README.md).
 
 ## Feature highlights
 
-- **vs old AQEMU** — ~+30k lines: SPICE-in-app, bundled QEMU, modern guest recipes (see [What’s new](#whats-new-vs-the-old-aqemu-tobimensch--09x))
+- **Beyond the old AQEMU** — 69k+ additions across 250+ files; this is an architectural revival, not a reskin
+- **Ground-truth catalogs** — 28 probed architectures, 490 machines, 2,074 CPUs, 604 NICs and 194 displays
+- **Five-path wizard** — 193 curated guest profiles plus system, architecture, custom and disk-import flows
 - **QEMU installation** — **Use built-in QEMU** (portable zip) or **custom folder**
-- **Embedded SPICE + QMP** session UI (CD/FD/HDD/USB hotplug/net toolbar while the guest runs)
-- **Full arch discovery** — every `qemu-system-*` QEMU exposes
+- **Embedded SPICE/VNC + QMP** session UI (CD/FD/HDD/USB hotplug/net toolbar while the guest runs)
+- **Full architecture discovery** — 29 selectable QEMU targets plus live `qemu-system-*` discovery
 - **Windows 11 ARM** guided install / first boot / normal modes
 - **Force pure TCG** for pre-ME Windows that WHPX breaks
 - **Classic PPC Mac** + **experimental Intel macOS** (OpenCore / WSL-KVM)
