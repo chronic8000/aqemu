@@ -8313,8 +8313,12 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 				const int p = port_s.toInt( &ok );
 				if( ok && p > 0 )
 				{
-					// Test if the port is actually free; if bound by a leftover zombie process, dynamically reallocate!
-					const quint16 verified_port = Find_Free_TCP_Port( static_cast<quint16>( p ) );
+					// Test if the port is free. If occupied by a zombie process, probe p+1 to get a guaranteed free port.
+					quint16 verified_port = Find_Free_TCP_Port( static_cast<quint16>( p ) );
+					if( verified_port != p )
+					{
+						verified_port = Find_Free_TCP_Port( static_cast<quint16>( p + 1 ) );
+					}
 					Serial_Console_Port = verified_port;
 					if( verified_port != p )
 					{
