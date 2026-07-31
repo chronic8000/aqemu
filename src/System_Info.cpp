@@ -1209,6 +1209,7 @@ QMap<QString, QString> System_Info::Find_QEMU_Binary_Files( const QString &path 
 	// Well-known targets (ensures UI keys exist even when probing an empty dir)
 	const char *known[] = {
 		"qemu-system-x86_64", "qemu-system-i386",
+		"qemu-system-applesoc", "qemu-system-reimsvgpu",
 		"qemu-system-aarch64", "qemu-system-arm",
 		"qemu-system-riscv64", "qemu-system-riscv32",
 		"qemu-system-loongarch64", "qemu-system-openrisc",
