@@ -10185,11 +10185,32 @@ bool Virtual_Machine::Start_impl()
             }
         }
 
+		// Fallback resolution if binary_files map lacked entry or saved path was empty
+		if( bin_path.isEmpty() && ! find_name.isEmpty() )
+		{
+			// Check default emulator directory
+			const QString base_dir = Current_Emulator.Get_Path().isEmpty() ? AQ_Get_Bundled_QEMU_Dir() : Current_Emulator.Get_Path();
+			QMap<QString, QString> discovered = System_Info::Find_QEMU_Binary_Files( base_dir );
+			if( discovered.contains( find_name ) && ! discovered[ find_name ].isEmpty() && QFile::exists( discovered[ find_name ] ) )
+			{
+				bin_path = discovered[ find_name ];
+			}
+			else
+			{
+				// Check bundled directory directly
+				discovered = System_Info::Find_QEMU_Binary_Files( AQ_Get_Bundled_QEMU_Dir() );
+				if( discovered.contains( find_name ) && ! discovered[ find_name ].isEmpty() && QFile::exists( discovered[ find_name ] ) )
+				{
+					bin_path = discovered[ find_name ];
+				}
+			}
+		}
+
 		// Check path
 		if( bin_path.isEmpty() )
 		{
 			AQGraphic_Error( "bool Virtual_Machine::Start()", tr("Error!"),
-			                 tr("Cannot start emulator! Binary path is empty!"), false );
+			                 tr("Cannot start emulator! Binary path is empty for '%1'!\nPlease check binary path under Advanced Settings.").arg( find_name ), false );
 			Start_Snapshot_Tag = "";
 			return false;
 		}
