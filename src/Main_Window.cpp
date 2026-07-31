@@ -6077,8 +6077,12 @@ void Main_Window::Update_Computer_Types()
 	bool devOk = false;
 
 	current_devices = Get_Devices_Info( &devOk );
-	if( ! devOk )
-	    return;
+	for( QMap<QString, Available_Devices>::const_iterator it = System_Info::Emulator_QEMU_2_0.constBegin();
+	     it != System_Info::Emulator_QEMU_2_0.constEnd(); ++it )
+	{
+		if( ! current_devices.contains( it.key() ) )
+			current_devices.insert( it.key(), it.value() );
+	}
 
     QString text = ui.CB_Computer_Type->currentText();
 
