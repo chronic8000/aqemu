@@ -2387,7 +2387,11 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 
 	// Get current VM devices
 	Available_Devices curComp = tmp_vm->Get_Emulator().Get_Devices()[ tmp_vm->Get_Computer_Type() ];
-	if( System_Info::Emulator_QEMU_2_0.contains( tmp_vm->Get_Computer_Type() ) )
+	if( curComp.System.QEMU_Name.isEmpty() && System_Info::Emulator_QEMU_2_0.contains( tmp_vm->Get_Computer_Type() ) )
+	{
+		curComp = System_Info::Emulator_QEMU_2_0[ tmp_vm->Get_Computer_Type() ];
+	}
+	else if( System_Info::Emulator_QEMU_2_0.contains( tmp_vm->Get_Computer_Type() ) )
 	{
 		const Available_Devices &fb = System_Info::Emulator_QEMU_2_0[ tmp_vm->Get_Computer_Type() ];
 		curComp.PSO_SMP_Count = qMax( curComp.PSO_SMP_Count, fb.PSO_SMP_Count );
@@ -5724,6 +5728,12 @@ void Main_Window::Computer_Type_Changed()
 		ui.CB_Machine_Type_Main->blockSignals(false);
 		ui.CB_Video_Card->blockSignals(false);
 		return;
+	}
+
+	Virtual_Machine *live_vm = Get_Current_VM();
+	if( live_vm && ! curComp.System.QEMU_Name.isEmpty() )
+	{
+		live_vm->Set_Computer_Type( curComp.System.QEMU_Name );
 	}
 
 	// CPU

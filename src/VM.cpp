@@ -8305,7 +8305,6 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			const VM::Port_Redirection pr = serial_for_args[ix].Get_Port_Redirection();
 			if( pr == VM::PR_tcp || pr == VM::PR_telnet )
 			{
-				have_tcp_serial = true;
 				const QString params = serial_for_args[ix].Get_Parametrs_Line();
 				const QString port_s = params.contains( QLatin1Char( ':' ) )
 					? params.section( QLatin1Char( ':' ), 1 ).section( QLatin1Char( ',' ), 0, 0 )
@@ -8313,7 +8312,18 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 				bool ok = false;
 				const int p = port_s.toInt( &ok );
 				if( ok && p > 0 )
-					Serial_Console_Port = p;
+				{
+					// Test if the port is actually free; if bound by a leftover zombie process, dynamically reallocate!
+					const quint16 verified_port = Find_Free_TCP_Port( static_cast<quint16>( p ) );
+					Serial_Console_Port = verified_port;
+					if( verified_port != p )
+					{
+						const QString host = params.contains( QLatin1Char( ':' ) ) ? params.section( QLatin1Char( ':' ), 0, 0 ) : QStringLiteral( "127.0.0.1" );
+						const QString rest = params.contains( QLatin1Char( ',' ) ) ? ( QLatin1Char( ',' ) + params.section( QLatin1Char( ',' ), 1 ) ) : QStringLiteral( ",server,nowait" );
+						serial_for_args[ix].Set_Parametrs_Line( QStringLiteral( "%1:%2%3" ).arg( host ).arg( verified_port ).arg( rest ) );
+					}
+					have_tcp_serial = true;
+				}
 				break;
 			}
 		}
