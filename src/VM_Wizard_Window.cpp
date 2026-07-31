@@ -5119,13 +5119,23 @@ void VM_Wizard_Window::Apply_Intel_MacOS_Profile( bool simulate )
 	QString vm_dir = Settings.value( "VM_Directory", "~" ).toString();
 	QString vm_base = Get_FS_Compatible_VM_Name( ui.Edit_VM_Name->text() );
 
+	const bool is_reims = New_VM->Get_Computer_Type().contains( QLatin1String( "reimsvgpu" ), Qt::CaseInsensitive );
+
 	New_VM->Use_Intel_MacOS_Profile( true );
+	if( ! is_reims )
+	{
+		New_VM->Set_Computer_Type( QStringLiteral( "qemu-system-x86_64" ) );
+		New_VM->Set_Video_Card( QStringLiteral( "vmware" ) ); // vmware-svga — HiDPI/4K friendly vs std VGA
+	}
+	else
+	{
+		New_VM->Set_Video_Card( QStringLiteral( "virtio-gpu-pci" ) ); // Reims vGPU acceleration
+	}
 	New_VM->Set_Machine_Type( QStringLiteral( "q35" ) );
 	New_VM->Set_CPU_Type( QStringLiteral( "Skylake-Client-v4" ) );
-	New_VM->Set_SMP_CPU_Count( 2 );
+	New_VM->Set_SMP_CPU_Count( is_reims ? 4 : 2 );
 	if( New_VM->Get_Memory_Size() < 4096 )
-		New_VM->Set_Memory_Size( 4096 );
-	New_VM->Set_Video_Card( QStringLiteral( "vmware" ) ); // vmware-svga — HiDPI/4K friendly vs std VGA
+		New_VM->Set_Memory_Size( is_reims ? 8192 : 4096 );
 	New_VM->Set_Display_Resolution( QStringLiteral( "native" ) ); // match host; OpenCore patched on start
 	New_VM->Use_USB_Hub( true );
 	New_VM->Set_Mouse_Type( QStringLiteral( "usb-tablet" ) );
@@ -5157,13 +5167,13 @@ void VM_Wizard_Window::Apply_Intel_MacOS_Profile( bool simulate )
 	}
 #endif
 
-	QString qemu_bin;
+	QString qemu_bin = New_VM->Get_Computer_Type();
 	Emulator emul = Get_Default_Emulator();
 	QMap<QString, QString> bins = emul.Get_Binary_Files();
-	if( bins.contains( "qemu-system-x86_64" ) )
+	if( bins.contains( qemu_bin ) )
+		qemu_bin = bins[ qemu_bin ];
+	else if( bins.contains( "qemu-system-x86_64" ) )
 		qemu_bin = bins[ "qemu-system-x86_64" ];
-	else if( bins.contains( "qemu-system-x86" ) )
-		qemu_bin = bins[ "qemu-system-x86" ];
 
 	QString code = Find_UEFI_Firmware_CODE( qemu_bin, QStringLiteral( "x86_64" ) );
 	QString vars_dest = vm_dir + vm_base + "_OVMF_VARS.fd";
