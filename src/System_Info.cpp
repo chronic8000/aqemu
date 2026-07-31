@@ -895,16 +895,23 @@ bool System_Info::Update_VM_Computers_List()
 		{ "qemu-system-riscv64", "RISC-V 64-bit" },
 		{ "qemu-system-riscv32", "RISC-V 32-bit" },
 		{ "qemu-system-loongarch64", "LoongArch 64-bit" },
+		{ "qemu-system-or1k", "OpenRISC 1000 (or1k)" },
 		{ "qemu-system-openrisc", "OpenRISC 1000" },
 		{ "qemu-system-s390x", "S390x (Mainframe)" },
 		{ "qemu-system-alpha", "Alpha Server" },
 		{ "qemu-system-hppa", "HP PA-RISC" },
+		{ "qemu-system-sh4", "SuperH SH-4" },
+		{ "qemu-system-sh4eb", "SuperH SH-4 EB" },
 		{ "qemu-system-sh4el", "SuperH SH-4 (Little Endian)" },
 		{ "qemu-system-avr", "AVR Microcontroller" },
 		{ "qemu-system-rx", "Renesas RX" },
 		{ "qemu-system-tricore", "Infineon TriCore" },
 		{ "qemu-system-xtensa", "Tensilica Xtensa" },
-		{ "qemu-system-microblazeel", "MicroBlaze (Little Endian)" }
+		{ "qemu-system-xtensaeb", "Tensilica Xtensa EB" },
+		{ "qemu-system-microblaze", "MicroBlaze" },
+		{ "qemu-system-microblazeel", "MicroBlaze (Little Endian)" },
+		{ "qemu-system-mips64", "MIPS 64" },
+		{ "qemu-system-mips64el", "MIPS 64 EL" }
 	};
 	
 	for( size_t tx = 0; tx < sizeof(target_templates)/sizeof(target_templates[0]); ++tx )
