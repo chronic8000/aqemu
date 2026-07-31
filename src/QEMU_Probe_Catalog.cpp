@@ -230,9 +230,19 @@ void QEMU_Probe_Catalog::Parse_CPU_Help_Lines( const QStringList &lines,
 			desc = rx_ws.cap( 2 ).trimmed();
 		}
 		else
-			continue;
+		{
+			// Single-token line (e.g., "  apple-a13-cpu", "  cortex-a53")
+			const QString item = line.trimmed();
+			if( ! item.contains( ' ' ) && ! item.startsWith( '#' ) && ! item.startsWith( '-' ) )
+			{
+				id = item;
+				desc = "";
+			}
+			else
+				continue;
+		}
 
-		if( id.isEmpty() || id == "Available" )
+		if( id.isEmpty() || id == "Available" || id == "Available CPUs:" )
 			continue;
 		Append_Unique( out, Device_Map( Pretty_Caption( id, desc ), id ) );
 	}
