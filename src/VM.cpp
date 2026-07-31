@@ -6718,6 +6718,10 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	// Video ? architecture-aware: device-based (virtio-gpu) vs legacy -vga.
 	// Win11 ARM lifecycle (BVM): install = ramfb only; first_boot/normal = virtio-gpu only.
 	QString effective_video = System_Info::Sanitize_Video_Card( Computer_Type, Video_Card, Machine_Type );
+	if( effective_video == QLatin1String( "vmware" ) )
+		effective_video = QStringLiteral( "vmware-svga" );
+	if( effective_video == QLatin1String( "virtio" ) )
+		effective_video = QStringLiteral( "virtio-gpu-pci" );
 	const bool win11_early_display =
 		is_virt_arch && Win11_Lifecycle_Mode == VM::Win11_Install;
 	if( win11_early_display )
