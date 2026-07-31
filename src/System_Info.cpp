@@ -672,6 +672,15 @@ bool System_Info::Update_VM_Computers_List()
 	System_Info::Emulator_QEMU_2_0[ "qemu-system-applesoc" ] = ad;
 	
 	ad = Available_Devices();
+	ad.System = Device_Map( "x86_64 vGPU Accelerated", "qemu-system-reimsvgpu" );
+	ad.CPU_List += CPU_x86;
+	ad.Machine_List << Device_Map( QObject::tr("Standard PC (Q35 + ICH9)"), "q35" );
+	ad.Machine_List << Device_Map( QObject::tr("Standard PC (i440FX + PIIX)"), "pc" );
+	ad.Video_Card_List += QEMU_Video_Cards_v0_10_0;
+	ad.Audio_Card_List = Audio_Card_x86;
+	System_Info::Emulator_QEMU_2_0[ "qemu-system-reimsvgpu" ] = ad;
+	
+	ad = Available_Devices();
 	ad.System = Device_Map( "Cris", "qemu-system-cris" );
 	ad.Machine_List << Device_Map( QObject::tr("Bare ETRAX FS board"), "bareetraxfs" );
 	ad.Machine_List << Device_Map( QObject::tr("AXIS devboard 88"), "axis-dev88" );

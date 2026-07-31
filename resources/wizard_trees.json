@@ -11,6 +11,7 @@
       "Mac OS X PPC",
       "macOS",
       "macOS Apple Silicon (ARM64)",
+      "macOS x86_64 vGPU (Reims)",
       "NeXTSTEP",
       "OPENSTEP"
     ],
@@ -436,7 +437,8 @@
     "SH4 EB": "sh4eb",
     "TriCore": "tricore",
     "LoongArch": "loongarch64",
-    "Apple Silicon SoC": "applesoc"
+    "Apple Silicon SoC": "applesoc",
+    "x86_64 vGPU (Reims)": "reimsvgpu"
   },
   "platform_bindings": {
     "PC (Q35)": {
@@ -696,6 +698,24 @@
       "nic": "virtio-net-pci",
       "sound": "none",
       "tip": "Defaulting to Apple A13 Bionic (t8030) machine architecture via ChefKiss Inferno emulator."
+    },
+    "macOS x86_64 vGPU (Reims)": {
+      "target": "reimsvgpu",
+      "machine": "q35",
+      "ram_mb": 8192,
+      "hdd_gb": 64.0,
+      "nic": "virtio-net-pci",
+      "sound": "hda",
+      "tip": "Virtual GPU accelerated Intel macOS via steelbrain Reims vGPU engine (qemu-system-reimsvgpu)."
+    },
+    "Windows 11 vGPU (Reims)": {
+      "target": "reimsvgpu",
+      "machine": "q35",
+      "ram_mb": 8192,
+      "hdd_gb": 64.0,
+      "nic": "virtio-net-pci",
+      "sound": "hda",
+      "tip": "Virtual GPU accelerated Windows 11 using Reims vGPU QEMU target (qemu-system-reimsvgpu)."
     },
     "Pegasos II": {
       "target": "ppc",
