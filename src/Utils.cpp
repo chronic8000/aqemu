@@ -614,10 +614,20 @@ QString AQ_Get_Bundled_QEMU_Dir()
 #else
 	const QString suf;
 #endif
-	const QStringList probes = QStringList()
+	QStringList probes = QStringList()
 		<< app_dir
 		<< ( app_dir + QDir::separator() + QStringLiteral( "qemu" ) )
-		<< ( app_dir + QDir::separator() + QStringLiteral( "bin" ) );
+		<< ( app_dir + QDir::separator() + QStringLiteral( "bin" ) )
+		<< QDir::cleanPath( app_dir + QStringLiteral( "/.." ) )
+		<< QDir::cleanPath( app_dir + QStringLiteral( "/../qemu" ) );
+
+#ifdef Q_OS_WIN32
+	probes << QStringLiteral( "C:/Program Files/qemu" )
+	       << QStringLiteral( "C:/Program Files (x86)/qemu" );
+#else
+	probes << QStringLiteral( "/usr/bin" )
+	       << QStringLiteral( "/usr/local/bin" );
+#endif
 
 	for( int i = 0; i < probes.count(); ++i )
 	{
@@ -625,8 +635,13 @@ QString AQ_Get_Bundled_QEMU_Dir()
 		const QString marker = d + QDir::separator() + QStringLiteral( "qemu-system-x86_64" ) + suf;
 		const QString marker2 = d + QDir::separator() + QStringLiteral( "qemu-system-i386" ) + suf;
 		const QString marker3 = d + QDir::separator() + QStringLiteral( "qemu-system-aarch64" ) + suf;
-		if( QFile::exists( marker ) || QFile::exists( marker2 ) || QFile::exists( marker3 ) )
+		const QString marker4 = d + QDir::separator() + QStringLiteral( "qemu-system-applesoc" ) + suf;
+		const QString marker5 = d + QDir::separator() + QStringLiteral( "qemu-system-reimsvgpu" ) + suf;
+		if( QFile::exists( marker ) || QFile::exists( marker2 ) || QFile::exists( marker3 ) ||
+		    QFile::exists( marker4 ) || QFile::exists( marker5 ) )
+		{
 			return d.endsWith( QDir::separator() ) ? d : ( d + QDir::separator() );
+		}
 	}
 	return QString();
 }

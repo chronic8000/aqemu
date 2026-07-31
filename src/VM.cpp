@@ -10188,20 +10188,48 @@ bool Virtual_Machine::Start_impl()
 		// Fallback resolution if binary_files map lacked entry or saved path was empty
 		if( bin_path.isEmpty() && ! find_name.isEmpty() )
 		{
-			// Check default emulator directory
-			const QString base_dir = Current_Emulator.Get_Path().isEmpty() ? AQ_Get_Bundled_QEMU_Dir() : Current_Emulator.Get_Path();
-			QMap<QString, QString> discovered = System_Info::Find_QEMU_Binary_Files( base_dir );
-			if( discovered.contains( find_name ) && ! discovered[ find_name ].isEmpty() && QFile::exists( discovered[ find_name ] ) )
+			QStringList search_dirs;
+			if( ! Current_Emulator.Get_Path().isEmpty() )
+				search_dirs << Current_Emulator.Get_Path();
+			
+			search_dirs << AQ_Get_Bundled_QEMU_Dir();
+			const QString app_dir = QDir::cleanPath( QCoreApplication::applicationDirPath() );
+			search_dirs << app_dir
+			            << ( app_dir + QStringLiteral( "/qemu" ) )
+			            << ( app_dir + QStringLiteral( "/bin" ) )
+			            << QDir::cleanPath( app_dir + QStringLiteral( "/.." ) )
+			            << QDir::cleanPath( app_dir + QStringLiteral( "/../qemu" ) );
+
+			// System PATH & Standard Windows/Store Paths
+			QStringList sys_env = QProcess::systemEnvironment();
+			for( int ix = 0; ix < sys_env.count(); ++ix )
 			{
-				bin_path = discovered[ find_name ];
+				if( sys_env[ix].startsWith( "PATH=", Qt::CaseInsensitive ) )
+				{
+					QString tmp = sys_env[ ix ].mid( 5 );
+					search_dirs += tmp.split( QDir::listSeparator(), QString::SkipEmptyParts );
+					break;
+				}
 			}
-			else
+
+#ifdef Q_OS_WIN32
+			search_dirs << QStringLiteral( "C:/Program Files/qemu" )
+			            << QStringLiteral( "C:/Program Files (x86)/qemu" );
+#else
+			search_dirs << QStringLiteral( "/usr/bin" )
+			            << QStringLiteral( "/usr/local/bin" );
+#endif
+			search_dirs.removeDuplicates();
+
+			for( int d_idx = 0; d_idx < search_dirs.count(); ++d_idx )
 			{
-				// Check bundled directory directly
-				discovered = System_Info::Find_QEMU_Binary_Files( AQ_Get_Bundled_QEMU_Dir() );
+				if( search_dirs[d_idx].isEmpty() || ! QFile::exists( search_dirs[d_idx] ) )
+					continue;
+				QMap<QString, QString> discovered = System_Info::Find_QEMU_Binary_Files( search_dirs[d_idx] );
 				if( discovered.contains( find_name ) && ! discovered[ find_name ].isEmpty() && QFile::exists( discovered[ find_name ] ) )
 				{
 					bin_path = discovered[ find_name ];
+					break;
 				}
 			}
 		}
