@@ -2345,14 +2345,7 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 	ui.CB_Machine_Accelerator->blockSignals( false );
 
 	Enforce_Accel_Honesty();
-	Update_Accelerator_Options();
-
-	/*if( ui.CB_Machine_Accelerator->count() <= 0 )
-	{
-		AQError( "void Main_Window::Update_VM_Ui()",
-				 "ui.CB_Machine_Accelerator->count() <= 0" );
-		return;
-	}*/
+	Update_Computer_Types();
 
 	// Get current VM devices
 	Available_Devices curComp = tmp_vm->Get_Emulator().Get_Devices()[ tmp_vm->Get_Computer_Type() ];
