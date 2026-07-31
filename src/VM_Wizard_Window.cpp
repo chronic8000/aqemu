@@ -2442,6 +2442,12 @@ void VM_Wizard_Window::Apply_Guest_Hardware_To_New_VM()
 	{
 		New_VM->Use_GPU_Passthrough( false );
 	}
+
+	if( Selected_Target == QLatin1String( "reimsvgpu" ) ||
+	    Selected_OS_Name.contains( QLatin1String( "Reims" ), Qt::CaseInsensitive ) )
+	{
+		New_VM->Set_Computer_Type( QStringLiteral( "qemu-system-reimsvgpu" ) );
+	}
 }
 
 void VM_Wizard_Window::Prefer_Accelerator_For_Target( const QString &target )

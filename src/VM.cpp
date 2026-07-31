@@ -6696,8 +6696,8 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		effective_machine.contains( QLatin1String( "g3beige" ), Qt::CaseInsensitive ) ||
 		Computer_Type.contains( QLatin1String( "s390" ), Qt::CaseInsensitive ) ||
 		Computer_Type.contains( QLatin1String( "qemu-system-ppc" ), Qt::CaseInsensitive ) ||
-		Computer_Type.contains( QLatin1String( "m68k" ), Qt::CaseInsensitive ) ||
 		Computer_Type.contains( QLatin1String( "sparc" ), Qt::CaseInsensitive ) ||
+		Computer_Type.contains( QLatin1String( "mips" ), Qt::CaseInsensitive );
 	// NeXT Cube: onboard ESP SCSI + framebuffer; no PCI virtio, firmware via -bios.
 	const bool is_next_cube =
 		effective_machine.contains( QLatin1String( "next-cube" ), Qt::CaseInsensitive );
