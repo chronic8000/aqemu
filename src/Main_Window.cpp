@@ -3018,10 +3018,20 @@ void Main_Window::Update_Disabled_Controls()
 	}
 	else
 	{
-		for( int cx = 1; (cx -1) <= curComp.PSO_SMP_Count; cx *= 2 )
+		QSet<int> added;
+		for( int cx = 1; cx <= 16 && cx <= curComp.PSO_SMP_Count; ++cx )
 		{
-			if( cx == 256 ) ui.CB_CPU_Count->addItem( QString::number(255) );
-			else ui.CB_CPU_Count->addItem( QString::number(cx) );
+			ui.CB_CPU_Count->addItem( QString::number(cx) );
+			added.insert( cx );
+		}
+		for( int cx = 32; (cx - 1) <= curComp.PSO_SMP_Count; cx *= 2 )
+		{
+			if( ! added.contains( cx ) )
+			{
+				if( cx == 256 ) ui.CB_CPU_Count->addItem( QString::number(255) );
+				else ui.CB_CPU_Count->addItem( QString::number(cx) );
+				added.insert( cx );
+			}
 		}
 
 		ui.CB_CPU_Count->setEnabled( true );
@@ -5905,6 +5915,19 @@ void Main_Window::on_CB_Machine_Type_Main_currentIndexChanged( int index )
 	if( index < ui_arch.CB_Machine_Type->count() )
 		ui_arch.CB_Machine_Type->setCurrentIndex( index );
 	ui_arch.CB_Machine_Type->blockSignals(false);
+
+	bool devOk = false;
+	Available_Devices curComp = Get_Current_Machine_Devices( &devOk );
+	Virtual_Machine *live_vm = Get_Current_VM();
+	if( devOk && live_vm && index >= 0 && index < curComp.Machine_List.count() )
+	{
+		live_vm->Set_Machine_Type( curComp.Machine_List[index].QEMU_Name );
+	}
+	else if( live_vm && ! ui.CB_Machine_Type_Main->currentText().isEmpty() )
+	{
+		live_vm->Set_Machine_Type( ui.CB_Machine_Type_Main->currentText() );
+	}
+
 	Enforce_Disk_Bus_Honesty();
 	VM_Changed();
 }
@@ -5926,6 +5949,19 @@ void Main_Window::sync_arch_Machine_Type_changed( int index )
 	if( index < ui.CB_Machine_Type_Main->count() )
 		ui.CB_Machine_Type_Main->setCurrentIndex( index );
 	ui.CB_Machine_Type_Main->blockSignals(false);
+
+	bool devOk = false;
+	Available_Devices curComp = Get_Current_Machine_Devices( &devOk );
+	Virtual_Machine *live_vm = Get_Current_VM();
+	if( devOk && live_vm && index >= 0 && index < curComp.Machine_List.count() )
+	{
+		live_vm->Set_Machine_Type( curComp.Machine_List[index].QEMU_Name );
+	}
+	else if( live_vm && ! ui.CB_Machine_Type_Main->currentText().isEmpty() )
+	{
+		live_vm->Set_Machine_Type( ui.CB_Machine_Type_Main->currentText() );
+	}
+
 	VM_Changed();
 }
 
