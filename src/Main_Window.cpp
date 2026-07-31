@@ -101,6 +101,7 @@
 #include "Remote_Host_Window.h"
 #include "AQ_UI_Style.h"
 #include "Utils.h"
+#include "QEMU_Probe_Catalog.h"
 #include "Blockdev_Graph_Window.h"
 #include "Service.h"
 #include "No_Boot_Device.h"
@@ -1363,6 +1364,9 @@ Available_Devices Main_Window::Get_Current_Machine_Devices( bool *ok ) const
 				d.PSO_SMP_MaxCPUs = d.PSO_SMP_MaxCPUs || fb.PSO_SMP_MaxCPUs;
 			}
 			System_Info::Normalize_Virt_Arch_Devices( d );
+			// Full QEMU option lists for this architecture (Main Window only;
+			// wizard stays on Guest_Capabilities curated defaults).
+			QEMU_Probe_Catalog::Merge_Into( d );
 			return d;
 		}
     }
@@ -1451,41 +1455,53 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
     // Machine Accelerator (prefer UserRole id over translated text)
 	{
 		const QVariant accel_data = ui.CB_Machine_Accelerator->currentData( Qt::UserRole );
-		if( accel_data.isValid() && ! accel_data.toString().isEmpty() )
-			tmp_vm->Set_Machine_Accelerator( VM::String_To_Accel( accel_data.toString() ) );
-		else
-			tmp_vm->Set_Machine_Accelerator( VM::String_To_Accel( ui.CB_Machine_Accelerator->currentText() ) );
+		QString accel_id = accel_data.isValid() ? accel_data.toString().trimmed().toLower() : QString();
+		if( accel_id.isEmpty() )
+		{
+			const QString caption = ui.CB_Machine_Accelerator->currentText().trimmed().toLower();
+			if( caption.startsWith( QLatin1String( "tcg" ) ) || caption.contains( QLatin1String( "software" ) ) )
+				accel_id = QStringLiteral( "tcg" );
+			else if( caption.startsWith( QLatin1String( "kvm" ) ) || caption.contains( QLatin1String( "whpx" ) ) )
+				accel_id = QStringLiteral( "kvm" );
+			else if( caption.startsWith( QLatin1String( "xen" ) ) )
+				accel_id = QStringLiteral( "xen" );
+			else
+				accel_id = caption;
+		}
+		tmp_vm->Set_Machine_Accelerator( VM::String_To_Accel( accel_id ) );
 	}
 
 	// Computer Type
 	tmp_vm->Set_Computer_Type( curComp.System.QEMU_Name );
 
-	// Machine Type
-	if( ui_arch.CB_Machine_Type->currentIndex() != -1 && ui_arch.CB_Machine_Type->currentIndex() < curComp.Machine_List.count() )
+	// Machine Type — Main combo is what the user sees; keep ui_arch in sync
 	{
-		tmp_vm->Set_Machine_Type( curComp.Machine_List[ui_arch.CB_Machine_Type->currentIndex()].QEMU_Name );
-	}
-	else if( ! ui_arch.CB_Machine_Type->currentText().isEmpty() )
-	{
-		tmp_vm->Set_Machine_Type( ui_arch.CB_Machine_Type->currentText() );
-	}
-	else
-	{
-		tmp_vm->Set_Machine_Type( old_vm->Get_Machine_Type() );
+		int mi = ui.CB_Machine_Type_Main->currentIndex();
+		if( mi < 0 || mi >= curComp.Machine_List.count() )
+			mi = ui_arch.CB_Machine_Type->currentIndex();
+		if( mi >= 0 && mi < curComp.Machine_List.count() )
+			tmp_vm->Set_Machine_Type( curComp.Machine_List[mi].QEMU_Name );
+		else if( ! ui.CB_Machine_Type_Main->currentText().isEmpty() )
+			tmp_vm->Set_Machine_Type( ui.CB_Machine_Type_Main->currentText() );
+		else if( ! ui_arch.CB_Machine_Type->currentText().isEmpty() )
+			tmp_vm->Set_Machine_Type( ui_arch.CB_Machine_Type->currentText() );
+		else
+			tmp_vm->Set_Machine_Type( old_vm->Get_Machine_Type() );
 	}
 
 	// CPU Type
-	if( ui_arch.CB_CPU_Type->currentIndex() != -1 && ui_arch.CB_CPU_Type->currentIndex() < curComp.CPU_List.count() )
 	{
-		tmp_vm->Set_CPU_Type( curComp.CPU_List[ui_arch.CB_CPU_Type->currentIndex()].QEMU_Name );
-	}
-	else if( ! ui_arch.CB_CPU_Type->currentText().isEmpty() )
-	{
-		tmp_vm->Set_CPU_Type( ui_arch.CB_CPU_Type->currentText() );
-	}
-	else
-	{
-		tmp_vm->Set_CPU_Type( old_vm->Get_CPU_Type() );
+		int ci = ui.CB_CPU_Type_Main->currentIndex();
+		if( ci < 0 || ci >= curComp.CPU_List.count() )
+			ci = ui_arch.CB_CPU_Type->currentIndex();
+		if( ci >= 0 && ci < curComp.CPU_List.count() )
+			tmp_vm->Set_CPU_Type( curComp.CPU_List[ci].QEMU_Name );
+		else if( ! ui.CB_CPU_Type_Main->currentText().isEmpty() )
+			tmp_vm->Set_CPU_Type( ui.CB_CPU_Type_Main->currentText() );
+		else if( ! ui_arch.CB_CPU_Type->currentText().isEmpty() )
+			tmp_vm->Set_CPU_Type( ui_arch.CB_CPU_Type->currentText() );
+		else
+			tmp_vm->Set_CPU_Type( old_vm->Get_CPU_Type() );
 	}
 
 	// Create Emulator Info
@@ -1821,8 +1837,8 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
 	tmp_vm->Set_UEFI_VARS_File( old_vm->Get_UEFI_VARS_File() );
 	tmp_vm->Use_USB_Hub( old_vm->Use_USB_Hub() );
 	tmp_vm->Set_Win11_Lifecycle_Mode( old_vm->Get_Win11_Lifecycle_Mode() );
-	tmp_vm->Use_Intel_MacOS_Profile( ui_ao.CH_Intel_MacOS_Profile->isChecked() ||
-	                                 old_vm->Use_Intel_MacOS_Profile() );
+	// Honor the checkbox — do not OR with old_vm (that made Intel Mac / WSL sticky forever).
+	tmp_vm->Use_Intel_MacOS_Profile( ui_ao.CH_Intel_MacOS_Profile->isChecked() );
 	{
 		// Prefer main VM-page Intel macOS fields when that section is shown; else Advanced Options;
 		// finally preserve wizard-set values from old_vm.
@@ -1842,9 +1858,10 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
 		if( recovery.isEmpty() )
 			recovery = old_vm->Get_Mac_Recovery_Image_Path();
 
+		// WSL launch is opt-in from visible UI only — never sticky-OR old_vm (that forced
+		// accel=kvm on Mac OS X PPC and other TCG guests after one accidental enable).
 		const bool wsl = ui.CH_Intel_Mac_WSL_Main->isChecked() ||
-		                 ui_ao.CH_Launch_Via_WSL->isChecked() ||
-		                 old_vm->Use_Launch_Via_WSL();
+		                 ui_ao.CH_Launch_Via_WSL->isChecked();
 
 		tmp_vm->Set_Apple_SMC_OSK( osk );
 		tmp_vm->Set_OpenCore_Boot_Path( oc );
@@ -2308,6 +2325,7 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 
     int found = false;
 	const QString want_accel = VM::Accel_To_String( tmp_vm->Get_Machine_Accelerator() ).toLower();
+	ui.CB_Machine_Accelerator->blockSignals( true );
 	for( int ix = 0; ix < ui.CB_Machine_Accelerator->count(); ix++ )
 	{
 		const QString id = ui.CB_Machine_Accelerator->itemData( ix, Qt::UserRole ).toString().toLower();
@@ -2324,8 +2342,10 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
     {
     	ui.CB_Machine_Accelerator->setCurrentIndex( 0 );
     }
+	ui.CB_Machine_Accelerator->blockSignals( false );
 
 	Enforce_Accel_Honesty();
+	Update_Accelerator_Options();
 
 	/*if( ui.CB_Machine_Accelerator->count() <= 0 )
 	{
@@ -5625,7 +5645,11 @@ void Main_Window::on_CB_Computer_Type_currentIndexChanged( int index )
 
 void Main_Window::on_CB_Machine_Accelerator_currentIndexChanged( int index )
 {
-	Apply_Emulator( 1 );
+	Q_UNUSED( index );
+	// Do NOT call Apply_Emulator(1): its old fall-through rebuilt computer/machine/CPU
+	// lists and auto-saved index 0, so picking TCG/KVM silently rewrote other settings.
+	Update_Accelerator_Options();
+	VM_Changed();
 }
 
 
@@ -5651,15 +5675,26 @@ void Main_Window::Computer_Type_Changed()
     ui.CB_Machine_Type_Main->blockSignals(true);
     ui.CB_Video_Card->blockSignals(true);
 
+	// Keep the user's current picks across list rebuilds (accel refresh, same-arch re-entry).
+	const QString keep_machine_caption = ui.CB_Machine_Type_Main->currentText();
+	const QString keep_cpu_caption = ui.CB_CPU_Type_Main->currentText();
+
+	curComp = Get_Current_Machine_Devices( &devOk );
+	if( ! devOk )
+	{
+		ui_arch.CB_CPU_Type->blockSignals(false);
+		ui_arch.CB_Machine_Type->blockSignals(false);
+		ui.CB_CPU_Type_Main->blockSignals(false);
+		ui.CB_Machine_Type_Main->blockSignals(false);
+		ui.CB_Video_Card->blockSignals(false);
+		return;
+	}
+
 	// CPU
 	ui_arch.CB_CPU_Type->clear();
 	ui.CB_CPU_Type_Main->clear();
 
 	cl = QStringList();
-
-	curComp = Get_Current_Machine_Devices( &devOk );
-	if( ! devOk )
-	    return;
 
 	for( int mx = 0; mx < curComp.CPU_List.count(); ++mx )
 		cl << curComp.CPU_List[mx].Caption;
@@ -5679,53 +5714,73 @@ void Main_Window::Computer_Type_Changed()
 	ui_arch.CB_Machine_Type->addItems( cl );
 	ui.CB_Machine_Type_Main->addItems( cl );
 
-	// Prefer virt / max for aarch64 (and friends) as the working default
 	const QString arch_bin = curComp.System.QEMU_Name;
 	const bool is_virt_arch =
 		arch_bin.contains( "aarch64", Qt::CaseInsensitive ) ||
 		arch_bin.contains( "qemu-system-arm", Qt::CaseInsensitive ) ||
 		arch_bin.contains( "riscv", Qt::CaseInsensitive );
 
-	if( is_virt_arch )
+	Virtual_Machine *cur_vm = Get_Current_VM();
+	QString want_machine;
+	QString want_cpu;
+	const bool same_arch = cur_vm && ( cur_vm->Get_Computer_Type() == arch_bin );
+	if( same_arch )
 	{
+		want_machine = cur_vm->Get_Machine_Type();
+		want_cpu = cur_vm->Get_CPU_Type();
+	}
+
+	auto select_machine = [&]( const QString &qemu_name ) -> bool
+	{
+		if( qemu_name.isEmpty() ) return false;
 		for( int mx = 0; mx < curComp.Machine_List.count(); ++mx )
 		{
-			if( curComp.Machine_List[mx].QEMU_Name == "virt" )
+			if( curComp.Machine_List[mx].QEMU_Name == qemu_name ||
+			    curComp.Machine_List[mx].Caption == qemu_name )
 			{
 				ui_arch.CB_Machine_Type->setCurrentIndex( mx );
 				ui.CB_Machine_Type_Main->setCurrentIndex( mx );
-				break;
+				return true;
 			}
 		}
-		QString prefer_cpu =
-		#ifdef Q_OS_WIN32
-			"max";
-		#else
-			"host";
-		#endif
-		int cpu_idx = -1;
+		return false;
+	};
+	auto select_cpu = [&]( const QString &qemu_name ) -> bool
+	{
+		if( qemu_name.isEmpty() ) return false;
 		for( int cx = 0; cx < curComp.CPU_List.count(); ++cx )
 		{
-			if( curComp.CPU_List[cx].QEMU_Name == prefer_cpu )
+			if( curComp.CPU_List[cx].QEMU_Name == qemu_name ||
+			    curComp.CPU_List[cx].Caption == qemu_name )
 			{
-				cpu_idx = cx;
-				break;
+				ui_arch.CB_CPU_Type->setCurrentIndex( cx );
+				ui.CB_CPU_Type_Main->setCurrentIndex( cx );
+				return true;
 			}
-			if( cpu_idx < 0 && curComp.CPU_List[cx].QEMU_Name == "max" )
-				cpu_idx = cx;
 		}
-		if( cpu_idx >= 0 )
+		return false;
+	};
+
+	// 1) Restore VM values when arch is unchanged
+	// 2) Else keep current UI captions if they still exist in the new list
+	// 3) Else virt/max defaults for virt arches (new arch only)
+	if( ! select_machine( want_machine ) )
+		if( ! select_machine( keep_machine_caption ) )
+			if( is_virt_arch )
+				select_machine( QStringLiteral( "virt" ) );
+
+	if( ! select_cpu( want_cpu ) )
+	{
+		if( ! select_cpu( keep_cpu_caption ) && is_virt_arch )
 		{
-			ui_arch.CB_CPU_Type->setCurrentIndex( cpu_idx );
-			ui.CB_CPU_Type_Main->setCurrentIndex( cpu_idx );
-		}
-		for( int vx = 0; vx < curComp.Video_Card_List.count(); ++vx )
-		{
-			if( curComp.Video_Card_List[vx].QEMU_Name == "virtio-gpu-pci" )
-			{
-				// Will set after video list is filled below
-				break;
-			}
+			QString prefer_cpu =
+			#ifdef Q_OS_WIN32
+				QStringLiteral( "max" );
+			#else
+				QStringLiteral( "host" );
+			#endif
+			if( ! select_cpu( prefer_cpu ) )
+				select_cpu( QStringLiteral( "max" ) );
 		}
 	}
 
@@ -5733,13 +5788,12 @@ void Main_Window::Computer_Type_Changed()
 	ui.CB_Video_Card->clear();
 
 	QString want_video = System_Info::Default_Video_Card( arch_bin );
-	Virtual_Machine *cur_vm = Get_Current_VM();
-	if( cur_vm )
+	if( cur_vm && same_arch )
 	{
+		// UI-only sanitize — never mutate the live VM until Apply/save.
 		want_video = System_Info::Sanitize_Video_Card(
-			arch_bin, cur_vm->Get_Video_Card(), cur_vm->Get_Machine_Type() );
-		if( want_video != cur_vm->Get_Video_Card() )
-			cur_vm->Set_Video_Card( want_video );
+			arch_bin, cur_vm->Get_Video_Card(),
+			want_machine.isEmpty() ? cur_vm->Get_Machine_Type() : want_machine );
 	}
 
 	for( int vx = 0; vx < curComp.Video_Card_List.count(); ++vx )
@@ -5795,6 +5849,7 @@ void Main_Window::Computer_Type_Changed()
 	Enforce_Accel_Honesty();
 	Enforce_Disk_Bus_Honesty();
 	Update_Disabled_Controls();
+	VM_Changed();
 }
 
 void Main_Window::on_CB_Machine_Type_Main_currentIndexChanged( int index )
@@ -5840,12 +5895,25 @@ void Main_Window::sync_arch_CPU_Type_changed( int index )
 
 void Main_Window::Update_Machine_Accelerators()
 {
-    ui.CB_Machine_Accelerator->blockSignals(true);
+	const QString keep = ui.CB_Machine_Accelerator->currentData( Qt::UserRole ).toString().toLower();
+
+	ui.CB_Machine_Accelerator->blockSignals( true );
 	ui.CB_Machine_Accelerator->clear();
-	ui.CB_Machine_Accelerator->addItem( tr("TCG"), QStringLiteral( "tcg" ) );
-	ui.CB_Machine_Accelerator->addItem( tr("KVM"), QStringLiteral( "kvm" ) );
-	ui.CB_Machine_Accelerator->addItem( tr("XEN"), QStringLiteral( "xen" ) );
-    ui.CB_Machine_Accelerator->blockSignals(false);
+	ui.CB_Machine_Accelerator->addItem( tr( "TCG" ), QStringLiteral( "tcg" ) );
+	ui.CB_Machine_Accelerator->addItem( tr( "KVM" ), QStringLiteral( "kvm" ) );
+	ui.CB_Machine_Accelerator->addItem( tr( "XEN" ), QStringLiteral( "xen" ) );
+
+	int restore = 0;
+	for( int i = 0; i < ui.CB_Machine_Accelerator->count(); ++i )
+	{
+		if( ui.CB_Machine_Accelerator->itemData( i, Qt::UserRole ).toString().toLower() == keep )
+		{
+			restore = i;
+			break;
+		}
+	}
+	ui.CB_Machine_Accelerator->setCurrentIndex( restore );
+	ui.CB_Machine_Accelerator->blockSignals( false );
 	Enforce_Accel_Honesty();
 }
 
@@ -5902,10 +5970,14 @@ void Main_Window::Enforce_Accel_Honesty()
 		}
 	}
 
+	bool forced_tcg = false;
 	if( ! is_native )
 	{
-		if( tcg_index >= 0 )
+		if( tcg_index >= 0 && ui.CB_Machine_Accelerator->currentIndex() != tcg_index )
+		{
 			ui.CB_Machine_Accelerator->setCurrentIndex( tcg_index );
+			forced_tcg = true;
+		}
 		ui.CB_Machine_Accelerator->setToolTip(
 			tr( "Cross-architecture emulation: host is %1, guest is %2. "
 			    "Native acceleration (KVM / WHPX / HVF) cannot run this guest. Using TCG." )
@@ -5920,6 +5992,10 @@ void Main_Window::Enforce_Accel_Honesty()
 
 	ui.CB_Machine_Accelerator->blockSignals( false );
 	Update_Accelerator_Options();
+
+	// If we had to override a impossible KVM/XEN pick, mark dirty so Apply saves TCG.
+	if( forced_tcg )
+		VM_Changed();
 }
 
 int Main_Window::Disk_Interface_To_Combo_Index( VM::Device_Interface iface ) const
@@ -5962,58 +6038,28 @@ void Main_Window::Enforce_Disk_Bus_Honesty()
 	auto *model = qobject_cast<QStandardItemModel *>( ui.CB_Disk_Interface->model() );
 	ui.CB_Disk_Interface->blockSignals( true );
 
-	const int prev_index = ui.CB_Disk_Interface->currentIndex();
-	int first_enabled = -1;
+	// Main Window power-user path: expose every drive interface. QEMU may still
+	// reject a bad combo at launch — that is intentional (unlike the wizard).
 	for( int i = 0; i < ui.CB_Disk_Interface->count(); ++i )
 	{
-		const VM::Device_Interface iface = Combo_Index_To_Disk_Interface( i );
-		const bool allowed = computer.isEmpty()
-			? true
-			: System_Info::Is_Disk_Bus_Allowed( computer, machine, iface, false );
-
 		if( model )
 		{
 			QStandardItem *item = model->item( i );
 			if( item )
-			{
-				if( allowed )
-					item->setFlags( Qt::ItemIsEnabled | Qt::ItemIsSelectable );
-				else
-					item->setFlags( item->flags() & ~( Qt::ItemIsEnabled | Qt::ItemIsSelectable ) );
-			}
+				item->setFlags( Qt::ItemIsEnabled | Qt::ItemIsSelectable );
 		}
-		if( allowed && first_enabled < 0 )
-			first_enabled = i;
 	}
-
-	const int cur = ui.CB_Disk_Interface->currentIndex();
-	const VM::Device_Interface cur_iface = Combo_Index_To_Disk_Interface( cur );
-	if( ! computer.isEmpty() &&
-	    ! System_Info::Is_Disk_Bus_Allowed( computer, machine, cur_iface, false ) )
-	{
-		const VM::Device_Interface safe =
-			System_Info::Sanitize_Disk_Bus( computer, machine, cur_iface, false );
-		ui.CB_Disk_Interface->setCurrentIndex( Disk_Interface_To_Combo_Index( safe ) );
-	}
-	else if( cur < 0 && first_enabled >= 0 )
-		ui.CB_Disk_Interface->setCurrentIndex( first_enabled );
 
 	if( ! computer.isEmpty() )
 	{
 		ui.CB_Disk_Interface->setToolTip( tr(
-			"Drive interface for the primary hard disk. Options unsupported by "
-			"this guest architecture/machine are greyed out.\n"
+			"Drive interface for the primary hard disk. All QEMU interfaces are "
+			"selectable here; pick one that matches the guest machine.\n"
 			"Computer: %1  Machine: %2" )
 			.arg( computer, machine.isEmpty() ? tr( "(default)" ) : machine ) );
 	}
 
-	const int new_index = ui.CB_Disk_Interface->currentIndex();
 	ui.CB_Disk_Interface->blockSignals( false );
-
-	// Persist AHCI→VirtIO (etc.) clamps — previously the combo was fixed in the UI
-	// only, so Start kept emitting ich9-ahci on aarch64.
-	if( new_index != prev_index && ! block_VM_changed_signals )
-		VM_Changed();
 }
 
 void Main_Window::Update_Accelerator_Options()
@@ -6081,20 +6127,26 @@ void Main_Window::Apply_Emulator( int mode )
 	    return;
 	running = true;
 
+	// Modes are independent — no fall-through. The old cascade made mode 1
+	// (accelerator options) rebuild arch/machine/CPU and wipe the user's picks.
 	switch( mode )
 	{
 		case 0:
-			// Machine Accelerators
 			Update_Machine_Accelerators();
+			Update_Accelerator_Options();
+			Update_Computer_Types();
+			Computer_Type_Changed();
+			break;
 		case 1:
-            Update_Accelerator_Options();
+			Update_Accelerator_Options();
+			break;
 		case 2:
-			// Computer Type
-		    Update_Computer_Types();
+			Update_Computer_Types();
+			Computer_Type_Changed();
+			break;
 		case 3:
-            Computer_Type_Changed();
-            break;
-
+			Computer_Type_Changed();
+			break;
 		default:
 			AQWarning( "void Main_Window::Apply_Emulator( int mode )", "Default Section!" );
 			break;

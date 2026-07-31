@@ -1,0 +1,388 @@
+{
+  "summary": {
+    "probe_arches": 28,
+    "wizard_targets": 18,
+    "os_profiles": 193,
+    "os_cpu_machine_ok": 193,
+    "os_cpu_miss_count": 0,
+    "os_mach_miss_count": 0,
+    "modern_with_486": 0,
+    "total_probe_machines": 490,
+    "total_probe_cpus": 2074,
+    "total_probe_net": 604,
+    "total_probe_display": 194
+  },
+  "verdict": {
+    "main_panel_full_machine_cpu_net_video": true,
+    "wizard_curated_valid_defaults": true,
+    "user_can_pick_all_probe_machines_cpus_net_display_per_arch": true,
+    "remaining_gaps_are_intentional_ui_scope": true
+  },
+  "targets_missing_probe": [],
+  "probes_not_listed_as_wizard_target": [
+    "loongarch64",
+    "mips",
+    "mipsel",
+    "or1k",
+    "rx",
+    "sh4eb",
+    "sparc",
+    "tricore",
+    "xtensa",
+    "xtensaeb"
+  ],
+  "os_cpu_miss": [],
+  "os_mach_miss": [],
+  "modern_with_486": [],
+  "cpu_dist_top": [
+    [
+      "x86_64:max",
+      54
+    ],
+    [
+      "arm:max",
+      37
+    ],
+    [
+      "i386:qemu32",
+      19
+    ],
+    [
+      "ppc:g4",
+      17
+    ],
+    [
+      "i386:pentium3",
+      9
+    ],
+    [
+      "i386:max",
+      8
+    ],
+    [
+      "aarch64:max",
+      7
+    ],
+    [
+      "i386:486",
+      6
+    ],
+    [
+      "i386:pentium2",
+      5
+    ],
+    [
+      "x86_64:qemu64",
+      5
+    ],
+    [
+      "avr:avr5",
+      3
+    ],
+    [
+      "mips64el:20Kc",
+      3
+    ],
+    [
+      "mips64:5Kf",
+      2
+    ],
+    [
+      "alpha:ev4",
+      2
+    ],
+    [
+      "m68k:any",
+      2
+    ],
+    [
+      "m68k:m68040",
+      2
+    ],
+    [
+      "mips64:20Kc",
+      2
+    ],
+    [
+      "riscv32:max",
+      2
+    ],
+    [
+      "riscv64:max",
+      2
+    ],
+    [
+      "sparc64:TI-UltraSparc-II",
+      1
+    ]
+  ],
+  "arch_stats": [
+    {
+      "arch": "aarch64",
+      "machines": 112,
+      "cpus": 36,
+      "net": 29,
+      "display": 11,
+      "in_wizard": true
+    },
+    {
+      "arch": "alpha",
+      "machines": 2,
+      "cpus": 7,
+      "net": 27,
+      "display": 7,
+      "in_wizard": true
+    },
+    {
+      "arch": "arm",
+      "machines": 98,
+      "cpus": 24,
+      "net": 29,
+      "display": 11,
+      "in_wizard": true
+    },
+    {
+      "arch": "avr",
+      "machines": 9,
+      "cpus": 3,
+      "net": 0,
+      "display": 0,
+      "in_wizard": true
+    },
+    {
+      "arch": "hppa",
+      "machines": 5,
+      "cpus": 3,
+      "net": 27,
+      "display": 8,
+      "in_wizard": true
+    },
+    {
+      "arch": "i386",
+      "machines": 41,
+      "cpus": 241,
+      "net": 30,
+      "display": 14,
+      "in_wizard": true
+    },
+    {
+      "arch": "loongarch64",
+      "machines": 2,
+      "cpus": 3,
+      "net": 29,
+      "display": 8,
+      "in_wizard": false
+    },
+    {
+      "arch": "m68k",
+      "machines": 22,
+      "cpus": 10,
+      "net": 1,
+      "display": 2,
+      "in_wizard": true
+    },
+    {
+      "arch": "microblaze",
+      "machines": 4,
+      "cpus": 1,
+      "net": 0,
+      "display": 0,
+      "in_wizard": true
+    },
+    {
+      "arch": "mips",
+      "machines": 2,
+      "cpus": 18,
+      "net": 27,
+      "display": 8,
+      "in_wizard": false
+    },
+    {
+      "arch": "mips64",
+      "machines": 4,
+      "cpus": 34,
+      "net": 27,
+      "display": 8,
+      "in_wizard": true
+    },
+    {
+      "arch": "mips64el",
+      "machines": 7,
+      "cpus": 34,
+      "net": 30,
+      "display": 11,
+      "in_wizard": true
+    },
+    {
+      "arch": "mipsel",
+      "machines": 2,
+      "cpus": 18,
+      "net": 27,
+      "display": 8,
+      "in_wizard": false
+    },
+    {
+      "arch": "or1k",
+      "machines": 3,
+      "cpus": 2,
+      "net": 26,
+      "display": 8,
+      "in_wizard": false
+    },
+    {
+      "arch": "ppc",
+      "machines": 13,
+      "cpus": 384,
+      "net": 32,
+      "display": 8,
+      "in_wizard": true
+    },
+    {
+      "arch": "ppc64",
+      "machines": 39,
+      "cpus": 420,
+      "net": 33,
+      "display": 9,
+      "in_wizard": true
+    },
+    {
+      "arch": "riscv32",
+      "machines": 7,
+      "cpus": 8,
+      "net": 29,
+      "display": 9,
+      "in_wizard": true
+    },
+    {
+      "arch": "riscv64",
+      "machines": 10,
+      "cpus": 26,
+      "net": 29,
+      "display": 9,
+      "in_wizard": true
+    },
+    {
+      "arch": "rx",
+      "machines": 3,
+      "cpus": 1,
+      "net": 0,
+      "display": 0,
+      "in_wizard": false
+    },
+    {
+      "arch": "s390x",
+      "machines": 20,
+      "cpus": 505,
+      "net": 8,
+      "display": 4,
+      "in_wizard": true
+    },
+    {
+      "arch": "sh4",
+      "machines": 2,
+      "cpus": 3,
+      "net": 27,
+      "display": 8,
+      "in_wizard": true
+    },
+    {
+      "arch": "sh4eb",
+      "machines": 2,
+      "cpus": 3,
+      "net": 27,
+      "display": 8,
+      "in_wizard": false
+    },
+    {
+      "arch": "sparc",
+      "machines": 11,
+      "cpus": 15,
+      "net": 0,
+      "display": 0,
+      "in_wizard": false
+    },
+    {
+      "arch": "sparc64",
+      "machines": 4,
+      "cpus": 19,
+      "net": 28,
+      "display": 7,
+      "in_wizard": true
+    },
+    {
+      "arch": "tricore",
+      "machines": 3,
+      "cpus": 4,
+      "net": 0,
+      "display": 0,
+      "in_wizard": false
+    },
+    {
+      "arch": "x86_64",
+      "machines": 41,
+      "cpus": 242,
+      "net": 30,
+      "display": 14,
+      "in_wizard": true
+    },
+    {
+      "arch": "xtensa",
+      "machines": 11,
+      "cpus": 8,
+      "net": 26,
+      "display": 7,
+      "in_wizard": false
+    },
+    {
+      "arch": "xtensaeb",
+      "machines": 11,
+      "cpus": 2,
+      "net": 26,
+      "display": 7,
+      "in_wizard": false
+    }
+  ],
+  "code_checks": {
+    "Main_Window_merges_probe": true,
+    "Wizard_merges_probe": true,
+    "Get_Emulator_Info_merges_probe": true,
+    "Wizard_Recommended_CPU": true,
+    "Wizard_loads_profile_cpu": true,
+    "Sanitize_Video_preserves_picks": true,
+    "Sanitize_Disk_preserves_picks": true,
+    "Probe_First_Available_CPU": true,
+    "Guest_Capabilities_curated": true
+  },
+  "intentional_gaps": [
+    {
+      "area": "USB device catalog",
+      "status": "intentional",
+      "detail": "No full -device USB picker; tablet/keyboard/hub curated."
+    },
+    {
+      "area": "Storage beyond disk-bus enum",
+      "status": "intentional",
+      "detail": "IDE/AHCI/VirtIO/SCSI/NVMe/SD/MTD/PFlash \u2014 not every SCSI HBA model."
+    },
+    {
+      "area": "netdev backends",
+      "status": "intentional",
+      "detail": "user/tap/bridge modes \u2014 not raw -netdev help dump."
+    },
+    {
+      "area": "chardev / object / host display&audio backends",
+      "status": "intentional",
+      "detail": "Probe captures them; UI uses curated display/audio paths."
+    },
+    {
+      "area": "Accelerators",
+      "status": "intentional",
+      "detail": "TCG/KVM/WHPX honesty \u2014 not every -accel line."
+    }
+  ],
+  "notes": [
+    "Wizard OS path: Guest_Capabilities + os_profiles (cpu/machine/nic/sound) \u2014 safe defaults.",
+    "Main Window + Custom reconfigure: QEMU_Probe_Catalog merges full machines/CPUs/NICs/video per arch.",
+    "Architecture switch without wizard refreshes lists from qemu_probe_full_v3."
+  ]
+}

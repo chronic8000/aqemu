@@ -345,7 +345,12 @@ QString AQEMU_Service::start(const QString& s)
         return QString( "VM \"%1\" is already running." ).arg( s );
 
     QSettings settings;
+    #ifdef Q_OS_WIN32
+    QString vm_dir = QDir::toNativeSeparators(
+	    settings.value( "VM_Directory", AQEMU_Default_VM_Directory() ).toString() );
+    #else
     QString vm_dir = QDir::toNativeSeparators(settings.value("VM_Directory", QDir::homePath() + "/.aqemu/").toString());
+    #endif
     QString vm_file = vm_dir+s+".aqemu";
 
     bool success = false;

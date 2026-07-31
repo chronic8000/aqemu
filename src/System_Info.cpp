@@ -35,6 +35,7 @@
 
 #include "Utils.h"
 #include "System_Info.h"
+#include "QEMU_Probe_Catalog.h"
 
 System_Info::System_Info()
 {
@@ -1521,8 +1522,13 @@ bool System_Info::Is_Disk_Bus_Allowed( const QString &computer_type, const QStri
 	const Video_Arch_Family fam = Get_Video_Arch_Family( computer_type );
 	const QString m = machine_type.toLower().trimmed();
 	const bool is_virt_machine = ( m == QLatin1String( "virt" ) ) || fam == VAF_VIRT;
-	const bool is_mac = m.contains( QLatin1String( "mac" ) );
-	const bool is_pseries = m.contains( QLatin1String( "pseries" ) ) || fam == VAF_PPC;
+	// Classic Power Mac (OpenBIOS) — not Intel q35 "Mac"
+	const bool is_classic_mac =
+		m.contains( QLatin1String( "mac99" ) ) ||
+		m.contains( QLatin1String( "g3beige" ) ) ||
+		m.contains( QLatin1String( "heathrow" ) );
+	// Only real pseries — do NOT treat all VAF_PPC as pseries (that blocked IDE on mac99).
+	const bool is_pseries = m.contains( QLatin1String( "pseries" ) );
 	const bool is_q35 = m.contains( QLatin1String( "q35" ) );
 	const bool is_pc_x86 = ( fam == VAF_X86 );
 
@@ -1531,26 +1537,30 @@ bool System_Info::Is_Disk_Bus_Allowed( const QString &computer_type, const QStri
 		case VM::DI_IDE:
 			if( is_virt_machine || is_pseries )
 				return false;
+			if( is_classic_mac )
+				return true;
 			return is_pc_x86 || fam == VAF_OTHER;
 
 		case VM::DI_AHCI:
-			if( is_virt_machine || is_pseries )
+			// ich9-ahci is a PC device — OpenBIOS on mac99 cannot use it (and AQEMU
+			// previously forced AHCI because machine name contains "mac").
+			if( is_virt_machine || is_pseries || is_classic_mac )
 				return false;
-			return is_pc_x86 || is_mac;
+			return is_pc_x86 || is_q35;
 
 		case VM::DI_SCSI:
-			if( is_mac )
+			if( is_classic_mac )
 				return false;
 			return true;
 
 		case VM::DI_Virtio:
 		case VM::DI_Virtio_SCSI:
-			if( is_mac )
+			if( is_classic_mac )
 				return false;
 			return true;
 
 		case VM::DI_NVMe:
-			if( is_mac || is_pseries || for_optical_or_floppy )
+			if( is_classic_mac || is_pseries || for_optical_or_floppy )
 				return false;
 			if( is_virt_machine || is_q35 )
 				return true;
@@ -1594,26 +1604,35 @@ VM::Device_Interface System_Info::Default_Disk_Bus( const QString &computer_type
 {
 	const Video_Arch_Family fam = Get_Video_Arch_Family( computer_type );
 	const QString m = machine_type.toLower().trimmed();
-	const bool is_mac = m.contains( QLatin1String( "mac" ) );
+	const bool is_classic_mac =
+		m.contains( QLatin1String( "mac99" ) ) ||
+		m.contains( QLatin1String( "g3beige" ) ) ||
+		m.contains( QLatin1String( "heathrow" ) );
 	const bool is_virt = ( m == QLatin1String( "virt" ) ) || fam == VAF_VIRT;
-	const bool is_pseries = m.contains( QLatin1String( "pseries" ) ) || fam == VAF_PPC;
+	const bool is_pseries = m.contains( QLatin1String( "pseries" ) );
 	const bool is_q35 = m.contains( QLatin1String( "q35" ) );
 
-	if( is_mac )
-		return VM::DI_AHCI;
+	if( is_classic_mac )
+		return VM::DI_IDE;
 	if( is_pseries )
 		return VM::DI_Virtio_SCSI;
 	if( is_virt || is_q35 )
-		return VM::DI_Virtio;
+		return is_q35 ? VM::DI_AHCI : VM::DI_Virtio;
 	return VM::DI_IDE;
 }
 
 VM::Device_Interface System_Info::Sanitize_Disk_Bus( const QString &computer_type,
 	const QString &machine_type, VM::Device_Interface iface, bool for_optical_or_floppy )
 {
-	if( Is_Disk_Bus_Allowed( computer_type, machine_type, iface, for_optical_or_floppy ) )
-		return iface;
-	return Default_Disk_Bus( computer_type, machine_type );
+	// Optical/floppy cannot use NVMe/SD/MTD/PFlash media interfaces.
+	if( for_optical_or_floppy &&
+	    ( iface == VM::DI_NVMe || iface == VM::DI_SD || iface == VM::DI_MTD || iface == VM::DI_PFlash ) )
+		return Default_Disk_Bus( computer_type, machine_type );
+
+	// Otherwise keep the user's choice. Main Window exposes every QEMU interface;
+	// the New VM wizard still applies Guest_Capabilities curated defaults.
+	Q_UNUSED( machine_type );
+	return iface;
 }
 
 void System_Info::Filter_Video_Card_List( Available_Devices &dev )
@@ -1682,16 +1701,22 @@ QString System_Info::Sanitize_Video_Card( const QString &computer_type, const QS
 {
 	const Video_Arch_Family fam = Get_Video_Arch_Family( computer_type );
 	QString name = Normalize_Video_Alias( video_card );
+	const QString m = machine_type.toLower().trimmed();
+	const bool classic_mac =
+		m.contains( QLatin1String( "mac99" ) ) ||
+		m.contains( QLatin1String( "g3beige" ) ) ||
+		m.contains( QLatin1String( "heathrow" ) );
+
+	// mac99/g3beige already have an onboard framebuffer — forcing -vga std breaks OpenBIOS.
+	if( classic_mac && ( name.isEmpty() || name == QLatin1String( "std" ) ) )
+		return QString();
 
 	if( name.isEmpty() )
 		return Default_Video_For_Family( fam );
 
-	name = Map_Cross_Arch_Video( fam, name, machine_type );
-
-	if( Is_Video_Card_Allowed( fam, name ) )
-		return name;
-
-	return Default_Video_For_Family( fam );
+	// Main Window / power-user path: keep whatever QEMU exposes for this arch.
+	// Do not rewrite to a family whitelist (wizard uses Guest_Capabilities instead).
+	return name;
 }
 
 void System_Info::Normalize_Virt_Arch_Devices( Available_Devices &dev )
@@ -1741,7 +1766,8 @@ void System_Info::Normalize_Virt_Arch_Devices( Available_Devices &dev )
 	}
 	// other obscure targets: keep modern VirtIO/USB/HDA from above; ISA/PCI extras only if probe set them
 
-	Filter_Video_Card_List( dev );
+	// Do NOT call Filter_Video_Card_List here — Main Window must expose every
+	// display device QEMU reports for the architecture (see qemu_probe_full_v3).
 
 	if( ! is_virtish )
 		return;
@@ -2566,6 +2592,32 @@ Available_Devices System_Info::Get_Emulator_Info( const QString &path, bool *ok,
 			tmp_dev.Audio_Card_List.Audio_cs4231a = true;
 		if( has( "isa-pcspk" ) || has( "pcspk" ) )
 			tmp_dev.Audio_Card_List.Audio_PC_Speaker = true;
+
+		// Full Network + Display device lists from -device help (not just -vga / -net nic,model=?)
+		QList<Device_Map> net_from_help;
+		QList<Device_Map> video_from_help;
+		QEMU_Probe_Catalog::Parse_Device_Help_Lines(
+			device_help_str.split( '\n' ), net_from_help, video_from_help, &tmp_dev.Audio_Card_List );
+		if( ! net_from_help.isEmpty() )
+			tmp_dev.Network_Card_List = net_from_help;
+		if( ! video_from_help.isEmpty() )
+		{
+			// Keep any -vga aliases already parsed, then union probe/help display devices
+			for( int vi = 0; vi < video_from_help.count(); ++vi )
+			{
+				bool found = false;
+				for( int vj = 0; vj < tmp_dev.Video_Card_List.count(); ++vj )
+				{
+					if( tmp_dev.Video_Card_List[vj].QEMU_Name == video_from_help[vi].QEMU_Name )
+					{
+						found = true;
+						break;
+					}
+				}
+				if( ! found )
+					tmp_dev.Video_Card_List << video_from_help[vi];
+			}
+		}
 	}
 	
 	// Ensure System.QEMU_Name for Normalize (probe may not have set it yet)
@@ -2592,13 +2644,15 @@ Available_Devices System_Info::Get_Emulator_Info( const QString &path, bool *ok,
 		#endif
 	}
 	
-	// Per-architecture video whitelist (strips cg3/tcx from x86, std/cirrus from aarch64, etc.)
-	Filter_Video_Card_List( tmp_dev );
-	
+	// Prefer shipped qemu_probe_full_v3 catalogs as ground truth for full option lists
+	QEMU_Probe_Catalog::Merge_Into( tmp_dev );
+
 	// Ensure all architectures expose usable audio (probe + defaults), including x86
 	Normalize_Virt_Arch_Devices( tmp_dev );
 	
-	// Get Network Card Models
+	// Fallback network list from legacy -net nic,model=? only if still empty
+	if( tmp_dev.Network_Card_List.count() < 2 )
+	{
 	args_list.clear();
 	args_list << "-net" << "nic,model=?";
 	
@@ -2651,6 +2705,7 @@ Available_Devices System_Info::Get_Emulator_Info( const QString &path, bool *ok,
 		break; // All Done
 	}
 	while( ! tmp.isNull() );
+	}
 	
 	// No Cards... Set Default List
 	if( tmp_dev.Network_Card_List.count() < 2 )
