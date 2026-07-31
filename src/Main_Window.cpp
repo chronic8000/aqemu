@@ -2369,7 +2369,11 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 	}
 
 	// Computer Type
-	int compTypeIndex = ui.CB_Computer_Type->findText( curComp.System.Caption );
+	int compTypeIndex = ui.CB_Computer_Type->findData( tmp_vm->Get_Computer_Type(), Qt::UserRole );
+	if( compTypeIndex == -1 )
+		compTypeIndex = ui.CB_Computer_Type->findText( curComp.System.Caption );
+	if( compTypeIndex == -1 && ! curComp.System.QEMU_Name.isEmpty() )
+		compTypeIndex = ui.CB_Computer_Type->findText( curComp.System.QEMU_Name );
 
 	if( compTypeIndex != -1 )
 		ui.CB_Computer_Type->setCurrentIndex( compTypeIndex );
@@ -6084,7 +6088,7 @@ void Main_Window::Update_Computer_Types()
 
 	for( QMap<QString, Available_Devices>::const_iterator i = current_devices.constBegin(); i != current_devices.constEnd(); i++ )
     {
-		ui.CB_Computer_Type->addItem( i->System.Caption );
+		ui.CB_Computer_Type->addItem( i->System.Caption, i.key() );
     }
     ui.CB_Computer_Type->setCurrentText(text);
 
