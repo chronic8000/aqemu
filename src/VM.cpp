@@ -6735,9 +6735,12 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		effective_video == "cg3" || effective_video == "tcx" ||
 		effective_video == "none";
 
+	const bool is_reims_vgpu = Computer_Type.contains( QLatin1String( "reimsvgpu" ), Qt::CaseInsensitive );
+
 	const bool device_based_video = System_Info::Uses_Device_Based_Video( Computer_Type ) ||
+	                                is_reims_vgpu ||
 	                                effective_video == "virtio-gpu-pci" || effective_video == "virtio-gpu-gl-pci" ||
-	                                effective_video == "virtio-vga-gl" ||
+	                                effective_video == "virtio-vga" || effective_video == "virtio-vga-gl" ||
 	                                effective_video == "ramfb" ||
 	                                ( ! effective_video.isEmpty() && ! legacy_vga );
 
@@ -6752,8 +6755,9 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		else if( effective_video == "virtio-vga-gl" )
 			Args << "-device" << "virtio-vga-gl";
 		else if( effective_video == "virtio-gpu-pci" ||
-		         ( effective_video.isEmpty() &&
-		           System_Info::Uses_Device_Based_Video( Computer_Type ) ) )
+		         effective_video == "virtio" ||
+		         ( ( effective_video.isEmpty() || effective_video == "default" ) &&
+		           ( System_Info::Uses_Device_Based_Video( Computer_Type ) || is_reims_vgpu ) ) )
 		{
 			// VirtIO-GPU with EDID. Do NOT auto-add ramfb here (BVM normal/boot mode):
 			// combining ramfb + virtio-gpu causes "Display output is not active" reboot loops.
