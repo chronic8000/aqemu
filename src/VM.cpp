@@ -6496,13 +6496,13 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	// Win95/98 (Force_TCG): period CPU — modern "max"/"host" hangs at splash under WHPX/TCG.
 	{
 		QString cpu_arg;
-		if( Current_Emulator_Devices.CPU_List.count() > 1 &&
-			CPU_Type.isEmpty() == false )
+		if( ! CPU_Type.trimmed().isEmpty() )
 		{
-			cpu_arg = CPU_Type;
+			cpu_arg = CPU_Type.trimmed();
 		}
 		else if( Computer_Type.contains( "aarch64", Qt::CaseInsensitive ) ||
-				 Computer_Type.contains( "qemu-system-arm", Qt::CaseInsensitive ) )
+				 Computer_Type.contains( "qemu-system-arm", Qt::CaseInsensitive ) ||
+				 Computer_Type.contains( "applesoc", Qt::CaseInsensitive ) )
 		{
 			#ifdef Q_OS_WIN32
 			cpu_arg = QStringLiteral( "max,pauth-impdef=on" );

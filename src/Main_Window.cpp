@@ -5939,6 +5939,19 @@ void Main_Window::on_CB_CPU_Type_Main_currentIndexChanged( int index )
 	if( index < ui_arch.CB_CPU_Type->count() )
 		ui_arch.CB_CPU_Type->setCurrentIndex( index );
 	ui_arch.CB_CPU_Type->blockSignals(false);
+
+	bool devOk = false;
+	Available_Devices curComp = Get_Current_Machine_Devices( &devOk );
+	Virtual_Machine *live_vm = Get_Current_VM();
+	if( devOk && live_vm && index >= 0 && index < curComp.CPU_List.count() )
+	{
+		live_vm->Set_CPU_Type( curComp.CPU_List[index].QEMU_Name );
+	}
+	else if( live_vm && ! ui.CB_CPU_Type_Main->currentText().isEmpty() )
+	{
+		live_vm->Set_CPU_Type( ui.CB_CPU_Type_Main->currentText() );
+	}
+
 	VM_Changed();
 }
 
@@ -5972,6 +5985,19 @@ void Main_Window::sync_arch_CPU_Type_changed( int index )
 	if( index < ui.CB_CPU_Type_Main->count() )
 		ui.CB_CPU_Type_Main->setCurrentIndex( index );
 	ui.CB_CPU_Type_Main->blockSignals(false);
+
+	bool devOk = false;
+	Available_Devices curComp = Get_Current_Machine_Devices( &devOk );
+	Virtual_Machine *live_vm = Get_Current_VM();
+	if( devOk && live_vm && index >= 0 && index < curComp.CPU_List.count() )
+	{
+		live_vm->Set_CPU_Type( curComp.CPU_List[index].QEMU_Name );
+	}
+	else if( live_vm && ! ui.CB_CPU_Type_Main->currentText().isEmpty() )
+	{
+		live_vm->Set_CPU_Type( ui.CB_CPU_Type_Main->currentText() );
+	}
+
 	VM_Changed();
 }
 
