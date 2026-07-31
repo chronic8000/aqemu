@@ -2076,13 +2076,14 @@ void VM_Wizard_Window::Apply_Guest_Hardware_To_New_VM()
 
 		if( Selected_Target == QLatin1String( "reimsvgpu" ) || os.contains( QLatin1String( "Reims" ), Qt::CaseInsensitive ) )
 		{
+			New_VM->Use_Intel_MacOS_Profile( true );
 			New_VM->Set_Computer_Type( QStringLiteral( "qemu-system-reimsvgpu" ) );
 			New_VM->Set_Machine_Type( QStringLiteral( "q35" ) );
 			New_VM->Set_CPU_Type( QStringLiteral( "max" ) );
 			if( New_VM->Get_Memory_Size() < 4096 )
 				New_VM->Set_Memory_Size( 8192 );
 			New_VM->Set_SMP_CPU_Count( 4 );
-			New_VM->Set_Video_Card( QStringLiteral( "virtio" ) );
+			New_VM->Set_Video_Card( QStringLiteral( "virtio-gpu-pci" ) );
 		}
 
 		const bool chromeos_flex = ( os == QLatin1String( "Chrome OS Flex" ) );
@@ -3607,7 +3608,9 @@ bool VM_Wizard_Window::Is_Intel_MacOS_Template() const
 {
 	if( Three_Path_Active )
 	{
-		return Selected_OS_Name.contains( "macOS", Qt::CaseInsensitive ) ||
+		return Selected_Target == QLatin1String( "reimsvgpu" ) ||
+		       Selected_OS_Name.contains( "macOS", Qt::CaseInsensitive ) ||
+		       Selected_OS_Name.contains( "Reims", Qt::CaseInsensitive ) ||
 		       Selected_OS_Name.contains( "Mac OS X Intel" ) ||
 		       Selected_OS_Name.contains( "Darwin" );
 	}
@@ -3617,6 +3620,7 @@ bool VM_Wizard_Window::Is_Intel_MacOS_Template() const
 		return false;
 	const QString t = ui.CB_OS_Type->currentText();
 	return t.contains( "MacOS X x86", Qt::CaseInsensitive ) ||
+	       t.contains( "Reims", Qt::CaseInsensitive ) ||
 	       t.contains( "macOS", Qt::CaseInsensitive );
 }
 
