@@ -203,12 +203,17 @@ On **Raspberry Pi 5 / Linux aarch64** hosts, the same profile can lean on **KVM*
 
 ## ⚡ Reims vGPU Acceleration Engine (`qemu-system-reimsvgpu.exe`)
 
-AQEMU now bundles **`qemu-system-reimsvgpu.exe`**, a specialized QEMU binary built from **steelbrain's `qemu-reims-vgpu`** project for virtual GPU acceleration on macOS and Windows guests.
+AQEMU now bundles **`qemu-system-reimsvgpu.exe`**, a specialized QEMU binary built from **steelbrain's `qemu-reims-vgpu`** project—the viral open-source graphics virtualization engine designed to bring **full 3D hardware-accelerated graphics to macOS guests** inside QEMU!
 
-### 🚀 Highlights:
-- **`macOS x86_64 vGPU (Reims)`**: Accelerated graphics rendering for Intel macOS VMs.
-- **`Windows 11 vGPU (Reims)`**: vGPU hardware passthrough/acceleration profile for Windows 11.
-- **`qemu-system-reimsvgpu` Target**: Standalone binary with `libslirp` networking, SPICE display, and DirectSound audio enabled.
+### 🔮 How Reims vGPU Achieves macOS Hardware Graphics Acceleration:
+- **Zero Guest Kext Modifications**: macOS natively includes Apple's official **`AppleParavirtGPU.kext`** driver. `qemu-system-reimsvgpu.exe` exposes the MMIO/IRQ device shims that `AppleParavirtGPU` connects to out-of-the-box.
+- **Metal → Vulkan Translation Layer (`metal2vulkan`)**: The engine intercepts the guest macOS Metal GPU command streams and dynamically translates them into cross-platform Vulkan rendering calls on the host PC GPU.
+- **Native 3D Compositing & Window Server**: Enables Quartz Extreme, Metal UI animations, and smooth window compositing inside macOS VMs without requiring expensive dedicated GPU passthrough hardware!
+
+### 🚀 AQEMU Integration Highlights:
+- **`macOS x86_64 vGPU (Reims)`**: Preset OS profile for running Intel macOS with native `AppleParavirtGPU` acceleration.
+- **`Windows 11 vGPU (Reims)`**: vGPU hardware passthrough/acceleration profile for Windows 11 guests.
+- **`qemu-system-reimsvgpu` Standalone Target**: Shipped as a dedicated executable alongside standard QEMU targets, pre-configured with `libslirp` User NAT networking, SPICE display, and DirectSound audio.
 
 ---
 

@@ -1,7 +1,7 @@
 {
   "binary": "C:\\Users\\chron\\CURSOR-PROJECTS\\aqemu\\build_win\\qemu-system-m68k.exe",
   "architecture": "m68k",
-  "probed_at": "2026-07-28T15:02:05.077936",
+  "probed_at": "2026-07-31T08:32:59.756669",
   "fallback_machine": "q800",
   "machines": [
     "Supported machines are:",

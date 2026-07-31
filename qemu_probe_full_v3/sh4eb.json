@@ -1,7 +1,7 @@
 {
   "binary": "C:\\Users\\chron\\CURSOR-PROJECTS\\aqemu\\build_win\\qemu-system-sh4eb.exe",
   "architecture": "sh4eb",
-  "probed_at": "2026-07-28T15:02:10.933968",
+  "probed_at": "2026-07-31T08:33:09.207674",
   "fallback_machine": "none",
   "machines": [
     "Supported machines are:",

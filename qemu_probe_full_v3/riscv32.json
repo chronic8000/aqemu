@@ -1,7 +1,7 @@
 {
   "binary": "C:\\Users\\chron\\CURSOR-PROJECTS\\aqemu\\build_win\\qemu-system-riscv32.exe",
   "architecture": "riscv32",
-  "probed_at": "2026-07-28T15:02:08.863715",
+  "probed_at": "2026-07-31T08:33:07.245995",
   "fallback_machine": "virt",
   "machines": [
     "Supported machines are:",

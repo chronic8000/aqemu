@@ -1,7 +1,7 @@
 {
   "binary": "C:\\Users\\chron\\CURSOR-PROJECTS\\aqemu\\build_win\\qemu-system-xtensaeb.exe",
   "architecture": "xtensaeb",
-  "probed_at": "2026-07-28T15:02:13.290439",
+  "probed_at": "2026-07-31T08:33:11.357599",
   "fallback_machine": "none",
   "machines": [
     "Supported machines are:",

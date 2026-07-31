@@ -1,7 +1,7 @@
 {
   "binary": "C:\\Users\\chron\\CURSOR-PROJECTS\\aqemu\\build_win\\qemu-system-hppa.exe",
   "architecture": "hppa",
-  "probed_at": "2026-07-28T15:02:03.772062",
+  "probed_at": "2026-07-31T08:32:58.584786",
   "fallback_machine": "B160L",
   "machines": [
     "Supported machines are:",

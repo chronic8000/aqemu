@@ -1,7 +1,7 @@
 {
   "binary": "C:\\Users\\chron\\CURSOR-PROJECTS\\aqemu\\build_win\\qemu-system-sparc.exe",
   "architecture": "sparc",
-  "probed_at": "2026-07-28T15:02:11.332298",
+  "probed_at": "2026-07-31T08:33:09.565044",
   "fallback_machine": "SS-5",
   "machines": [
     "Supported machines are:",

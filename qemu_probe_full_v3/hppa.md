@@ -2,7 +2,7 @@
 
 - **Architecture Target:** `hppa`
 - **Binary Executable:** `C:\Users\chron\CURSOR-PROJECTS\aqemu\build_win\qemu-system-hppa.exe`
-- **Probed At:** 2026-07-28T15:02:03.772062
+- **Probed At:** 2026-07-31T08:32:58.584786
 - **Fallback Machine Used for Context:** `B160L`
 
 > **INSTRUCTIONS FOR CURSOR AI:** This document contains the verified whitelist of supported flags, boards, CPUs, devices, storage drivers, audio backends, and display renderers for `qemu-system-{arch}`. Use this data as the absolute ground truth to construct and validate VM configuration parameters.

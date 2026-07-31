@@ -1,7 +1,7 @@
 {
   "binary": "C:\\Users\\chron\\CURSOR-PROJECTS\\aqemu\\build_win\\qemu-system-ppc64.exe",
   "architecture": "ppc64",
-  "probed_at": "2026-07-28T15:02:08.328653",
+  "probed_at": "2026-07-31T08:33:04.516750",
   "fallback_machine": "pseries",
   "machines": [
     "Supported machines are:",

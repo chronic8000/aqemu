@@ -1,7 +1,7 @@
 {
   "binary": "C:\\Users\\chron\\CURSOR-PROJECTS\\aqemu\\build_win\\qemu-system-xtensa.exe",
   "architecture": "xtensa",
-  "probed_at": "2026-07-28T15:02:12.896268",
+  "probed_at": "2026-07-31T08:33:10.991548",
   "fallback_machine": "none",
   "machines": [
     "Supported machines are:",

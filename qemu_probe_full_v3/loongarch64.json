@@ -1,7 +1,7 @@
 {
   "binary": "C:\\Users\\chron\\CURSOR-PROJECTS\\aqemu\\build_win\\qemu-system-loongarch64.exe",
   "architecture": "loongarch64",
-  "probed_at": "2026-07-28T15:02:04.662426",
+  "probed_at": "2026-07-31T08:32:59.387211",
   "fallback_machine": "virt",
   "machines": [
     "Supported machines are:",

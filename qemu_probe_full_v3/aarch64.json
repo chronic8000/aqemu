@@ -1,7 +1,7 @@
 {
   "binary": "C:\\Users\\chron\\CURSOR-PROJECTS\\aqemu\\build_win\\qemu-system-aarch64.exe",
   "architecture": "aarch64",
-  "probed_at": "2026-07-28T15:02:02.071948",
+  "probed_at": "2026-07-31T08:32:54.089964",
   "fallback_machine": "virt",
   "machines": [
     "Supported machines are:",

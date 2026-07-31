@@ -1,7 +1,7 @@
 {
   "binary": "C:\\Users\\chron\\CURSOR-PROJECTS\\aqemu\\build_win\\qemu-system-or1k.exe",
   "architecture": "or1k",
-  "probed_at": "2026-07-28T15:02:07.436744",
+  "probed_at": "2026-07-31T08:33:01.861540",
   "fallback_machine": "none",
   "machines": [
     "Supported machines are:",

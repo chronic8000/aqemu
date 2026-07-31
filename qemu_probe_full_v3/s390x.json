@@ -1,7 +1,7 @@
 {
   "binary": "C:\\Users\\chron\\CURSOR-PROJECTS\\aqemu\\build_win\\qemu-system-s390x.exe",
   "architecture": "s390x",
-  "probed_at": "2026-07-28T15:02:10.098729",
+  "probed_at": "2026-07-31T08:33:08.377165",
   "fallback_machine": "s390-ccw-virtio",
   "machines": [
     "Supported machines are:",

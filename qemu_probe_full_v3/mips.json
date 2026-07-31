@@ -1,7 +1,7 @@
 {
   "binary": "C:\\Users\\chron\\CURSOR-PROJECTS\\aqemu\\build_win\\qemu-system-mips.exe",
   "architecture": "mips",
-  "probed_at": "2026-07-28T15:02:05.822320",
+  "probed_at": "2026-07-31T08:33:00.406043",
   "fallback_machine": "malta",
   "machines": [
     "Supported machines are:",

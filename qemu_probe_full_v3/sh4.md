@@ -2,7 +2,7 @@
 
 - **Architecture Target:** `sh4`
 - **Binary Executable:** `C:\Users\chron\CURSOR-PROJECTS\aqemu\build_win\qemu-system-sh4.exe`
-- **Probed At:** 2026-07-28T15:02:10.543877
+- **Probed At:** 2026-07-31T08:33:08.848108
 - **Fallback Machine Used for Context:** `r2d`
 
 > **INSTRUCTIONS FOR CURSOR AI:** This document contains the verified whitelist of supported flags, boards, CPUs, devices, storage drivers, audio backends, and display renderers for `qemu-system-{arch}`. Use this data as the absolute ground truth to construct and validate VM configuration parameters.
