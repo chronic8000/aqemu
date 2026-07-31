@@ -673,11 +673,20 @@ bool System_Info::Update_VM_Computers_List()
 	
 	ad = Available_Devices();
 	ad.System = Device_Map( "x86_64 vGPU Accelerated", "qemu-system-reimsvgpu" );
-	ad.CPU_List += CPU_x86;
-	ad.Machine_List << Device_Map( QObject::tr("Standard PC (Q35 + ICH9)"), "q35" );
-	ad.Machine_List << Device_Map( QObject::tr("Standard PC (i440FX + PIIX)"), "pc" );
+	ad.CPU_List += CPU_x86_64_v0_10_0;
+	ad.Machine_List += Machine_x86;
+	ad.Network_Card_List += Network_Card_v0_10_0;
 	ad.Video_Card_List += QEMU_Video_Cards_v0_10_0;
 	ad.Audio_Card_List = Audio_Card_x86;
+	ad.Audio_Card_List.Audio_GUS = true;
+	ad.Audio_Card_List.Audio_AC97 = true;
+	ad.Audio_Card_List.Audio_HDA = true;
+	ad.PSO_SMP_Count = 255;
+	ad.PSO_No_FB_Boot_Check = true;
+	ad.PSO_Win2K_Hack = true;
+	ad.PSO_RTC_TD_Hack = true;
+	ad.PSO_Kernel_KQEMU = true;
+	ad.PSO_No_ACPI = true;
 	System_Info::Emulator_QEMU_2_0[ "qemu-system-reimsvgpu" ] = ad;
 	
 	ad = Available_Devices();
