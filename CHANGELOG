@@ -1,3 +1,18 @@
+2026-07-31 Chronic Engineering — AQEMU 1.0.1 (Apple Silicon / iOS Emulation & ChefKiss Inferno)
+
+	* Apple Silicon (ARM64) SoC Emulation Target (qemu-system-applesoc.exe):
+	  - Built and bundled ChefKiss Inferno (QEMU 10.0+ fork for Apple Silicon SoCs) into AQEMU.
+	  - Linked liblzfse for LZFSE kernel cache decompression and Apple raw kernel cache booting.
+	  - Integrated Nettle & GMP crypto libraries for Apple Secure Enclave Processor (SEP) emulation.
+	  - Enabled libslirp User-Mode NAT networking and SPICE display/audio backends.
+	* New VM Wizard Integration:
+	  - Added "iOS (ARM64)" and "macOS Apple Silicon (ARM64)" to Apple OS selection tree.
+	  - Mapped "iPhone 11 (Apple A13 Bionic)" -> t8030 machine and "iPhone 6s Plus (Apple A9)" -> s8000.
+	  - Registered "Apple Silicon SoC" (qemu-system-applesoc) in Architecture Targets and probe script.
+	  - Created automatic wizard presets with 4 vCPUs, 4GB RAM, virtio-net-pci, and NVMe APFS disk defaults.
+	* Probing & Ground-Truth Catalog:
+	  - Updated probe_qemu.py and qemu_probe_full_v3 dataset generator to register qemu-system-applesoc.exe.
+
 2026-07-23 Chronic Engineering — AQEMU 1.0.0
 
 	* Version bump to 1.0.0 — first public “curtain” release for community testing.

@@ -2074,6 +2074,22 @@ void VM_Wizard_Window::Apply_Guest_Hardware_To_New_VM()
 			}
 		}
 
+		if( os.contains( QLatin1String( "iOS" ), Qt::CaseInsensitive ) ||
+		    os.contains( QLatin1String( "Apple Silicon" ), Qt::CaseInsensitive ) ||
+		    Selected_Target == QLatin1String( "applesoc" ) )
+		{
+			New_VM->Set_Computer_Type( QStringLiteral( "qemu-system-applesoc" ) );
+			if( New_VM->Get_Machine_Type().isEmpty() || New_VM->Get_Machine_Type() == QLatin1String( "virt" ) )
+				New_VM->Set_Machine_Type( QStringLiteral( "t8030" ) );
+			New_VM->Set_CPU_Type( QStringLiteral( "max" ) );
+			if( New_VM->Get_Memory_Size() < 4096 )
+				New_VM->Set_Memory_Size( 4096 );
+			New_VM->Set_SMP_CPU_Count( 4 );
+			New_VM->Set_Video_Card( QStringLiteral( "std" ) );
+			New_VM->Set_Mouse_Type( QStringLiteral( "usb-tablet" ) );
+			New_VM->Use_USB_Hub( true );
+		}
+
 		if( qnx )
 		{
 			// QNX timers run wild without a VM-locked RTC.

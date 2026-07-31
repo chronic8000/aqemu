@@ -193,6 +193,28 @@ Apple Silicon macOS guests on Snapdragon Windows hosts — not this release’s 
 
 ---
 
+## 🍏 Apple Silicon (iOS & macOS ARM64) Emulation on Windows
+
+AQEMU now bundles **`qemu-system-applesoc.exe`**, a specialized QEMU binary compiled with **ChefKiss Inferno**, **Apple Secure Enclave (SEP) crypto primitives** (`nettle`/`gmp`), **User NAT networking** (`slirp`), and **LZFSE compressed kernel cache decoding** (`liblzfse`).
+
+AQEMU is the **first hypervisor frontend on Windows** to offer a native UI for probing and configuring Apple Silicon SoC targets (`t8030` A13 Bionic & `s8000` Apple A9)!
+
+### 🚀 How to Run iOS / macOS Apple Silicon in AQEMU
+
+1. **Select iOS or macOS Apple Silicon in the New VM Wizard**:
+   - Navigate to **New VM Wizard → Apple → `iOS (ARM64)`** or **`macOS Apple Silicon (ARM64)`**.
+   - AQEMU automatically selects **`qemu-system-applesoc`** and sets the machine target to **`t8030` (Apple A13 Bionic - iPhone 11)** with 4 vCPUs, 4GB RAM, and VirtIO networking.
+2. **Extract Kernel Cache & Device Tree (`-kernel` and `-dtb`)**:
+   - Obtain a legitimate iOS IPSW for iPhone 11 or target Apple device.
+   - Extract the `kernelcache` and target hardware `.dtb` device tree blob.
+   - Pass `-kernel /path/to/kernelcache` and `-dtb /path/to/device.dtb` in AQEMU's **VM Configuration → Advanced QEMU Options → Additional Command Line Arguments**.
+3. **Mount APFS Disk Image (`-drive`)**:
+   - Provide an APFS-formatted iOS/macOS system image attached via NVMe (`-device nvme-mmu`).
+4. **Launch & Monitor via Embedded SPICE / Serial Console**:
+   - Hit **Play**! AQEMU launches `qemu-system-applesoc.exe` in headless SPICE/serial mode, giving you direct control over the booted Apple Silicon environment on your x86_64 Windows PC.
+
+---
+
 ## Screenshots
 
 More of the guest zoo — Win11 ARM and classic Windows under the same session UI. (Sonoma teaser is at the top of this README.)

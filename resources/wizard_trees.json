@@ -2,6 +2,7 @@
   "operating_systems": {
     "Apple": [
       "Darwin",
+      "iOS (ARM64)",
       "Mac OS 6",
       "Mac OS 7",
       "Mac OS 8",
@@ -9,6 +10,7 @@
       "Mac OS X Intel",
       "Mac OS X PPC",
       "macOS",
+      "macOS Apple Silicon (ARM64)",
       "NeXTSTEP",
       "OPENSTEP"
     ],
@@ -433,7 +435,8 @@
     "SH4": "sh4",
     "SH4 EB": "sh4eb",
     "TriCore": "tricore",
-    "LoongArch": "loongarch64"
+    "LoongArch": "loongarch64",
+    "Apple Silicon SoC": "applesoc"
   },
   "platform_bindings": {
     "PC (Q35)": {
@@ -491,6 +494,14 @@
     "Raspberry Pi 4": {
       "target": "aarch64",
       "machine": "raspi4b"
+    },
+    "iPhone 11 (Apple A13 Bionic)": {
+      "target": "applesoc",
+      "machine": "t8030"
+    },
+    "iPhone 6s Plus (Apple A9)": {
+      "target": "applesoc",
+      "machine": "s8000"
     },
     "Macintosh (Mac99)": {
       "target": "ppc",
@@ -667,6 +678,24 @@
     "NeXT Cube": {
       "target": "m68k",
       "machine": "next-cube"
+    },
+    "iOS (ARM64)": {
+      "target": "applesoc",
+      "machine": "t8030",
+      "ram_mb": 4096,
+      "hdd_gb": 32.0,
+      "nic": "virtio-net-pci",
+      "sound": "none",
+      "tip": "Defaulting to Apple A13 Bionic (t8030 - iPhone 11). Emulation of Apple Silicon iOS runs via ChefKiss Inferno."
+    },
+    "macOS Apple Silicon (ARM64)": {
+      "target": "applesoc",
+      "machine": "t8030",
+      "ram_mb": 8192,
+      "hdd_gb": 64.0,
+      "nic": "virtio-net-pci",
+      "sound": "none",
+      "tip": "Defaulting to Apple A13 Bionic (t8030) machine architecture via ChefKiss Inferno emulator."
     },
     "Pegasos II": {
       "target": "ppc",
