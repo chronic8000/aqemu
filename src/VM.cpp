@@ -8313,14 +8313,14 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 				const int p = port_s.toInt( &ok );
 				if( ok && p > 0 )
 				{
-					// Check if port p is free and not in Hyper-V reserved range
+					// Direct OS ephemeral allocation (0) if static port is unavailable or Hyper-V reserved
 					quint16 verified_port = Find_Free_TCP_Port( static_cast<quint16>( p ) );
 					if( verified_port != p || Port_Looks_HyperV_Reserved( (int)verified_port ) )
 					{
-						verified_port = Find_Free_TCP_Port( static_cast<quint16>( p + 1 ) );
+						verified_port = Find_Free_TCP_Port( 0 );
 						while( verified_port != 0 && Port_Looks_HyperV_Reserved( (int)verified_port ) )
 						{
-							verified_port = Find_Free_TCP_Port( static_cast<quint16>( verified_port + 1 ) );
+							verified_port = Find_Free_TCP_Port( 0 );
 						}
 					}
 					Serial_Console_Port = verified_port;
@@ -8337,10 +8337,11 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		}
 		if( ! have_tcp_serial )
 		{
-			quint16 sport = Find_Free_TCP_Port( 4555 );
+			// OS ephemeral probe (0) guarantees an unbound port outside Hyper-V dynamic exclusion ranges
+			quint16 sport = Find_Free_TCP_Port( 0 );
 			while( sport != 0 && Port_Looks_HyperV_Reserved( (int)sport ) )
 			{
-				sport = Find_Free_TCP_Port( static_cast<quint16>( sport + 1 ) );
+				sport = Find_Free_TCP_Port( 0 );
 			}
 			if( sport > 0 )
 			{
