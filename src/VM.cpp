@@ -7005,9 +7005,14 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			Args << "-no-fd-bootchk";
 	}
 	
-	// No ACPI
-	if( Current_Emulator_Devices.PSO_No_ACPI &&
-		ACPI == false ) Args << "-no-acpi";
+	// No ACPI — only pass -no-acpi if target explicitly advertises -no-acpi and guest ACPI is disabled.
+	const QString qemu_target_name = Current_Emulator_Devices.System.QEMU_Name.trimmed().toLower();
+	const bool target_supports_no_acpi_flag = Current_Emulator_Devices.PSO_No_ACPI &&
+	                                         ! qemu_target_name.contains( QLatin1String( "reimsvgpu" ) ) &&
+	                                         ! qemu_target_name.contains( QLatin1String( "applesoc" ) ) &&
+	                                         ! qemu_target_name.contains( QLatin1String( "aarch64" ) );
+	if( target_supports_no_acpi_flag && ACPI == false )
+		Args << "-no-acpi";
 	
 	// Snapshot
 	if( Snapshot_Mode )

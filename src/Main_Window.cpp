@@ -1643,7 +1643,8 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
 	tmp_vm->Use_Local_Time( ui.CH_Local_Time->isChecked() );
 
 	tmp_vm->Use_Check_FDD_Boot_Sector( ui_ao.CH_FDD_Boot->isChecked() );
-	tmp_vm->Use_ACPI( ui_ao.CH_ACPI->isChecked() );
+	tmp_vm->Use_ACPI( ui.CH_Machine_ACPI->isChecked() );
+	ui_ao.CH_ACPI->setChecked( ui.CH_Machine_ACPI->isChecked() );
 	tmp_vm->Use_Force_TCG( ui_ao.CH_Force_TCG->isChecked() );
 	tmp_vm->Use_Pass_Through_Gamepads( ui_ao.CH_Pass_Through_Gamepads->isChecked() );
 	tmp_vm->Use_Emulate_USB_Gamepad( ui_ao.CH_Emulate_USB_Gamepad->isChecked() );
@@ -2589,6 +2590,7 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 
 	// General Tab. Options
 	ui.CH_Fullscreen->setChecked( tmp_vm->Use_Fullscreen_Mode() );
+	ui.CH_Machine_ACPI->setChecked( tmp_vm->Use_ACPI() );
 	ui_ao.CH_ACPI->setChecked( tmp_vm->Use_ACPI() );
 	ui_ao.CH_Force_TCG->setChecked( tmp_vm->Use_Force_TCG() );
 	ui_ao.CH_Pass_Through_Gamepads->setChecked( tmp_vm->Use_Pass_Through_Gamepads() );

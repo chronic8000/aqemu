@@ -998,6 +998,19 @@
                    </property>
                   </widget>
                  </item>
+                 <item row="10" column="0" colspan="3">
+                  <widget class="QCheckBox" name="CH_Machine_ACPI">
+                   <property name="toolTip">
+                    <string>Enable ACPI (Advanced Configuration and Power Interface) support in guest. Modern OSs (Win10/11, macOS, Linux) require ACPI (checked). Turn OFF for legacy OSs or custom targets if QEMU reports '-no-acpi: invalid option'.</string>
+                   </property>
+                   <property name="text">
+                    <string>Enable ACPI (Power &amp; System Control)</string>
+                   </property>
+                   <property name="checked">
+                    <bool>true</bool>
+                   </property>
+                  </widget>
+                 </item>
                  <item row="1" column="2">
                   <widget class="QToolButton" name="TB_Show_Boot_Settings_Window">
                    <property name="enabled">
