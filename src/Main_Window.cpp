@@ -6648,7 +6648,11 @@ void Main_Window::Update_Win11_Lifecycle_Ui()
 void Main_Window::Update_Intel_MacOS_Settings_Ui()
 {
 	Virtual_Machine *vm = Get_Current_VM();
-	const bool show = vm && vm->Use_Intel_MacOS_Profile();
+	const bool is_reims = vm && ( vm->Get_Computer_Type().contains( QLatin1String( "reimsvgpu" ), Qt::CaseInsensitive ) ||
+	                              vm->Get_Machine_Name().contains( QLatin1String( "Reims" ), Qt::CaseInsensitive ) ||
+	                              vm->Get_Machine_Name().contains( QLatin1String( "macOS" ), Qt::CaseInsensitive ) ||
+	                              vm->Get_Machine_Name().contains( QLatin1String( "Mac OS" ), Qt::CaseInsensitive ) );
+	const bool show = vm && ( vm->Use_Intel_MacOS_Profile() || is_reims );
 
 	ui.label_intel_macos->setVisible( show );
 	ui.GB_Intel_MacOS_Settings->setVisible( show );
