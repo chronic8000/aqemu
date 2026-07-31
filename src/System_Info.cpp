@@ -661,6 +661,15 @@ bool System_Info::Update_VM_Computers_List()
 	ad.Video_Card_List += QEMU_Video_Cards_v0_10_0;
 	ad.Audio_Card_List = VM::Sound_Cards();
 	System_Info::Emulator_QEMU_2_0[ "qemu-system-arm" ] = ad;
+
+	ad = Available_Devices();
+	ad.System = Device_Map( "Apple Silicon (ARM64)", "qemu-system-applesoc" );
+	ad.CPU_List += CPU_ARM;
+	ad.Machine_List << Device_Map( QObject::tr("Apple A13 Bionic (t8030)"), "t8030" );
+	ad.Machine_List << Device_Map( QObject::tr("Apple M1 (t8101)"), "t8101" );
+	ad.Video_Card_List += QEMU_Video_Cards_v0_10_0;
+	ad.Audio_Card_List = VM::Sound_Cards();
+	System_Info::Emulator_QEMU_2_0[ "qemu-system-applesoc" ] = ad;
 	
 	ad = Available_Devices();
 	ad.System = Device_Map( "Cris", "qemu-system-cris" );
