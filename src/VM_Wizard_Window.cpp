@@ -2074,6 +2074,17 @@ void VM_Wizard_Window::Apply_Guest_Hardware_To_New_VM()
 			New_VM->Set_Mouse_USB_Version( 0 );
 		}
 
+		if( Selected_Target == QLatin1String( "reimsvgpu" ) || os.contains( QLatin1String( "Reims" ), Qt::CaseInsensitive ) )
+		{
+			New_VM->Set_Computer_Type( QStringLiteral( "qemu-system-reimsvgpu" ) );
+			New_VM->Set_Machine_Type( QStringLiteral( "q35" ) );
+			New_VM->Set_CPU_Type( QStringLiteral( "max" ) );
+			if( New_VM->Get_Memory_Size() < 4096 )
+				New_VM->Set_Memory_Size( 8192 );
+			New_VM->Set_SMP_CPU_Count( 4 );
+			New_VM->Set_Video_Card( QStringLiteral( "virtio" ) );
+		}
+
 		const bool chromeos_flex = ( os == QLatin1String( "Chrome OS Flex" ) );
 		const bool steamos = ( os == QLatin1String( "SteamOS" ) );
 		const bool nixos = ( os == QLatin1String( "NixOS" ) );

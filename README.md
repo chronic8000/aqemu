@@ -201,6 +201,17 @@ On **Raspberry Pi 5 / Linux aarch64** hosts, the same profile can lean on **KVM*
 
 ---
 
+## ⚡ Reims vGPU Acceleration Engine (`qemu-system-reimsvgpu.exe`)
+
+AQEMU now bundles **`qemu-system-reimsvgpu.exe`**, a specialized QEMU binary built from **steelbrain's `qemu-reims-vgpu`** project for virtual GPU acceleration on macOS and Windows guests.
+
+### 🚀 Highlights:
+- **`macOS x86_64 vGPU (Reims)`**: Accelerated graphics rendering for Intel macOS VMs.
+- **`Windows 11 vGPU (Reims)`**: vGPU hardware passthrough/acceleration profile for Windows 11.
+- **`qemu-system-reimsvgpu` Target**: Standalone binary with `libslirp` networking, SPICE display, and DirectSound audio enabled.
+
+---
+
 ## Windows from 1.x through modern
 
 | Era | What AQEMU helps with |

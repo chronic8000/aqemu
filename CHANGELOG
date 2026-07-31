@@ -1,3 +1,16 @@
+2026-07-31 Chronic Engineering — AQEMU 1.0.2 (Reims vGPU Acceleration Target)
+
+	* Virtual GPU Acceleration Target (qemu-system-reimsvgpu.exe):
+	  - Built and bundled steelbrain qemu-reims-vgpu engine into AQEMU as a standalone executable.
+	  - Enabled libslirp User-Mode NAT networking, SPICE display streaming, and DirectSound audio.
+	* New VM Wizard & OS Integration:
+	  - Added "macOS x86_64 vGPU (Reims)" under Apple operating systems tree.
+	  - Added "Windows 11 vGPU (Reims)" under Windows operating systems tree.
+	  - Registered "x86_64 vGPU (Reims)" -> qemu-system-reimsvgpu in Architecture Targets.
+	  - Configured 8GB RAM, 4 vCPUs, and virtio vGPU display presets.
+	* Probing & Catalog Automation:
+	  - Registered qemu-system-reimsvgpu.exe in probe_qemu.py and generated reimsvgpu.json catalog.
+
 2026-07-31 Chronic Engineering — AQEMU 1.0.1 (Apple Silicon / iOS Emulation & ChefKiss Inferno)
 
 	* Apple Silicon (ARM64) SoC Emulation Target (qemu-system-applesoc.exe):
