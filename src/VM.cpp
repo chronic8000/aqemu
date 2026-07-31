@@ -8313,11 +8313,15 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 				const int p = port_s.toInt( &ok );
 				if( ok && p > 0 )
 				{
-					// Test if the port is free. If occupied by a zombie process, probe p+1 to get a guaranteed free port.
+					// Check if port p is free and not in Hyper-V reserved range
 					quint16 verified_port = Find_Free_TCP_Port( static_cast<quint16>( p ) );
-					if( verified_port != p )
+					if( verified_port != p || Port_Looks_HyperV_Reserved( (int)verified_port ) )
 					{
 						verified_port = Find_Free_TCP_Port( static_cast<quint16>( p + 1 ) );
+						while( verified_port != 0 && Port_Looks_HyperV_Reserved( (int)verified_port ) )
+						{
+							verified_port = Find_Free_TCP_Port( static_cast<quint16>( verified_port + 1 ) );
+						}
 					}
 					Serial_Console_Port = verified_port;
 					if( verified_port != p )
@@ -8333,7 +8337,11 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		}
 		if( ! have_tcp_serial )
 		{
-			const quint16 sport = Find_Free_TCP_Port( 4555 );
+			quint16 sport = Find_Free_TCP_Port( 4555 );
+			while( sport != 0 && Port_Looks_HyperV_Reserved( (int)sport ) )
+			{
+				sport = Find_Free_TCP_Port( static_cast<quint16>( sport + 1 ) );
+			}
 			if( sport > 0 )
 			{
 				Serial_Console_Port = sport;
