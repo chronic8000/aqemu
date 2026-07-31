@@ -1347,10 +1347,31 @@ Available_Devices Main_Window::Get_Current_Machine_Devices( bool *ok ) const
 		return Available_Devices();
 	}
 
-	// Find current device
+	// Find current device by UserRole target key first, fallback to System.Caption match
+	const QString target_key = ui.CB_Computer_Type->currentData( Qt::UserRole ).toString();
+	const QString target_text = ui.CB_Computer_Type->currentText();
+
+	if( ! target_key.isEmpty() && allDevList.contains( target_key ) )
+	{
+		*ok = true;
+		Available_Devices d = allDevList[ target_key ];
+		if( System_Info::Emulator_QEMU_2_0.contains( target_key ) )
+		{
+			const Available_Devices &fb = System_Info::Emulator_QEMU_2_0[ target_key ];
+			d.PSO_SMP_Count = qMax( d.PSO_SMP_Count, fb.PSO_SMP_Count );
+			d.PSO_SMP_Cores = d.PSO_SMP_Cores || fb.PSO_SMP_Cores;
+			d.PSO_SMP_Threads = d.PSO_SMP_Threads || fb.PSO_SMP_Threads;
+			d.PSO_SMP_Sockets = d.PSO_SMP_Sockets || fb.PSO_SMP_Sockets;
+			d.PSO_SMP_MaxCPUs = d.PSO_SMP_MaxCPUs || fb.PSO_SMP_MaxCPUs;
+		}
+		System_Info::Normalize_Virt_Arch_Devices( d );
+		QEMU_Probe_Catalog::Merge_Into( d );
+		return d;
+	}
+
 	for( QMap<QString, Available_Devices>::const_iterator ix = allDevList.constBegin(); ix != allDevList.constEnd(); ++ix )
 	{
-		if( ui.CB_Computer_Type->currentText() == ix.value().System.Caption )
+		if( target_text == ix.value().System.Caption || (! target_key.isEmpty() && target_key == ix.key()) )
         {
 			*ok = true;
 			Available_Devices d = ix.value();
@@ -1364,12 +1385,19 @@ Available_Devices Main_Window::Get_Current_Machine_Devices( bool *ok ) const
 				d.PSO_SMP_MaxCPUs = d.PSO_SMP_MaxCPUs || fb.PSO_SMP_MaxCPUs;
 			}
 			System_Info::Normalize_Virt_Arch_Devices( d );
-			// Full QEMU option lists for this architecture (Main Window only;
-			// wizard stays on Guest_Capabilities curated defaults).
 			QEMU_Probe_Catalog::Merge_Into( d );
 			return d;
 		}
     }
+
+	if( ! target_key.isEmpty() && System_Info::Emulator_QEMU_2_0.contains( target_key ) )
+	{
+		*ok = true;
+		Available_Devices d = System_Info::Emulator_QEMU_2_0[ target_key ];
+		System_Info::Normalize_Virt_Arch_Devices( d );
+		QEMU_Probe_Catalog::Merge_Into( d );
+		return d;
+	}
 
 	// Not found
 	AQError( "Available_Devices Main_Window::Get_Current_Machine_Devices( bool *ok ) const",
@@ -1449,6 +1477,15 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
 	Available_Devices curComp = Get_Current_Machine_Devices( &curMachineOk );
 	if( ! curMachineOk )
     {
+        if( show_user_errors )
+        {
+            AQGraphic_Error( "bool Main_Window::Create_VM_From_Ui",
+                             tr("VM Save Error!"),
+                             tr("Cannot retrieve device settings for selected target '%1'. "
+                                "Check emulator installation under Advanced Settings.")
+                                .arg( ui.CB_Computer_Type->currentText() ),
+                             false );
+        }
         return false;
     }
 
