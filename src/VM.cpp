@@ -10457,36 +10457,71 @@ bool Virtual_Machine::Start_impl()
 				    ! host_linux_bin.endsWith( QLatin1String( ".exe" ), Qt::CaseInsensitive ) )
 				{
 					const QString wsl_src = Windows_Path_To_WSL( host_linux_bin );
-					AQDebug( "bool Virtual_Machine::Start()",
-					         QString( "Syncing host Linux Reims3D into WSL: %1 -> /usr/local/bin/qemu-system-reims3d" )
-					             .arg( host_linux_bin ) );
-
-					QStringList sync_args;
-					if( ! distro.trimmed().isEmpty() )
-						sync_args << QStringLiteral( "-d" ) << distro.trimmed();
-					// Prefer root so we avoid storing a sudo password in settings.
-					sync_args << QStringLiteral( "-u" ) << QStringLiteral( "root" );
-					sync_args << QStringLiteral( "-e" ) << QStringLiteral( "sh" ) << QStringLiteral( "-c" );
-					sync_args << QString(
-						"mkdir -p /usr/local/bin && "
-						"cp -f \"%1\" /usr/local/bin/qemu-system-reims3d && "
-						"chmod +x /usr/local/bin/qemu-system-reims3d && "
-						"mkdir -p /usr/share/qemu && "
-						"if [ -d /usr/share/seabios ] && [ ! -f /usr/share/qemu/vgabios-stdvga.bin ]; then "
-						"  ln -sf /usr/share/seabios/vgabios-stdvga.bin /usr/share/qemu/vgabios-stdvga.bin; "
-						"fi && "
-						"if [ -d /usr/share/seabios ] && [ ! -f /usr/share/qemu/kvmvapic.bin ]; then "
-						"  ln -sf /usr/share/seabios/kvmvapic.bin /usr/share/qemu/kvmvapic.bin; "
-						"fi" ).arg( wsl_src );
-
-					QProcess sync_proc;
-					sync_proc.start( QStringLiteral( "wsl.exe" ), sync_args );
-					if( ! sync_proc.waitForFinished( 15000 ) || sync_proc.exitCode() != 0 )
+					// Reject paths that could break shell/argv assumptions (defense in depth).
+					const bool path_ok = wsl_src.startsWith( QLatin1String( "/mnt/" ) ) &&
+						! wsl_src.contains( QLatin1Char( '"' ) ) &&
+						! wsl_src.contains( QLatin1Char( '\'' ) ) &&
+						! wsl_src.contains( QLatin1Char( '`' ) ) &&
+						! wsl_src.contains( QLatin1Char( '$' ) ) &&
+						! wsl_src.contains( QLatin1Char( '\n' ) ) &&
+						! wsl_src.contains( QLatin1Char( '\\' ) );
+					if( ! path_ok )
 					{
 						AQWarning( "bool Virtual_Machine::Start()",
-						           QString( "Failed to sync qemu-system-reims3d into WSL (exit %1): %2" )
-						               .arg( sync_proc.exitCode() )
-						               .arg( QString::fromLocal8Bit( sync_proc.readAllStandardError() ) ) );
+						           QString( "Skipping Reims3D sync — unsafe WSL path: %1" ).arg( wsl_src ) );
+					}
+					else
+					{
+						AQDebug( "bool Virtual_Machine::Start()",
+						         QString( "Syncing host Linux Reims3D into WSL: %1 -> /usr/local/bin/qemu-system-reims3d" )
+						             .arg( host_linux_bin ) );
+
+						auto run_wsl_root = [&]( const QStringList &cmd ) -> bool
+						{
+							QStringList args;
+							if( ! distro.trimmed().isEmpty() )
+								args << QStringLiteral( "-d" ) << distro.trimmed();
+							args << QStringLiteral( "-u" ) << QStringLiteral( "root" )
+							     << QStringLiteral( "-e" );
+							args << cmd;
+							QProcess p;
+							p.start( QStringLiteral( "wsl.exe" ), args );
+							if( ! p.waitForFinished( 15000 ) )
+							{
+								p.kill();
+								p.waitForFinished( 1000 );
+								return false;
+							}
+							return p.exitStatus() == QProcess::NormalExit && p.exitCode() == 0;
+						};
+
+						// Never interpolate the path into sh -c — pass as argv to cp/chmod.
+						const bool copied = run_wsl_root( QStringList()
+							<< QStringLiteral( "cp" ) << QStringLiteral( "-f" )
+							<< wsl_src
+							<< QStringLiteral( "/usr/local/bin/qemu-system-reims3d" ) );
+						const bool chmodded = copied && run_wsl_root( QStringList()
+							<< QStringLiteral( "chmod" ) << QStringLiteral( "+x" )
+							<< QStringLiteral( "/usr/local/bin/qemu-system-reims3d" ) );
+						// Optional firmware symlinks — fixed script, no user-controlled path.
+						if( chmodded )
+						{
+							run_wsl_root( QStringList()
+								<< QStringLiteral( "sh" ) << QStringLiteral( "-c" )
+								<< QStringLiteral(
+									"mkdir -p /usr/local/bin /usr/share/qemu; "
+									"if [ -d /usr/share/seabios ] && [ ! -f /usr/share/qemu/vgabios-stdvga.bin ]; then "
+									"  ln -sf /usr/share/seabios/vgabios-stdvga.bin /usr/share/qemu/vgabios-stdvga.bin; "
+									"fi; "
+									"if [ -d /usr/share/seabios ] && [ ! -f /usr/share/qemu/kvmvapic.bin ]; then "
+									"  ln -sf /usr/share/seabios/kvmvapic.bin /usr/share/qemu/kvmvapic.bin; "
+									"fi" ) );
+						}
+						else
+						{
+							AQWarning( "bool Virtual_Machine::Start()",
+							           QStringLiteral( "Failed to sync qemu-system-reims3d into WSL via argv cp/chmod" ) );
+						}
 					}
 				}
 

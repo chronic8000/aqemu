@@ -171,6 +171,7 @@ class Main_Window: public QMainWindow
 		void Update_Win11_Lifecycle_Ui();
 		void Update_Intel_MacOS_Settings_Ui();
 		void Update_DeviceTree_Visibility();
+		bool Uses_Apple_SoC_Boot_UI( const Virtual_Machine *vm ) const;
 		void Update_Intel_Mac_GPU_Passthrough_Ui();
 		void Apply_Intel_Mac_GPU_Passthrough_Ui_From_Cache();
 		void Start_Host_GPU_Scan();

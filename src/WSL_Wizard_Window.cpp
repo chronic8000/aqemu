@@ -83,10 +83,17 @@ void WSL_Wizard_Window::on_Btn_Ok_clicked()
 		AQGraphic_Warning( tr("Warning"), tr("WSL Username is required!") );
 		return;
 	}
+	if( ! WSL_Is_Valid_Username( Edit_User->text() ) )
+	{
+		AQGraphic_Warning( tr( "Warning" ),
+			tr( "WSL username may only contain letters, digits, underscore, and hyphen." ) );
+		return;
+	}
 	Settings.setValue( "WSL_Launch/Distro", Get_Distro() );
-	Settings.setValue( "WSL_Launch/Username", Get_Username() );
+	Settings.setValue( "WSL_Launch/Username", WSL_Sanitize_Username( Get_Username() ) );
 	// Never persist WSL passwords; privileged ops use wsl -u root.
 	Settings.remove( "WSL_Launch/Password" );
+	WSL_Clear_Probe_Cache();
 	accept();
 }
 

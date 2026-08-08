@@ -651,13 +651,21 @@ void Advanced_Settings_Window::done(int r)
 #ifdef Q_OS_WIN32
 	    if( CH_WSL_Launch_Enabled )
 	    {
+		    const QString wsl_user = Edit_WSL_User ? Edit_WSL_User->text().trimmed() : QString();
+		    if( ! wsl_user.isEmpty() && ! WSL_Is_Valid_Username( wsl_user ) )
+		    {
+			    AQGraphic_Warning( tr( "WSL" ),
+				    tr( "WSL username may only contain letters, digits, underscore, and hyphen." ) );
+			    return;
+		    }
 		    Settings.setValue( "WSL_Launch/Enabled", CH_WSL_Launch_Enabled->isChecked() );
 		    Settings.setValue( "WSL_Launch/Distro", CB_WSL_Distro ? CB_WSL_Distro->currentText().trimmed() : QString() );
-		    Settings.setValue( "WSL_Launch/Username", Edit_WSL_User ? Edit_WSL_User->text().trimmed() : QString() );
+		    Settings.setValue( "WSL_Launch/Username", WSL_Sanitize_Username( wsl_user ) );
 		    // Never persist WSL sudo passwords to disk.
 		    Settings.remove( "WSL_Launch/Password" );
 		    Settings.setValue( "WSL_Launch/Qemu_Binary",
 			    Edit_WSL_Qemu_Binary ? Edit_WSL_Qemu_Binary->text().trimmed() : QStringLiteral( "qemu-system-x86_64" ) );
+		    WSL_Clear_Probe_Cache();
 	    }
 #endif
 	    // Execute Before Start QEMU

@@ -1912,19 +1912,11 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
 	tmp_vm->Set_Initrd_Path( ui.Edit_Linux_Initrd_Path->text() );
 	tmp_vm->Set_DeviceTree_Path( ui.Edit_DeviceTree_Path->text() );
 	tmp_vm->Set_App_Kernel_Path( ui.Edit_App_Kernel_Path->text() );
-	// iOS/applesoc uses Edit_App_Kernel_Args; classic Linux boot uses Edit_Linux_Command_Line.
-	// Key off computer type / iOS paths — not widget visibility (can be false for non-VM reasons).
-	{
-		const QString computer = tmp_vm->Get_Computer_Type();
-		const bool use_app_kernel_args =
-			computer.contains( QLatin1String( "applesoc" ), Qt::CaseInsensitive ) ||
-			! ui.Edit_DeviceTree_Path->text().trimmed().isEmpty() ||
-			! ui.Edit_App_Kernel_Path->text().trimmed().isEmpty();
-		if( use_app_kernel_args )
-			tmp_vm->Set_Kernel_ComLine( ui.Edit_App_Kernel_Args->text() );
-		else
-			tmp_vm->Set_Kernel_ComLine( ui.Edit_Linux_Command_Line->text() );
-	}
+	// Must match Update_DeviceTree_Visibility / Uses_Apple_SoC_Boot_UI — not path emptiness.
+	if( Uses_Apple_SoC_Boot_UI( tmp_vm ) )
+		tmp_vm->Set_Kernel_ComLine( ui.Edit_App_Kernel_Args->text() );
+	else
+		tmp_vm->Set_Kernel_ComLine( ui.Edit_Linux_Command_Line->text() );
 
 	// Optional Images
 	// ROM File
@@ -6941,19 +6933,26 @@ void Main_Window::Update_DeviceTree_Visibility()
 		return;
 	}
 
+	ui.Widget_DeviceTree_Main->setVisible( Uses_Apple_SoC_Boot_UI( vm ) );
+}
+
+bool Main_Window::Uses_Apple_SoC_Boot_UI( const Virtual_Machine *vm ) const
+{
+	if( ! vm )
+		return false;
+
 	const QString m_name = vm->Get_Machine_Name();
 	const QString c_type = vm->Get_Computer_Type();
 	const QString m_type = vm->Get_Machine_Type();
 
-	const bool is_ios = ( m_name.contains( QLatin1String( "iOS" ), Qt::CaseInsensitive ) ||
-	                      m_name.contains( QLatin1String( "iPhone" ), Qt::CaseInsensitive ) ||
-	                      m_name.contains( QLatin1String( "iPad" ), Qt::CaseInsensitive ) ||
-	                      c_type.contains( QLatin1String( "applesoc" ), Qt::CaseInsensitive ) ||
-	                      m_type.contains( QLatin1String( "t8030" ), Qt::CaseInsensitive ) ||
-	                      m_type.contains( QLatin1String( "s8000" ), Qt::CaseInsensitive ) ) &&
-	                    ! c_type.contains( QLatin1String( "reimsvgpu" ), Qt::CaseInsensitive );
-
-	ui.Widget_DeviceTree_Main->setVisible( is_ios );
+	return ( m_name.contains( QLatin1String( "iOS" ), Qt::CaseInsensitive ) ||
+	         m_name.contains( QLatin1String( "iPhone" ), Qt::CaseInsensitive ) ||
+	         m_name.contains( QLatin1String( "iPad" ), Qt::CaseInsensitive ) ||
+	         m_name.contains( QLatin1String( "Apple Silicon" ), Qt::CaseInsensitive ) ||
+	         c_type.contains( QLatin1String( "applesoc" ), Qt::CaseInsensitive ) ||
+	         m_type.contains( QLatin1String( "t8030" ), Qt::CaseInsensitive ) ||
+	         m_type.contains( QLatin1String( "s8000" ), Qt::CaseInsensitive ) ) &&
+	       ! c_type.contains( QLatin1String( "reimsvgpu" ), Qt::CaseInsensitive );
 }
 
 void Main_Window::Update_Intel_Mac_GPU_Passthrough_Ui()
