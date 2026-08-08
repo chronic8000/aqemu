@@ -54,6 +54,7 @@
 
 #include "Utils.h"
 #include "AQ_UI_Style.h"
+#include "Apple_SoC_Support.h"
 #include "WSL_Launch.h"
 #include "VM_Wizard_Window.h"
 #include "System_Info.h"
@@ -2245,6 +2246,7 @@ void VM_Wizard_Window::Apply_Guest_Hardware_To_New_VM()
 		    os.contains( QLatin1String( "Apple Silicon" ), Qt::CaseInsensitive ) ||
 		    Selected_Target == QLatin1String( "applesoc" ) )
 		{
+			New_VM->Use_Apple_SoC_Profile( true );
 			New_VM->Set_Computer_Type( QStringLiteral( "qemu-system-applesoc" ) );
 			if( New_VM->Get_Machine_Type().isEmpty() || New_VM->Get_Machine_Type() == QLatin1String( "virt" ) )
 				New_VM->Set_Machine_Type( QStringLiteral( "t8030" ) );
@@ -2255,6 +2257,11 @@ void VM_Wizard_Window::Apply_Guest_Hardware_To_New_VM()
 			New_VM->Set_Video_Card( QStringLiteral( "std" ) );
 			New_VM->Set_Mouse_Type( QStringLiteral( "usb-tablet" ) );
 			New_VM->Use_USB_Hub( true );
+			New_VM->Use_Launch_Via_WSL( true );
+			New_VM->Set_Kernel_ComLine( AQ_Apple_SoC_Default_Append() );
+			New_VM->Set_Apple_USB_Conn_Type( QStringLiteral( "unix" ) );
+			New_VM->Set_Apple_USB_Conn_Addr( QStringLiteral( "/tmp/InfernoUSBRemote" ) );
+			New_VM->Set_Apple_USB_Conn_Port( 8030 );
 		}
 
 		if( qnx )
@@ -4867,6 +4874,8 @@ bool VM_Wizard_Window::Create_New_VM(bool simulate)
 	
 	if( Is_Windows11_ARM_Template() )
 		Apply_Windows11_ARM_Profile( simulate );
+	else if( Is_Apple_Silicon_Or_iOS_Template() )
+		Apply_Apple_SoC_Profile( simulate );
 	else if( Is_Intel_MacOS_Template() )
 		Apply_Intel_MacOS_Profile( simulate );
 	else if( New_VM->Get_Computer_Type().contains( "aarch64", Qt::CaseInsensitive ) ||
@@ -4945,14 +4954,15 @@ void VM_Wizard_Window::Update_Finish_Page_Guidance()
 	}
 	else if( Is_Apple_Silicon_Or_iOS_Template() )
 	{
-		help = tr( "<p><b>Apple Silicon / iOS (experimental)</b></p><ul>"
-			"<li>Uses <code>qemu-system-applesoc</code> (ChefKiss Inferno) with machines such as "
-			"<code>t8030</code> or <code>s8000</code>.</li>"
-			"<li>Supply a kernelcache and DeviceTree via the DeviceTree / Kernel fields on the VM "
-			"(not Additional Args).</li>"
-			"<li>AQEMU does not ship IPSW files, kernels, or DeviceTrees. Use "
-			"<b>File → iOS Firmware Tool</b> if you have <code>pyimg4</code> installed.</li>"
-			"<li>On x86 Windows hosts this is TCG-only and very slow.</li>"
+		help = tr( "<p><b>Apple SoC / iOS (Inferno) — AQEMU 1.3.0</b></p><ul>"
+			"<li>Uses Linux <code>qemu-system-applesoc</code> (ChefKiss Inferno). "
+			"On Windows this is forced through <b>WSL</b> (UNIX sockets / companion restore).</li>"
+			"<li>Set kernelcache, DeviceTree, trustcache, restore ticket, and SEP firmware "
+			"on the VM page. AQEMU creates the Inferno NVMe image set under the VM folder.</li>"
+			"<li>IPSW restore needs a <b>companion VM</b> first, then "
+			"<b>File → Apple SoC Restore</b> (patched <code>idevicerestore</code> in WSL). "
+			"See <a href=\"https://chefkiss.dev/ar/guides/inferno/companion-setup/\">Companion setup</a>.</li>"
+			"<li>Use <b>File → iOS Firmware Tool</b> to unpack IPSW / IM4P when needed.</li>"
 			"</ul>" );
 	}
 	else if( Selected_OS_Name.contains( "Reims", Qt::CaseInsensitive ) ||
@@ -4961,12 +4971,14 @@ void VM_Wizard_Window::Update_Finish_Page_Guidance()
 	         Selected_OS_Name.compare( QLatin1String( "macOS" ), Qt::CaseInsensitive ) == 0 ||
 	         Selected_OS_Name.compare( QLatin1String( "Darwin" ), Qt::CaseInsensitive ) == 0 )
 	{
-		help = tr( "<p><b>Intel macOS (experimental)</b></p><ul>"
+		help = tr( "<p><b>Intel macOS / Reims — AQEMU 1.3.0</b></p><ul>"
 			"<li>You must supply OpenCore boot disk, OVMF firmware, OSK, and install/system disks.</li>"
-			"<li>AQEMU does not ship Apple OS files or a default OSK.</li>"
-			"<li>Reims vGPU needs Linux <code>qemu-system-reims3d</code> under WSL — the Windows "
-			"<code>qemu-system-reimsvgpu.exe</code> helper does not expose <code>reims-vgpu-pci</code>.</li>"
-			"<li>On Windows, WHPX is used unless you enable Launch via WSL/KVM.</li>"
+			"<li><b>Reims vGPU</b> (hardware-accelerated Metal path) uses Linux "
+			"<code>qemu-system-reims3d</code> under <b>WSL</b> with host Vulkan — "
+			"<b>AMD and NVIDIA</b> GPUs on Windows via WSLg.</li>"
+			"<li>The Windows <code>qemu-system-reimsvgpu.exe</code> helper does not expose "
+			"<code>reims-vgpu-pci</code>.</li>"
+			"<li>AMD Metal <b>PCIe VFIO</b> remains bare-metal Linux only — not available on Windows.</li>"
 			"</ul>" );
 	}
 	else if( Selected_OS_Name == QLatin1String( "SteamOS" ) )
@@ -5149,6 +5161,44 @@ void VM_Wizard_Window::Apply_Windows11_ARM_Profile( bool simulate )
 	New_VM->Set_UEFI_VARS_File( vars_dest );
 	if( ! simulate )
 		Prepare_UEFI_VARS_File( vars_dest, qemu_bin );
+}
+
+void VM_Wizard_Window::Apply_Apple_SoC_Profile( bool simulate )
+{
+	QString vm_dir = Settings.value( "VM_Directory", "~" ).toString();
+	QString vm_base = Get_FS_Compatible_VM_Name( ui.Edit_VM_Name->text() );
+	const QString vm_folder = QDir( vm_dir ).filePath( vm_base );
+
+	New_VM->Use_Apple_SoC_Profile( true );
+	New_VM->Set_Computer_Type( QStringLiteral( "qemu-system-applesoc" ) );
+	if( New_VM->Get_Machine_Type().isEmpty() ||
+	    New_VM->Get_Machine_Type() == QLatin1String( "virt" ) )
+		New_VM->Set_Machine_Type( QStringLiteral( "t8030" ) );
+	New_VM->Set_CPU_Type( QStringLiteral( "max" ) );
+	if( New_VM->Get_Memory_Size() < 4096 )
+		New_VM->Set_Memory_Size( 4096 );
+	New_VM->Set_SMP_CPU_Count( 4 );
+	New_VM->Set_Video_Card( QStringLiteral( "std" ) );
+	New_VM->Set_Mouse_Type( QStringLiteral( "usb-tablet" ) );
+	New_VM->Use_USB_Hub( true );
+	New_VM->Use_Launch_Via_WSL( true );
+	New_VM->Set_Kernel_ComLine( AQ_Apple_SoC_Default_Append() );
+#ifdef Q_OS_WIN32
+	New_VM->Set_Apple_USB_Conn_Type( QStringLiteral( "unix" ) );
+	New_VM->Set_Apple_USB_Conn_Addr( QStringLiteral( "/tmp/InfernoUSBRemote" ) );
+	Settings.setValue( QStringLiteral( "WSL_Launch/Enabled" ), true );
+#else
+	New_VM->Set_Apple_USB_Conn_Type( QStringLiteral( "unix" ) );
+	New_VM->Set_Apple_USB_Conn_Addr( QStringLiteral( "/tmp/InfernoUSBRemote" ) );
+#endif
+	New_VM->Set_Apple_USB_Conn_Port( 8030 );
+
+	if( ! simulate )
+	{
+		QString err;
+		if( ! AQ_Ensure_Apple_SoC_Disk_Images( vm_folder, &err ) )
+			AQWarning( "VM_Wizard_Window::Apply_Apple_SoC_Profile", err );
+	}
 }
 
 void VM_Wizard_Window::Apply_Intel_MacOS_Profile( bool simulate )

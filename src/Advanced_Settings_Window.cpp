@@ -157,6 +157,7 @@ Advanced_Settings_Window::Advanced_Settings_Window( QWidget *parent )
 	CB_WSL_Distro = nullptr;
 	Edit_WSL_User = nullptr;
 	Edit_WSL_Qemu_Binary = nullptr;
+	Edit_WSL_AppleSoC_Binary = nullptr;
 	Label_WSL_KVM_Status = nullptr;
 	TB_WSL_Probe = nullptr;
 #ifdef Q_OS_WIN32
@@ -191,6 +192,14 @@ Advanced_Settings_Window::Advanced_Settings_Window( QWidget *parent )
 		binLay->addWidget( Edit_WSL_Qemu_Binary );
 		wslLay->addLayout( binLay );
 
+		QHBoxLayout *appleBinLay = new QHBoxLayout();
+		appleBinLay->addWidget( new QLabel( tr( "Apple SoC binary in WSL:" ) ) );
+		Edit_WSL_AppleSoC_Binary = new QLineEdit(
+			Settings.value( "WSL_Launch/AppleSoC_Binary",
+			                "/usr/local/bin/qemu-system-applesoc" ).toString() );
+		appleBinLay->addWidget( Edit_WSL_AppleSoC_Binary );
+		wslLay->addLayout( appleBinLay );
+
 		QHBoxLayout *probeLay = new QHBoxLayout();
 		TB_WSL_Probe = new QToolButton();
 		TB_WSL_Probe->setText( tr( "Probe /dev/kvm" ) );
@@ -200,7 +209,10 @@ Advanced_Settings_Window::Advanced_Settings_Window( QWidget *parent )
 		wslLay->addLayout( probeLay );
 
 		QLabel *note = new QLabel( tr(
-			"SPICE/QMP stay on 127.0.0.1 — requires WSL localhostForwarding." ) );
+			"SPICE/QMP stay on 127.0.0.1 — requires WSL localhostForwarding.\n"
+			"Apple SoC / Reims always use WSL Linux binaries. Passwords are not stored; "
+			"KVM permission fixes use wsl -u root.\n"
+			"Reims Metal/Vulkan acceleration supports AMD and NVIDIA GPUs via WSLg." ) );
 		note->setWordWrap( true );
 		wslLay->addWidget( note );
 
@@ -665,6 +677,9 @@ void Advanced_Settings_Window::done(int r)
 		    Settings.remove( "WSL_Launch/Password" );
 		    Settings.setValue( "WSL_Launch/Qemu_Binary",
 			    Edit_WSL_Qemu_Binary ? Edit_WSL_Qemu_Binary->text().trimmed() : QStringLiteral( "qemu-system-x86_64" ) );
+		    Settings.setValue( "WSL_Launch/AppleSoC_Binary",
+			    Edit_WSL_AppleSoC_Binary ? Edit_WSL_AppleSoC_Binary->text().trimmed()
+			                           : QStringLiteral( "/usr/local/bin/qemu-system-applesoc" ) );
 		    WSL_Clear_Probe_Cache();
 	    }
 #endif

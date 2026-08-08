@@ -136,6 +136,11 @@ class Main_Window: public QMainWindow
 		void on_actionCreate_Shell_Script_triggered();
 		void on_actionShow_QEMU_Error_Log_Window_triggered();
 		void slot_iOS_Firmware_Tool_triggered();
+		void slot_Apple_SoC_Restore_triggered();
+		void Maybe_Prompt_WSL_Config_On_Boot();
+		void Build_Apple_SoC_Inferno_Ui();
+		void Apply_Apple_SoC_Fields_To_VM( Virtual_Machine *vm );
+		void Load_Apple_SoC_Fields_From_VM( const Virtual_Machine *vm );
 		
 		void on_Tabs_currentChanged( int index );
 		
@@ -371,6 +376,15 @@ class Main_Window: public QMainWindow
 		/** True while Start() runs under the busy dialog — do not attach SPICE yet. */
 		bool Session_Block_During_Start;
 		bool GPU_Scan_Busy;
+
+		QLineEdit *Edit_Apple_Trustcache;
+		QLineEdit *Edit_Apple_Ticket;
+		QLineEdit *Edit_Apple_SEP_FW;
+		QLineEdit *Edit_Apple_SEP_ROM;
+		QLineEdit *Edit_Apple_IPSW;
+		QLineEdit *Edit_Apple_USB_Conn_Addr;
+		QComboBox *CB_Apple_USB_Conn_Type;
+		QSpinBox *SB_Apple_USB_Conn_Port;
 
 		QSystemTrayIcon *Tray_Icon;
 		QAction *Act_Tray_Show;

@@ -101,6 +101,9 @@ class System_Info
 		static bool Host_GPU_Was_Scanned();
 		static const QList<Host_GPU> &Get_Host_GPU_List();
 		static bool Has_AMD_Display_GPU();
+		static bool Has_NVIDIA_Display_GPU();
+		/** AMD or NVIDIA display GPU — Reims/WSL Vulkan acceleration candidates. */
+		static bool Has_WSL_Vulkan_GPU();
 		/** Native Linux with PCI (not Windows, not WSL). Required for vfio-pci into QEMU. */
 		static bool Host_Supports_PCI_Passthrough();
 		static bool Host_Is_WSL();

@@ -19,9 +19,9 @@ WiX Toolset → classic installer under `Program Files\AQEMU`.
 powershell -ExecutionPolicy Bypass -File installer\build-msi.ps1
 ```
 
-Output: `installer\out\AQEMU-1.1.0-win64.msi`
+Output: `installer\out\AQEMU-1.3.0-win64.msi`
 
-Silent install: `msiexec /i AQEMU-1.1.0-win64.msi /qn`
+Silent install: `msiexec /i AQEMU-1.3.0-win64.msi /qn`
 
 Requires: [WiX CLI](https://wixtoolset.org/) (`winget install WiXToolset.WiXCLI`), then `wix eula accept wix7` once (or let the script accept it).
 
@@ -35,7 +35,7 @@ Desktop Bridge package (`runFullTrust`) with the same built-in QEMU payload. Thi
 powershell -ExecutionPolicy Bypass -File installer\build-msix.ps1
 ```
 
-Output: `installer\out\AQEMU-1.1.0-win64.msix`
+Output: `installer\out\AQEMU-1.3.0-win64.msix`
 
 Requires: Windows 10/11 SDK (`makeappx.exe`, `signtool.exe`).
 
@@ -47,7 +47,7 @@ In Partner Center, create an **MSIX or PWA** app (not EXE/MSI), open **Product i
 powershell -ExecutionPolicy Bypass -File installer\build-msix.ps1 `
   -Publisher "CN=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
   -IdentityName "YourPublisher.AQEMU" `
-  -Version "1.1.0.0"
+  -Version "1.3.0.0"
 ```
 
 - **Publisher** must match the Store `CN=...` exactly (signing cert subject must match too).

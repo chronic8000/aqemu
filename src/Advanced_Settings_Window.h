@@ -96,6 +96,7 @@ class Advanced_Settings_Window: public QDialog
 		class QComboBox *CB_WSL_Distro;
 		QLineEdit *Edit_WSL_User;
 		QLineEdit *Edit_WSL_Qemu_Binary;
+		QLineEdit *Edit_WSL_AppleSoC_Binary;
 		QLabel *Label_WSL_KVM_Status;
 		QToolButton *TB_WSL_Probe;
 

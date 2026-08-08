@@ -104,7 +104,7 @@ We keep the original authors’ names. We do **not** inherit their old donation 
 
 ## What’s new vs the old AQEMU (tobimensch / ~0.9.x)
 
-The last widely known community tree — [tobimensch/aqemu](https://github.com/tobimensch/aqemu) — went quiet in 2020 (Qt5 port, VNC-era display, you brought your own QEMU). **Calling this revival a reskin misses nearly all of the engineering.** AQEMU 1.1.0 changes the capability model, runtime architecture, VM creation flow, platform support and distribution pipeline—not just the appearance.
+The last widely known community tree — [tobimensch/aqemu](https://github.com/tobimensch/aqemu) — went quiet in 2020 (Qt5 port, VNC-era display, you brought your own QEMU). **Calling this revival a reskin misses nearly all of the engineering.** AQEMU 1.3.0 adds working Apple SoC (Inferno/iOS) and hardware-accelerated Reims macOS on Windows via WSL, on top of the capability model, runtime architecture, VM creation flow, platform support and distribution pipeline from earlier 1.x releases.
 
 ### 1. Ground-truth capability engine
 
@@ -138,7 +138,8 @@ An asynchronous **QMP client** drives pause/resume, ACPI shutdown, reset, media 
 |--|--|
 | **Windows 11 ARM** | Wizard + lifecycle on **x64 Windows hosts via TCG** (and KVM on Pi 5 / aarch64) |
 | **Windows 95 / 98 / ME** | **Force pure TCG** — WHPX hangs classic 9x; we stop that footgun |
-| **Intel macOS** | OpenCore + OVMF + OSK UI, host-matching resolution, optional **WSL/KVM** on Windows |
+| **Apple SoC / iOS** | **1.3.0** — Inferno `qemu-system-applesoc` under **WSL**, trustcache/SEP/NVMe layout, companion + idevicerestore UI |
+| **Intel macOS + Reims** | OpenCore + OVMF + OSK; **Reims** accel via WSL `qemu-system-reims3d` + Vulkan (**AMD and NVIDIA** on Windows) |
 | **Classic Mac OS (PPC)** | `mac99` / PowerPC profiles, no PC floppy nonsense |
 | **Solaris 11.4 / AIX / OS/2 / ReactOS** | Wizard defaults matching real QEMU flags (AIX = `ppc64`/`pseries`, TCG on Windows) |
 
@@ -411,9 +412,11 @@ Get the official **AQEMU VM Manager** package on the Microsoft Store:
 </p>
 
 The Microsoft Store version includes:
+- **AQEMU 1.3.0** with Apple SoC (Inferno/iOS) and Reims hardware-accelerated macOS via WSL
 - **Bundled QEMU 11.0.2** binaries (no separate QEMU setup required)
 - **Automatic background updates** via the Microsoft Store
 - Dedicated Windows app installation & single-click launcher
+- **AMD and NVIDIA** GPU acceleration for Reims guests through WSLg Vulkan (WSL required)
 
 ### Build from Source (Linux / Pi 5 / Windows)
 

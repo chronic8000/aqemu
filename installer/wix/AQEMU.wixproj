@@ -6,9 +6,9 @@
   -->
   <PropertyGroup>
     <OutputType>Package</OutputType>
-    <OutputName>AQEMU-1.0.0-win64</OutputName>
+    <OutputName>AQEMU-1.3.0-win64</OutputName>
     <InstallerPlatform>x64</InstallerPlatform>
-    <DefineConstants>ProductVersion=1.0.0</DefineConstants>
+    <DefineConstants>ProductVersion=1.3.0</DefineConstants>
     <AcceptEula>wix7</AcceptEula>
   </PropertyGroup>
   <ItemGroup>

@@ -3783,6 +3783,22 @@ bool System_Info::Has_AMD_Display_GPU()
 	return false;
 }
 
+bool System_Info::Has_NVIDIA_Display_GPU()
+{
+	const QList<Host_GPU> &list = All_Host_GPU;
+	for( int i = 0; i < list.count(); ++i )
+	{
+		if( list[i].Is_Display && list[i].Vendor == QLatin1String( "NVIDIA" ) )
+			return true;
+	}
+	return false;
+}
+
+bool System_Info::Has_WSL_Vulkan_GPU()
+{
+	return Has_AMD_Display_GPU() || Has_NVIDIA_Display_GPU();
+}
+
 QString System_Info::Suggest_AMD_Audio_For( const QString &display_pci_address )
 {
 	const QString bdf = display_pci_address.trimmed();
