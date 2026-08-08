@@ -668,7 +668,6 @@ bool System_Info::Update_VM_Computers_List()
 	ad.CPU_List += CPU_ARM;
 	ad.Machine_List << Device_Map( QObject::tr("Apple A13 Bionic (t8030)"), "t8030" );
 	ad.Machine_List << Device_Map( QObject::tr("Apple S8000 (s8000)"), "s8000" );
-	ad.Machine_List << Device_Map( QObject::tr("Apple M1 (t8101)"), "t8101" );
 	ad.Network_Card_List += Network_Card_ARM;
 	ad.Video_Card_List += QEMU_Video_Cards_v0_10_0;
 	ad.Audio_Card_List = VM::Sound_Cards();
@@ -677,7 +676,7 @@ bool System_Info::Update_VM_Computers_List()
 	System_Info::Emulator_QEMU_2_0[ "qemu-system-applesoc" ] = ad;
 	
 	ad = Available_Devices();
-	ad.System = Device_Map( "x86_64 vGPU Accelerated", "qemu-system-reimsvgpu" );
+	ad.System = Device_Map( "x86_64 Reims (WSL / reims3d)", "qemu-system-reimsvgpu" );
 	ad.CPU_List += CPU_x86_64_v0_10_0;
 	ad.Machine_List += Machine_x86;
 	ad.Network_Card_List += Network_Card_v0_10_0;
@@ -690,7 +689,7 @@ bool System_Info::Update_VM_Computers_List()
 	ad.PSO_No_FB_Boot_Check = true;
 	ad.PSO_Win2K_Hack = true;
 	ad.PSO_RTC_TD_Hack = true;
-	ad.PSO_Kernel_KQEMU = true;
+	ad.PSO_Kernel_KQEMU = false;
 	ad.PSO_No_ACPI = true;
 	System_Info::Emulator_QEMU_2_0[ "qemu-system-reimsvgpu" ] = ad;
 	
@@ -1411,7 +1410,7 @@ bool Is_Video_Card_Allowed( Video_Arch_Family fam, const QString &raw_name )
 			       name == "reims-vgpu-pci" || name == "xenfb" || name == "none";
 		case VAF_VIRT:
 			return name == "virtio-gpu-pci" || name == "virtio-gpu-gl-pci" ||
-			       name == "reims-vgpu-pci" || name == "ramfb" || name == "std" || name == "cirrus" || name == "none";
+			       name == "ramfb" || name == "std" || name == "cirrus" || name == "none";
 		case VAF_SPARC:
 			return name == "cg3" || name == "tcx" || name == "std" || name == "none";
 		case VAF_PPC:
@@ -1461,7 +1460,6 @@ QList<Device_Map> Default_Video_List_For_Family( Video_Arch_Family fam )
 			add( QObject::tr("VirtIO VGA (GL / OpenGL)"), "virtio-vga-gl" );
 			break;
 		case VAF_VIRT:
-			add( QObject::tr("Reims vGPU (3D Acceleration)"), "reims-vgpu-pci" );
 			add( QObject::tr("VirtIO GPU (PCI)"), "virtio-gpu-pci" );
 			add( QObject::tr("VirtIO GPU GL (PCI)"), "virtio-gpu-gl-pci" );
 			add( QObject::tr("ramfb (simple framebuffer)"), "ramfb" );

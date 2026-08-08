@@ -20,6 +20,10 @@ bool WSL_Ensure_KVM_Access( const QString &distro = QString() );
 /** Clear cached WSL/KVM probe results (e.g. after Settings Probe). */
 void WSL_Clear_Probe_Cache();
 
+/** Letters, digits, underscore, hyphen only — empty if invalid. */
+QString WSL_Sanitize_Username( const QString &raw );
+bool WSL_Is_Valid_Username( const QString &raw );
+
 /** Retrieve a list of all installed WSL distributions. */
 QStringList WSL_Get_Installed_Distros();
 

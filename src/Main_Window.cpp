@@ -184,16 +184,24 @@ Main_Window::Main_Window( QWidget *parent )
 		} );
 		ui.menuFile->insertAction( ui.actionCreate_HDD_Image, actRemote );
 	}
-	// File → Configure WSL (Distro selection, username, password)
+	// File → Configure WSL (distro + username)
 	{
 		QAction *actWsl = new QAction( QIcon( ":/configure.png" ),
 			tr( "Configure &WSL…" ), this );
-		actWsl->setStatusTip( tr( "Set WSL default distribution, username, and password credentials" ) );
+		actWsl->setStatusTip( tr( "Set WSL default distribution and username for KVM launches" ) );
 		connect( actWsl, &QAction::triggered, this, [this]() {
 			WSL_Wizard_Window wizard( this );
 			wizard.exec();
 		} );
 		ui.menuFile->insertAction( ui.actionCreate_HDD_Image, actWsl );
+	}
+	// File → iOS Firmware Tool
+	{
+		QAction *actIosFw = new QAction( QIcon( QStringLiteral( ":/default_mac.png" ) ),
+			tr( "iOS &Firmware Tool…" ), this );
+		actIosFw->setStatusTip( tr( "Unpack IPSW archives and process IM4P payloads with pyimg4" ) );
+		connect( actIosFw, &QAction::triggered, this, &Main_Window::slot_iOS_Firmware_Tool_triggered );
+		ui.menuFile->insertAction( ui.actionCreate_HDD_Image, actIosFw );
 	}
 	if( ui.actionCopy )
 		ui.actionCopy->setText( tr( "Clone &VM…" ) );
@@ -357,20 +365,6 @@ Main_Window::Main_Window( QWidget *parent )
 
 	ui.TabWidget_Media->insertTab( 0, Dev_Manager, QIcon(":/hdd.png"), tr("Device Manager") );
     ui.TabWidget_Media->setCurrentWidget(Dev_Manager);
-
-	// Add explicit iOS Firmware tab into TabWidget_Media BEFORE Settings_Widget converts it
-	QWidget *tab_ios_fw = new QWidget();
-	QVBoxLayout *lay_fw = new QVBoxLayout( tab_ios_fw );
-	lay_fw->setContentsMargins( 20, 20, 20, 20 );
-	QLabel *lbl_fw = new QLabel( tr( "<h3>Apple iOS Firmware Unpacker & pyimg4 Tool</h3><p>Extract and decrypt IPSW archives, DeviceTree, kernelcache, and SEP payloads natively on Windows.</p>" ), tab_ios_fw );
-	lbl_fw->setWordWrap( true );
-	QPushButton *btn_open_fw = new QPushButton( QIcon( QStringLiteral( ":/default_mac.png" ) ), tr( "Launch iOS Firmware Unpacker Tool" ), tab_ios_fw );
-	btn_open_fw->setFixedHeight( 36 );
-	connect( btn_open_fw, &QPushButton::clicked, this, &Main_Window::slot_iOS_Firmware_Tool_triggered );
-	lay_fw->addWidget( lbl_fw );
-	lay_fw->addWidget( btn_open_fw );
-	lay_fw->addStretch();
-	ui.TabWidget_Media->addTab( tab_ios_fw, QIcon( QStringLiteral( ":/default_mac.png" ) ), tr( "iOS Firmware" ) );
 
     Media_Settings_Widget = new Settings_Widget( ui.TabWidget_Media, QBoxLayout::LeftToRight, true );
     Media_Settings_Widget->setIconSize( AQ_Nav_Icon_Size( this ) );
@@ -1918,19 +1912,11 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
 	tmp_vm->Set_Initrd_Path( ui.Edit_Linux_Initrd_Path->text() );
 	tmp_vm->Set_DeviceTree_Path( ui.Edit_DeviceTree_Path->text() );
 	tmp_vm->Set_App_Kernel_Path( ui.Edit_App_Kernel_Path->text() );
-	// iOS/applesoc uses Edit_App_Kernel_Args; classic Linux boot uses Edit_Linux_Command_Line.
-	// Key off computer type / iOS paths — not widget visibility (can be false for non-VM reasons).
-	{
-		const QString computer = tmp_vm->Get_Computer_Type();
-		const bool use_app_kernel_args =
-			computer.contains( QLatin1String( "applesoc" ), Qt::CaseInsensitive ) ||
-			! ui.Edit_DeviceTree_Path->text().trimmed().isEmpty() ||
-			! ui.Edit_App_Kernel_Path->text().trimmed().isEmpty();
-		if( use_app_kernel_args )
-			tmp_vm->Set_Kernel_ComLine( ui.Edit_App_Kernel_Args->text() );
-		else
-			tmp_vm->Set_Kernel_ComLine( ui.Edit_Linux_Command_Line->text() );
-	}
+	// Must match Update_DeviceTree_Visibility / Uses_Apple_SoC_Boot_UI — not path emptiness.
+	if( Uses_Apple_SoC_Boot_UI( tmp_vm ) )
+		tmp_vm->Set_Kernel_ComLine( ui.Edit_App_Kernel_Args->text() );
+	else
+		tmp_vm->Set_Kernel_ComLine( ui.Edit_Linux_Command_Line->text() );
 
 	// Optional Images
 	// ROM File
@@ -1956,8 +1942,9 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
 	tmp_vm->Use_USB_Hub( old_vm->Use_USB_Hub() );
 	tmp_vm->Set_Win11_Lifecycle_Mode( old_vm->Get_Win11_Lifecycle_Mode() );
 	// Honor the checkbox — do not OR with old_vm (that made Intel Mac / WSL sticky forever).
-	const bool is_reims_vm = old_vm && ( old_vm->Get_Computer_Type().contains( QLatin1String( "reimsvgpu" ), Qt::CaseInsensitive ) ||
-	                                      old_vm->Get_Machine_Name().contains( QLatin1String( "Reims" ), Qt::CaseInsensitive ) );
+	// Reims computer type still implies Intel macOS OpenCore profile (not display-name heuristics).
+	const bool is_reims_vm = old_vm &&
+		old_vm->Get_Computer_Type().contains( QLatin1String( "reimsvgpu" ), Qt::CaseInsensitive );
 	tmp_vm->Use_Intel_MacOS_Profile( ui_ao.CH_Intel_MacOS_Profile->isChecked() || is_reims_vm );
 	{
 		// Prefer main VM-page Intel macOS fields when that section is shown; else Advanced Options;
@@ -2783,10 +2770,17 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 	ui_ao.Edit_UEFI_CODE_File->setText( tmp_vm->Get_UEFI_CODE_File() );
 	ui_ao.Edit_UEFI_VARS_File->setText( tmp_vm->Get_UEFI_VARS_File() );
 	ui_ao.CH_Launch_Via_WSL->setChecked( tmp_vm->Use_Launch_Via_WSL() );
-	ui_ao.GB_Intel_MacOS->setVisible( tmp_vm->Use_Intel_MacOS_Profile() ||
-		tmp_vm->Get_Machine_Name().contains( "macOS", Qt::CaseInsensitive ) ||
-		tmp_vm->Get_Machine_Name().contains( "Mac OS X", Qt::CaseInsensitive ) ||
-		tmp_vm->Get_Machine_Name().contains( "Darwin", Qt::CaseInsensitive ) );
+	{
+		const bool is_apple_soc =
+			tmp_vm->Get_Computer_Type().contains( QLatin1String( "applesoc" ), Qt::CaseInsensitive ) ||
+			tmp_vm->Get_Machine_Name().contains( QLatin1String( "Apple Silicon" ), Qt::CaseInsensitive ) ||
+			tmp_vm->Get_Machine_Name().contains( QLatin1String( "iOS" ), Qt::CaseInsensitive );
+		ui_ao.GB_Intel_MacOS->setVisible( ! is_apple_soc && (
+			tmp_vm->Use_Intel_MacOS_Profile() ||
+			tmp_vm->Get_Machine_Name().contains( "macOS", Qt::CaseInsensitive ) ||
+			tmp_vm->Get_Machine_Name().contains( "Mac OS X", Qt::CaseInsensitive ) ||
+			tmp_vm->Get_Machine_Name().contains( "Darwin", Qt::CaseInsensitive ) ) );
+	}
 
 	ui.Edit_Intel_Mac_OpenCore_Main->setText( tmp_vm->Get_OpenCore_Boot_Path() );
 	ui.Edit_Intel_Mac_Recovery_Main->setText( tmp_vm->Get_Mac_Recovery_Image_Path() );
@@ -4382,11 +4376,38 @@ bool Main_Window::Boot_Is_Correct( Virtual_Machine *tmp_vm )
 		return false;
 	}
 
-	// Always allow applesoc / iOS VM boot configs to pass validation checks
+	// Apple SoC / iOS: require a kernel and DeviceTree (do not skip all boot checks).
 	if( tmp_vm->Get_Computer_Type().contains( QLatin1String( "applesoc" ), Qt::CaseInsensitive ) ||
 	    tmp_vm->Get_Machine_Type().contains( QLatin1String( "t8030" ), Qt::CaseInsensitive ) ||
 	    tmp_vm->Get_Machine_Type().contains( QLatin1String( "s8000" ), Qt::CaseInsensitive ) )
 	{
+		const QString kernel = ! tmp_vm->Get_App_Kernel_Path().trimmed().isEmpty()
+			? tmp_vm->Get_App_Kernel_Path().trimmed()
+			: ( tmp_vm->Get_Use_Linux_Boot() ? tmp_vm->Get_bzImage_Path().trimmed() : QString() );
+		const QString dtb = tmp_vm->Get_DeviceTree_Path().trimmed();
+
+		if( kernel.isEmpty() || ! QFile::exists( kernel ) )
+		{
+			AQGraphic_Warning( tr( "Error!" ),
+				tr( "Apple SoC / iOS VMs need a valid kernelcache path "
+				    "(DeviceTree / Kernel section)." ) );
+			return false;
+		}
+		if( dtb.isEmpty() || ! QFile::exists( dtb ) )
+		{
+			AQGraphic_Warning( tr( "Error!" ),
+				tr( "Apple SoC / iOS VMs need a valid DeviceTree path "
+				    "(.dtb or extracted payload)." ) );
+			return false;
+		}
+		if( dtb.endsWith( QLatin1String( ".im4p" ), Qt::CaseInsensitive ) )
+		{
+			AQGraphic_Warning( tr( "Error!" ),
+				tr( "DeviceTree is still an .im4p payload. Extract/decrypt it to a "
+				    "raw .dtb (or .dec) with the iOS Firmware Tool before starting." ) );
+			return false;
+		}
+		// Disk image is optional at first boot (kernel+dtb only), but warn if missing.
 		return true;
 	}
 
@@ -6135,6 +6156,16 @@ void Main_Window::sync_arch_CPU_Type_changed( int index )
 void Main_Window::slot_iOS_Firmware_Tool_triggered()
 {
 	iOS_Firmware_Tool_Window dlg( this );
+	connect( &dlg, &iOS_Firmware_Tool_Window::DeviceTree_Path_Suggested,
+	         this, [this]( const QString &path ) {
+		if( path.isEmpty() )
+			return;
+		if( ui.Edit_DeviceTree_Path->text().trimmed().isEmpty() )
+		{
+			ui.Edit_DeviceTree_Path->setText( path );
+			VM_Changed();
+		}
+	} );
 	dlg.exec();
 }
 
@@ -6220,12 +6251,14 @@ void Main_Window::Enforce_Accel_Honesty()
 	}
 
 	bool forced_tcg = false;
+	bool accel_index_changed = false;
 	if( is_wsl )
 	{
 		ui.CB_Machine_Accelerator->setEnabled( false );
 		if( kvm_index >= 0 && ui.CB_Machine_Accelerator->currentIndex() != kvm_index )
 		{
 			ui.CB_Machine_Accelerator->setCurrentIndex( kvm_index );
+			accel_index_changed = true;
 		}
 		ui.CB_Machine_Accelerator->setToolTip(
 			tr( "WSL execution selected: native KVM acceleration is enforced inside the WSL VM." ) );
@@ -6254,8 +6287,8 @@ void Main_Window::Enforce_Accel_Honesty()
 	ui.CB_Machine_Accelerator->blockSignals( false );
 	Update_Accelerator_Options();
 
-	// If we had to override a impossible KVM/XEN pick, mark dirty so Apply saves TCG.
-	if( forced_tcg )
+	// Persist forced accel (WSL→KVM or cross-arch→TCG) so Apply/Cancel don't lose it.
+	if( forced_tcg || accel_index_changed )
 		VM_Changed();
 }
 
@@ -6871,10 +6904,13 @@ void Main_Window::Update_Win11_Lifecycle_Ui()
 void Main_Window::Update_Intel_MacOS_Settings_Ui()
 {
 	Virtual_Machine *vm = Get_Current_VM();
-	const bool is_reims = vm && (
-		vm->Get_Computer_Type().contains( QLatin1String( "reimsvgpu" ), Qt::CaseInsensitive ) ||
-		vm->Get_Machine_Name().contains( QLatin1String( "Reims" ), Qt::CaseInsensitive ) );
-	const bool show = vm && ( vm->Use_Intel_MacOS_Profile() || is_reims );
+	const bool is_apple_soc = vm && (
+		vm->Get_Computer_Type().contains( QLatin1String( "applesoc" ), Qt::CaseInsensitive ) ||
+		vm->Get_Machine_Name().contains( QLatin1String( "Apple Silicon" ), Qt::CaseInsensitive ) ||
+		vm->Get_Machine_Name().contains( QLatin1String( "iOS" ), Qt::CaseInsensitive ) );
+	const bool is_reims = vm &&
+		vm->Get_Computer_Type().contains( QLatin1String( "reimsvgpu" ), Qt::CaseInsensitive );
+	const bool show = vm && ! is_apple_soc && ( vm->Use_Intel_MacOS_Profile() || is_reims );
 
 	ui.label_intel_macos->setVisible( show );
 	ui.GB_Intel_MacOS_Settings->setVisible( show );
@@ -6897,20 +6933,26 @@ void Main_Window::Update_DeviceTree_Visibility()
 		return;
 	}
 
+	ui.Widget_DeviceTree_Main->setVisible( Uses_Apple_SoC_Boot_UI( vm ) );
+}
+
+bool Main_Window::Uses_Apple_SoC_Boot_UI( const Virtual_Machine *vm ) const
+{
+	if( ! vm )
+		return false;
+
 	const QString m_name = vm->Get_Machine_Name();
 	const QString c_type = vm->Get_Computer_Type();
 	const QString m_type = vm->Get_Machine_Type();
 
-	const bool is_ios = ( m_name.contains( QLatin1String( "iOS" ), Qt::CaseInsensitive ) ||
-	                      m_name.contains( QLatin1String( "iPhone" ), Qt::CaseInsensitive ) ||
-	                      m_name.contains( QLatin1String( "iPad" ), Qt::CaseInsensitive ) ||
-	                      c_type.contains( QLatin1String( "applesoc" ), Qt::CaseInsensitive ) ||
-	                      m_type.contains( QLatin1String( "t8030" ), Qt::CaseInsensitive ) ||
-	                      m_type.contains( QLatin1String( "s8000" ), Qt::CaseInsensitive ) ||
-	                      m_type.contains( QLatin1String( "t8101" ), Qt::CaseInsensitive ) ) &&
-	                    ! c_type.contains( QLatin1String( "reimsvgpu" ), Qt::CaseInsensitive );
-
-	ui.Widget_DeviceTree_Main->setVisible( is_ios );
+	return ( m_name.contains( QLatin1String( "iOS" ), Qt::CaseInsensitive ) ||
+	         m_name.contains( QLatin1String( "iPhone" ), Qt::CaseInsensitive ) ||
+	         m_name.contains( QLatin1String( "iPad" ), Qt::CaseInsensitive ) ||
+	         m_name.contains( QLatin1String( "Apple Silicon" ), Qt::CaseInsensitive ) ||
+	         c_type.contains( QLatin1String( "applesoc" ), Qt::CaseInsensitive ) ||
+	         m_type.contains( QLatin1String( "t8030" ), Qt::CaseInsensitive ) ||
+	         m_type.contains( QLatin1String( "s8000" ), Qt::CaseInsensitive ) ) &&
+	       ! c_type.contains( QLatin1String( "reimsvgpu" ), Qt::CaseInsensitive );
 }
 
 void Main_Window::Update_Intel_Mac_GPU_Passthrough_Ui()

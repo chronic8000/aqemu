@@ -1,5 +1,5 @@
 {
-  "binary": "C:\\Users\\chron\\CURSOR-PROJECTS\\aqemu\\build_win\\qemu-system-applesoc.exe",
+  "binary": "qemu-system-applesoc.exe",
   "architecture": "applesoc",
   "probed_at": "2026-07-31T07:49:22.960945",
   "fallback_machine": "t8030",

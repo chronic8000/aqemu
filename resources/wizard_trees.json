@@ -688,7 +688,7 @@
       "hdd_gb": 32.0,
       "nic": "virtio-net-pci",
       "sound": "none",
-      "tip": "Defaulting to Apple A13 Bionic (t8030 - iPhone 11). Emulation of Apple Silicon iOS runs via ChefKiss Inferno."
+      "tip": "Experimental: qemu-system-applesoc (Inferno) machine t8030. Supply kernelcache + DeviceTree via the VM DeviceTree fields. TCG on x86 hosts."
     },
     "macOS Apple Silicon (ARM64)": {
       "target": "applesoc",
@@ -697,7 +697,7 @@
       "hdd_gb": 64.0,
       "nic": "virtio-net-pci",
       "sound": "none",
-      "tip": "Defaulting to Apple A13 Bionic (t8030) machine architecture via ChefKiss Inferno emulator."
+      "tip": "Experimental Apple Silicon path via qemu-system-applesoc (t8030). Not Intel OpenCore. Kernel/DeviceTree required."
     },
     "macOS x86_64 vGPU (Reims)": {
       "target": "reimsvgpu",
@@ -706,16 +706,7 @@
       "hdd_gb": 64.0,
       "nic": "virtio-net-pci",
       "sound": "hda",
-      "tip": "Virtual GPU accelerated Intel macOS via steelbrain Reims vGPU engine (qemu-system-reimsvgpu)."
-    },
-    "Windows 11 vGPU (Reims)": {
-      "target": "reimsvgpu",
-      "machine": "q35",
-      "ram_mb": 8192,
-      "hdd_gb": 64.0,
-      "nic": "virtio-net-pci",
-      "sound": "hda",
-      "tip": "Virtual GPU accelerated Windows 11 using Reims vGPU QEMU target (qemu-system-reimsvgpu)."
+      "tip": "Intel macOS + Reims: forces WSL launch of Linux qemu-system-reims3d with -device reims-vgpu-pci. Windows qemu-system-reimsvgpu.exe is incomplete."
     },
     "Pegasos II": {
       "target": "ppc",

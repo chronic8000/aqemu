@@ -27,6 +27,7 @@ qint64 g_wsl_avail_ms = 0;
 bool g_wsl_kvm_valid = false;
 bool g_wsl_kvm = false;
 QString g_wsl_kvm_distro;
+QString g_wsl_kvm_user;
 qint64 g_wsl_kvm_ms = 0;
 
 const qint64 kSuccessCacheTtlMs = 60 * 1000;
@@ -122,6 +123,17 @@ void WSL_Clear_Probe_Cache()
 	g_wsl_kvm_valid = false;
 	g_wsl_avail_ms = 0;
 	g_wsl_kvm_ms = 0;
+	g_wsl_kvm_user.clear();
+}
+
+QString WSL_Sanitize_Username( const QString &raw )
+{
+	return Sanitize_WSL_Username( raw );
+}
+
+bool WSL_Is_Valid_Username( const QString &raw )
+{
+	return ! Sanitize_WSL_Username( raw ).isEmpty();
 }
 
 QStringList WSL_Get_Installed_Distros()
@@ -188,16 +200,17 @@ bool WSL_Is_Available( bool force_refresh )
 bool WSL_Has_KVM( const QString &distro, bool force_refresh )
 {
 	const QString d = distro.trimmed();
+	const QString wslUser = Configured_WSL_Username();
 	{
 		QMutexLocker lock( &g_wsl_cache_mutex );
 		if( ! force_refresh && g_wsl_kvm_valid && g_wsl_kvm_distro == d &&
+		    g_wsl_kvm_user == wslUser &&
 		    Cache_Fresh( g_wsl_kvm_ms, g_wsl_kvm ) )
 			return g_wsl_kvm;
 	}
 
 	// Probe as the configured launch user so results match Build_WSL_Launch_Args.
 	QStringList args = Distro_Args( d );
-	const QString wslUser = Configured_WSL_Username();
 	if( ! wslUser.isEmpty() )
 		args << QStringLiteral( "-u" ) << wslUser;
 	args << QStringLiteral( "--" ) << QStringLiteral( "test" )
@@ -220,6 +233,7 @@ bool WSL_Has_KVM( const QString &distro, bool force_refresh )
 	g_wsl_kvm = ok;
 	g_wsl_kvm_valid = true;
 	g_wsl_kvm_distro = d;
+	g_wsl_kvm_user = wslUser;
 	g_wsl_kvm_ms = QDateTime::currentMSecsSinceEpoch();
 	return ok;
 }
@@ -562,6 +576,8 @@ void WSL_Clear_Probe_Cache() {}
 bool WSL_Is_Available( bool ) { return false; }
 bool WSL_Has_KVM( const QString &, bool ) { return false; }
 bool WSL_Ensure_KVM_Access( const QString & ) { return false; }
+QString WSL_Sanitize_Username( const QString & ) { return QString(); }
+bool WSL_Is_Valid_Username( const QString & ) { return false; }
 QString Windows_Path_To_WSL( const QString &windows_path ) { return windows_path; }
 QStringList Rewrite_Args_For_WSL( const QStringList &win_args ) { return win_args; }
 QStringList Build_WSL_Launch_Args( const QString &, const QString &, const QStringList &qemu_args )
