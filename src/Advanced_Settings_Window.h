@@ -72,7 +72,7 @@ class Advanced_Settings_Window: public QDialog
 		void on_Button_CDROM_Add_clicked();
 		void on_Button_CDROM_Edit_clicked();
 		void on_Button_CDROM_Delete_clicked();
-		void on_TB_WSL_Probe_clicked();
+		void On_TB_WSL_Probe_clicked();
 
 		void On_QEMU_Source_Toggled( bool checked );
 		void On_QEMU_Custom_Browse_clicked();
@@ -93,11 +93,17 @@ class Advanced_Settings_Window: public QDialog
 		QList<Emulator> Emulators;
 
 		QCheckBox *CH_WSL_Launch_Enabled;
-		QLineEdit *Edit_WSL_Distro;
+		class QComboBox *CB_WSL_Distro;
+		QLineEdit *Edit_WSL_User;
+		QLineEdit *Edit_WSL_Password;
 		QLineEdit *Edit_WSL_Qemu_Binary;
 		QLabel *Label_WSL_KVM_Status;
 		QToolButton *TB_WSL_Probe;
 
+	private slots:
+		void On_CB_WSL_Distro_currentIndexChanged( int index );
+
+	private:
 		QGroupBox *GB_QEMU_Source;
 		QRadioButton *RB_QEMU_Built_In;
 		QRadioButton *RB_QEMU_Custom;

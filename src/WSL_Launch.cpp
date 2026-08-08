@@ -13,6 +13,7 @@
 #include <QMutex>
 #include <QMutexLocker>
 #include <QTextCodec>
+#include <QSettings>
 
 #ifdef Q_OS_WIN32
 
@@ -92,6 +93,7 @@ bool Run_WSL( const QStringList &args, int timeout_ms, QString *stdout_text = nu
 
 } // namespace
 
+/** Clear cached WSL/KVM probe results (e.g. after Settings Probe). */
 void WSL_Clear_Probe_Cache()
 {
 	QMutexLocker lock( &g_wsl_cache_mutex );
@@ -99,6 +101,45 @@ void WSL_Clear_Probe_Cache()
 	g_wsl_kvm_valid = false;
 	g_wsl_avail_ms = 0;
 	g_wsl_kvm_ms = 0;
+}
+
+QStringList WSL_Get_Installed_Distros()
+{
+	QStringList distros;
+	QString out;
+	// wsl.exe -l -q lists installed distros line-by-line
+	if( Run_WSL( QStringList() << QStringLiteral( "-l" ) << QStringLiteral( "-q" ), 5000, &out ) )
+	{
+		const QStringList lines = out.split( QRegularExpression( QStringLiteral( "[\\r\\n]+" ) ), QString::SkipEmptyParts );
+		for( const QString &line : lines )
+		{
+			const QString t = line.trimmed();
+			if( ! t.isEmpty() && ! distros.contains( t ) )
+				distros << t;
+		}
+	}
+	return distros;
+}
+
+QString WSL_Get_Distro_Default_User( const QString &distro )
+{
+	QString user;
+	QStringList who = Distro_Args( distro );
+	who << QStringLiteral( "--" ) << QStringLiteral( "whoami" );
+	if( Run_WSL( who, 5000, &user ) && ! user.trimmed().isEmpty() )
+	{
+		user = user.trimmed();
+		// Defensive: only return safe username characters
+		for( const QChar &ch : user )
+		{
+			if( ! ( ch.isLetterOrNumber() || ch == QLatin1Char( '_' ) || ch == QLatin1Char( '-' ) ) )
+			{
+				return QStringLiteral( "root" );
+			}
+		}
+		return user;
+	}
+	return QStringLiteral( "root" );
 }
 
 bool WSL_Is_Available( bool force_refresh )
@@ -166,36 +207,55 @@ bool WSL_Ensure_KVM_Access( const QString &distro )
 	if( ! WSL_Is_Available( false ) )
 		return false;
 
+	QSettings s;
+	const QString wslUser = s.value( QStringLiteral( "WSL_Launch/Username" ), QString() ).toString();
+	const QString wslPassword = s.value( QStringLiteral( "WSL_Launch/Password" ), QString() ).toString();
+
 	// macOS guests (and many OSX-KVM recipes) need ignore_msrs=1 or the
 	// kernel hangs after OpenCore with "still waiting for root device".
 	{
-		QStringList root_msrs;
+		QStringList msr_args;
 		if( ! d.isEmpty() )
-			root_msrs << QStringLiteral( "-d" ) << d;
-		root_msrs << QStringLiteral( "-u" ) << QStringLiteral( "root" ) << QStringLiteral( "--" )
-		          << QStringLiteral( "bash" ) << QStringLiteral( "-lc" )
-		          << QStringLiteral(
-				"if [ -w /sys/module/kvm/parameters/ignore_msrs ]; then "
-				"echo 1 > /sys/module/kvm/parameters/ignore_msrs; fi; "
-				"mkdir -p /etc/modprobe.d 2>/dev/null || true; "
-				"printf 'options kvm ignore_msrs=Y report_ignored_msrs=0\\n' "
-				"> /etc/modprobe.d/aqemu-kvm-macos.conf 2>/dev/null || true; "
-				"exit 0" );
-		Run_WSL( root_msrs, kWslTimeoutMs );
+			msr_args << QStringLiteral( "-d" ) << d;
+		if( ! wslUser.trimmed().isEmpty() )
+			msr_args << QStringLiteral( "-u" ) << wslUser.trimmed();
+		msr_args << QStringLiteral( "-e" ) << QStringLiteral( "sh" ) << QStringLiteral( "-c" );
+
+		QString cmdStr;
+		if( ! wslPassword.isEmpty() )
+		{
+			cmdStr = QString( "echo \"%1\" | sudo -S sh -c \""
+			                 "if [ -w /sys/module/kvm/parameters/ignore_msrs ]; then "
+			                 "echo 1 > /sys/module/kvm/parameters/ignore_msrs; fi; "
+			                 "mkdir -p /etc/modprobe.d 2>/dev/null || true; "
+			                 "printf 'options kvm ignore_msrs=Y report_ignored_msrs=0\\\\n' "
+			                 "> /etc/modprobe.d/aqemu-kvm-macos.conf 2>/dev/null || true;\"" ).arg( wslPassword );
+		}
+		else
+		{
+			cmdStr = QStringLiteral( "sudo sh -c \""
+			                        "if [ -w /sys/module/kvm/parameters/ignore_msrs ]; then "
+			                        "echo 1 > /sys/module/kvm/parameters/ignore_msrs; fi; "
+			                        "mkdir -p /etc/modprobe.d 2>/dev/null || true; "
+			                        "printf 'options kvm ignore_msrs=Y report_ignored_msrs=0\\n' "
+			                        "> /etc/modprobe.d/aqemu-kvm-macos.conf 2>/dev/null || true;\"" );
+		}
+		msr_args << cmdStr;
+		Run_WSL( msr_args, kWslTimeoutMs );
 	}
 
 	if( WSL_Has_KVM( d, true ) )
 		return true;
 
-	// Resolve the default (non-root) username for this distro
-	QString user;
+	// Resolve the username
+	QString user = wslUser.trimmed();
+	if( user.isEmpty() )
 	{
 		QStringList who = Distro_Args( d );
 		who << QStringLiteral( "--" ) << QStringLiteral( "whoami" );
 		if( ! Run_WSL( who, kWslTimeoutMs, &user ) || user.trimmed().isEmpty() )
-			user = QStringLiteral( "root" ); // shouldn't happen; chmod still helps
+			user = QStringLiteral( "root" );
 		user = user.trimmed();
-		// Defensive: only allow safe username chars
 		for( const QChar &ch : user )
 		{
 			if( ! ( ch.isLetterOrNumber() || ch == QLatin1Char( '_' ) || ch == QLatin1Char( '-' ) ) )
@@ -206,12 +266,13 @@ bool WSL_Ensure_KVM_Access( const QString &distro )
 		}
 	}
 
-	// WSL root is typically passwordless from Windows — fix group + immediate access.
-	QStringList root_args;
+	// Fix KVM permissions using user settings
+	QStringList kvm_args;
 	if( ! d.isEmpty() )
-		root_args << QStringLiteral( "-d" ) << d;
-	root_args << QStringLiteral( "-u" ) << QStringLiteral( "root" ) << QStringLiteral( "--" )
-	          << QStringLiteral( "bash" ) << QStringLiteral( "-lc" );
+		kvm_args << QStringLiteral( "-d" ) << d;
+	if( ! wslUser.trimmed().isEmpty() )
+		kvm_args << QStringLiteral( "-u" ) << wslUser.trimmed();
+	kvm_args << QStringLiteral( "-e" ) << QStringLiteral( "sh" ) << QStringLiteral( "-c" );
 
 	QString script = QStringLiteral(
 		"getent group kvm >/dev/null 2>&1 || groupadd -r kvm 2>/dev/null || true; "
@@ -219,16 +280,25 @@ bool WSL_Ensure_KVM_Access( const QString &distro )
 	if( ! user.isEmpty() && user != QLatin1String( "root" ) )
 	{
 		script += QStringLiteral( "usermod -aG kvm '%1' 2>/dev/null || true; " ).arg( user );
-		// Persist across WSL restarts when possible (udev/rules or module load)
 		script += QStringLiteral(
 			"mkdir -p /etc/udev/rules.d 2>/dev/null || true; "
 			"printf 'KERNEL==\"kvm\", GROUP=\"kvm\", MODE=\"0660\"\\n' "
 			"> /etc/udev/rules.d/99-aqemu-kvm.rules 2>/dev/null || true; " );
 	}
 	script += QStringLiteral( "exit 0" );
-	root_args << script;
 
-	Run_WSL( root_args, kWslTimeoutMs );
+	QString finalCmd;
+	if( ! wslPassword.isEmpty() )
+	{
+		finalCmd = QString( "echo \"%1\" | sudo -S sh -c \"%2\"" ).arg( wslPassword, script );
+	}
+	else
+	{
+		finalCmd = QString( "sudo sh -c \"%1\"" ).arg( script );
+	}
+	kvm_args << finalCmd;
+
+	Run_WSL( kvm_args, kWslTimeoutMs );
 
 	WSL_Clear_Probe_Cache();
 	return WSL_Has_KVM( d, true );
@@ -335,6 +405,7 @@ QStringList Rewrite_Args_For_WSL( const QStringList &win_args )
 		      a == QLatin1String( "-fdb" ) || a == QLatin1String( "-kernel" ) ||
 		      a == QLatin1String( "-initrd" ) || a == QLatin1String( "-bios" ) ||
 		      a == QLatin1String( "-pflash" ) || a == QLatin1String( "-dtb" ) ||
+		      a == QLatin1String( "-L" ) ||
 		      a == QLatin1String( "-append" ) ) &&
 		    i + 1 < win_args.size() )
 		{
@@ -390,7 +461,8 @@ QStringList Build_WSL_Launch_Args( const QString &distro,
 	              ? QStringLiteral( "qemu-system-x86_64" )
 	              : linux_qemu_binary );
 
-	QStringList rewritten = Rewrite_Args_For_WSL( qemu_args );
+	const bool runs_windows_exe = linux_qemu_binary.endsWith( QLatin1String( ".exe" ), Qt::CaseInsensitive );
+	QStringList rewritten = runs_windows_exe ? qemu_args : Rewrite_Args_For_WSL( qemu_args );
 	for( int i = 0; i < rewritten.size(); ++i )
 	{
 		QString &a = rewritten[i];

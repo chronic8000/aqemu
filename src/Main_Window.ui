@@ -2103,7 +2103,147 @@
                  </property>
                 </widget>
                </item>
-              </layout>
+              
+                <item row="1" column="0" colspan="3">
+                 <widget class="QWidget" name="Widget_DeviceTree_Main" native="true">
+                  <layout class="QVBoxLayout" name="verticalLayout_DeviceTree_Main">
+                   <property name="leftMargin">
+                    <number>0</number>
+                   </property>
+                   <property name="topMargin">
+                    <number>4</number>
+                   </property>
+                   <property name="rightMargin">
+                    <number>0</number>
+                   </property>
+                   <property name="bottomMargin">
+                    <number>4</number>
+                   </property>
+                   <item>
+                    <layout class="QHBoxLayout" name="horizontalLayout_DeviceTree_Main">
+                     <property name="leftMargin">
+                      <number>0</number>
+                     </property>
+                     <property name="topMargin">
+                      <number>0</number>
+                     </property>
+                     <property name="rightMargin">
+                      <number>0</number>
+                     </property>
+                     <property name="bottomMargin">
+                      <number>0</number>
+                     </property>
+                     <item>
+                      <widget class="QLabel" name="Label_DeviceTree_Main">
+                       <property name="text">
+                        <string>DeviceTree (.dtb / .im4p):</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item>
+                      <widget class="QLineEdit" name="Edit_DeviceTree_Path">
+                       <property name="toolTip">
+                        <string>DeviceTree payload for Apple Silicon / iOS QEMU boot (-dtb)</string>
+                       </property>
+                       <property name="placeholderText">
+                        <string>/path/to/DeviceTree.n104ap.im4p or .dtb</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item>
+                      <widget class="QToolButton" name="TB_DeviceTree_SetPath">
+                       <property name="text">
+                        <string>...</string>
+                       </property>
+                       <property name="icon">
+                        <iconset resource="../resources/icons.qrc">
+                         <normaloff>:/open-file.png</normaloff>:/open-file.png</iconset>
+                       </property>
+                      </widget>
+                     </item>
+                    </layout>
+                   </item>
+                   <item>
+                    <layout class="QHBoxLayout" name="horizontalLayout_App_Kernel_Main">
+                     <property name="leftMargin">
+                      <number>0</number>
+                     </property>
+                     <property name="topMargin">
+                      <number>4</number>
+                     </property>
+                     <property name="rightMargin">
+                      <number>0</number>
+                     </property>
+                     <property name="bottomMargin">
+                      <number>0</number>
+                     </property>
+                     <item>
+                      <widget class="QLabel" name="Label_App_Kernel_Main">
+                       <property name="text">
+                        <string>Kernel (.research / .elf):</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item>
+                      <widget class="QLineEdit" name="Edit_App_Kernel_Path">
+                       <property name="toolTip">
+                        <string>Kernel payload / kernelcache for Apple Silicon / iOS boot (-kernel)</string>
+                       </property>
+                       <property name="placeholderText">
+                        <string>/path/to/kernelcache.research.iphone12b</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item>
+                      <widget class="QToolButton" name="TB_App_Kernel_SetPath">
+                       <property name="text">
+                        <string>...</string>
+                       </property>
+                       <property name="icon">
+                        <iconset resource="../resources/icons.qrc">
+                         <normaloff>:/open-file.png</normaloff>:/open-file.png</iconset>
+                       </property>
+                      </widget>
+                     </item>
+                    </layout>
+                   </item>
+                   <item>
+                    <layout class="QHBoxLayout" name="horizontalLayout_App_Kernel_Args_Main">
+                     <property name="leftMargin">
+                      <number>0</number>
+                     </property>
+                     <property name="topMargin">
+                      <number>4</number>
+                     </property>
+                     <property name="rightMargin">
+                      <number>0</number>
+                     </property>
+                     <property name="bottomMargin">
+                      <number>0</number>
+                     </property>
+                     <item>
+                      <widget class="QLabel" name="Label_App_Kernel_Args_Main">
+                       <property name="text">
+                        <string>Boot Arguments (-append):</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item>
+                      <widget class="QLineEdit" name="Edit_App_Kernel_Args">
+                       <property name="toolTip">
+                        <string>Arguments passed to the guest kernel command line (-append)</string>
+                       </property>
+                       <property name="placeholderText">
+                        <string>-v debug=0x14e kextlog=0xffff serial=3</string>
+                       </property>
+                      </widget>
+                     </item>
+                    </layout>
+                   </item>
+                  </layout>
+                 </widget>
+                </item>
+</layout>
              </widget>
             </item>
            </layout>

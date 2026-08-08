@@ -5129,7 +5129,8 @@ void VM_Wizard_Window::Apply_Intel_MacOS_Profile( bool simulate )
 	}
 	else
 	{
-		New_VM->Set_Video_Card( QStringLiteral( "virtio-gpu-pci" ) ); // Reims vGPU acceleration
+		New_VM->Set_Video_Card( QStringLiteral( "reims-vgpu-pci" ) ); // Linux Reims / AppleParavirtGPU
+		New_VM->Use_Launch_Via_WSL( true ); // Windows PE lacks reims-vgpu-pci — require WSL ELF
 	}
 	New_VM->Set_Machine_Type( QStringLiteral( "q35" ) );
 	New_VM->Set_CPU_Type( QStringLiteral( "Skylake-Client-v4" ) );
@@ -5158,10 +5159,10 @@ void VM_Wizard_Window::Apply_Intel_MacOS_Profile( bool simulate )
 	New_VM->Set_Mac_Recovery_Image_Path( QDir::toNativeSeparators( AQ_Normalize_File_Path( Edit_Intel_Mac_Recovery->text() ) ) );
 	New_VM->Set_Apple_SMC_OSK( Edit_Intel_Mac_OSK->text() );
 	New_VM->Use_Apple_SMC( ! Edit_Intel_Mac_OSK->text().trimmed().isEmpty() );
-	New_VM->Use_Launch_Via_WSL( CH_Intel_Mac_Prefer_WSL->isChecked() );
+	New_VM->Use_Launch_Via_WSL( is_reims || CH_Intel_Mac_Prefer_WSL->isChecked() );
 
 #ifdef Q_OS_WIN32
-	if( CH_Intel_Mac_Prefer_WSL->isChecked() )
+	if( is_reims || CH_Intel_Mac_Prefer_WSL->isChecked() )
 	{
 		Settings.setValue( QStringLiteral( "WSL_Launch/Enabled" ), true );
 	}

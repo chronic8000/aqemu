@@ -318,16 +318,8 @@ int AQEMU_Main::load_settings()
 
 int AQEMU_Main::main_window()
 {
-    Run_Guard guard( "Gmp[0Ab5598" ); //unique random key
-    if ( !guard.tryToRun() )
-    {
-        std::cout << qPrintable(QObject::tr(
-            "AQEMU is already running (or a previous instance did not exit cleanly).\n"
-            "Only one main window can be used at a time.\n"
-            "If no other AQEMU window is open, wait a moment and try again, or log off/reboot to clear the lock.")) << std::endl;
-        std::cout.flush();
-        return 0;
-    }
+    // Disable Run_Guard checking completely for debugging
+    AQEMU_Startup_Log( "Run_Guard disabled" );
     AQEMU_Startup_Log( "Run_Guard ok" );
 
     int ret = load_settings();

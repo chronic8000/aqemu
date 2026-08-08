@@ -58,6 +58,7 @@
 #include <QPushButton>
 #include <QToolButton>
 #include <QAbstractButton>
+#include "iOS_Firmware_Tool_Window.h"
 #include <QStyle>
 #include <QFontMetrics>
 #include <QLineEdit>
@@ -92,6 +93,7 @@
 #include "VNC_Password_Window.h"
 #include "Copy_VM_Window.h"
 #include "Advanced_Settings_Window.h"
+#include "WSL_Wizard_Window.h"
 #include "First_Start_Wizard.h"
 #include "Emulator_Control_Window.h"
 #include "Boot_Device_Window.h"
@@ -151,6 +153,13 @@ Main_Window::Main_Window( QWidget *parent )
     ui.setupUi( this );
 	ui_ao.setupUi( Advanced_Options );
 
+	// Make the options body inside Advanced Options scrollable while keeping OK/Cancel fixed at the bottom
+	if( ui_ao.groupBox_options && ui_ao.groupBox_options->parentWidget() )
+	{
+		QWidget *container = ui_ao.groupBox_options->parentWidget();
+		AQ_Make_Tab_Scrollable( container, QStringLiteral( "AQ_Adv_Options_Inner" ) );
+	}
+
 	// File → Storage browser (VM_Directory pool)
 	{
 		QAction *actPool = new QAction( QIcon( ":/open-folder.png" ),
@@ -174,6 +183,17 @@ Main_Window::Main_Window( QWidget *parent )
 			dlg.exec();
 		} );
 		ui.menuFile->insertAction( ui.actionCreate_HDD_Image, actRemote );
+	}
+	// File → Configure WSL (Distro selection, username, password)
+	{
+		QAction *actWsl = new QAction( QIcon( ":/configure.png" ),
+			tr( "Configure &WSL…" ), this );
+		actWsl->setStatusTip( tr( "Set WSL default distribution, username, and password credentials" ) );
+		connect( actWsl, &QAction::triggered, this, [this]() {
+			WSL_Wizard_Window wizard( this );
+			wizard.exec();
+		} );
+		ui.menuFile->insertAction( ui.actionCreate_HDD_Image, actWsl );
 	}
 	if( ui.actionCopy )
 		ui.actionCopy->setText( tr( "Clone &VM…" ) );
@@ -337,6 +357,20 @@ Main_Window::Main_Window( QWidget *parent )
 
 	ui.TabWidget_Media->insertTab( 0, Dev_Manager, QIcon(":/hdd.png"), tr("Device Manager") );
     ui.TabWidget_Media->setCurrentWidget(Dev_Manager);
+
+	// Add explicit iOS Firmware tab into TabWidget_Media BEFORE Settings_Widget converts it
+	QWidget *tab_ios_fw = new QWidget();
+	QVBoxLayout *lay_fw = new QVBoxLayout( tab_ios_fw );
+	lay_fw->setContentsMargins( 20, 20, 20, 20 );
+	QLabel *lbl_fw = new QLabel( tr( "<h3>Apple iOS Firmware Unpacker & pyimg4 Tool</h3><p>Extract and decrypt IPSW archives, DeviceTree, kernelcache, and SEP payloads natively on Windows.</p>" ), tab_ios_fw );
+	lbl_fw->setWordWrap( true );
+	QPushButton *btn_open_fw = new QPushButton( QIcon( QStringLiteral( ":/default_mac.png" ) ), tr( "Launch iOS Firmware Unpacker Tool" ), tab_ios_fw );
+	btn_open_fw->setFixedHeight( 36 );
+	connect( btn_open_fw, &QPushButton::clicked, this, &Main_Window::slot_iOS_Firmware_Tool_triggered );
+	lay_fw->addWidget( lbl_fw );
+	lay_fw->addWidget( btn_open_fw );
+	lay_fw->addStretch();
+	ui.TabWidget_Media->addTab( tab_ios_fw, QIcon( QStringLiteral( ":/default_mac.png" ) ), tr( "iOS Firmware" ) );
 
     Media_Settings_Widget = new Settings_Widget( ui.TabWidget_Media, QBoxLayout::LeftToRight, true );
     Media_Settings_Widget->setIconSize( AQ_Nav_Icon_Size( this ) );
@@ -1032,6 +1066,8 @@ void Main_Window::Connect_Signals()
 	connect( ui.CH_Intel_Mac_WSL_Main, SIGNAL(toggled(bool)),
 			 this, SLOT(Update_Intel_Mac_GPU_Passthrough_Ui()) );
 	connect( ui.CH_Intel_Mac_WSL_Main, SIGNAL(toggled(bool)),
+			 this, SLOT(Update_Machine_Accelerators()) );
+	connect( ui.CH_Intel_Mac_WSL_Main, SIGNAL(toggled(bool)),
 			 this, SLOT(VM_Changed()) );
 	connect( ui.CH_Intel_Mac_GPU_Passthrough, SIGNAL(toggled(bool)),
 			 this, SLOT(VM_Changed()) );
@@ -1194,6 +1230,8 @@ void Main_Window::Connect_Signals()
 
 	connect( ui_ao.CH_Use_User_Binary, SIGNAL(clicked()),
 			 this, SLOT(VM_Changed()) );
+	connect( ui_ao.CH_Launch_Via_WSL, SIGNAL(clicked()),
+			 this, SLOT(Update_Machine_Accelerators()) );
 
 	// Hardware Virtualization Tab
 
@@ -1277,6 +1315,15 @@ void Main_Window::Connect_Signals()
 			 this, SLOT(VM_Changed()) );
 
 	connect( ui.Edit_Linux_Initrd_Path, SIGNAL(textChanged(const QString &)),
+			 this, SLOT(VM_Changed()) );
+
+	connect( ui.Edit_DeviceTree_Path, SIGNAL(textChanged(const QString &)),
+			 this, SLOT(VM_Changed()) );
+
+	connect( ui.Edit_App_Kernel_Path, SIGNAL(textChanged(const QString &)),
+			 this, SLOT(VM_Changed()) );
+
+	connect( ui.Edit_App_Kernel_Args, SIGNAL(textChanged(const QString &)),
 			 this, SLOT(VM_Changed()) );
 
 	connect( ui.Edit_Linux_Command_Line, SIGNAL(textChanged(const QString &)),
@@ -1366,6 +1413,7 @@ Available_Devices Main_Window::Get_Current_Machine_Devices( bool *ok ) const
 		}
 		System_Info::Normalize_Virt_Arch_Devices( d );
 		QEMU_Probe_Catalog::Merge_Into( d );
+		System_Info::Filter_Video_Card_List( d );
 		return d;
 	}
 
@@ -1386,6 +1434,7 @@ Available_Devices Main_Window::Get_Current_Machine_Devices( bool *ok ) const
 			}
 			System_Info::Normalize_Virt_Arch_Devices( d );
 			QEMU_Probe_Catalog::Merge_Into( d );
+			System_Info::Filter_Video_Card_List( d );
 			return d;
 		}
     }
@@ -1396,6 +1445,7 @@ Available_Devices Main_Window::Get_Current_Machine_Devices( bool *ok ) const
 		Available_Devices d = System_Info::Emulator_QEMU_2_0[ target_key ];
 		System_Info::Normalize_Virt_Arch_Devices( d );
 		QEMU_Probe_Catalog::Merge_Into( d );
+		System_Info::Filter_Video_Card_List( d );
 		return d;
 	}
 
@@ -1511,33 +1561,49 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
 	// Computer Type
 	tmp_vm->Set_Computer_Type( curComp.System.QEMU_Name );
 
-	// Machine Type — Main combo is what the user sees; keep ui_arch in sync
+	// Machine Type — Match selected UI text / index against QEMU_Name / Caption
 	{
-		int mi = ui.CB_Machine_Type_Main->currentIndex();
-		if( mi < 0 || mi >= curComp.Machine_List.count() )
-			mi = ui_arch.CB_Machine_Type->currentIndex();
-		if( mi >= 0 && mi < curComp.Machine_List.count() )
-			tmp_vm->Set_Machine_Type( curComp.Machine_List[mi].QEMU_Name );
-		else if( ! ui.CB_Machine_Type_Main->currentText().isEmpty() )
-			tmp_vm->Set_Machine_Type( ui.CB_Machine_Type_Main->currentText() );
-		else if( ! ui_arch.CB_Machine_Type->currentText().isEmpty() )
-			tmp_vm->Set_Machine_Type( ui_arch.CB_Machine_Type->currentText() );
-		else
+		QString machine_name = ui.CB_Machine_Type_Main->currentText().trimmed();
+		if( machine_name.isEmpty() )
+			machine_name = ui_arch.CB_Machine_Type->currentText().trimmed();
+
+		bool found = false;
+		for( int mx = 0; mx < curComp.Machine_List.count(); ++mx )
+		{
+			if( curComp.Machine_List[mx].QEMU_Name == machine_name ||
+			    curComp.Machine_List[mx].Caption == machine_name )
+			{
+				tmp_vm->Set_Machine_Type( curComp.Machine_List[mx].QEMU_Name );
+				found = true;
+				break;
+			}
+		}
+		if( ! found && ! machine_name.isEmpty() )
+			tmp_vm->Set_Machine_Type( machine_name );
+		else if( ! found )
 			tmp_vm->Set_Machine_Type( old_vm->Get_Machine_Type() );
 	}
 
-	// CPU Type
+	// CPU Type — Match selected UI text / index against QEMU_Name / Caption
 	{
-		int ci = ui.CB_CPU_Type_Main->currentIndex();
-		if( ci < 0 || ci >= curComp.CPU_List.count() )
-			ci = ui_arch.CB_CPU_Type->currentIndex();
-		if( ci >= 0 && ci < curComp.CPU_List.count() )
-			tmp_vm->Set_CPU_Type( curComp.CPU_List[ci].QEMU_Name );
-		else if( ! ui.CB_CPU_Type_Main->currentText().isEmpty() )
-			tmp_vm->Set_CPU_Type( ui.CB_CPU_Type_Main->currentText() );
-		else if( ! ui_arch.CB_CPU_Type->currentText().isEmpty() )
-			tmp_vm->Set_CPU_Type( ui_arch.CB_CPU_Type->currentText() );
-		else
+		QString cpu_name = ui.CB_CPU_Type_Main->currentText().trimmed();
+		if( cpu_name.isEmpty() )
+			cpu_name = ui_arch.CB_CPU_Type->currentText().trimmed();
+
+		bool found = false;
+		for( int cx = 0; cx < curComp.CPU_List.count(); ++cx )
+		{
+			if( curComp.CPU_List[cx].QEMU_Name == cpu_name ||
+			    curComp.CPU_List[cx].Caption == cpu_name )
+			{
+				tmp_vm->Set_CPU_Type( curComp.CPU_List[cx].QEMU_Name );
+				found = true;
+				break;
+			}
+		}
+		if( ! found && ! cpu_name.isEmpty() )
+			tmp_vm->Set_CPU_Type( cpu_name );
+		else if( ! found )
 			tmp_vm->Set_CPU_Type( old_vm->Get_CPU_Type() );
 	}
 
@@ -1850,7 +1916,13 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
 	tmp_vm->Set_Use_Linux_Boot( ui.CH_Use_Linux_Boot->isChecked() );
 	tmp_vm->Set_bzImage_Path( ui.Edit_Linux_bzImage_Path->text() );
 	tmp_vm->Set_Initrd_Path( ui.Edit_Linux_Initrd_Path->text() );
-	tmp_vm->Set_Kernel_ComLine( ui.Edit_Linux_Command_Line->text() );
+	tmp_vm->Set_DeviceTree_Path( ui.Edit_DeviceTree_Path->text() );
+	tmp_vm->Set_App_Kernel_Path( ui.Edit_App_Kernel_Path->text() );
+	// iOS/applesoc uses Edit_App_Kernel_Args; classic Linux boot uses Edit_Linux_Command_Line.
+	if( ui.Widget_DeviceTree_Main && ui.Widget_DeviceTree_Main->isVisible() )
+		tmp_vm->Set_Kernel_ComLine( ui.Edit_App_Kernel_Args->text() );
+	else
+		tmp_vm->Set_Kernel_ComLine( ui.Edit_Linux_Command_Line->text() );
 
 	// Optional Images
 	// ROM File
@@ -1876,7 +1948,9 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
 	tmp_vm->Use_USB_Hub( old_vm->Use_USB_Hub() );
 	tmp_vm->Set_Win11_Lifecycle_Mode( old_vm->Get_Win11_Lifecycle_Mode() );
 	// Honor the checkbox — do not OR with old_vm (that made Intel Mac / WSL sticky forever).
-	tmp_vm->Use_Intel_MacOS_Profile( ui_ao.CH_Intel_MacOS_Profile->isChecked() );
+	const bool is_reims_vm = old_vm && ( old_vm->Get_Computer_Type().contains( QLatin1String( "reimsvgpu" ), Qt::CaseInsensitive ) ||
+	                                      old_vm->Get_Machine_Name().contains( QLatin1String( "Reims" ), Qt::CaseInsensitive ) );
+	tmp_vm->Use_Intel_MacOS_Profile( ui_ao.CH_Intel_MacOS_Profile->isChecked() || is_reims_vm );
 	{
 		// Prefer main VM-page Intel macOS fields when that section is shown; else Advanced Options;
 		// finally preserve wizard-set values from old_vm.
@@ -2401,6 +2475,8 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 		curComp.PSO_SMP_MaxCPUs = curComp.PSO_SMP_MaxCPUs || fb.PSO_SMP_MaxCPUs;
 	}
 	System_Info::Normalize_Virt_Arch_Devices( curComp );
+	QEMU_Probe_Catalog::Merge_Into( curComp );
+	System_Info::Filter_Video_Card_List( curComp );
 
 	if( curComp.System.QEMU_Name.isEmpty() )
 	{
@@ -2411,6 +2487,12 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 	}
 
 	// Computer Type
+	ui.CB_Computer_Type->blockSignals( true );
+	ui.CB_Machine_Type_Main->blockSignals( true );
+	ui_arch.CB_Machine_Type->blockSignals( true );
+	ui.CB_CPU_Type_Main->blockSignals( true );
+	ui_arch.CB_CPU_Type->blockSignals( true );
+
 	int compTypeIndex = ui.CB_Computer_Type->findData( tmp_vm->Get_Computer_Type(), Qt::UserRole );
 	if( compTypeIndex == -1 )
 		compTypeIndex = ui.CB_Computer_Type->findText( curComp.System.Caption );
@@ -2421,18 +2503,40 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 		ui.CB_Computer_Type->setCurrentIndex( compTypeIndex );
 	else
 	{
+		ui.CB_Computer_Type->blockSignals( false );
+		ui.CB_Machine_Type_Main->blockSignals( false );
+		ui_arch.CB_Machine_Type->blockSignals( false );
+		ui.CB_CPU_Type_Main->blockSignals( false );
+		ui_arch.CB_CPU_Type->blockSignals( false );
 		AQError( "void Main_Window::Update_VM_Ui()",
 				 "Cannot find computer type index!" );
 		setUpdatesEnabled( true );
 		return;
 	}
 
+	// Populate Machine & CPU comboboxes for current architecture
+	ui_arch.CB_CPU_Type->clear();
+	ui.CB_CPU_Type_Main->clear();
+	ui_arch.CB_Machine_Type->clear();
+	ui.CB_Machine_Type_Main->clear();
+
+	QStringList cpu_items, machine_items;
+	for( int i = 0; i < curComp.CPU_List.count(); ++i )
+		cpu_items << curComp.CPU_List[i].Caption;
+	for( int i = 0; i < curComp.Machine_List.count(); ++i )
+		machine_items << curComp.Machine_List[i].Caption;
+
+	ui_arch.CB_CPU_Type->addItems( cpu_items );
+	ui.CB_CPU_Type_Main->addItems( cpu_items );
+	ui_arch.CB_Machine_Type->addItems( machine_items );
+	ui.CB_Machine_Type_Main->addItems( machine_items );
+
 	// Machine Type
 	QString tmp_str = tmp_vm->Get_Machine_Type();
 	bool machine_found = false;
 	for( int mx = 0; mx < curComp.Machine_List.count(); ++mx )
 	{
-		if( tmp_str == curComp.Machine_List[mx].QEMU_Name )
+		if( tmp_str == curComp.Machine_List[mx].QEMU_Name || tmp_str == curComp.Machine_List[mx].Caption )
 		{
 			ui_arch.CB_Machine_Type->setCurrentIndex( mx );
 			ui.CB_Machine_Type_Main->setCurrentIndex( mx );
@@ -2453,7 +2557,7 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 	bool cpu_found = false;
 	for( int cx = 0; cx < curComp.CPU_List.count(); ++cx )
 	{
-		if( tmp_str == curComp.CPU_List[cx].QEMU_Name )
+		if( tmp_str == curComp.CPU_List[cx].QEMU_Name || tmp_str == curComp.CPU_List[cx].Caption )
 		{
 			ui_arch.CB_CPU_Type->setCurrentIndex( cx );
 			ui.CB_CPU_Type_Main->setCurrentIndex( cx );
@@ -2468,6 +2572,12 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 		ui_arch.CB_CPU_Type->setCurrentIndex( ui_arch.CB_CPU_Type->count() - 1 );
 		ui.CB_CPU_Type_Main->setCurrentIndex( ui.CB_CPU_Type_Main->count() - 1 );
 	}
+
+	ui.CB_Computer_Type->blockSignals( false );
+	ui.CB_Machine_Type_Main->blockSignals( false );
+	ui_arch.CB_Machine_Type->blockSignals( false );
+	ui.CB_CPU_Type_Main->blockSignals( false );
+	ui_arch.CB_CPU_Type->blockSignals( false );
 
 	// Video Card
 	tmp_str = System_Info::Sanitize_Video_Card(
@@ -2883,6 +2993,9 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 	ui.CH_Use_Linux_Boot->setChecked( tmp_vm->Get_Use_Linux_Boot() );
 	ui.Edit_Linux_bzImage_Path->setText( tmp_vm->Get_bzImage_Path() );
 	ui.Edit_Linux_Initrd_Path->setText( tmp_vm->Get_Initrd_Path() );
+	ui.Edit_DeviceTree_Path->setText( tmp_vm->Get_DeviceTree_Path() );
+	ui.Edit_App_Kernel_Path->setText( tmp_vm->Get_App_Kernel_Path() );
+	ui.Edit_App_Kernel_Args->setText( tmp_vm->Get_Kernel_ComLine() );
 	ui.Edit_Linux_Command_Line->setText( tmp_vm->Get_Kernel_ComLine() );
 
 	// ROM File
@@ -2955,6 +3068,7 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 		Update_Info_Text();
 	Update_Win11_Lifecycle_Ui();
 	Update_Intel_MacOS_Settings_Ui();
+	Update_DeviceTree_Visibility();
 	Update_Disabled_Controls(); // FIXME
 
 	// CPU count AFTER Update_Disabled_Controls — that rebuilds the combo and used to wipe this to 1.
@@ -4258,6 +4372,14 @@ bool Main_Window::Boot_Is_Correct( Virtual_Machine *tmp_vm )
 		AQError( "bool Main_Window::Boot_Is_Correct( Virtual_Machine *tmp_vm )",
 				 "tmp_vm == NULL" );
 		return false;
+	}
+
+	// Always allow applesoc / iOS VM boot configs to pass validation checks
+	if( tmp_vm->Get_Computer_Type().contains( QLatin1String( "applesoc" ), Qt::CaseInsensitive ) ||
+	    tmp_vm->Get_Machine_Type().contains( QLatin1String( "t8030" ), Qt::CaseInsensitive ) ||
+	    tmp_vm->Get_Machine_Type().contains( QLatin1String( "s8000" ), Qt::CaseInsensitive ) )
+	{
+		return true;
 	}
 
 	// Floppy A
@@ -5774,6 +5896,7 @@ void Main_Window::Computer_Type_Changed()
 	const bool is_virt_arch =
 		arch_bin.contains( "aarch64", Qt::CaseInsensitive ) ||
 		arch_bin.contains( "qemu-system-arm", Qt::CaseInsensitive ) ||
+		arch_bin.contains( "applesoc", Qt::CaseInsensitive ) ||
 		arch_bin.contains( "riscv", Qt::CaseInsensitive );
 
 	Virtual_Machine *cur_vm = Get_Current_VM();
@@ -6001,6 +6124,12 @@ void Main_Window::sync_arch_CPU_Type_changed( int index )
 	VM_Changed();
 }
 
+void Main_Window::slot_iOS_Firmware_Tool_triggered()
+{
+	iOS_Firmware_Tool_Window dlg( this );
+	dlg.exec();
+}
+
 void Main_Window::Update_Machine_Accelerators()
 {
 	const QString keep = ui.CB_Machine_Accelerator->currentData( Qt::UserRole ).toString().toLower();
@@ -6054,14 +6183,18 @@ void Main_Window::Enforce_Accel_Honesty()
 		return;
 	}
 
-	const bool is_native = AQ_Guest_Matches_Host_Architecture( guest );
+	const bool is_wsl = ui.CH_Intel_Mac_WSL_Main->isChecked() || ui_ao.CH_Launch_Via_WSL->isChecked();
+	const bool is_native = AQ_Guest_Matches_Host_Architecture( guest ) || is_wsl;
 
 	int tcg_index = -1;
+	int kvm_index = -1;
 	for( int i = 0; i < ui.CB_Machine_Accelerator->count(); ++i )
 	{
 		const QString id = ui.CB_Machine_Accelerator->itemData( i, Qt::UserRole ).toString().toLower();
 		if( id == QLatin1String( "tcg" ) )
 			tcg_index = i;
+		if( id == QLatin1String( "kvm" ) )
+			kvm_index = i;
 
 		const bool native_only =
 			( id == QLatin1String( "kvm" ) || id == QLatin1String( "xen" ) );
@@ -6079,8 +6212,19 @@ void Main_Window::Enforce_Accel_Honesty()
 	}
 
 	bool forced_tcg = false;
-	if( ! is_native )
+	if( is_wsl )
 	{
+		ui.CB_Machine_Accelerator->setEnabled( false );
+		if( kvm_index >= 0 && ui.CB_Machine_Accelerator->currentIndex() != kvm_index )
+		{
+			ui.CB_Machine_Accelerator->setCurrentIndex( kvm_index );
+		}
+		ui.CB_Machine_Accelerator->setToolTip(
+			tr( "WSL execution selected: native KVM acceleration is enforced inside the WSL VM." ) );
+	}
+	else if( ! is_native )
+	{
+		ui.CB_Machine_Accelerator->setEnabled( true );
 		if( tcg_index >= 0 && ui.CB_Machine_Accelerator->currentIndex() != tcg_index )
 		{
 			ui.CB_Machine_Accelerator->setCurrentIndex( tcg_index );
@@ -6093,6 +6237,7 @@ void Main_Window::Enforce_Accel_Honesty()
 	}
 	else
 	{
+		ui.CB_Machine_Accelerator->setEnabled( true );
 		ui.CB_Machine_Accelerator->setToolTip(
 			tr( "Host %1 matches guest %2. On Windows, KVM maps to WHPX/HAX with TCG fallback." )
 				.arg( host ).arg( guest ) );
@@ -6430,6 +6575,14 @@ void Main_Window::Discard_Changes(QDialog* dialog)
 void Main_Window::on_TB_Show_Advanced_Options_Window_clicked()
 {
 	Refresh_Gamepad_List( Get_Current_VM() ? Get_Current_VM()->Get_Gamepad_Filter_IDs() : QStringList() );
+	if( Advanced_Options )
+	{
+		const QRect scr = QGuiApplication::primaryScreen() ? QGuiApplication::primaryScreen()->availableGeometry() : QRect( 0, 0, 1024, 768 );
+		const int target_w = qMax( 900, static_cast<int>( scr.width() * 0.65 ) );
+		const int target_h = qMin( scr.height() - 100, static_cast<int>( scr.height() * 0.75 ) );
+		Advanced_Options->resize( target_w, target_h );
+		Advanced_Options->setMaximumHeight( target_h );
+	}
     Discard_Changes ( Advanced_Options );
 }
 
@@ -6710,10 +6863,9 @@ void Main_Window::Update_Win11_Lifecycle_Ui()
 void Main_Window::Update_Intel_MacOS_Settings_Ui()
 {
 	Virtual_Machine *vm = Get_Current_VM();
-	const bool is_reims = vm && ( vm->Get_Computer_Type().contains( QLatin1String( "reimsvgpu" ), Qt::CaseInsensitive ) ||
-	                              vm->Get_Machine_Name().contains( QLatin1String( "Reims" ), Qt::CaseInsensitive ) ||
-	                              vm->Get_Machine_Name().contains( QLatin1String( "macOS" ), Qt::CaseInsensitive ) ||
-	                              vm->Get_Machine_Name().contains( QLatin1String( "Mac OS" ), Qt::CaseInsensitive ) );
+	const bool is_reims = vm && (
+		vm->Get_Computer_Type().contains( QLatin1String( "reimsvgpu" ), Qt::CaseInsensitive ) ||
+		vm->Get_Machine_Name().contains( QLatin1String( "Reims" ), Qt::CaseInsensitive ) );
 	const bool show = vm && ( vm->Use_Intel_MacOS_Profile() || is_reims );
 
 	ui.label_intel_macos->setVisible( show );
@@ -6726,6 +6878,31 @@ void Main_Window::Update_Intel_MacOS_Settings_Ui()
 		Update_Intel_Mac_GPU_Passthrough_Ui();
 	else
 		ui.GB_Intel_Mac_GPU_Passthrough->setVisible( false );
+}
+
+void Main_Window::Update_DeviceTree_Visibility()
+{
+	Virtual_Machine *vm = Get_Current_VM();
+	if( ! vm )
+	{
+		ui.Widget_DeviceTree_Main->setVisible( false );
+		return;
+	}
+
+	const QString m_name = vm->Get_Machine_Name();
+	const QString c_type = vm->Get_Computer_Type();
+	const QString m_type = vm->Get_Machine_Type();
+
+	const bool is_ios = ( m_name.contains( QLatin1String( "iOS" ), Qt::CaseInsensitive ) ||
+	                      m_name.contains( QLatin1String( "iPhone" ), Qt::CaseInsensitive ) ||
+	                      m_name.contains( QLatin1String( "iPad" ), Qt::CaseInsensitive ) ||
+	                      c_type.contains( QLatin1String( "applesoc" ), Qt::CaseInsensitive ) ||
+	                      m_type.contains( QLatin1String( "t8030" ), Qt::CaseInsensitive ) ||
+	                      m_type.contains( QLatin1String( "s8000" ), Qt::CaseInsensitive ) ||
+	                      m_type.contains( QLatin1String( "t8101" ), Qt::CaseInsensitive ) ) &&
+	                    ! c_type.contains( QLatin1String( "reimsvgpu" ), Qt::CaseInsensitive );
+
+	ui.Widget_DeviceTree_Main->setVisible( is_ios );
 }
 
 void Main_Window::Update_Intel_Mac_GPU_Passthrough_Ui()
@@ -7283,6 +7460,26 @@ void Main_Window::on_TB_Linux_Initrd_SetPath_clicked()
 
 	if( ! initrd.isEmpty() )
 		ui.Edit_Linux_Initrd_Path->setText( QDir::toNativeSeparators(initrd) );
+}
+
+void Main_Window::on_TB_DeviceTree_SetPath_clicked()
+{
+	QString dtb = QFileDialog::getOpenFileName( this, tr("Select DeviceTree File (.dtb / .im4p)"),
+												Get_Last_Dir_Path(ui.Edit_DeviceTree_Path->text()),
+												tr("DeviceTree Files (*.dtb *.im4p);;All Files (*)") );
+
+	if( ! dtb.isEmpty() )
+		ui.Edit_DeviceTree_Path->setText( QDir::toNativeSeparators(dtb) );
+}
+
+void Main_Window::on_TB_App_Kernel_SetPath_clicked()
+{
+	QString kernel = QFileDialog::getOpenFileName( this, tr("Select Kernel File (.research / .elf / kernelcache)"),
+												   Get_Last_Dir_Path(ui.Edit_App_Kernel_Path->text()),
+												   tr("Kernel Files (*.research *.elf kernelcache*);;All Files (*)") );
+
+	if( ! kernel.isEmpty() )
+		ui.Edit_App_Kernel_Path->setText( QDir::toNativeSeparators(kernel) );
 }
 
 void Main_Window::on_TB_ROM_File_Browse_clicked()
