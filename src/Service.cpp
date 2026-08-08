@@ -336,6 +336,8 @@ QString AQEMU_Service::start(Virtual_Machine *vm)
         return QString( "VM \"%1\" got started." ).arg( path );
     }
 
+    AQError( "QString AQEMU_Service::start(Virtual_Machine *vm)",
+             QString( "Start() returned false for %1 — see prior AQGraphic_Error / AQError lines" ).arg( path ) );
     return QString( "VM \"%1\" could not be started." ).arg( path );
 }
 

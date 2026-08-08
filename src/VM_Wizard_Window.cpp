@@ -5167,8 +5167,9 @@ void VM_Wizard_Window::Apply_Apple_SoC_Profile( bool simulate )
 {
 	QString vm_dir = Settings.value( "VM_Directory", "~" ).toString();
 	QString vm_base = Get_FS_Compatible_VM_Name( ui.Edit_VM_Name->text() );
-	const QString vm_folder = QDir( vm_dir ).filePath( vm_base );
-
+	// XML path is assigned later in Create_VM_File; set it early so image dir resolves.
+	New_VM->Set_VM_XML_File_Path( QDir( vm_dir ).filePath( vm_base + QStringLiteral( ".aqemu" ) ) );
+	const QString vm_folder = AQ_Apple_SoC_Image_Dir( New_VM );
 	New_VM->Use_Apple_SoC_Profile( true );
 	New_VM->Set_Computer_Type( QStringLiteral( "qemu-system-applesoc" ) );
 	if( New_VM->Get_Machine_Type().isEmpty() ||

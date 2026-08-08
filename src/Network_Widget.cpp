@@ -50,8 +50,8 @@ bool Network_Widget::Get_Network_Cards( QList<VM_Net_Card_Native> &cards )
 {
 	if( ui.Items_List->count() < 1 )
 	{
-		AQDebug( "bool Network_Widget::Get_Network_Card( QList<VM_Net_Card_Native> &cards ) const",
-				 "No Items" );
+		AQDebug( "bool Network_Widget::Get_Network_Cards( QList<VM_Net_Card_Native> &cards ) const",
+				 "No network cards configured (OK)" );
 		cards.clear();
 		return true;
 	}

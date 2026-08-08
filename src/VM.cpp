@@ -9764,6 +9764,9 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		if( ! cur.isEmpty() )
 			ad_args << cur;
 
+		if( AQ_Is_Apple_SoC_VM( this ) )
+			ad_args = AQ_Filter_Apple_SoC_Additional_Args( ad_args );
+
 		for( int ix = 0; ix < ad_args.count(); ix++ )
 			Args << ad_args[ ix ];
 	}
@@ -10197,16 +10200,16 @@ bool Virtual_Machine::Start_impl()
 
 	if( AQ_Is_Apple_SoC_VM( this ) )
 	{
-		QString vm_dir = QFileInfo( Get_VM_XML_File_Path() ).absolutePath();
-		if( vm_dir.isEmpty() )
-			vm_dir = QDir::currentPath();
+		const QString image_dir = AQ_Apple_SoC_Image_Dir( this );
 		QString img_err;
-		if( ! AQ_Ensure_Apple_SoC_Disk_Images( vm_dir, &img_err ) )
+		if( ! AQ_Ensure_Apple_SoC_Disk_Images( image_dir, &img_err ) )
 		{
 			AQGraphic_Error( "bool Virtual_Machine::Start()", tr( "Error!" ),
 				img_err.isEmpty()
 					? tr( "Failed to create Apple SoC disk images." )
 					: img_err, false );
+			AQError( "bool Virtual_Machine::Start_impl()",
+			         img_err.isEmpty() ? QStringLiteral( "Apple SoC image ensure failed" ) : img_err );
 			Start_Snapshot_Tag = "";
 			return false;
 		}
@@ -10715,13 +10718,15 @@ bool Virtual_Machine::Start_impl()
 					AQGraphic_Error( "bool Virtual_Machine::Start()", tr( "Error!" ),
 						path_lookup
 							? tr( "Linux Inferno binary not found on WSL PATH:\n%1\n\n"
-							      "Install qemu-system-applesoc or set an absolute path in "
-							      "Advanced Settings ? Apple SoC binary in WSL." )
+							      "Install ChefKiss Inferno qemu-system-applesoc into your WSL distro, "
+							      "or set an absolute path under Advanced Settings -> Apple SoC binary in WSL." )
 								.arg( linux_qemu )
 							: tr( "Linux Inferno binary not found or not executable in WSL:\n%1\n\n"
 							      "Install qemu-system-applesoc into your WSL distro "
 							      "(default /usr/local/bin/qemu-system-applesoc)." )
 								.arg( linux_qemu ), false );
+					AQError( "bool Virtual_Machine::Start_impl()",
+					         QStringLiteral( "WSL Inferno binary missing: %1" ).arg( linux_qemu ) );
 					Start_Snapshot_Tag = "";
 					return false;
 				}
