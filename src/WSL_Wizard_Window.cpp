@@ -36,10 +36,10 @@ WSL_Wizard_Window::WSL_Wizard_Window( QWidget *parent )
 	Edit_User->setText( Settings.value( "WSL_Launch/Username", "" ).toString() );
 	form->addRow( tr("WSL Username:"), Edit_User );
 
-	Edit_Password = new QLineEdit();
-	Edit_Password->setEchoMode( QLineEdit::Password );
-	Edit_Password->setPlaceholderText( tr( "Optional — prefer wsl -u root for admin tasks" ) );
-	form->addRow( tr("WSL Password (optional):"), Edit_Password );
+	QLabel *hint = new QLabel( tr( "Admin tasks (KVM group) use wsl -u root — no password needed." ) );
+	hint->setWordWrap( true );
+	hint->setStyleSheet( QStringLiteral( "color: gray;" ) );
+	form->addRow( QString(), hint );
 
 	mainLay->addLayout( form );
 
@@ -66,11 +66,6 @@ QString WSL_Wizard_Window::Get_Username() const
 	return Edit_User->text().trimmed();
 }
 
-QString WSL_Wizard_Window::Get_Password() const
-{
-	return Edit_Password->text();
-}
-
 void WSL_Wizard_Window::on_CB_Distro_currentIndexChanged( int index )
 {
 	Q_UNUSED( index );
@@ -90,7 +85,7 @@ void WSL_Wizard_Window::on_Btn_Ok_clicked()
 	}
 	Settings.setValue( "WSL_Launch/Distro", Get_Distro() );
 	Settings.setValue( "WSL_Launch/Username", Get_Username() );
-	// Do not persist the WSL password — optional sudo prompts can use root via wsl -u root.
+	// Never persist WSL passwords; privileged ops use wsl -u root.
 	Settings.remove( "WSL_Launch/Password" );
 	accept();
 }

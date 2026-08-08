@@ -318,8 +318,13 @@ int AQEMU_Main::load_settings()
 
 int AQEMU_Main::main_window()
 {
-    // Disable Run_Guard checking completely for debugging
-    AQEMU_Startup_Log( "Run_Guard disabled" );
+    Run_Guard guard( "Gmp[0Ab5598" ); //unique random key
+    if ( !guard.tryToRun() )
+    {
+        AQEMU_Startup_Log( "Run_Guard: another instance is already running" );
+        std::cout << qPrintable(QObject::tr("AQEMU is already running. Only one main window can be used at one time.")) << std::endl;
+        return 0;
+    }
     AQEMU_Startup_Log( "Run_Guard ok" );
 
     int ret = load_settings();

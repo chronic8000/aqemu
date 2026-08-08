@@ -1919,10 +1919,18 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
 	tmp_vm->Set_DeviceTree_Path( ui.Edit_DeviceTree_Path->text() );
 	tmp_vm->Set_App_Kernel_Path( ui.Edit_App_Kernel_Path->text() );
 	// iOS/applesoc uses Edit_App_Kernel_Args; classic Linux boot uses Edit_Linux_Command_Line.
-	if( ui.Widget_DeviceTree_Main && ui.Widget_DeviceTree_Main->isVisible() )
-		tmp_vm->Set_Kernel_ComLine( ui.Edit_App_Kernel_Args->text() );
-	else
-		tmp_vm->Set_Kernel_ComLine( ui.Edit_Linux_Command_Line->text() );
+	// Key off computer type / iOS paths — not widget visibility (can be false for non-VM reasons).
+	{
+		const QString computer = tmp_vm->Get_Computer_Type();
+		const bool use_app_kernel_args =
+			computer.contains( QLatin1String( "applesoc" ), Qt::CaseInsensitive ) ||
+			! ui.Edit_DeviceTree_Path->text().trimmed().isEmpty() ||
+			! ui.Edit_App_Kernel_Path->text().trimmed().isEmpty();
+		if( use_app_kernel_args )
+			tmp_vm->Set_Kernel_ComLine( ui.Edit_App_Kernel_Args->text() );
+		else
+			tmp_vm->Set_Kernel_ComLine( ui.Edit_Linux_Command_Line->text() );
+	}
 
 	// Optional Images
 	// ROM File

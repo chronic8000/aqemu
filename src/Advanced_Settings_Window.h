@@ -95,7 +95,6 @@ class Advanced_Settings_Window: public QDialog
 		QCheckBox *CH_WSL_Launch_Enabled;
 		class QComboBox *CB_WSL_Distro;
 		QLineEdit *Edit_WSL_User;
-		QLineEdit *Edit_WSL_Password;
 		QLineEdit *Edit_WSL_Qemu_Binary;
 		QLabel *Label_WSL_KVM_Status;
 		QToolButton *TB_WSL_Probe;

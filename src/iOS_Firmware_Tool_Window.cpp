@@ -11,6 +11,7 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QStandardPaths>
+#include <QProcessEnvironment>
 #include "AQ_UI_Style.h"
 #include "Utils.h"
 
@@ -214,11 +215,19 @@ void iOS_Firmware_Tool_Window::Run_IPSW_Extraction()
 	Text_Console_Log->clear();
 	Text_Console_Log->append( QString( "Unpacking IPSW: %1\nTarget Directory: %2\n" ).arg( ipsw, out_dir ) );
 
-	// Use powershell Expand-Archive on Windows for zero-dependency native zip unpack
-	const QString cmd = QString( "Expand-Archive -Path '%1' -DestinationPath '%2' -Force" )
-	                        .arg( ipsw, out_dir );
-
-	Process->start( "powershell.exe", QStringList() << "-Command" << cmd );
+	// Pass paths via environment variables so they never enter -Command text
+	// (avoids quote-break / injection from paths containing ').
+	QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+	env.insert( QStringLiteral( "AQEMU_IPSW_PATH" ), ipsw );
+	env.insert( QStringLiteral( "AQEMU_IPSW_OUT" ), out_dir );
+	Process->setProcessEnvironment( env );
+	Process->start( QStringLiteral( "powershell.exe" ), QStringList()
+		<< QStringLiteral( "-NoProfile" )
+		<< QStringLiteral( "-NonInteractive" )
+		<< QStringLiteral( "-Command" )
+		<< QStringLiteral(
+			"Expand-Archive -LiteralPath $env:AQEMU_IPSW_PATH "
+			"-DestinationPath $env:AQEMU_IPSW_OUT -Force" ) );
 }
 
 void iOS_Firmware_Tool_Window::Run_IM4P_Operation()
@@ -296,12 +305,16 @@ void iOS_Firmware_Tool_Window::On_Process_Finished( int exitCode, QProcess::Exit
 
 		if( ! dtb_found.isEmpty() && parentWidget() )
 		{
-			// If an active VM has its DeviceTree path empty, auto-populate it
+			// Only auto-fill when the active VM DeviceTree path is empty
 			QLineEdit *dt_edit = parentWidget()->findChild<QLineEdit*>( QStringLiteral( "Edit_DeviceTree_Path" ) );
-			if( dt_edit )
+			if( dt_edit && dt_edit->text().trimmed().isEmpty() )
 			{
 				dt_edit->setText( dtb_found );
 				Text_Console_Log->append( QString( tr( "👉 Auto-assigned DeviceTree path to active VM: %1" ) ).arg( dtb_found ) );
+			}
+			else if( dt_edit && ! dt_edit->text().trimmed().isEmpty() )
+			{
+				Text_Console_Log->append( tr( "DeviceTree path already set — left unchanged." ) );
 			}
 		}
 	}

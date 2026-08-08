@@ -156,7 +156,6 @@ Advanced_Settings_Window::Advanced_Settings_Window( QWidget *parent )
 	CH_WSL_Launch_Enabled = nullptr;
 	CB_WSL_Distro = nullptr;
 	Edit_WSL_User = nullptr;
-	Edit_WSL_Password = nullptr;
 	Edit_WSL_Qemu_Binary = nullptr;
 	Label_WSL_KVM_Status = nullptr;
 	TB_WSL_Probe = nullptr;
@@ -184,14 +183,6 @@ Advanced_Settings_Window::Advanced_Settings_Window( QWidget *parent )
 		Edit_WSL_User = new QLineEdit( Settings.value( "WSL_Launch/Username", "" ).toString() );
 		userLay->addWidget( Edit_WSL_User );
 		wslLay->addLayout( userLay );
-
-		QHBoxLayout *passLay = new QHBoxLayout();
-		passLay->addWidget( new QLabel( tr( "WSL Password (optional, not saved):" ) ) );
-		Edit_WSL_Password = new QLineEdit();
-		Edit_WSL_Password->setEchoMode( QLineEdit::Password );
-		Edit_WSL_Password->setPlaceholderText( tr( "Prefer wsl -u root for admin tasks" ) );
-		passLay->addWidget( Edit_WSL_Password );
-		wslLay->addLayout( passLay );
 
 		QHBoxLayout *binLay = new QHBoxLayout();
 		binLay->addWidget( new QLabel( tr( "QEMU binary in WSL:" ) ) );
@@ -497,9 +488,6 @@ Advanced_Settings_Window::Advanced_Settings_Window( QWidget *parent )
 	connect( ui.RB_Emul_Show_VNC_In_Main_Window, SIGNAL(toggled(bool)),
 			 this, SLOT(VNC_Warning(bool)) );
 	
-	connect( ui.CB_Language, SIGNAL(currentIndexChanged(int)),
-			 this, SLOT(CB_Language_currentIndexChanged(int)) );
-
 	connect( ui.CB_Language, SIGNAL(currentIndexChanged(int)),
 			 this, SLOT(CB_Language_currentIndexChanged(int)) );
 
