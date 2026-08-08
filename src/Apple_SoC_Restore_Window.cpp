@@ -17,6 +17,33 @@
 #include <QSettings>
 #include <QDir>
 #include <QFile>
+#include <QRegularExpression>
+
+namespace {
+
+/** Single-quote for POSIX shell so pasted companion commands cannot inject metacharacters. */
+QString Shell_Single_Quote( const QString &raw )
+{
+	QString s = raw;
+	s.replace( QLatin1Char( '\'' ), QLatin1String( "'\\''" ) );
+	return QLatin1Char( '\'' ) + s + QLatin1Char( '\'' );
+}
+
+bool Is_Safe_Unix_Socket_Path( const QString &path )
+{
+	if( ! path.startsWith( QLatin1Char( '/' ) ) || path.contains( QLatin1String( ".." ) ) )
+		return false;
+	static const QRegularExpression re( QStringLiteral( "^[A-Za-z0-9_./-]+$" ) );
+	return re.match( path ).hasMatch();
+}
+
+bool Is_Safe_IPv4_Or_Host( const QString &host )
+{
+	static const QRegularExpression re( QStringLiteral( "^[A-Za-z0-9.-]+$" ) );
+	return ! host.isEmpty() && re.match( host ).hasMatch() && ! host.contains( QLatin1String( ".." ) );
+}
+
+} // namespace
 
 Apple_SoC_Restore_Window::Apple_SoC_Restore_Window( Virtual_Machine *vm, QWidget *parent )
 	: QDialog( parent )
@@ -133,9 +160,24 @@ void Apple_SoC_Restore_Window::Browse_IPSW()
 void Apple_SoC_Restore_Window::Copy_Companion_Command()
 {
 	const QString type = CB_Conn_Type->currentData().toString();
-	const QString addr = Edit_Conn_Addr->text().trimmed().isEmpty()
-		? ( type == QLatin1String( "unix" ) ? QStringLiteral( "/tmp/InfernoUSBRemote" ) : QStringLiteral( "127.0.0.1" ) )
-		: Edit_Conn_Addr->text().trimmed();
+	QString addr = Edit_Conn_Addr->text().trimmed();
+	if( addr.isEmpty() )
+		addr = ( type == QLatin1String( "unix" ) )
+			? QStringLiteral( "/tmp/InfernoUSBRemote" )
+			: QStringLiteral( "127.0.0.1" );
+
+	const bool addr_ok = ( type == QLatin1String( "unix" ) )
+		? Is_Safe_Unix_Socket_Path( addr )
+		: Is_Safe_IPv4_Or_Host( addr );
+	if( ! addr_ok )
+	{
+		Text_Companion->setPlainText(
+			tr( "# Invalid USB remote address (rejected for shell safety).\n"
+			    "# Use a path like /tmp/InfernoUSBRemote or an IPv4/hostname with "
+			    "letters, digits, '.', '-' only." ) );
+		return;
+	}
+
 	const int port = VM && VM->Get_Apple_USB_Conn_Port() > 0 ? VM->Get_Apple_USB_Conn_Port() : 8030;
 
 	if( VM )
@@ -144,6 +186,7 @@ void Apple_SoC_Restore_Window::Copy_Companion_Command()
 		VM->Set_Apple_USB_Conn_Addr( addr );
 	}
 
+	// Build -device value without shell metacharacters, then quote it for paste-into-shell.
 	QString remote = QStringLiteral( "usb-tcp-remote,bus=ehci.0,conn-type=%1" ).arg( type );
 	if( type == QLatin1String( "unix" ) )
 		remote += QStringLiteral( ",conn-addr=%1" ).arg( addr );
@@ -156,7 +199,7 @@ void Apple_SoC_Restore_Window::Copy_Companion_Command()
 		    "  -usb -device usb-ehci,id=ehci -device %1\n\n"
 		    "# Guest machine must use matching usb-conn-type / addr / port.\n"
 		    "# idevicerestore must be the Inferno-patched build inside WSL/Linux." )
-			.arg( remote ) );
+			.arg( Shell_Single_Quote( remote ) ) );
 }
 
 void Apple_SoC_Restore_Window::Run_IDeviceRestore()

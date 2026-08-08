@@ -10195,6 +10195,23 @@ bool Virtual_Machine::Start_impl()
 		}
 	}
 
+	if( AQ_Is_Apple_SoC_VM( this ) )
+	{
+		QString vm_dir = QFileInfo( Get_VM_XML_File_Path() ).absolutePath();
+		if( vm_dir.isEmpty() )
+			vm_dir = QDir::currentPath();
+		QString img_err;
+		if( ! AQ_Ensure_Apple_SoC_Disk_Images( vm_dir, &img_err ) )
+		{
+			AQGraphic_Error( "bool Virtual_Machine::Start()", tr( "Error!" ),
+				img_err.isEmpty()
+					? tr( "Failed to create Apple SoC disk images." )
+					: img_err, false );
+			Start_Snapshot_Tag = "";
+			return false;
+		}
+	}
+
 	#ifdef Q_OS_WIN32
 	// Prefer WSL/KVM for Intel macOS when enabled globally or on this VM.
 	// Reims vGPU always requires Linux qemu-system-reims3d (Windows PE has no reims-vgpu-pci).
@@ -10206,22 +10223,6 @@ bool Virtual_Machine::Start_impl()
 		const bool is_applesoc = AQ_Is_Apple_SoC_VM( this );
 		if( is_reims || is_applesoc )
 			Launch_Via_WSL = true;
-		if( is_applesoc )
-		{
-			QString vm_dir = QFileInfo( Get_VM_XML_File_Path() ).absolutePath();
-			if( vm_dir.isEmpty() )
-				vm_dir = QDir::currentPath();
-			QString img_err;
-			if( ! AQ_Ensure_Apple_SoC_Disk_Images( vm_dir, &img_err ) )
-			{
-				AQGraphic_Error( "bool Virtual_Machine::Start()", tr( "Error!" ),
-					img_err.isEmpty()
-						? tr( "Failed to create Apple SoC disk images." )
-						: img_err, false );
-				Start_Snapshot_Tag = "";
-				return false;
-			}
-		}
 		if( Launch_Via_WSL || ( Intel_MacOS_Profile && global_wsl ) )
 		{
 			const QString distro = s.value( QStringLiteral( "WSL_Launch/Distro" ), QString() ).toString();

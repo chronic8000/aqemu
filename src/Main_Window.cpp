@@ -1936,8 +1936,9 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
 	tmp_vm->Set_Initrd_Path( ui.Edit_Linux_Initrd_Path->text() );
 	tmp_vm->Set_DeviceTree_Path( ui.Edit_DeviceTree_Path->text() );
 	tmp_vm->Set_App_Kernel_Path( ui.Edit_App_Kernel_Path->text() );
-	// Must match the DeviceTree UI that is actually visible (not name-heuristics alone).
-	if( ui.Widget_DeviceTree_Main->isVisible() )
+	// Prefer authoritative Apple SoC markers on tmp_vm (computer/machine type), not widget
+	// visibility which may lag until Update_DeviceTree_Visibility runs.
+	if( Uses_Apple_SoC_Boot_UI( tmp_vm ) )
 		tmp_vm->Set_Kernel_ComLine( ui.Edit_App_Kernel_Args->text() );
 	else
 		tmp_vm->Set_Kernel_ComLine( ui.Edit_Linux_Command_Line->text() );
@@ -6081,6 +6082,7 @@ void Main_Window::Computer_Type_Changed()
 	// Other Options
 	Update_Win11_Lifecycle_Ui();
 	Update_Intel_MacOS_Settings_Ui();
+	Update_DeviceTree_Visibility();
 	Enforce_Accel_Honesty();
 	Enforce_Disk_Bus_Honesty();
 	Update_Disabled_Controls();
@@ -6108,6 +6110,7 @@ void Main_Window::on_CB_Machine_Type_Main_currentIndexChanged( int index )
 	}
 
 	Enforce_Disk_Bus_Honesty();
+	Update_DeviceTree_Visibility();
 	VM_Changed();
 }
 
@@ -6154,6 +6157,7 @@ void Main_Window::sync_arch_Machine_Type_changed( int index )
 		live_vm->Set_Machine_Type( ui.CB_Machine_Type_Main->currentText() );
 	}
 
+	Update_DeviceTree_Visibility();
 	VM_Changed();
 }
 
