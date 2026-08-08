@@ -2083,7 +2083,8 @@ void VM_Wizard_Window::Apply_Guest_Hardware_To_New_VM()
 			if( New_VM->Get_Memory_Size() < 4096 )
 				New_VM->Set_Memory_Size( 8192 );
 			New_VM->Set_SMP_CPU_Count( 4 );
-			New_VM->Set_Video_Card( QStringLiteral( "virtio-gpu-pci" ) );
+			New_VM->Set_Video_Card( QStringLiteral( "reims-vgpu-pci" ) );
+			New_VM->Use_Launch_Via_WSL( true ); // Windows PE lacks reims-vgpu-pci
 		}
 
 		const bool chromeos_flex = ( os == QLatin1String( "Chrome OS Flex" ) );
@@ -3604,24 +3605,44 @@ void VM_Wizard_Window::Probe_WSL_For_Intel_Mac_Page()
 #endif
 }
 
+bool VM_Wizard_Window::Is_Apple_Silicon_Or_iOS_Template() const
+{
+	if( Selected_Target == QLatin1String( "applesoc" ) )
+		return true;
+	const QString n = Three_Path_Active ? Selected_OS_Name
+		: ( ui.RB_VM_Template->isChecked() ? ui.CB_OS_Type->currentText() : QString() );
+	return n.contains( QLatin1String( "Apple Silicon" ), Qt::CaseInsensitive ) ||
+	       n.contains( QLatin1String( "iOS" ), Qt::CaseInsensitive ) ||
+	       n.contains( QLatin1String( "applesoc" ), Qt::CaseInsensitive );
+}
+
 bool VM_Wizard_Window::Is_Intel_MacOS_Template() const
 {
+	// Never treat Apple Silicon / iOS as Intel macOS (OpenCore / x86_64 rewrite).
+	if( Is_Apple_Silicon_Or_iOS_Template() )
+		return false;
+
 	if( Three_Path_Active )
 	{
 		return Selected_Target == QLatin1String( "reimsvgpu" ) ||
-		       Selected_OS_Name.contains( "macOS", Qt::CaseInsensitive ) ||
+		       Selected_OS_Name.contains( "macOS x86_64", Qt::CaseInsensitive ) ||
 		       Selected_OS_Name.contains( "Reims", Qt::CaseInsensitive ) ||
 		       Selected_OS_Name.contains( "Mac OS X Intel" ) ||
-		       Selected_OS_Name.contains( "Darwin" );
+		       ( Selected_OS_Name.compare( QLatin1String( "macOS" ), Qt::CaseInsensitive ) == 0 ) ||
+		       ( Selected_OS_Name.compare( QLatin1String( "Darwin" ), Qt::CaseInsensitive ) == 0 );
 	}
 	if( ! ui.RB_VM_Template->isChecked() )
 		return false;
 	if( ui.CB_OS_Type->currentIndex() <= 0 )
 		return false;
 	const QString t = ui.CB_OS_Type->currentText();
+	if( t.contains( QLatin1String( "Apple Silicon" ), Qt::CaseInsensitive ) ||
+	    t.contains( QLatin1String( "iOS" ), Qt::CaseInsensitive ) )
+		return false;
 	return t.contains( "MacOS X x86", Qt::CaseInsensitive ) ||
 	       t.contains( "Reims", Qt::CaseInsensitive ) ||
-	       t.contains( "macOS", Qt::CaseInsensitive );
+	       t.contains( "macOS x86_64", Qt::CaseInsensitive ) ||
+	       ( t.compare( QLatin1String( "macOS" ), Qt::CaseInsensitive ) == 0 );
 }
 
 void VM_Wizard_Window::Intel_Mac_New_Disk_Toggled( bool on )
@@ -4922,13 +4943,29 @@ void VM_Wizard_Window::Update_Finish_Page_Guidance()
 			"<code>qemu-system-ppc</code> and re-run the First Start Wizard.</li>"
 			"</ul>" );
 	}
-	else if( Selected_OS_Name.contains( "macOS", Qt::CaseInsensitive ) ||
+	else if( Is_Apple_Silicon_Or_iOS_Template() )
+	{
+		help = tr( "<p><b>Apple Silicon / iOS (experimental)</b></p><ul>"
+			"<li>Uses <code>qemu-system-applesoc</code> (ChefKiss Inferno) with machines such as "
+			"<code>t8030</code> or <code>s8000</code>.</li>"
+			"<li>Supply a kernelcache and DeviceTree via the DeviceTree / Kernel fields on the VM "
+			"(not Additional Args).</li>"
+			"<li>AQEMU does not ship IPSW files, kernels, or DeviceTrees. Use "
+			"<b>File → iOS Firmware Tool</b> if you have <code>pyimg4</code> installed.</li>"
+			"<li>On x86 Windows hosts this is TCG-only and very slow.</li>"
+			"</ul>" );
+	}
+	else if( Selected_OS_Name.contains( "Reims", Qt::CaseInsensitive ) ||
+	         Selected_OS_Name.contains( "macOS x86_64", Qt::CaseInsensitive ) ||
 	         Selected_OS_Name.contains( "Mac OS X Intel" ) ||
-	         Selected_OS_Name.contains( "Darwin" ) )
+	         Selected_OS_Name.compare( QLatin1String( "macOS" ), Qt::CaseInsensitive ) == 0 ||
+	         Selected_OS_Name.compare( QLatin1String( "Darwin" ), Qt::CaseInsensitive ) == 0 )
 	{
 		help = tr( "<p><b>Intel macOS (experimental)</b></p><ul>"
 			"<li>You must supply OpenCore boot disk, OVMF firmware, OSK, and install/system disks.</li>"
 			"<li>AQEMU does not ship Apple OS files or a default OSK.</li>"
+			"<li>Reims vGPU needs Linux <code>qemu-system-reims3d</code> under WSL — the Windows "
+			"<code>qemu-system-reimsvgpu.exe</code> helper does not expose <code>reims-vgpu-pci</code>.</li>"
 			"<li>On Windows, WHPX is used unless you enable Launch via WSL/KVM.</li>"
 			"</ul>" );
 	}
@@ -5130,7 +5167,6 @@ void VM_Wizard_Window::Apply_Intel_MacOS_Profile( bool simulate )
 	else
 	{
 		New_VM->Set_Video_Card( QStringLiteral( "reims-vgpu-pci" ) ); // Linux Reims / AppleParavirtGPU
-		New_VM->Use_Launch_Via_WSL( true ); // Windows PE lacks reims-vgpu-pci — require WSL ELF
 	}
 	New_VM->Set_Machine_Type( QStringLiteral( "q35" ) );
 	New_VM->Set_CPU_Type( QStringLiteral( "Skylake-Client-v4" ) );

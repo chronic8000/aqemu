@@ -10481,7 +10481,34 @@ bool Virtual_Machine::Start_impl()
 
 					QProcess sync_proc;
 					sync_proc.start( QStringLiteral( "wsl.exe" ), sync_args );
-					sync_proc.waitForFinished( 15000 );
+					if( ! sync_proc.waitForFinished( 15000 ) || sync_proc.exitCode() != 0 )
+					{
+						AQWarning( "bool Virtual_Machine::Start()",
+						           QString( "Failed to sync qemu-system-reims3d into WSL (exit %1): %2" )
+						               .arg( sync_proc.exitCode() )
+						               .arg( QString::fromLocal8Bit( sync_proc.readAllStandardError() ) ) );
+					}
+				}
+
+				// Require the Linux Reims binary inside WSL before launch.
+				{
+					QStringList test_args;
+					if( ! distro.trimmed().isEmpty() )
+						test_args << QStringLiteral( "-d" ) << distro.trimmed();
+					test_args << QStringLiteral( "-e" ) << QStringLiteral( "test" )
+					          << QStringLiteral( "-x" ) << linux_qemu;
+					QProcess test_proc;
+					test_proc.start( QStringLiteral( "wsl.exe" ), test_args );
+					if( ! test_proc.waitForFinished( 10000 ) || test_proc.exitCode() != 0 )
+					{
+						AQGraphic_Error( "bool Virtual_Machine::Start()", tr( "Error!" ),
+							tr( "Linux Reims binary not found or not executable in WSL:\n%1\n\n"
+							    "Build or install qemu-system-reims3d inside your WSL distro "
+							    "(typically /usr/local/bin/qemu-system-reims3d)." )
+								.arg( linux_qemu ), false );
+						Start_Snapshot_Tag = "";
+						return false;
+					}
 				}
 			}
 

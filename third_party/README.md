@@ -39,3 +39,7 @@ Then configure AQEMU:
 That copies every `qemu-system-*`, `qemu-img*`, runtime DLLs (`libslirp`, `libusb`, …), and the `share/` firmware directory next to `aqemu.exe` (required for MSIX).
 
 Install dirs `qemu-build*` / `qemu-install` are gitignored.
+
+## Optional: pyimg4 (iOS firmware tool)
+
+AQEMU’s **File → iOS Firmware Tool** unpacks IPSWs with PowerShell and optionally shells out to an external **`pyimg4`** for IM4P extract/info/decrypt. AQEMU does **not** vendor `img4tool` / `pyimg4` under `third_party/` — install `pyimg4` yourself and keep it on `PATH` (or place `pyimg4.exe` next to `aqemu.exe`).

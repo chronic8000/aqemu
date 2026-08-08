@@ -636,7 +636,8 @@ QString AQ_Get_Bundled_QEMU_Dir()
 		const QString marker2 = d + QDir::separator() + QStringLiteral( "qemu-system-i386" ) + suf;
 		const QString marker3 = d + QDir::separator() + QStringLiteral( "qemu-system-aarch64" ) + suf;
 		const QString marker4 = d + QDir::separator() + QStringLiteral( "qemu-system-applesoc" ) + suf;
-		const QString marker5 = d + QDir::separator() + QStringLiteral( "qemu-system-reimsvgpu" ) + suf;
+		// Prefer real Linux Reims ELF as a bundle marker; Windows reimsvgpu.exe alone is incomplete.
+		const QString marker5 = d + QDir::separator() + QStringLiteral( "qemu-system-reims3d" );
 		if( QFile::exists( marker ) || QFile::exists( marker2 ) || QFile::exists( marker3 ) ||
 		    QFile::exists( marker4 ) || QFile::exists( marker5 ) )
 		{
@@ -1946,6 +1947,11 @@ QString AQ_Normalize_CPU_Architecture( const QString &raw )
 	const QString a = raw.trimmed().toLower();
 	if( a.isEmpty() )
 		return QString();
+	// Custom AQEMU targets (normalize before qemu-system- strip / generic match)
+	if( a.contains( QLatin1String( "reimsvgpu" ) ) || a.contains( QLatin1String( "reims3d" ) ) )
+		return QStringLiteral( "x86_64" );
+	if( a.contains( QLatin1String( "applesoc" ) ) )
+		return QStringLiteral( "aarch64" );
 	if( a == QLatin1String( "x86_64" ) || a == QLatin1String( "amd64" ) ||
 	    a == QLatin1String( "x64" ) || a.contains( QLatin1String( "x86_64" ) ) )
 		return QStringLiteral( "x86_64" );

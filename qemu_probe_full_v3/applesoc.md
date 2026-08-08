@@ -1,11 +1,11 @@
 # QEMU Complete Architecture capability map: `applesoc`
 
 - **Architecture Target:** `applesoc`
-- **Binary Executable:** `C:\Users\chron\CURSOR-PROJECTS\aqemu\build_win\qemu-system-applesoc.exe`
+- **Binary Executable:** `qemu-system-applesoc.exe` (local Windows probe path redacted)
 - **Probed At:** 2026-07-31T07:49:22.960945
 - **Fallback Machine Used for Context:** `t8030`
 
-> **INSTRUCTIONS FOR CURSOR AI:** This document contains the verified whitelist of supported flags, boards, CPUs, devices, storage drivers, audio backends, and display renderers for `qemu-system-{arch}`. Use this data as the absolute ground truth to construct and validate VM configuration parameters.
+> **INSTRUCTIONS FOR CURSOR AI:** Prefer live `-machine help` from the applesoc binary you ship. AQEMU UI currently presets `t8030` / `s8000` only.
 
 ## 1. Supported Machines (`-machine help`)
 

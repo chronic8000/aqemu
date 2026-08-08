@@ -6,7 +6,6 @@
 #include <QTextEdit>
 #include <QPushButton>
 #include <QComboBox>
-#include <QStackedWidget>
 #include <QLabel>
 #include <QProcess>
 
@@ -18,15 +17,17 @@ public:
 	explicit iOS_Firmware_Tool_Window( QWidget *parent = nullptr );
 	~iOS_Firmware_Tool_Window() = default;
 
+signals:
+	/** Emitted when an extracted DeviceTree (.dtb / .dec) is found and may be applied. */
+	void DeviceTree_Path_Suggested( const QString &path );
+
 private slots:
 	void Browse_IPSW_File();
 	void Browse_Output_Dir();
 	void Browse_IM4P_File();
-	void Browse_IM4M_File();
 
 	void Run_IPSW_Extraction();
 	void Run_IM4P_Operation();
-	void Run_Repackage_IMG4();
 	void Copy_Output_Paths();
 
 	void On_Process_Output();
@@ -35,18 +36,14 @@ private slots:
 private:
 	void Setup_Ui();
 	QString Find_PyIMG4_Executable() const;
+	bool Ensure_PyIMG4_Available();
 
-	// UI Controls
-	QStackedWidget *Stack_Pages;
-
-	// Page 1: IPSW Unpack & IM4P Extraction
 	QLineEdit *Edit_IPSW_Path;
 	QLineEdit *Edit_Output_Dir;
 	QPushButton *Btn_Browse_IPSW;
 	QPushButton *Btn_Browse_OutDir;
 	QPushButton *Btn_Start_Unpack;
 
-	// Page 2: IM4P Payload Operation (Extract / Decrypt / Stats)
 	QLineEdit *Edit_IM4P_Path;
 	QLineEdit *Edit_AES_IV;
 	QLineEdit *Edit_AES_Key;
@@ -54,20 +51,10 @@ private:
 	QPushButton *Btn_Browse_IM4P;
 	QPushButton *Btn_Start_IM4P;
 
-	// Page 3: Repackage Bootable IMG4
-	QLineEdit *Edit_Repack_IM4P;
-	QLineEdit *Edit_Repack_IM4M;
-	QLineEdit *Edit_Repack_Output;
-	QPushButton *Btn_Browse_Repack_IM4P;
-	QPushButton *Btn_Browse_Repack_IM4M;
-	QPushButton *Btn_Start_Repack;
-
-	// Output Console & Paths
 	QTextEdit *Text_Console_Log;
 	QTextEdit *Text_Result_Paths;
 	QPushButton *Btn_Copy_Paths;
 
-	// Process Execution
 	QProcess *Process;
 	QString PyIMG4_Exe;
 };

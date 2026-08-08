@@ -1,5 +1,5 @@
 {
-  "binary": "C:\\Users\\chron\\CURSOR-PROJECTS\\aqemu\\build_win\\qemu-system-reimsvgpu.exe",
+  "binary": "qemu-system-reimsvgpu.exe",
   "architecture": "reimsvgpu",
   "probed_at": "2026-07-31T08:33:05.000335",
   "fallback_machine": "none",
@@ -835,5 +835,6 @@
     "display": "Available display backend types:\nnone\ngtk\nsdl\negl-headless\ncurses\nspice-app\ndbus\n\nSome display backends support suboptions, which can be set with\n   -display backend,option=value,option=value...\nFor a short list of the suboptions for each display, see the top-level -help output; more detail is in the documentation.\n",
     "audio": "Available audio drivers:\nnone\ndbus\ndsound\nsdl\nspice\nwav\n",
     "objects": "List of user creatable objects:\n  acpi-generic-initiator\n  acpi-generic-port\n  authz-list\n  authz-list-file\n  authz-simple\n  can-bus\n  colo-compare\n  cryptodev-backend\n  cryptodev-backend-builtin\n  dbus-display\n  dbus-vmstate\n  filter-buffer\n  filter-dump\n  filter-mirror\n  filter-redirector\n  filter-replay\n  filter-rewriter\n  input-barrier\n  iothread\n  main-loop\n  memory-backend-ram\n  monitor-hmp\n  monitor-qmp\n  qtest\n  rng-builtin\n  rng-egd\n  secret\n  throttle-group\n  tls-cipher-suites\n  tls-creds-anon\n  tls-creds-psk\n  tls-creds-x509\n"
-  }
+  },
+  "note": "Windows PE probe only; production uses WSL qemu-system-reims3d"
 }

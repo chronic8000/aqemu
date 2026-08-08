@@ -1,11 +1,14 @@
 # QEMU Complete Architecture capability map: `reimsvgpu`
 
-- **Architecture Target:** `reimsvgpu`
-- **Binary Executable:** `C:\Users\chron\CURSOR-PROJECTS\aqemu\build_win\qemu-system-reimsvgpu.exe`
+- **Architecture Target:** `reimsvgpu` (AQEMU label)
+- **Binary Executable:** `qemu-system-reimsvgpu.exe` (local Windows probe — **incomplete**; no `reims-vgpu-pci`)
+- **Real acceleration path:** Linux `qemu-system-reims3d` under WSL (not this PE)
 - **Probed At:** 2026-07-31T08:33:05.000335
 - **Fallback Machine Used for Context:** `none`
 
-> **INSTRUCTIONS FOR CURSOR AI:** This document contains the verified whitelist of supported flags, boards, CPUs, devices, storage drivers, audio backends, and display renderers for `qemu-system-{arch}`. Use this data as the absolute ground truth to construct and validate VM configuration parameters.
+> **NOTE:** Treat this Windows PE probe as non-authoritative for Reims graphics. Production launches must use WSL `qemu-system-reims3d`.
+
+> **INSTRUCTIONS FOR CURSOR AI:** This document contains a probe snapshot. Prefer live `-device help` / `-machine help` from the binary you ship; do not assume `reims-vgpu-pci` exists on the Windows helper.
 
 ## 1. Supported Machines (`-machine help`)
 
