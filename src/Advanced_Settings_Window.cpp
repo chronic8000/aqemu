@@ -23,6 +23,8 @@
 
 #include <QDir>
 #include <QFileDialog>
+#include <QGuiApplication>
+#include <QScreen>
 #include <QHeaderView>
 #include <QInputDialog>
 #include <QMessageBox>
@@ -51,7 +53,8 @@ Advanced_Settings_Window::Advanced_Settings_Window( QWidget *parent )
 {
 	ui.setupUi( this );
 
-	AQ_Cap_Content_Width( this, 980 );
+	setSizePolicy( QSizePolicy::Preferred, QSizePolicy::Preferred );
+	AQ_Make_Tab_Scrollable( ui.Tab_General );
 
     settings_widget = new Settings_Widget( ui.All_Tabs, QBoxLayout::TopToBottom, true, false );
 
@@ -151,7 +154,8 @@ Advanced_Settings_Window::Advanced_Settings_Window( QWidget *parent )
 
 	// WSL / KVM launch (Windows host)
 	CH_WSL_Launch_Enabled = nullptr;
-	Edit_WSL_Distro = nullptr;
+	CB_WSL_Distro = nullptr;
+	Edit_WSL_User = nullptr;
 	Edit_WSL_Qemu_Binary = nullptr;
 	Label_WSL_KVM_Status = nullptr;
 	TB_WSL_Probe = nullptr;
@@ -162,17 +166,31 @@ Advanced_Settings_Window::Advanced_Settings_Window( QWidget *parent )
 		CH_WSL_Launch_Enabled = new QCheckBox( tr( "Enable Launch via WSL/KVM (for Intel macOS and other VMs)" ) );
 		CH_WSL_Launch_Enabled->setChecked( Settings.value( "WSL_Launch/Enabled", false ).toBool() );
 		wslLay->addWidget( CH_WSL_Launch_Enabled );
+
 		QHBoxLayout *distroLay = new QHBoxLayout();
-		distroLay->addWidget( new QLabel( tr( "Distro (empty = default):" ) ) );
-		Edit_WSL_Distro = new QLineEdit( Settings.value( "WSL_Launch/Distro", "" ).toString() );
-		distroLay->addWidget( Edit_WSL_Distro );
+		distroLay->addWidget( new QLabel( tr( "Distro:" ) ) );
+		CB_WSL_Distro = new QComboBox();
+		CB_WSL_Distro->setEditable( true );
+		CB_WSL_Distro->addItem( "" );
+		CB_WSL_Distro->addItems( WSL_Get_Installed_Distros() );
+		const QString active_d = Settings.value( "WSL_Launch/Distro", "" ).toString();
+		CB_WSL_Distro->setCurrentText( active_d );
+		distroLay->addWidget( CB_WSL_Distro );
 		wslLay->addLayout( distroLay );
+
+		QHBoxLayout *userLay = new QHBoxLayout();
+		userLay->addWidget( new QLabel( tr( "WSL Username:" ) ) );
+		Edit_WSL_User = new QLineEdit( Settings.value( "WSL_Launch/Username", "" ).toString() );
+		userLay->addWidget( Edit_WSL_User );
+		wslLay->addLayout( userLay );
+
 		QHBoxLayout *binLay = new QHBoxLayout();
 		binLay->addWidget( new QLabel( tr( "QEMU binary in WSL:" ) ) );
 		Edit_WSL_Qemu_Binary = new QLineEdit(
 			Settings.value( "WSL_Launch/Qemu_Binary", "qemu-system-x86_64" ).toString() );
 		binLay->addWidget( Edit_WSL_Qemu_Binary );
 		wslLay->addLayout( binLay );
+
 		QHBoxLayout *probeLay = new QHBoxLayout();
 		TB_WSL_Probe = new QToolButton();
 		TB_WSL_Probe->setText( tr( "Probe /dev/kvm" ) );
@@ -180,13 +198,17 @@ Advanced_Settings_Window::Advanced_Settings_Window( QWidget *parent )
 		probeLay->addWidget( TB_WSL_Probe );
 		probeLay->addWidget( Label_WSL_KVM_Status, 1 );
 		wslLay->addLayout( probeLay );
+
 		QLabel *note = new QLabel( tr(
 			"SPICE/QMP stay on 127.0.0.1 — requires WSL localhostForwarding." ) );
 		note->setWordWrap( true );
 		wslLay->addWidget( note );
+
 		if( QGridLayout *gl = qobject_cast<QGridLayout*>( ui.Tab_General->layout() ) )
 			gl->addWidget( wslBox, gl->rowCount(), 0, 1, gl->columnCount() );
-		connect( TB_WSL_Probe, SIGNAL(clicked()), this, SLOT(on_TB_WSL_Probe_clicked()) );
+
+		connect( TB_WSL_Probe, SIGNAL(clicked()), this, SLOT(On_TB_WSL_Probe_clicked()) );
+		connect( CB_WSL_Distro, SIGNAL(currentIndexChanged(int)), this, SLOT(On_CB_WSL_Distro_currentIndexChanged(int)) );
 	}
 #endif
 	
@@ -468,6 +490,15 @@ Advanced_Settings_Window::Advanced_Settings_Window( QWidget *parent )
 	
 	connect( ui.CB_Language, SIGNAL(currentIndexChanged(int)),
 			 this, SLOT(CB_Language_currentIndexChanged(int)) );
+
+	if( settings_widget )
+		AQ_Make_Tab_Scrollable( settings_widget );
+
+	const QRect scr = QGuiApplication::primaryScreen() ? QGuiApplication::primaryScreen()->availableGeometry() : QRect( 0, 0, 1024, 768 );
+	const int target_w = qMax( 950, static_cast<int>( scr.width() * 0.70 ) );
+	const int target_h = qMin( scr.height() - 100, static_cast<int>( scr.height() * 0.75 ) );
+	resize( target_w, target_h );
+	setMaximumHeight( target_h );
 }
 
 Advanced_Settings_Window::~Advanced_Settings_Window()
@@ -621,7 +652,10 @@ void Advanced_Settings_Window::done(int r)
 	    if( CH_WSL_Launch_Enabled )
 	    {
 		    Settings.setValue( "WSL_Launch/Enabled", CH_WSL_Launch_Enabled->isChecked() );
-		    Settings.setValue( "WSL_Launch/Distro", Edit_WSL_Distro ? Edit_WSL_Distro->text().trimmed() : QString() );
+		    Settings.setValue( "WSL_Launch/Distro", CB_WSL_Distro ? CB_WSL_Distro->currentText().trimmed() : QString() );
+		    Settings.setValue( "WSL_Launch/Username", Edit_WSL_User ? Edit_WSL_User->text().trimmed() : QString() );
+		    // Never persist WSL sudo passwords to disk.
+		    Settings.remove( "WSL_Launch/Password" );
 		    Settings.setValue( "WSL_Launch/Qemu_Binary",
 			    Edit_WSL_Qemu_Binary ? Edit_WSL_Qemu_Binary->text().trimmed() : QStringLiteral( "qemu-system-x86_64" ) );
 	    }
@@ -1328,7 +1362,7 @@ QStringList Advanced_Settings_Window::Get_All_Emulators_Names() const
 	return list;
 }
 
-void Advanced_Settings_Window::on_TB_WSL_Probe_clicked()
+void Advanced_Settings_Window::On_TB_WSL_Probe_clicked()
 {
 #ifdef Q_OS_WIN32
 	if( ! Label_WSL_KVM_Status )
@@ -1341,7 +1375,7 @@ void Advanced_Settings_Window::on_TB_WSL_Probe_clicked()
 			Label_WSL_KVM_Status->setText( tr( "Status: wsl.exe not available" ) );
 			return;
 		}
-		const QString distro = Edit_WSL_Distro ? Edit_WSL_Distro->text().trimmed() : QString();
+		const QString distro = CB_WSL_Distro ? CB_WSL_Distro->currentText().trimmed() : QString();
 		if( WSL_Ensure_KVM_Access( distro ) )
 			Label_WSL_KVM_Status->setText( tr( "Status: /dev/kvm OK" ) );
 		else if( WSL_Has_KVM( distro, true ) )
@@ -1351,5 +1385,23 @@ void Advanced_Settings_Window::on_TB_WSL_Probe_clicked()
 	} );
 #else
 	Q_UNUSED( 0 );
+#endif
+}
+
+void Advanced_Settings_Window::On_CB_WSL_Distro_currentIndexChanged( int index )
+{
+#ifdef Q_OS_WIN32
+	Q_UNUSED( index );
+	if( CB_WSL_Distro && Edit_WSL_User )
+	{
+		const QString distro = CB_WSL_Distro->currentText().trimmed();
+		if( ! distro.isEmpty() )
+		{
+			const QString defUser = WSL_Get_Distro_Default_User( distro );
+			Edit_WSL_User->setText( defUser );
+		}
+	}
+#else
+	Q_UNUSED( index );
 #endif
 }

@@ -97,6 +97,8 @@ SET( aqemu_headers
 	src/VM_Devices.h
 	src/VM_Wizard_Window.h
 	src/VNC_Password_Window.h
+	src/WSL_Wizard_Window.h
+	src/iOS_Firmware_Tool_Window.h
 	src/QMP_Client.h
 	src/QEMU_Help_Browser.h
 	src/Blockdev_Graph_Window.h
@@ -139,6 +141,7 @@ SET( aqemu_sources
 	src/HDD_Image_Info.cpp
 	src/main.cpp
 	src/Main_Window.cpp
+	src/WSL_Wizard_Window.cpp
 	src/Monitor_Window.cpp
 	src/Network_Widget.cpp
 	src/Old_Network_Widget.cpp
@@ -158,6 +161,7 @@ SET( aqemu_sources
 	src/VM_Wizard_Window.cpp
 	src/Guest_Capabilities.cpp
 	src/ISO_Guess.cpp
+	src/iOS_Firmware_Tool_Window.cpp
 	src/Storage_Browser_Window.cpp
 	src/Serial_Console_Window.cpp
 	src/URL_Fetch.cpp

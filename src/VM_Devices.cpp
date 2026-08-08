@@ -3668,7 +3668,7 @@ QString VM_Net_Card::Generate_MAC() const
 		else if( model == "pcnet" )
 		{
 			int rm = Get_Random( 0,1 );
-			if( rm >= 0 ) nmac.prepend( amd_mac[rm] );
+			if( rm >= 0 && rm < amd_mac.count() ) nmac.prepend( amd_mac[rm] );
 		}
 		else if( model == "rtl8139" )
 		{
@@ -3677,17 +3677,17 @@ QString VM_Net_Card::Generate_MAC() const
 		else if( model == "smc91c111" )
 		{
 			int rm = Get_Random( 0,4 );
-			if( rm >= 0 ) nmac.prepend( smc_mac[rm] );
+			if( rm >= 0 && rm < smc_mac.count() ) nmac.prepend( smc_mac[rm] );
 		}
 		else if( model == "mcf_fec" )
 		{
 			int rm = Get_Random( 0,4 );
-			if( rm >= 0 ) nmac.prepend( motorola_mac[rm] );
+			if( rm >= 0 && rm < motorola_mac.count() ) nmac.prepend( motorola_mac[rm] );
 		}
 		else if( model == "lance" )
 		{
 			int rm = Get_Random( 0,4 );
-			if( rm >= 0 ) nmac.prepend( sun_mac[rm] );
+			if( rm >= 0 && rm < sun_mac.count() ) nmac.prepend( sun_mac[rm] );
 		}
 		else if( model == "fseth" )
 		{

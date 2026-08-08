@@ -366,6 +366,12 @@ class Virtual_Machine: public QObject
 		
 		const QString &Get_Initrd_Path() const;
 		void Set_Initrd_Path( const QString &path );
+
+		const QString &Get_DeviceTree_Path() const;
+		void Set_DeviceTree_Path( const QString &path );
+
+		const QString &Get_App_Kernel_Path() const;
+		void Set_App_Kernel_Path( const QString &path );
 		
 		const QString &Get_Kernel_ComLine() const;
 		void Set_Kernel_ComLine( const QString &cl );
@@ -857,6 +863,8 @@ class Virtual_Machine: public QObject
 		bool Linux_Boot;
 		QString bzImage_Path;
 		QString Initrd_Path;
+		QString DeviceTree_Path;
+		QString App_Kernel_Path;
 		QString Kernel_ComLine;
 		
 		QString Additional_Args; // user arguments

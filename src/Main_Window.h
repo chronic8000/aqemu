@@ -135,6 +135,7 @@ class Main_Window: public QMainWindow
 		void on_actionShow_QEMU_Arguments_triggered();
 		void on_actionCreate_Shell_Script_triggered();
 		void on_actionShow_QEMU_Error_Log_Window_triggered();
+		void slot_iOS_Firmware_Tool_triggered();
 		
 		void on_Tabs_currentChanged( int index );
 		
@@ -169,6 +170,7 @@ class Main_Window: public QMainWindow
 		void Apply_Win11_Lifecycle_Mode( VM::Win11_Lifecycle_Mode mode );
 		void Update_Win11_Lifecycle_Ui();
 		void Update_Intel_MacOS_Settings_Ui();
+		void Update_DeviceTree_Visibility();
 		void Update_Intel_Mac_GPU_Passthrough_Ui();
 		void Apply_Intel_Mac_GPU_Passthrough_Ui_From_Cache();
 		void Start_Host_GPU_Scan();
@@ -216,6 +218,8 @@ class Main_Window: public QMainWindow
 		
 		void on_TB_Linux_bzImage_SetPath_clicked();
 		void on_TB_Linux_Initrd_SetPath_clicked();
+		void on_TB_DeviceTree_SetPath_clicked();
+		void on_TB_App_Kernel_SetPath_clicked();
 		
 		void on_TB_ROM_File_Browse_clicked();
 		void on_TB_MTDBlock_File_Browse_clicked();
@@ -274,12 +278,14 @@ class Main_Window: public QMainWindow
 		void Update_Recent_CD_ROM_Images_List();
 		void Update_Recent_Floppy_Images_List();
         void Computer_Type_Changed();
-        void Update_Machine_Accelerators();
         void Enforce_Accel_Honesty();
 	void Enforce_Disk_Bus_Honesty();
 	int Disk_Interface_To_Combo_Index( VM::Device_Interface iface ) const;
 	VM::Device_Interface Combo_Index_To_Disk_Interface( int index ) const;
         void Update_Accelerator_Options();
+
+	private slots:
+        void Update_Machine_Accelerators();
         void Update_Computer_Types();
 		void Fill_Display_Resolution_Combo();
 		void Update_Display_Resolution_Enabled();
@@ -302,6 +308,7 @@ class Main_Window: public QMainWindow
 		QString Copy_VM_Hard_Drive( const QString &vm_name, const QString &hd_name, const VM_HDD &hd );
 		QString Copy_VM_Floppy( const QString &vm_name, const QString &fd_name, const VM_Storage_Device &fd );
 		
+	private:
 		Ui::Main_Window ui;
 		Ui::Advanced_Options ui_ao;
 		Ui::KVM_Options ui_kvm;

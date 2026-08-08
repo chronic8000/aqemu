@@ -588,6 +588,7 @@ bool System_Info::Update_VM_Computers_List()
 	QEMU_Video_Cards_v0_10_0 << Device_Map( QObject::tr("StdVGA (VESA 2.0)"), "std" );
 	QEMU_Video_Cards_v0_10_0 << Device_Map( QObject::tr("Cirrus CLGD 5446"), "cirrus" );
 	QEMU_Video_Cards_v0_10_0 << Device_Map( QObject::tr("VMWare Video Card"), "vmware" );
+	QEMU_Video_Cards_v0_10_0 << Device_Map( QObject::tr("Reims vGPU (3D Acceleration)"), "reims-vgpu-pci" );
 	QEMU_Video_Cards_v0_10_0 << Device_Map( QObject::tr("None Video Card"), "none" );
 	
 	QList<Device_Map> CPU_x86_v0_10_0 = CPU_x86;
@@ -1357,9 +1358,11 @@ Video_Arch_Family Get_Video_Arch_Family( const QString &computer_type )
 	const QString bin = computer_type.toLower();
 
 	if( bin.contains( "aarch64" ) || bin.contains( "qemu-system-arm" ) ||
-	    bin.contains( "riscv" ) || bin.contains( "loongarch" ) )
+	    bin.contains( "riscv" ) || bin.contains( "loongarch" ) ||
+	    bin.contains( "applesoc" ) )
 		return VAF_VIRT;
-	if( bin.contains( "x86_64" ) || bin.contains( "i386" ) || bin == "qemu-system-x86" )
+	if( bin.contains( "x86_64" ) || bin.contains( "i386" ) || bin == "qemu-system-x86" ||
+	    bin.contains( "reimsvgpu" ) )
 		return VAF_X86;
 	if( bin.contains( "sparc" ) )
 		return VAF_SPARC;
@@ -1405,10 +1408,10 @@ bool Is_Video_Card_Allowed( Video_Arch_Family fam, const QString &raw_name )
 		case VAF_X86:
 			return name == "std" || name == "cirrus" || name == "vmware" ||
 			       name == "qxl" || name == "virtio" || name == "virtio-vga-gl" ||
-			       name == "xenfb" || name == "none";
+			       name == "reims-vgpu-pci" || name == "xenfb" || name == "none";
 		case VAF_VIRT:
 			return name == "virtio-gpu-pci" || name == "virtio-gpu-gl-pci" ||
-			       name == "ramfb" || name == "none";
+			       name == "reims-vgpu-pci" || name == "ramfb" || name == "std" || name == "cirrus" || name == "none";
 		case VAF_SPARC:
 			return name == "cg3" || name == "tcx" || name == "std" || name == "none";
 		case VAF_PPC:
@@ -1446,10 +1449,10 @@ QList<Device_Map> Default_Video_List_For_Family( Video_Arch_Family fam )
 	auto add = [&]( const QString &caption, const QString &qemu_name ) {
 		list << Device_Map( caption, qemu_name );
 	};
-
 	switch( fam )
 	{
 		case VAF_X86:
+			add( QObject::tr("Reims vGPU (3D Acceleration)"), "reims-vgpu-pci" );
 			add( QObject::tr("Cirrus CLGD 5446"), "cirrus" );
 			add( QObject::tr("StdVGA (VESA 2.0)"), "std" );
 			add( QObject::tr("VMWare Video Card"), "vmware" );
@@ -1458,9 +1461,12 @@ QList<Device_Map> Default_Video_List_For_Family( Video_Arch_Family fam )
 			add( QObject::tr("VirtIO VGA (GL / OpenGL)"), "virtio-vga-gl" );
 			break;
 		case VAF_VIRT:
+			add( QObject::tr("Reims vGPU (3D Acceleration)"), "reims-vgpu-pci" );
 			add( QObject::tr("VirtIO GPU (PCI)"), "virtio-gpu-pci" );
 			add( QObject::tr("VirtIO GPU GL (PCI)"), "virtio-gpu-gl-pci" );
 			add( QObject::tr("ramfb (simple framebuffer)"), "ramfb" );
+			add( QObject::tr("Standard VGA"), "std" );
+			add( QObject::tr("Cirrus CLGD 5446"), "cirrus" );
 			break;
 		case VAF_SPARC:
 			add( QObject::tr("CG3 Framebuffer"), "cg3" );
@@ -1670,6 +1676,11 @@ void System_Info::Filter_Video_Card_List( Available_Devices &dev )
 	const Video_Arch_Family fam = Get_Video_Arch_Family( dev.System.QEMU_Name );
 	QList<Device_Map> filtered;
 
+	if( dev.Video_Card_List.isEmpty() )
+	{
+		dev.Video_Card_List = Default_Video_List_For_Family( fam );
+	}
+
 	for( int i = 0; i < dev.Video_Card_List.count(); ++i )
 	{
 		const QString qemu_name = Normalize_Video_Alias( dev.Video_Card_List[i].QEMU_Name );
@@ -1686,11 +1697,12 @@ void System_Info::Filter_Video_Card_List( Available_Devices &dev )
 
 	if( fam == VAF_VIRT )
 	{
-		QList<Device_Map> virt_list;
-		if( List_Has_Video( filtered, "virtio-gpu-pci" ) )
-			virt_list = filtered;
-		else
+		// Expose all detected display options, ensuring standard ones like std, cirrus, and none are kept
+		QList<Device_Map> virt_list = filtered;
+		if( ! List_Has_Video( virt_list, "virtio-gpu-pci" ) )
+		{
 			virt_list = Default_Video_List_For_Family( VAF_VIRT );
+		}
 
 		filtered.clear();
 		for( int i = 0; i < virt_list.count(); ++i )
@@ -2394,9 +2406,8 @@ Available_Devices System_Info::Get_Emulator_Info( const QString &path, bool *ok,
 			else continue;
 		}
 		
-		// String empty?
-		if( ! (qemu_dev_name.isEmpty() ||
-			   qemu_dev_name.indexOf(QRegExp("/^\\S+$/"), 0) != -1) )
+		// Add parsed CPU device
+		if( ! qemu_dev_name.isEmpty() )
 		{
 			bool cpu_found = false;
 			for( int ix = 0; ix < default_device.CPU_List.count(); ix++ )
@@ -2405,14 +2416,13 @@ Available_Devices System_Info::Get_Emulator_Info( const QString &path, bool *ok,
 				{
 					tmp_dev.CPU_List << default_device.CPU_List[ ix ];
 					cpu_found = true;
+					break;
 				}
 			}
 			
-			// No this device name in default list
-			if( cpu_found == false )
+			if( ! cpu_found )
 				tmp_dev.CPU_List << Device_Map( qemu_dev_name, qemu_dev_name );
 		}
-		else continue;
 	}
 	while( ! tmp.isNull() );
 	
@@ -2445,8 +2455,10 @@ Available_Devices System_Info::Get_Emulator_Info( const QString &path, bool *ok,
 			QStringList rx_list = tmp_rx.capturedTexts();
 			if( rx_list.count() > 2 )
 			{
-				dev_map.Caption = rx_list[ 2 ];
-				dev_map.QEMU_Name = rx_list[ 1 ];
+				const QString id = rx_list[1];
+				const QString desc = rx_list[2].trimmed();
+				dev_map.Caption = desc.isEmpty() ? id : QString( "%1 — %2" ).arg( id, desc );
+				dev_map.QEMU_Name = id;
 			}
 			else
 			{
@@ -2457,7 +2469,7 @@ Available_Devices System_Info::Get_Emulator_Info( const QString &path, bool *ok,
 			}
 		}
 		
-		if( ! (dev_map.QEMU_Name.isEmpty() || dev_map.QEMU_Name.indexOf(QRegExp("/^\\S+$/"), 0) != -1) )
+		if( ! dev_map.QEMU_Name.isEmpty() )
 		{
 			bool machine_found = false;
 			for( int ix = 0; ix < default_device.Machine_List.count(); ix++ )
@@ -2466,11 +2478,11 @@ Available_Devices System_Info::Get_Emulator_Info( const QString &path, bool *ok,
 				{
 					tmp_dev.Machine_List << default_device.Machine_List[ ix ];
 					machine_found = true;
+					break;
 				}
 			}
 			
-			// No this device name in default list
-			if( machine_found == false ) tmp_dev.Machine_List << dev_map;
+			if( ! machine_found ) tmp_dev.Machine_List << dev_map;
 		}
 		else continue;
 	}

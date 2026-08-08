@@ -20,10 +20,16 @@ bool WSL_Ensure_KVM_Access( const QString &distro = QString() );
 /** Clear cached WSL/KVM probe results (e.g. after Settings Probe). */
 void WSL_Clear_Probe_Cache();
 
+/** Retrieve a list of all installed WSL distributions. */
+QStringList WSL_Get_Installed_Distros();
+
+/** Get the default non-root username for a given WSL distro. */
+QString WSL_Get_Distro_Default_User( const QString &distro );
+
 QString Windows_Path_To_WSL( const QString &windows_path );
 /** Rewrite file=/firmware paths in a QEMU arg list for Linux inside WSL. */
 QStringList Rewrite_Args_For_WSL( const QStringList &win_args );
-/** Build wsl.exe argv: optional -d distro, --, linux_qemu, rewritten qemu args. */
+/** Build wsl.exe argv: optional -d distro, optional -u user, -e, linux_qemu, rewritten qemu args. */
 QStringList Build_WSL_Launch_Args( const QString &distro,
                                    const QString &linux_qemu_binary,
                                    const QStringList &qemu_args );

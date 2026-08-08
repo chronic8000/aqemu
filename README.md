@@ -201,19 +201,24 @@ On **Raspberry Pi 5 / Linux aarch64** hosts, the same profile can lean on **KVM*
 
 ---
 
-## ⚡ Reims vGPU Acceleration Engine (`qemu-system-reimsvgpu.exe`)
+## ⚡ Reims vGPU Acceleration Engine (Linux / WSL)
 
-AQEMU now bundles **`qemu-system-reimsvgpu.exe`**, a specialized QEMU binary built from **steelbrain's `qemu-reims-vgpu`** project—the viral open-source graphics virtualization engine designed to bring **full 3D hardware-accelerated graphics to macOS guests** inside QEMU!
+AQEMU integrates **steelbrain's `qemu-reims-vgpu`** so Intel macOS guests can use Apple's built-in **`AppleParavirtGPU.kext`** with a host-side **Metal → Vulkan** translation path.
 
-### 🔮 How Reims vGPU Achieves macOS Hardware Graphics Acceleration:
-- **Zero Guest Kext Modifications**: macOS natively includes Apple's official **`AppleParavirtGPU.kext`** driver. `qemu-system-reimsvgpu.exe` exposes the MMIO/IRQ device shims that `AppleParavirtGPU` connects to out-of-the-box.
-- **Metal → Vulkan Translation Layer (`metal2vulkan`)**: The engine intercepts the guest macOS Metal GPU command streams and dynamically translates them into cross-platform Vulkan rendering calls on the host PC GPU.
-- **Native 3D Compositing & Window Server**: Enables Quartz Extreme, Metal UI animations, and smooth window compositing inside macOS VMs without requiring expensive dedicated GPU passthrough hardware!
+### Important (Windows hosts)
+- Real Reims acceleration requires the **Linux** binary **`qemu-system-reims3d`** under **WSL** (with KVM + a working Vulkan/GL stack).
+- The Windows `qemu-system-reimsvgpu.exe` helper is **not** a complete Reims build: it does **not** expose `reims-vgpu-pci`. AQEMU therefore **forces Launch via WSL** for Reims VMs and runs `/usr/local/bin/qemu-system-reims3d`.
+- Place or build `qemu-system-reims3d` inside your WSL distro (already installed at `/usr/local/bin/qemu-system-reims3d` on this development machine).
 
-### 🚀 AQEMU Integration Highlights:
-- **`macOS x86_64 vGPU (Reims)`**: Preset OS profile for running Intel macOS with native `AppleParavirtGPU` acceleration.
-- **`Windows 11 vGPU (Reims)`**: vGPU hardware passthrough/acceleration profile for Windows 11 guests.
-- **`qemu-system-reimsvgpu` Standalone Target**: Shipped as a dedicated executable alongside standard QEMU targets, pre-configured with `libslirp` User NAT networking, SPICE display, and DirectSound audio.
+### How Reims accelerates macOS graphics
+- **Zero guest kext mods**: macOS already includes **`AppleParavirtGPU.kext`**. The Reims QEMU device presents the MMIO/IRQ shims that driver expects (`-device reims-vgpu-pci`).
+- **Metal → Vulkan (`metal2vulkan`)**: guest Metal command streams are translated to host Vulkan.
+- **No dGPU VFIO required** for the paravirtual path (separate from optional AMD Metal passthrough on bare-metal Linux).
+
+### AQEMU integration
+- Wizard profiles: **`macOS x86_64 vGPU (Reims)`** (and related Reims targets)
+- Computer type: `qemu-system-reimsvgpu` (AQEMU label) → WSL launch of **`qemu-system-reims3d`**
+- Defaults: q35, OpenCore/Intel macOS profile fields, `reims-vgpu-pci`, Launch via WSL enabled
 
 ---
 
