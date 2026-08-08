@@ -59,9 +59,13 @@
 #include <QToolButton>
 #include <QAbstractButton>
 #include "iOS_Firmware_Tool_Window.h"
+#include "Apple_SoC_Restore_Window.h"
+#include "Apple_SoC_Support.h"
+#include "WSL_Launch.h"
 #include <QStyle>
 #include <QFontMetrics>
 #include <QLineEdit>
+#include <QSpinBox>
 #include <QClipboard>
 #include <QScrollArea>
 #include <QFrame>
@@ -127,6 +131,14 @@ Main_Window::Main_Window( QWidget *parent )
 	, Session_User_Detached( false )
 	, Session_Block_During_Start( false )
 	, GPU_Scan_Busy( false )
+	, Edit_Apple_Trustcache( nullptr )
+	, Edit_Apple_Ticket( nullptr )
+	, Edit_Apple_SEP_FW( nullptr )
+	, Edit_Apple_SEP_ROM( nullptr )
+	, Edit_Apple_IPSW( nullptr )
+	, Edit_Apple_USB_Conn_Addr( nullptr )
+	, CB_Apple_USB_Conn_Type( nullptr )
+	, SB_Apple_USB_Conn_Port( nullptr )
 	, Tray_Icon( nullptr )
 	, Act_Tray_Show( nullptr )
 	, Act_Tray_Quit( nullptr )
@@ -152,6 +164,7 @@ Main_Window::Main_Window( QWidget *parent )
 
     ui.setupUi( this );
 	ui_ao.setupUi( Advanced_Options );
+	Build_Apple_SoC_Inferno_Ui();
 
 	// Make the options body inside Advanced Options scrollable while keeping OK/Cancel fixed at the bottom
 	if( ui_ao.groupBox_options && ui_ao.groupBox_options->parentWidget() )
@@ -202,6 +215,14 @@ Main_Window::Main_Window( QWidget *parent )
 		actIosFw->setStatusTip( tr( "Unpack IPSW archives and process IM4P payloads with pyimg4" ) );
 		connect( actIosFw, &QAction::triggered, this, &Main_Window::slot_iOS_Firmware_Tool_triggered );
 		ui.menuFile->insertAction( ui.actionCreate_HDD_Image, actIosFw );
+	}
+	// File → Apple SoC Restore (companion + idevicerestore)
+	{
+		QAction *actRestore = new QAction( QIcon( QStringLiteral( ":/default_mac.png" ) ),
+			tr( "Apple SoC &Restore…" ), this );
+		actRestore->setStatusTip( tr( "Companion VM helper and idevicerestore for Inferno iOS guests" ) );
+		connect( actRestore, &QAction::triggered, this, &Main_Window::slot_Apple_SoC_Restore_triggered );
+		ui.menuFile->insertAction( ui.actionCreate_HDD_Image, actRestore );
 	}
 	if( ui.actionCopy )
 		ui.actionCopy->setText( tr( "Clone &VM…" ) );
@@ -444,6 +465,9 @@ Main_Window::Main_Window( QWidget *parent )
     block_VM_changed_signals = false;
 
 	Init_System_Tray();
+#ifdef Q_OS_WIN32
+	QTimer::singleShot( 0, this, [this]() { Maybe_Prompt_WSL_Config_On_Boot(); } );
+#endif
 }
 
 void Main_Window::Init_System_Tray()
@@ -1912,11 +1936,13 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
 	tmp_vm->Set_Initrd_Path( ui.Edit_Linux_Initrd_Path->text() );
 	tmp_vm->Set_DeviceTree_Path( ui.Edit_DeviceTree_Path->text() );
 	tmp_vm->Set_App_Kernel_Path( ui.Edit_App_Kernel_Path->text() );
-	// Must match Update_DeviceTree_Visibility / Uses_Apple_SoC_Boot_UI — not path emptiness.
+	// Prefer authoritative Apple SoC markers on tmp_vm (computer/machine type), not widget
+	// visibility which may lag until Update_DeviceTree_Visibility runs.
 	if( Uses_Apple_SoC_Boot_UI( tmp_vm ) )
 		tmp_vm->Set_Kernel_ComLine( ui.Edit_App_Kernel_Args->text() );
 	else
 		tmp_vm->Set_Kernel_ComLine( ui.Edit_Linux_Command_Line->text() );
+	Apply_Apple_SoC_Fields_To_VM( tmp_vm );
 
 	// Optional Images
 	// ROM File
@@ -2999,6 +3025,7 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 	ui.Edit_App_Kernel_Path->setText( tmp_vm->Get_App_Kernel_Path() );
 	ui.Edit_App_Kernel_Args->setText( tmp_vm->Get_Kernel_ComLine() );
 	ui.Edit_Linux_Command_Line->setText( tmp_vm->Get_Kernel_ComLine() );
+	Load_Apple_SoC_Fields_From_VM( tmp_vm );
 
 	// ROM File
 	ui.CH_ROM_File->setChecked( tmp_vm->Get_Use_ROM_File() );
@@ -4381,9 +4408,7 @@ bool Main_Window::Boot_Is_Correct( Virtual_Machine *tmp_vm )
 	    tmp_vm->Get_Machine_Type().contains( QLatin1String( "t8030" ), Qt::CaseInsensitive ) ||
 	    tmp_vm->Get_Machine_Type().contains( QLatin1String( "s8000" ), Qt::CaseInsensitive ) )
 	{
-		const QString kernel = ! tmp_vm->Get_App_Kernel_Path().trimmed().isEmpty()
-			? tmp_vm->Get_App_Kernel_Path().trimmed()
-			: ( tmp_vm->Get_Use_Linux_Boot() ? tmp_vm->Get_bzImage_Path().trimmed() : QString() );
+		const QString kernel = tmp_vm->Get_App_Kernel_Path().trimmed();
 		const QString dtb = tmp_vm->Get_DeviceTree_Path().trimmed();
 
 		if( kernel.isEmpty() || ! QFile::exists( kernel ) )
@@ -4400,11 +4425,14 @@ bool Main_Window::Boot_Is_Correct( Virtual_Machine *tmp_vm )
 				    "(.dtb or extracted payload)." ) );
 			return false;
 		}
-		if( dtb.endsWith( QLatin1String( ".im4p" ), Qt::CaseInsensitive ) )
+		if( dtb.endsWith( QLatin1String( ".im4p" ), Qt::CaseInsensitive ) &&
+		    ! AQ_Is_Apple_SoC_VM( tmp_vm ) )
 		{
 			AQGraphic_Warning( tr( "Error!" ),
 				tr( "DeviceTree is still an .im4p payload. Extract/decrypt it to a "
-				    "raw .dtb (or .dec) with the iOS Firmware Tool before starting." ) );
+				    "raw .dtb (or .dec) with the iOS Firmware Tool before starting.\n\n"
+				    "Inferno Apple SoC guests may use .im4p DeviceTrees with the full "
+				    "trustcache / SEP recipe." ) );
 			return false;
 		}
 		// Disk image is optional at first boot (kernel+dtb only), but warn if missing.
@@ -6054,6 +6082,7 @@ void Main_Window::Computer_Type_Changed()
 	// Other Options
 	Update_Win11_Lifecycle_Ui();
 	Update_Intel_MacOS_Settings_Ui();
+	Update_DeviceTree_Visibility();
 	Enforce_Accel_Honesty();
 	Enforce_Disk_Bus_Honesty();
 	Update_Disabled_Controls();
@@ -6081,6 +6110,7 @@ void Main_Window::on_CB_Machine_Type_Main_currentIndexChanged( int index )
 	}
 
 	Enforce_Disk_Bus_Honesty();
+	Update_DeviceTree_Visibility();
 	VM_Changed();
 }
 
@@ -6127,6 +6157,7 @@ void Main_Window::sync_arch_Machine_Type_changed( int index )
 		live_vm->Set_Machine_Type( ui.CB_Machine_Type_Main->currentText() );
 	}
 
+	Update_DeviceTree_Visibility();
 	VM_Changed();
 }
 
@@ -6167,6 +6198,184 @@ void Main_Window::slot_iOS_Firmware_Tool_triggered()
 		}
 	} );
 	dlg.exec();
+}
+
+void Main_Window::slot_Apple_SoC_Restore_triggered()
+{
+	Virtual_Machine *vm = Get_Current_VM();
+	if( vm )
+		Apply_Apple_SoC_Fields_To_VM( vm );
+	Apple_SoC_Restore_Window dlg( vm, this );
+	dlg.exec();
+	if( vm )
+		Load_Apple_SoC_Fields_From_VM( vm );
+}
+
+void Main_Window::Maybe_Prompt_WSL_Config_On_Boot()
+{
+#ifdef Q_OS_WIN32
+	const QString distro = Settings.value( QStringLiteral( "WSL_Launch/Distro" ), QString() ).toString();
+	const QString user = Settings.value( QStringLiteral( "WSL_Launch/Username" ), QString() ).toString();
+	if( ! distro.trimmed().isEmpty() && WSL_Is_Valid_Username( user ) )
+		return;
+
+	bool needs = Settings.value( QStringLiteral( "WSL_Launch/Enabled" ), false ).toBool();
+	for( int i = 0; ! needs && i < VM_List.count(); ++i )
+	{
+		Virtual_Machine *vm = VM_List[i];
+		if( ! vm )
+			continue;
+		if( AQ_Is_Apple_SoC_VM( vm ) ||
+		    vm->Get_Computer_Type().contains( QLatin1String( "reimsvgpu" ), Qt::CaseInsensitive ) ||
+		    vm->Use_Launch_Via_WSL() )
+			needs = true;
+	}
+	if( ! needs )
+		return;
+
+	const auto ans = QMessageBox::question( this, tr( "WSL configuration" ),
+		tr( "AQEMU 1.3.0 uses WSL for Apple SoC (Inferno) and hardware-accelerated "
+		    "macOS (Reims) on Windows.\n\n"
+		    "WSL distro / username are not configured yet. Set them now?\n\n"
+		    "(Passwords are not stored — KVM fixes use wsl -u root.)" ),
+		QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes );
+	if( ans == QMessageBox::Yes )
+	{
+		WSL_Wizard_Window wizard( this );
+		wizard.exec();
+	}
+#endif
+}
+
+void Main_Window::Build_Apple_SoC_Inferno_Ui()
+{
+	QVBoxLayout *lay = ui.Widget_DeviceTree_Main
+		? qobject_cast<QVBoxLayout *>( ui.Widget_DeviceTree_Main->layout() )
+		: nullptr;
+	if( ! lay )
+		return;
+
+	auto add_path_row = [&]( const QString &label, QLineEdit **editOut, const QString &filter ) {
+		QHBoxLayout *row = new QHBoxLayout();
+		row->addWidget( new QLabel( label ) );
+		QLineEdit *edit = new QLineEdit();
+		*editOut = edit;
+		row->addWidget( edit, 1 );
+		QToolButton *tb = new QToolButton();
+		tb->setText( QStringLiteral( "..." ) );
+		tb->setIcon( QIcon( QStringLiteral( ":/open-file.png" ) ) );
+		connect( tb, &QToolButton::clicked, this, [this, edit, filter, label]() {
+			const QString f = QFileDialog::getOpenFileName( this, label,
+				Get_Last_Dir_Path( edit->text() ), filter );
+			if( ! f.isEmpty() )
+			{
+				edit->setText( QDir::toNativeSeparators( f ) );
+				VM_Changed();
+			}
+		} );
+		row->addWidget( tb );
+		lay->addLayout( row );
+		connect( edit, &QLineEdit::textChanged, this, [this]( const QString & ) { VM_Changed(); } );
+	};
+
+	add_path_row( tr( "Trustcache:" ), &Edit_Apple_Trustcache,
+		tr( "Trustcache (*);;All (*)" ) );
+	add_path_row( tr( "Restore ticket:" ), &Edit_Apple_Ticket,
+		tr( "Ticket (*);;All (*)" ) );
+	add_path_row( tr( "SEP firmware:" ), &Edit_Apple_SEP_FW,
+		tr( "SEP FW (*);;All (*)" ) );
+	add_path_row( tr( "SEP ROM:" ), &Edit_Apple_SEP_ROM,
+		tr( "SEP ROM (*);;All (*)" ) );
+	add_path_row( tr( "IPSW (restore):" ), &Edit_Apple_IPSW,
+		tr( "IPSW (*.ipsw *.zip);;All (*)" ) );
+
+	QHBoxLayout *usbRow = new QHBoxLayout();
+	usbRow->addWidget( new QLabel( tr( "USB remote:" ) ) );
+	CB_Apple_USB_Conn_Type = new QComboBox();
+	CB_Apple_USB_Conn_Type->addItem( tr( "UNIX (WSL/Linux)" ), QStringLiteral( "unix" ) );
+	CB_Apple_USB_Conn_Type->addItem( tr( "IPv4 TCP" ), QStringLiteral( "ipv4" ) );
+	usbRow->addWidget( CB_Apple_USB_Conn_Type );
+	Edit_Apple_USB_Conn_Addr = new QLineEdit();
+	Edit_Apple_USB_Conn_Addr->setPlaceholderText( QStringLiteral( "/tmp/InfernoUSBRemote or 127.0.0.1" ) );
+	usbRow->addWidget( Edit_Apple_USB_Conn_Addr, 1 );
+	SB_Apple_USB_Conn_Port = new QSpinBox();
+	SB_Apple_USB_Conn_Port->setRange( 1, 65535 );
+	SB_Apple_USB_Conn_Port->setValue( 8030 );
+	SB_Apple_USB_Conn_Port->setToolTip( tr( "TCP port when USB remote type is IPv4" ) );
+	usbRow->addWidget( SB_Apple_USB_Conn_Port );
+	lay->addLayout( usbRow );
+
+	connect( CB_Apple_USB_Conn_Type, QOverload<int>::of( &QComboBox::currentIndexChanged ),
+	         this, [this]( int ) { VM_Changed(); } );
+	connect( Edit_Apple_USB_Conn_Addr, &QLineEdit::textChanged,
+	         this, [this]( const QString & ) { VM_Changed(); } );
+	connect( SB_Apple_USB_Conn_Port, QOverload<int>::of( &QSpinBox::valueChanged ),
+	         this, [this]( int ) { VM_Changed(); } );
+
+	QHBoxLayout *btnRow = new QHBoxLayout();
+	QPushButton *btnRestore = new QPushButton( tr( "Apple SoC Restore…" ) );
+	connect( btnRestore, &QPushButton::clicked, this, &Main_Window::slot_Apple_SoC_Restore_triggered );
+	btnRow->addWidget( btnRestore );
+	btnRow->addStretch();
+	lay->addLayout( btnRow );
+}
+
+void Main_Window::Apply_Apple_SoC_Fields_To_VM( Virtual_Machine *vm )
+{
+	if( ! vm )
+		return;
+	// Persist profile only from authoritative target markers — never from VM name heuristics.
+	const QString c_type = vm->Get_Computer_Type();
+	const QString m_type = vm->Get_Machine_Type();
+	if( c_type.contains( QLatin1String( "applesoc" ), Qt::CaseInsensitive ) ||
+	    m_type.contains( QLatin1String( "t8030" ), Qt::CaseInsensitive ) ||
+	    m_type.contains( QLatin1String( "s8000" ), Qt::CaseInsensitive ) )
+		vm->Use_Apple_SoC_Profile( true );
+	if( Edit_Apple_Trustcache )
+		vm->Set_Apple_Trustcache_Path( Edit_Apple_Trustcache->text() );
+	if( Edit_Apple_Ticket )
+		vm->Set_Apple_Ticket_Path( Edit_Apple_Ticket->text() );
+	if( Edit_Apple_SEP_FW )
+		vm->Set_Apple_SEP_FW_Path( Edit_Apple_SEP_FW->text() );
+	if( Edit_Apple_SEP_ROM )
+		vm->Set_Apple_SEP_ROM_Path( Edit_Apple_SEP_ROM->text() );
+	if( Edit_Apple_IPSW )
+		vm->Set_Apple_IPSW_Path( Edit_Apple_IPSW->text() );
+	if( CB_Apple_USB_Conn_Type )
+		vm->Set_Apple_USB_Conn_Type( CB_Apple_USB_Conn_Type->currentData().toString() );
+	if( Edit_Apple_USB_Conn_Addr )
+		vm->Set_Apple_USB_Conn_Addr( Edit_Apple_USB_Conn_Addr->text() );
+	if( SB_Apple_USB_Conn_Port )
+		vm->Set_Apple_USB_Conn_Port( SB_Apple_USB_Conn_Port->value() );
+}
+
+void Main_Window::Load_Apple_SoC_Fields_From_VM( const Virtual_Machine *vm )
+{
+	if( ! vm )
+		return;
+	if( Edit_Apple_Trustcache )
+		Edit_Apple_Trustcache->setText( vm->Get_Apple_Trustcache_Path() );
+	if( Edit_Apple_Ticket )
+		Edit_Apple_Ticket->setText( vm->Get_Apple_Ticket_Path() );
+	if( Edit_Apple_SEP_FW )
+		Edit_Apple_SEP_FW->setText( vm->Get_Apple_SEP_FW_Path() );
+	if( Edit_Apple_SEP_ROM )
+		Edit_Apple_SEP_ROM->setText( vm->Get_Apple_SEP_ROM_Path() );
+	if( Edit_Apple_IPSW )
+		Edit_Apple_IPSW->setText( vm->Get_Apple_IPSW_Path() );
+	if( CB_Apple_USB_Conn_Type )
+	{
+		const QString t = vm->Get_Apple_USB_Conn_Type();
+		const int idx = CB_Apple_USB_Conn_Type->findData(
+			t.compare( QLatin1String( "ipv4" ), Qt::CaseInsensitive ) == 0
+				? QStringLiteral( "ipv4" ) : QStringLiteral( "unix" ) );
+		if( idx >= 0 )
+			CB_Apple_USB_Conn_Type->setCurrentIndex( idx );
+	}
+	if( Edit_Apple_USB_Conn_Addr )
+		Edit_Apple_USB_Conn_Addr->setText( vm->Get_Apple_USB_Conn_Addr() );
+	if( SB_Apple_USB_Conn_Port )
+		SB_Apple_USB_Conn_Port->setValue( vm->Get_Apple_USB_Conn_Port() > 0 ? vm->Get_Apple_USB_Conn_Port() : 8030 );
 }
 
 void Main_Window::Update_Machine_Accelerators()
@@ -6945,14 +7154,17 @@ bool Main_Window::Uses_Apple_SoC_Boot_UI( const Virtual_Machine *vm ) const
 	const QString c_type = vm->Get_Computer_Type();
 	const QString m_type = vm->Get_Machine_Type();
 
-	return ( m_name.contains( QLatin1String( "iOS" ), Qt::CaseInsensitive ) ||
-	         m_name.contains( QLatin1String( "iPhone" ), Qt::CaseInsensitive ) ||
-	         m_name.contains( QLatin1String( "iPad" ), Qt::CaseInsensitive ) ||
-	         m_name.contains( QLatin1String( "Apple Silicon" ), Qt::CaseInsensitive ) ||
-	         c_type.contains( QLatin1String( "applesoc" ), Qt::CaseInsensitive ) ||
-	         m_type.contains( QLatin1String( "t8030" ), Qt::CaseInsensitive ) ||
-	         m_type.contains( QLatin1String( "s8000" ), Qt::CaseInsensitive ) ) &&
-	       ! c_type.contains( QLatin1String( "reimsvgpu" ), Qt::CaseInsensitive );
+	if( c_type.contains( QLatin1String( "reimsvgpu" ), Qt::CaseInsensitive ) )
+		return false;
+
+	return vm->Use_Apple_SoC_Profile() ||
+	       m_name.contains( QLatin1String( "iOS" ), Qt::CaseInsensitive ) ||
+	       m_name.contains( QLatin1String( "iPhone" ), Qt::CaseInsensitive ) ||
+	       m_name.contains( QLatin1String( "iPad" ), Qt::CaseInsensitive ) ||
+	       m_name.contains( QLatin1String( "Apple Silicon" ), Qt::CaseInsensitive ) ||
+	       c_type.contains( QLatin1String( "applesoc" ), Qt::CaseInsensitive ) ||
+	       m_type.contains( QLatin1String( "t8030" ), Qt::CaseInsensitive ) ||
+	       m_type.contains( QLatin1String( "s8000" ), Qt::CaseInsensitive );
 }
 
 void Main_Window::Update_Intel_Mac_GPU_Passthrough_Ui()
@@ -6984,6 +7196,53 @@ void Main_Window::Start_Host_GPU_Scan()
 void Main_Window::Apply_Intel_Mac_GPU_Passthrough_Ui_From_Cache()
 {
 	const bool has_amd = System_Info::Has_AMD_Display_GPU();
+	const bool has_nvidia = System_Info::Has_NVIDIA_Display_GPU();
+	const bool has_wsl_gpu = System_Info::Has_WSL_Vulkan_GPU();
+
+	Virtual_Machine *vm = Get_Current_VM();
+	const bool is_reims = vm &&
+		vm->Get_Computer_Type().contains( QLatin1String( "reimsvgpu" ), Qt::CaseInsensitive );
+
+	// Reims: show GPU status for AMD and NVIDIA (WSL Vulkan), even without VFIO.
+	if( is_reims )
+	{
+		ui.GB_Intel_Mac_GPU_Passthrough->setVisible( true );
+		ui.CH_Intel_Mac_GPU_Passthrough->setEnabled( false );
+		ui.CB_Intel_Mac_GPU->setEnabled( false );
+		ui.Edit_Intel_Mac_GPU_Audio->setEnabled( false );
+		ui.Edit_Intel_Mac_GPU_ROM->setEnabled( false );
+		ui.TB_Intel_Mac_GPU_ROM_Browse->setEnabled( false );
+		ui.TB_Intel_Mac_GPU_Refresh->setEnabled( true );
+		ui.CH_Intel_Mac_GPU_Passthrough->setChecked( false );
+
+		QString vendors;
+		if( has_amd && has_nvidia )
+			vendors = tr( "AMD and NVIDIA" );
+		else if( has_amd )
+			vendors = tr( "AMD" );
+		else if( has_nvidia )
+			vendors = tr( "NVIDIA" );
+		else if( System_Info::Host_GPU_Was_Scanned() )
+			vendors = tr( "no AMD/NVIDIA display GPU detected" );
+		else
+			vendors = tr( "scanning…" );
+
+#ifdef Q_OS_WIN32
+		ui.Label_Intel_Mac_GPU_Status->setText( tr(
+			"Reims hardware acceleration uses Linux qemu-system-reims3d under WSL with "
+			"host GPU Vulkan (AMD and NVIDIA via WSLg). Detected: %1.\n"
+			"PCIe Metal passthrough is not available on Windows — leave VFIO off." )
+			.arg( vendors ) );
+#else
+		ui.Label_Intel_Mac_GPU_Status->setText( tr(
+			"Reims acceleration needs qemu-system-reims3d with Vulkan. Detected: %1.\n"
+			"AMD Metal VFIO passthrough is separate and only on bare-metal Linux." )
+			.arg( vendors ) );
+#endif
+		Q_UNUSED( has_wsl_gpu );
+		return;
+	}
+
 	ui.GB_Intel_Mac_GPU_Passthrough->setVisible( has_amd || ! System_Info::Host_GPU_Was_Scanned() );
 	if( ! has_amd )
 	{
@@ -7032,17 +7291,15 @@ void Main_Window::Apply_Intel_Mac_GPU_Passthrough_Ui_From_Cache()
 	{
 #ifdef Q_OS_WIN32
 		ui.Label_Intel_Mac_GPU_Status->setText( tr(
-			"AMD GPU detected. Metal passthrough needs QEMU on bare-metal Linux with VFIO — "
-			"WSLg can accelerate Linux apps but cannot PCIe-assign this GPU into the guest. "
-			"Software VMware SVGA remains the working default here. "
-			"Saved passthrough settings are kept but cannot be changed here." ) );
+			"AMD GPU detected. Metal PCIe passthrough needs bare-metal Linux VFIO.\n"
+			"For hardware-accelerated macOS on Windows, use the Reims (reims3d) target "
+			"under WSL — AMD and NVIDIA GPUs both work via WSLg Vulkan.\n"
+			"Saved VFIO settings are kept but cannot be changed here." ) );
 #else
 		ui.Label_Intel_Mac_GPU_Status->setText( tr(
 			"AMD GPU detected, but PCIe passthrough is not available in this environment "
-			"(WSL or no host PCI). Use bare-metal Linux for Metal. "
-			"Saved passthrough settings are kept but cannot be changed here." ) );
+			"(WSL or no host PCI). Use bare-metal Linux for Metal VFIO, or Reims + Vulkan." ) );
 #endif
-		// Do not clear the checkbox — keep stored intent visible while disabled (PR #2 / Qodo)
 	}
 }
 

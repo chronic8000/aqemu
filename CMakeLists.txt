@@ -99,6 +99,8 @@ SET( aqemu_headers
 	src/VNC_Password_Window.h
 	src/WSL_Wizard_Window.h
 	src/iOS_Firmware_Tool_Window.h
+	src/Apple_SoC_Support.h
+	src/Apple_SoC_Restore_Window.h
 	src/QMP_Client.h
 	src/QEMU_Help_Browser.h
 	src/Blockdev_Graph_Window.h
@@ -162,6 +164,8 @@ SET( aqemu_sources
 	src/Guest_Capabilities.cpp
 	src/ISO_Guess.cpp
 	src/iOS_Firmware_Tool_Window.cpp
+	src/Apple_SoC_Support.cpp
+	src/Apple_SoC_Restore_Window.cpp
 	src/Storage_Browser_Window.cpp
 	src/Serial_Console_Window.cpp
 	src/URL_Fetch.cpp
@@ -600,7 +604,7 @@ ENDIF( INSTALL_MAN )
 # CPack Packaging Configuration
 SET( CPACK_GENERATOR "DEB" )
 SET( CPACK_PACKAGE_NAME "aqemu" )
-SET( CPACK_PACKAGE_VERSION "1.1.0" )
+SET( CPACK_PACKAGE_VERSION "1.3.0" )
 SET( CPACK_PACKAGE_CONTACT "chronic8000" )
 SET( CPACK_PACKAGE_DESCRIPTION_SUMMARY "AQEMU is a graphical user interface for the QEMU emulator." )
 SET( CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON )

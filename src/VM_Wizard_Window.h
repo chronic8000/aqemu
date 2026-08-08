@@ -122,6 +122,7 @@ class VM_Wizard_Window: public QDialog
 		void Build_Windows11_ARM_Page();
 		bool Is_Apple_Silicon_Or_iOS_Template() const;
 		bool Is_Intel_MacOS_Template() const;
+		void Apply_Apple_SoC_Profile( bool simulate );
 		void Apply_Intel_MacOS_Profile( bool simulate );
 		void Build_Intel_MacOS_Page();
 		void Show_Intel_MacOS_Page();

@@ -11,7 +11,7 @@
 param(
     [string] $RepoRoot = "",
     [string] $BuildDir = "",
-    [string] $Version = "1.1.0.0",
+    [string] $Version = "1.3.0.0",
     [string] $OutDir = "",
     # Must match Partner Center Product identity Publisher (CN=...)
     [string] $Publisher = "CN=16318CB3-C262-4B44-BCCF-310B0DDA3950",

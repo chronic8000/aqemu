@@ -1,3 +1,19 @@
+2026-08-08 Chronic Engineering — AQEMU 1.3.0 (Apple SoC Inferno + Reims WSL)
+
+	* Version bump to 1.3.0 across code, MSI/MSIX, WiX, and packaging docs.
+	* Apple SoC / iOS (ChefKiss Inferno):
+	  - Inferno launch profile: trustcache, ticket, SEP FW/ROM, usb-conn, kaslr-off,
+	    multi-ns NVMe + apple-nvram + SEP pflash image set under the VM folder.
+	  - On Windows, applesoc is forced through WSL Linux qemu-system-applesoc
+	    (UNIX sockets / companion restore; not Windows PE alone).
+	  - File → Apple SoC Restore: companion command helper + idevicerestore in WSL.
+	  - Wizard + main UI fields for Inferno firmware paths and USB remote type.
+	* Hardware-accelerated Intel macOS (Reims):
+	  - Always uses Linux qemu-system-reims3d under WSL with reims-vgpu-pci.
+	  - Documents AMD and NVIDIA host GPUs via WSLg Vulkan (not Windows PE Reims).
+	* WSL: prompt for distro/username on boot when missing; passwords are not stored
+	  (KVM access uses wsl -u root). Machine -machine path props rewritten for WSL.
+
 2026-07-31 Chronic Engineering — AQEMU 1.0.2 (Reims vGPU Acceleration Target)
 
 	* Virtual GPU Acceleration Target (qemu-system-reimsvgpu.exe):

@@ -28,6 +28,7 @@
 #include <QProcess>
 #include <QTcpSocket>
 #include <QFile>
+#include <QMap>
 
 #include "VM_Devices.h"
 #include "Error_Log_Window.h"
@@ -617,6 +618,30 @@ class Virtual_Machine: public QObject
 		void Set_GPU_ROM_File( const QString &path );
 		bool Use_GPU_Passthrough_Multifunction() const;
 		void Use_GPU_Passthrough_Multifunction( bool use );
+
+		/** ChefKiss Inferno Apple SoC (iOS) profile — multi-NS NVMe + SEP + USB remote. */
+		bool Use_Apple_SoC_Profile() const;
+		void Use_Apple_SoC_Profile( bool use );
+		const QString &Get_Apple_Trustcache_Path() const;
+		void Set_Apple_Trustcache_Path( const QString &path );
+		const QString &Get_Apple_Ticket_Path() const;
+		void Set_Apple_Ticket_Path( const QString &path );
+		const QString &Get_Apple_SEP_FW_Path() const;
+		void Set_Apple_SEP_FW_Path( const QString &path );
+		const QString &Get_Apple_SEP_ROM_Path() const;
+		void Set_Apple_SEP_ROM_Path( const QString &path );
+		const QString &Get_Apple_IPSW_Path() const;
+		void Set_Apple_IPSW_Path( const QString &path );
+		const QString &Get_Apple_USB_Conn_Type() const;
+		void Set_Apple_USB_Conn_Type( const QString &type );
+		const QString &Get_Apple_USB_Conn_Addr() const;
+		void Set_Apple_USB_Conn_Addr( const QString &addr );
+		int Get_Apple_USB_Conn_Port() const;
+		void Set_Apple_USB_Conn_Port( int port );
+		/** Optional override for a named Inferno image (root, firmware, …). */
+		QString Get_Apple_SoC_Image_Path( const QString &name ) const;
+		void Set_Apple_SoC_Image_Path( const QString &name, const QString &path );
+		const QMap<QString, QString> &Get_Apple_SoC_Image_Paths() const { return Apple_SoC_Image_Paths; }
 		
 		bool Use_KVM() const;
 		void Use_KVM( bool use );
@@ -951,6 +976,17 @@ class Virtual_Machine: public QObject
 		QString GPU_Audio_PCI_Address;
 		QString GPU_ROM_File;
 		bool GPU_Passthrough_Multifunction;
+
+		bool Apple_SoC_Profile;
+		QString Apple_Trustcache_Path;
+		QString Apple_Ticket_Path;
+		QString Apple_SEP_FW_Path;
+		QString Apple_SEP_ROM_Path;
+		QString Apple_IPSW_Path;
+		QString Apple_USB_Conn_Type;
+		QString Apple_USB_Conn_Addr;
+		int Apple_USB_Conn_Port;
+		QMap<QString, QString> Apple_SoC_Image_Paths;
 
 		bool Enable_KVM;
 		bool KVM_IRQChip;

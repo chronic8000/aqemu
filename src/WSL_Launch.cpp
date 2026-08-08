@@ -369,7 +369,7 @@ static QString Escape_Qemu_Option_Commas( QString val )
 
 static QString Rewrite_Drive_File_Option( const QString &opt )
 {
-	// Rewrite file= / file.filename= path segments inside -drive / similar options
+	// Rewrite file= / file.filename= / Inferno machine path props inside -drive / -machine
 	QStringList parts = Split_Qemu_Option_Commas( opt );
 	for( int i = 0; i < parts.size(); ++i )
 	{
@@ -384,10 +384,23 @@ static QString Rewrite_Drive_File_Option( const QString &opt )
 			key == QLatin1String( "filename" ) ||
 			key == QLatin1String( "file.filename" ) ||
 			key.endsWith( QLatin1String( ".filename" ) ) ||
-			key.endsWith( QLatin1String( ".path" ) );
+			key.endsWith( QLatin1String( ".path" ) ) ||
+			key == QLatin1String( "trustcache" ) ||
+			key == QLatin1String( "ticket" ) ||
+			key == QLatin1String( "sep-fw" ) ||
+			key == QLatin1String( "sep-rom" ) ||
+			key == QLatin1String( "usb-conn-addr" );
 		if( ! is_path_key )
 			continue;
-		QString val = AQ_Normalize_File_Path( part.mid( eq + 1 ) );
+		QString val = part.mid( eq + 1 );
+		// Keep pure Linux unix socket paths as-is; convert Windows host paths.
+		if( key == QLatin1String( "usb-conn-addr" ) &&
+		    ( val.startsWith( QLatin1Char( '/' ) ) || val.contains( QLatin1Char( '.' ) ) ) &&
+		    ! val.contains( QLatin1Char( ':' ) ) && ! val.contains( QLatin1Char( '\\' ) ) )
+		{
+			continue;
+		}
+		val = AQ_Normalize_File_Path( val );
 		parts[i] = key + QLatin1Char( '=' ) + Escape_Qemu_Option_Commas( Windows_Path_To_WSL( val ) );
 	}
 	return parts.join( QLatin1Char( ',' ) );
@@ -425,7 +438,8 @@ QStringList Rewrite_Args_For_WSL( const QStringList &win_args )
 		}
 
 		if( a == QLatin1String( "-drive" ) || a == QLatin1String( "-blockdev" ) ||
-		    a == QLatin1String( "-fsdev" ) || a == QLatin1String( "-chardev" ) )
+		    a == QLatin1String( "-fsdev" ) || a == QLatin1String( "-chardev" ) ||
+		    a == QLatin1String( "-machine" ) )
 		{
 			out << a;
 			if( i + 1 < win_args.size() )

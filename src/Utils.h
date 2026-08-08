@@ -24,8 +24,8 @@
 #ifndef UTILS_H
 #define UTILS_H
 
-#define CURRENT_AQEMU_VERSION "1.1.0"
-#define CURRENT_AQEMU_RELEASE_DATE "2026-07-29"
+#define CURRENT_AQEMU_VERSION "1.3.0"
+#define CURRENT_AQEMU_RELEASE_DATE "2026-08-08"
 
 #include <functional>
 #include <QString>
