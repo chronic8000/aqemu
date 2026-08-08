@@ -20,17 +20,20 @@ bool AQ_Ensure_Apple_SoC_Disk_Images( const QString &vm_dir, QString *error_out 
 
 /**
  * Build Inferno-specific argv pieces that AQEMU would not emit from generic UI:
- * enhanced -machine props, SEP pflash, multi-ns NVMe layout, usb-conn for companion.
- * Caller still supplies -kernel/-dtb/-append via normal App_Kernel/DeviceTree fields.
+ * SEP pflash, multi-ns NVMe layout. Does not create missing images unless
+ * create_missing_images is true (real Start only — never for args preview/script).
+ * On create failure returns an empty list and sets error_out.
  */
 QStringList AQ_Build_Apple_SoC_Extra_Args( const Virtual_Machine *vm,
                                            bool for_script_mode,
-                                           bool via_wsl );
+                                           bool via_wsl,
+                                           bool create_missing_images = false,
+                                           QString *error_out = nullptr );
 
 /** Comma-joined Inferno -machine value (t8030,trustcache=…,usb-conn-type=…). */
 QString AQ_Build_Apple_SoC_Machine_Props( const Virtual_Machine *vm, bool via_wsl );
 
-/** Linux Inferno binary path inside WSL. */
+/** Linux Inferno binary path / command name inside WSL. */
 QString AQ_Apple_SoC_WSL_Qemu_Binary();
 
 #endif

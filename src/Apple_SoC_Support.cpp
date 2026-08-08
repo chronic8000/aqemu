@@ -60,7 +60,12 @@ static bool Write_Sparse_Raw( const QString &path, qint64 size_bytes, QString *e
 
 bool AQ_Ensure_Apple_SoC_Disk_Images( const QString &vm_dir, QString *error_out )
 {
-	QDir().mkpath( vm_dir );
+	if( ! QDir().mkpath( vm_dir ) )
+	{
+		if( error_out )
+			*error_out = QObject::tr( "Cannot create Apple SoC VM directory:\n%1" ).arg( vm_dir );
+		return false;
+	}
 	struct Spec { const char *name; qint64 bytes; };
 	// Sizes mirror common Inferno recipes (small SEP/NVRAM + larger root/firmware).
 	const Spec specs[] = {
@@ -93,7 +98,9 @@ static QString Quote_Drive( const QString &path, bool script )
 
 QStringList AQ_Build_Apple_SoC_Extra_Args( const Virtual_Machine *vm,
                                            bool for_script_mode,
-                                           bool via_wsl )
+                                           bool via_wsl,
+                                           bool create_missing_images,
+                                           QString *error_out )
 {
 	QStringList out;
 	if( ! vm || ! AQ_Is_Apple_SoC_VM( vm ) )
@@ -103,7 +110,17 @@ QStringList AQ_Build_Apple_SoC_Extra_Args( const Virtual_Machine *vm,
 	if( vm_dir.isEmpty() )
 		vm_dir = QDir::currentPath();
 
-	AQ_Ensure_Apple_SoC_Disk_Images( vm_dir );
+	if( create_missing_images )
+	{
+		QString err;
+		if( ! AQ_Ensure_Apple_SoC_Disk_Images( vm_dir, &err ) )
+		{
+			if( error_out )
+				*error_out = err;
+			AQWarning( "AQ_Build_Apple_SoC_Extra_Args", err );
+			return QStringList();
+		}
+	}
 
 	auto p = [&]( const QString &name ) -> QString {
 		const QString override = vm->Get_Apple_SoC_Image_Path( name );

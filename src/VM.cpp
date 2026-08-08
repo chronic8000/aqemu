@@ -7037,7 +7037,9 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	else
 		props << "accel="+VM::Accel_To_String( Machine_Accelerator );
 	#else
-	if( legacy_force_tcg || Machine_Accelerator == VM::TCG )
+	if( apple_soc )
+		use_separate_tcg_accel = true; // Inferno is cross-arch TCG on x86 Linux hosts too
+	else if( legacy_force_tcg || Machine_Accelerator == VM::TCG )
 		use_separate_tcg_accel = true;
 	else if( want_native_accel )
 		props << "accel=kvm:tcg";
@@ -9051,7 +9053,11 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	}
 
 	if( AQ_Is_Apple_SoC_VM( this ) )
-		Args << AQ_Build_Apple_SoC_Extra_Args( this, Build_QEMU_Args_for_Script_Mode, Launch_Via_WSL );
+	{
+		// Preview/script must not create 32GiB images; Start_impl ensures them first.
+		Args << AQ_Build_Apple_SoC_Extra_Args(
+			this, Build_QEMU_Args_for_Script_Mode, Launch_Via_WSL, false, nullptr );
+	}
 	
 	// Use ROM File
 	if( Use_ROM_File )
@@ -10200,6 +10206,22 @@ bool Virtual_Machine::Start_impl()
 		const bool is_applesoc = AQ_Is_Apple_SoC_VM( this );
 		if( is_reims || is_applesoc )
 			Launch_Via_WSL = true;
+		if( is_applesoc )
+		{
+			QString vm_dir = QFileInfo( Get_VM_XML_File_Path() ).absolutePath();
+			if( vm_dir.isEmpty() )
+				vm_dir = QDir::currentPath();
+			QString img_err;
+			if( ! AQ_Ensure_Apple_SoC_Disk_Images( vm_dir, &img_err ) )
+			{
+				AQGraphic_Error( "bool Virtual_Machine::Start()", tr( "Error!" ),
+					img_err.isEmpty()
+						? tr( "Failed to create Apple SoC disk images." )
+						: img_err, false );
+				Start_Snapshot_Tag = "";
+				return false;
+			}
+		}
 		if( Launch_Via_WSL || ( Intel_MacOS_Profile && global_wsl ) )
 		{
 			const QString distro = s.value( QStringLiteral( "WSL_Launch/Distro" ), QString() ).toString();
@@ -10671,17 +10693,34 @@ bool Virtual_Machine::Start_impl()
 				QStringList test_args;
 				if( ! distro.trimmed().isEmpty() )
 					test_args << QStringLiteral( "-d" ) << distro.trimmed();
-				test_args << QStringLiteral( "-e" ) << QStringLiteral( "test" )
-				          << QStringLiteral( "-x" ) << linux_qemu;
+				// Absolute/relative paths: test -x. Bare command names: PATH lookup.
+				const bool path_lookup = ! linux_qemu.contains( QLatin1Char( '/' ) );
+				if( path_lookup )
+				{
+					test_args << QStringLiteral( "-e" ) << QStringLiteral( "sh" )
+					          << QStringLiteral( "-c" )
+					          << QStringLiteral( "command -v -- \"$1\" >/dev/null" )
+					          << QStringLiteral( "sh" ) << linux_qemu;
+				}
+				else
+				{
+					test_args << QStringLiteral( "-e" ) << QStringLiteral( "test" )
+					          << QStringLiteral( "-x" ) << linux_qemu;
+				}
 				QProcess test_proc;
 				test_proc.start( QStringLiteral( "wsl.exe" ), test_args );
 				if( ! test_proc.waitForFinished( 10000 ) || test_proc.exitCode() != 0 )
 				{
 					AQGraphic_Error( "bool Virtual_Machine::Start()", tr( "Error!" ),
-						tr( "Linux Inferno binary not found in WSL:\n%1\n\n"
-						    "Install qemu-system-applesoc into your WSL distro "
-						    "(default /usr/local/bin/qemu-system-applesoc)." )
-							.arg( linux_qemu ), false );
+						path_lookup
+							? tr( "Linux Inferno binary not found on WSL PATH:\n%1\n\n"
+							      "Install qemu-system-applesoc or set an absolute path in "
+							      "Advanced Settings ? Apple SoC binary in WSL." )
+								.arg( linux_qemu )
+							: tr( "Linux Inferno binary not found or not executable in WSL:\n%1\n\n"
+							      "Install qemu-system-applesoc into your WSL distro "
+							      "(default /usr/local/bin/qemu-system-applesoc)." )
+								.arg( linux_qemu ), false );
 					Start_Snapshot_Tag = "";
 					return false;
 				}

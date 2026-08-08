@@ -57,6 +57,10 @@ private:
 
 	QProcess *Process;
 	QString PyIMG4_Exe;
+	QString Last_IM4P_Output;
+
+	enum class Pending_Op { None, IpswExtract, Im4pOp };
+	Pending_Op Last_Operation;
 };
 
 #endif // IOS_FIRMWARE_TOOL_WINDOW_H

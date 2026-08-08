@@ -1936,8 +1936,8 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
 	tmp_vm->Set_Initrd_Path( ui.Edit_Linux_Initrd_Path->text() );
 	tmp_vm->Set_DeviceTree_Path( ui.Edit_DeviceTree_Path->text() );
 	tmp_vm->Set_App_Kernel_Path( ui.Edit_App_Kernel_Path->text() );
-	// Must match Update_DeviceTree_Visibility / Uses_Apple_SoC_Boot_UI — not path emptiness.
-	if( Uses_Apple_SoC_Boot_UI( tmp_vm ) )
+	// Must match the DeviceTree UI that is actually visible (not name-heuristics alone).
+	if( ui.Widget_DeviceTree_Main->isVisible() )
 		tmp_vm->Set_Kernel_ComLine( ui.Edit_App_Kernel_Args->text() );
 	else
 		tmp_vm->Set_Kernel_ComLine( ui.Edit_Linux_Command_Line->text() );
@@ -4407,9 +4407,7 @@ bool Main_Window::Boot_Is_Correct( Virtual_Machine *tmp_vm )
 	    tmp_vm->Get_Machine_Type().contains( QLatin1String( "t8030" ), Qt::CaseInsensitive ) ||
 	    tmp_vm->Get_Machine_Type().contains( QLatin1String( "s8000" ), Qt::CaseInsensitive ) )
 	{
-		const QString kernel = ! tmp_vm->Get_App_Kernel_Path().trimmed().isEmpty()
-			? tmp_vm->Get_App_Kernel_Path().trimmed()
-			: ( tmp_vm->Get_Use_Linux_Boot() ? tmp_vm->Get_bzImage_Path().trimmed() : QString() );
+		const QString kernel = tmp_vm->Get_App_Kernel_Path().trimmed();
 		const QString dtb = tmp_vm->Get_DeviceTree_Path().trimmed();
 
 		if( kernel.isEmpty() || ! QFile::exists( kernel ) )
@@ -6322,7 +6320,12 @@ void Main_Window::Apply_Apple_SoC_Fields_To_VM( Virtual_Machine *vm )
 {
 	if( ! vm )
 		return;
-	if( Uses_Apple_SoC_Boot_UI( vm ) )
+	// Persist profile only from authoritative target markers — never from VM name heuristics.
+	const QString c_type = vm->Get_Computer_Type();
+	const QString m_type = vm->Get_Machine_Type();
+	if( c_type.contains( QLatin1String( "applesoc" ), Qt::CaseInsensitive ) ||
+	    m_type.contains( QLatin1String( "t8030" ), Qt::CaseInsensitive ) ||
+	    m_type.contains( QLatin1String( "s8000" ), Qt::CaseInsensitive ) )
 		vm->Use_Apple_SoC_Profile( true );
 	if( Edit_Apple_Trustcache )
 		vm->Set_Apple_Trustcache_Path( Edit_Apple_Trustcache->text() );

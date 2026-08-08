@@ -18,6 +18,7 @@
 iOS_Firmware_Tool_Window::iOS_Firmware_Tool_Window( QWidget *parent )
 	: QDialog( parent )
 	, Process( new QProcess( this ) )
+	, Last_Operation( Pending_Op::None )
 {
 	setWindowTitle( tr( "iOS Firmware Tool" ) );
 	resize( AQ_Px( 780, this ), AQ_Px( 560, this ) );
@@ -212,6 +213,7 @@ void iOS_Firmware_Tool_Window::Run_IPSW_Extraction()
 	env.insert( QStringLiteral( "AQEMU_IPSW_PATH" ), ipsw );
 	env.insert( QStringLiteral( "AQEMU_IPSW_OUT" ), out_dir );
 	Process->setProcessEnvironment( env );
+	Last_Operation = Pending_Op::IpswExtract;
 	Process->start( QStringLiteral( "powershell.exe" ), QStringList()
 		<< QStringLiteral( "-NoProfile" )
 		<< QStringLiteral( "-NonInteractive" )
@@ -257,6 +259,8 @@ void iOS_Firmware_Tool_Window::Run_IM4P_Operation()
 	}
 
 	Text_Console_Log->append( QString( "\nExecuting: %1 %2\n" ).arg( PyIMG4_Exe, args.join( " " ) ) );
+	Last_IM4P_Output = ( action == QLatin1String( "info" ) ) ? QString() : out_raw;
+	Last_Operation = Pending_Op::Im4pOp;
 	Process->start( PyIMG4_Exe, args );
 }
 
@@ -271,46 +275,63 @@ void iOS_Firmware_Tool_Window::On_Process_Output()
 void iOS_Firmware_Tool_Window::On_Process_Finished( int exitCode, QProcess::ExitStatus exitStatus )
 {
 	Q_UNUSED( exitStatus );
-	if( exitCode == 0 )
-	{
-		Text_Console_Log->append( tr( "\nTask completed successfully." ) );
-		const QString out_dir = Edit_Output_Dir->text().trimmed();
+	const Pending_Op op = Last_Operation;
+	Last_Operation = Pending_Op::None;
 
-		QString summary;
-		summary += QString( "Extraction Folder: %1\n" ).arg( out_dir );
-
-		QString dtb_found;
-		QDir d( out_dir + "/Firmware/all_flash" );
-		if( d.exists() )
-		{
-			// Prefer extracted DeviceTree (.dtb / .dec), never raw .im4p for -dtb.
-			const QStringList files = d.entryList(
-				QStringList() << "*.dtb" << "*.dec" << "*.im4p" << "*.dmg", QDir::Files );
-			for( const QString &f : files )
-			{
-				const QString full = QDir::toNativeSeparators( d.absoluteFilePath( f ) );
-				summary += QString( "Payload: %1\n" ).arg( full );
-				const bool is_dt = f.contains( "DeviceTree", Qt::CaseInsensitive ) ||
-				                   f.contains( "dtb", Qt::CaseInsensitive );
-				const bool usable = f.endsWith( QLatin1String( ".dtb" ), Qt::CaseInsensitive ) ||
-				                    f.endsWith( QLatin1String( ".dec" ), Qt::CaseInsensitive );
-				if( is_dt && usable && dtb_found.isEmpty() )
-					dtb_found = full;
-			}
-		}
-		Text_Result_Paths->setText( QDir::toNativeSeparators( summary ) );
-
-		if( ! dtb_found.isEmpty() )
-		{
-			Text_Console_Log->append(
-				tr( "Suggested DeviceTree (extracted): %1" ).arg( dtb_found ) );
-			emit DeviceTree_Path_Suggested( dtb_found );
-		}
-	}
-	else
+	if( exitCode != 0 )
 	{
 		Text_Console_Log->append(
 			tr( "\nProcess failed with exit code %1" ).arg( exitCode ) );
+		return;
+	}
+
+	Text_Console_Log->append( tr( "\nTask completed successfully." ) );
+
+	if( op == Pending_Op::Im4pOp )
+	{
+		if( ! Last_IM4P_Output.isEmpty() )
+		{
+			Text_Result_Paths->setText( QDir::toNativeSeparators(
+				tr( "IM4P output: %1\n" ).arg( Last_IM4P_Output ) ) );
+			Text_Console_Log->append(
+				tr( "IM4P output: %1" ).arg( Last_IM4P_Output ) );
+		}
+		return;
+	}
+
+	if( op != Pending_Op::IpswExtract )
+		return;
+
+	const QString out_dir = Edit_Output_Dir->text().trimmed();
+	QString summary;
+	summary += QString( "Extraction Folder: %1\n" ).arg( out_dir );
+
+	QString dtb_found;
+	QDir d( out_dir + "/Firmware/all_flash" );
+	if( d.exists() )
+	{
+		// Prefer extracted DeviceTree (.dtb / .dec), never raw .im4p for -dtb.
+		const QStringList files = d.entryList(
+			QStringList() << "*.dtb" << "*.dec" << "*.im4p" << "*.dmg", QDir::Files );
+		for( const QString &f : files )
+		{
+			const QString full = QDir::toNativeSeparators( d.absoluteFilePath( f ) );
+			summary += QString( "Payload: %1\n" ).arg( full );
+			const bool is_dt = f.contains( "DeviceTree", Qt::CaseInsensitive ) ||
+			                   f.contains( "dtb", Qt::CaseInsensitive );
+			const bool usable = f.endsWith( QLatin1String( ".dtb" ), Qt::CaseInsensitive ) ||
+			                    f.endsWith( QLatin1String( ".dec" ), Qt::CaseInsensitive );
+			if( is_dt && usable && dtb_found.isEmpty() )
+				dtb_found = full;
+		}
+	}
+	Text_Result_Paths->setText( QDir::toNativeSeparators( summary ) );
+
+	if( ! dtb_found.isEmpty() )
+	{
+		Text_Console_Log->append(
+			tr( "Suggested DeviceTree (extracted): %1" ).arg( dtb_found ) );
+		emit DeviceTree_Path_Suggested( dtb_found );
 	}
 }
 

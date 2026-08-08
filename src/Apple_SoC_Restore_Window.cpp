@@ -3,6 +3,7 @@
 #include "VM.h"
 #include "Utils.h"
 #include "WSL_Launch.h"
+#include "WSL_Wizard_Window.h"
 #include "AQ_UI_Style.h"
 
 #include <QVBoxLayout>
@@ -56,9 +57,16 @@ Apple_SoC_Restore_Window::Apple_SoC_Restore_Window( Virtual_Machine *vm, QWidget
 	CB_Conn_Type->setCurrentIndex( ctype.compare( QLatin1String( "ipv4" ), Qt::CaseInsensitive ) == 0 ? 1 : 0 );
 	form->addRow( tr( "USB remote type:" ), CB_Conn_Type );
 
-	Edit_Conn_Addr = new QLineEdit( vm && ! vm->Get_Apple_USB_Conn_Addr().isEmpty()
-		? vm->Get_Apple_USB_Conn_Addr()
-		: QStringLiteral( "127.0.0.1" ) );
+	Edit_Conn_Addr = new QLineEdit();
+	{
+		const QString saved = vm ? vm->Get_Apple_USB_Conn_Addr() : QString();
+		if( ! saved.isEmpty() )
+			Edit_Conn_Addr->setText( saved );
+		else if( CB_Conn_Type->currentData().toString() == QLatin1String( "unix" ) )
+			Edit_Conn_Addr->setText( QStringLiteral( "/tmp/InfernoUSBRemote" ) );
+		else
+			Edit_Conn_Addr->setText( QStringLiteral( "127.0.0.1" ) );
+	}
 	form->addRow( tr( "USB remote addr:" ), Edit_Conn_Addr );
 	lay->addLayout( form );
 
@@ -69,7 +77,18 @@ Apple_SoC_Restore_Window::Apple_SoC_Restore_Window( Virtual_Machine *vm, QWidget
 	lay->addWidget( Text_Companion );
 	Copy_Companion_Command();
 	connect( CB_Conn_Type, QOverload<int>::of( &QComboBox::currentIndexChanged ),
-	         this, [this]( int ) { Copy_Companion_Command(); } );
+	         this, [this]( int ) {
+		if( Edit_Conn_Addr->text().trimmed() == QLatin1String( "127.0.0.1" ) ||
+		    Edit_Conn_Addr->text().trimmed() == QLatin1String( "/tmp/InfernoUSBRemote" ) ||
+		    Edit_Conn_Addr->text().trimmed().isEmpty() )
+		{
+			Edit_Conn_Addr->setText(
+				CB_Conn_Type->currentData().toString() == QLatin1String( "unix" )
+					? QStringLiteral( "/tmp/InfernoUSBRemote" )
+					: QStringLiteral( "127.0.0.1" ) );
+		}
+		Copy_Companion_Command();
+	} );
 	connect( Edit_Conn_Addr, &QLineEdit::textChanged, this, [this]( const QString & ) { Copy_Companion_Command(); } );
 
 	QHBoxLayout *btns = new QHBoxLayout();
@@ -150,15 +169,32 @@ void Apple_SoC_Restore_Window::Run_IDeviceRestore()
 	}
 #ifdef Q_OS_WIN32
 	QSettings s;
-	const QString distro = s.value( QStringLiteral( "WSL_Launch/Distro" ), QString() ).toString();
+	QString distro = s.value( QStringLiteral( "WSL_Launch/Distro" ), QString() ).toString();
+	QString user = s.value( QStringLiteral( "WSL_Launch/Username" ), QString() ).toString();
+	if( distro.trimmed().isEmpty() || ! WSL_Is_Valid_Username( user ) )
+	{
+		WSL_Wizard_Window wizard( this );
+		if( wizard.exec() != QDialog::Accepted )
+		{
+			QMessageBox::warning( this, tr( "WSL" ),
+				tr( "WSL distro and username are required to run idevicerestore." ) );
+			return;
+		}
+		distro = s.value( QStringLiteral( "WSL_Launch/Distro" ), QString() ).toString();
+		user = s.value( QStringLiteral( "WSL_Launch/Username" ), QString() ).toString();
+		if( distro.trimmed().isEmpty() || ! WSL_Is_Valid_Username( user ) )
+		{
+			QMessageBox::warning( this, tr( "WSL" ),
+				tr( "WSL distro and username are still not configured." ) );
+			return;
+		}
+	}
 	const QString wsl_ipsw = Windows_Path_To_WSL( ipsw );
 	QStringList args;
-	if( ! distro.trimmed().isEmpty() )
-		args << QStringLiteral( "-d" ) << distro.trimmed();
-	const QString user = WSL_Sanitize_Username(
-		s.value( QStringLiteral( "WSL_Launch/Username" ), QString() ).toString() );
-	if( ! user.isEmpty() )
-		args << QStringLiteral( "-u" ) << user;
+	args << QStringLiteral( "-d" ) << distro.trimmed();
+	const QString safe_user = WSL_Sanitize_Username( user );
+	if( ! safe_user.isEmpty() )
+		args << QStringLiteral( "-u" ) << safe_user;
 	args << QStringLiteral( "-e" ) << QStringLiteral( "idevicerestore" )
 	     << QStringLiteral( "-d" ) << QStringLiteral( "-R" ) << wsl_ipsw;
 	Text_Log->append( QStringLiteral( "wsl.exe %1\n" ).arg( args.join( QLatin1Char( ' ' ) ) ) );
