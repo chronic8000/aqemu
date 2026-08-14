@@ -25,6 +25,9 @@
 	    idevice; IPA install via ideviceinstaller (auto-apt if missing); screenshot.
 	  - extras/Inferno/iOS_Installation.md: starter + re-install walkthrough
 	    (restore, FS patches, internet, IPA vs .deb, 8 GiB vs 32 GiB root).
+	    File → iOS Firmware Tool forges restore/SEP tickets and packs SEP firmware
+	    in-app (bundled create_*ticket.py; img4 / pyimg4). File → Configure sets
+	    Python / pyimg4 / img4 paths (PATH fallback if empty).
 	    wipe-ios-nvme.ps1 for partial-flash / clean NAND. Default auto-created root
 	    is 8 GiB; grow sparse to 32 GiB before restore for App Store / large IPAs.
 	    FS-patch helper selects the iOS NVMe by skipping the cloud-image boot disk

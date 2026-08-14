@@ -2785,3 +2785,54 @@ bool Remove_UCPD_From_Disk_Image( const QString &disk_path, QString *result_mess
 	return true;
 #endif
 }
+
+QString AQ_Resolve_Host_Tool( const QString &settings_key,
+                             const QStringList &exe_names,
+                             const QStringList &app_dir_relatives )
+{
+	const auto existing_file = []( const QString &path ) -> QString {
+		if( path.isEmpty() )
+			return QString();
+		const QFileInfo fi( path );
+		if( fi.exists() && fi.isFile() )
+			return QDir::toNativeSeparators( fi.absoluteFilePath() );
+		return QString();
+	};
+
+	QSettings s;
+	const QString pref = s.value( settings_key ).toString().trimmed();
+	if( ! pref.isEmpty() )
+	{
+		const QString as_file = existing_file( pref );
+		if( ! as_file.isEmpty() )
+			return as_file;
+		const QFileInfo fi( pref );
+		if( fi.exists() && fi.isDir() )
+		{
+			const QDir dir( fi.absoluteFilePath() );
+			for( const QString &name : exe_names )
+			{
+				const QString hit = existing_file( dir.filePath( name ) );
+				if( ! hit.isEmpty() )
+					return hit;
+			}
+		}
+	}
+
+	const QDir app( QCoreApplication::applicationDirPath() );
+	for( const QString &rel : app_dir_relatives )
+	{
+		const QString hit = existing_file( app.filePath( rel ) );
+		if( ! hit.isEmpty() )
+			return hit;
+	}
+
+	for( const QString &name : exe_names )
+	{
+		const QString found = QStandardPaths::findExecutable( name );
+		const QString hit = existing_file( found );
+		if( ! hit.isEmpty() )
+			return hit;
+	}
+	return QString();
+}

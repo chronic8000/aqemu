@@ -11,6 +11,7 @@ That is the iOS README. Linked from the app tree and the project README.
 This folder also contains helper files used by that guide:
 
   create_apticket.py / create_septicket.py
+                            (run from File → iOS Firmware Tool, Step 2)
   idevicerestore.patch          (N104DEV → AP)
   companion-bin/                (Linux idevice* for the companion image)
   apply-fs-patches-wsl.sh

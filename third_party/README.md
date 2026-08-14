@@ -42,4 +42,4 @@ Install dirs `qemu-build*` / `qemu-install` are gitignored.
 
 ## Optional: pyimg4 (iOS firmware tool)
 
-AQEMU’s **File → iOS Firmware Tool** unpacks IPSWs with PowerShell and optionally shells out to an external **`pyimg4`** for IM4P extract/info/decrypt. AQEMU does **not** vendor `img4tool` / `pyimg4` under `third_party/` — install `pyimg4` yourself and keep it on `PATH` (or place `pyimg4.exe` next to `aqemu.exe`).
+AQEMU’s **File → iOS Firmware Tool** unpacks IPSWs, forges restore/SEP tickets (bundled Python scripts), packs SEP firmware with external **`img4`**, and processes IM4P with **`pyimg4`**. AQEMU does **not** vendor `img4lib` / `pyimg4` under `third_party/` — put `img4.exe` / `pyimg4.exe` next to `aqemu.exe` or on PATH. Python 3 is only started from the GUI (pip-installs pyasn1 if needed).

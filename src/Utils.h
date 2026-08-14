@@ -31,6 +31,7 @@
 #include <QString>
 #include <QByteArray>
 #include <QList>
+#include <QStringList>
 
 #include "VM_Devices.h"
 
@@ -266,6 +267,16 @@ QString AQ_Find_QEMU_Binary_With_Native_Display( const QString &system_name,
  * other common relative locations. Empty if nothing usable is found.
  */
 QString AQ_Get_QEMU_Data_Dir( const QString &qemu_binary_path );
+
+/**
+ * Host helper binaries (Python, pyimg4, img4, …).
+ * If the QSettings key is a file (or a folder that contains one of exe_names)
+ * and that file exists, it wins. Otherwise search files relative to aqemu,
+ * then PATH.
+ */
+QString AQ_Resolve_Host_Tool( const QString &settings_key,
+                             const QStringList &exe_names,
+                             const QStringList &app_dir_relatives = QStringList() );
 
 #endif
 
