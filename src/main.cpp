@@ -421,6 +421,12 @@ void AQEMU_Main::upgrade_settings()
 			 QStringLiteral( "AQEMU Config Version: %1" ).arg( CURRENT_AQEMU_VERSION ) );
 		AQEMU_Startup_Log(
 			QStringLiteral( "settings: config version %1" ).arg( QLatin1String( CURRENT_AQEMU_VERSION ) ) );
+		// Scrub any leftover WSL password from older builds.
+		if( settings->contains( QStringLiteral( "WSL_Launch/Password" ) ) )
+		{
+			settings->remove( QStringLiteral( "WSL_Launch/Password" ) );
+			settings->sync();
+		}
 		return;
 	}
 
@@ -468,9 +474,11 @@ void AQEMU_Main::upgrade_settings()
 		QStringLiteral( "settings: upgrading %1 -> %2" )
 			.arg( conf_ver, QLatin1String( CURRENT_AQEMU_VERSION ) ) );
 	AQDebug( "AQEMU_Main::upgrade_settings()",
-		 QStringLiteral( "Upgrading AQEMU config %1 → %2 (settings preserved)" )
+		 QStringLiteral( "Upgrading AQEMU config %1 -> %2 (settings preserved)" )
 			 .arg( conf_ver, QStringLiteral( CURRENT_AQEMU_VERSION ) ) );
 	settings->setValue( QStringLiteral( "AQEMU_Config_Version" ), CURRENT_AQEMU_VERSION );
+	// Never keep legacy WSL sudo passwords on disk.
+	settings->remove( QStringLiteral( "WSL_Launch/Password" ) );
 	settings->sync();
 }
 

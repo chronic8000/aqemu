@@ -26,6 +26,7 @@
 
 #include <QApplication>
 #include <QClipboard>
+#include <QTimer>
 
 Error_Log_Window::Error_Log_Window( QWidget *parent )
 	: QDialog( parent )
@@ -67,8 +68,15 @@ void Error_Log_Window::on_Button_Copy_Log_clicked()
 	if( text.isEmpty() )
 		return;
 	QClipboard *clip = QApplication::clipboard();
-	if( clip )
-		clip->setText( text );
+	if( ! clip )
+		return;
+	clip->setText( text );
+	// Brief confirmation — previously Copy looked dead with no feedback.
+	ui.Button_Copy_Log->setText( tr( "Copied!" ) );
+	QTimer::singleShot( 1500, this, [this]() {
+		if( ui.Button_Copy_Log )
+			ui.Button_Copy_Log->setText( tr( "Co&py" ) );
+	} );
 }
 
 bool Error_Log_Window::No_Show_Before_AQEMU_Restart() const

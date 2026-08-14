@@ -56,6 +56,8 @@ class MachineView : public QScrollArea
 		void captureAllKeys( bool enabled );
 		void sendKey( QKeyEvent *event );
 		void captureAllMouseEvents();
+		bool isMouseGrabbed() const;
+		void setMouseGrabbed( bool on );
 		
 	protected:
 		bool event( QEvent *event );

@@ -71,8 +71,12 @@ void AQEMU_Service::stop_all()
 {
     for( int i = machines.count() - 1; i >= 0; --i )
     {
-        if( machines[i] )
-            machines[i]->Stop();
+        if( ! machines[i] )
+            continue;
+        machines[i]->Stop();
+        // WSL qemu-system is not a Windows child of AQEMU — Stop() alone can leave
+        // disk locks. Sweep orphans immediately on app quit / service shutdown.
+        machines[i]->Kill_Orphan_QEMU_Using_Disks();
     }
 }
 
@@ -336,6 +340,8 @@ QString AQEMU_Service::start(Virtual_Machine *vm)
         return QString( "VM \"%1\" got started." ).arg( path );
     }
 
+    AQError( "QString AQEMU_Service::start(Virtual_Machine *vm)",
+             QString( "Start() returned false for %1 — see prior AQGraphic_Error / AQError lines" ).arg( path ) );
     return QString( "VM \"%1\" could not be started." ).arg( path );
 }
 

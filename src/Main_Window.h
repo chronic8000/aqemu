@@ -51,6 +51,7 @@ class Block_VM_Changed_Signals;
 class VM_Session_Widget;
 class QStackedWidget;
 class QTimer;
+class QCheckBox;
 
 class Main_Window: public QMainWindow
 {
@@ -86,6 +87,10 @@ class Main_Window: public QMainWindow
 	public:
 		Main_Window( QWidget *parent = 0 );
         ~Main_Window();
+		/** Add an already-constructed VM to the list UI (takes ownership). */
+		void Add_VM_To_List( Virtual_Machine *vm );
+		/** Stop any loaded VM whose HDA is disk_path, then kill WSL/Windows orphans. */
+		void Stop_VMs_Holding_Disk( const QString &disk_path );
 
     public slots:
         void VM_State_Changed(const QString& vm, int state);
@@ -137,10 +142,13 @@ class Main_Window: public QMainWindow
 		void on_actionShow_QEMU_Error_Log_Window_triggered();
 		void slot_iOS_Firmware_Tool_triggered();
 		void slot_Apple_SoC_Restore_triggered();
+		void slot_Apple_SoC_FS_Patch_triggered();
+		void slot_Apple_SoC_Device_Tools_triggered();
 		void Maybe_Prompt_WSL_Config_On_Boot();
 		void Build_Apple_SoC_Inferno_Ui();
 		void Apply_Apple_SoC_Fields_To_VM( Virtual_Machine *vm );
 		void Load_Apple_SoC_Fields_From_VM( const Virtual_Machine *vm );
+		Virtual_Machine *Resolve_Apple_SoC_VM();
 		
 		void on_Tabs_currentChanged( int index );
 		
@@ -381,10 +389,16 @@ class Main_Window: public QMainWindow
 		QLineEdit *Edit_Apple_Ticket;
 		QLineEdit *Edit_Apple_SEP_FW;
 		QLineEdit *Edit_Apple_SEP_ROM;
+		QLineEdit *Edit_Apple_SecureROM;
 		QLineEdit *Edit_Apple_IPSW;
+		QLineEdit *Edit_Apple_Initrd;
 		QLineEdit *Edit_Apple_USB_Conn_Addr;
 		QComboBox *CB_Apple_USB_Conn_Type;
 		QSpinBox *SB_Apple_USB_Conn_Port;
+		QCheckBox *CH_Apple_KASLR_Off;
+		QPushButton *Btn_Apple_SoC_Restore;
+		QAction *Act_Apple_SoC_Restore;
+		class Apple_SoC_Restore_Window *Apple_SoC_Restore_Dlg;
 
 		QSystemTrayIcon *Tray_Icon;
 		QAction *Act_Tray_Show;

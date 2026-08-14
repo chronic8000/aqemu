@@ -18,6 +18,7 @@
 #include <QJsonArray>
 #include <QPoint>
 #include <QSet>
+#include <QList>
 #include <QMenu>
 #include <QToolButton>
 #include <QThread>
@@ -32,6 +33,7 @@ class Virtual_Machine;
 class QMP_Client;
 class Spice_View;
 class Guest_Display_View;
+class Apple_SoC_Button_Pad;
 
 #ifdef VNC_DISPLAY
 class MachineView;
@@ -57,6 +59,7 @@ class VM_Session_Widget : public QWidget
 		void Request_Reset();
 		void Request_Pause();
 		void Request_Save();
+		void Request_Restore_IPSW();
 
 	protected:
 		bool eventFilter( QObject *obj, QEvent *event ) override;
@@ -94,6 +97,20 @@ class VM_Session_Widget : public QWidget
 		void On_USB_Menu_About_To_Show();
 		void On_USB_Device_Toggled( bool checked );
 		void On_Serial_Console();
+		void On_Restore_IPSW();
+		void On_Grab_Mouse();
+		void Update_Grab_Mouse_Action();
+		void On_Apple_Home();
+		void On_Apple_Home_Double();
+		void On_Apple_Power();
+		void On_Apple_Power_Hold();
+		void On_Apple_Vol_Down();
+		void On_Apple_Vol_Up();
+		void On_Apple_SOS();
+		void On_Apple_Ringer();
+		void On_Toggle_Button_Pad();
+		void On_Apple_More_Buttons();
+		void On_Guest_Internet();
 
 	private:
 		void Build_Toolbar();
@@ -114,6 +131,12 @@ class VM_Session_Widget : public QWidget
 		bool Eject_Medium_Id( const QString &block_id );
 		void Send_CAD_To_Guest();
 		void Send_Monitor( const QString &cmd );
+		void Send_Apple_Key( const QString &key_name, int hold_ms = 0 );
+		void Send_Apple_Key_Double( const QString &key_name );
+		void Send_Apple_SOS_Combo();
+		void Update_Apple_Controls_Visibility();
+		void Ensure_Button_Pad();
+		void Position_Button_Pad();
 		void Enable_Boot_Device( VM::Boot_Device type );
 		void Apply_Runtime_Boot_Order();
 		void Persist_Media_Config();
@@ -152,12 +175,26 @@ class VM_Session_Widget : public QWidget
 		QAction *Act_Eject_FD0;
 		QAction *Act_Insert_FD1;
 		QAction *Act_Eject_FD1;
+		QAction *Act_Restore_IPSW;
+		QAction *Act_Grab_Mouse;
+		QAction *Act_CAD;
+		QAction *Act_Shift_F10;
+		QAction *Act_Apple_Home;
+		QAction *Act_Apple_Power;
+		QAction *Act_Apple_Vol_Down;
+		QAction *Act_Apple_Vol_Up;
+		QAction *Act_Apple_SOS;
+		QAction *Act_Apple_More;
+		QAction *Act_Button_Pad;
+		QAction *Act_Guest_Internet;
+		QList<QAction *> Apple_Sep_Actions;
 		QToolButton *TB_USB;
 		QMenu *Menu_USB;
 		QHash<QString, QString> Connected_USB_Ids; // instance key -> qemu device id
 		bool USB_Enum_Busy;
 		QPointer<QThread> USB_Scan_Thread;
 		Serial_Console_Window *Serial_Win;
+		Apple_SoC_Button_Pad *Button_Pad;
 
 		QLabel *Light_FD0;
 		QLabel *Light_FD1;

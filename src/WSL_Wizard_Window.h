@@ -6,7 +6,7 @@
 
 class QComboBox;
 class QLineEdit;
-class QLabel;
+class QCheckBox;
 
 class WSL_Wizard_Window : public QDialog
 {
@@ -25,6 +25,8 @@ class WSL_Wizard_Window : public QDialog
 	private:
 		QComboBox *CB_Distro;
 		QLineEdit *Edit_User;
+		QLineEdit *Edit_Password;
+		QCheckBox *CH_Remember_Password;
 		QSettings Settings;
 };
 

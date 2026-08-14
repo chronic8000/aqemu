@@ -1,0 +1,15 @@
+diff --git a/src/restore.c b/src/restore.c
+index aa9bf89..69aba31 100644
+--- a/src/restore.c
++++ b/src/restore.c
+@@ -301,6 +301,10 @@ irecv_device_t restore_get_irecv_device(struct idevicerestore_client_t* client)
+ 	}
+ 
+ 	plist_get_string_val(node, &model);
++	logger(LL_INFO, "INFO: model is %s\n", model);
++	if (strstr(model, "DEV")) {
++		strncpy(strstr(model, "DEV"), "AP\0", 3);
++	}
+ 	irecv_devices_get_device_by_hardware_model(model, &irecv_device);
+ 	free(model);
+ 

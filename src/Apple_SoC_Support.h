@@ -9,14 +9,32 @@ class Virtual_Machine;
 /** True when this VM should use the Inferno Apple SoC launch profile. */
 bool AQ_Is_Apple_SoC_VM( const Virtual_Machine *vm );
 
-/** Default research-kernel boot args used by Inferno t8030 restore/boot recipes. */
-QString AQ_Apple_SoC_Default_Append();
+/**
+ * Suggested research-kernel boot args for new Inferno VMs (wizard prefill only).
+ * Never injected at launch — Kernel command line must come from the MACHINE tab.
+ */
+QString AQ_Apple_SoC_Suggested_Append();
 
 /**
- * Ensure the standard raw image set exists under vm_dir (sep_nvram, root, …).
- * Creates missing files with sensible sizes. Returns false on I/O failure.
+ * Per-VM directory for Inferno raw images (sep_nvram, root, …).
+ * Never the shared VM_Directory root — that would collide across guests.
  */
-bool AQ_Ensure_Apple_SoC_Disk_Images( const QString &vm_dir, QString *error_out = nullptr );
+QString AQ_Apple_SoC_Image_Dir( const Virtual_Machine *vm );
+
+/** Per-boot Inferno QEMU stderr/stdout log under the image dir (qemu-boot.log). */
+QString AQ_Apple_SoC_QEMU_Log_Path( const Virtual_Machine *vm );
+
+/**
+ * Validate MACHINE-tab Inferno paths before Start. On failure sets error_out.
+ * Does not invent or substitute missing files.
+ */
+bool AQ_Validate_Apple_SoC_Boot_Files( const Virtual_Machine *vm, QString *error_out = nullptr );
+
+/**
+ * Ensure the standard raw image set exists under image_dir.
+ * Creates/grows missing or undersized files. Returns false on I/O / disk-space failure.
+ */
+bool AQ_Ensure_Apple_SoC_Disk_Images( const QString &image_dir, QString *error_out = nullptr );
 
 /**
  * Build Inferno-specific argv pieces that AQEMU would not emit from generic UI:
@@ -35,5 +53,11 @@ QString AQ_Build_Apple_SoC_Machine_Props( const Virtual_Machine *vm, bool via_ws
 
 /** Linux Inferno binary path / command name inside WSL. */
 QString AQ_Apple_SoC_WSL_Qemu_Binary();
+
+/**
+ * Drop -machine / -append from Additional Args for Apple SoC VMs — those are owned by
+ * the Inferno profile builders (legacy recipes often duplicated them).
+ */
+QStringList AQ_Filter_Apple_SoC_Additional_Args( const QStringList &args );
 
 #endif

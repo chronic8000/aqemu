@@ -7,7 +7,9 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QSettings>
+#include <QStorageInfo>
 #include <QObject>
+#include <QProcess>
 
 bool AQ_Is_Apple_SoC_VM( const Virtual_Machine *vm )
 {
@@ -20,11 +22,117 @@ bool AQ_Is_Apple_SoC_VM( const Virtual_Machine *vm )
 	       vm->Get_Machine_Type().contains( QLatin1String( "s8000" ), Qt::CaseInsensitive );
 }
 
-QString AQ_Apple_SoC_Default_Append()
+QString AQ_Apple_SoC_Suggested_Append()
 {
 	return QStringLiteral(
 		"tlto_us=-1 mtxspin=-1 agm-genuine=1 agm-authentic=1 agm-trusted=1 "
 		"serial=3 wdt=-1 -vm_compressor_wk_sw" );
+}
+
+bool AQ_Validate_Apple_SoC_Boot_Files( const Virtual_Machine *vm, QString *error_out )
+{
+	if( ! vm )
+	{
+		if( error_out )
+			*error_out = QObject::tr( "No virtual machine." );
+		return false;
+	}
+
+	auto fail = [&]( const QString &msg ) -> bool {
+		if( error_out )
+			*error_out = msg;
+		return false;
+	};
+
+	auto require_file = [&]( const QString &label, const QString &path ) -> bool {
+		const QString p = path.trimmed();
+		if( p.isEmpty() )
+		{
+			return fail( QObject::tr(
+				"Missing %1.\n\n"
+				"On the MACHINE tab, scroll to Options and choose the file "
+				"for \"%1\"." ).arg( label ) );
+		}
+		if( ! QFile::exists( p ) )
+		{
+			return fail( QObject::tr(
+				"%1 file not found:\n%2\n\n"
+				"Pick an existing file in Options on the MACHINE tab." )
+				.arg( label, p ) );
+		}
+		return true;
+	};
+
+	if( vm->Get_Machine_Type().trimmed().isEmpty() )
+	{
+		return fail( QObject::tr(
+			"Choose a Machine type on the MACHINE tab "
+			"(for Inferno, typically t8030 / iphone11 / similar)." ) );
+	}
+
+	if( ! require_file( QObject::tr( "Kernel" ), vm->Get_App_Kernel_Path() ) )
+		return false;
+	if( ! require_file( QObject::tr( "DeviceTree" ), vm->Get_DeviceTree_Path() ) )
+		return false;
+
+	// Boot Arguments (-append) are optional: leave blank, or type guest boot args
+	// in that MACHINE-tab field. Never invent them here at launch.
+
+	const QString securerom = vm->Get_Apple_SecureROM_Path().trimmed();
+	if( ! securerom.isEmpty() )
+	{
+		if( ! require_file( QObject::tr( "SecureROM (optional)" ), securerom ) )
+			return false;
+	}
+	else if( ! require_file( QObject::tr( "Trustcache" ), vm->Get_Apple_Trustcache_Path() ) )
+	{
+		return false;
+	}
+
+	const QString ticket = vm->Get_Apple_Ticket_Path().trimmed();
+	if( ! ticket.isEmpty() && ! QFile::exists( ticket ) )
+	{
+		return fail( QObject::tr(
+			"Restore ticket path is set but the file was not found:\n%1\n\n"
+			"Fix or clear \"Restore ticket\" under Options on the MACHINE tab." )
+			.arg( ticket ) );
+	}
+
+	const QString sep_fw = vm->Get_Apple_SEP_FW_Path().trimmed();
+	const QString sep_rom = vm->Get_Apple_SEP_ROM_Path().trimmed();
+	if( sep_fw.isEmpty() != sep_rom.isEmpty() )
+	{
+		return fail( QObject::tr(
+			"SEP firmware and SEP ROM must both be set, or both left empty.\n"
+			"Use the \"SEP firmware\" and \"SEP ROM\" fields under Options on the MACHINE tab." ) );
+	}
+	if( ! sep_fw.isEmpty() )
+	{
+		if( ! require_file( QObject::tr( "SEP firmware" ), sep_fw ) )
+			return false;
+		if( ! require_file( QObject::tr( "SEP ROM" ), sep_rom ) )
+			return false;
+	}
+
+	const QString usb_type = vm->Get_Apple_USB_Conn_Type().trimmed().toLower();
+	if( ! usb_type.isEmpty() )
+	{
+		if( vm->Get_Apple_USB_Conn_Addr().trimmed().isEmpty() )
+		{
+			return fail( QObject::tr(
+				"USB remote type is set, but the address is empty.\n"
+				"Fill \"USB remote\" under Options on the MACHINE tab "
+				"(recommended: IPv4 127.0.0.1 port 8030, or UNIX /tmp/InfernoUSBRemote)." ) );
+		}
+		if( usb_type == QLatin1String( "ipv4" ) && vm->Get_Apple_USB_Conn_Port() <= 0 )
+		{
+			return fail( QObject::tr(
+				"USB remote is IPv4 but the TCP port is missing.\n"
+				"Set the port next to \"USB remote\" on the MACHINE tab." ) );
+		}
+	}
+
+	return true;
 }
 
 QString AQ_Apple_SoC_WSL_Qemu_Binary()
@@ -36,53 +144,126 @@ QString AQ_Apple_SoC_WSL_Qemu_Binary()
 	return QStringLiteral( "/usr/local/bin/qemu-system-applesoc" );
 }
 
-static bool Write_Sparse_Raw( const QString &path, qint64 size_bytes, QString *error_out )
+QString AQ_Apple_SoC_Image_Dir( const Virtual_Machine *vm )
 {
-	if( QFile::exists( path ) )
+	if( ! vm )
+		return QDir::currentPath();
+	const QFileInfo fi( vm->Get_VM_XML_File_Path() );
+	QString base = fi.completeBaseName();
+	if( base.isEmpty() )
+		base = QStringLiteral( "applesoc_vm" );
+	QDir parent = fi.dir();
+	if( ! parent.exists() )
+		parent = QDir::current();
+	return parent.filePath( base + QStringLiteral( "_inferno" ) );
+}
+
+QString AQ_Apple_SoC_QEMU_Log_Path( const Virtual_Machine *vm )
+{
+	return QDir( AQ_Apple_SoC_Image_Dir( vm ) ).filePath( QStringLiteral( "qemu-boot.log" ) );
+}
+
+static bool Ensure_Raw_Image( const QString &path, qint64 size_bytes, QString *error_out )
+{
+	QFileInfo fi( path );
+	if( fi.exists() && fi.size() >= size_bytes )
 		return true;
+
 	QFile f( path );
-	if( ! f.open( QIODevice::WriteOnly ) )
+	if( ! f.open( QIODevice::ReadWrite ) )
 	{
 		if( error_out )
 			*error_out = QObject::tr( "Cannot create %1" ).arg( path );
 		return false;
 	}
-	if( ! f.resize( size_bytes ) )
+	f.close();
+
+#ifdef Q_OS_WIN32
+	// Mark sparse before sizing so multi-GiB logical size does not fill the disk.
+	QProcess fsutil;
+	fsutil.start( QStringLiteral( "fsutil" ),
+		QStringList() << QStringLiteral( "sparse" ) << QStringLiteral( "setflag" ) << path );
+	fsutil.waitForFinished( 5000 );
+#endif
+
+	if( ! f.open( QIODevice::ReadWrite ) )
 	{
 		if( error_out )
-			*error_out = QObject::tr( "Cannot size %1" ).arg( path );
+			*error_out = QObject::tr( "Cannot reopen %1" ).arg( path );
+		return false;
+	}
+
+	if( ! f.resize( size_bytes ) )
+	{
 		f.close();
+		if( QFileInfo( path ).size() == 0 )
+			QFile::remove( path );
+		if( error_out )
+		{
+			*error_out = QObject::tr(
+				"Cannot size %1 to %2 MiB.\n"
+				"Free some disk space, or replace this file with a larger image." )
+				.arg( path )
+				.arg( size_bytes / ( 1024 * 1024 ) );
+		}
 		return false;
 	}
 	f.close();
 	return true;
 }
 
-bool AQ_Ensure_Apple_SoC_Disk_Images( const QString &vm_dir, QString *error_out )
+bool AQ_Ensure_Apple_SoC_Disk_Images( const QString &image_dir, QString *error_out )
 {
-	if( ! QDir().mkpath( vm_dir ) )
+	if( ! QDir().mkpath( image_dir ) )
 	{
 		if( error_out )
-			*error_out = QObject::tr( "Cannot create Apple SoC VM directory:\n%1" ).arg( vm_dir );
+			*error_out = QObject::tr( "Cannot create Apple SoC image directory:\n%1" ).arg( image_dir );
 		return false;
 	}
+
 	struct Spec { const char *name; qint64 bytes; };
-	// Sizes mirror common Inferno recipes (small SEP/NVRAM + larger root/firmware).
+	// Modest defaults so Windows hosts with limited free space can still boot research kernels.
 	const Spec specs[] = {
 		{ "sep_nvram", 64 * 1024 },
-		{ "sep_ssc", 64 * 1024 },
-		{ "root", 32LL * 1024 * 1024 * 1024 },
-		{ "firmware", 1LL * 1024 * 1024 * 1024 },
+		{ "sep_ssc", 128 * 1024 },
+		{ "root", 8LL * 1024 * 1024 * 1024 },
+		{ "firmware", 256LL * 1024 * 1024 },
 		{ "syscfg", 1 * 1024 * 1024 },
 		{ "ctrl_bits", 1 * 1024 * 1024 },
 		{ "nvram", 1 * 1024 * 1024 },
 		{ "effaceable", 1 * 1024 * 1024 },
 		{ "panic_log", 16 * 1024 * 1024 },
 	};
+
+	qint64 need = 0;
 	for( const Spec &s : specs )
 	{
-		const QString path = QDir( vm_dir ).filePath( QString::fromLatin1( s.name ) );
-		if( ! Write_Sparse_Raw( path, s.bytes, error_out ) )
+		const QString path = QDir( image_dir ).filePath( QString::fromLatin1( s.name ) );
+		const QFileInfo fi( path );
+		if( ! fi.exists() || fi.size() < s.bytes )
+			need += ( s.bytes - ( fi.exists() ? fi.size() : 0 ) );
+	}
+
+	QStorageInfo storage( image_dir );
+	if( storage.isValid() && storage.bytesAvailable() >= 0 &&
+	    storage.bytesAvailable() < need + ( 512LL * 1024 * 1024 ) )
+	{
+		if( error_out )
+		{
+			*error_out = QObject::tr(
+				"Not enough free disk space for Apple SoC images under:\n%1\n\n"
+				"Need about %2 MiB free (have %3 MiB)." )
+				.arg( image_dir )
+				.arg( ( need + 512LL * 1024 * 1024 ) / ( 1024 * 1024 ) )
+				.arg( storage.bytesAvailable() / ( 1024 * 1024 ) );
+		}
+		return false;
+	}
+
+	for( const Spec &s : specs )
+	{
+		const QString path = QDir( image_dir ).filePath( QString::fromLatin1( s.name ) );
+		if( ! Ensure_Raw_Image( path, s.bytes, error_out ) )
 			return false;
 	}
 	return true;
@@ -106,14 +287,12 @@ QStringList AQ_Build_Apple_SoC_Extra_Args( const Virtual_Machine *vm,
 	if( ! vm || ! AQ_Is_Apple_SoC_VM( vm ) )
 		return out;
 
-	QString vm_dir = QFileInfo( vm->Get_VM_XML_File_Path() ).absolutePath();
-	if( vm_dir.isEmpty() )
-		vm_dir = QDir::currentPath();
+	const QString image_dir = AQ_Apple_SoC_Image_Dir( vm );
 
 	if( create_missing_images )
 	{
 		QString err;
-		if( ! AQ_Ensure_Apple_SoC_Disk_Images( vm_dir, &err ) )
+		if( ! AQ_Ensure_Apple_SoC_Disk_Images( image_dir, &err ) )
 		{
 			if( error_out )
 				*error_out = err;
@@ -126,10 +305,9 @@ QStringList AQ_Build_Apple_SoC_Extra_Args( const Virtual_Machine *vm,
 		const QString override = vm->Get_Apple_SoC_Image_Path( name );
 		if( ! override.trimmed().isEmpty() )
 			return AQ_Normalize_File_Path( override );
-		return QDir( vm_dir ).filePath( name );
+		return QDir( image_dir ).filePath( name );
 	};
 
-	// SEP pflash pair
 	out << QStringLiteral( "-drive" )
 	    << QStringLiteral( "file=%1,if=pflash,format=raw" )
 	           .arg( Quote_Drive( p( QStringLiteral( "sep_nvram" ) ), for_script_mode ) );
@@ -176,14 +354,40 @@ QStringList AQ_Build_Apple_SoC_Extra_Args( const Virtual_Machine *vm,
 	return out;
 }
 
+QStringList AQ_Filter_Apple_SoC_Additional_Args( const QStringList &args )
+{
+	QStringList out;
+	out.reserve( args.size() );
+	for( int i = 0; i < args.size(); ++i )
+	{
+		const QString &a = args.at( i );
+		if( a == QLatin1String( "-machine" ) || a.startsWith( QLatin1String( "-machine=" ) ) )
+		{
+			if( a == QLatin1String( "-machine" ) && i + 1 < args.size() )
+				++i;
+			continue;
+		}
+		if( a == QLatin1String( "-append" ) || a.startsWith( QLatin1String( "-append=" ) ) )
+		{
+			if( a == QLatin1String( "-append" ) && i + 1 < args.size() )
+				++i;
+			continue;
+		}
+		out << a;
+	}
+	return out;
+}
+
 QString AQ_Build_Apple_SoC_Machine_Props( const Virtual_Machine *vm, bool via_wsl )
 {
 	if( ! vm )
 		return QString();
 
+	// Machine type and every path/USB setting come only from the VM (MACHINE tab).
+	// Never invent file paths or USB endpoints at launch time.
 	QString machine = vm->Get_Machine_Type().trimmed();
 	if( machine.isEmpty() )
-		machine = QStringLiteral( "t8030" );
+		return QString();
 
 	QStringList props;
 	props << machine;
@@ -198,38 +402,32 @@ QString AQ_Build_Apple_SoC_Machine_Props( const Virtual_Machine *vm, bool via_ws
 	add_path_prop( "ticket", vm->Get_Apple_Ticket_Path() );
 	add_path_prop( "sep-fw", vm->Get_Apple_SEP_FW_Path() );
 	add_path_prop( "sep-rom", vm->Get_Apple_SEP_ROM_Path() );
-	props << QStringLiteral( "kaslr-off=true" );
+	add_path_prop( "securerom", vm->Get_Apple_SecureROM_Path() );
+	if( vm->Use_Apple_KASLR_Off() )
+		props << QStringLiteral( "kaslr-off=true" );
 
-	// USB remote for companion / idevicerestore. Prefer TCP on Windows host native;
-	// unix socket when launching under WSL (Linux Inferno).
-	QString conn = vm->Get_Apple_USB_Conn_Type().trimmed().toLower();
-	if( conn.isEmpty() )
+	// After a successful restore, guest NVRAM keeps auto-boot=true. Passing -initrd
+	// alone does NOT enter recovery — Inferno only prepends "-restore rd=md0 …" when
+	// auto-boot is false. Force enter_recovery whenever a restore ramdisk is set.
+	const QString initrd = AQ_Normalize_File_Path( vm->Get_Apple_Initrd_Path() );
+	if( ! initrd.isEmpty() && QFileInfo( initrd ).isFile() )
+		props << QStringLiteral( "boot-mode=enter_recovery" );
+
+	const QString conn = vm->Get_Apple_USB_Conn_Type().trimmed().toLower();
+	if( ! conn.isEmpty() )
 	{
-#ifdef Q_OS_WIN32
-		conn = via_wsl ? QStringLiteral( "unix" ) : QStringLiteral( "ipv4" );
-#else
-		conn = QStringLiteral( "unix" );
-#endif
-	}
-	props << QStringLiteral( "usb-conn-type=%1" ).arg( conn );
-	if( conn == QLatin1String( "unix" ) )
-	{
-		QString addr = vm->Get_Apple_USB_Conn_Addr().trimmed();
-		if( addr.isEmpty() )
-			addr = QStringLiteral( "/tmp/InfernoUSBRemote" );
-		props << QStringLiteral( "usb-conn-addr=%1" ).arg( addr );
-	}
-	else
-	{
-		QString addr = vm->Get_Apple_USB_Conn_Addr().trimmed();
-		if( addr.isEmpty() )
-			addr = QStringLiteral( "127.0.0.1" );
-		props << QStringLiteral( "usb-conn-addr=%1" ).arg( addr );
-		int port = vm->Get_Apple_USB_Conn_Port();
-		if( port <= 0 )
-			port = 8030;
-		props << QStringLiteral( "usb-conn-port=%1" ).arg( port );
+		props << QStringLiteral( "usb-conn-type=%1" ).arg( conn );
+		const QString addr = vm->Get_Apple_USB_Conn_Addr().trimmed();
+		if( ! addr.isEmpty() )
+			props << QStringLiteral( "usb-conn-addr=%1" ).arg( addr );
+		if( conn != QLatin1String( "unix" ) )
+		{
+			const int port = vm->Get_Apple_USB_Conn_Port();
+			if( port > 0 )
+				props << QStringLiteral( "usb-conn-port=%1" ).arg( port );
+		}
 	}
 
+	Q_UNUSED( via_wsl );
 	return props.join( QLatin1Char( ',' ) );
 }

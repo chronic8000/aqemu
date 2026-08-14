@@ -58,11 +58,15 @@ VncView::VncView(QWidget *parent, const QUrl &url, KConfigGroup configGroup)
         : RemoteView(parent),
         m_initDone(false),
         m_buttonMask(0),
+        m_stickyMouseGrab(false),
+        m_dragMouseGrab(false),
         m_quitFlag(false),
         m_firstPasswordTry(true),
         m_dontSendClipboard(false),
         m_horizontalFactor(1.0),
         m_verticalFactor(1.0),
+        m_lastScaleParentSize(),
+        m_lastScaleFrameSize(),
         m_forceLocalCursor(false)
 #ifdef LIBSSH_FOUND
         , m_sshTunnelThread(nullptr)
@@ -134,7 +138,6 @@ void VncView::scaleResize(int w, int h)
 {
     RemoteView::scaleResize(w, h);
 
-    qCDebug(KRDC) << w << h;
     if (m_scale) {
         if (m_frame.isNull() || m_frame.width() <= 0 || m_frame.height() <= 0 || w <= 0 || h <= 0) {
             m_verticalFactor = 1.0;
@@ -155,8 +158,14 @@ void VncView::scaleResize(int w, int h)
 
         const int newW = qMax(1, qRound(m_frame.width() * m_horizontalFactor));
         const int newH = qMax(1, qRound(m_frame.height() * m_verticalFactor));
+        // Avoid layout thrash when already at the target size (mouse jump + log spam).
+        if (width() == newW && height() == newH &&
+            maximumWidth() == newW && maximumHeight() == newH)
+            return;
         setMaximumSize(newW, newH); //This is a hack to force Qt to center the view in the scroll area
         resize(newW, newH);
+        m_lastScaleParentSize = QSize( w, h );
+        m_lastScaleFrameSize = m_frame.size();
     }
 }
 
@@ -467,13 +476,19 @@ void VncView::updateImage(int x, int y, int w, int h)
 #endif
     }
 
-    if ((y == 0 && x == 0) && (m_frame.size() != size())) {
-        qCDebug(KRDC) << "Updating framebuffer size";
+    if ((y == 0 && x == 0)) {
         if (m_scale) {
-            setMaximumSize(QSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX));
-            if (parentWidget())
-                scaleResize(parentWidget()->width(), parentWidget()->height());
-        } else {
+            // Under aspect-fit scaling the widget size is intentionally != guest
+            // framebuffer size. Treating that as a resize trigger caused a
+            // permanent scaleResize loop (log spam "2048 945") and mouse jumps.
+            const QSize parentSz = parentWidget() ? parentWidget()->size() : QSize();
+            if (m_frame.size() != m_lastScaleFrameSize || parentSz != m_lastScaleParentSize) {
+                setMaximumSize(QSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX));
+                if (parentWidget())
+                    scaleResize(parentWidget()->width(), parentWidget()->height());
+            }
+        } else if (m_frame.size() != size()) {
+            qCDebug(KRDC) << "Updating framebuffer size";
             qCDebug(KRDC) << "Resizing: " << m_frame.width() << m_frame.height();
             resize(m_frame.width(), m_frame.height());
             setMaximumSize(m_frame.width(), m_frame.height()); //This is a hack to force Qt to center the view in the scroll area
@@ -605,6 +620,41 @@ bool VncView::event(QEvent *event)
 
 void VncView::mouseEventHandler(QMouseEvent *e)
 {
+    const QPoint globalPos = e->globalPos();
+
+    // Sticky grab routes ALL mouse events here — including clicks meant for the
+    // File menu / session toolbar. Release when the pointer is over AQEMU chrome
+    // (and not mid-button-drag) so the UI is usable without Esc.
+    if (m_stickyMouseGrab) {
+        QWidget *under = QApplication::widgetAt(globalPos);
+        bool over_guest = false;
+        for (QWidget *p = under; p; p = p->parentWidget()) {
+            if (p == this) {
+                over_guest = true;
+                break;
+            }
+        }
+        if (!over_guest) {
+            const bool dragging = (m_buttonMask != 0)
+                || (e->buttons() & (Qt::LeftButton | Qt::MidButton | Qt::RightButton));
+            if (!dragging) {
+                setStickyMouseGrab(false);
+                if (e->type() == QEvent::MouseButtonPress && under) {
+                    // Redeliver this click to the real target (menu, toolbar, …).
+                    const QPoint local = under->mapFromGlobal(globalPos);
+                    QMouseEvent press(QEvent::MouseButtonPress, local, globalPos,
+                                      e->button(), e->buttons(), e->modifiers());
+                    QMouseEvent release(QEvent::MouseButtonRelease, local, globalPos,
+                                        e->button(), Qt::NoButton, e->modifiers());
+                    QApplication::sendEvent(under, &press);
+                    QApplication::sendEvent(under, &release);
+                }
+                return;
+            }
+            // Mid-swipe outside the pane: keep grab and clamp (absolute VNC).
+        }
+    }
+
     if (e->type() != QEvent::MouseMove) {
         if ((e->type() == QEvent::MouseButtonPress) ||
                 (e->type() == QEvent::MouseButtonDblClick)) {
@@ -614,6 +664,12 @@ void VncView::mouseEventHandler(QMouseEvent *e)
                 m_buttonMask |= 0x02;
             if (e->button() & Qt::RightButton)
                 m_buttonMask |= 0x04;
+            // Capture pointer into the guest until Esc / Ctrl+Alt, or until the
+            // cursor moves to AQEMU chrome with no buttons held.
+            if (!m_stickyMouseGrab)
+                setStickyMouseGrab(true);
+            Q_UNUSED(m_dragMouseGrab);
+            m_dragMouseGrab = false;
         } else if (e->type() == QEvent::MouseButtonRelease) {
             if (e->button() & Qt::LeftButton)
                 m_buttonMask &= 0xfe;
@@ -624,7 +680,37 @@ void VncView::mouseEventHandler(QMouseEvent *e)
         }
     }
 
-    vncThread.mouseEvent(qRound(e->x() / m_horizontalFactor), qRound(e->y() / m_verticalFactor), m_buttonMask);
+    // Absolute VNC: clamp while grabbed/dragged outside the view.
+    int gx = qRound(e->x() / m_horizontalFactor);
+    int gy = qRound(e->y() / m_verticalFactor);
+    if (m_stickyMouseGrab || m_dragMouseGrab) {
+        const QSize fb = framebufferSize();
+        if (fb.width() > 0 && fb.height() > 0) {
+            gx = qBound(0, gx, fb.width() - 1);
+            gy = qBound(0, gy, fb.height() - 1);
+        }
+    }
+    vncThread.mouseEvent(gx, gy, m_buttonMask);
+}
+
+void VncView::setStickyMouseGrab(bool on)
+{
+    if (on == m_stickyMouseGrab)
+        return;
+    m_stickyMouseGrab = on;
+    m_dragMouseGrab = false;
+    if (on) {
+        // Mouse grab only — do NOT grabKeyboard(); that freezes the menu bar
+        // and toolbar until Esc, which feels like AQEMU is "locked".
+        grabMouse();
+        setFocus(Qt::MouseFocusReason);
+        setCursor(Qt::BlankCursor);
+    } else {
+        releaseMouse();
+        releaseKeyboard();
+        // Restore local/remote cursor preference
+        showDotCursor(m_dotCursorState);
+    }
 }
 
 void VncView::wheelEventHandler(QWheelEvent *event)
@@ -659,6 +745,19 @@ void VncView::keyEventHandler(QKeyEvent *e)
     // strip away autorepeating KeyRelease; see bug #206598
     if (e->isAutoRepeat() && (e->type() == QEvent::KeyRelease))
         return;
+
+    // Esc or Ctrl+Alt releases sticky pointer capture (not forwarded to guest).
+    if (e->type() == QEvent::KeyPress && m_stickyMouseGrab) {
+        const bool ctrl = e->modifiers() & Qt::ControlModifier;
+        const bool alt = e->modifiers() & Qt::AltModifier;
+        if (e->key() == Qt::Key_Escape
+            || (e->key() == Qt::Key_Alt && ctrl)
+            || (e->key() == Qt::Key_AltGr && ctrl)
+            || (e->key() == Qt::Key_Control && alt)) {
+            setStickyMouseGrab(false);
+            return;
+        }
+    }
 
     // RFB keys are X11 keysyms. On Linux/X11, nativeVirtualKey() already returns
     // those. On Windows it returns OS virtual-key codes (e.g. VK_RETURN=0x0D

@@ -3,6 +3,7 @@
     "Apple": [
       "Darwin",
       "iOS (ARM64)",
+      "iPhone IPSW Restore Companion",
       "Mac OS 6",
       "Mac OS 7",
       "Mac OS 8",
@@ -69,6 +70,7 @@
       "Tiny Core Linux (64-bit)",
       "Ubuntu (32-bit)",
       "Ubuntu (64-bit)",
+      "IPSW Restore Companion (Ubuntu)",
       "Void Linux"
     ],
     "Microsoft": [
@@ -689,6 +691,16 @@
       "nic": "virtio-net-pci",
       "sound": "none",
       "tip": "Experimental: qemu-system-applesoc (Inferno) machine t8030. Supply kernelcache + DeviceTree via the VM DeviceTree fields. TCG on x86 hosts."
+    },
+    "iPhone IPSW Restore Companion": {
+      "target": "x86_64",
+      "machine": "q35",
+      "ram_mb": 2048,
+      "hdd_gb": 20.0,
+      "nic": "virtio-net-pci",
+      "sound": "none",
+      "cpu": "max",
+      "tip": "Ubuntu Server companion for ChefKiss Inferno IPSW restore. AQEMU downloads the ISO, creates companion.qcow2, and shows post-install commands. Start this VM to install Ubuntu; then use Apple SoC Restore (Start companion) so the iPhone USB appears inside Linux."
     },
     "macOS Apple Silicon (ARM64)": {
       "target": "applesoc",
@@ -1902,6 +1914,26 @@
       "sound": "hda",
       "tip": "Windows Server 2008 32-bit → i386 PC.",
       "cpu": "qemu32"
+    },
+    "iPhone IPSW Restore Companion": {
+      "target": "x86_64",
+      "machine": "q35",
+      "ram_mb": 2048,
+      "hdd_gb": 20,
+      "nic": "virtio-net-pci",
+      "sound": "none",
+      "cpu": "max",
+      "tip": "Ubuntu Server companion for Inferno IPSW restore. Wizard downloads the ISO, mounts it as CD-ROM, creates companion.qcow2, and shows install/SSH/idevicerestore steps. Run alongside your iOS VM."
+    },
+    "IPSW Restore Companion (Ubuntu)": {
+      "target": "x86_64",
+      "machine": "q35",
+      "ram_mb": 2048,
+      "hdd_gb": 20,
+      "nic": "virtio-net-pci",
+      "sound": "none",
+      "cpu": "max",
+      "tip": "Same as Apple → iPhone IPSW Restore Companion: Ubuntu Server VM with installer ISO mounted for ChefKiss Inferno restores."
     },
     "Ubuntu (64-bit)": {
       "target": "x86_64",

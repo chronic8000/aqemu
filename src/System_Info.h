@@ -102,11 +102,16 @@ class System_Info
 		static const QList<Host_GPU> &Get_Host_GPU_List();
 		static bool Has_AMD_Display_GPU();
 		static bool Has_NVIDIA_Display_GPU();
-		/** AMD or NVIDIA display GPU — Reims/WSL Vulkan acceleration candidates. */
+		static bool Has_Intel_Display_GPU();
+		/** Windows/Linux host has a discrete/iGPU candidate (AMD/NVIDIA/Intel). */
+		static bool Has_Reims_Candidate_GPU();
+		/** AMD or NVIDIA display GPU — legacy helper; prefer Has_Reims_Candidate_GPU. */
 		static bool Has_WSL_Vulkan_GPU();
 		/** Native Linux with PCI (not Windows, not WSL). Required for vfio-pci into QEMU. */
 		static bool Host_Supports_PCI_Passthrough();
 		static bool Host_Is_WSL();
+		/** Short summary of host display GPUs for UI (e.g. "NVIDIA, Intel"). */
+		static QString Host_Display_GPU_Vendors_Summary();
 		/** Suggest AMD HDMI audio BDF for a display GPU (same slot .1 or IOMMU group). */
 		static QString Suggest_AMD_Audio_For( const QString &display_pci_address );
 		

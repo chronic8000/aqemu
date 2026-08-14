@@ -60,6 +60,12 @@ class Virtual_Machine: public QObject
         void Load_VM_State( const QString &tag );
 
 	public:
+		/** True if the last Start() returned false because the user cancelled a prompt. */
+		bool Take_Start_Cancelled_By_User();
+
+		/** Kill stray qemu-system (Windows + WSL) still holding this VM's disks. */
+		void Kill_Orphan_QEMU_Using_Disks();
+
 		// Constructors...
 		Virtual_Machine();
 		Virtual_Machine( const QString &name );
@@ -630,8 +636,15 @@ class Virtual_Machine: public QObject
 		void Set_Apple_SEP_FW_Path( const QString &path );
 		const QString &Get_Apple_SEP_ROM_Path() const;
 		void Set_Apple_SEP_ROM_Path( const QString &path );
+		const QString &Get_Apple_SecureROM_Path() const;
+		void Set_Apple_SecureROM_Path( const QString &path );
 		const QString &Get_Apple_IPSW_Path() const;
 		void Set_Apple_IPSW_Path( const QString &path );
+		/** Restore ramdisk (-initrd). Empty = normal OS boot after restore. */
+		const QString &Get_Apple_Initrd_Path() const;
+		void Set_Apple_Initrd_Path( const QString &path );
+		bool Use_Apple_KASLR_Off() const;
+		void Use_Apple_KASLR_Off( bool use );
 		const QString &Get_Apple_USB_Conn_Type() const;
 		void Set_Apple_USB_Conn_Type( const QString &type );
 		const QString &Get_Apple_USB_Conn_Addr() const;
@@ -768,7 +781,6 @@ class Virtual_Machine: public QObject
 		void Connect_Embedded_QMP();
 		void Force_Kill_QEMU();
 		void Force_Kill_QEMU_Hard();
-		void Kill_Orphan_QEMU_Using_Disks();
 		
 		void Resume_Finished( const QString &neturned_text );
 		void Suspend_Finished( const QString &neturned_text );
@@ -785,6 +797,10 @@ class Virtual_Machine: public QObject
 		void Save_VM_Shared_Folder( TXML2QDOM::QDomDocument &New_Dom_Document, TXML2QDOM::QDomElement &Dom_Element,
 										   const VM_Shared_Folder &device ) const;
 	private:
+		/** Append QEMU console output to *_inferno/qemu-boot.log (Apple SoC only). */
+		void Append_Apple_SoC_QEMU_Log( const QString &chunk );
+		void Begin_Apple_SoC_QEMU_Log();
+		void End_Apple_SoC_QEMU_Log( int exitCode, QProcess::ExitStatus exitStatus );
         bool Start_impl();
 
 		QProcess *QEMU_Process;
@@ -799,6 +815,7 @@ class Virtual_Machine: public QObject
 		VM::VM_State Old_State;
 		QString VM_XML_File_Path; // for load and save
 		QString Start_Snapshot_Tag;
+		bool Start_Cancelled_By_User;
 		bool Load_Mode;
 		bool Dont_Reinit;
 		bool Build_QEMU_Args_for_Tab_Info;
@@ -982,7 +999,10 @@ class Virtual_Machine: public QObject
 		QString Apple_Ticket_Path;
 		QString Apple_SEP_FW_Path;
 		QString Apple_SEP_ROM_Path;
+		QString Apple_SecureROM_Path;
 		QString Apple_IPSW_Path;
+		QString Apple_Initrd_Path;
+		bool Apple_KASLR_Off;
 		QString Apple_USB_Conn_Type;
 		QString Apple_USB_Conn_Addr;
 		int Apple_USB_Conn_Port;
@@ -1041,8 +1061,10 @@ class Virtual_Machine: public QObject
 		QWidget *Save_VM_Window;
 		Error_Log_Window* QEMU_Error_Win;
 		bool Quit_Before_Save;
+		bool User_Requested_Power_Off; // Stop/Power Off clicked — suppress "unexpected exit" UI
 		bool Update_Removable_Devices_Mode;
 		QString Removable_Devices_List;
+		QFile *Apple_SoC_Log_File; // kept open for the whole Inferno run (avoid per-chunk open/flush stall)
 		
 		// For Create Templates
 		QString Template_Name;
