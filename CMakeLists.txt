@@ -557,7 +557,13 @@ ADD_CUSTOM_COMMAND( TARGET aqemu POST_BUILD
 	COMMAND ${CMAKE_COMMAND} -E copy_if_different
 		"${CMAKE_SOURCE_DIR}/extras/Inferno/iOS_Installation.md"
 		"$<TARGET_FILE_DIR:aqemu>/extras/Inferno/iOS_Installation.md"
-	COMMENT "Bundle extras/Inferno FS-patch scripts and iOS install guide"
+	COMMAND ${CMAKE_COMMAND} -E copy_if_different
+		"${CMAKE_SOURCE_DIR}/extras/Inferno/create_apticket.py"
+		"$<TARGET_FILE_DIR:aqemu>/extras/Inferno/create_apticket.py"
+	COMMAND ${CMAKE_COMMAND} -E copy_if_different
+		"${CMAKE_SOURCE_DIR}/extras/Inferno/create_septicket.py"
+		"$<TARGET_FILE_DIR:aqemu>/extras/Inferno/create_septicket.py"
+	COMMENT "Bundle extras/Inferno scripts, ticket helpers, and iOS install guide"
 )
 # companion-bin (idevice* tools) for optional scp into the Ubuntu companion
 IF( EXISTS "${CMAKE_SOURCE_DIR}/extras/Inferno/companion-bin" )

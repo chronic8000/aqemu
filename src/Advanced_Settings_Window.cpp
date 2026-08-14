@@ -281,6 +281,59 @@ Advanced_Settings_Window::Advanced_Settings_Window( QWidget *parent )
 		connect( CB_WSL_Distro, SIGNAL(currentIndexChanged(int)), this, SLOT(On_CB_WSL_Distro_currentIndexChanged(int)) );
 	}
 #endif
+
+	Edit_FW_Python = nullptr;
+	Edit_FW_Pyimg4 = nullptr;
+	Edit_FW_Img4 = nullptr;
+	{
+		QGroupBox *fwBox = new QGroupBox( tr( "iOS firmware tools" ), ui.Tab_General );
+		QVBoxLayout *fwLay = new QVBoxLayout( fwBox );
+		QLabel *fwHelp = new QLabel( tr(
+			"Used by File → iOS Firmware Tool. A path here is used when the file exists. "
+			"Leave empty to search next to AQEMU, then the system PATH." ) );
+		fwHelp->setWordWrap( true );
+		fwLay->addWidget( fwHelp );
+
+		auto add_fw_row = [this, fwLay]( const QString &label, const QString &key,
+		                                 const QString &browse_title, QLineEdit **edit_out ) {
+			QHBoxLayout *row = new QHBoxLayout();
+			row->addWidget( new QLabel( label ) );
+			QLineEdit *edit = new QLineEdit(
+				Settings.value( key ).toString() );
+			edit->setPlaceholderText( tr( "Empty = PATH" ) );
+			QToolButton *browse = new QToolButton();
+			browse->setText( QStringLiteral( "..." ) );
+			browse->setToolTip( browse_title );
+			row->addWidget( edit, 1 );
+			row->addWidget( browse );
+			fwLay->addLayout( row );
+			*edit_out = edit;
+			connect( browse, &QToolButton::clicked, this, [this, edit, browse_title]() {
+				const QString start = edit->text().trimmed().isEmpty()
+					? QString() : Get_Last_Dir_Path( edit->text() );
+				const QString file = QFileDialog::getOpenFileName(
+					this, browse_title, start,
+#ifdef Q_OS_WIN32
+					tr( "Executables (*.exe);;All Files (*)" )
+#else
+					tr( "All Files (*)" )
+#endif
+				);
+				if( ! file.isEmpty() )
+					edit->setText( QDir::toNativeSeparators( file ) );
+			} );
+		};
+
+		add_fw_row( tr( "Python 3:" ), QStringLiteral( "Apple_SoC_Firmware/Python" ),
+			tr( "Select Python 3 (python.exe or py.exe)" ), &Edit_FW_Python );
+		add_fw_row( tr( "pyimg4:" ), QStringLiteral( "Apple_SoC_Firmware/pyimg4" ),
+			tr( "Select pyimg4" ), &Edit_FW_Pyimg4 );
+		add_fw_row( tr( "img4:" ), QStringLiteral( "Apple_SoC_Firmware/img4" ),
+			tr( "Select img4 (img4lib)" ), &Edit_FW_Img4 );
+
+		if( QGridLayout *gl = qobject_cast<QGridLayout*>( ui.Tab_General->layout() ) )
+			gl->addWidget( fwBox, gl->rowCount(), 0, 1, gl->columnCount() );
+	}
 	
 	QHeaderView *hv = new QHeaderView( Qt::Vertical, ui.Emulators_Table );
 	hv->setSectionResizeMode( QHeaderView::Fixed );
@@ -786,6 +839,12 @@ void Advanced_Settings_Window::done(int r)
 		    WSL_Clear_Probe_Cache();
 	    }
 #endif
+	    if( Edit_FW_Python )
+		    Settings.setValue( "Apple_SoC_Firmware/Python", Edit_FW_Python->text().trimmed() );
+	    if( Edit_FW_Pyimg4 )
+		    Settings.setValue( "Apple_SoC_Firmware/pyimg4", Edit_FW_Pyimg4->text().trimmed() );
+	    if( Edit_FW_Img4 )
+		    Settings.setValue( "Apple_SoC_Firmware/img4", Edit_FW_Img4->text().trimmed() );
 	    // Execute Before Start QEMU
 	    Settings.setValue( "Run_Before_QEMU", ui.Edit_Before_Start_Command->text() );
 	

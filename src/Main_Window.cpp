@@ -222,8 +222,9 @@ Main_Window::Main_Window( QWidget *parent )
 	{
 		QAction *actIosFw = new QAction( QIcon( QStringLiteral( ":/default_mac.png" ) ),
 			tr( "iOS &Firmware Tool…" ), this );
-		actIosFw->setStatusTip( tr( "Unpack IPSW archives and process IM4P payloads with pyimg4" ) );
 		connect( actIosFw, &QAction::triggered, this, &Main_Window::slot_iOS_Firmware_Tool_triggered );
+		actIosFw->setStatusTip( tr(
+			"Unpack IPSW, forge restore/SEP tickets, process IM4P — stay in AQEMU" ) );
 		ui.menuFile->insertAction( ui.actionCreate_HDD_Image, actIosFw );
 	}
 	// File → Apple SoC Restore (always listed — needed while companion Ubuntu is selected)
@@ -6309,15 +6310,34 @@ void Main_Window::sync_arch_CPU_Type_changed( int index )
 void Main_Window::slot_iOS_Firmware_Tool_triggered()
 {
 	iOS_Firmware_Tool_Window dlg( this );
-	connect( &dlg, &iOS_Firmware_Tool_Window::DeviceTree_Path_Suggested,
-	         this, [this]( const QString &path ) {
-		if( path.isEmpty() )
+	auto fill_if = [this]( QLineEdit *edit, const QString &path, bool always ) {
+		if( ! edit || path.isEmpty() )
 			return;
-		if( ui.Edit_DeviceTree_Path->text().trimmed().isEmpty() )
+		if( always || edit->text().trimmed().isEmpty() )
 		{
-			ui.Edit_DeviceTree_Path->setText( path );
+			edit->setText( path );
 			VM_Changed();
 		}
+	};
+	connect( &dlg, &iOS_Firmware_Tool_Window::DeviceTree_Path_Suggested,
+	         this, [this, fill_if]( const QString &path ) {
+		fill_if( ui.Edit_DeviceTree_Path, path, false );
+	} );
+	connect( &dlg, &iOS_Firmware_Tool_Window::Restore_Ticket_Suggested,
+	         this, [this, fill_if]( const QString &path ) {
+		fill_if( Edit_Apple_Ticket, path, true );
+	} );
+	connect( &dlg, &iOS_Firmware_Tool_Window::Ipsw_Path_Suggested,
+	         this, [this, fill_if]( const QString &path ) {
+		fill_if( Edit_Apple_IPSW, path, false );
+	} );
+	connect( &dlg, &iOS_Firmware_Tool_Window::Restore_Ramdisk_Suggested,
+	         this, [this, fill_if]( const QString &path ) {
+		fill_if( Edit_Apple_Initrd, path, false );
+	} );
+	connect( &dlg, &iOS_Firmware_Tool_Window::Sep_Firmware_Suggested,
+	         this, [this, fill_if]( const QString &path ) {
+		fill_if( Edit_Apple_SEP_FW, path, true );
 	} );
 	dlg.exec();
 }

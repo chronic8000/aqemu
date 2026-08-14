@@ -30,7 +30,7 @@ Do this **in order**. If a step fails, jump to the matching heading in Part B. D
 | Inferno `qemu-system-applesoc` | Used via WSL |
 | Companion disk path | Restore dialog (future: Download + path box) |
 | Companion SSH user + password | Same as Device Tools |
-| IPSW + extracted firmware | Part B §2–4. Reference: iOS **14.0 beta 5** `18A5351d`, iPhone 11 / **t8030** / **n104ap** |
+| IPSW + extracted firmware | **File → iOS Firmware Tool…** (unpack + forge tickets + IM4P). Part B §2–4. Reference: iOS **14.0 beta 5** `18A5351d`, iPhone 11 / **t8030** / **n104ap** |
 | **32 GiB** sparse `root` | Grow **before** first restore (Part B §6) |
 
 ### A1. Create the VM
@@ -40,7 +40,7 @@ Confirm: emulator `qemu-system-applesoc`, machine **`t8030`**, RAM **≥ 4 GiB
 
 ### A2. Point MACHINE at firmware
 
-Fill every row in [Part B §5](#b5-every-aqemu-field). Minimum: Kernel, DeviceTree (`.dtb`/`.dec` not `.im4p`), Trustcache, Restore ticket, SEP firmware **repackaged** `.img4`, SEP ROM (Cebu B1), IPSW, Restore ramdisk `.dmg`, USB **IPv4 `127.0.0.1` port `8030`**. Save.
+**File → iOS Firmware Tool…** first (unpack, **Forge restore + SEP tickets**, DeviceTree IM4P). Then fill remaining rows in [Part B §5](#b5-every-aqemu-field). Minimum: Kernel, DeviceTree (`.dtb`/`.dec` not `.im4p`), Trustcache, Restore ticket, SEP firmware **repackaged** `.img4`, SEP ROM (Cebu B1), IPSW, Restore ramdisk `.dmg`, USB **IPv4 `127.0.0.1` port `8030`**. Save.
 
 ### A3. Grow `root` to 32 GiB
 
@@ -101,13 +101,51 @@ An `.ipsw` is a **ZIP**. You can rename to `.zip` and extract, or use AQEMU’s 
 
 ## B3. Unpack the IPSW (File → iOS Firmware Tool)
 
-**File → iOS Firmware Tool…**
+**File → iOS Firmware Tool…** — do **not** run Python in a terminal. This dialog is the unpack + ticket + IM4P step.
 
 1. **IPSW File** — browse to the `.ipsw` / `.zip`.
 2. **Extraction Output Directory** — default is next to `aqemu.exe` as `firmware_extracted`. Pick a folder you will keep.
-3. **Unpack IPSW**.
+3. **Unpack IPSW** (Step 1). AQEMU fills **BuildManifest.plist**, suggests DeviceTree `.im4p`, restore ramdisk, and (if empty) MACHINE **IPSW**.
 
-That unzip is **Step 1**. IM4P files inside are still wrapped. **Step 2** needs **`pyimg4`** on PATH or `pyimg4.exe` beside `aqemu.exe` (AQEMU does not vendor it).
+Typical files after unpack (names vary by IPSW):
+
+| Look for | Used as |
+| --- | --- |
+| `BuildManifest.plist` | Filled into Step 2 automatically |
+| `DeviceTree.n104ap.im4p` | Step 3 decrypt/extract → **DeviceTree** `.dtb` / `.dec` |
+| `kernelcache.release.*` or research kernel | **Kernel** (decrypted / `.research`) |
+| Restore ramdisk **`.dmg`** (`RestoreRamDisk` in BuildManifest, e.g. `038-44135-124.dmg`) | MACHINE **Restore ramdisk (-initrd)** (suggested if empty). Not the largest IPSW `.dmg` |
+| `Firmware/all_flash/sep-firmware.n104.RELEASE.im4p` | Later pack into **repackaged** SEP `.img4` — not the MACHINE SEP field raw |
+| Trustcache / img4 pieces from the Inferno recipe | **Trustcache** |
+| `kernelcache` / firmware folders | Keep the whole extract; do not delete until MACHINE paths work |
+
+**Kernel** is the research/decrypted kernelcache Inferno can `-kernel`, not a random Mach-O from the IPSW payload folder unless ChefKiss says that file is the one.
+
+---
+
+## B4. Tickets, SEP ROM, SEP firmware (same Firmware Tool window)
+
+Stay in **File → iOS Firmware Tool…**. Do **not** copy `python3 create_apticket.py …` from older notes.
+
+### Restore ticket + SEP ticket (Step 2)
+
+Unsigned IPSWs need a **forged AP ticket**. A 2-byte placeholder will fail restore.
+
+1. **Model** — `n104ap` (iPhone 11 / t8030).
+2. **BuildManifest.plist** — already filled after Unpack.
+3. **ticket.shsh2** — **Browse…** or **ChefKiss extras…** ([ChefKiss extras](https://chefkiss.dev/Extras/Inferno/)). You can drop the file next to the bundled scripts as `extras/Inferno/ticket.shsh2`. AQEMU remembers the path. AQEMU does **not** ship this blob.
+4. **Forge restore + SEP tickets** — AQEMU runs the bundled scripts (installs `pyasn1` via pip if needed). You never type the command.
+
+Outputs (next to the extract by default):
+
+- `root_ticket.der` → applied to MACHINE **Restore ticket** (used as `idevicerestore -T`)
+- `sep_root_ticket.der` → input for packing SEP firmware (next)
+
+Forge again whenever you **change IPSW build**. Python 3: **File → Configure → iOS firmware tools**, or on PATH (`py -3` / `python`). AQEMU starts it — you do not open a shell.
+
+### DeviceTree / kernel IM4P (Step 4)
+
+IM4P files are still wrapped. Step 4 needs **`pyimg4`** on PATH or `pyimg4.exe` beside `aqemu.exe` (AQEMU does not vendor it).
 
 | Operation | Use |
 | --- | --- |
@@ -115,55 +153,21 @@ That unzip is **Step 1**. IM4P files inside are still wrapped. **Step 2** needs 
 | Decrypt payload | Needs **AES IV** and **AES Key** (hex) from The Apple Wiki for that build/file |
 | Show payload info | Inspect before decrypt |
 
-Typical files after unpack (names vary by IPSW):
+**DeviceTree must not stay `.im4p`.** Start will refuse raw IM4P. Decrypt/extract until you have `.dtb` or `.dec`. Empty MACHINE DeviceTree is filled from a `.dec`/`.dtb` result.
 
-| Look for | Used as |
-| --- | --- |
-| `BuildManifest.plist` | Ticket scripts |
-| `DeviceTree.n104ap.im4p` | Decrypt/extract → **DeviceTree** `.dtb` / `.dec` |
-| `kernelcache.release.*` or research kernel | **Kernel** (decrypted / `.research`) |
-| Large restore **`.dmg`** (tooltip example: `038-44135-124.dmg`) | **Restore ramdisk (-initrd)** |
-| `Firmware/all_flash/sep-firmware.n104.RELEASE.im4p` | Input to **repackaged** SEP `.img4` — **not** the MACHINE SEP field raw |
-| Trustcache / img4 pieces from the Inferno recipe | **Trustcache** |
-| `kernelcache` / firmware folders | Keep the whole extract; do not delete until MACHINE paths work |
+If pyimg4 is missing: **File → Configure → iOS firmware tools → pyimg4**, or copy `pyimg4.exe` next to `aqemu.exe` / on PATH.
 
-**DeviceTree must not stay `.im4p`.** Start will refuse raw IM4P. Use Firmware Tool Step 2 (decrypt if needed) until you have `.dtb` or `.dec`.
-
-**Kernel** is the research/decrypted kernelcache Inferno can `-kernel`, not a random Mach-O from the IPSW payload folder unless ChefKiss says that file is the one.
-
-If pyimg4 is missing: install it, restart AQEMU, or copy `pyimg4.exe` next to `aqemu.exe`.
-
----
-
-## B4. Tickets, SEP ROM, SEP firmware (not inside the IPSW ready-made)
-
-### Restore ticket (`root_ticket.der`)
-
-Unsigned IPSWs need a **forged AP ticket**. A 2-byte placeholder will fail restore.
-
-From `extras/Inferno/` (or [ChefKiss extras](https://chefkiss.dev/Extras/Inferno/)):
-
-```text
-python3 create_apticket.py n104ap BuildManifest.plist ticket.shsh2 root_ticket.der
-```
-
-- `BuildManifest.plist` — from the unpacked IPSW  
-- `ticket.shsh2` — ChefKiss-provided blob for this flow  
-- Rebuild the ticket whenever you **change IPSW build**  
-- MACHINE → **Restore ticket** = this `.der`  
-- On restore, AQEMU stages it for `idevicerestore -T`
-
-Need `pyasn1` / `pyasn1-modules` (pip or distro packages). See ChefKiss file setup.
-
-### SEP ticket + repackaged SEP firmware
+### Repackaged SEP firmware (Step 3 in the same window)
 
 Raw `sep-firmware.n104.RELEASE.im4p` is **not** what Inferno `sep-fw=` wants. Without a **repackaged** `sep-firmware.n104.RELEASE.new.img4`, restore often dies after NORData: **`Could not read data (-256)`**.
 
-```text
-python3 create_septicket.py n104ap BuildManifest.plist ticket.shsh2 sep_root_ticket.der
-```
+Still in **File → iOS Firmware Tool…**:
 
-Then `img4` (img4lib) with Apple Wiki **IV and key concatenated** (`-k IVKEY`), as in ChefKiss file setup, to write `sep-firmware.n104.RELEASE.new.img4`. MACHINE → **SEP firmware**.
+1. **SEP .im4p** — filled after Unpack (`Firmware/all_flash/sep-firmware.n104.RELEASE.im4p`).
+2. **IVKEY** — Apple Wiki IV and key **concatenated** (no space) for that file. **Apple Wiki…** opens the keys page.
+3. **Decrypt + pack SEP firmware** — AQEMU runs `img4` decrypt then wrap with `-T rsep` and the Step 2 SEP ticket. MACHINE **SEP firmware** is set to the `.new.img4`.
+
+Place **`img4.exe`** (xerub [img4lib](https://github.com/xerub/img4lib)) in **File → Configure → iOS firmware tools**, beside `aqemu.exe`, or on PATH. You do not type the ChefKiss `for /f` command.
 
 ### SEP ROM and SecureROM
 

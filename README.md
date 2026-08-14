@@ -81,7 +81,7 @@ Full walkthrough (including re-install): [`extras/Inferno/iOS_Installation.md`](
 ### How to run iOS
 
 1. **New VM Wizard → Apple → iOS (ARM64)** — Inferno `t8030`, 4 vCPUs, ≥4 GB RAM.
-2. Fill **kernel**, **DeviceTree** (extracted `.dtb` / `.dec`), trustcache, ticket, SEP, restore ramdisk. **File → iOS Firmware Tool** unpacks an IPSW (`pyimg4` on PATH).
+2. Fill **kernel**, **DeviceTree** (extracted `.dtb` / `.dec`), trustcache, ticket, SEP, restore ramdisk. **File → iOS Firmware Tool** unpacks the IPSW, forges tickets, and can pack SEP firmware (`pyimg4` / `img4` on PATH).
 3. USB remote **`127.0.0.1:8030`**. **File → Apple SoC Restore**: start companion, Power On iOS, restore IPSW.
 4. **File → Apply iOS filesystem patches…** on the guest `root` disk (not the companion). Then Power On for Setup / SpringBoard.
 5. Toolbar **Net** or **File → Guest Internet / iOS Device Tools…** → **Enable guest internet** for Safari / App Store.

@@ -104,6 +104,10 @@ class Advanced_Settings_Window: public QDialog
 		QLabel *Label_WSL_KVM_Status;
 		QToolButton *TB_WSL_Probe;
 
+		QLineEdit *Edit_FW_Python;
+		QLineEdit *Edit_FW_Pyimg4;
+		QLineEdit *Edit_FW_Img4;
+
 	private slots:
 		void On_CB_WSL_Distro_currentIndexChanged( int index );
 
