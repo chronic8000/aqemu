@@ -27,6 +27,9 @@
 	    (restore, FS patches, internet, IPA vs .deb, 8 GiB vs 32 GiB root).
 	    wipe-ios-nvme.ps1 for partial-flash / clean NAND. Default auto-created root
 	    is 8 GiB; grow sparse to 32 GiB before restore for App Store / large IPAs.
+	    FS-patch helper selects the iOS NVMe by skipping the cloud-image boot disk
+	    (works for 8 GiB and 32 GiB roots). Companion SSH uses accept-new + a
+	    dedicated known_hosts file (loopback only).
 	  - Restore ramdisk (-initrd) also sets boot-mode=enter_recovery so NVRAM
 	    auto-boot=true cannot skip recovery on re-restore.
 	  - Apple SoC QEMU stop: short summary first (full kernel-patch dump stays in

@@ -85,13 +85,16 @@ uname -a
 lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINT || true
 
 ROOT_DEV=""
-for d in /dev/vdb /dev/vdc /dev/sdb /dev/sdc; do
+BEST=0
+# Boot OS is vda/sda (~12GiB cloud image). iOS root is the next virtio-blk
+# (8GiB default or 32GiB ChefKiss). Seed/payload images are much smaller.
+for d in /dev/vdb /dev/vdc /dev/vdd /dev/vde /dev/sdb /dev/sdc /dev/sdd /dev/sde; do
   [[ -b "$d" ]] || continue
   SZ=$(blockdev --getsize64 "$d" || echo 0)
   echo "disk $d size=$SZ"
-  if [[ "$SZ" -ge 8000000000 && "$SZ" -le 9000000000 ]]; then
+  if [[ "$SZ" -ge 4000000000 && "$SZ" -gt "$BEST" ]]; then
+    BEST=$SZ
     ROOT_DEV="$d"
-    break
   fi
 done
 [[ -n "$ROOT_DEV" ]] || { echo "ERROR: root device not found"; exit 1; }

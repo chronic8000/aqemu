@@ -1526,12 +1526,8 @@ void VM_Session_Widget::Send_Apple_Key( const QString &key_name, int hold_ms )
 		Send_Monitor( QStringLiteral( "sendkey %1" ).arg( key_name ) );
 		return;
 	}
-	Send_Monitor( QStringLiteral( "sendkey %1" ).arg( key_name ) );
-	// Second pulse after hold approximates a long-press for Side button menus.
-	QTimer::singleShot( hold_ms, this, [this, key_name]() {
-		if( VM )
-			Send_Monitor( QStringLiteral( "sendkey %1" ).arg( key_name ) );
-	} );
+	// QEMU HMP: sendkey keys [hold_ms] — one down/up with duration, not two taps.
+	Send_Monitor( QStringLiteral( "sendkey %1 %2" ).arg( key_name ).arg( hold_ms ) );
 }
 
 void VM_Session_Widget::Send_Apple_Key_Double( const QString &key_name )
@@ -1544,10 +1540,10 @@ void VM_Session_Widget::Send_Apple_Key_Double( const QString &key_name )
 
 void VM_Session_Widget::Send_Apple_SOS_Combo()
 {
-	// ChefKiss: hold volume up, then hold side after ~0.5s (not both at once).
-	Send_Apple_Key( QStringLiteral( "f4" ) );
-	QTimer::singleShot( 550, this, [this]() {
-		Send_Apple_Key( QStringLiteral( "f5" ) );
+	// ChefKiss: hold volume up, then side (not both at once).
+	Send_Apple_Key( QStringLiteral( "f4" ), 2000 );
+	QTimer::singleShot( 500, this, [this]() {
+		Send_Apple_Key( QStringLiteral( "f5" ), 1500 );
 	} );
 }
 

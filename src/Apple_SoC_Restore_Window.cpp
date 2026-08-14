@@ -530,7 +530,7 @@ void Apple_SoC_Restore_Window::Refresh_Companion_Snippet()
 		const QString disk_path = disk;
 #endif
 		nic_args = QStringLiteral(
-			"  -drive file=%1,if=virtio,format=%2 \\\n"
+			"  -drive file=%1,if=ide,format=%2,index=0,media=disk \\\n"
 			"  -nic none \\\n"
 			"  -netdev user,id=net0,hostfwd=tcp::32222-:22 \\\n"
 			"  -device virtio-net-pci,netdev=net0,rombar=0 \\\n" )
@@ -825,7 +825,8 @@ void Apple_SoC_Restore_Window::Start_Companion_WSL()
 		"  echo 'Waiting for guest SSH on :32222 (TCG boot often needs 1-3 minutes)...'; "
 		"  ssh_up=0; "
 		"  for i in $(seq 1 60); do "
-		"    out=$(timeout 8 ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "
+		"    out=$(timeout 8 ssh -o StrictHostKeyChecking=accept-new "
+		"-o UserKnownHostsFile=\"$HOME/.aqemu-companion-known_hosts\" "
 		"      -o PreferredAuthentications=none -o PubkeyAuthentication=no "
 		"      -o PasswordAuthentication=no -o ConnectTimeout=4 "
 		"      -p 32222 nobody@127.0.0.1 true 2>&1 || true); "
@@ -1063,7 +1064,8 @@ void Apple_SoC_Restore_Window::Run_IDeviceRestore()
 		"  echo 'SSHPASS was not passed into WSL (WSLENV).'; exit 127\n"
 		"fi\n"
 		"export SSHPASS\n"
-		"SSH_OPTS=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "
+		"SSH_OPTS=(-o StrictHostKeyChecking=accept-new "
+		"-o UserKnownHostsFile=\"$HOME/.aqemu-companion-known_hosts\" "
 		"-o PreferredAuthentications=password -o PubkeyAuthentication=no "
 		"-o NumberOfPasswordPrompts=1 -o ConnectTimeout=15 "
 		"-o LogLevel=ERROR)\n"

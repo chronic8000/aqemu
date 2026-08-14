@@ -273,7 +273,8 @@ QString Apple_SoC_Device_Tools_Window::SSH_Base() const
 		"if ! command -v sshpass >/dev/null 2>&1; then "
 		"  sudo -n apt-get install -y sshpass 2>/dev/null || true; "
 		"fi; "
-		"SSH_OPTS=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "
+		"SSH_OPTS=(-o StrictHostKeyChecking=accept-new "
+		"-o UserKnownHostsFile=\"$HOME/.aqemu-companion-known_hosts\" "
 		"-o ConnectTimeout=8 -o LogLevel=ERROR); "
 		"ssh_do() { sshpass -e ssh -p \"$PORT\" \"${SSH_OPTS[@]}\" \"$GUEST@127.0.0.1\" \"$@\"; }; "
 		"scp_do() { sshpass -e scp -P \"$PORT\" \"${SSH_OPTS[@]}\" \"$@\"; }; " )

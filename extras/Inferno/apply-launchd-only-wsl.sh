@@ -1,19 +1,31 @@
 #!/usr/bin/env bash
 # Second-pass: disable ChefKiss launchd services on already dyld-patched root.
+# Required: ROOT_IMG = guest *_inferno/root (absolute path or symlink).
 set -euo pipefail
 
-WORK="${WORK:-$HOME/inferno-fs-patch}"
+if [[ -z "${ROOT_IMG:-}" ]]; then
+  echo "ERROR: ROOT_IMG is not set (path to iOS guest *_inferno/root)"
+  exit 1
+fi
+ROOT_REAL="$(readlink -f "$ROOT_IMG" 2>/dev/null || true)"
+if [[ -z "$ROOT_REAL" || ! -e "$ROOT_REAL" ]]; then
+  ROOT_REAL="$ROOT_IMG"
+fi
+if [[ ! -f "$ROOT_REAL" ]]; then
+  echo "ERROR: root image not found: $ROOT_IMG (resolved: $ROOT_REAL)"
+  exit 1
+fi
+
+WORK="${WORK:-$HOME/aqemu-inferno-fs-patch}"
 ROOT_WORK="$WORK/root-to-patch"
-ROOT_IMG="${ROOT_IMG:-/mnt/c/Users/chron/AQEMU_VM/iOS_ARM64__inferno/root}"
 CLOUD_IMG="$WORK/ubuntu-24.04-minimal-cloudimg-amd64.img"
 RUNTIME_IMG="$WORK/patch-vm-launchd.qcow2"
 PAYLOAD_DIR="$WORK/payload-launchd"
 SEED_DIR="$WORK/seed-launchd"
 
-mkdir -p "$PAYLOAD_DIR" "$SEED_DIR"
+mkdir -p "$PAYLOAD_DIR" "$SEED_DIR" "$WORK"
 cd "$WORK"
-
-[[ -f "$ROOT_WORK" ]] || { echo "missing $ROOT_WORK"; exit 1; }
+cp -f "$ROOT_REAL" "$ROOT_WORK"
 
 cat > "$PAYLOAD_DIR/do-launchd.sh" <<'EOS'
 #!/usr/bin/env bash
@@ -34,8 +46,24 @@ modprobe libcrc32c || true
 insmod ./apfs.ko
 
 mkdir -p /mnt/ios
-ROOT_DEV=/dev/vdb
-mount -t apfs -o readwrite "${ROOT_DEV}1" /mnt/ios
+ROOT_DEV=""
+BEST=0
+for d in /dev/vdb /dev/vdc /dev/vdd /dev/vde /dev/sdb /dev/sdc /dev/sdd /dev/sde; do
+  [[ -b "$d" ]] || continue
+  SZ=$(blockdev --getsize64 "$d" || echo 0)
+  echo "disk $d size=$SZ"
+  if [[ "$SZ" -ge 4000000000 && "$SZ" -gt "$BEST" ]]; then
+    BEST=$SZ
+    ROOT_DEV="$d"
+  fi
+done
+[[ -n "$ROOT_DEV" ]] || { echo "ERROR: root device not found"; exit 1; }
+echo "ROOT_DEV=$ROOT_DEV"
+if [[ -e "${ROOT_DEV}1" ]]; then
+  mount -t apfs -o readwrite "${ROOT_DEV}1" /mnt/ios
+else
+  mount -t apfs -o readwrite "$ROOT_DEV" /mnt/ios
+fi
 
 python3 - <<'PY'
 import plistlib, shutil, pathlib, pprint
@@ -192,11 +220,8 @@ if [[ ! -f "$PAYLOAD_DIR/SUCCESS" ]]; then
   exit 1
 fi
 
-echo "=== Installing patched root to AQEMU path ==="
-rm -f "$ROOT_IMG"
-cp -f "$ROOT_WORK" "$ROOT_IMG"
+echo "=== Installing patched root ==="
+cp -f "$ROOT_WORK" "$ROOT_REAL"
 sync
-ls -lh "$ROOT_IMG"
-mkdir -p /mnt/d/aqemu-backups
-cp -f "$ROOT_WORK" /mnt/d/aqemu-backups/iOS_ARM64_root.fs-patched || true
+ls -lh "$ROOT_REAL"
 echo ALL_DONE
