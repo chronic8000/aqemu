@@ -48,6 +48,8 @@ private:
 	bool Find_Python( QString *exe_out, QStringList *prefix_args_out ) const;
 	bool Ensure_Python_Ready();
 	void Suggest_From_Extract_Dir();
+	QString Restore_Ramdisk_From_Manifest( const QString &manifest_path, const QString &extract_dir ) const;
+	bool Ensure_Process_Idle();
 	bool Start_Ticket_Script( bool sep_ticket );
 	QString Extras_Dir() const;
 	QString Ticket_Script( bool sep_ticket ) const;

@@ -114,7 +114,7 @@ Typical files after unpack (names vary by IPSW):
 | `BuildManifest.plist` | Filled into Step 2 automatically |
 | `DeviceTree.n104ap.im4p` | Step 3 decrypt/extract → **DeviceTree** `.dtb` / `.dec` |
 | `kernelcache.release.*` or research kernel | **Kernel** (decrypted / `.research`) |
-| Large restore **`.dmg`** | MACHINE **Restore ramdisk (-initrd)** (suggested if empty) |
+| Restore ramdisk **`.dmg`** (`RestoreRamDisk` in BuildManifest, e.g. `038-44135-124.dmg`) | MACHINE **Restore ramdisk (-initrd)** (suggested if empty). Not the largest IPSW `.dmg` |
 | `Firmware/all_flash/sep-firmware.n104.RELEASE.im4p` | Later pack into **repackaged** SEP `.img4` — not the MACHINE SEP field raw |
 | Trustcache / img4 pieces from the Inferno recipe | **Trustcache** |
 | `kernelcache` / firmware folders | Keep the whole extract; do not delete until MACHINE paths work |

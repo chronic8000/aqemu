@@ -16,6 +16,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QSettings>
+#include <QIODevice>
 #include <QStandardPaths>
 #include <QProcessEnvironment>
 #include <QUrl>
@@ -364,6 +365,8 @@ void iOS_Firmware_Tool_Window::Browse_SEP_IM4P()
 
 void iOS_Firmware_Tool_Window::Run_IPSW_Extraction()
 {
+	if( ! Ensure_Process_Idle() )
+		return;
 	const QString ipsw = Edit_IPSW_Path->text().trimmed();
 	const QString out_dir = Edit_Output_Dir->text().trimmed();
 
@@ -395,6 +398,8 @@ void iOS_Firmware_Tool_Window::Run_IPSW_Extraction()
 
 void iOS_Firmware_Tool_Window::Run_IM4P_Operation()
 {
+	if( ! Ensure_Process_Idle() )
+		return;
 	if( ! Ensure_PyIMG4_Available() )
 		return;
 
@@ -455,7 +460,10 @@ bool iOS_Firmware_Tool_Window::Find_Python( QString *exe_out, QStringList *prefi
 		QStringLiteral( "Apple_SoC_Firmware/Python" ),
 		QStringList() << QStringLiteral( "py" ) << QStringLiteral( "py.exe" )
 		              << QStringLiteral( "python3" ) << QStringLiteral( "python3.exe" )
-		              << QStringLiteral( "python" ) << QStringLiteral( "python.exe" ) );
+		              << QStringLiteral( "python" ) << QStringLiteral( "python.exe" ),
+		QStringList() << QStringLiteral( "python.exe" ) << QStringLiteral( "python3.exe" )
+		              << QStringLiteral( "py.exe" ) << QStringLiteral( "python" )
+		              << QStringLiteral( "python3" ) << QStringLiteral( "py" ) );
 	if( exe_out->isEmpty() )
 		return false;
 	if( QFileInfo( *exe_out ).completeBaseName().compare( QLatin1String( "py" ), Qt::CaseInsensitive ) == 0 )
@@ -479,7 +487,56 @@ bool iOS_Firmware_Tool_Window::Ensure_Python_Ready()
 			tr( "create_apticket.py was not found:\n%1" ).arg( Ticket_Script( false ) ) );
 		return false;
 	}
+	if( ! QFile::exists( Ticket_Script( true ) ) )
+	{
+		QMessageBox::warning( this, tr( "Missing script" ),
+			tr( "create_septicket.py was not found:\n%1" ).arg( Ticket_Script( true ) ) );
+		return false;
+	}
 	return true;
+}
+
+bool iOS_Firmware_Tool_Window::Ensure_Process_Idle()
+{
+	if( Process->state() == QProcess::NotRunning )
+		return true;
+	QMessageBox::information( this, tr( "Busy" ), tr( "Wait for the current task to finish." ) );
+	return false;
+}
+
+QString iOS_Firmware_Tool_Window::Restore_Ramdisk_From_Manifest( const QString &manifest_path,
+                                                                const QString &extract_dir ) const
+{
+	QFile f( manifest_path );
+	if( ! f.open( QIODevice::ReadOnly ) )
+		return QString();
+	const QByteArray data = f.readAll();
+	const QString text = QString::fromUtf8( data );
+	QRegularExpression xml_re(
+		QStringLiteral( "RestoreRamDisk</key>\\s*<string>([^<]+\\.dmg)</string>" ),
+		QRegularExpression::CaseInsensitiveOption );
+	const QRegularExpressionMatch xml = xml_re.match( text );
+	QString name;
+	if( xml.hasMatch() )
+		name = QFileInfo( xml.captured( 1 ).trimmed() ).fileName();
+	if( name.isEmpty() )
+	{
+		const int key = data.indexOf( "RestoreRamDisk" );
+		if( key >= 0 )
+		{
+			const QString slice = QString::fromLatin1( data.mid( key, 512 ) );
+			QRegularExpression dmg_re( QStringLiteral( "([0-9A-Za-z._-]+\\.dmg)" ) );
+			const QRegularExpressionMatch dmg = dmg_re.match( slice );
+			if( dmg.hasMatch() )
+				name = dmg.captured( 1 );
+		}
+	}
+	if( name.isEmpty() )
+		return QString();
+	const QString path = QDir( extract_dir ).filePath( name );
+	if( QFile::exists( path ) )
+		return path;
+	return QString();
 }
 
 void iOS_Firmware_Tool_Window::Suggest_From_Extract_Dir()
@@ -520,29 +577,27 @@ void iOS_Firmware_Tool_Window::Suggest_From_Extract_Dir()
 		Edit_SEP_Out->setText( QDir::toNativeSeparators(
 			d.filePath( QStringLiteral( "sep-firmware.n104.RELEASE.new.img4" ) ) ) );
 
-	QString ramdisk;
-	qint64 best = 0;
-	const QStringList dmgs = d.entryList( QStringList() << QStringLiteral( "*.dmg" ), QDir::Files );
-	for( const QString &f : dmgs )
+	QString ramdisk = Restore_Ramdisk_From_Manifest(
+		Edit_Manifest->text().trimmed().isEmpty() ? man : Edit_Manifest->text().trimmed(),
+		out_dir );
+	if( ramdisk.isEmpty() )
 	{
-		const QFileInfo fi( d.absoluteFilePath( f ) );
-		if( fi.size() > best )
-		{
-			best = fi.size();
-			ramdisk = fi.absoluteFilePath();
-		}
+		Text_Console_Log->append( tr(
+			"No RestoreRamDisk in BuildManifest — not filling restore ramdisk "
+			"(do not use the largest IPSW .dmg; that is usually the OS image)." ) );
 	}
-	if( ! ramdisk.isEmpty() )
+	else
+	{
+		Text_Console_Log->append( tr( "Restore ramdisk (BuildManifest): %1" ).arg(
+			QDir::toNativeSeparators( ramdisk ) ) );
 		emit Restore_Ramdisk_Suggested( QDir::toNativeSeparators( ramdisk ) );
+	}
 }
 
 void iOS_Firmware_Tool_Window::Run_Forge_Tickets()
 {
-	if( Process->state() != QProcess::NotRunning )
-	{
-		QMessageBox::information( this, tr( "Busy" ), tr( "Wait for the current task to finish." ) );
+	if( ! Ensure_Process_Idle() )
 		return;
-	}
 	if( ! Ensure_Python_Ready() )
 		return;
 	const QString man = Edit_Manifest->text().trimmed();
@@ -602,11 +657,8 @@ bool iOS_Firmware_Tool_Window::Start_Ticket_Script( bool sep_ticket )
 
 void iOS_Firmware_Tool_Window::Run_Pack_SEP()
 {
-	if( Process->state() != QProcess::NotRunning )
-	{
-		QMessageBox::information( this, tr( "Busy" ), tr( "Wait for the current task to finish." ) );
+	if( ! Ensure_Process_Idle() )
 		return;
-	}
 	if( ! Ensure_Img4_Available() )
 		return;
 	const QString im4p = Edit_SEP_IM4P->text().trimmed();
@@ -692,7 +744,12 @@ void iOS_Firmware_Tool_Window::On_Process_Finished( int exitCode, QProcess::Exit
 	{
 		if( exitCode == 0 )
 		{
-			Start_Ticket_Script( false );
+			if( ! Start_Ticket_Script( false ) )
+			{
+				QMessageBox::warning( this, tr( "Restore ticket" ),
+					tr( "Could not start create_apticket.py:\n%1" )
+						.arg( Ticket_Script( false ) ) );
+			}
 			return;
 		}
 		if( ! Tried_Pip )
@@ -724,8 +781,13 @@ void iOS_Firmware_Tool_Window::On_Process_Finished( int exitCode, QProcess::Exit
 	{
 		Text_Result_Paths->append( tr( "Restore ticket: %1" ).arg( Last_Ticket_Out ) );
 		emit Restore_Ticket_Suggested( Last_Ticket_Out );
-		if( Chain_Sep_Ticket )
-			Start_Ticket_Script( true );
+		if( Chain_Sep_Ticket && ! Start_Ticket_Script( true ) )
+		{
+			QMessageBox::warning( this, tr( "SEP ticket" ),
+				tr( "Restore ticket was written, but create_septicket.py could not be started:\n%1" )
+					.arg( Ticket_Script( true ) ) );
+			Text_Console_Log->append( tr( "SEP ticket step skipped — missing script or output path." ) );
+		}
 		return;
 	}
 	if( op == Pending_Op::TicketSep )
@@ -765,7 +827,10 @@ void iOS_Firmware_Tool_Window::On_Process_Finished( int exitCode, QProcess::Exit
 				tr( "IM4P output: %1" ).arg( Last_IM4P_Output ) );
 			if( Last_IM4P_Output.endsWith( QLatin1String( ".dec" ), Qt::CaseInsensitive ) ||
 			    Last_IM4P_Output.endsWith( QLatin1String( ".dtb" ), Qt::CaseInsensitive ) )
-				emit DeviceTree_Path_Suggested( Last_IM4P_Output );
+			{
+				if( Edit_IM4P_Path->text().contains( QLatin1String( "DeviceTree" ), Qt::CaseInsensitive ) )
+					emit DeviceTree_Path_Suggested( Last_IM4P_Output );
+			}
 		}
 		return;
 	}
@@ -787,8 +852,7 @@ void iOS_Firmware_Tool_Window::On_Process_Finished( int exitCode, QProcess::Exit
 		{
 			const QString full = QDir::toNativeSeparators( d.absoluteFilePath( f ) );
 			summary += QString( "Payload: %1\n" ).arg( full );
-			const bool is_dt = f.contains( "DeviceTree", Qt::CaseInsensitive ) ||
-			                   f.contains( "dtb", Qt::CaseInsensitive );
+			const bool is_dt = f.contains( "DeviceTree", Qt::CaseInsensitive );
 			const bool usable = f.endsWith( QLatin1String( ".dtb" ), Qt::CaseInsensitive ) ||
 			                    f.endsWith( QLatin1String( ".dec" ), Qt::CaseInsensitive );
 			if( is_dt && usable && dtb_found.isEmpty() )
