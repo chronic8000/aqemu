@@ -52,6 +52,45 @@ If you want to support ongoing development, maintenance, and future feature rele
 
 ---
 
+## iOS on Windows 11
+
+**AQEMU is the Windows 11 app that runs iOS in a window.** Nothing else on the Microsoft Store — or as a Windows VM manager — puts a working iPhone guest on a PC like this. Under the hood that is ChefKiss Inferno (`qemu-system-applesoc`); AQEMU is the GUI, restore flow, filesystem patches, hardware buttons, and guest internet that make it usable on Windows.
+
+**Tested today with iOS 14** (setup + SpringBoard on **t8030** / iPhone 11). **Newer iOS versions are the roadmap** as Inferno’s SoC support grows — AQEMU will follow those builds, not freeze on 14.
+
+<p align="center">
+  <img src="screenshots/ios-setup-windows11.png" alt="iOS Setup — Welcome to iPhone — running in AQEMU on Windows 11" width="920"/>
+</p>
+
+<p align="center">
+  <i>First boot on Windows 11: Setup (“Welcome to iPhone”) inside AQEMU — iOS (ARM64).</i>
+</p>
+
+<p align="center">
+  <img src="screenshots/ios-springboard-windows11.png" alt="iOS 14 SpringBoard home screen in AQEMU on Windows 11" width="920"/>
+</p>
+
+<p align="center">
+  <i>SpringBoard on the desktop: Home, Side, Vol, SOS on the session toolbar — not a fake phone bezel.</i>
+</p>
+
+You supply the IPSW and firmware (AQEMU does not ship Apple OS images). After restore, **filesystem patches** are required or the screen stays black. Guest Wi‑Fi is reverse-tether through the companion, not the Network NIC tab.
+
+Full walkthrough (including re-install): [`extras/Inferno/iOS_Installation.md`](extras/Inferno/iOS_Installation.md).
+
+### How to run iOS
+
+1. **New VM Wizard → Apple → iOS (ARM64)** — Inferno `t8030`, 4 vCPUs, ≥4 GB RAM.
+2. Fill **kernel**, **DeviceTree** (extracted `.dtb` / `.dec`), trustcache, ticket, SEP, restore ramdisk. **File → iOS Firmware Tool** unpacks an IPSW (`pyimg4` on PATH).
+3. USB remote **`127.0.0.1:8030`**. **File → Apple SoC Restore**: start companion, Power On iOS, restore IPSW.
+4. **File → Apply iOS filesystem patches…** on the guest `root` disk (not the companion). Then Power On for Setup / SpringBoard.
+5. Toolbar **Net** or **File → Guest Internet / iOS Device Tools…** → **Enable guest internet** for Safari / App Store.
+6. This path is **TCG on x86 Windows via WSL** — real, but not iPhone-speed. Machine presets: **`t8030`** (A13) and **`s8000`**.
+
+Get it with automatic updates: [AQEMU VM Manager on the Microsoft Store](https://apps.microsoft.com/detail/9p0hgkhq9w19).
+
+---
+
 ## Help us test & refine
 
 | | |
@@ -59,7 +98,7 @@ If you want to support ongoing development, maintenance, and future feature rele
 | **Microsoft Store** | [AQEMU VM Manager on Microsoft Store](https://apps.microsoft.com/detail/9p0hgkhq9w19) (Official Windows installation with automatic updates) |
 | **Website** | [AQEMU Official Website](https://neonsovereign.store/aqemu.html) |
 | **File bugs** | [GitHub Issues](https://github.com/chronic8000/aqemu/issues) — host OS, guest OS, and exact log outputs help us triage quickly. Historical [tobimensch/aqemu issues](https://github.com/tobimensch/aqemu/issues) are archived context only; triage lives in [`docs/TOBIMENSCH_ISSUE_TRIAGE.md`](docs/TOBIMENSCH_ISSUE_TRIAGE.md) |
-| **What we care about** | Install wizards, embedded SPICE, Win9x/XP TCG, Win11 ARM, Intel macOS, Solaris x86, AIX/pseries, migrate/QMP tools |
+| **What we care about** | **iOS on Windows 11**, install wizards, embedded SPICE, Win9x/XP TCG, Win11 ARM, Intel macOS, Solaris x86, AIX/pseries, migrate/QMP tools |
 
 ---
 
@@ -74,7 +113,7 @@ AQEMU started with **Andrey Rijov (RDron)**, then the community era under **Tobi
 
 ### https://github.com/chronic8000/aqemu
 
-Compared to [tobimensch/aqemu](https://github.com/tobimensch/aqemu): **probe-driven QEMU catalogs**, **five-path VM creation**, **embedded SPICE/VNC sessions**, **bundled QEMU 11.0.2**, **Win11 ARM**, proper **Win9x TCG**, **classic Mac + Intel macOS** (WSL/KVM), Solaris/AIX/OS/2 recipes, QMP/blockdev/migrate UI, Windows packaging + **Microsoft Store**.
+Compared to [tobimensch/aqemu](https://github.com/tobimensch/aqemu): **iOS on Windows 11**, **probe-driven QEMU catalogs**, **five-path VM creation**, **embedded SPICE/VNC sessions**, **bundled QEMU 11.0.2**, **Win11 ARM**, proper **Win9x TCG**, **classic Mac + Intel macOS** (WSL/KVM), Solaris/AIX/OS/2 recipes, QMP/blockdev/migrate UI, Windows packaging + **Microsoft Store**.
 
 This is not a reskin. Measured from the final inactive upstream baseline, the revival represents approximately:
 
@@ -138,7 +177,7 @@ An asynchronous **QMP client** drives pause/resume, ACPI shutdown, reset, media 
 |--|--|
 | **Windows 11 ARM** | Wizard + lifecycle on **x64 Windows hosts via TCG** (and KVM on Pi 5 / aarch64) |
 | **Windows 95 / 98 / ME** | **Force pure TCG** — WHPX hangs classic 9x; we stop that footgun |
-| **Apple SoC / iOS** | **1.3.0** — Inferno `qemu-system-applesoc` under **WSL**, trustcache/SEP/NVMe layout, companion + idevicerestore UI |
+| **Apple SoC / iOS** | **1.3.0** — **iOS 14 on Windows 11** (Inferno + WSL): restore, FS patches, SpringBoard, reverse-tether. Newer iOS as Inferno allows. |
 | **Intel macOS + Reims** | OpenCore + OVMF + OSK; **Reims** accel via WSL `qemu-system-reims3d` + Vulkan (**AMD and NVIDIA** on Windows) |
 | **Classic Mac OS (PPC)** | `mac99` / PowerPC profiles, no PC floppy nonsense |
 | **Solaris 11.4 / AIX / OS/2 / ReactOS** | Wizard defaults matching real QEMU flags (AIX = `ppc64`/`pseries`, TCG on Windows) |
@@ -295,28 +334,11 @@ Apple Silicon macOS guests on Snapdragon Windows hosts — not this release’s 
 
 ---
 
-## Apple Silicon (iOS & macOS ARM64) — experimental
+## Apple Silicon (macOS ARM64) — experimental
 
-AQEMU can drive a **`qemu-system-applesoc`** binary (ChefKiss Inferno builds) when present next to AQEMU or in your QEMU directory. This is **TCG on x86 Windows** — slow, incomplete, and not a shipping Store promise for “run iPhone on PC.”
+iOS on Windows 11 is documented **[above](#ios-on-windows-11)** (screenshots, iOS 14 tested, install steps).
 
-Supported machine presets in the UI today: **`t8030`** (A13) and **`s8000`**. Do not expect M1/`t8101` unless your applesoc binary actually lists it in `-machine help`.
-
-### How to try it
-
-1. **New VM Wizard → Apple → `iOS (ARM64)` or `macOS Apple Silicon (ARM64)`**  
-   AQEMU selects `qemu-system-applesoc` and defaults toward `t8030`, 4 vCPUs, ≥4 GB RAM.
-2. **Kernel + DeviceTree**  
-   Put paths in the VM’s **DeviceTree / Kernel / Boot Arguments** fields (Other page) — not Additional Args.  
-   Use **File → iOS Firmware Tool** to unpack an IPSW; IM4P extract/decrypt needs an external **`pyimg4`** on PATH (AQEMU does not vendor it).
-3. **IPSW restore + filesystem patches (iOS)**  
-   Step-by-step: [`extras/Inferno/iOS_Installation.md`](extras/Inferno/iOS_Installation.md).  
-   Use **File → Apple SoC Restore** (companion USB + idevicerestore). After restore, use **File → Apply iOS filesystem patches…** (also on the MACHINE tab and Restore dialog) so SpringBoard can appear. Patches target the guest `*_inferno/root` disk — **not** the Ubuntu companion. You bring firmware; AQEMU provides the tools.
-4. **Session controls** — for Apple SoC VMs the toolbar adds **Home / Side / Vol / SOS** (ChefKiss F-keys). Optional floating **Pad**. No Apple-lookalike phone bezel.
-5. **Guest internet / App Store** — **File → Guest Internet / iOS Device Tools…** (or session toolbar **Net**). Not the Network NIC tab: click **Enable guest internet (reverse-tether)** after companion + iOS USB are up.
-6. **Start**  
-   Boot validation requires an existing kernelcache and an extracted DeviceTree (`.dtb` / `.dec`, not raw `.im4p`).
-
-AQEMU does **not** ship IPSW files, kernels, DeviceTrees, or Apple OS images.
+The same Inferno binary can target **macOS Apple Silicon (ARM64)** in the wizard. Do not expect M1/`t8101` unless your `qemu-system-applesoc` lists it in `-machine help`. AQEMU does **not** ship IPSW files, kernels, DeviceTrees, or Apple OS images.
 
 ---
 
