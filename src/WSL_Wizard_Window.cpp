@@ -1,5 +1,6 @@
 #include "WSL_Wizard_Window.h"
 #include "WSL_Launch.h"
+#include "WSL_Secure_Credentials.h"
 #include "Utils.h"
 
 #include <QVBoxLayout>
@@ -9,16 +10,20 @@
 #include <QLineEdit>
 #include <QPushButton>
 #include <QLabel>
+#include <QCheckBox>
 
 WSL_Wizard_Window::WSL_Wizard_Window( QWidget *parent )
 	: QDialog( parent )
 {
 	setWindowTitle( tr("WSL First-Run Setup") );
-	setMinimumWidth( 400 );
+	setMinimumWidth( 420 );
 
 	QVBoxLayout *mainLay = new QVBoxLayout( this );
 
-	QLabel *intro = new QLabel( tr("AQEMU needs your WSL configuration to start VMs. Please configure your distro details below:") );
+	QLabel *intro = new QLabel( tr(
+		"AQEMU needs your WSL configuration to start VMs. "
+		"Username is saved in settings; password is optional and can be stored "
+		"securely in Windows Credential Manager." ) );
 	intro->setWordWrap( true );
 	mainLay->addWidget( intro );
 
@@ -36,7 +41,23 @@ WSL_Wizard_Window::WSL_Wizard_Window( QWidget *parent )
 	Edit_User->setText( Settings.value( "WSL_Launch/Username", "" ).toString() );
 	form->addRow( tr("WSL Username:"), Edit_User );
 
-	QLabel *hint = new QLabel( tr( "Admin tasks (KVM group) use wsl -u root — no password needed." ) );
+	Edit_Password = new QLineEdit();
+	Edit_Password->setEchoMode( QLineEdit::Password );
+	if( WSL_Has_Secure_Password() )
+		Edit_Password->setPlaceholderText( tr( "Saved securely — enter a new password to replace" ) );
+	else
+		Edit_Password->setPlaceholderText( tr( "Optional — only if sudo is needed" ) );
+	form->addRow( tr("WSL Password:"), Edit_Password );
+
+	CH_Remember_Password = new QCheckBox( tr( "Remember password securely (Windows Credential Manager)" ) );
+	CH_Remember_Password->setChecked(
+		Settings.value( "WSL_Launch/Remember_Password", false ).toBool() && WSL_Has_Secure_Password() );
+	CH_Remember_Password->setEnabled( WSL_Secure_Password_Available() );
+	form->addRow( QString(), CH_Remember_Password );
+
+	QLabel *hint = new QLabel( tr(
+		"Preferred: KVM fixes use wsl -u root (no password). "
+		"Saved password is only used as a sudo fallback and is never written to AQEMU.ini." ) );
 	hint->setWordWrap( true );
 	hint->setStyleSheet( QStringLiteral( "color: gray;" ) );
 	form->addRow( QString(), hint );
@@ -89,10 +110,38 @@ void WSL_Wizard_Window::on_Btn_Ok_clicked()
 			tr( "WSL username may only contain letters, digits, underscore, and hyphen." ) );
 		return;
 	}
+
+	const QString user = WSL_Sanitize_Username( Get_Username() );
 	Settings.setValue( "WSL_Launch/Distro", Get_Distro() );
-	Settings.setValue( "WSL_Launch/Username", WSL_Sanitize_Username( Get_Username() ) );
-	// Never persist WSL passwords; privileged ops use wsl -u root.
+	Settings.setValue( "WSL_Launch/Username", user );
 	Settings.remove( "WSL_Launch/Password" );
+
+	if( CH_Remember_Password->isChecked() && WSL_Secure_Password_Available() )
+	{
+		const QString pass = Edit_Password->text();
+		if( ! pass.isEmpty() )
+		{
+			if( ! WSL_Save_Secure_Password( user, pass ) )
+			{
+				AQGraphic_Warning( tr( "WSL" ),
+					tr( "Could not save the password to Windows Credential Manager." ) );
+				return;
+			}
+		}
+		else if( ! WSL_Has_Secure_Password() )
+		{
+			AQGraphic_Warning( tr( "WSL" ),
+				tr( "Enter a password to remember, or uncheck Remember password." ) );
+			return;
+		}
+		Settings.setValue( "WSL_Launch/Remember_Password", true );
+	}
+	else
+	{
+		WSL_Clear_Secure_Password();
+		Settings.setValue( "WSL_Launch/Remember_Password", false );
+	}
+
 	WSL_Clear_Probe_Cache();
 	accept();
 }

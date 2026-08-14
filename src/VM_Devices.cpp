@@ -3894,7 +3894,11 @@ const QString &VM_Redirection::Get_Protocol() const
 
 void VM_Redirection::Set_Protocol( const QString &p )
 {
-	Protocol = p;
+	const QString t = p.trimmed();
+	if( t.compare( QLatin1String( "UDP" ), Qt::CaseInsensitive ) == 0 )
+		Protocol = QStringLiteral( "UDP" );
+	else
+		Protocol = QStringLiteral( "TCP" ); // SSH and most services need TCP
 }
 
 int VM_Redirection::Get_Host_Port() const

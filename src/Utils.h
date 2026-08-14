@@ -106,6 +106,13 @@ QString QEMU_IMG_Format_Help_Text( const QStringList &formats );
 QString AQ_Get_Bundled_QEMU_Dir();
 bool AQ_Has_Bundled_QEMU();
 
+/** Reims UEFI GOP option ROM (reims-vgpu-gop.rom) beside aqemu.exe/share or resources. */
+QString AQ_Find_Reims_GOP_ROM();
+/** Matching UEFI driver PE (reims-vgpu-efi.efi) for OpenCore Drivers/. */
+QString AQ_Find_Reims_GOP_EFI();
+/** Inject Reims GOP EFI into an OpenCore FAT boot image and enable it in config.plist. */
+bool AQ_Ensure_OpenCore_Reims_GOP( const QString &fat_img );
+
 /**
  * Replace configured emulators with one profile pointing at dir (must contain qemu-system-*).
  * Also sets QEMU-IMG_Path from that directory. Returns false if no binaries found.

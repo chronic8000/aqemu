@@ -652,6 +652,161 @@ bool AQ_Has_Bundled_QEMU()
 	return ! AQ_Get_Bundled_QEMU_Dir().isEmpty();
 }
 
+QString AQ_Find_Reims_GOP_ROM()
+{
+	const QString app = QDir::cleanPath( QCoreApplication::applicationDirPath() );
+	const QStringList candidates = QStringList()
+		<< ( app + QStringLiteral( "/share/reims-vgpu-gop.rom" ) )
+		<< ( app + QStringLiteral( "/resources/reims-vgpu-gop.rom" ) )
+		<< ( app + QStringLiteral( "/reims-vgpu-gop.rom" ) )
+		<< ( app + QStringLiteral( "/../resources/reims-vgpu-gop.rom" ) );
+	for( const QString &c : candidates )
+	{
+		if( QFile::exists( c ) )
+			return QDir::cleanPath( c );
+	}
+	return QString();
+}
+
+QString AQ_Find_Reims_GOP_EFI()
+{
+	const QString app = QDir::cleanPath( QCoreApplication::applicationDirPath() );
+	const QStringList candidates = QStringList()
+		<< ( app + QStringLiteral( "/share/reims-vgpu-efi.efi" ) )
+		<< ( app + QStringLiteral( "/resources/reims-vgpu-efi.efi" ) )
+		<< ( app + QStringLiteral( "/reims-vgpu-efi.efi" ) )
+		<< ( app + QStringLiteral( "/../resources/reims-vgpu-efi.efi" ) );
+	for( const QString &c : candidates )
+	{
+		if( QFile::exists( c ) )
+			return QDir::cleanPath( c );
+	}
+	return QString();
+}
+
+static QString Windows_Path_To_Mnt( const QString &windows_path )
+{
+	const QString p = AQ_Normalize_File_Path( windows_path );
+	if( p.size() < 3 || p.at( 1 ) != QLatin1Char( ':' ) )
+		return p;
+	return QStringLiteral( "/mnt/%1%2" )
+		.arg( p.at( 0 ).toLower() )
+		.arg( QDir::fromNativeSeparators( p.mid( 2 ) ) );
+}
+
+bool AQ_Ensure_OpenCore_Reims_GOP( const QString &fat_img )
+{
+	const QString img = AQ_Normalize_File_Path( fat_img );
+	const QString efi = AQ_Find_Reims_GOP_EFI();
+	if( img.isEmpty() || efi.isEmpty() || ! QFile::exists( img ) )
+		return false;
+
+	const QString stamp = img + QStringLiteral( ".aqemu-reims-gop" );
+	{
+		QFile sf( stamp );
+		if( sf.open( QIODevice::ReadOnly ) )
+		{
+			const QString prev = QString::fromUtf8( sf.readAll() ).trimmed();
+			sf.close();
+			if( prev == efi && QFileInfo( stamp ).lastModified() >= QFileInfo( efi ).lastModified() )
+				return true;
+		}
+	}
+
+#ifdef Q_OS_WIN32
+	QTemporaryDir tmp;
+	if( ! tmp.isValid() )
+		return false;
+	const QString host_plist = tmp.filePath( QStringLiteral( "config.plist" ) );
+	const QString wsl_img = Windows_Path_To_Mnt( img );
+	const QString wsl_efi = Windows_Path_To_Mnt( efi );
+	const QString wsl_plist = Windows_Path_To_Mnt( host_plist );
+
+	QProcess extract;
+	extract.setProgram( QStringLiteral( "wsl" ) );
+	extract.setArguments( QStringList()
+		<< QStringLiteral( "-e" ) << QStringLiteral( "bash" ) << QStringLiteral( "-lc" )
+		<< QStringLiteral(
+			"set -e; export MTOOLS_SKIP_CHECK=1; "
+			"mcopy -n -i \"%1\" ::/EFI/OC/config.plist \"%2\"; "
+			"mcopy -o -i \"%1\" \"%3\" ::/EFI/OC/Drivers/reims-vgpu-efi.efi" )
+			.arg( wsl_img, wsl_plist, wsl_efi ) );
+	extract.start();
+	if( ! extract.waitForFinished( 120000 ) || extract.exitCode() != 0 )
+		return false;
+
+	QFile pf( host_plist );
+	if( ! pf.open( QIODevice::ReadOnly ) )
+		return false;
+	QString text = QString::fromUtf8( pf.readAll() );
+	pf.close();
+	if( text.isEmpty() )
+		return false;
+
+	if( ! text.contains( QLatin1String( "reims-vgpu-efi.efi" ), Qt::CaseInsensitive ) )
+	{
+		const QString entry = QStringLiteral(
+			"\t\t\t<dict>\n"
+			"\t\t\t\t<key>Arguments</key>\n"
+			"\t\t\t\t<string></string>\n"
+			"\t\t\t\t<key>Comment</key>\n"
+			"\t\t\t\t<string>Reims vGPU UEFI GOP (BAR1 framebuffer)</string>\n"
+			"\t\t\t\t<key>Enabled</key>\n"
+			"\t\t\t\t<true/>\n"
+			"\t\t\t\t<key>LoadEarly</key>\n"
+			"\t\t\t\t<true/>\n"
+			"\t\t\t\t<key>Path</key>\n"
+			"\t\t\t\t<string>reims-vgpu-efi.efi</string>\n"
+			"\t\t\t</dict>\n" );
+		const QString marker = QStringLiteral( "<key>Drivers</key>" );
+		const int key_pos = text.indexOf( marker );
+		if( key_pos < 0 )
+			return false;
+		const int array_pos = text.indexOf( QLatin1String( "<array>" ), key_pos );
+		if( array_pos < 0 )
+			return false;
+		const int insert_at = array_pos + QStringLiteral( "<array>" ).size();
+		// Prefer inserting after newline following <array>
+		int at = insert_at;
+		if( at < text.size() && text.at( at ) == QLatin1Char( '\n' ) )
+			++at;
+		text.insert( at, entry );
+	}
+
+	if( ! pf.open( QIODevice::WriteOnly | QIODevice::Truncate ) )
+		return false;
+	const QByteArray out = text.toUtf8();
+	if( pf.write( out ) != out.size() )
+	{
+		pf.close();
+		return false;
+	}
+	pf.close();
+
+	QProcess inject;
+	inject.setProgram( QStringLiteral( "wsl" ) );
+	inject.setArguments( QStringList()
+		<< QStringLiteral( "-e" ) << QStringLiteral( "bash" ) << QStringLiteral( "-lc" )
+		<< QStringLiteral(
+			"set -e; export MTOOLS_SKIP_CHECK=1; "
+			"mcopy -o -i \"%1\" \"%2\" ::/EFI/OC/config.plist" )
+			.arg( wsl_img, wsl_plist ) );
+	inject.start();
+	if( ! inject.waitForFinished( 120000 ) || inject.exitCode() != 0 )
+		return false;
+#else
+	return false;
+#endif
+
+	QFile stamp_out( stamp );
+	if( stamp_out.open( QIODevice::WriteOnly | QIODevice::Truncate ) )
+	{
+		stamp_out.write( efi.toUtf8() );
+		stamp_out.close();
+	}
+	return true;
+}
+
 QString AQ_Get_QEMU_Source_Mode()
 {
 	QSettings s;

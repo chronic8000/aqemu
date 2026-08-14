@@ -1,0 +1,4 @@
+# User-supplied Apple firmware / tickets — never commit IPSW extracts
+BuildManifest.plist
+*.der
+ticket.shsh2

@@ -4,15 +4,57 @@
 	* Apple SoC / iOS (ChefKiss Inferno):
 	  - Inferno launch profile: trustcache, ticket, SEP FW/ROM, usb-conn, kaslr-off,
 	    multi-ns NVMe + apple-nvram + SEP pflash image set under the VM folder.
+	  - MACHINE tab owns all Inferno file paths (kernel, DeviceTree, trustcache,
+	    ticket, SEP FW/ROM, optional SecureROM, IPSW) and USB remote / kaslr-off.
+	    Launch never invents missing paths or injects default -append; Start validates
+	    required MACHINE-tab fields and fails with a clear message instead.
 	  - On Windows, applesoc is forced through WSL Linux qemu-system-applesoc
 	    (UNIX sockets / companion restore; not Windows PE alone).
-	  - File → Apple SoC Restore: companion command helper + idevicerestore in WSL.
+	  - File → Apple SoC Restore: companion helper; one-click SSH upload of IPSW
+	    + idevicerestore inside the companion (sshpass via WSL).
+	  - File → Apply iOS filesystem patches… (also MACHINE tab + Restore dialog +
+	    post-restore prompt): InfernoFSPatcher + LaunchDaemons on the guest root
+	    NVMe via WSL KVM helper — not the companion. Required for SpringBoard;
+	    clears Restore ramdisk (-initrd) on success. Bundles extras/Inferno scripts.
+	  - Session toolbar (Apple SoC): Home / Side / Vol / SOS / More… / Pad / Net via
+	    Inferno F-key sendkey; floating pad is neutral (not an iPhone bezel).
+	  - File / VM → Guest Internet / iOS Device Tools… (toolbar Net): Enable guest
+	    internet (reverse-tether) on the companion — usbmuxd MODE=3 + NetworkManager
+	    Shared on USB/NCM (not the AQEMU Network NIC tab). Marks Ubuntu ethernet
+	    managed so Shared activation is not “strictly unmanaged”. Diagnose USB /
+	    idevice; IPA install via ideviceinstaller (auto-apt if missing); screenshot.
+	  - extras/Inferno/iOS_Installation.md: starter + re-install walkthrough
+	    (restore, FS patches, internet, IPA vs .deb, 8 GiB vs 32 GiB root).
+	    wipe-ios-nvme.ps1 for partial-flash / clean NAND. Default auto-created root
+	    is 8 GiB; grow sparse to 32 GiB before restore for App Store / large IPAs.
+	  - Restore ramdisk (-initrd) also sets boot-mode=enter_recovery so NVRAM
+	    auto-boot=true cannot skip recovery on re-restore.
+	  - Apple SoC QEMU stop: short summary first (full kernel-patch dump stays in
+	    qemu-boot.log / Error Log); Copy on error dialogs is usable.
+	  - Embedded VNC: sticky mouse grab no longer steals File/toolbar; leave and
+	    chrome clicks release grab.
 	  - Wizard + main UI fields for Inferno firmware paths and USB remote type.
 	* Hardware-accelerated Intel macOS (Reims):
 	  - Always uses Linux qemu-system-reims3d under WSL with reims-vgpu-pci.
 	  - Documents AMD and NVIDIA host GPUs via WSLg Vulkan (not Windows PE Reims).
-	* WSL: prompt for distro/username on boot when missing; passwords are not stored
-	  (KVM access uses wsl -u root). Machine -machine path props rewritten for WSL.
+	  - Reims computer type locks Video Card to reims-vgpu-pci only (UI/wizard/args);
+	    cirrus/std from the PE probe catalog are never offered or persisted.
+	  - Product display: -display none + embedded VNC for OpenCore/early boot.
+	    QEMU SDL/GTK (Separate QEMU window) is blocked for Reims on WSL (DRI3).
+	    REIMS_VGPU_WINDOW defaults off: Mesa Dozen on WSLg NVIDIA can segfault in
+	    vkCreateDevice and kill QEMU; opt-in under Advanced Settings → WSL.
+	  - Wizard/start injects reims-vgpu-efi.efi into OpenCore and prefers OVMF_CODE_4M.
+	* WSL: prompt for distro/username on boot when missing; optional password can be
+	  saved securely in Windows Credential Manager (never AQEMU.ini). KVM access
+	  prefers wsl -u root, with sudo -S stdin fallback when Remember is enabled.
+	  Reims VM provision/start auto-installs native-arch Mesa Dozen (dzn)
+	  Vulkan-on-D3D12 ICD in WSL (ignores foreign multiarch dzn; strips
+	  conflicting mesa-vulkan-drivers:<foreign-arch>). Treats native
+	  libvulkan_dzn as ready even when vulkaninfo segfaults/lists nothing.
+	  Probe Dozen via wsl -e (not wsl --) so login-shell $(…) expansion cannot
+	  falsely report the ICD missing. Reims attach uses pci-bridge +
+	  reims-vgpu-gop.rom (UEFI GOP); Intel/Reims prefer OSX-KVM OVMF_CODE_4M
+	  over stock edk2 when available. Machine -machine path props rewritten for WSL.
 
 2026-07-31 Chronic Engineering — AQEMU 1.0.2 (Reims vGPU Acceleration Target)
 

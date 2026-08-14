@@ -43,6 +43,7 @@
 #include "System_Info.h"
 #include "Utils.h"
 #include "WSL_Launch.h"
+#include "WSL_Secure_Credentials.h"
 #include "Emulator_Options_Window.h"
 #include "First_Start_Wizard.h"
 #include "Create_Template_Window.h"
@@ -156,6 +157,10 @@ Advanced_Settings_Window::Advanced_Settings_Window( QWidget *parent )
 	CH_WSL_Launch_Enabled = nullptr;
 	CB_WSL_Distro = nullptr;
 	Edit_WSL_User = nullptr;
+	Edit_WSL_Password = nullptr;
+	CH_WSL_Remember_Password = nullptr;
+	CB_WSL_Vulkan_Device = nullptr;
+	CH_WSL_Reims_Host_Window = nullptr;
 	Edit_WSL_Qemu_Binary = nullptr;
 	Edit_WSL_AppleSoC_Binary = nullptr;
 	Label_WSL_KVM_Status = nullptr;
@@ -185,6 +190,57 @@ Advanced_Settings_Window::Advanced_Settings_Window( QWidget *parent )
 		userLay->addWidget( Edit_WSL_User );
 		wslLay->addLayout( userLay );
 
+		QHBoxLayout *passLay = new QHBoxLayout();
+		passLay->addWidget( new QLabel( tr( "WSL Password:" ) ) );
+		Edit_WSL_Password = new QLineEdit();
+		Edit_WSL_Password->setEchoMode( QLineEdit::Password );
+		if( WSL_Has_Secure_Password() )
+			Edit_WSL_Password->setPlaceholderText( tr( "Saved securely — enter to replace" ) );
+		else
+			Edit_WSL_Password->setPlaceholderText( tr( "Optional sudo fallback" ) );
+		passLay->addWidget( Edit_WSL_Password );
+		wslLay->addLayout( passLay );
+
+		CH_WSL_Remember_Password = new QCheckBox(
+			tr( "Remember password securely (Windows Credential Manager)" ) );
+		CH_WSL_Remember_Password->setChecked(
+			Settings.value( "WSL_Launch/Remember_Password", false ).toBool() && WSL_Has_Secure_Password() );
+		CH_WSL_Remember_Password->setEnabled( WSL_Secure_Password_Available() );
+		wslLay->addWidget( CH_WSL_Remember_Password );
+
+		QHBoxLayout *vkLay = new QHBoxLayout();
+		vkLay->addWidget( new QLabel( tr( "Reims Vulkan GPU:" ) ) );
+		CB_WSL_Vulkan_Device = new QComboBox();
+		CB_WSL_Vulkan_Device->setEditable( true );
+		CB_WSL_Vulkan_Device->addItem( tr( "Auto (first accelerated device)" ), QStringLiteral( "auto" ) );
+		{
+			const QStringList vk_gpus = WSL_List_Accelerated_Vulkan_GPUs( active_d );
+			for( int i = 0; i < vk_gpus.size(); ++i )
+				CB_WSL_Vulkan_Device->addItem( vk_gpus.at( i ), vk_gpus.at( i ) );
+			if( vk_gpus.isEmpty() )
+				CB_WSL_Vulkan_Device->addItem( tr( "(none — WSL only has llvmpipe)" ), QString() );
+		}
+		const QString saved_vk = Settings.value( "WSL_Launch/Vulkan_Device", "auto" ).toString();
+		int vk_idx = CB_WSL_Vulkan_Device->findData( saved_vk );
+		if( vk_idx < 0 )
+			vk_idx = CB_WSL_Vulkan_Device->findText( saved_vk );
+		if( vk_idx >= 0 )
+			CB_WSL_Vulkan_Device->setCurrentIndex( vk_idx );
+		else if( ! saved_vk.isEmpty() && saved_vk != QLatin1String( "auto" ) )
+			CB_WSL_Vulkan_Device->setEditText( saved_vk );
+		vkLay->addWidget( CB_WSL_Vulkan_Device );
+		wslLay->addLayout( vkLay );
+
+		CH_WSL_Reims_Host_Window = new QCheckBox( tr(
+			"Reims WSLg host window (experimental — can crash QEMU on Dozen/NVIDIA)" ) );
+		CH_WSL_Reims_Host_Window->setChecked(
+			Settings.value( "WSL_Launch/Reims_Host_Window", false ).toBool() );
+		CH_WSL_Reims_Host_Window->setToolTip( tr(
+			"Sets REIMS_VGPU_WINDOW=1 so Reims opens a winit Vulkan window under WSLg.\n"
+			"On current Mesa Dozen + NVIDIA WSLg stacks, vkCreateDevice often segfaults "
+			"and kills the VM. Leave unchecked for stable embedded VNC/GOP boot." ) );
+		wslLay->addWidget( CH_WSL_Reims_Host_Window );
+
 		QHBoxLayout *binLay = new QHBoxLayout();
 		binLay->addWidget( new QLabel( tr( "QEMU binary in WSL:" ) ) );
 		Edit_WSL_Qemu_Binary = new QLineEdit(
@@ -210,9 +266,11 @@ Advanced_Settings_Window::Advanced_Settings_Window( QWidget *parent )
 
 		QLabel *note = new QLabel( tr(
 			"SPICE/QMP stay on 127.0.0.1 — requires WSL localhostForwarding.\n"
-			"Apple SoC / Reims always use WSL Linux binaries. Passwords are not stored; "
-			"KVM permission fixes use wsl -u root.\n"
-			"Reims Metal/Vulkan acceleration supports AMD and NVIDIA GPUs via WSLg." ) );
+			"Apple SoC / Reims always use WSL Linux binaries. KVM fixes prefer wsl -u root; "
+			"an optional password can be saved in Windows Credential Manager (never AQEMU.ini).\n"
+			"Reims uses host Vulkan via WSLg D3D12 (NVIDIA, AMD, or Intel) — not a Windows "
+			"VFIO picker. If vulkaninfo only shows llvmpipe, install Mesa Dozen (dzn).\n"
+			"Reims display: -display none + embedded VNC for early boot; do not use QEMU SDL/GTK." ) );
 		note->setWordWrap( true );
 		wslLay->addWidget( note );
 
@@ -673,13 +731,58 @@ void Advanced_Settings_Window::done(int r)
 		    Settings.setValue( "WSL_Launch/Enabled", CH_WSL_Launch_Enabled->isChecked() );
 		    Settings.setValue( "WSL_Launch/Distro", CB_WSL_Distro ? CB_WSL_Distro->currentText().trimmed() : QString() );
 		    Settings.setValue( "WSL_Launch/Username", WSL_Sanitize_Username( wsl_user ) );
-		    // Never persist WSL sudo passwords to disk.
+		    // Never persist WSL sudo passwords in AQEMU.ini.
 		    Settings.remove( "WSL_Launch/Password" );
+
+		    if( CH_WSL_Remember_Password && CH_WSL_Remember_Password->isChecked()
+		        && WSL_Secure_Password_Available() )
+		    {
+			    const QString pass = Edit_WSL_Password ? Edit_WSL_Password->text() : QString();
+			    if( ! pass.isEmpty() )
+			    {
+				    if( ! WSL_Save_Secure_Password( WSL_Sanitize_Username( wsl_user ), pass ) )
+				    {
+					    AQGraphic_Warning( tr( "WSL" ),
+						    tr( "Could not save the password to Windows Credential Manager." ) );
+					    return;
+				    }
+			    }
+			    else if( ! WSL_Has_Secure_Password() )
+			    {
+				    AQGraphic_Warning( tr( "WSL" ),
+					    tr( "Enter a password to remember, or uncheck Remember password." ) );
+				    return;
+			    }
+			    Settings.setValue( "WSL_Launch/Remember_Password", true );
+		    }
+		    else
+		    {
+			    WSL_Clear_Secure_Password();
+			    Settings.setValue( "WSL_Launch/Remember_Password", false );
+		    }
+
 		    Settings.setValue( "WSL_Launch/Qemu_Binary",
 			    Edit_WSL_Qemu_Binary ? Edit_WSL_Qemu_Binary->text().trimmed() : QStringLiteral( "qemu-system-x86_64" ) );
 		    Settings.setValue( "WSL_Launch/AppleSoC_Binary",
 			    Edit_WSL_AppleSoC_Binary ? Edit_WSL_AppleSoC_Binary->text().trimmed()
 			                           : QStringLiteral( "/usr/local/bin/qemu-system-applesoc" ) );
+		    {
+			    QString vk = QStringLiteral( "auto" );
+			    if( CB_WSL_Vulkan_Device )
+			    {
+				    const QVariant data = CB_WSL_Vulkan_Device->currentData();
+				    if( data.isValid() && ! data.toString().isEmpty() )
+					    vk = data.toString();
+				    else
+					    vk = CB_WSL_Vulkan_Device->currentText().trimmed();
+			    }
+			    if( vk.isEmpty() )
+				    vk = QStringLiteral( "auto" );
+			    Settings.setValue( "WSL_Launch/Vulkan_Device", vk );
+			    WSL_Set_Preferred_Vulkan_Device( vk == QLatin1String( "auto" ) ? QString() : vk );
+		    }
+		    Settings.setValue( "WSL_Launch/Reims_Host_Window",
+			    CH_WSL_Reims_Host_Window && CH_WSL_Reims_Host_Window->isChecked() );
 		    WSL_Clear_Probe_Cache();
 	    }
 #endif

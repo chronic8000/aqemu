@@ -73,6 +73,11 @@ public:
 
     void updateConfiguration() override;
 
+    /** Sticky grab: host pointer stays confined to the guest until Esc / Ctrl+Alt,
+     *  or until the cursor moves to AQEMU chrome with no mouse buttons held. */
+    void setStickyMouseGrab(bool on);
+    bool stickyMouseGrab() const { return m_stickyMouseGrab; }
+
 public Q_SLOTS:
     void scaleResize(int w, int h) override;
 
@@ -87,12 +92,16 @@ private:
     QClipboard *m_clipboard;
     bool m_initDone;
     int m_buttonMask;
+    bool m_stickyMouseGrab;
+    bool m_dragMouseGrab;
     QMap<unsigned int, bool> m_mods;
     bool m_quitFlag;
     bool m_firstPasswordTry;
     bool m_dontSendClipboard;
     qreal m_horizontalFactor;
     qreal m_verticalFactor;
+    QSize m_lastScaleParentSize;
+    QSize m_lastScaleFrameSize;
 #ifndef QTONLY
     VncHostPreferences *m_hostPreferences;
 #endif

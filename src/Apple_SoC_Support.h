@@ -9,14 +9,26 @@ class Virtual_Machine;
 /** True when this VM should use the Inferno Apple SoC launch profile. */
 bool AQ_Is_Apple_SoC_VM( const Virtual_Machine *vm );
 
-/** Default research-kernel boot args used by Inferno t8030 restore/boot recipes. */
-QString AQ_Apple_SoC_Default_Append();
+/**
+ * Suggested research-kernel boot args for new Inferno VMs (wizard prefill only).
+ * Never injected at launch — Kernel command line must come from the MACHINE tab.
+ */
+QString AQ_Apple_SoC_Suggested_Append();
 
 /**
  * Per-VM directory for Inferno raw images (sep_nvram, root, …).
  * Never the shared VM_Directory root — that would collide across guests.
  */
 QString AQ_Apple_SoC_Image_Dir( const Virtual_Machine *vm );
+
+/** Per-boot Inferno QEMU stderr/stdout log under the image dir (qemu-boot.log). */
+QString AQ_Apple_SoC_QEMU_Log_Path( const Virtual_Machine *vm );
+
+/**
+ * Validate MACHINE-tab Inferno paths before Start. On failure sets error_out.
+ * Does not invent or substitute missing files.
+ */
+bool AQ_Validate_Apple_SoC_Boot_Files( const Virtual_Machine *vm, QString *error_out = nullptr );
 
 /**
  * Ensure the standard raw image set exists under image_dir.

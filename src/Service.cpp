@@ -71,8 +71,12 @@ void AQEMU_Service::stop_all()
 {
     for( int i = machines.count() - 1; i >= 0; --i )
     {
-        if( machines[i] )
-            machines[i]->Stop();
+        if( ! machines[i] )
+            continue;
+        machines[i]->Stop();
+        // WSL qemu-system is not a Windows child of AQEMU — Stop() alone can leave
+        // disk locks. Sweep orphans immediately on app quit / service shutdown.
+        machines[i]->Kill_Orphan_QEMU_Using_Disks();
     }
 }
 

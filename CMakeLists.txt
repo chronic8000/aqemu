@@ -98,9 +98,14 @@ SET( aqemu_headers
 	src/VM_Wizard_Window.h
 	src/VNC_Password_Window.h
 	src/WSL_Wizard_Window.h
+	src/WSL_Secure_Credentials.h
 	src/iOS_Firmware_Tool_Window.h
 	src/Apple_SoC_Support.h
 	src/Apple_SoC_Restore_Window.h
+	src/Apple_SoC_FS_Patch_Window.h
+	src/Apple_SoC_Button_Pad.h
+	src/Apple_SoC_Device_Tools_Window.h
+	src/Inferno_Companion_Setup.h
 	src/QMP_Client.h
 	src/QEMU_Help_Browser.h
 	src/Blockdev_Graph_Window.h
@@ -166,12 +171,17 @@ SET( aqemu_sources
 	src/iOS_Firmware_Tool_Window.cpp
 	src/Apple_SoC_Support.cpp
 	src/Apple_SoC_Restore_Window.cpp
+	src/Apple_SoC_FS_Patch_Window.cpp
+	src/Apple_SoC_Button_Pad.cpp
+	src/Apple_SoC_Device_Tools_Window.cpp
+	src/Inferno_Companion_Setup.cpp
 	src/Storage_Browser_Window.cpp
 	src/Serial_Console_Window.cpp
 	src/URL_Fetch.cpp
 	src/Remote_Host_Window.cpp
 	src/Migrate_URI_Dialog.cpp
 	src/WSL_Launch.cpp
+	src/WSL_Secure_Credentials.cpp
 	src/VNC_Password_Window.cpp
 	src/QMP_Client.cpp
 	src/QEMU_Help_Browser.cpp
@@ -310,6 +320,10 @@ TARGET_LINK_LIBRARIES( aqemu
     Qt5::PrintSupport
     Qt5::DBus
 )
+
+IF( WIN32 )
+	TARGET_LINK_LIBRARIES( aqemu advapi32 )
+ENDIF()
 
 # Embedded VNC display
 IF( NOT WITHOUT_EMBEDDED_DISPLAY )
@@ -490,6 +504,71 @@ IF( EXISTS "${CMAKE_SOURCE_DIR}/third_party/opencore/OpenPartitionDxe.efi" )
 		COMMENT "Bundle OpenPartitionDxe.efi for Intel macOS OpenCore patch"
 	)
 ENDIF()
+
+# Reims GOP firmware: option ROM + OpenCore EFI driver + OSX-KVM OVMF when present.
+IF( EXISTS "${CMAKE_SOURCE_DIR}/resources/reims-vgpu-gop.rom" )
+	ADD_CUSTOM_COMMAND( TARGET aqemu POST_BUILD
+		COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:aqemu>/share"
+		COMMAND ${CMAKE_COMMAND} -E copy_if_different
+			"${CMAKE_SOURCE_DIR}/resources/reims-vgpu-gop.rom"
+			"$<TARGET_FILE_DIR:aqemu>/share/reims-vgpu-gop.rom"
+		COMMENT "Bundle reims-vgpu-gop.rom for Reims UEFI GOP"
+	)
+ENDIF()
+IF( EXISTS "${CMAKE_SOURCE_DIR}/resources/reims-vgpu-efi.efi" )
+	ADD_CUSTOM_COMMAND( TARGET aqemu POST_BUILD
+		COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:aqemu>/share"
+		COMMAND ${CMAKE_COMMAND} -E copy_if_different
+			"${CMAKE_SOURCE_DIR}/resources/reims-vgpu-efi.efi"
+			"$<TARGET_FILE_DIR:aqemu>/share/reims-vgpu-efi.efi"
+		COMMENT "Bundle reims-vgpu-efi.efi for OpenCore Drivers"
+	)
+ENDIF()
+IF( EXISTS "${CMAKE_SOURCE_DIR}/resources/OVMF_CODE_4M.fd" )
+	ADD_CUSTOM_COMMAND( TARGET aqemu POST_BUILD
+		COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:aqemu>/share"
+		COMMAND ${CMAKE_COMMAND} -E copy_if_different
+			"${CMAKE_SOURCE_DIR}/resources/OVMF_CODE_4M.fd"
+			"$<TARGET_FILE_DIR:aqemu>/share/OVMF_CODE_4M.fd"
+		COMMENT "Bundle OSX-KVM OVMF_CODE_4M.fd for Intel/Reims macOS"
+	)
+ELSEIF( EXISTS "${CMAKE_SOURCE_DIR}/scripts/OSX-KVM/OVMF_CODE_4M.fd" )
+	ADD_CUSTOM_COMMAND( TARGET aqemu POST_BUILD
+		COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:aqemu>/share"
+		COMMAND ${CMAKE_COMMAND} -E copy_if_different
+			"${CMAKE_SOURCE_DIR}/scripts/OSX-KVM/OVMF_CODE_4M.fd"
+			"$<TARGET_FILE_DIR:aqemu>/share/OVMF_CODE_4M.fd"
+		COMMENT "Bundle OSX-KVM OVMF_CODE_4M.fd for Intel/Reims macOS"
+	)
+ENDIF()
+
+# Inferno extras (FS-patch scripts, tickets notes) next to aqemu.exe for GUI tools
+ADD_CUSTOM_COMMAND( TARGET aqemu POST_BUILD
+	COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:aqemu>/extras/Inferno"
+	COMMAND ${CMAKE_COMMAND} -E copy_if_different
+		"${CMAKE_SOURCE_DIR}/extras/Inferno/apply-fs-patches-wsl.sh"
+		"$<TARGET_FILE_DIR:aqemu>/extras/Inferno/apply-fs-patches-wsl.sh"
+	COMMAND ${CMAKE_COMMAND} -E copy_if_different
+		"${CMAKE_SOURCE_DIR}/extras/Inferno/apply-launchd-only-wsl.sh"
+		"$<TARGET_FILE_DIR:aqemu>/extras/Inferno/apply-launchd-only-wsl.sh"
+	COMMAND ${CMAKE_COMMAND} -E copy_if_different
+		"${CMAKE_SOURCE_DIR}/extras/Inferno/README.txt"
+		"$<TARGET_FILE_DIR:aqemu>/extras/Inferno/README.txt"
+	COMMAND ${CMAKE_COMMAND} -E copy_if_different
+		"${CMAKE_SOURCE_DIR}/extras/Inferno/iOS_Installation.md"
+		"$<TARGET_FILE_DIR:aqemu>/extras/Inferno/iOS_Installation.md"
+	COMMENT "Bundle extras/Inferno FS-patch scripts and iOS install guide"
+)
+# companion-bin (idevice* tools) for optional scp into the Ubuntu companion
+IF( EXISTS "${CMAKE_SOURCE_DIR}/extras/Inferno/companion-bin" )
+	ADD_CUSTOM_COMMAND( TARGET aqemu POST_BUILD
+		COMMAND ${CMAKE_COMMAND} -E copy_directory
+			"${CMAKE_SOURCE_DIR}/extras/Inferno/companion-bin"
+			"$<TARGET_FILE_DIR:aqemu>/extras/Inferno/companion-bin"
+		COMMENT "Bundle extras/Inferno/companion-bin for Device Tools"
+	)
+ENDIF()
+
 
 # Full QEMU -M catalog for New VM Wizard (Platform / Architecture paths)
 IF( EXISTS "${CMAKE_SOURCE_DIR}/docs/qemu_machine_catalog.json" )

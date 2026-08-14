@@ -157,7 +157,7 @@ Compatibility guardrails handle vintage Windows guests that hang under WHPX, non
 
 ### 8. Windows, Linux and Pi hosts that match how people work
 - **WHPX** when the guest arch allows it; **never** shoved onto PPC/ARM guests that cannot use it  
-- **WSL/KVM** launch path for heavy guests (Intel macOS) when `/dev/kvm` is there  
+- **WSL/KVM** launch path for heavy guests (Intel macOS) when `/dev/kvm` is there; optional WSL password can be saved in **Windows Credential Manager** (never in `AQEMU.ini`)  
 - **Raspberry Pi 5** build flags and aarch64 friendliness  
 - Store-safe writable data under `%LOCALAPPDATA%`
 
@@ -210,6 +210,10 @@ AQEMU integrates **steelbrain's `qemu-reims-vgpu`** so Intel macOS guests can us
 - Real Reims acceleration requires the **Linux** binary **`qemu-system-reims3d`** under **WSL** (with KVM + a working Vulkan/GL stack).
 - The Windows `qemu-system-reimsvgpu.exe` helper is **not** a complete Reims build: it does **not** expose `reims-vgpu-pci`. AQEMU therefore **forces Launch via WSL** for Reims VMs and runs `/usr/local/bin/qemu-system-reims3d`.
 - Build or install `qemu-system-reims3d` inside your WSL distro (typically `/usr/local/bin/qemu-system-reims3d`).
+- **Display path:** early OpenCore/text stays in AQEMU’s **embedded VNC** (`-display none`). QEMU **SDL/GTK** (“Separate QEMU window”) is **unsupported** for Reims on WSL (libGL/DRI3 failures). The Reims **WSLg host window** (`REIMS_VGPU_WINDOW=1`) is **off by default**: Mesa Dozen on WSLg NVIDIA can segfault inside `vkCreateDevice` and kill QEMU — enable under Advanced Settings → WSL only to experiment.
+- **Boot stack:** OSX-KVM `OVMF_CODE_4M`, `reims-vgpu-gop.rom` on the device, and OpenCore `reims-vgpu-efi.efi` (AQEMU installs the EFI driver into new/existing OpenCore FAT images when possible).
+- **WSL Vulkan caveat:** WSLg exposes the GPU as **D3D12** (`/dev/dxg`). `nvidia-smi` can work while `vulkaninfo` only shows **llvmpipe** if Mesa **Dozen (`dzn` / `libvulkan_dzn`)** is missing. Stock Ubuntu often omits it.
+- **Automatic provisioning:** Creating or starting a **Reims vGPU** VM on Windows runs `WSL_Ensure_Reims_Vulkan_Stack` inside the configured distro (via `wsl -u root` / optional remembered sudo). It installs **native-arch** Mesa Dozen only (never treats a foreign multiarch `libvulkan_dzn.so` as success), removes conflicting `mesa-vulkan-drivers:<foreign-arch>` packages, then verifies `vulkaninfo`.
 
 ### How Reims accelerates macOS graphics
 - **Zero guest kext mods**: macOS already includes **`AppleParavirtGPU.kext`**. The Reims QEMU device presents the MMIO/IRQ shims that driver expects (`-device reims-vgpu-pci`).
@@ -219,7 +223,7 @@ AQEMU integrates **steelbrain's `qemu-reims-vgpu`** so Intel macOS guests can us
 ### AQEMU integration
 - Wizard profiles: **`macOS x86_64 vGPU (Reims)`** (and related Reims targets)
 - Computer type: `qemu-system-reimsvgpu` (AQEMU label) → WSL launch of **`qemu-system-reims3d`**
-- Defaults: q35, OpenCore/Intel macOS profile fields, `reims-vgpu-pci`, Launch via WSL enabled
+- Defaults: q35, OpenCore/Intel macOS profile fields, `reims-vgpu-pci`, Launch via WSL enabled, embedded early-boot display
 
 ---
 
@@ -304,7 +308,12 @@ Supported machine presets in the UI today: **`t8030`** (A13) and **`s8000`**. Do
 2. **Kernel + DeviceTree**  
    Put paths in the VM’s **DeviceTree / Kernel / Boot Arguments** fields (Other page) — not Additional Args.  
    Use **File → iOS Firmware Tool** to unpack an IPSW; IM4P extract/decrypt needs an external **`pyimg4`** on PATH (AQEMU does not vendor it).
-3. **Start**  
+3. **IPSW restore + filesystem patches (iOS)**  
+   Step-by-step: [`extras/Inferno/iOS_Installation.md`](extras/Inferno/iOS_Installation.md).  
+   Use **File → Apple SoC Restore** (companion USB + idevicerestore). After restore, use **File → Apply iOS filesystem patches…** (also on the MACHINE tab and Restore dialog) so SpringBoard can appear. Patches target the guest `*_inferno/root` disk — **not** the Ubuntu companion. You bring firmware; AQEMU provides the tools.
+4. **Session controls** — for Apple SoC VMs the toolbar adds **Home / Side / Vol / SOS** (ChefKiss F-keys). Optional floating **Pad**. No Apple-lookalike phone bezel.
+5. **Guest internet / App Store** — **File → Guest Internet / iOS Device Tools…** (or session toolbar **Net**). Not the Network NIC tab: click **Enable guest internet (reverse-tether)** after companion + iOS USB are up.
+6. **Start**  
    Boot validation requires an existing kernelcache and an extracted DeviceTree (`.dtb` / `.dec`, not raw `.im4p`).
 
 AQEMU does **not** ship IPSW files, kernels, DeviceTrees, or Apple OS images.

@@ -25,6 +25,9 @@
 #include <QThread>
 #include <QFontMetrics>
 #include <QLabel>
+#include <QDesktopServices>
+#include <QUrl>
+#include <QCursor>
 
 #include "VM.h"
 #include "QMP_Client.h"
@@ -33,9 +36,15 @@
 #include "Embedded_Display/Spice_View.h"
 #include "Utils.h"
 #include "System_Info.h"
+#include "Apple_SoC_Support.h"
+#include "Apple_SoC_Button_Pad.h"
+#include "Apple_SoC_Device_Tools_Window.h"
 #include "Serial_Console_Window.h"
 #include "AQ_UI_Style.h"
 
+#include <QDir>
+#include <QEventLoop>
+#include <QThread>
 #ifdef VNC_DISPLAY
 #include "Embedded_Display/Machine_View.h"
 #endif
@@ -96,10 +105,23 @@ VM_Session_Widget::VM_Session_Widget( QWidget *parent )
 	, Act_Eject_FD0( nullptr )
 	, Act_Insert_FD1( nullptr )
 	, Act_Eject_FD1( nullptr )
+	, Act_Restore_IPSW( nullptr )
+	, Act_Grab_Mouse( nullptr )
+	, Act_CAD( nullptr )
+	, Act_Shift_F10( nullptr )
+	, Act_Apple_Home( nullptr )
+	, Act_Apple_Power( nullptr )
+	, Act_Apple_Vol_Down( nullptr )
+	, Act_Apple_Vol_Up( nullptr )
+	, Act_Apple_SOS( nullptr )
+	, Act_Apple_More( nullptr )
+	, Act_Button_Pad( nullptr )
+	, Act_Guest_Internet( nullptr )
 	, TB_USB( nullptr )
 	, Menu_USB( nullptr )
 	, USB_Enum_Busy( false )
 	, Serial_Win( nullptr )
+	, Button_Pad( nullptr )
 	, Light_FD0( nullptr )
 	, Light_FD1( nullptr )
 	, Light_CD( nullptr )
@@ -197,6 +219,45 @@ void VM_Session_Widget::Build_Toolbar()
 	Act_Eject_FD1 = Add_Toolbar_Action( QIcon( ":/eject.png" ), tr( "Eject floppy B" ), SLOT(On_Eject_FD1()) );
 	Toolbar->addSeparator();
 
+	Act_Restore_IPSW = Add_Toolbar_Action(
+		QIcon( ":/default_mac.png" ),
+		tr( "Restore IPSW (Inferno companion + idevicerestore)…" ),
+		SLOT(On_Restore_IPSW()) );
+	Act_Restore_IPSW->setVisible( false );
+
+	// Inferno hardware buttons (ChefKiss F-keys) — shown only for Apple SoC
+	QAction *sep_apple = Toolbar->addSeparator();
+	Apple_Sep_Actions << sep_apple;
+	Act_Apple_Vol_Down = Toolbar->addAction( tr( "Vol−" ), this, SLOT(On_Apple_Vol_Down()) );
+	Act_Apple_Vol_Down->setToolTip( tr( "Volume down (Inferno F3)" ) );
+	Act_Apple_Vol_Up = Toolbar->addAction( tr( "Vol+" ), this, SLOT(On_Apple_Vol_Up()) );
+	Act_Apple_Vol_Up->setToolTip( tr( "Volume up (Inferno F4)" ) );
+	Act_Apple_Home = Toolbar->addAction( tr( "Home" ), this, SLOT(On_Apple_Home()) );
+	Act_Apple_Home->setToolTip( tr(
+		"Home / Menu (Inferno F6)\n"
+		"Click: Home screen  |  Use More… for App Switcher (double Home)" ) );
+	Act_Apple_Power = Toolbar->addAction( tr( "Side" ), this, SLOT(On_Apple_Power()) );
+	Act_Apple_Power->setToolTip( tr( "Power / Side button (Inferno F5). More… for hold." ) );
+	Act_Apple_SOS = Toolbar->addAction( tr( "SOS" ), this, SLOT(On_Apple_SOS()) );
+	Act_Apple_SOS->setToolTip( tr( "SOS / slide-to-power-off (Vol up, then Side)" ) );
+	Act_Apple_More = Toolbar->addAction( tr( "More…" ), this, SLOT(On_Apple_More_Buttons()) );
+	Act_Apple_More->setToolTip( tr( "App Switcher, Power hold, Ringer, Force shutdown…" ) );
+	Act_Button_Pad = Toolbar->addAction( tr( "Pad" ), this, SLOT(On_Toggle_Button_Pad()) );
+	Act_Button_Pad->setCheckable( true );
+	Act_Button_Pad->setToolTip( tr( "Show / hide floating iOS button pad (not an iPhone bezel)" ) );
+	Act_Guest_Internet = Toolbar->addAction( tr( "Net" ), this, SLOT(On_Guest_Internet()) );
+	Act_Guest_Internet->setToolTip( tr(
+		"Enable guest internet (companion reverse-tether)\n"
+		"Not the AQEMU Network NIC tab — opens Device Tools → Internet" ) );
+	for( QAction *a : { Act_Apple_Vol_Down, Act_Apple_Vol_Up, Act_Apple_Home, Act_Apple_Power,
+	                    Act_Apple_SOS, Act_Apple_More, Act_Button_Pad, Act_Guest_Internet, sep_apple } )
+	{
+		if( a )
+			a->setVisible( false );
+	}
+
+	Toolbar->addSeparator();
+
 	// USB hotplug (VMware-style connect/disconnect menu)
 	Menu_USB = new QMenu( this );
 	TB_USB = new QToolButton( Toolbar );
@@ -214,10 +275,15 @@ void VM_Session_Widget::Build_Toolbar()
 	Toolbar->addSeparator();
 
 	// Guest / display
-	Add_Toolbar_Action( QIcon( ":/key.png" ), tr( "Send Ctrl+Alt+Del" ), SLOT(On_CAD()) );
-	Add_Toolbar_Action( QIcon( ":/key.png" ),
+	Act_CAD = Add_Toolbar_Action( QIcon( ":/key.png" ), tr( "Send Ctrl+Alt+Del" ), SLOT(On_CAD()) );
+	Act_Shift_F10 = Add_Toolbar_Action( QIcon( ":/key.png" ),
 	                    tr( "Send Shift+F10 (Windows Setup / OOBE command prompt)" ),
 	                    SLOT(On_Shift_F10()) );
+	Act_Grab_Mouse = Add_Toolbar_Action(
+		QIcon( ":/input-mouse.png" ),
+		tr( "Grab mouse into guest — or click the guest display; Esc / Ctrl+Alt releases" ),
+		SLOT(On_Grab_Mouse()) );
+	Act_Grab_Mouse->setCheckable( true );
 	Act_Fullscreen = Add_Toolbar_Action( QIcon( ":/fullscreen.png" ),
 	                                     tr( "Fullscreen — hold mouse at top center to show toolbar" ),
 	                                     SLOT(On_Fullscreen()) );
@@ -437,6 +503,7 @@ void VM_Session_Widget::resizeEvent( QResizeEvent *event )
 	QWidget::resizeEvent( event );
 	if( Fullscreen_Active && Fullscreen_Toolbar_Visible )
 		Toolbar->setGeometry( 0, 0, width(), Toolbar->sizeHint().height() );
+	Position_Button_Pad();
 }
 
 void VM_Session_Widget::changeEvent( QEvent *event )
@@ -599,20 +666,38 @@ void VM_Session_Widget::Try_Connect_Display()
 		}
 
 		++Display_Connect_Attempts;
-		if( Display_Connect_Attempts < 15 )
+		const int max_attempts = ( VM && AQ_Is_Apple_SoC_VM( VM ) ) ? 450 : 15; // ~3 min vs ~6 s
+		const int retry_ms = ( VM && AQ_Is_Apple_SoC_VM( VM ) ) ? 400 : 400;
+		if( Display_Connect_Attempts < max_attempts )
 		{
 			Placeholder->setText( tr( "Waiting for guest display… (%1)" )
 				.arg( Display_Connect_Attempts ) );
 			Stack->setCurrentWidget( Placeholder );
-			Schedule_Display_Connect( 400 );
+			Schedule_Display_Connect( retry_ms );
 			return;
 		}
-		const QString err_msg = tr(
-			"Guest display failed to open on %1:%2 after 6 seconds.\n\n"
-			"Please verify that QEMU binary path and machine settings are valid in VM settings." )
-			.arg( Host ).arg( port );
+		const QString err_msg = ( VM && AQ_Is_Apple_SoC_VM( VM ) )
+			? tr(
+				"Guest display is still not open on %1:%2 after several minutes.\n\n"
+				"Inferno often needs a long time before VNC listens. Leave the VM running "
+				"and use Connect, or check:\n"
+				"%3" )
+				.arg( Host ).arg( port )
+				.arg( QDir::toNativeSeparators( AQ_Apple_SoC_QEMU_Log_Path( VM ) ) )
+			: tr(
+				"Guest display failed to open on %1:%2 after 6 seconds.\n\n"
+				"Please verify that QEMU binary path and machine settings are valid in VM settings." )
+				.arg( Host ).arg( port );
 		Placeholder->setText( err_msg );
 		Stack->setCurrentWidget( Placeholder );
+		if( VM && AQ_Is_Apple_SoC_VM( VM ) )
+		{
+			// Soft warning only — do not imply the guest failed; keep QEMU running.
+			AQGraphic_Warning( tr( "Guest display still waiting" ), err_msg );
+			Display_Connect_Attempts = 0;
+			Schedule_Display_Connect( 2000 );
+			return;
+		}
 		AQGraphic_Error( "VM_Session_Widget::Try_Connect_Display",
 		                 tr( "Guest Display Failure" ), err_msg, false );
 		return;
@@ -688,6 +773,12 @@ void VM_Session_Widget::Detach()
 	{
 		Serial_Win->Detach();
 		Serial_Win->hide();
+	}
+	if( Button_Pad )
+	{
+		Button_Pad->hide();
+		if( Act_Button_Pad )
+			Act_Button_Pad->setChecked( false );
 	}
 	if( QMP_Client *q = Active_QMP() )
 	{
@@ -1219,6 +1310,11 @@ void VM_Session_Widget::Update_Media_Actions()
 		Act_Eject_FD1->setEnabled( fd1_on );
 	}
 
+	if( Act_Restore_IPSW )
+		Act_Restore_IPSW->setVisible( VM && AQ_Is_Apple_SoC_VM( VM ) );
+
+	Update_Apple_Controls_Visibility();
+
 	Set_Drive_Light( Light_FD0, fd0_on, false,
 		fd0_on ? tr( "A: %1" ).arg( Media_Base_Name( fd0 ) ) : tr( "A: empty" ) );
 	Set_Drive_Light( Light_FD1, fd1_on, false,
@@ -1365,9 +1461,48 @@ void VM_Session_Widget::On_Serial_Console()
 	Serial_Win->activateWindow();
 }
 
+void VM_Session_Widget::On_Restore_IPSW()
+{
+	emit Request_Restore_IPSW();
+}
+
 void VM_Session_Widget::On_CAD()
 {
 	Send_CAD_To_Guest();
+}
+
+void VM_Session_Widget::On_Grab_Mouse()
+{
+#ifdef VNC_DISPLAY
+	if( Backend == "vnc" && Vnc )
+	{
+		Vnc->captureAllMouseEvents();
+		Update_Grab_Mouse_Action();
+		return;
+	}
+#endif
+	if( Spice && Backend == "spice" )
+	{
+		Spice->setFocus( Qt::MouseFocusReason );
+		AQGraphic_Warning( tr( "Mouse grab" ),
+			tr( "SPICE: click inside the guest to capture (relative mouse), Esc to release.\n"
+			    "For seamless tablet mode, change Mouse Type to a relative device and restart." ) );
+	}
+}
+
+void VM_Session_Widget::Update_Grab_Mouse_Action()
+{
+	if( ! Act_Grab_Mouse )
+		return;
+	bool grabbed = false;
+#ifdef VNC_DISPLAY
+	if( Backend == "vnc" && Vnc )
+		grabbed = Vnc->isMouseGrabbed();
+#endif
+	Act_Grab_Mouse->setChecked( grabbed );
+	Act_Grab_Mouse->setToolTip( grabbed
+		? tr( "Mouse captured — press Esc or Ctrl+Alt to release" )
+		: tr( "Grab mouse into guest — or click the guest display; Esc / Ctrl+Alt releases" ) );
 }
 
 void VM_Session_Widget::On_Shift_F10()
@@ -1379,6 +1514,207 @@ void VM_Session_Widget::On_Shift_F10()
 	}
 	// HMP fallback (VNC / no SPICE inputs channel)
 	Send_Monitor( "sendkey shift-f10" );
+}
+
+void VM_Session_Widget::Send_Apple_Key( const QString &key_name, int hold_ms )
+{
+	if( ! VM || key_name.isEmpty() )
+		return;
+	// ChefKiss Inferno maps F-keys to device buttons via QEMU keyboard.
+	if( hold_ms <= 0 )
+	{
+		Send_Monitor( QStringLiteral( "sendkey %1" ).arg( key_name ) );
+		return;
+	}
+	Send_Monitor( QStringLiteral( "sendkey %1" ).arg( key_name ) );
+	// Second pulse after hold approximates a long-press for Side button menus.
+	QTimer::singleShot( hold_ms, this, [this, key_name]() {
+		if( VM )
+			Send_Monitor( QStringLiteral( "sendkey %1" ).arg( key_name ) );
+	} );
+}
+
+void VM_Session_Widget::Send_Apple_Key_Double( const QString &key_name )
+{
+	Send_Apple_Key( key_name );
+	QTimer::singleShot( 180, this, [this, key_name]() {
+		Send_Apple_Key( key_name );
+	} );
+}
+
+void VM_Session_Widget::Send_Apple_SOS_Combo()
+{
+	// ChefKiss: hold volume up, then hold side after ~0.5s (not both at once).
+	Send_Apple_Key( QStringLiteral( "f4" ) );
+	QTimer::singleShot( 550, this, [this]() {
+		Send_Apple_Key( QStringLiteral( "f5" ) );
+	} );
+}
+
+void VM_Session_Widget::Update_Apple_Controls_Visibility()
+{
+	const bool apple = VM && AQ_Is_Apple_SoC_VM( VM );
+	for( QAction *a : { Act_Apple_Vol_Down, Act_Apple_Vol_Up, Act_Apple_Home, Act_Apple_Power,
+	                    Act_Apple_SOS, Act_Apple_More, Act_Button_Pad, Act_Guest_Internet } )
+	{
+		if( a )
+			a->setVisible( apple );
+	}
+	for( QAction *a : Apple_Sep_Actions )
+	{
+		if( a )
+			a->setVisible( apple );
+	}
+	// Hide PC-centric keys / floppies for iPhone sessions
+	if( Act_CAD )
+		Act_CAD->setVisible( ! apple );
+	if( Act_Shift_F10 )
+		Act_Shift_F10->setVisible( ! apple );
+	if( Act_Insert_FD0 )
+		Act_Insert_FD0->setVisible( ! apple );
+	if( Act_Eject_FD0 )
+		Act_Eject_FD0->setVisible( ! apple );
+	if( Act_Insert_FD1 )
+		Act_Insert_FD1->setVisible( ! apple );
+	if( Act_Eject_FD1 )
+		Act_Eject_FD1->setVisible( ! apple );
+	if( Light_FD0 )
+		Light_FD0->setVisible( ! apple );
+	if( Light_FD1 )
+		Light_FD1->setVisible( ! apple );
+
+	if( ! apple && Button_Pad )
+	{
+		Button_Pad->hide();
+		if( Act_Button_Pad )
+			Act_Button_Pad->setChecked( false );
+	}
+}
+
+void VM_Session_Widget::Ensure_Button_Pad()
+{
+	if( Button_Pad )
+		return;
+	Button_Pad = new Apple_SoC_Button_Pad( window() ? window() : this );
+	connect( Button_Pad, &Apple_SoC_Button_Pad::Home_Clicked,
+	         this, &VM_Session_Widget::On_Apple_Home );
+	connect( Button_Pad, &Apple_SoC_Button_Pad::Home_Double_Clicked,
+	         this, &VM_Session_Widget::On_Apple_Home_Double );
+	connect( Button_Pad, &Apple_SoC_Button_Pad::Power_Clicked,
+	         this, &VM_Session_Widget::On_Apple_Power );
+	connect( Button_Pad, &Apple_SoC_Button_Pad::Power_Hold,
+	         this, &VM_Session_Widget::On_Apple_Power_Hold );
+	connect( Button_Pad, &Apple_SoC_Button_Pad::Vol_Down,
+	         this, &VM_Session_Widget::On_Apple_Vol_Down );
+	connect( Button_Pad, &Apple_SoC_Button_Pad::Vol_Up,
+	         this, &VM_Session_Widget::On_Apple_Vol_Up );
+	connect( Button_Pad, &Apple_SoC_Button_Pad::SOS_Triggered,
+	         this, &VM_Session_Widget::On_Apple_SOS );
+}
+
+void VM_Session_Widget::Position_Button_Pad()
+{
+	if( ! Button_Pad || ! Button_Pad->isVisible() )
+		return;
+	QWidget *host = window() ? window() : this;
+	const QPoint g = host->mapToGlobal( QPoint(
+		qMax( 8, ( host->width() - Button_Pad->width() ) / 2 ),
+		qMax( 8, host->height() - Button_Pad->height() - 48 ) ) );
+	Button_Pad->move( g );
+}
+
+void VM_Session_Widget::On_Apple_Home()
+{
+	Send_Apple_Key( QStringLiteral( "f6" ) );
+}
+
+void VM_Session_Widget::On_Apple_Home_Double()
+{
+	Send_Apple_Key_Double( QStringLiteral( "f6" ) );
+}
+
+void VM_Session_Widget::On_Apple_Power()
+{
+	Send_Apple_Key( QStringLiteral( "f5" ) );
+}
+
+void VM_Session_Widget::On_Apple_Power_Hold()
+{
+	Send_Apple_Key( QStringLiteral( "f5" ), 2000 );
+}
+
+void VM_Session_Widget::On_Apple_Vol_Down()
+{
+	Send_Apple_Key( QStringLiteral( "f3" ) );
+}
+
+void VM_Session_Widget::On_Apple_Vol_Up()
+{
+	Send_Apple_Key( QStringLiteral( "f4" ) );
+}
+
+void VM_Session_Widget::On_Apple_SOS()
+{
+	Send_Apple_SOS_Combo();
+}
+
+void VM_Session_Widget::On_Apple_Ringer()
+{
+	Send_Apple_Key( QStringLiteral( "f2" ) );
+}
+
+void VM_Session_Widget::On_Toggle_Button_Pad()
+{
+	if( ! VM || ! AQ_Is_Apple_SoC_VM( VM ) )
+		return;
+	Ensure_Button_Pad();
+	const bool show = Act_Button_Pad && Act_Button_Pad->isChecked();
+	if( show )
+	{
+		Position_Button_Pad();
+		Button_Pad->show();
+		Button_Pad->raise();
+	}
+	else if( Button_Pad )
+		Button_Pad->hide();
+}
+
+void VM_Session_Widget::On_Guest_Internet()
+{
+	if( ! VM || ! AQ_Is_Apple_SoC_VM( VM ) )
+		return;
+	AQ_Show_Apple_SoC_Device_Tools_Window( VM, window() ? window() : this, 0 );
+}
+
+void VM_Session_Widget::On_Apple_More_Buttons()
+{
+	QMenu menu( this );
+	menu.addAction( tr( "App Switcher (double Home)" ), this, SLOT(On_Apple_Home_Double()) );
+	menu.addAction( tr( "Power hold (~2s)" ), this, SLOT(On_Apple_Power_Hold()) );
+	menu.addAction( tr( "Toggle ringer (F2)" ), this, SLOT(On_Apple_Ringer()) );
+	menu.addAction( tr( "Force shutdown (F1)" ), this, [this]() {
+		Send_Apple_Key( QStringLiteral( "f1" ) );
+	} );
+	menu.addSeparator();
+	menu.addAction( tr( "Show floating button pad" ), this, [this]() {
+		if( Act_Button_Pad )
+		{
+			Act_Button_Pad->setChecked( true );
+			On_Toggle_Button_Pad();
+		}
+	} );
+	menu.addSeparator();
+	menu.addAction( tr( "ChefKiss button guide…" ), this, []() {
+		QDesktopServices::openUrl( QUrl( QStringLiteral(
+			"https://chefkiss.dev/guides/inferno/device-buttons/" ) ) );
+	} );
+	if( Act_Apple_More )
+	{
+		QWidget *w = Toolbar ? Toolbar->widgetForAction( Act_Apple_More ) : nullptr;
+		menu.exec( w ? w->mapToGlobal( QPoint( 0, w->height() ) ) : QCursor::pos() );
+	}
+	else
+		menu.exec( QCursor::pos() );
 }
 
 void VM_Session_Widget::On_Fullscreen()

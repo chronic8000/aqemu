@@ -121,14 +121,19 @@ class VM_Wizard_Window: public QDialog
 		void Apply_AArch64_Generic_Profile( bool simulate );
 		void Build_Windows11_ARM_Page();
 		bool Is_Apple_Silicon_Or_iOS_Template() const;
+		bool Is_Inferno_Companion_Template() const;
 		bool Is_Intel_MacOS_Template() const;
 		void Apply_Apple_SoC_Profile( bool simulate );
+		/** @return false if asset download/create failed (caller should abort VM create). */
+		bool Apply_Inferno_Companion_Profile( bool simulate );
 		void Apply_Intel_MacOS_Profile( bool simulate );
 		void Build_Intel_MacOS_Page();
 		void Show_Intel_MacOS_Page();
 		void Probe_WSL_For_Intel_Mac_Page();
 		void Update_Finish_Page_Guidance();
 		void Enhance_Typical_HDD_Page();
+		void Build_Inferno_Companion_Page();
+		void Show_Inferno_Companion_Page();
 
 		void Polish_Wizard_Chrome();
 		void Sync_Wizard_Side_Steps();
@@ -237,6 +242,14 @@ class VM_Wizard_Window: public QDialog
 		QCheckBox *CH_Intel_Mac_Supply_Files;
 		QCheckBox *CH_Intel_Mac_Prefer_WSL;
 		QLabel *Label_Intel_Mac_UEFI_Status;
+
+		// IPSW Restore Companion (Ubuntu x86_64) guided page
+		QWidget *Inferno_Companion_Page;
+		QLabel *Label_Inferno_Companion_Help;
+		QRadioButton *RB_Companion_Auto_ISO;
+		QRadioButton *RB_Companion_Local_ISO;
+		QLineEdit *Edit_Companion_Local_ISO;
+		QToolButton *TB_Companion_Local_ISO_Browse;
 
 		// Three-path pages
 		QWidget *Creation_Method_Page;

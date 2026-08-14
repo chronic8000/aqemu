@@ -30,13 +30,16 @@
 #include <QSaveFile>
 #include <QFileInfo>
 #include <QTextStream>
+#include <QDateTime>
 #include <QMessageBox>
+#include <QPushButton>
 #include <QSettings>
 #include <QUuid>
 #include <QPainter>
 #include <QTimer>
 #include <QThread>
 #include <QGuiApplication>
+#include <QCoreApplication>
 #include <QScreen>
 
 #ifdef Q_OS_WIN32
@@ -63,6 +66,7 @@
 #include "WSL_Launch.h"
 #include "WSL_Wizard_Window.h"
 #include "Apple_SoC_Support.h"
+#include "Apple_SoC_FS_Patch_Window.h"
 #include "Emulator_Control_Window.h"
 #include "System_Info.h"
 #include "QEMU_Probe_Catalog.h"
@@ -316,7 +320,10 @@ Virtual_Machine::Virtual_Machine( const Virtual_Machine &vm )
 	this->Apple_Ticket_Path = vm.Get_Apple_Ticket_Path();
 	this->Apple_SEP_FW_Path = vm.Get_Apple_SEP_FW_Path();
 	this->Apple_SEP_ROM_Path = vm.Get_Apple_SEP_ROM_Path();
+	this->Apple_SecureROM_Path = vm.Get_Apple_SecureROM_Path();
 	this->Apple_IPSW_Path = vm.Get_Apple_IPSW_Path();
+	this->Apple_Initrd_Path = vm.Get_Apple_Initrd_Path();
+	this->Apple_KASLR_Off = vm.Use_Apple_KASLR_Off();
 	this->Apple_USB_Conn_Type = vm.Get_Apple_USB_Conn_Type();
 	this->Apple_USB_Conn_Addr = vm.Get_Apple_USB_Conn_Addr();
 	this->Apple_USB_Conn_Port = vm.Get_Apple_USB_Conn_Port();
@@ -361,6 +368,8 @@ Virtual_Machine::Virtual_Machine( const Virtual_Machine &vm )
 	this->QEMU_Error_Win = nullptr;
 	this->Load_Mode = false;
 	this->Quit_Before_Save = false;
+	this->User_Requested_Power_Off = false;
+	this->Apple_SoC_Log_File = nullptr;
 	
 	Update_Current_Emulator_Devices(); // FIXME
 }
@@ -381,6 +390,12 @@ Virtual_Machine::~Virtual_Machine()
 	delete Load_VM_Window;
 	delete Save_VM_Window;
 	delete QEMU_Error_Win;
+	if( Apple_SoC_Log_File )
+	{
+		Apple_SoC_Log_File->close();
+		delete Apple_SoC_Log_File;
+		Apple_SoC_Log_File = nullptr;
+	}
 }
 
 void Virtual_Machine::Shared_Constructor()
@@ -401,6 +416,7 @@ void Virtual_Machine::Shared_Constructor()
 	UID = "";
 	QEMU_Stderr_History = "";
 	QEMU_Stdout_History = "";
+	Start_Cancelled_By_User = false;
 	
 	// Accel
 	Machine_Accelerator = VM::TCG;
@@ -597,10 +613,13 @@ void Virtual_Machine::Shared_Constructor()
 	Apple_Ticket_Path.clear();
 	Apple_SEP_FW_Path.clear();
 	Apple_SEP_ROM_Path.clear();
+	Apple_SecureROM_Path.clear();
 	Apple_IPSW_Path.clear();
+	Apple_Initrd_Path.clear();
+	Apple_KASLR_Off = true;
 	Apple_USB_Conn_Type.clear();
 	Apple_USB_Conn_Addr.clear();
-	Apple_USB_Conn_Port = 8030;
+	Apple_USB_Conn_Port = 0;
 	Apple_SoC_Image_Paths.clear();
 
 	Enable_KVM = true;
@@ -652,6 +671,8 @@ void Virtual_Machine::Shared_Constructor()
 	QEMU_Error_Win = nullptr;
 	Load_Mode = false;
 	Quit_Before_Save = false;
+	User_Requested_Power_Off = false;
+	Apple_SoC_Log_File = nullptr;
 }
 
 bool Virtual_Machine::operator==( const Virtual_Machine &vm ) const
@@ -769,6 +790,19 @@ bool Virtual_Machine::operator==( const Virtual_Machine &vm ) const
 		this->Intel_MacOS_Profile == vm.Use_Intel_MacOS_Profile() &&
 		this->Use_Apple_SMC_Flag == vm.Use_Apple_SMC() &&
 		this->Apple_SMC_OSK == vm.Get_Apple_SMC_OSK() &&
+		this->Apple_SoC_Profile == vm.Use_Apple_SoC_Profile() &&
+		this->Apple_Trustcache_Path == vm.Get_Apple_Trustcache_Path() &&
+		this->Apple_Ticket_Path == vm.Get_Apple_Ticket_Path() &&
+		this->Apple_SEP_FW_Path == vm.Get_Apple_SEP_FW_Path() &&
+		this->Apple_SEP_ROM_Path == vm.Get_Apple_SEP_ROM_Path() &&
+		this->Apple_SecureROM_Path == vm.Get_Apple_SecureROM_Path() &&
+		this->Apple_IPSW_Path == vm.Get_Apple_IPSW_Path() &&
+		this->Apple_Initrd_Path == vm.Get_Apple_Initrd_Path() &&
+		this->Apple_KASLR_Off == vm.Use_Apple_KASLR_Off() &&
+		this->Apple_USB_Conn_Type == vm.Get_Apple_USB_Conn_Type() &&
+		this->Apple_USB_Conn_Addr == vm.Get_Apple_USB_Conn_Addr() &&
+		this->Apple_USB_Conn_Port == vm.Get_Apple_USB_Conn_Port() &&
+		this->Apple_SoC_Image_Paths == vm.Get_Apple_SoC_Image_Paths() &&
 		this->OpenCore_Boot_Path == vm.Get_OpenCore_Boot_Path() &&
 		this->Mac_Recovery_Image_Path == vm.Get_Mac_Recovery_Image_Path() &&
 		this->Launch_Via_WSL == vm.Use_Launch_Via_WSL() &&
@@ -1090,7 +1124,10 @@ Virtual_Machine &Virtual_Machine::operator=( const Virtual_Machine &vm )
 	Apple_Ticket_Path = vm.Get_Apple_Ticket_Path();
 	Apple_SEP_FW_Path = vm.Get_Apple_SEP_FW_Path();
 	Apple_SEP_ROM_Path = vm.Get_Apple_SEP_ROM_Path();
+	Apple_SecureROM_Path = vm.Get_Apple_SecureROM_Path();
 	Apple_IPSW_Path = vm.Get_Apple_IPSW_Path();
+	Apple_Initrd_Path = vm.Get_Apple_Initrd_Path();
+	Apple_KASLR_Off = vm.Use_Apple_KASLR_Off();
 	Apple_USB_Conn_Type = vm.Get_Apple_USB_Conn_Type();
 	Apple_USB_Conn_Addr = vm.Get_Apple_USB_Conn_Addr();
 	Apple_USB_Conn_Port = vm.Get_Apple_USB_Conn_Port();
@@ -3600,9 +3637,21 @@ bool Virtual_Machine::Create_VM_File( const QString &file_name, bool template_mo
 	VM_Element.appendChild( Dom_Element );
 	Dom_Text = New_Dom_Document.createTextNode( Apple_SEP_ROM_Path );
 	Dom_Element.appendChild( Dom_Text );
+	Dom_Element = New_Dom_Document.createElement( "Apple_SecureROM_Path" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( Apple_SecureROM_Path );
+	Dom_Element.appendChild( Dom_Text );
 	Dom_Element = New_Dom_Document.createElement( "Apple_IPSW_Path" );
 	VM_Element.appendChild( Dom_Element );
 	Dom_Text = New_Dom_Document.createTextNode( Apple_IPSW_Path );
+	Dom_Element.appendChild( Dom_Text );
+	Dom_Element = New_Dom_Document.createElement( "Apple_Initrd_Path" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( Apple_Initrd_Path );
+	Dom_Element.appendChild( Dom_Text );
+	Dom_Element = New_Dom_Document.createElement( "Apple_KASLR_Off" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( Apple_KASLR_Off ? "true" : "false" );
 	Dom_Element.appendChild( Dom_Text );
 	Dom_Element = New_Dom_Document.createElement( "Apple_USB_Conn_Type" );
 	VM_Element.appendChild( Dom_Element );
@@ -3614,8 +3663,22 @@ bool Virtual_Machine::Create_VM_File( const QString &file_name, bool template_mo
 	Dom_Element.appendChild( Dom_Text );
 	Dom_Element = New_Dom_Document.createElement( "Apple_USB_Conn_Port" );
 	VM_Element.appendChild( Dom_Element );
-	Dom_Text = New_Dom_Document.createTextNode( QString::number( Apple_USB_Conn_Port > 0 ? Apple_USB_Conn_Port : 8030 ) );
+	Dom_Text = New_Dom_Document.createTextNode( QString::number( Apple_USB_Conn_Port ) );
 	Dom_Element.appendChild( Dom_Text );
+	{
+		Dom_Element = New_Dom_Document.createElement( "Apple_SoC_Images" );
+		VM_Element.appendChild( Dom_Element );
+		for( auto it = Apple_SoC_Image_Paths.constBegin(); it != Apple_SoC_Image_Paths.constEnd(); ++it )
+		{
+			if( it.key().trimmed().isEmpty() || it.value().trimmed().isEmpty() )
+				continue;
+			QDomElement img = New_Dom_Document.createElement( "Image" );
+			img.setAttribute( QStringLiteral( "name" ), it.key() );
+			QDomText t = New_Dom_Document.createTextNode( it.value() );
+			img.appendChild( t );
+			Dom_Element.appendChild( img );
+		}
+	}
 	
 	// Additional Arguments
 	Dom_Element = New_Dom_Document.createElement( "Additional_Args" );
@@ -5462,13 +5525,34 @@ bool Virtual_Machine::Load_VM( const QString &file_name )
 			Apple_Ticket_Path = AQ_Normalize_File_Path( Child_Element.firstChildElement( "Apple_Ticket_Path" ).text() );
 			Apple_SEP_FW_Path = AQ_Normalize_File_Path( Child_Element.firstChildElement( "Apple_SEP_FW_Path" ).text() );
 			Apple_SEP_ROM_Path = AQ_Normalize_File_Path( Child_Element.firstChildElement( "Apple_SEP_ROM_Path" ).text() );
+			Apple_SecureROM_Path = AQ_Normalize_File_Path( Child_Element.firstChildElement( "Apple_SecureROM_Path" ).text() );
 			Apple_IPSW_Path = AQ_Normalize_File_Path( Child_Element.firstChildElement( "Apple_IPSW_Path" ).text() );
+			Apple_Initrd_Path = AQ_Normalize_File_Path( Child_Element.firstChildElement( "Apple_Initrd_Path" ).text() );
+			{
+				const QString kaslr = Child_Element.firstChildElement( "Apple_KASLR_Off" ).text();
+				// Preserve prior launch behavior for older VMs that always forced kaslr-off.
+				Apple_KASLR_Off = ( kaslr.isEmpty() || kaslr == QLatin1String( "true" ) );
+			}
 			Apple_USB_Conn_Type = Child_Element.firstChildElement( "Apple_USB_Conn_Type" ).text().trimmed();
 			Apple_USB_Conn_Addr = Child_Element.firstChildElement( "Apple_USB_Conn_Addr" ).text().trimmed();
 			{
 				bool ok = false;
 				const int p = Child_Element.firstChildElement( "Apple_USB_Conn_Port" ).text().toInt( &ok );
-				Apple_USB_Conn_Port = ( ok && p > 0 ) ? p : 8030;
+				Apple_USB_Conn_Port = ( ok && p > 0 ) ? p : 0;
+			}
+			Apple_SoC_Image_Paths.clear();
+			{
+				QDomElement images = Child_Element.firstChildElement( "Apple_SoC_Images" );
+				for( QDomNode n = images.firstChild(); ! n.isNull(); n = n.nextSibling() )
+				{
+					QDomElement img = n.toElement();
+					if( img.isNull() || img.tagName() != QLatin1String( "Image" ) )
+						continue;
+					const QString name = img.attribute( QStringLiteral( "name" ) ).trimmed();
+					const QString path = AQ_Normalize_File_Path( img.text() );
+					if( ! name.isEmpty() && ! path.isEmpty() )
+						Apple_SoC_Image_Paths.insert( name, path );
+				}
 			}
 			
 			// Enable KVM
@@ -6449,10 +6533,24 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	// Win9x/XP text-mode setup needs QEMU's own SDL/GTK window. Bundled QEMU
 	// is often headless-only (-display none + VNC); Prefer_Native_VGA_Window
 	// skips the embed path (Start_impl selects an SDL-capable binary).
+	// Reims / Apple SoC on Windows/WSL must never use QEMU sdl/gtk,gl=on (WSLg DRI3 /
+	// no host window). Product path is -display none + VNC embed in AQEMU.
 	const bool force_nographic =
 		Display_Backend.trimmed().toLower() == QLatin1String( "nographic" );
+	const bool is_reims_display =
+		Computer_Type.contains( QLatin1String( "reimsvgpu" ), Qt::CaseInsensitive );
+	const bool is_apple_soc_display = AQ_Is_Apple_SoC_VM( this );
+#ifdef Q_OS_WIN32
+	const bool force_reims_embedded = is_reims_display;
+	const bool force_apple_soc_embedded = is_apple_soc_display;
+#else
+	const bool force_reims_embedded = false;
+	const bool force_apple_soc_embedded = false;
+#endif
 	const bool native_vga_window =
 		! force_nographic &&
+		! force_reims_embedded &&
+		! force_apple_soc_embedded &&
 		! Build_QEMU_Args_for_Tab_Info &&
 		! Build_QEMU_Args_for_Script_Mode &&
 		Prefer_Native_VGA_Window();
@@ -6461,8 +6559,10 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		! force_nographic &&
 		! Build_QEMU_Args_for_Tab_Info &&
 		! Build_QEMU_Args_for_Script_Mode &&
-		Settings.value( "Embedded_Session", "yes" ).toString() == "yes" &&
-		! native_vga_window;
+		( force_reims_embedded ||
+		  force_apple_soc_embedded ||
+		  ( Settings.value( "Embedded_Session", "yes" ).toString() == "yes" &&
+		    ! native_vga_window ) );
 
 	if( embedded_session )
 	{
@@ -6560,6 +6660,18 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	if( Intel_MacOS_Profile && smp_count >= 1 )
 	{
 		Args << "-smp" << QString( "sockets=1,cores=%1,threads=1" ).arg( smp_count );
+	}
+	else if( AQ_Is_Apple_SoC_VM( this ) )
+	{
+		// Inferno with SEP FW/ROM requires smp.cpus >= 2. Never drop -smp because a
+		// probed PSO_SMP_Count (often 1) is lower than the MACHINE-tab CPU count ù
+		// that left QEMU at default 1 CPU and produced "Too few CPU coresù SEP".
+		int apple_smp = smp_count;
+		if( apple_smp < 2 &&
+		    ( ! Get_Apple_SEP_FW_Path().trimmed().isEmpty() ||
+		      ! Get_Apple_SEP_ROM_Path().trimmed().isEmpty() ) )
+			apple_smp = 2;
+		Args << "-smp" << QString::number( apple_smp );
 	}
 	else if( smp_count <= Current_Emulator_Devices.PSO_SMP_Count )
 	{
@@ -6800,9 +6912,11 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		Computer_Type.contains( "aarch64", Qt::CaseInsensitive ) ||
 		Computer_Type.contains( "qemu-system-arm", Qt::CaseInsensitive ) ||
 		Computer_Type.contains( "riscv", Qt::CaseInsensitive );
-	// pSeries / PowerNV / s390 / classic Mac (mac99) have no PC ISA floppy bus.
+	const bool is_apple_soc_storage = AQ_Is_Apple_SoC_VM( this );
+	// pSeries / PowerNV / s390 / classic Mac (mac99) / Inferno have no PC ISA floppy/IDE bus.
 	const bool no_pc_fdd_ide =
 		is_virt_arch ||
+		is_apple_soc_storage ||
 		effective_machine.contains( QLatin1String( "pseries" ), Qt::CaseInsensitive ) ||
 		effective_machine.contains( QLatin1String( "powernv" ), Qt::CaseInsensitive ) ||
 		effective_machine.contains( QLatin1String( "mac99" ), Qt::CaseInsensitive ) ||
@@ -6831,6 +6945,14 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	// Video ? architecture-aware: device-based (virtio-gpu) vs legacy -vga.
 	// Win11 ARM lifecycle (BVM): install = ramfb only; first_boot/normal = virtio-gpu only.
 	QString effective_video = System_Info::Sanitize_Video_Card( Computer_Type, Video_Card, Machine_Type );
+	const bool is_reims_vgpu = Computer_Type.contains( QLatin1String( "reimsvgpu" ), Qt::CaseInsensitive );
+	const bool is_apple_soc_video = AQ_Is_Apple_SoC_VM( this );
+	// Reims architecture always presents via reims-vgpu-pci (-vga none), never cirrus/std.
+	if( is_reims_vgpu )
+		effective_video = QStringLiteral( "reims-vgpu-pci" );
+	// Inferno Apple SoC: no PC VGA device ù display is onboard (SDL/VNC host window only).
+	if( is_apple_soc_video )
+		effective_video.clear();
 	if( effective_video == QLatin1String( "vmware" ) )
 		effective_video = QStringLiteral( "vmware-svga" );
 	if( effective_video == QLatin1String( "virtio" ) )
@@ -6852,27 +6974,61 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		effective_video == "cg3" || effective_video == "tcx" ||
 		effective_video == "none";
 
-	const bool is_reims_vgpu = Computer_Type.contains( QLatin1String( "reimsvgpu" ), Qt::CaseInsensitive );
+	const bool device_based_video =
+		! is_apple_soc_video &&
+		( System_Info::Uses_Device_Based_Video( Computer_Type ) ||
+		  is_reims_vgpu ||
+		  effective_video == "virtio-gpu-pci" || effective_video == "virtio-gpu-gl-pci" ||
+		  effective_video == "virtio-vga" || effective_video == "virtio-vga-gl" ||
+		  effective_video == "ramfb" ||
+		  ( ! effective_video.isEmpty() && ! legacy_vga ) );
 
-	const bool device_based_video = System_Info::Uses_Device_Based_Video( Computer_Type ) ||
-	                                is_reims_vgpu ||
-	                                effective_video == "virtio-gpu-pci" || effective_video == "virtio-gpu-gl-pci" ||
-	                                effective_video == "virtio-vga" || effective_video == "virtio-vga-gl" ||
-	                                effective_video == "ramfb" ||
-	                                ( ! effective_video.isEmpty() && ! legacy_vga );
-
-	if( device_based_video )
+	if( is_apple_soc_video )
 	{
-		if( effective_video == "reims-vgpu-pci" ||
-		    ( is_reims_vgpu && ( effective_video.isEmpty() ||
-		                         effective_video == "default" ||
-		                         effective_video == "virtio-gpu-pci" ||
-		                         effective_video == "virtio" ||
-		                         effective_video == "std" ) ) )
+		// Intentionally emit no -vga / -device <video>.
+	}
+	else if( device_based_video )
+	{
+		if( effective_video == "reims-vgpu-pci" || is_reims_vgpu )
 		{
 			Args << "-vga" << "none";
-			if( ! Args.contains( QStringLiteral( "reims-vgpu-pci" ) ) )
-				Args << "-device" << "reims-vgpu-pci";
+			bool have_reims = false;
+			for( int ai = 0; ai < Args.size(); ++ai )
+			{
+				if( Args.at( ai ).contains( QLatin1String( "reims-vgpu-pci" ), Qt::CaseInsensitive ) )
+				{
+					have_reims = true;
+					break;
+				}
+			}
+			if( ! have_reims )
+			{
+				// Product path: secondary PCI bridge + UEFI GOP option ROM on BAR
+				// (OpenCore has no built-in driver for 0x106B:0xEEEE without it).
+				Args << "-device"
+				     << QStringLiteral( "pci-bridge,chassis_nr=5,id=aqemu_reims_br,bus=pcie.0,addr=0x1e" );
+				QString reims_dev = QStringLiteral( "reims-vgpu-pci,id=reimsvgpu,bus=aqemu_reims_br,addr=0x0" );
+				const QString gop_rom = AQ_Find_Reims_GOP_ROM();
+				if( ! gop_rom.isEmpty() )
+				{
+					QString rom = gop_rom;
+					if( ! Build_QEMU_Args_for_Script_Mode )
+						rom = rom; // WSL rewrite happens later for paths
+					if( Build_QEMU_Args_for_Script_Mode )
+						reims_dev += QStringLiteral( ",romfile=\"%1\",rombar=1" ).arg( rom );
+					else
+						reims_dev += QStringLiteral( ",romfile=%1,rombar=1" ).arg( rom );
+					AQDebug( "QStringList Virtual_Machine::Build_QEMU_Args()",
+					         QStringLiteral( "Reims UEFI GOP romfile=%1" ).arg( rom ) );
+				}
+				else
+				{
+					AQWarning( "QStringList Virtual_Machine::Build_QEMU_Args()",
+					           QStringLiteral( "reims-vgpu-gop.rom not found under share/resources; "
+					                           "OpenCore will stay black without UEFI GOP" ) );
+				}
+				Args << "-device" << reims_dev;
+			}
 		}
 		else if( effective_video == "none" || effective_video == "-nographic" )
 		{
@@ -7288,6 +7444,10 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	const bool mac_recovery_active = Intel_MacOS_Profile && ! mac_recovery_norm.isEmpty() &&
 		( QFile::exists( mac_recovery_norm ) || Build_QEMU_Args_for_Tab_Info );
 
+	// Inferno storage is multi-NS NVMe from AQ_Build_Apple_SoC_Extra_Args ù never IDE/floppy/CD.
+	if( is_apple_soc_storage )
+		attach_cdrom = false;
+
 	if( is_virt_arch )
 	{
 		// BVM install attaches the ISO; first_boot omits it.
@@ -7456,6 +7616,23 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 					res_mode = QStringLiteral( "native" );
 				if( AQ_Resolve_Display_Size( res_mode, &rw, &rh ) )
 				{
+					// Reims + embedded VNC: "native" often patches OpenCore to 4K/5K and
+					// yields a black early framebuffer. Cap native (and extreme modes).
+					const bool is_reims_oc =
+						Computer_Type.contains( QLatin1String( "reimsvgpu" ), Qt::CaseInsensitive );
+					if( is_reims_oc )
+					{
+						if( res_mode.compare( QLatin1String( "native" ), Qt::CaseInsensitive ) == 0 )
+						{
+							rw = 1920;
+							rh = 1080;
+						}
+						else
+						{
+							if( rw > 2560 ) rw = 2560;
+							if( rh > 1440 ) rh = 1440;
+						}
+					}
 					const QString wxh = QStringLiteral( "%1x%2" ).arg( rw ).arg( rh );
 					const QString lower_oc = oc_file.toLower();
 					const bool looks_fat =
@@ -7474,6 +7651,13 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 						{
 							AQDebug( "Virtual_Machine::Build_QEMU_Args()",
 								QStringLiteral( "OpenCore Resolution set to %1" ).arg( wxh ) );
+						}
+						if( is_reims_oc && ! AQ_Ensure_OpenCore_Reims_GOP( oc_file ) )
+						{
+							AQWarning( "Virtual_Machine::Build_QEMU_Args()",
+								QStringLiteral( "Could not ensure Reims GOP EFI in OpenCore image %1 "
+								                "(need reims-vgpu-efi.efi under share/resources)" )
+									.arg( oc_file ) );
 						}
 					}
 				}
@@ -7560,8 +7744,8 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		}
 	}
 
-	// HDA
-	if( HDA.Get_Enabled() )
+	// HDA ù Inferno uses AQ_Build_Apple_SoC_Extra_Args NVMe namespaces instead.
+	if( HDA.Get_Enabled() && ! is_apple_soc_storage )
 	{
 		// Intel macOS: OpenCore cannot see VirtIO disks without guest kexts.
 		// Always expose the system disk on AHCI during install / everyday OC boot.
@@ -7713,7 +7897,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	}
 	
 	// HDB
-	if( HDB.Get_Enabled() )
+	if( HDB.Get_Enabled() && ! is_apple_soc_storage )
 	{
         if( HDB.Get_Native_Mode() )
         {
@@ -7743,7 +7927,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	}
 	
 	// HDC
-	if( HDC.Get_Enabled() )
+	if( HDC.Get_Enabled() && ! is_apple_soc_storage )
 	{
         if( HDC.Get_Native_Mode() )
         {
@@ -7773,7 +7957,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	}
 	
 	// HDD
-	if( HDD.Get_Enabled() )
+	if( HDD.Get_Enabled() && ! is_apple_soc_storage )
 	{
         if( HDD.Get_Native_Mode() )
         {
@@ -7867,9 +8051,10 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 #endif
 	}
 	
-	// Network Cards
-    if( (Use_Native_Network() == false && Network_Cards.count() < 1) ||
-        (Use_Native_Network() == true  && Network_Cards_Nativ.count() < 1) ||
+	// Network Cards ù Inferno t8030/s8000 do not support e1000/virtio-net PCI NICs.
+	if( AQ_Is_Apple_SoC_VM( this ) ||
+	    (Use_Native_Network() == false && Network_Cards.count() < 1) ||
+	    (Use_Native_Network() == true  && Network_Cards_Nativ.count() < 1) ||
 		Use_Network == false )
 	{
 		Args << "-net" << "none";
@@ -9046,10 +9231,6 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			else
 				Args << "-append" << Kernel_ComLine;
 		}
-		else if( AQ_Is_Apple_SoC_VM( this ) )
-		{
-			Args << "-append" << AQ_Apple_SoC_Default_Append();
-		}
 	}
 
 	if( AQ_Is_Apple_SoC_VM( this ) )
@@ -9125,7 +9306,8 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	}
 	
 	// parallel flash image (legacy single pflash)
-	if( Current_Emulator_Devices.PSO_PFlash && PFlash && ! UEFI )
+	if( Current_Emulator_Devices.PSO_PFlash && PFlash && ! UEFI &&
+	    ! AQ_Is_Apple_SoC_VM( this ) )
 	{
 		if( Build_QEMU_Args_for_Script_Mode )
 			Args << "-pflash" << "\"" + PFlash_File + "\"";
@@ -9133,11 +9315,41 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			Args << "-pflash" << PFlash_File;
 	}
 	
-	// UEFI dual pflash (AAVMF / EDK2) ? required for Windows 11 ARM / aarch64 virt
-	if( UEFI && ! UEFI_CODE_File.isEmpty() )
+	// UEFI dual pflash (AAVMF / EDK2) ù for Windows 11 ARM / aarch64 virt.
+	// Inferno Apple SoC already uses SEP pflash (sep_nvram / sep_ssc) on unit 0/1;
+	// stacking edk2-aarch64-code.fd causes: "drive with bus=0, unit=0 exists".
+	if( UEFI && ! UEFI_CODE_File.isEmpty() && ! AQ_Is_Apple_SoC_VM( this ) )
 	{
+		QString code_path = UEFI_CODE_File;
+		const bool mac_uefi =
+			Intel_MacOS_Profile ||
+			Computer_Type.contains( QLatin1String( "reimsvgpu" ), Qt::CaseInsensitive );
+		// Stock QEMU edk2-x86_64 often never runs the Reims PCI option ROM / OpenCore
+		// path; prefer OSX-KVM OVMF_CODE_4M when the VM still points at edk2.
+		if( mac_uefi &&
+		    ( code_path.contains( QLatin1String( "edk2-x86_64-code" ), Qt::CaseInsensitive ) ||
+		      code_path.contains( QLatin1String( "edk2-i386-code" ), Qt::CaseInsensitive ) ) )
+		{
+			const QString app = QDir::cleanPath( QCoreApplication::applicationDirPath() );
+			const QStringList ovmf_candidates = QStringList()
+				<< ( app + QStringLiteral( "/share/OVMF_CODE_4M.fd" ) )
+				<< ( app + QStringLiteral( "/resources/OVMF_CODE_4M.fd" ) )
+				<< QDir( app ).absoluteFilePath( QStringLiteral( "../scripts/OSX-KVM/OVMF_CODE_4M.fd" ) )
+				<< QDir( app ).absoluteFilePath( QStringLiteral( "../../scripts/OSX-KVM/OVMF_CODE_4M.fd" ) );
+			for( const QString &cand : ovmf_candidates )
+			{
+				if( QFile::exists( cand ) )
+				{
+					code_path = cand;
+					AQDebug( "QStringList Virtual_Machine::Build_QEMU_Args()",
+					         QStringLiteral( "Intel/Reims macOS: using OSX-KVM OVMF %1" ).arg( cand ) );
+					break;
+				}
+			}
+		}
+
 		// Use file.filename= form so spaces (e.g. Program Files) survive WSL rewrite
-		QString code_arg = AQ_Qemu_Drive_File_Key( UEFI_CODE_File );
+		QString code_arg = AQ_Qemu_Drive_File_Key( code_path );
 		code_arg += QStringLiteral( ",if=pflash,format=raw,unit=0,readonly=on" );
 		if( Build_QEMU_Args_for_Script_Mode )
 			Args << "-drive" << "\"" + code_arg + "\"";
@@ -9192,8 +9404,8 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	// Recovery / installer is attached earlier with OpenCore on AHCI
 	// (ide-hd for MIST APM+HFS; ide-cd for true ISO9660).
 	
-	// VirtIO RNG
-	if( VirtIO_RNG )
+	// VirtIO RNG ù skip on Inferno (no usable PCI slot layout for virtio-*-pci).
+	if( VirtIO_RNG && ! AQ_Is_Apple_SoC_VM( this ) )
 	{
 		// Windows QEMU builds do not provide rng-random (/dev/urandom); use rng-builtin
 		#ifdef Q_OS_WIN32
@@ -9205,18 +9417,19 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	}
 	
 	// VirtIO Balloon
-	if( VirtIO_Balloon )
+	if( VirtIO_Balloon && ! AQ_Is_Apple_SoC_VM( this ) )
 		Args << "-device" << "virtio-balloon-pci";
 
 	// BVM everyday boot always includes virtio-serial (guest tools / agents).
 	if( win11_post_install )
 		Args << "-device" << "virtio-serial-pci";
 	
-	// VirtIO Keyboard
-	if( VirtIO_Keyboard && ! win11_post_install )
+	// VirtIO Keyboard ù Inferno PCI root only accepts slot 0; skip for Apple SoC.
+	if( VirtIO_Keyboard && ! win11_post_install && ! AQ_Is_Apple_SoC_VM( this ) )
 		Args << "-device" << "virtio-keyboard-pci";
 
-	// Pointer / mouse (QEMU input devices)
+	// Pointer / mouse (QEMU input devices). Inferno has onboard USB ù do not add PCI xhci.
+	if( ! AQ_Is_Apple_SoC_VM( this ) )
 	{
 		const QString mt = Mouse_Type.trimmed().toLower();
 		const bool want_usb_ptr =
@@ -9302,7 +9515,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			added_xhci = true;
 			usb_bus = QStringLiteral( "aqemu_usb_hub.0" );
 			// Very old configs with USB_Hub but Mouse_Type still ps2 after a bad load:
-			// do not auto-add a second tablet here ? Mouse_Type is authoritative.
+			// do not auto-add a second tablet here ù Mouse_Type is authoritative.
 		}
 
 		// aarch64/virt has no PS/2; Win11 installer needs usb-kbd before virtio drivers.
@@ -9767,8 +9980,54 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		if( AQ_Is_Apple_SoC_VM( this ) )
 			ad_args = AQ_Filter_Apple_SoC_Additional_Args( ad_args );
 
+		// Drop #-comment lines / tokens. Notes mistakenly pasted into Additional Args
+		// (e.g. "# After Ubuntuù") become positional disk paths and clash with -hda.
+		{
+			QStringList cleaned;
+			cleaned.reserve( ad_args.size() );
+			bool skip_rest_of_comment = false;
+			for( int ix = 0; ix < ad_args.count(); ++ix )
+			{
+				const QString &tok = ad_args[ ix ];
+				if( skip_rest_of_comment )
+					continue;
+				if( tok.startsWith( QLatin1Char( '#' ) ) )
+				{
+					skip_rest_of_comment = true; // rest of original line already flattened to spaces
+					continue;
+				}
+				cleaned << tok;
+			}
+			ad_args = cleaned;
+		}
+
 		for( int ix = 0; ix < ad_args.count(); ix++ )
 			Args << ad_args[ ix ];
+	}
+
+	// Apple SoC restore ramdisk: dedicated field (not Additional Args ù UI often overwrites that).
+	if( AQ_Is_Apple_SoC_VM( this ) )
+	{
+		const QString initrd = Get_Apple_Initrd_Path().trimmed();
+		if( ! initrd.isEmpty() && QFileInfo( initrd ).isFile() )
+		{
+			bool have = false;
+			for( int i = 0; i < Args.size(); ++i )
+			{
+				if( Args.at( i ) == QLatin1String( "-initrd" ) )
+				{
+					have = true;
+					break;
+				}
+			}
+			if( ! have )
+			{
+				Args << QStringLiteral( "-initrd" )
+				     << ( Build_QEMU_Args_for_Script_Mode
+					      ? QStringLiteral( "\"%1\"" ).arg( AQ_Normalize_File_Path( initrd ) )
+					      : AQ_Normalize_File_Path( initrd ) );
+			}
+		}
 	}
 	
 	// Set All Special Modes Off
@@ -10132,6 +10391,9 @@ bool Virtual_Machine::Start_impl()
 {
 	QEMU_Stderr_History.clear();
 	QEMU_Stdout_History.clear();
+	User_Requested_Power_Off = false;
+	if( AQ_Is_Apple_SoC_VM( this ) )
+		Begin_Apple_SoC_QEMU_Log();
 
 	// Drop ports from a previous run so we allocate fresh free ones
 	QMP_Port = 0;
@@ -10200,6 +10462,15 @@ bool Virtual_Machine::Start_impl()
 
 	if( AQ_Is_Apple_SoC_VM( this ) )
 	{
+		// Inferno boots via -kernel/-dtb + SEP pflash, never EDK2 UEFI.
+		if( UEFI || ! UEFI_CODE_File.isEmpty() || ! UEFI_VARS_File.isEmpty() )
+		{
+			UEFI = false;
+			UEFI_CODE_File.clear();
+			UEFI_VARS_File.clear();
+			AQDebug( "bool Virtual_Machine::Start_impl()",
+			         QStringLiteral( "Apple SoC: cleared UEFI pflash (conflicts with SEP)" ) );
+		}
 		const QString image_dir = AQ_Apple_SoC_Image_Dir( this );
 		QString img_err;
 		if( ! AQ_Ensure_Apple_SoC_Disk_Images( image_dir, &img_err ) )
@@ -10226,6 +10497,13 @@ bool Virtual_Machine::Start_impl()
 		const bool is_applesoc = AQ_Is_Apple_SoC_VM( this );
 		if( is_reims || is_applesoc )
 			Launch_Via_WSL = true;
+		if( is_reims )
+		{
+			// UI may still show "std"; product path is always reims-vgpu-pci
+			// (see https://reims-vgpu.com / steelbrain/reims-vgpu).
+			if( Video_Card.trimmed().compare( QLatin1String( "reims-vgpu-pci" ), Qt::CaseInsensitive ) != 0 )
+				Video_Card = QStringLiteral( "reims-vgpu-pci" );
+		}
 		if( Launch_Via_WSL || ( Intel_MacOS_Profile && global_wsl ) )
 		{
 			const QString distro = s.value( QStringLiteral( "WSL_Launch/Distro" ), QString() ).toString();
@@ -10253,6 +10531,62 @@ bool Virtual_Machine::Start_impl()
 				{
 					AQWarning( "Virtual_Machine::Start_impl()",
 						"WSL /dev/kvm still not writable after automatic fix - using TCG" );
+				}
+				if( is_reims )
+				{
+					// Product display: embedded VNC for OpenCore/text; Metal frames in WSLg.
+					if( Display_Window_Mode.trimmed().compare( QLatin1String( "native" ), Qt::CaseInsensitive ) == 0 ||
+					    Display_Backend.trimmed().compare( QLatin1String( "sdl" ), Qt::CaseInsensitive ) == 0 ||
+					    Display_Backend.trimmed().compare( QLatin1String( "gtk" ), Qt::CaseInsensitive ) == 0 )
+					{
+						Display_Window_Mode = QStringLiteral( "embedded" );
+						Display_Backend.clear();
+						AQDebug( "Virtual_Machine::Start_impl()",
+						         QStringLiteral( "Reims: coerced display mode to embedded (no QEMU SDL/GTK on WSL)" ) );
+					}
+					if( ! s.value( QStringLiteral( "Reims/Shown_WSLg_Window_Hint_v2" ), false ).toBool() )
+					{
+						const bool host_win =
+							s.value( QStringLiteral( "WSL_Launch/Reims_Host_Window" ), false ).toBool();
+						QMessageBox::information(
+							nullptr,
+							tr( "Reims display" ),
+							host_win
+								? tr( "OpenCore and early boot text appear in AQEMU's embedded viewer.\n"
+								      "You enabled the experimental WSLg Reims host window "
+								      "(Advanced Settings). On some Dozen/NVIDIA WSLg stacks that "
+								      "path can crash QEMU during Vulkan device create ù if the VM "
+								      "exits immediately, turn the option off." )
+								: tr( "OpenCore and early boot text appear in AQEMU's embedded viewer.\n\n"
+								      "The separate WSLg Reims host window is off by default: Mesa Dozen "
+								      "on WSLg (NVIDIA) can segfault inside vkCreateDevice and kill QEMU.\n"
+								      "Early boot uses VNC/GOP; enable ùReims WSLg host windowù under "
+								      "Advanced Settings only when you want to try accelerated present." ) );
+						s.setValue( QStringLiteral( "Reims/Shown_WSLg_Window_Hint_v2" ), true );
+					}
+					QString vk_status;
+					const QString distro_now = s.value( QStringLiteral( "WSL_Launch/Distro" ), QString() ).toString();
+					if( ! WSL_Ensure_Reims_Vulkan_Stack( distro_now, &vk_status, false ) )
+					{
+						AQWarning( "Virtual_Machine::Start_impl()", vk_status );
+						const auto ans = QMessageBox::warning(
+							nullptr,
+							tr( "Reims WSL Vulkan" ),
+							tr( "Reims needs a GPU Vulkan ICD inside WSL (usually Mesa Dozen/dzn "
+							    "over WSLg D3D12).\n\n%1\n\nStart anyway?" ).arg( vk_status ),
+							QMessageBox::Yes | QMessageBox::No,
+							QMessageBox::No );
+						if( ans != QMessageBox::Yes )
+						{
+							Start_Snapshot_Tag = "";
+							Start_Cancelled_By_User = true;
+							return false;
+						}
+					}
+					else if( ! vk_status.isEmpty() )
+					{
+						AQDebug( "Virtual_Machine::Start_impl()", vk_status );
+					}
 				}
 			}
 			else if( is_reims || is_applesoc )
@@ -10736,8 +11070,64 @@ bool Virtual_Machine::Start_impl()
 			if( Computer_Type.contains( QLatin1String( "reimsvgpu" ), Qt::CaseInsensitive ) )
 			{
 				// Ensure the Linux Reims device is present (do not skip when other -device args exist).
-				if( ! qemu_args.contains( QStringLiteral( "reims-vgpu-pci" ) ) )
-					qemu_args << QStringLiteral( "-device" ) << QStringLiteral( "reims-vgpu-pci" );
+				bool have_reims = false;
+				for( int ai = 0; ai < qemu_args.size(); ++ai )
+				{
+					if( qemu_args.at( ai ).contains( QLatin1String( "reims-vgpu-pci" ), Qt::CaseInsensitive ) )
+					{
+						have_reims = true;
+						break;
+					}
+				}
+				if( ! have_reims )
+				{
+					qemu_args << QStringLiteral( "-device" )
+					          << QStringLiteral( "pci-bridge,chassis_nr=5,id=aqemu_reims_br,bus=pcie.0,addr=0x1e" );
+					QString reims_dev = QStringLiteral( "reims-vgpu-pci,id=reimsvgpu,bus=aqemu_reims_br,addr=0x0" );
+					const QString gop_rom = AQ_Find_Reims_GOP_ROM();
+					if( ! gop_rom.isEmpty() )
+						reims_dev += QStringLiteral( ",romfile=%1,rombar=1" ).arg( gop_rom );
+					qemu_args << QStringLiteral( "-device" ) << reims_dev;
+				}
+
+				const QString vk_gpu = WSL_Probe_Accelerated_Vulkan_GPU( distro );
+				if( vk_gpu.isEmpty() && ! WSL_Has_Dozen_ICD( distro ) )
+				{
+					const auto ans = QMessageBox::warning(
+						nullptr,
+						tr( "Reims Vulkan GPU missing in WSL" ),
+						tr( "This VM launches qemu-system-reims3d with -device reims-vgpu-pci "
+						    "(correct for Reims on Linux/KVM).\n\n"
+						    "WSLg and your Windows GPU driver can be fine while WSL Vulkan "
+						    "still only shows llvmpipe. WSLg exposes the GPU as D3D12 "
+						    "(/dev/dxg), not a native Linux NVIDIA/AMD Vulkan ICD.\n\n"
+						    "Stock Ubuntu often lacks Mesa Dozen (dzn) - the Vulkan-on-D3D12 "
+						    "ICD - so apps fall back to CPU llvmpipe.\n\n"
+						    "Fix in WSL: install a Mesa build that includes libvulkan_dzn "
+						    "(e.g. Kisak PPA mesa-vulkan-drivers), then:\n"
+						    "  vulkaninfo --summary\n"
+						    "should list Microsoft Direct3D12 (Your GPU), not only llvmpipe.\n"
+						    "Optional: Advanced Settings -> Reims Vulkan GPU.\n\n"
+						    "Start anyway?" ),
+						QMessageBox::Yes | QMessageBox::No,
+						QMessageBox::No );
+					if( ans != QMessageBox::Yes )
+					{
+						Start_Snapshot_Tag = "";
+						Start_Cancelled_By_User = true;
+						return false;
+					}
+				}
+				else if( ! vk_gpu.isEmpty() )
+				{
+					AQDebug( "bool Virtual_Machine::Start()",
+					         QStringLiteral( "WSL accelerated Vulkan GPU: %1" ).arg( vk_gpu ) );
+				}
+				else
+				{
+					AQDebug( "bool Virtual_Machine::Start()",
+					         QStringLiteral( "Native Mesa Dozen ICD present; skipping vulkaninfo GPU warning" ) );
+				}
 			}
 			// Ensure script-mode quoting cannot leak into argv launch
 			Build_QEMU_Args_for_Script_Mode = false;
@@ -10831,8 +11221,16 @@ bool Virtual_Machine::Start_impl()
     return true;
 }
 
+bool Virtual_Machine::Take_Start_Cancelled_By_User()
+{
+	const bool cancelled = Start_Cancelled_By_User;
+	Start_Cancelled_By_User = false;
+	return cancelled;
+}
+
 bool Virtual_Machine::Start()
 {
+	Start_Cancelled_By_User = false;
     if ( Start_impl() )
     {
         // VNC Password
@@ -10877,6 +11275,8 @@ void Virtual_Machine::Stop()
 		Set_State( VM::VMS_Power_Off, true );
 		return;
 	}
+
+	User_Requested_Power_Off = true;
 
 	if( QMP && QMP->Is_Connected() )
 		QMP->Quit_QEMU();
@@ -10991,11 +11391,10 @@ void Virtual_Machine::Kill_Orphan_QEMU_Using_Disks()
 		           "Orphan QEMU cleanup returned " + QString::number( killer.exitCode() ) );
 	}
 
-	// Launch-via-WSL: Linux qemu-system often survives after wsl.exe is killed.
-	// Match on file basenames (paths differ: D:\- vs /mnt/d/-).
-	if( ! Launch_Via_WSL )
-		return;
-
+	// Launch-via-WSL: Linux qemu-system often survives after wsl.exe / AQEMU die.
+	// Always try WSL cleanup on Windows when WSL is available ù orphans may remain
+	// even if this VM's Launch_Via_WSL flag was flipped off later.
+	// Match on file basenames (paths differ: C:\ vs /mnt/c/).
 	QStringList basenames;
 	for( const QString &d : disks )
 	{
@@ -11005,46 +11404,53 @@ void Virtual_Machine::Kill_Orphan_QEMU_Using_Disks()
 		if( ! basenames.contains( base ) )
 			basenames << base;
 	}
-	if( ! basenames.isEmpty() && WSL_Is_Available( false ) )
-	{
-		// Fixed-string match only (grep -F) - never regex wildcards (PR #1 / Qodo)
-		QString hit_checks;
-		for( const QString &b : basenames )
-		{
-			QString q = b;
-			q.replace( QLatin1Char( '\'' ), QLatin1String( "'\\''" ) );
-			hit_checks += QStringLiteral(
-				"echo \"$cmd\" | grep -Fq -- '%1' && hit=1; " ).arg( q );
-		}
-		const QString sh =
-			QStringLiteral(
-				"pids=$(pgrep -f 'qemu-system' 2>/dev/null || true); "
-				"for p in $pids; do "
-				"  cmd=$(tr '\\0' ' ' </proc/$p/cmdline 2>/dev/null || true); "
-				"  hit=0; "
-				"  %1 "
-				"  [ \"$hit\" = 1 ] || continue; "
-				"  kill -TERM \"$p\" 2>/dev/null || true; "
-				"done; "
-				"sleep 0.4; "
-				"pids=$(pgrep -f 'qemu-system' 2>/dev/null || true); "
-				"for p in $pids; do "
-				"  cmd=$(tr '\\0' ' ' </proc/$p/cmdline 2>/dev/null || true); "
-				"  hit=0; "
-				"  %1 "
-				"  [ \"$hit\" = 1 ] || continue; "
-				"  kill -KILL \"$p\" 2>/dev/null || true; "
-				"done" )
-				.arg( hit_checks );
+	if( basenames.isEmpty() || ! WSL_Is_Available( false ) )
+		return;
 
-		QProcess wsl_killer;
-		wsl_killer.start( QStringLiteral( "wsl.exe" ),
-		                  QStringList() << QStringLiteral( "--" )
-		                                << QStringLiteral( "bash" )
-		                                << QStringLiteral( "-lc" )
-		                                << sh );
-		wsl_killer.waitForFinished( 4000 );
+	QString hit_checks;
+	for( const QString &b : basenames )
+	{
+		QString q = b;
+		q.replace( QLatin1Char( '\'' ), QLatin1String( "'\\''" ) );
+		hit_checks += QStringLiteral(
+			"echo \"$cmd\" | grep -Fq -- '%1' && hit=1; " ).arg( q );
 	}
+	const QString sh =
+		QStringLiteral(
+			"pids=$(pgrep -f 'qemu-system' 2>/dev/null || true); "
+			"for p in $pids; do "
+			"  cmd=$(tr '\\0' ' ' </proc/$p/cmdline 2>/dev/null || true); "
+			"  hit=0; "
+			"  %1 "
+			"  [ \"$hit\" = 1 ] || continue; "
+			"  kill -TERM \"$p\" 2>/dev/null || true; "
+			"done; "
+			"sleep 1.2; "
+			"pids=$(pgrep -f 'qemu-system' 2>/dev/null || true); "
+			"for p in $pids; do "
+			"  cmd=$(tr '\\0' ' ' </proc/$p/cmdline 2>/dev/null || true); "
+			"  hit=0; "
+			"  %1 "
+			"  [ \"$hit\" = 1 ] || continue; "
+			"  kill -KILL \"$p\" 2>/dev/null || true; "
+			"done; "
+			"sleep 0.8" )
+			.arg( hit_checks );
+
+	QSettings wsl_set;
+	const QString distro = wsl_set.value( QStringLiteral( "WSL_Launch/Distro" ),
+		QString() ).toString().trimmed();
+	QStringList wsl_args;
+	if( ! distro.isEmpty() )
+		wsl_args << QStringLiteral( "-d" ) << distro;
+	wsl_args << QStringLiteral( "--" )
+	         << QStringLiteral( "bash" )
+	         << QStringLiteral( "-lc" )
+	         << sh;
+
+	QProcess wsl_killer;
+	wsl_killer.start( QStringLiteral( "wsl.exe" ), wsl_args );
+	wsl_killer.waitForFinished( 8000 );
 #else
 	Q_UNUSED( disks );
 #endif
@@ -11166,36 +11572,45 @@ const QString &Virtual_Machine::Get_Removable_Devices_List() const
 
 void Virtual_Machine::Show_Error_Log_Window()
 {
-    if ( ! QEMU_Error_Win )
-        QEMU_Error_Win = new Error_Log_Window();
-        
-	QEMU_Error_Win->setWindowTitle( tr("QEMU Error Log") + " (" + Machine_Name + ")" );
+	if( ! QEMU_Error_Win )
+	{
+		QWidget *parent = QApplication::activeWindow();
+		QEMU_Error_Win = new Error_Log_Window( parent );
+		QEMU_Error_Win->setAttribute( Qt::WA_QuitOnClose, false );
+	}
+
+	QEMU_Error_Win->setWindowTitle( tr( "QEMU Error Log" ) + " (" + Machine_Name + ")" );
+	QEMU_Error_Win->setWindowModality( Qt::NonModal );
 	QEMU_Error_Win->show();
+	QEMU_Error_Win->raise();
+	QEMU_Error_Win->activateWindow();
 }
 
 void Virtual_Machine::Show_QEMU_Error( const QString &err_str )
 {
-    if ( err_str.simplified().isEmpty() )
-        return;
+	if( err_str.simplified().isEmpty() )
+		return;
 
-    if ( ! QEMU_Error_Win )
-        QEMU_Error_Win = new Error_Log_Window();
+	if( ! QEMU_Error_Win )
+	{
+		QWidget *parent = QApplication::activeWindow();
+		QEMU_Error_Win = new Error_Log_Window( parent );
+		QEMU_Error_Win->setAttribute( Qt::WA_QuitOnClose, false );
+	}
 
 	QEMU_Error_Win->Add_to_Log( err_str );
-	
+
 	if( Settings.value( "No_Show_Error_Log_Forever", "no" ).toString() == "yes" ||
-		QEMU_Error_Win->No_Show_Before_AQEMU_Restart() == true ||
-		QEMU_Error_Win->No_Show_Before_VM_Restart() == true ||
-        QEMU_Error_Win->No_Show_Deprecated_Options_Error() == true )
+	    QEMU_Error_Win->No_Show_Before_AQEMU_Restart() == true ||
+	    QEMU_Error_Win->No_Show_Before_VM_Restart() == true ||
+	    QEMU_Error_Win->No_Show_Deprecated_Options_Error() == true )
 	{
 		AQDebug( "void Virtual_Machine::Show_QEMU_Error( const QString &err_str )",
-				 "Error Log Window Not Shown" );
+		         "Error Log Window Not Shown" );
 		return;
 	}
-	else
-	{
-		Show_Error_Log_Window();
-	}
+
+	Show_Error_Log_Window();
 }
 
 void Virtual_Machine::Hide_QEMU_Error_Log()
@@ -11691,10 +12106,17 @@ bool Virtual_Machine::Is_Windows_XP_Family() const
 
 bool Virtual_Machine::Prefer_Native_VGA_Window() const
 {
+#ifdef Q_OS_WIN32
+	// Reims / Inferno frames are shown via AQEMU embed (VNC), not QEMU SDL/GTK.
+	if( Computer_Type.contains( QLatin1String( "reimsvgpu" ), Qt::CaseInsensitive ) )
+		return false;
+	if( AQ_Is_Apple_SoC_VM( this ) )
+		return false;
+#endif
 	const QString mode = Display_Window_Mode.trimmed().toLower();
 	if( mode == QLatin1String( "native" ) )
 		return true;
-	
+
 	// Default to embedded window for all guests (including legacy Windows text mode)
 	return false;
 }
@@ -13195,8 +13617,14 @@ const QString &Virtual_Machine::Get_Apple_SEP_FW_Path() const { return Apple_SEP
 void Virtual_Machine::Set_Apple_SEP_FW_Path( const QString &path ) { Apple_SEP_FW_Path = AQ_Normalize_File_Path( path ); }
 const QString &Virtual_Machine::Get_Apple_SEP_ROM_Path() const { return Apple_SEP_ROM_Path; }
 void Virtual_Machine::Set_Apple_SEP_ROM_Path( const QString &path ) { Apple_SEP_ROM_Path = AQ_Normalize_File_Path( path ); }
+const QString &Virtual_Machine::Get_Apple_SecureROM_Path() const { return Apple_SecureROM_Path; }
+void Virtual_Machine::Set_Apple_SecureROM_Path( const QString &path ) { Apple_SecureROM_Path = AQ_Normalize_File_Path( path ); }
 const QString &Virtual_Machine::Get_Apple_IPSW_Path() const { return Apple_IPSW_Path; }
 void Virtual_Machine::Set_Apple_IPSW_Path( const QString &path ) { Apple_IPSW_Path = AQ_Normalize_File_Path( path ); }
+const QString &Virtual_Machine::Get_Apple_Initrd_Path() const { return Apple_Initrd_Path; }
+void Virtual_Machine::Set_Apple_Initrd_Path( const QString &path ) { Apple_Initrd_Path = AQ_Normalize_File_Path( path ); }
+bool Virtual_Machine::Use_Apple_KASLR_Off() const { return Apple_KASLR_Off; }
+void Virtual_Machine::Use_Apple_KASLR_Off( bool use ) { Apple_KASLR_Off = use; }
 const QString &Virtual_Machine::Get_Apple_USB_Conn_Type() const { return Apple_USB_Conn_Type; }
 void Virtual_Machine::Set_Apple_USB_Conn_Type( const QString &type ) { Apple_USB_Conn_Type = type.trimmed(); }
 const QString &Virtual_Machine::Get_Apple_USB_Conn_Addr() const { return Apple_USB_Conn_Addr; }
@@ -13512,6 +13940,74 @@ void Virtual_Machine::Set_Embedded_Display_Port( int port )
 	Embedded_Display_Port = port;
 }
 
+void Virtual_Machine::Append_Apple_SoC_QEMU_Log( const QString &chunk )
+{
+	if( chunk.isEmpty() || ! Apple_SoC_Log_File || ! Apple_SoC_Log_File->isOpen() )
+		return;
+	// Keep the file open for the whole run (avoid open/close per chunk).
+	// Flush so Notepad/WSL see live content on NTFS.
+	Apple_SoC_Log_File->write( chunk.toUtf8() );
+	Apple_SoC_Log_File->flush();
+}
+
+void Virtual_Machine::Begin_Apple_SoC_QEMU_Log()
+{
+	if( Apple_SoC_Log_File )
+	{
+		Apple_SoC_Log_File->close();
+		delete Apple_SoC_Log_File;
+		Apple_SoC_Log_File = nullptr;
+	}
+
+	const QString path = AQ_Apple_SoC_QEMU_Log_Path( this );
+	QDir().mkpath( QFileInfo( path ).absolutePath() );
+	Apple_SoC_Log_File = new QFile( path );
+	if( ! Apple_SoC_Log_File->open( QIODevice::WriteOnly | QIODevice::Truncate |
+	                                QIODevice::Text | QIODevice::Unbuffered ) )
+	{
+		AQWarning( "Virtual_Machine::Begin_Apple_SoC_QEMU_Log",
+		           "Cannot write " + path );
+		delete Apple_SoC_Log_File;
+		Apple_SoC_Log_File = nullptr;
+		return;
+	}
+	QByteArray header;
+	header += "==== AQEMU Apple SoC / Inferno QEMU log ====\n";
+	header += "Started: " + QDateTime::currentDateTime().toString( Qt::ISODate ).toUtf8() + "\n";
+	header += "VM: " + Get_Machine_Name().toUtf8() + "\n";
+	header += "XML: " + Get_VM_XML_File_Path().toUtf8() + "\n";
+	header += "Log: " + QDir::toNativeSeparators( path ).toUtf8() + "\n";
+	header += "============================================\n\n";
+	Apple_SoC_Log_File->write( header );
+	Apple_SoC_Log_File->flush();
+	AQDebug( "Virtual_Machine::Begin_Apple_SoC_QEMU_Log",
+	         "Writing Inferno QEMU output to " + QDir::toNativeSeparators( path ) );
+}
+
+void Virtual_Machine::End_Apple_SoC_QEMU_Log( int exitCode, QProcess::ExitStatus exitStatus )
+{
+	if( ! AQ_Is_Apple_SoC_VM( this ) )
+		return;
+	QString footer;
+	footer += QStringLiteral( "\n==== QEMU session end ====\n" );
+	footer += QStringLiteral( "Ended: %1\n" )
+		.arg( QDateTime::currentDateTime().toString( Qt::ISODate ) );
+	footer += QStringLiteral( "exitCode=%1 exitStatus=%2 userPowerOff=%3\n" )
+		.arg( exitCode )
+		.arg( exitStatus == QProcess::CrashExit ? QStringLiteral( "CrashExit" )
+		                                        : QStringLiteral( "NormalExit" ) )
+		.arg( User_Requested_Power_Off ? QStringLiteral( "yes" ) : QStringLiteral( "no" ) );
+	footer += QStringLiteral( "==========================\n" );
+	Append_Apple_SoC_QEMU_Log( footer );
+	if( Apple_SoC_Log_File )
+	{
+		Apple_SoC_Log_File->flush();
+		Apple_SoC_Log_File->close();
+		delete Apple_SoC_Log_File;
+		Apple_SoC_Log_File = nullptr;
+	}
+}
+
 void Virtual_Machine::Parse_StdOut()
 {
 	QString convOutput = "";
@@ -13520,6 +14016,7 @@ void Virtual_Machine::Parse_StdOut()
 	{
 		convOutput = QEMU_Process->readAllStandardOutput();
 		QEMU_Stdout_History.append( convOutput );
+		Append_Apple_SoC_QEMU_Log( convOutput );
 	}
 	else if( sender() == Monitor_Socket )
 	{
@@ -13532,6 +14029,7 @@ void Virtual_Machine::Parse_StdOut()
 		{
 			convOutput = QEMU_Process->readAllStandardOutput();
 			QEMU_Stdout_History.append( convOutput );
+			Append_Apple_SoC_QEMU_Log( convOutput );
 		}
 		else
 		#endif
@@ -13576,6 +14074,7 @@ void Virtual_Machine::Parse_StdErr()
 	// FIXME in monitor tcp mode no possible get error strings
 	QString convOutput = QEMU_Process->readAllStandardError();
 	QEMU_Stderr_History.append( convOutput );
+	Append_Apple_SoC_QEMU_Log( convOutput );
 
 	emit Clean_Console( convOutput );
 	emit Ready_StdErr( convOutput );
@@ -13691,11 +14190,21 @@ void Virtual_Machine::QEMU_Finished( int exitCode, QProcess::ExitStatus exitStat
 		QEMU_Process->setReadChannel( QProcess::StandardError );
 		const QByteArray err_left = QEMU_Process->readAllStandardError();
 		if( ! err_left.isEmpty() )
-			QEMU_Stderr_History.append( QString::fromLocal8Bit( err_left ) );
+		{
+			const QString err_s = QString::fromLocal8Bit( err_left );
+			QEMU_Stderr_History.append( err_s );
+			Append_Apple_SoC_QEMU_Log( err_s );
+		}
 		const QByteArray out_left = QEMU_Process->readAllStandardOutput();
 		if( ! out_left.isEmpty() )
-			QEMU_Stdout_History.append( QString::fromLocal8Bit( out_left ) );
+		{
+			const QString out_s = QString::fromLocal8Bit( out_left );
+			QEMU_Stdout_History.append( out_s );
+			Append_Apple_SoC_QEMU_Log( out_s );
+		}
 	}
+
+	End_Apple_SoC_QEMU_Log( exitCode, exitStatus );
 	
 	emit QEMU_End();
 	
@@ -13703,35 +14212,137 @@ void Virtual_Machine::QEMU_Finished( int exitCode, QProcess::ExitStatus exitStat
 	Set_State( VM::VMS_Power_Off );
 
 	const bool failed = ( exitStatus == QProcess::CrashExit ) || ( exitCode != 0 );
-	if( failed )
+	const bool unexpected_apple =
+		! failed && ! User_Requested_Power_Off && AQ_Is_Apple_SoC_VM( this );
+
+	// Inferno intentionally exits(0) after a completed restore so host-side
+	// filesystem patches can run, then the user boots without -initrd.
+	const QString apple_out =
+		( QEMU_Stderr_History + QLatin1Char( '\n' ) + QEMU_Stdout_History );
+	const bool restore_done_exit =
+		unexpected_apple &&
+		( apple_out.contains( QLatin1String( "Detected potentially-completed restore" ),
+		                      Qt::CaseInsensitive ) ||
+		  ( apple_out.contains( QLatin1String( "Auto Boot: false" ), Qt::CaseInsensitive ) &&
+		    apple_out.contains( QLatin1String( "-restore rd=md0" ), Qt::CaseInsensitive ) &&
+		    apple_out.contains( QLatin1String( "Boot Mode: 1" ), Qt::CaseInsensitive ) &&
+		    apple_out.contains( QLatin1String( "Boot Mode: 0" ), Qt::CaseInsensitive ) ) );
+
+	if( restore_done_exit )
 	{
-		QString error = QEMU_Stderr_History;
-		if( error.trimmed().isEmpty() )
-			error = QEMU_Stdout_History;
-		if( error.trimmed().isEmpty() )
+		const QString root_path = QDir::toNativeSeparators(
+			QFileInfo( Get_VM_XML_File_Path() ).absolutePath() +
+			QLatin1Char( '/' ) +
+			QFileInfo( Get_VM_XML_File_Path() ).completeBaseName() +
+			QStringLiteral( "_inferno/root" ) );
+		const QString msg = tr(
+			"Inferno shut down after restore stage 1 (exit 0). That is expected.\n\n"
+			"REQUIRED before SpringBoard will appear:\n"
+			"Apply filesystem patches to the iOS guest root disk "
+			"(not the Ubuntu companion).\n"
+			"Root image:\n%1\n\n"
+			"Use File -> Apply iOS filesystem patches... "
+			"(or the button in Apple SoC Restore / MACHINE tab).\n"
+			"After patches succeed, Restore ramdisk is cleared automatically; "
+			"then Power On and wait for data migration / setup.\n\n"
+			"Without fs patches the VNC panel stays black." )
+			.arg( root_path );
+		AQDebug( "void Virtual_Machine::QEMU_Finished", msg );
+
+		QMessageBox box( QMessageBox::Information,
+			tr( "iOS restore finished - apply filesystem patches" ),
+			msg,
+			QMessageBox::NoButton,
+			QApplication::activeWindow() );
+		QPushButton *btnPatch = box.addButton(
+			tr( "Apply filesystem patches..." ), QMessageBox::AcceptRole );
+		box.addButton( QMessageBox::Close );
+		box.exec();
+		Show_QEMU_Error( apple_out.trimmed() );
+		if( box.clickedButton() == btnPatch )
+			AQ_Show_Apple_SoC_FS_Patch_Window( this, QApplication::activeWindow() );
+	}
+	else if( ( failed || unexpected_apple ) && ! User_Requested_Power_Off )
+	{
+		const QString raw_out =
+			( QEMU_Stderr_History + QLatin1Char( '\n' ) + QEMU_Stdout_History ).trimmed();
+		const QString log_path = QDir::toNativeSeparators( AQ_Apple_SoC_QEMU_Log_Path( this ) );
+
+		if( AQ_Is_Apple_SoC_VM( this ) )
 		{
-			if( exitStatus == QProcess::CrashExit )
+			// Inferno prints pages of "info:" kernel-patch lines on stderr. Keep those
+			// in the Error Log, but never feed them to a modal QMessageBox (that freezes
+			// the Error Log underneath so Copy/OK appear dead).
+			QString summary;
+			if( exitCode == 139 || exitCode == -11 )
 			{
-				error = tr( "QEMU crashed while starting or running this VM "
-				            "(Windows exit code 0x%1)." )
-					.arg( QString::number( static_cast<quint32>( exitCode ), 16 ).toUpper() );
+				summary = tr(
+					"qemu-system-applesoc crashed (SIGSEGV / exit 139) after starting.\n\n"
+					"This is a QEMU process crash, not a GUI \"error list\" of kernel patches.\n"
+					"The info:/warning: lines are Inferno applying research-kernel patches.\n"
+					"ALSA / \"Failed to create voice\" on WSL is harmless.\n\n"
+					"Check qemu-boot.log for Boot Mode / Auto Boot / Boot Args.\n"
+					"Try Power On again. If it keeps crashing: start the companion "
+					"(USB remote 127.0.0.1:8030) first, or clear MACHINE USB remote "
+					"for a plain boot test.\n\n"
+					"Full log:\n%1" )
+					.arg( log_path );
 			}
 			else
-				error = tr( "QEMU exited with code %1." ).arg( exitCode );
+			{
+				summary = tr(
+					"Apple SoC / iOS QEMU stopped (exit %1).\n\n"
+					"Usual causes: companion USB remote not up, guest/SEP panic, "
+					"or restore waiting on idevicerestore.\n\n"
+					"Full log:\n%2" )
+					.arg( exitCode )
+					.arg( log_path );
+			}
+
+			AQError( exitStatus == QProcess::CrashExit ? "QEMU Crashed!"
+			                                           : "QEMU return value != 0",
+			         summary );
+			// Short modal FIRST (never dump raw_out ù that freezes Error Log clicks).
+			AQGraphic_Warning( tr( "iOS / Apple SoC stopped" ), summary );
+			if( ! raw_out.isEmpty() )
+				Show_QEMU_Error(
+					tr( "=== Summary ===\n%1\n\n=== QEMU output ===\n%2" )
+						.arg( summary, raw_out ) );
+			else
+				Show_QEMU_Error( summary );
 		}
-		AQError( exitStatus == QProcess::CrashExit ? "QEMU Crashed!" : "QEMU return value != 0",
-		         error );
-		Show_QEMU_Error( error );
-		AQGraphic_Error( "Virtual_Machine::QEMU_Finished",
-		                 exitStatus == QProcess::CrashExit ? tr( "QEMU crashed" )
-		                                                   : tr( "QEMU failed to start" ),
-		                 error, false );
+		else
+		{
+			QString error = QEMU_Stderr_History;
+			if( error.trimmed().isEmpty() )
+				error = QEMU_Stdout_History;
+			if( error.trimmed().isEmpty() )
+			{
+				if( exitStatus == QProcess::CrashExit )
+				{
+					error = tr( "QEMU crashed while starting or running this VM "
+					            "(Windows exit code 0x%1)." )
+						.arg( QString::number( static_cast<quint32>( exitCode ), 16 ).toUpper() );
+				}
+				else
+					error = tr( "QEMU exited with code %1." ).arg( exitCode );
+			}
+			AQError( exitStatus == QProcess::CrashExit ? "QEMU Crashed!"
+			                                           : "QEMU return value != 0",
+			         error );
+			Show_QEMU_Error( error );
+			AQGraphic_Error( "Virtual_Machine::QEMU_Finished",
+			                 exitStatus == QProcess::CrashExit ? tr( "QEMU crashed" )
+			                                                   : tr( "QEMU failed to start" ),
+			                 error, false );
+		}
 	}
 	else
 	{
 		AQDebug( "void Virtual_Machine::QEMU_Finished( int exitCode, QProcess::ExitStatus exitStatus )",
 				 "QEMU Closed" );
 	}
+	User_Requested_Power_Off = false;
 
     // Add VM USB devices to used USB list
     if( USB_Ports.count() > 0 )

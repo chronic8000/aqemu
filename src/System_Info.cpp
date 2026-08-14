@@ -588,7 +588,6 @@ bool System_Info::Update_VM_Computers_List()
 	QEMU_Video_Cards_v0_10_0 << Device_Map( QObject::tr("StdVGA (VESA 2.0)"), "std" );
 	QEMU_Video_Cards_v0_10_0 << Device_Map( QObject::tr("Cirrus CLGD 5446"), "cirrus" );
 	QEMU_Video_Cards_v0_10_0 << Device_Map( QObject::tr("VMWare Video Card"), "vmware" );
-	QEMU_Video_Cards_v0_10_0 << Device_Map( QObject::tr("Reims vGPU (3D Acceleration)"), "reims-vgpu-pci" );
 	QEMU_Video_Cards_v0_10_0 << Device_Map( QObject::tr("None Video Card"), "none" );
 	
 	QList<Device_Map> CPU_x86_v0_10_0 = CPU_x86;
@@ -680,7 +679,10 @@ bool System_Info::Update_VM_Computers_List()
 	ad.CPU_List += CPU_x86_64_v0_10_0;
 	ad.Machine_List += Machine_x86;
 	ad.Network_Card_List += Network_Card_v0_10_0;
-	ad.Video_Card_List += QEMU_Video_Cards_v0_10_0;
+	ad.Video_Card_List.clear();
+	ad.Video_Card_List << Device_Map(
+		QObject::tr( "Reims vGPU (AppleParavirtGPU / Metal→Vulkan)" ),
+		QStringLiteral( "reims-vgpu-pci" ) );
 	ad.Audio_Card_List = Audio_Card_x86;
 	ad.Audio_Card_List.Audio_GUS = true;
 	ad.Audio_Card_List.Audio_AC97 = true;
@@ -1407,7 +1409,7 @@ bool Is_Video_Card_Allowed( Video_Arch_Family fam, const QString &raw_name )
 		case VAF_X86:
 			return name == "std" || name == "cirrus" || name == "vmware" ||
 			       name == "qxl" || name == "virtio" || name == "virtio-vga-gl" ||
-			       name == "reims-vgpu-pci" || name == "xenfb" || name == "none";
+			       name == "xenfb" || name == "none";
 		case VAF_VIRT:
 			return name == "virtio-gpu-pci" || name == "virtio-gpu-gl-pci" ||
 			       name == "ramfb" || name == "std" || name == "cirrus" || name == "none";
@@ -1451,7 +1453,6 @@ QList<Device_Map> Default_Video_List_For_Family( Video_Arch_Family fam )
 	switch( fam )
 	{
 		case VAF_X86:
-			add( QObject::tr("Reims vGPU (3D Acceleration)"), "reims-vgpu-pci" );
 			add( QObject::tr("Cirrus CLGD 5446"), "cirrus" );
 			add( QObject::tr("StdVGA (VESA 2.0)"), "std" );
 			add( QObject::tr("VMWare Video Card"), "vmware" );
@@ -1671,7 +1672,30 @@ VM::Device_Interface System_Info::Sanitize_Disk_Bus( const QString &computer_typ
 
 void System_Info::Filter_Video_Card_List( Available_Devices &dev )
 {
-	const Video_Arch_Family fam = Get_Video_Arch_Family( dev.System.QEMU_Name );
+	const QString sys = dev.System.QEMU_Name;
+	// Reims architecture: the product GPU is only reims-vgpu-pci (not cirrus/std
+	// from the incomplete Windows PE probe catalog).
+	if( sys.contains( QLatin1String( "reimsvgpu" ), Qt::CaseInsensitive ) ||
+	    sys.contains( QLatin1String( "reims3d" ), Qt::CaseInsensitive ) )
+	{
+		dev.Video_Card_List.clear();
+		dev.Video_Card_List << Device_Map(
+			QObject::tr( "Reims vGPU (AppleParavirtGPU / Metal→Vulkan)" ),
+			QStringLiteral( "reims-vgpu-pci" ) );
+		return;
+	}
+
+	// Inferno Apple SoC: onboard display pipe only — never offer PC VGA (cirrus/std).
+	if( sys.contains( QLatin1String( "applesoc" ), Qt::CaseInsensitive ) )
+	{
+		dev.Video_Card_List.clear();
+		dev.Video_Card_List << Device_Map(
+			QObject::tr( "Onboard (Inferno display pipe)" ),
+			QString() );
+		return;
+	}
+
+	const Video_Arch_Family fam = Get_Video_Arch_Family( sys );
 	QList<Device_Map> filtered;
 
 	if( dev.Video_Card_List.isEmpty() )
@@ -1683,6 +1707,10 @@ void System_Info::Filter_Video_Card_List( Available_Devices &dev )
 	{
 		const QString qemu_name = Normalize_Video_Alias( dev.Video_Card_List[i].QEMU_Name );
 		if( qemu_name.isEmpty() )
+			continue;
+		// reims-vgpu-pci belongs on the Reims target, not as a casual -vga pick on x86_64.
+		if( qemu_name == QLatin1String( "reims-vgpu-pci" ) &&
+		    ! sys.contains( QLatin1String( "reims" ), Qt::CaseInsensitive ) )
 			continue;
 		if( Is_Video_Card_Allowed( fam, qemu_name ) )
 		{
@@ -1720,25 +1748,40 @@ void System_Info::Filter_Video_Card_List( Available_Devices &dev )
 	}
 
 	if( ! List_Has_Video( filtered, "none" ) )
-		filtered << Device_Map( QObject::tr("None"), "none" );
+		filtered << Device_Map( QObject::tr( "None" ), "none" );
 
 	dev.Video_Card_List = filtered;
 }
 
 QString System_Info::Default_Video_Card( const QString &computer_type )
 {
+	if( computer_type.contains( QLatin1String( "reimsvgpu" ), Qt::CaseInsensitive ) ||
+	    computer_type.contains( QLatin1String( "reims3d" ), Qt::CaseInsensitive ) )
+		return QStringLiteral( "reims-vgpu-pci" );
+	if( computer_type.contains( QLatin1String( "applesoc" ), Qt::CaseInsensitive ) )
+		return QString();
 	return Default_Video_For_Family( Get_Video_Arch_Family( computer_type ) );
 }
 
 bool System_Info::Uses_Device_Based_Video( const QString &computer_type )
 {
 	return Get_Video_Arch_Family( computer_type ) == VAF_VIRT ||
-	       Get_Video_Arch_Family( computer_type ) == VAF_S390;
+	       Get_Video_Arch_Family( computer_type ) == VAF_S390 ||
+	       computer_type.contains( QLatin1String( "reimsvgpu" ), Qt::CaseInsensitive ) ||
+	       computer_type.contains( QLatin1String( "reims3d" ), Qt::CaseInsensitive );
 }
 
 QString System_Info::Sanitize_Video_Card( const QString &computer_type, const QString &video_card,
                                           const QString &machine_type )
 {
+	if( computer_type.contains( QLatin1String( "reimsvgpu" ), Qt::CaseInsensitive ) ||
+	    computer_type.contains( QLatin1String( "reims3d" ), Qt::CaseInsensitive ) )
+		return QStringLiteral( "reims-vgpu-pci" );
+
+	// ChefKiss Inferno (t8030/s8000) has onboard display — never emit PC -vga/-device std.
+	if( computer_type.contains( QLatin1String( "applesoc" ), Qt::CaseInsensitive ) )
+		return QString();
+
 	const Video_Arch_Family fam = Get_Video_Arch_Family( computer_type );
 	QString name = Normalize_Video_Alias( video_card );
 	const QString m = machine_type.toLower().trimmed();
@@ -3794,9 +3837,52 @@ bool System_Info::Has_NVIDIA_Display_GPU()
 	return false;
 }
 
+bool System_Info::Has_Intel_Display_GPU()
+{
+	const QList<Host_GPU> &list = All_Host_GPU;
+	for( int i = 0; i < list.count(); ++i )
+	{
+		if( list[i].Is_Display && list[i].Vendor == QLatin1String( "Intel" ) )
+			return true;
+	}
+	return false;
+}
+
+bool System_Info::Has_Reims_Candidate_GPU()
+{
+	return Has_AMD_Display_GPU() || Has_NVIDIA_Display_GPU() || Has_Intel_Display_GPU();
+}
+
 bool System_Info::Has_WSL_Vulkan_GPU()
 {
-	return Has_AMD_Display_GPU() || Has_NVIDIA_Display_GPU();
+	// Historical name: means "host has a GPU Reims can use once WSL Vulkan works".
+	return Has_Reims_Candidate_GPU();
+}
+
+QString System_Info::Host_Display_GPU_Vendors_Summary()
+{
+	QStringList vendors;
+	if( Has_AMD_Display_GPU() )
+		vendors << QStringLiteral( "AMD" );
+	if( Has_NVIDIA_Display_GPU() )
+		vendors << QStringLiteral( "NVIDIA" );
+	if( Has_Intel_Display_GPU() )
+		vendors << QStringLiteral( "Intel" );
+	if( vendors.isEmpty() )
+	{
+		const QList<Host_GPU> &list = All_Host_GPU;
+		for( int i = 0; i < list.count(); ++i )
+		{
+			if( ! list[i].Is_Display )
+				continue;
+			const QString n = list[i].Name.trimmed();
+			if( ! n.isEmpty() && ! vendors.contains( n ) )
+				vendors << n;
+		}
+	}
+	if( vendors.isEmpty() )
+		return QString();
+	return vendors.join( QStringLiteral( ", " ) );
 }
 
 QString System_Info::Suggest_AMD_Audio_For( const QString &display_pci_address )

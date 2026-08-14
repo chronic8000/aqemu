@@ -49,13 +49,16 @@
 #include <QProcess>
 #include <QSet>
 #include <QCoreApplication>
+#include <QApplication>
 #include <QMessageBox>
 #include <QUrl>
 
 #include "Utils.h"
 #include "AQ_UI_Style.h"
 #include "Apple_SoC_Support.h"
+#include "Inferno_Companion_Setup.h"
 #include "WSL_Launch.h"
+#include "WSL_Wizard_Window.h"
 #include "VM_Wizard_Window.h"
 #include "System_Info.h"
 #include "VM_Devices.h"
@@ -72,6 +75,13 @@ VM_Wizard_Window::VM_Wizard_Window( QWidget *parent )
 	
 	New_VM = new Virtual_Machine();
 	Win11_ARM_Page = nullptr;
+	Intel_MacOS_Page = nullptr;
+	Inferno_Companion_Page = nullptr;
+	Label_Inferno_Companion_Help = nullptr;
+	RB_Companion_Auto_ISO = nullptr;
+	RB_Companion_Local_ISO = nullptr;
+	Edit_Companion_Local_ISO = nullptr;
+	TB_Companion_Local_ISO_Browse = nullptr;
 	RB_Typical_New_Disk = nullptr;
 	RB_Typical_Existing_Disk = nullptr;
 	Edit_Typical_Disk_Path = nullptr;
@@ -150,6 +160,7 @@ VM_Wizard_Window::VM_Wizard_Window( QWidget *parent )
 	Build_Three_Path_Pages();
 	Build_Windows11_ARM_Page();
 	Build_Intel_MacOS_Page();
+	Build_Inferno_Companion_Page();
 	Enhance_Typical_HDD_Page();
 	Build_Devices_Page();
 
@@ -2086,6 +2097,7 @@ void VM_Wizard_Window::Apply_Guest_Hardware_To_New_VM()
 			New_VM->Set_SMP_CPU_Count( 4 );
 			New_VM->Set_Video_Card( QStringLiteral( "reims-vgpu-pci" ) );
 			New_VM->Use_Launch_Via_WSL( true ); // Windows PE lacks reims-vgpu-pci
+			New_VM->Set_Display_Window_Mode( QStringLiteral( "embedded" ) );
 		}
 
 		const bool chromeos_flex = ( os == QLatin1String( "Chrome OS Flex" ) );
@@ -2254,13 +2266,23 @@ void VM_Wizard_Window::Apply_Guest_Hardware_To_New_VM()
 			if( New_VM->Get_Memory_Size() < 4096 )
 				New_VM->Set_Memory_Size( 4096 );
 			New_VM->Set_SMP_CPU_Count( 4 );
-			New_VM->Set_Video_Card( QStringLiteral( "std" ) );
+			New_VM->Set_Video_Card( QString() ); // Inferno onboard display — never PC std VGA
 			New_VM->Set_Mouse_Type( QStringLiteral( "usb-tablet" ) );
 			New_VM->Use_USB_Hub( true );
 			New_VM->Use_Launch_Via_WSL( true );
-			New_VM->Set_Kernel_ComLine( AQ_Apple_SoC_Default_Append() );
+			New_VM->Set_Kernel_ComLine( AQ_Apple_SoC_Suggested_Append() );
+			New_VM->Use_Apple_KASLR_Off( true );
+			New_VM->Use_UEFI( false );
+			New_VM->Set_UEFI_CODE_File( QString() );
+			New_VM->Set_UEFI_VARS_File( QString() );
+#ifdef Q_OS_WIN32
+			// Inferno tip: localhost IPv4 often works better than UNIX; both VMs must match.
+			New_VM->Set_Apple_USB_Conn_Type( QStringLiteral( "ipv4" ) );
+			New_VM->Set_Apple_USB_Conn_Addr( QStringLiteral( "127.0.0.1" ) );
+#else
 			New_VM->Set_Apple_USB_Conn_Type( QStringLiteral( "unix" ) );
 			New_VM->Set_Apple_USB_Conn_Addr( QStringLiteral( "/tmp/InfernoUSBRemote" ) );
+#endif
 			New_VM->Set_Apple_USB_Conn_Port( 8030 );
 		}
 
@@ -3588,6 +3610,90 @@ void VM_Wizard_Window::Show_Intel_MacOS_Page()
 	Probe_WSL_For_Intel_Mac_Page();
 }
 
+void VM_Wizard_Window::Build_Inferno_Companion_Page()
+{
+	Inferno_Companion_Page = new QWidget();
+	QVBoxLayout *lay = new QVBoxLayout( Inferno_Companion_Page );
+	lay->setContentsMargins( 8, 8, 8, 8 );
+	lay->setSpacing( 10 );
+
+	Label_Inferno_Companion_Help = new QLabel( Inferno_Companion_Page );
+	Label_Inferno_Companion_Help->setWordWrap( true );
+	Label_Inferno_Companion_Help->setTextFormat( Qt::RichText );
+	Label_Inferno_Companion_Help->setText( tr(
+		"<p><b>IPSW Restore Companion — Ubuntu Server (x86_64)</b></p>"
+		"<p>This is a normal Linux VM (not an iPhone). ChefKiss Inferno cannot expose the "
+		"emulated iPhone USB to Windows, so <code>idevicerestore</code> runs "
+		"<b>inside this Ubuntu guest</b>.</p>"
+		"<p>When you click <b>Finish</b>, AQEMU will:</p>"
+		"<ol>"
+		"<li><b>Download</b> the official Ubuntu Server 24.04 live ISO (~2–3 GB), unless you "
+		"already have one below.</li>"
+		"<li>Create a 20 GB disk <code>companion.qcow2</code>.</li>"
+		"<li><b>Mount the ISO as CD-ROM</b> and boot the installer on first Power On.</li>"
+		"<li>Forward SSH as <code>127.0.0.1:32222</code> → guest port 22.</li>"
+		"</ol>"
+		"<p>You do <b>not</b> need to pick install media on a generic disk page — that step is "
+		"skipped for this template.</p>" ) );
+	lay->addWidget( Label_Inferno_Companion_Help );
+
+	RB_Companion_Auto_ISO = new QRadioButton(
+		tr( "Download Ubuntu Server ISO automatically (recommended)" ),
+		Inferno_Companion_Page );
+	RB_Companion_Local_ISO = new QRadioButton(
+		tr( "I already have an Ubuntu Server amd64 ISO" ),
+		Inferno_Companion_Page );
+	RB_Companion_Auto_ISO->setChecked( true );
+	lay->addWidget( RB_Companion_Auto_ISO );
+	lay->addWidget( RB_Companion_Local_ISO );
+
+	QHBoxLayout *isoLay = new QHBoxLayout();
+	Edit_Companion_Local_ISO = new QLineEdit( Inferno_Companion_Page );
+	Edit_Companion_Local_ISO->setPlaceholderText(
+		tr( "Path to ubuntu-*-live-server-amd64.iso" ) );
+	Edit_Companion_Local_ISO->setEnabled( false );
+	TB_Companion_Local_ISO_Browse = new QToolButton( Inferno_Companion_Page );
+	TB_Companion_Local_ISO_Browse->setText( QStringLiteral( "..." ) );
+	TB_Companion_Local_ISO_Browse->setEnabled( false );
+	isoLay->addWidget( Edit_Companion_Local_ISO, 1 );
+	isoLay->addWidget( TB_Companion_Local_ISO_Browse );
+	lay->addLayout( isoLay );
+
+	QLabel *tip = new QLabel( tr(
+		"<i>After Finish:</i> Power On this VM, install Ubuntu (enable OpenSSH), then use "
+		"<b>File → Apple SoC Restore → Start companion</b> before the iOS guest." ),
+		Inferno_Companion_Page );
+	tip->setWordWrap( true );
+	lay->addWidget( tip );
+	lay->addStretch();
+
+	ui.Wizard_Pages->addWidget( Inferno_Companion_Page );
+
+	connect( RB_Companion_Local_ISO, &QRadioButton::toggled, this, [this]( bool on ) {
+		if( Edit_Companion_Local_ISO )
+			Edit_Companion_Local_ISO->setEnabled( on );
+		if( TB_Companion_Local_ISO_Browse )
+			TB_Companion_Local_ISO_Browse->setEnabled( on );
+	} );
+	connect( TB_Companion_Local_ISO_Browse, &QToolButton::clicked, this, [this]() {
+		const QString file = QFileDialog::getOpenFileName( this,
+			tr( "Select Ubuntu Server ISO" ),
+			Get_Last_Dir_Path( Edit_Companion_Local_ISO
+				? Edit_Companion_Local_ISO->text() : QString() ),
+			tr( "ISO Images (*.iso);;All Files (*)" ) );
+		if( ! file.isEmpty() && Edit_Companion_Local_ISO )
+			Edit_Companion_Local_ISO->setText( QDir::toNativeSeparators( file ) );
+	} );
+}
+
+void VM_Wizard_Window::Show_Inferno_Companion_Page()
+{
+	if( ! Inferno_Companion_Page )
+		Build_Inferno_Companion_Page();
+	ui.Wizard_Pages->setCurrentWidget( Inferno_Companion_Page );
+	ui.Label_Page->setText( tr( "IPSW Companion (Ubuntu)" ) );
+}
+
 void VM_Wizard_Window::Probe_WSL_For_Intel_Mac_Page()
 {
 #ifdef Q_OS_WIN32
@@ -3614,6 +3720,8 @@ void VM_Wizard_Window::Probe_WSL_For_Intel_Mac_Page()
 
 bool VM_Wizard_Window::Is_Apple_Silicon_Or_iOS_Template() const
 {
+	if( Is_Inferno_Companion_Template() )
+		return false;
 	if( Selected_Target == QLatin1String( "applesoc" ) )
 		return true;
 	const QString n = Three_Path_Active ? Selected_OS_Name
@@ -3623,10 +3731,17 @@ bool VM_Wizard_Window::Is_Apple_Silicon_Or_iOS_Template() const
 	       n.contains( QLatin1String( "applesoc" ), Qt::CaseInsensitive );
 }
 
+bool VM_Wizard_Window::Is_Inferno_Companion_Template() const
+{
+	const QString n = Three_Path_Active ? Selected_OS_Name
+		: ( ui.RB_VM_Template->isChecked() ? ui.CB_OS_Type->currentText() : QString() );
+	return AQ_Is_Inferno_Companion_OS( n );
+}
+
 bool VM_Wizard_Window::Is_Intel_MacOS_Template() const
 {
 	// Never treat Apple Silicon / iOS as Intel macOS (OpenCore / x86_64 rewrite).
-	if( Is_Apple_Silicon_Or_iOS_Template() )
+	if( Is_Apple_Silicon_Or_iOS_Template() || Is_Inferno_Companion_Template() )
 		return false;
 
 	if( Three_Path_Active )
@@ -3874,6 +3989,16 @@ void VM_Wizard_Window::on_Button_Back_clicked()
 		ui.Label_CPU_Type->setVisible( false );
 		ui.CB_CPU_Type->setVisible( false );
 	}
+	else if( Inferno_Companion_Page &&
+	         Inferno_Companion_Page == ui.Wizard_Pages->currentWidget() )
+	{
+		ui.Wizard_Pages->setCurrentWidget( ui.General_Settings_Page );
+		ui.Label_Page->setText( tr( "Virtual Machine Name" ) );
+		ui.Label_Caption_CPU_Type->setVisible( false );
+		ui.Line_CPU_Type->setVisible( false );
+		ui.Label_CPU_Type->setVisible( false );
+		ui.CB_CPU_Type->setVisible( false );
+	}
 	else if( Win11_ARM_Page == ui.Wizard_Pages->currentWidget() )
 	{
 		if( ui.RB_Typical->isChecked() )
@@ -3909,7 +4034,11 @@ void VM_Wizard_Window::on_Button_Back_clicked()
 	}
 	else if( ui.Network_Page == ui.Wizard_Pages->currentWidget() )
 	{
-		if( Devices_Page )
+		if( Is_Inferno_Companion_Template() )
+		{
+			Show_Inferno_Companion_Page();
+		}
+		else if( Devices_Page )
 		{
 			ui.Wizard_Pages->setCurrentWidget( Devices_Page );
 			ui.Label_Page->setText( tr( "Devices" ) );
@@ -4248,9 +4377,16 @@ void VM_Wizard_Window::on_Button_Next_clicked()
 
 		if( ui.RB_Typical->isChecked() )
 		{
-			Refresh_Typical_HDD_Defaults();
-			ui.Wizard_Pages->setCurrentWidget( ui.Typical_HDD_Page );
-			ui.Label_Page->setText( tr("Virtual Hard Disk") );
+			if( Is_Inferno_Companion_Template() )
+			{
+				Show_Inferno_Companion_Page();
+			}
+			else
+			{
+				Refresh_Typical_HDD_Defaults();
+				ui.Wizard_Pages->setCurrentWidget( ui.Typical_HDD_Page );
+				ui.Label_Page->setText( tr("Virtual Hard Disk") );
+			}
 		}
 		else
 		{
@@ -4263,6 +4399,24 @@ void VM_Wizard_Window::on_Button_Next_clicked()
 		on_CH_Remove_RAM_Size_Limitation_stateChanged( Qt::Unchecked ); // update max available RAM size
 		ui.Wizard_Pages->setCurrentWidget( ui.Custom_HDD_Page );
 		ui.Label_Page->setText( tr("Virtual Hard Disk") );
+	}
+	else if( Inferno_Companion_Page &&
+	         Inferno_Companion_Page == ui.Wizard_Pages->currentWidget() )
+	{
+		if( RB_Companion_Local_ISO && RB_Companion_Local_ISO->isChecked() )
+		{
+			const QString iso = Edit_Companion_Local_ISO
+				? Edit_Companion_Local_ISO->text().trimmed() : QString();
+			if( iso.isEmpty() || ! QFile::exists( iso ) )
+			{
+				AQGraphic_Warning( tr( "IPSW Companion" ),
+					tr( "Select an existing Ubuntu Server amd64 ISO, or choose "
+					    "automatic download." ) );
+				return;
+			}
+		}
+		ui.Wizard_Pages->setCurrentWidget( ui.Network_Page );
+		ui.Label_Page->setText( tr( "Network" ) );
 	}
 	else if( ui.Typical_HDD_Page == ui.Wizard_Pages->currentWidget() )
 	{
@@ -4689,7 +4843,10 @@ bool VM_Wizard_Window::Create_New_VM(bool simulate)
 	if( ui.RB_Typical->isChecked() )
 	{
 		QString hd_path = Settings.value( "VM_Directory", "~" ).toString() + VM_File_Name;
-		
+
+		// Companion profile creates companion.qcow2 + Ubuntu ISO itself.
+		if( ! Is_Inferno_Companion_Template() )
+		{
 		if( Is_Windows11_ARM_Template() && RB_Win11_Existing_Disk->isChecked() )
 		{
 			New_VM->Set_HDA( VM_HDD(true, Edit_Win11_Existing_Disk->text()) );
@@ -4745,6 +4902,7 @@ bool VM_Wizard_Window::Create_New_VM(bool simulate)
                 Create_New_HDD_Image( hd_path + "_HDD.img", New_VM->Get_HDD().Get_Virtual_Size() );
 			New_VM->Set_HDD( VM_HDD(true, hd_path + "_HDD.img") );
 		}
+		} // ! companion
 	}
 	else
 	{
@@ -4874,6 +5032,11 @@ bool VM_Wizard_Window::Create_New_VM(bool simulate)
 	
 	if( Is_Windows11_ARM_Template() )
 		Apply_Windows11_ARM_Profile( simulate );
+	else if( Is_Inferno_Companion_Template() )
+	{
+		if( ! Apply_Inferno_Companion_Profile( simulate ) && ! simulate )
+			return false;
+	}
 	else if( Is_Apple_Silicon_Or_iOS_Template() )
 		Apply_Apple_SoC_Profile( simulate );
 	else if( Is_Intel_MacOS_Template() )
@@ -4952,6 +5115,23 @@ void VM_Wizard_Window::Update_Finish_Page_Guidance()
 			"<code>qemu-system-ppc</code> and re-run the First Start Wizard.</li>"
 			"</ul>" );
 	}
+	else if( Is_Inferno_Companion_Template() )
+	{
+		help = tr( "<p><b>iPhone IPSW Restore Companion (Ubuntu Server)</b></p>"
+			"<p>This creates a <b>real AQEMU VM</b> you can Power On from the machine list "
+			"(and run <b>at the same time</b> as your iOS VM).</p>"
+			"<ul>"
+			"<li>On Finish, AQEMU <b>downloads Ubuntu Server</b> (or uses your ISO) and "
+			"creates <code>companion.qcow2</code>.</li>"
+			"<li><b>Mounts the ISO as CD-ROM</b> and boots the installer first.</li>"
+			"<li>SSH from the host: <code>ssh -p 32222 user@127.0.0.1</code></li>"
+			"<li>After Ubuntu is installed, use <b>File → Apple SoC Restore → Start companion</b> "
+			"so Inferno presents the iPhone USB <b>inside</b> this Linux guest for "
+			"<code>idevicerestore</code>.</li>"
+			"</ul>"
+			"<p>Also listed under <b>Linux</b> as "
+			"<i>IPSW Restore Companion (Ubuntu)</i>.</p>" );
+	}
 	else if( Is_Apple_Silicon_Or_iOS_Template() )
 	{
 		help = tr( "<p><b>Apple SoC / iOS (Inferno) — AQEMU 1.3.0</b></p><ul>"
@@ -4959,9 +5139,9 @@ void VM_Wizard_Window::Update_Finish_Page_Guidance()
 			"On Windows this is forced through <b>WSL</b> (UNIX sockets / companion restore).</li>"
 			"<li>Set kernelcache, DeviceTree, trustcache, restore ticket, and SEP firmware "
 			"on the VM page. AQEMU creates the Inferno NVMe image set under the VM folder.</li>"
-			"<li>IPSW restore needs a <b>companion VM</b> first, then "
-			"<b>File → Apple SoC Restore</b> (patched <code>idevicerestore</code> in WSL). "
-			"See <a href=\"https://chefkiss.dev/ar/guides/inferno/companion-setup/\">Companion setup</a>.</li>"
+			"<li>Create the companion first: Guest OS → Apple → "
+			"<b>iPhone IPSW Restore Companion</b>, then "
+			"<b>File → Apple SoC Restore</b>.</li>"
 			"<li>Use <b>File → iOS Firmware Tool</b> to unpack IPSW / IM4P when needed.</li>"
 			"</ul>" );
 	}
@@ -5179,14 +5359,20 @@ void VM_Wizard_Window::Apply_Apple_SoC_Profile( bool simulate )
 	if( New_VM->Get_Memory_Size() < 4096 )
 		New_VM->Set_Memory_Size( 4096 );
 	New_VM->Set_SMP_CPU_Count( 4 );
-	New_VM->Set_Video_Card( QStringLiteral( "std" ) );
+	New_VM->Set_Video_Card( QString() ); // Inferno onboard display — never PC std VGA
 	New_VM->Set_Mouse_Type( QStringLiteral( "usb-tablet" ) );
 	New_VM->Use_USB_Hub( true );
 	New_VM->Use_Launch_Via_WSL( true );
-	New_VM->Set_Kernel_ComLine( AQ_Apple_SoC_Default_Append() );
+	New_VM->Set_Kernel_ComLine( AQ_Apple_SoC_Suggested_Append() );
+	New_VM->Use_Apple_KASLR_Off( true );
+	// Inferno uses SEP pflash, not EDK2 — never enable UEFI on this profile.
+	New_VM->Use_UEFI( false );
+	New_VM->Set_UEFI_CODE_File( QString() );
+	New_VM->Set_UEFI_VARS_File( QString() );
 #ifdef Q_OS_WIN32
-	New_VM->Set_Apple_USB_Conn_Type( QStringLiteral( "unix" ) );
-	New_VM->Set_Apple_USB_Conn_Addr( QStringLiteral( "/tmp/InfernoUSBRemote" ) );
+	// Inferno tip (Visual): ipv4 localhost instead of unix; identical on companion + main VM.
+	New_VM->Set_Apple_USB_Conn_Type( QStringLiteral( "ipv4" ) );
+	New_VM->Set_Apple_USB_Conn_Addr( QStringLiteral( "127.0.0.1" ) );
 	Settings.setValue( QStringLiteral( "WSL_Launch/Enabled" ), true );
 #else
 	New_VM->Set_Apple_USB_Conn_Type( QStringLiteral( "unix" ) );
@@ -5200,6 +5386,59 @@ void VM_Wizard_Window::Apply_Apple_SoC_Profile( bool simulate )
 		if( ! AQ_Ensure_Apple_SoC_Disk_Images( vm_folder, &err ) )
 			AQWarning( "VM_Wizard_Window::Apply_Apple_SoC_Profile", err );
 	}
+}
+
+bool VM_Wizard_Window::Apply_Inferno_Companion_Profile( bool simulate )
+{
+	QString vm_dir = Settings.value( "VM_Directory", "~" ).toString();
+	QString vm_base = Get_FS_Compatible_VM_Name( ui.Edit_VM_Name->text() );
+	if( vm_base.trimmed().isEmpty() )
+		vm_base = Get_FS_Compatible_VM_Name( AQ_Inferno_Companion_OS_Name() );
+	New_VM->Set_VM_XML_File_Path( QDir( vm_dir ).filePath( vm_base + QStringLiteral( ".aqemu" ) ) );
+	const QString vm_folder = QDir( vm_dir ).filePath( vm_base );
+
+	New_VM->Set_Computer_Type( QStringLiteral( "qemu-system-x86_64" ) );
+	New_VM->Set_Emulator( Get_Default_Emulator() );
+	New_VM->Set_Machine_Type( QStringLiteral( "q35" ) );
+	New_VM->Set_CPU_Type( QStringLiteral( "max" ) );
+	if( New_VM->Get_Machine_Name().trimmed().isEmpty() ||
+	    New_VM->Get_Machine_Name() == Selected_OS_Name )
+		New_VM->Set_Machine_Name( AQ_Inferno_Companion_OS_Name() );
+	New_VM->Set_Memory_Size( 2048 );
+	if( New_VM->Get_SMP_CPU_Count() < 2 )
+		New_VM->Set_SMP_CPU_Count( 2 );
+	New_VM->Use_UEFI( false );
+	// Do not force WSL here — companion Ubuntu uses Windows QEMU so SSH :32222 works.
+
+	if( simulate )
+		return true;
+
+	QString disk, iso, err;
+	QString preferred_iso;
+	if( RB_Companion_Local_ISO && RB_Companion_Local_ISO->isChecked() &&
+	    Edit_Companion_Local_ISO )
+		preferred_iso = Edit_Companion_Local_ISO->text().trimmed();
+
+	if( ! AQ_Inferno_Companion_Prepare_Assets( this, vm_folder, &disk, &iso, &err,
+	                                           preferred_iso ) )
+	{
+		AQGraphic_Warning( tr( "Companion setup" ),
+			tr( "Could not prepare companion disk/ISO:\n%1\n\n"
+			    "VM was not created. Try again or place the Ubuntu Server ISO "
+			    "manually, then use Apple SoC Restore → Create…" ).arg( err ) );
+		return false;
+	}
+
+	// Defaults set virtio HDA + non-native CD (index=2). Do not Set_HDA/Set_CD_ROM
+	// again here — a plain VM_HDD reverts to IDE index 0 and clashes with the ISO.
+	AQ_Apply_Inferno_Companion_VM_Defaults( New_VM, disk, iso );
+	Guest_Install_ISO = iso;
+
+	const QString user_hint = Settings.value( QStringLiteral( "WSL_Launch/Username" ),
+		QStringLiteral( "ubuntu" ) ).toString();
+	AQ_Inferno_Companion_Show_Notes( this,
+		AQ_Inferno_Companion_Post_Install_Notes( disk, iso, user_hint ) );
+	return true;
 }
 
 void VM_Wizard_Window::Apply_Intel_MacOS_Profile( bool simulate )
@@ -5218,6 +5457,7 @@ void VM_Wizard_Window::Apply_Intel_MacOS_Profile( bool simulate )
 	else
 	{
 		New_VM->Set_Video_Card( QStringLiteral( "reims-vgpu-pci" ) ); // Linux Reims / AppleParavirtGPU
+		New_VM->Set_Display_Window_Mode( QStringLiteral( "embedded" ) );
 	}
 	New_VM->Set_Machine_Type( QStringLiteral( "q35" ) );
 	New_VM->Set_CPU_Type( QStringLiteral( "Skylake-Client-v4" ) );
@@ -5253,6 +5493,45 @@ void VM_Wizard_Window::Apply_Intel_MacOS_Profile( bool simulate )
 	{
 		Settings.setValue( QStringLiteral( "WSL_Launch/Enabled" ), true );
 	}
+	if( is_reims && ! simulate )
+	{
+		QString distro = Settings.value( QStringLiteral( "WSL_Launch/Distro" ), QString() ).toString();
+		QString user = Settings.value( QStringLiteral( "WSL_Launch/Username" ), QString() ).toString();
+		if( distro.trimmed().isEmpty() || user.trimmed().isEmpty() ||
+		    ! WSL_Is_Valid_Username( user ) )
+		{
+			WSL_Wizard_Window wizard( this );
+			if( wizard.exec() == QDialog::Accepted )
+			{
+				distro = Settings.value( QStringLiteral( "WSL_Launch/Distro" ), QString() ).toString();
+			}
+		}
+		QString status;
+		QMessageBox::information( this, tr( "Reims WSL Vulkan" ),
+			tr( "Provisioning WSL for Reims vGPU:\n"
+			    "AQEMU will ensure Mesa Dozen (dzn) — Vulkan over WSLg D3D12 — "
+			    "is installed inside your distro.\n\n"
+			    "This is required for every Reims VM (not optional). "
+			    "It may take a few minutes (apt)." ) );
+		QApplication::setOverrideCursor( Qt::WaitCursor );
+		QApplication::processEvents();
+		const bool ok = WSL_Ensure_Reims_Vulkan_Stack( distro, &status, true );
+		QApplication::restoreOverrideCursor();
+		if( ok )
+		{
+			AQDebug( "VM_Wizard_Window::Apply_Intel_MacOS_Profile", status );
+			QMessageBox::information( this, tr( "Reims WSL Vulkan" ),
+				tr( "WSL Vulkan is ready for Reims.\n\n%1" ).arg( status ) );
+		}
+		else
+		{
+			AQWarning( "VM_Wizard_Window::Apply_Intel_MacOS_Profile", status );
+			QMessageBox::warning( this, tr( "Reims WSL Vulkan" ),
+				tr( "Could not finish WSL Vulkan provisioning for Reims.\n\n%1\n\n"
+				    "The VM was still created — fix Vulkan in WSL before expecting "
+				    "accelerated graphics." ).arg( status ) );
+		}
+	}
 #endif
 
 	QString qemu_bin = New_VM->Get_Computer_Type();
@@ -5264,6 +5543,24 @@ void VM_Wizard_Window::Apply_Intel_MacOS_Profile( bool simulate )
 		qemu_bin = bins[ "qemu-system-x86_64" ];
 
 	QString code = Find_UEFI_Firmware_CODE( qemu_bin, QStringLiteral( "x86_64" ) );
+	if( is_reims )
+	{
+		const QString app = QDir::cleanPath( QCoreApplication::applicationDirPath() );
+		const QStringList ovmf4 = QStringList()
+			<< ( app + QStringLiteral( "/share/OVMF_CODE_4M.fd" ) )
+			<< ( app + QStringLiteral( "/resources/OVMF_CODE_4M.fd" ) )
+			<< QDir( app ).absoluteFilePath( QStringLiteral( "../scripts/OSX-KVM/OVMF_CODE_4M.fd" ) )
+			<< QDir( app ).absoluteFilePath( QStringLiteral( "../../scripts/OSX-KVM/OVMF_CODE_4M.fd" ) )
+			<< QDir( app ).absoluteFilePath( QStringLiteral( "../resources/OVMF_CODE_4M.fd" ) );
+		for( const QString &cand : ovmf4 )
+		{
+			if( QFile::exists( cand ) )
+			{
+				code = cand;
+				break;
+			}
+		}
+	}
 	QString vars_dest = vm_dir + vm_base + "_OVMF_VARS.fd";
 	New_VM->Use_UEFI( true );
 	if( ! code.isEmpty() )
@@ -5271,6 +5568,38 @@ void VM_Wizard_Window::Apply_Intel_MacOS_Profile( bool simulate )
 	New_VM->Set_UEFI_VARS_File( vars_dest );
 	if( ! simulate )
 		Prepare_UEFI_VARS_File( vars_dest, qemu_bin, QStringLiteral( "x86_64" ) );
+
+	if( is_reims && ! simulate )
+	{
+		QString oc = AQ_Normalize_File_Path( New_VM->Get_OpenCore_Boot_Path() );
+		if( ! oc.isEmpty() && QFile::exists( oc ) )
+		{
+			const QString lower = oc.toLower();
+			if( lower.endsWith( QLatin1String( ".iso" ) ) )
+			{
+				QString dest = oc;
+				dest.chop( 4 );
+				dest += QStringLiteral( "_BOOT.img" );
+				dest = vm_dir + vm_base + QStringLiteral( "_OpenCore_BOOT.img" );
+				const QString prepared = AQ_Ensure_OpenCore_Boot_With_PartitionDxe( oc, dest );
+				if( ! prepared.isEmpty() )
+					oc = prepared;
+			}
+			if( oc.toLower().endsWith( QLatin1String( ".img" ) ) ||
+			    oc.toLower().endsWith( QLatin1String( ".raw" ) ) )
+			{
+				if( ! AQ_Ensure_OpenCore_Reims_GOP( oc ) )
+				{
+					AQWarning( "VM_Wizard_Window::Apply_Intel_MacOS_Profile",
+						QStringLiteral( "Could not inject Reims GOP EFI into %1" ).arg( oc ) );
+				}
+				else if( oc != New_VM->Get_OpenCore_Boot_Path() )
+				{
+					New_VM->Set_OpenCore_Boot_Path( QDir::toNativeSeparators( oc ) );
+				}
+			}
+		}
+	}
 
 	QList<VM::Boot_Order> boot;
 	const QString oc_path = Edit_Intel_Mac_OpenCore->text().trimmed().toLower();

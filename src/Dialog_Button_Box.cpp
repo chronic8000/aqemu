@@ -51,7 +51,6 @@ Dialog_Button_Box::~Dialog_Button_Box()
 void Dialog_Button_Box::showEvent(QShowEvent* e)
 {
     init();
-
-    e->accept();
+    QDialogButtonBox::showEvent(e);
 }
 

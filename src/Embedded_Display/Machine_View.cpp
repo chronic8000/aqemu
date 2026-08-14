@@ -28,6 +28,7 @@
 #include <QLabel>
 #include <QAction>
 #include <QTimer>
+#include <QApplication>
 #include <QKeySequence>
 #include <QTest>
 
@@ -311,7 +312,20 @@ void MachineView::captureAllKeys( bool enabled )
 
 void MachineView::captureAllMouseEvents()
 {
-	View->grabMouse();
+	if( ! View )
+		return;
+	View->setStickyMouseGrab( ! View->stickyMouseGrab() );
+}
+
+bool MachineView::isMouseGrabbed() const
+{
+	return View && View->stickyMouseGrab();
+}
+
+void MachineView::setMouseGrabbed( bool on )
+{
+	if( View )
+		View->setStickyMouseGrab( on );
 }
 
 void MachineView::sendKey( QKeyEvent *event )
@@ -356,9 +370,17 @@ bool MachineView::event( QEvent *event )
 	}
 	else if( event->type() == QEvent::Leave )
 	{
+		// Always free the keyboard when leaving the display so File/menus work.
+		// Sticky mouse grab alone keeps iOS swipe tracking while the button is held.
 		View->clearFocus();
 		View->releaseKeyboard();
-		
+		if( View && View->stickyMouseGrab() &&
+		    ( QApplication::mouseButtons() &
+		      ( Qt::LeftButton | Qt::MidButton | Qt::RightButton ) ) )
+			return true;
+		// Pointer left to chrome with no button held — drop sticky grab too.
+		if( View && View->stickyMouseGrab() )
+			View->setStickyMouseGrab( false );
 		return true;
 	}
 	else if( event->type() == QEvent::KeyPress )
