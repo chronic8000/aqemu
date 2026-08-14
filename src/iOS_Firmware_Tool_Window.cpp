@@ -511,31 +511,88 @@ QString iOS_Firmware_Tool_Window::Restore_Ramdisk_From_Manifest( const QString &
 	if( ! f.open( QIODevice::ReadOnly ) )
 		return QString();
 	const QByteArray data = f.readAll();
-	const QString text = QString::fromUtf8( data );
-	QRegularExpression xml_re(
-		QStringLiteral( "RestoreRamDisk</key>\\s*<string>([^<]+\\.dmg)</string>" ),
+	f.close();
+
+	const QString model = CB_Ticket_Model
+		? CB_Ticket_Model->currentData().toString() : QString();
+	const QRegularExpression path_xml(
+		QStringLiteral( "<key>Path</key>\\s*<string>([^<]+\\.dmg)</string>" ),
 		QRegularExpression::CaseInsensitiveOption );
-	const QRegularExpressionMatch xml = xml_re.match( text );
-	QString name;
-	if( xml.hasMatch() )
-		name = QFileInfo( xml.captured( 1 ).trimmed() ).fileName();
-	if( name.isEmpty() )
+	const QRegularExpression numbered_dmg( QStringLiteral( "([0-9]{3}-[0-9]+-[0-9]+\\.dmg)" ) );
+
+	QString best_path;
+	int best_score = -1;
+	int pos = 0;
+	const QByteArray needle( "RestoreRamDisk" );
+	while( ( pos = data.indexOf( needle, pos ) ) >= 0 )
 	{
-		const int key = data.indexOf( "RestoreRamDisk" );
-		if( key >= 0 )
+		const QString ahead = QString::fromUtf8( data.mid( pos, 4096 ) );
+		if( ahead.contains( QLatin1String( "CustomerRamDisk" ), Qt::CaseInsensitive )
+		    && ! ahead.contains( QLatin1String( ".dmg" ), Qt::CaseInsensitive ) )
 		{
-			const QString slice = QString::fromLatin1( data.mid( key, 512 ) );
-			QRegularExpression dmg_re( QStringLiteral( "([0-9A-Za-z._-]+\\.dmg)" ) );
-			const QRegularExpressionMatch dmg = dmg_re.match( slice );
+			pos += needle.size();
+			continue;
+		}
+
+		QString name;
+		const QRegularExpressionMatch xml = path_xml.match( ahead );
+		if( xml.hasMatch() )
+			name = QFileInfo( xml.captured( 1 ).trimmed() ).fileName();
+		if( name.isEmpty() )
+		{
+			const QRegularExpressionMatch dmg = numbered_dmg.match( ahead );
 			if( dmg.hasMatch() )
 				name = dmg.captured( 1 );
 		}
+		if( name.isEmpty() || ! name.endsWith( QLatin1String( ".dmg" ), Qt::CaseInsensitive ) )
+		{
+			pos += needle.size();
+			continue;
+		}
+
+		const QString cand = QDir( extract_dir ).filePath( name );
+		if( ! QFile::exists( cand ) )
+		{
+			pos += needle.size();
+			continue;
+		}
+
+		const QString back = QString::fromUtf8( data.mid( qMax( 0, pos - 8000 ), 8000 ) );
+		int score = 1;
+		if( ! model.isEmpty() && back.contains( model, Qt::CaseInsensitive ) )
+			score += 10;
+		if( back.contains( QLatin1String( "Erase" ), Qt::CaseInsensitive ) )
+			score += 5;
+		if( back.contains( QLatin1String( "Customer" ), Qt::CaseInsensitive ) )
+			score += 2;
+		if( score > best_score )
+		{
+			best_score = score;
+			best_path = cand;
+		}
+		pos += needle.size();
 	}
-	if( name.isEmpty() )
-		return QString();
-	const QString path = QDir( extract_dir ).filePath( name );
-	if( QFile::exists( path ) )
-		return path;
+
+	if( ! best_path.isEmpty() )
+		return best_path;
+
+	const QString restore_plist = QDir( extract_dir ).filePath( QStringLiteral( "Restore.plist" ) );
+	QFile rf( restore_plist );
+	if( rf.open( QIODevice::ReadOnly ) )
+	{
+		const QString rtext = QString::fromUtf8( rf.readAll() );
+		QRegularExpression user_re(
+			QStringLiteral( "RestoreRamDisks</key>\\s*<dict>[\\s\\S]{0,400}?<key>User</key>\\s*<string>([^<]+\\.dmg)</string>" ),
+			QRegularExpression::CaseInsensitiveOption );
+		const QRegularExpressionMatch um = user_re.match( rtext );
+		if( um.hasMatch() )
+		{
+			const QString cand = QDir( extract_dir ).filePath(
+				QFileInfo( um.captured( 1 ).trimmed() ).fileName() );
+			if( QFile::exists( cand ) )
+				return cand;
+		}
+	}
 	return QString();
 }
 
