@@ -9231,6 +9231,17 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			else
 				Args << "-append" << Kernel_ComLine;
 		}
+		else if( AQ_Is_Apple_SoC_VM( this ) )
+		{
+			Args << "-append" << AQ_Apple_SoC_Default_Append();
+		}
+	}
+
+	if( AQ_Is_Apple_SoC_VM( this ) )
+	{
+		// Preview/script must not create 32GiB images; Start_impl ensures them first.
+		Args << AQ_Build_Apple_SoC_Extra_Args(
+			this, Build_QEMU_Args_for_Script_Mode, Launch_Via_WSL, false, nullptr );
 	}
 
 	if( AQ_Is_Apple_SoC_VM( this ) )
