@@ -14,6 +14,7 @@
 #include <QStyle>
 #include <QSizePolicy>
 #include <QJsonObject>
+#include <QJsonArray>
 #include <QJsonValue>
 #include <QMainWindow>
 #include <QMenuBar>
@@ -120,6 +121,7 @@ VM_Session_Widget::VM_Session_Widget( QWidget *parent )
 	, TB_USB( nullptr )
 	, Menu_USB( nullptr )
 	, USB_Enum_Busy( false )
+	, Apple_SOS_Busy( false )
 	, Serial_Win( nullptr )
 	, Button_Pad( nullptr )
 	, Light_FD0( nullptr )
@@ -235,11 +237,14 @@ void VM_Session_Widget::Build_Toolbar()
 	Act_Apple_Home = Toolbar->addAction( tr( "Home" ), this, SLOT(On_Apple_Home()) );
 	Act_Apple_Home->setToolTip( tr(
 		"Home / Menu (Inferno F6)\n"
-		"Click: Home screen  |  Use More… for App Switcher (double Home)" ) );
+		"Click: Home screen  |  Use More… for App Switcher (double Home)\n"
+		"Does nothing on Welcome / Swipe up to get started — use SOS" ) );
 	Act_Apple_Power = Toolbar->addAction( tr( "Side" ), this, SLOT(On_Apple_Power()) );
 	Act_Apple_Power->setToolTip( tr( "Power / Side button (Inferno F5). More… for hold." ) );
 	Act_Apple_SOS = Toolbar->addAction( tr( "SOS" ), this, SLOT(On_Apple_SOS()) );
-	Act_Apple_SOS->setToolTip( tr( "SOS / slide-to-power-off (Vol up, then Side)" ) );
+	Act_Apple_SOS->setToolTip( tr(
+		"SOS / slide-to-power-off (Vol up, then Side).\n"
+		"Use this to leave Welcome / Swipe up to get started (Home will not)" ) );
 	Act_Apple_More = Toolbar->addAction( tr( "More…" ), this, SLOT(On_Apple_More_Buttons()) );
 	Act_Apple_More->setToolTip( tr( "App Switcher, Power hold, Ringer, Force shutdown…" ) );
 	Act_Button_Pad = Toolbar->addAction( tr( "Pad" ), this, SLOT(On_Toggle_Button_Pad()) );
@@ -1538,13 +1543,49 @@ void VM_Session_Widget::Send_Apple_Key_Double( const QString &key_name )
 	} );
 }
 
+bool VM_Session_Widget::Send_Qmp_Key( const QString &qcode, bool down )
+{
+	QMP_Client *q = Active_QMP();
+	if( ! q || ! q->Is_Connected() || qcode.isEmpty() )
+		return false;
+
+	QJsonObject key;
+	key.insert( QStringLiteral( "type" ), QStringLiteral( "qcode" ) );
+	key.insert( QStringLiteral( "data" ), qcode );
+	QJsonObject data;
+	data.insert( QStringLiteral( "down" ), down );
+	data.insert( QStringLiteral( "key" ), key );
+	QJsonObject ev;
+	ev.insert( QStringLiteral( "type" ), QStringLiteral( "key" ) );
+	ev.insert( QStringLiteral( "data" ), data );
+	QJsonObject args;
+	args.insert( QStringLiteral( "events" ), QJsonArray{ ev } );
+	return q->Send_Command( QStringLiteral( "input-send-event" ), args );
+}
+
 void VM_Session_Widget::Send_Apple_SOS_Combo()
 {
-	// ChefKiss: hold volume up, then side (not both at once).
-	Send_Apple_Key( QStringLiteral( "f4" ), 2000 );
-	QTimer::singleShot( 500, this, [this]() {
-		Send_Apple_Key( QStringLiteral( "f5" ), 1500 );
-	} );
+	// ChefKiss: hold Vol+, then Side after ~0.5s (overlap, not two separate taps).
+	// Two HMP sendkey commands never overlap — QEMU's kbd queue is serial, so the
+	// old "sendkey f4 2000" then "sendkey f5" only changed volume.
+	if( Apple_SOS_Busy )
+		return;
+
+	if( Send_Qmp_Key( QStringLiteral( "f4" ), true ) )
+	{
+		Apple_SOS_Busy = true;
+		QTimer::singleShot( 500, this, [this]() {
+			Send_Qmp_Key( QStringLiteral( "f5" ), true );
+			QTimer::singleShot( 2000, this, [this]() {
+				Send_Qmp_Key( QStringLiteral( "f5" ), false );
+				Send_Qmp_Key( QStringLiteral( "f4" ), false );
+				Apple_SOS_Busy = false;
+			} );
+		} );
+		return;
+	}
+
+	Send_Monitor( QStringLiteral( "sendkey f4-f5 2500" ) );
 }
 
 void VM_Session_Widget::Update_Apple_Controls_Visibility()

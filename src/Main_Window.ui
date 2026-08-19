@@ -2136,7 +2136,7 @@
                      <item>
                       <widget class="QLabel" name="Label_DeviceTree_Main">
                        <property name="text">
-                        <string>DeviceTree (.dtb / .im4p):</string>
+                        <string>DeviceTree (.dec / .dtb / .im4p):</string>
                        </property>
                       </widget>
                      </item>
@@ -2146,7 +2146,7 @@
                         <string>DeviceTree payload for Apple Silicon / iOS QEMU boot (-dtb)</string>
                        </property>
                        <property name="placeholderText">
-                        <string>/path/to/DeviceTree.n104ap.im4p or .dtb</string>
+                        <string>…/DeviceTree.n104ap.im4p.dec (Firmware Tool Step 4)</string>
                        </property>
                       </widget>
                      </item>

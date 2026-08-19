@@ -81,7 +81,7 @@ Full walkthrough (including re-install): [`extras/Inferno/iOS_Installation.md`](
 ### How to run iOS
 
 1. **New VM Wizard → Apple → iOS (ARM64)** — Inferno `t8030`, 4 vCPUs, ≥4 GB RAM.
-2. Fill **kernel**, **DeviceTree** (extracted `.dtb` / `.dec`), trustcache, ticket, SEP, restore ramdisk. **File → iOS Firmware Tool** unpacks the IPSW, forges tickets, and can pack SEP firmware (`pyimg4` / `img4` on PATH).
+2. Fill **kernel**, **DeviceTree** (extracted `.dtb` / `.dec`), trustcache, ticket, SEP, restore ramdisk. **File → iOS Firmware Tool** unpacks the IPSW, forges tickets, and packs SEP with **`img4`** (Windows: `.\scripts\build_img4_windows.ps1`) and DeviceTree IM4P with **`pyimg4`**.
 3. USB remote **`127.0.0.1:8030`**. **File → Apple SoC Restore**: start companion, Power On iOS, restore IPSW.
 4. **File → Apply iOS filesystem patches…** on the guest `root` disk (not the companion). Then Power On for Setup / SpringBoard.
 5. Toolbar **Net** or **File → Guest Internet / iOS Device Tools…** → **Enable guest internet** for Safari / App Store.
@@ -338,7 +338,7 @@ Apple Silicon macOS guests on Snapdragon Windows hosts — not this release’s 
 
 iOS on Windows 11 is documented **[above](#ios-on-windows-11)** (screenshots, iOS 14 tested, install steps).
 
-The same Inferno binary can target **macOS Apple Silicon (ARM64)** in the wizard. Do not expect M1/`t8101` unless your `qemu-system-applesoc` lists it in `-machine help`. AQEMU does **not** ship IPSW files, kernels, DeviceTrees, or Apple OS images.
+The same Inferno binary can target **macOS Apple Silicon (ARM64)** in the wizard. Do not expect M1/`t8101` unless your `qemu-system-applesoc` lists it in `-machine help`. AQEMU does **not** ship IPSW files, kernels, DeviceTrees, SHSH/`ticket.shsh2`, or Apple OS images.
 
 ---
 

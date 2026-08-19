@@ -52,6 +52,9 @@ class VM_Session_Widget;
 class QStackedWidget;
 class QTimer;
 class QCheckBox;
+class QComboBox;
+class QLabel;
+class QSpinBox;
 
 class Main_Window: public QMainWindow
 {
@@ -143,11 +146,13 @@ class Main_Window: public QMainWindow
 		void slot_iOS_Firmware_Tool_triggered();
 		void slot_Apple_SoC_Restore_triggered();
 		void slot_Apple_SoC_FS_Patch_triggered();
+		void slot_Apple_SoC_Wipe_Disks_triggered();
 		void slot_Apple_SoC_Device_Tools_triggered();
 		void Maybe_Prompt_WSL_Config_On_Boot();
 		void Build_Apple_SoC_Inferno_Ui();
 		void Apply_Apple_SoC_Fields_To_VM( Virtual_Machine *vm );
 		void Load_Apple_SoC_Fields_From_VM( const Virtual_Machine *vm );
+		void Refresh_Apple_Nand_On_Disk_Label( const Virtual_Machine *vm );
 		Virtual_Machine *Resolve_Apple_SoC_VM();
 		
 		void on_Tabs_currentChanged( int index );
@@ -392,6 +397,9 @@ class Main_Window: public QMainWindow
 		QLineEdit *Edit_Apple_SecureROM;
 		QLineEdit *Edit_Apple_IPSW;
 		QLineEdit *Edit_Apple_Initrd;
+		QComboBox *CB_Apple_Nand_Size;
+		QSpinBox *SB_Apple_Nand_Size;
+		QLabel *Label_Apple_Nand_On_Disk;
 		QLineEdit *Edit_Apple_USB_Conn_Addr;
 		QComboBox *CB_Apple_USB_Conn_Type;
 		QSpinBox *SB_Apple_USB_Conn_Port;

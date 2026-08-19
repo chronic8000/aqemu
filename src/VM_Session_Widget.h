@@ -134,6 +134,7 @@ class VM_Session_Widget : public QWidget
 		void Send_Apple_Key( const QString &key_name, int hold_ms = 0 );
 		void Send_Apple_Key_Double( const QString &key_name );
 		void Send_Apple_SOS_Combo();
+		bool Send_Qmp_Key( const QString &qcode, bool down );
 		void Update_Apple_Controls_Visibility();
 		void Ensure_Button_Pad();
 		void Position_Button_Pad();
@@ -192,6 +193,7 @@ class VM_Session_Widget : public QWidget
 		QMenu *Menu_USB;
 		QHash<QString, QString> Connected_USB_Ids; // instance key -> qemu device id
 		bool USB_Enum_Busy;
+		bool Apple_SOS_Busy;
 		QPointer<QThread> USB_Scan_Thread;
 		Serial_Console_Window *Serial_Win;
 		Apple_SoC_Button_Pad *Button_Pad;

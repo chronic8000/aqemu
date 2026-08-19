@@ -323,6 +323,7 @@ Virtual_Machine::Virtual_Machine( const Virtual_Machine &vm )
 	this->Apple_SecureROM_Path = vm.Get_Apple_SecureROM_Path();
 	this->Apple_IPSW_Path = vm.Get_Apple_IPSW_Path();
 	this->Apple_Initrd_Path = vm.Get_Apple_Initrd_Path();
+	this->Apple_Nand_Size_GiB = vm.Get_Apple_Nand_Size_GiB();
 	this->Apple_KASLR_Off = vm.Use_Apple_KASLR_Off();
 	this->Apple_USB_Conn_Type = vm.Get_Apple_USB_Conn_Type();
 	this->Apple_USB_Conn_Addr = vm.Get_Apple_USB_Conn_Addr();
@@ -616,6 +617,7 @@ void Virtual_Machine::Shared_Constructor()
 	Apple_SecureROM_Path.clear();
 	Apple_IPSW_Path.clear();
 	Apple_Initrd_Path.clear();
+	Apple_Nand_Size_GiB = 32;
 	Apple_KASLR_Off = true;
 	Apple_USB_Conn_Type.clear();
 	Apple_USB_Conn_Addr.clear();
@@ -798,6 +800,7 @@ bool Virtual_Machine::operator==( const Virtual_Machine &vm ) const
 		this->Apple_SecureROM_Path == vm.Get_Apple_SecureROM_Path() &&
 		this->Apple_IPSW_Path == vm.Get_Apple_IPSW_Path() &&
 		this->Apple_Initrd_Path == vm.Get_Apple_Initrd_Path() &&
+		this->Apple_Nand_Size_GiB == vm.Get_Apple_Nand_Size_GiB() &&
 		this->Apple_KASLR_Off == vm.Use_Apple_KASLR_Off() &&
 		this->Apple_USB_Conn_Type == vm.Get_Apple_USB_Conn_Type() &&
 		this->Apple_USB_Conn_Addr == vm.Get_Apple_USB_Conn_Addr() &&
@@ -1127,6 +1130,7 @@ Virtual_Machine &Virtual_Machine::operator=( const Virtual_Machine &vm )
 	Apple_SecureROM_Path = vm.Get_Apple_SecureROM_Path();
 	Apple_IPSW_Path = vm.Get_Apple_IPSW_Path();
 	Apple_Initrd_Path = vm.Get_Apple_Initrd_Path();
+	Apple_Nand_Size_GiB = vm.Get_Apple_Nand_Size_GiB();
 	Apple_KASLR_Off = vm.Use_Apple_KASLR_Off();
 	Apple_USB_Conn_Type = vm.Get_Apple_USB_Conn_Type();
 	Apple_USB_Conn_Addr = vm.Get_Apple_USB_Conn_Addr();
@@ -3649,6 +3653,10 @@ bool Virtual_Machine::Create_VM_File( const QString &file_name, bool template_mo
 	VM_Element.appendChild( Dom_Element );
 	Dom_Text = New_Dom_Document.createTextNode( Apple_Initrd_Path );
 	Dom_Element.appendChild( Dom_Text );
+	Dom_Element = New_Dom_Document.createElement( "Apple_Nand_Size_GiB" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( QString::number( Apple_Nand_Size_GiB ) );
+	Dom_Element.appendChild( Dom_Text );
 	Dom_Element = New_Dom_Document.createElement( "Apple_KASLR_Off" );
 	VM_Element.appendChild( Dom_Element );
 	Dom_Text = New_Dom_Document.createTextNode( Apple_KASLR_Off ? "true" : "false" );
@@ -5529,6 +5537,23 @@ bool Virtual_Machine::Load_VM( const QString &file_name )
 			Apple_IPSW_Path = AQ_Normalize_File_Path( Child_Element.firstChildElement( "Apple_IPSW_Path" ).text() );
 			Apple_Initrd_Path = AQ_Normalize_File_Path( Child_Element.firstChildElement( "Apple_Initrd_Path" ).text() );
 			{
+				const QString nand = Child_Element.firstChildElement( "Apple_Nand_Size_GiB" ).text().trimmed();
+				bool ok = false;
+				const int g = nand.toInt( &ok );
+				if( ok && g > 0 )
+					Apple_Nand_Size_GiB = AQ_Clamp_Apple_SoC_Nand_GiB( g );
+				else
+				{
+					const QString root = QDir( AQ_Apple_SoC_Image_Dir( this ) )
+						.filePath( QStringLiteral( "root" ) );
+					const qint64 b = QFileInfo( root ).exists() ? QFileInfo( root ).size() : 0;
+					Apple_Nand_Size_GiB = ( b > 0 )
+						? AQ_Clamp_Apple_SoC_Nand_GiB( int( ( b + ( 1024LL * 1024 * 1024 / 2 ) )
+							/ ( 1024LL * 1024 * 1024 ) ) )
+						: AQ_Default_Apple_SoC_Nand_GiB();
+				}
+			}
+			{
 				const QString kaslr = Child_Element.firstChildElement( "Apple_KASLR_Off" ).text();
 				// Preserve prior launch behavior for older VMs that always forced kaslr-off.
 				Apple_KASLR_Off = ( kaslr.isEmpty() || kaslr == QLatin1String( "true" ) );
@@ -6664,8 +6689,8 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	else if( AQ_Is_Apple_SoC_VM( this ) )
 	{
 		// Inferno with SEP FW/ROM requires smp.cpus >= 2. Never drop -smp because a
-		// probed PSO_SMP_Count (often 1) is lower than the MACHINE-tab CPU count ù
-		// that left QEMU at default 1 CPU and produced "Too few CPU coresù SEP".
+		// probed PSO_SMP_Count (often 1) is lower than the MACHINE-tab CPU count ¬ù
+		// that left QEMU at default 1 CPU and produced "Too few CPU cores¬ù SEP".
 		int apple_smp = smp_count;
 		if( apple_smp < 2 &&
 		    ( ! Get_Apple_SEP_FW_Path().trimmed().isEmpty() ||
@@ -6950,7 +6975,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	// Reims architecture always presents via reims-vgpu-pci (-vga none), never cirrus/std.
 	if( is_reims_vgpu )
 		effective_video = QStringLiteral( "reims-vgpu-pci" );
-	// Inferno Apple SoC: no PC VGA device ù display is onboard (SDL/VNC host window only).
+	// Inferno Apple SoC: no PC VGA device ¬ù display is onboard (SDL/VNC host window only).
 	if( is_apple_soc_video )
 		effective_video.clear();
 	if( effective_video == QLatin1String( "vmware" ) )
@@ -7444,7 +7469,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	const bool mac_recovery_active = Intel_MacOS_Profile && ! mac_recovery_norm.isEmpty() &&
 		( QFile::exists( mac_recovery_norm ) || Build_QEMU_Args_for_Tab_Info );
 
-	// Inferno storage is multi-NS NVMe from AQ_Build_Apple_SoC_Extra_Args ù never IDE/floppy/CD.
+	// Inferno storage is multi-NS NVMe from AQ_Build_Apple_SoC_Extra_Args ¬ù never IDE/floppy/CD.
 	if( is_apple_soc_storage )
 		attach_cdrom = false;
 
@@ -7744,7 +7769,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		}
 	}
 
-	// HDA ù Inferno uses AQ_Build_Apple_SoC_Extra_Args NVMe namespaces instead.
+	// HDA ¬ù Inferno uses AQ_Build_Apple_SoC_Extra_Args NVMe namespaces instead.
 	if( HDA.Get_Enabled() && ! is_apple_soc_storage )
 	{
 		// Intel macOS: OpenCore cannot see VirtIO disks without guest kexts.
@@ -8051,7 +8076,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 #endif
 	}
 	
-	// Network Cards ù Inferno t8030/s8000 do not support e1000/virtio-net PCI NICs.
+	// Network Cards ¬ù Inferno t8030/s8000 do not support e1000/virtio-net PCI NICs.
 	if( AQ_Is_Apple_SoC_VM( this ) ||
 	    (Use_Native_Network() == false && Network_Cards.count() < 1) ||
 	    (Use_Native_Network() == true  && Network_Cards_Nativ.count() < 1) ||
@@ -9231,17 +9256,6 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			else
 				Args << "-append" << Kernel_ComLine;
 		}
-		else if( AQ_Is_Apple_SoC_VM( this ) )
-		{
-			Args << "-append" << AQ_Apple_SoC_Default_Append();
-		}
-	}
-
-	if( AQ_Is_Apple_SoC_VM( this ) )
-	{
-		// Preview/script must not create 32GiB images; Start_impl ensures them first.
-		Args << AQ_Build_Apple_SoC_Extra_Args(
-			this, Build_QEMU_Args_for_Script_Mode, Launch_Via_WSL, false, nullptr );
 	}
 
 	if( AQ_Is_Apple_SoC_VM( this ) )
@@ -9326,7 +9340,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			Args << "-pflash" << PFlash_File;
 	}
 	
-	// UEFI dual pflash (AAVMF / EDK2) ù for Windows 11 ARM / aarch64 virt.
+	// UEFI dual pflash (AAVMF / EDK2) ¬ù for Windows 11 ARM / aarch64 virt.
 	// Inferno Apple SoC already uses SEP pflash (sep_nvram / sep_ssc) on unit 0/1;
 	// stacking edk2-aarch64-code.fd causes: "drive with bus=0, unit=0 exists".
 	if( UEFI && ! UEFI_CODE_File.isEmpty() && ! AQ_Is_Apple_SoC_VM( this ) )
@@ -9415,7 +9429,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	// Recovery / installer is attached earlier with OpenCore on AHCI
 	// (ide-hd for MIST APM+HFS; ide-cd for true ISO9660).
 	
-	// VirtIO RNG ù skip on Inferno (no usable PCI slot layout for virtio-*-pci).
+	// VirtIO RNG ¬ù skip on Inferno (no usable PCI slot layout for virtio-*-pci).
 	if( VirtIO_RNG && ! AQ_Is_Apple_SoC_VM( this ) )
 	{
 		// Windows QEMU builds do not provide rng-random (/dev/urandom); use rng-builtin
@@ -9435,11 +9449,11 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	if( win11_post_install )
 		Args << "-device" << "virtio-serial-pci";
 	
-	// VirtIO Keyboard ù Inferno PCI root only accepts slot 0; skip for Apple SoC.
+	// VirtIO Keyboard ¬ù Inferno PCI root only accepts slot 0; skip for Apple SoC.
 	if( VirtIO_Keyboard && ! win11_post_install && ! AQ_Is_Apple_SoC_VM( this ) )
 		Args << "-device" << "virtio-keyboard-pci";
 
-	// Pointer / mouse (QEMU input devices). Inferno has onboard USB ù do not add PCI xhci.
+	// Pointer / mouse (QEMU input devices). Inferno has onboard USB ¬ù do not add PCI xhci.
 	if( ! AQ_Is_Apple_SoC_VM( this ) )
 	{
 		const QString mt = Mouse_Type.trimmed().toLower();
@@ -9526,7 +9540,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			added_xhci = true;
 			usb_bus = QStringLiteral( "aqemu_usb_hub.0" );
 			// Very old configs with USB_Hub but Mouse_Type still ps2 after a bad load:
-			// do not auto-add a second tablet here ù Mouse_Type is authoritative.
+			// do not auto-add a second tablet here ¬ù Mouse_Type is authoritative.
 		}
 
 		// aarch64/virt has no PS/2; Win11 installer needs usb-kbd before virtio drivers.
@@ -9992,7 +10006,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			ad_args = AQ_Filter_Apple_SoC_Additional_Args( ad_args );
 
 		// Drop #-comment lines / tokens. Notes mistakenly pasted into Additional Args
-		// (e.g. "# After Ubuntuù") become positional disk paths and clash with -hda.
+		// (e.g. "# After Ubuntu¬ù") become positional disk paths and clash with -hda.
 		{
 			QStringList cleaned;
 			cleaned.reserve( ad_args.size() );
@@ -10016,7 +10030,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			Args << ad_args[ ix ];
 	}
 
-	// Apple SoC restore ramdisk: dedicated field (not Additional Args ù UI often overwrites that).
+	// Apple SoC restore ramdisk: dedicated field (not Additional Args ¬ù UI often overwrites that).
 	if( AQ_Is_Apple_SoC_VM( this ) )
 	{
 		const QString initrd = Get_Apple_Initrd_Path().trimmed();
@@ -10484,7 +10498,8 @@ bool Virtual_Machine::Start_impl()
 		}
 		const QString image_dir = AQ_Apple_SoC_Image_Dir( this );
 		QString img_err;
-		if( ! AQ_Ensure_Apple_SoC_Disk_Images( image_dir, &img_err ) )
+		if( ! AQ_Ensure_Apple_SoC_Disk_Images( image_dir,
+			AQ_Apple_SoC_Nand_Bytes( Get_Apple_Nand_Size_GiB() ), &img_err ) )
 		{
 			AQGraphic_Error( "bool Virtual_Machine::Start()", tr( "Error!" ),
 				img_err.isEmpty()
@@ -10566,12 +10581,12 @@ bool Virtual_Machine::Start_impl()
 								? tr( "OpenCore and early boot text appear in AQEMU's embedded viewer.\n"
 								      "You enabled the experimental WSLg Reims host window "
 								      "(Advanced Settings). On some Dozen/NVIDIA WSLg stacks that "
-								      "path can crash QEMU during Vulkan device create ù if the VM "
+								      "path can crash QEMU during Vulkan device create ¬ù if the VM "
 								      "exits immediately, turn the option off." )
 								: tr( "OpenCore and early boot text appear in AQEMU's embedded viewer.\n\n"
 								      "The separate WSLg Reims host window is off by default: Mesa Dozen "
 								      "on WSLg (NVIDIA) can segfault inside vkCreateDevice and kill QEMU.\n"
-								      "Early boot uses VNC/GOP; enable ùReims WSLg host windowù under "
+								      "Early boot uses VNC/GOP; enable ¬ùReims WSLg host window¬ù under "
 								      "Advanced Settings only when you want to try accelerated present." ) );
 						s.setValue( QStringLiteral( "Reims/Shown_WSLg_Window_Hint_v2" ), true );
 					}
@@ -11403,7 +11418,7 @@ void Virtual_Machine::Kill_Orphan_QEMU_Using_Disks()
 	}
 
 	// Launch-via-WSL: Linux qemu-system often survives after wsl.exe / AQEMU die.
-	// Always try WSL cleanup on Windows when WSL is available ù orphans may remain
+	// Always try WSL cleanup on Windows when WSL is available ¬ù orphans may remain
 	// even if this VM's Launch_Via_WSL flag was flipped off later.
 	// Match on file basenames (paths differ: C:\ vs /mnt/c/).
 	QStringList basenames;
@@ -13634,6 +13649,14 @@ const QString &Virtual_Machine::Get_Apple_IPSW_Path() const { return Apple_IPSW_
 void Virtual_Machine::Set_Apple_IPSW_Path( const QString &path ) { Apple_IPSW_Path = AQ_Normalize_File_Path( path ); }
 const QString &Virtual_Machine::Get_Apple_Initrd_Path() const { return Apple_Initrd_Path; }
 void Virtual_Machine::Set_Apple_Initrd_Path( const QString &path ) { Apple_Initrd_Path = AQ_Normalize_File_Path( path ); }
+int Virtual_Machine::Get_Apple_Nand_Size_GiB() const
+{
+	return Apple_Nand_Size_GiB > 0 ? Apple_Nand_Size_GiB : AQ_Default_Apple_SoC_Nand_GiB();
+}
+void Virtual_Machine::Set_Apple_Nand_Size_GiB( int gib )
+{
+	Apple_Nand_Size_GiB = AQ_Clamp_Apple_SoC_Nand_GiB( gib );
+}
 bool Virtual_Machine::Use_Apple_KASLR_Off() const { return Apple_KASLR_Off; }
 void Virtual_Machine::Use_Apple_KASLR_Off( bool use ) { Apple_KASLR_Off = use; }
 const QString &Virtual_Machine::Get_Apple_USB_Conn_Type() const { return Apple_USB_Conn_Type; }
@@ -14232,6 +14255,7 @@ void Virtual_Machine::QEMU_Finished( int exitCode, QProcess::ExitStatus exitStat
 		( QEMU_Stderr_History + QLatin1Char( '\n' ) + QEMU_Stdout_History );
 	const bool restore_done_exit =
 		unexpected_apple &&
+		AQ_Apple_SoC_Root_Has_GPT( this ) &&
 		( apple_out.contains( QLatin1String( "Detected potentially-completed restore" ),
 		                      Qt::CaseInsensitive ) ||
 		  ( apple_out.contains( QLatin1String( "Auto Boot: false" ), Qt::CaseInsensitive ) &&
@@ -14239,7 +14263,18 @@ void Virtual_Machine::QEMU_Finished( int exitCode, QProcess::ExitStatus exitStat
 		    apple_out.contains( QLatin1String( "Boot Mode: 1" ), Qt::CaseInsensitive ) &&
 		    apple_out.contains( QLatin1String( "Boot Mode: 0" ), Qt::CaseInsensitive ) ) );
 
-	if( restore_done_exit )
+	const bool restore_ramdisk_exit =
+		unexpected_apple &&
+		! Get_Apple_Initrd_Path().trimmed().isEmpty() &&
+		! AQ_Apple_SoC_Root_Has_GPT( this );
+
+	if( restore_ramdisk_exit )
+	{
+		AQDebug( "void Virtual_Machine::QEMU_Finished",
+			 "Inferno exited after a restore ramdisk boot without a GPT on root "
+			 "(restore did not finish). Not treating this as a QEMU crash." );
+	}
+	else if( restore_done_exit )
 	{
 		const QString root_path = QDir::toNativeSeparators(
 			QFileInfo( Get_VM_XML_File_Path() ).absolutePath() +
@@ -14313,7 +14348,7 @@ void Virtual_Machine::QEMU_Finished( int exitCode, QProcess::ExitStatus exitStat
 			AQError( exitStatus == QProcess::CrashExit ? "QEMU Crashed!"
 			                                           : "QEMU return value != 0",
 			         summary );
-			// Short modal FIRST (never dump raw_out ù that freezes Error Log clicks).
+			// Short modal FIRST (never dump raw_out ¬ù that freezes Error Log clicks).
 			AQGraphic_Warning( tr( "iOS / Apple SoC stopped" ), summary );
 			if( ! raw_out.isEmpty() )
 				Show_QEMU_Error(

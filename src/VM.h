@@ -643,6 +643,9 @@ class Virtual_Machine: public QObject
 		/** Restore ramdisk (-initrd). Empty = normal OS boot after restore. */
 		const QString &Get_Apple_Initrd_Path() const;
 		void Set_Apple_Initrd_Path( const QString &path );
+		/** Inferno NAND (`root`) size in GiB. Used only when creating/recreating root. */
+		int Get_Apple_Nand_Size_GiB() const;
+		void Set_Apple_Nand_Size_GiB( int gib );
 		bool Use_Apple_KASLR_Off() const;
 		void Use_Apple_KASLR_Off( bool use );
 		const QString &Get_Apple_USB_Conn_Type() const;
@@ -1002,6 +1005,7 @@ class Virtual_Machine: public QObject
 		QString Apple_SecureROM_Path;
 		QString Apple_IPSW_Path;
 		QString Apple_Initrd_Path;
+		int Apple_Nand_Size_GiB;
 		bool Apple_KASLR_Off;
 		QString Apple_USB_Conn_Type;
 		QString Apple_USB_Conn_Addr;

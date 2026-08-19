@@ -17,6 +17,8 @@ This folder also contains helper files used by that guide:
   apply-fs-patches-wsl.sh
   apply-launchd-only-wsl.sh     (set ROOT_IMG; no personal paths)
   wipe-ios-nvme.ps1
+  patches/img4lib_vfs_file_win.c  (Windows overlay for xerub img4lib;
+                            build with scripts/build_img4_windows.ps1)
 
 ChefKiss:
   https://chefkiss.dev/guides/inferno/file-setup/

@@ -46,6 +46,7 @@
 #include <QSizePolicy>
 #include <QFrame>
 #include <QComboBox>
+#include <QSpinBox>
 #include <QProcess>
 #include <QSet>
 #include <QCoreApplication>
@@ -87,6 +88,8 @@ VM_Wizard_Window::VM_Wizard_Window( QWidget *parent )
 	Edit_Typical_Disk_Path = nullptr;
 	TB_Typical_Disk_Browse = nullptr;
 	Widget_Typical_Size_Row = nullptr;
+	CB_Wizard_Nand = nullptr;
+	SB_Wizard_Nand = nullptr;
 	Edit_Install_ISO = nullptr;
 	TB_Install_ISO_Browse = nullptr;
 	TB_Install_ISO_Storage = nullptr;
@@ -2925,7 +2928,22 @@ void VM_Wizard_Window::Enhance_Typical_HDD_Page()
 	QHBoxLayout *sizeLay = new QHBoxLayout( Widget_Typical_Size_Row );
 	sizeLay->setContentsMargins( 20, 0, 0, 0 );
 	sizeLay->addWidget( ui.Label_HDD_Size );
+	CB_Wizard_Nand = new QComboBox( Widget_Typical_Size_Row );
+	SB_Wizard_Nand = new QSpinBox( Widget_Typical_Size_Row );
+	AQ_Apply_Apple_SoC_Nand_Controls( CB_Wizard_Nand, SB_Wizard_Nand, AQ_Default_Apple_SoC_Nand_GiB() );
+	CB_Wizard_Nand->setVisible( false );
+	SB_Wizard_Nand->setVisible( false );
+	sizeLay->addWidget( CB_Wizard_Nand );
+	sizeLay->addWidget( SB_Wizard_Nand );
 	sizeLay->addWidget( ui.SB_HDD_Size );
+	connect( CB_Wizard_Nand, QOverload<int>::of( &QComboBox::currentIndexChanged ),
+	         this, [this]( int ) {
+		AQ_On_Apple_SoC_Nand_Combo_Changed( CB_Wizard_Nand, SB_Wizard_Nand );
+	} );
+	connect( SB_Wizard_Nand, QOverload<int>::of( &QSpinBox::valueChanged ),
+	         this, [this]( int ) {
+		AQ_On_Apple_SoC_Nand_Spin_Changed( CB_Wizard_Nand, SB_Wizard_Nand );
+	} );
 	sizeLay->addStretch( 1 );
 	lay->addWidget( Widget_Typical_Size_Row );
 
@@ -3114,6 +3132,71 @@ void VM_Wizard_Window::Typical_New_Disk_Toggled( bool on )
 	}
 	if( on )
 		Refresh_Typical_HDD_Defaults();
+}
+
+void VM_Wizard_Window::Apply_Apple_Nand_HDD_Page_Mode()
+{
+	const bool apple = Is_Apple_Silicon_Or_iOS_Template();
+	if( ui.Label_HDD_Size )
+	{
+		ui.Label_HDD_Size->setText( apple
+			? tr( "NAND (root) size:" )
+			: tr( "Disk Size in GB (Gigabytes):" ) );
+	}
+	if( CB_Wizard_Nand )
+		CB_Wizard_Nand->setVisible( apple );
+	if( SB_Wizard_Nand )
+		SB_Wizard_Nand->setVisible( apple );
+	if( ui.SB_HDD_Size )
+	{
+		ui.SB_HDD_Size->setVisible( ! apple );
+		if( apple )
+		{
+			int want = AQ_Default_Apple_SoC_Nand_GiB();
+			if( Guest_HDD_GB >= 16.0 )
+				want = AQ_Clamp_Apple_SoC_Nand_GiB( qRound( Guest_HDD_GB ) );
+			AQ_Apply_Apple_SoC_Nand_Controls( CB_Wizard_Nand, SB_Wizard_Nand, want );
+		}
+		else
+		{
+			ui.SB_HDD_Size->setDecimals( 1 );
+			ui.SB_HDD_Size->setMinimum( 0.1 );
+			ui.SB_HDD_Size->setMaximum( 500.0 );
+			ui.SB_HDD_Size->setSingleStep( 1.0 );
+			ui.SB_HDD_Size->setToolTip( QString() );
+		}
+	}
+	if( RB_Typical_New_Disk )
+		RB_Typical_New_Disk->setVisible( ! apple );
+	if( RB_Typical_Existing_Disk )
+		RB_Typical_Existing_Disk->setVisible( ! apple );
+	if( Edit_Typical_Disk_Path )
+		Edit_Typical_Disk_Path->setVisible( ! apple );
+	if( TB_Typical_Disk_Browse )
+		TB_Typical_Disk_Browse->setVisible( ! apple );
+	if( Widget_Typical_Size_Row )
+		Widget_Typical_Size_Row->setVisible( true );
+	if( RB_Install_Local )
+		RB_Install_Local->setVisible( ! apple );
+	if( RB_Install_URL_ISO )
+		RB_Install_URL_ISO->setVisible( ! apple );
+	if( RB_Install_Network_Kernel )
+		RB_Install_Network_Kernel->setVisible( ! apple );
+	if( Widget_Install_Local_Row )
+		Widget_Install_Local_Row->setVisible( ! apple );
+	if( Widget_Install_URL_Row )
+		Widget_Install_URL_Row->setVisible( ! apple );
+	if( Widget_Install_Kernel_Row )
+		Widget_Install_Kernel_Row->setVisible( ! apple );
+}
+
+void VM_Wizard_Window::Show_Typical_HDD_Page()
+{
+	Apply_Apple_Nand_HDD_Page_Mode();
+	ui.Wizard_Pages->setCurrentWidget( ui.Typical_HDD_Page );
+	ui.Label_Page->setText( Is_Apple_Silicon_Or_iOS_Template()
+		? tr( "NAND (root) size" )
+		: tr( "Virtual Hard Disk" ) );
 }
 
 void VM_Wizard_Window::Typical_Disk_Browse_Clicked()
@@ -3311,6 +3394,17 @@ void VM_Wizard_Window::Download_Network_Initrd_Clicked()
 
 bool VM_Wizard_Window::Validate_Typical_HDD_Page()
 {
+	if( Is_Apple_Silicon_Or_iOS_Template() )
+	{
+		if( AQ_Read_Apple_SoC_Nand_Controls( CB_Wizard_Nand, SB_Wizard_Nand )
+		    < AQ_Min_Apple_SoC_Nand_GiB() )
+		{
+			AQGraphic_Warning( tr( "NAND (root)" ),
+				tr( "Pick at least 16 GiB. ChefKiss recommends 32 GiB. Custom allows up to 2048 GiB." ) );
+			return false;
+		}
+		return true;
+	}
 	if( ! Edit_Typical_Disk_Path )
 		return true;
 	const QString path = QDir::toNativeSeparators( Edit_Typical_Disk_Path->text().trimmed() );
@@ -4004,8 +4098,7 @@ void VM_Wizard_Window::on_Button_Back_clicked()
 		if( ui.RB_Typical->isChecked() )
 		{
 			Refresh_Typical_HDD_Defaults();
-			ui.Wizard_Pages->setCurrentWidget( ui.Typical_HDD_Page );
-			ui.Label_Page->setText( tr("Virtual Hard Disk") );
+			Show_Typical_HDD_Page();
 		}
 		else
 		{
@@ -4018,8 +4111,7 @@ void VM_Wizard_Window::on_Button_Back_clicked()
 		if( ui.RB_Typical->isChecked() )
 		{
 			Refresh_Typical_HDD_Defaults();
-			ui.Wizard_Pages->setCurrentWidget( ui.Typical_HDD_Page );
-			ui.Label_Page->setText( tr("Virtual Hard Disk") );
+			Show_Typical_HDD_Page();
 		}
 		else
 		{
@@ -4055,8 +4147,7 @@ void VM_Wizard_Window::on_Button_Back_clicked()
 		else if( ui.RB_Typical->isChecked() ) // typical or custom mode
 		{
 			Refresh_Typical_HDD_Defaults();
-			ui.Wizard_Pages->setCurrentWidget( ui.Typical_HDD_Page );
-			ui.Label_Page->setText( tr("Virtual Hard Disk") );
+			Show_Typical_HDD_Page();
 		}
 		else
 		{
@@ -4078,8 +4169,7 @@ void VM_Wizard_Window::on_Button_Back_clicked()
 		else if( ui.RB_Typical->isChecked() )
 		{
 			Refresh_Typical_HDD_Defaults();
-			ui.Wizard_Pages->setCurrentWidget( ui.Typical_HDD_Page );
-			ui.Label_Page->setText( tr("Virtual Hard Disk") );
+			Show_Typical_HDD_Page();
 		}
 		else
 		{
@@ -4384,8 +4474,7 @@ void VM_Wizard_Window::on_Button_Next_clicked()
 			else
 			{
 				Refresh_Typical_HDD_Defaults();
-				ui.Wizard_Pages->setCurrentWidget( ui.Typical_HDD_Page );
-				ui.Label_Page->setText( tr("Virtual Hard Disk") );
+				Show_Typical_HDD_Page();
 			}
 		}
 		else
@@ -4855,6 +4944,10 @@ bool VM_Wizard_Window::Create_New_VM(bool simulate)
 		{
 			New_VM->Set_HDA( VM_HDD(true, Edit_Intel_Mac_Existing_Disk->text()) );
 		}
+		else if( Is_Apple_Silicon_Or_iOS_Template() )
+		{
+			New_VM->Set_HDA( VM_HDD( false, QString() ) );
+		}
 		else if( RB_Typical_Existing_Disk && RB_Typical_Existing_Disk->isChecked()
 		         && Edit_Typical_Disk_Path
 		         && ! Edit_Typical_Disk_Path->text().trimmed().isEmpty() )
@@ -5137,8 +5230,8 @@ void VM_Wizard_Window::Update_Finish_Page_Guidance()
 		help = tr( "<p><b>Apple SoC / iOS (Inferno) — AQEMU 1.3.0</b></p><ul>"
 			"<li>Uses Linux <code>qemu-system-applesoc</code> (ChefKiss Inferno). "
 			"On Windows this is forced through <b>WSL</b> (UNIX sockets / companion restore).</li>"
-			"<li>Set kernelcache, DeviceTree, trustcache, restore ticket, and SEP firmware "
-			"on the VM page. AQEMU creates the Inferno NVMe image set under the VM folder.</li>"
+			"<li>The wizard <b>NAND (root) size</b> page: 16 / 32 / 64 / 128 / 256 GiB "
+			"or Custom (16–2048 GiB). Default 32 GiB. Same control as MACHINE.</li>"
 			"<li>Create the companion first: Guest OS → Apple → "
 			"<b>iPhone IPSW Restore Companion</b>, then "
 			"<b>File → Apple SoC Restore</b>.</li>"
@@ -5379,11 +5472,14 @@ void VM_Wizard_Window::Apply_Apple_SoC_Profile( bool simulate )
 	New_VM->Set_Apple_USB_Conn_Addr( QStringLiteral( "/tmp/InfernoUSBRemote" ) );
 #endif
 	New_VM->Set_Apple_USB_Conn_Port( 8030 );
+	New_VM->Set_Apple_Nand_Size_GiB( AQ_Read_Apple_SoC_Nand_Controls(
+		CB_Wizard_Nand, SB_Wizard_Nand ) );
 
 	if( ! simulate )
 	{
 		QString err;
-		if( ! AQ_Ensure_Apple_SoC_Disk_Images( vm_folder, &err ) )
+		if( ! AQ_Ensure_Apple_SoC_Disk_Images( vm_folder,
+			AQ_Apple_SoC_Nand_Bytes( New_VM->Get_Apple_Nand_Size_GiB() ), &err ) )
 			AQWarning( "VM_Wizard_Window::Apply_Apple_SoC_Profile", err );
 	}
 }

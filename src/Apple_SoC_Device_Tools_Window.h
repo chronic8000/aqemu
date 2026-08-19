@@ -1,6 +1,7 @@
 #ifndef APPLE_SOC_DEVICE_TOOLS_WINDOW_H
 #define APPLE_SOC_DEVICE_TOOLS_WINDOW_H
 
+#include <QCheckBox>
 #include <QDialog>
 #include <QLineEdit>
 #include <QTextEdit>
@@ -48,6 +49,7 @@ private:
 	QTextEdit *Text_Log;
 	QLabel *Label_Status;
 	QProcess *Process;
+	QCheckBox *Chk_Sign_IPA;
 };
 
 void AQ_Show_Apple_SoC_Device_Tools_Window( Virtual_Machine *vm, QWidget *parent = nullptr,

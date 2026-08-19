@@ -139,7 +139,9 @@ void iOS_Firmware_Tool_Window::Setup_Ui()
 	QGridLayout *gridT = new QGridLayout( gb_tick );
 	gridT->addWidget( new QLabel( tr(
 		"Uses bundled extras/Inferno scripts. Needs Python 3 with pyasn1 "
-		"(AQEMU will pip-install if missing). ticket.shsh2 comes from ChefKiss extras." ) ),
+		"(AQEMU will pip-install if missing). "
+		"ticket.shsh2 is not in the IPSW and is not shipped by AQEMU — "
+		"get it from ChefKiss Inferno file setup, then Browse…" ) ),
 		0, 0, 1, 3 );
 
 	gridT->addWidget( new QLabel( tr( "Model:" ) ), 1, 0 );
@@ -157,14 +159,18 @@ void iOS_Firmware_Tool_Window::Setup_Ui()
 
 	gridT->addWidget( new QLabel( tr( "ticket.shsh2:" ) ), 3, 0 );
 	Edit_SHSH = new QLineEdit();
+	Edit_SHSH->setPlaceholderText( tr( "Not in the IPSW — Browse after you save ChefKiss’s file" ) );
 	gridT->addWidget( Edit_SHSH, 3, 1 );
 	auto *shshRow = new QHBoxLayout();
 	auto *btnShsh = new QPushButton( tr( "Browse..." ) );
 	connect( btnShsh, &QPushButton::clicked, this, &iOS_Firmware_Tool_Window::Browse_SHSH );
-	auto *btnShshWeb = new QPushButton( tr( "ChefKiss extras…" ) );
+	auto *btnShshWeb = new QPushButton( tr( "How to get this…" ) );
+	btnShshWeb->setToolTip( tr(
+		"Opens ChefKiss Inferno file setup. They host ticket.shsh2 for the unsigned IPSW flow. "
+		"AQEMU does not download or ship that blob (Apple Img4 ticket data)." ) );
 	connect( btnShshWeb, &QPushButton::clicked, this, []() {
 		QDesktopServices::openUrl( QUrl( QStringLiteral(
-			"https://chefkiss.dev/Extras/Inferno/" ) ) );
+			"https://chefkiss.dev/guides/inferno/file-setup/" ) ) );
 	} );
 	shshRow->addWidget( btnShsh );
 	shshRow->addWidget( btnShshWeb );
@@ -174,11 +180,37 @@ void iOS_Firmware_Tool_Window::Setup_Ui()
 
 	gridT->addWidget( new QLabel( tr( "Restore ticket (.der):" ) ), 4, 0 );
 	Edit_Ticket_Out = new QLineEdit();
-	gridT->addWidget( Edit_Ticket_Out, 4, 1, 1, 2 );
+	Edit_Ticket_Out->setPlaceholderText( tr( "Forge writes here — Browse to choose path" ) );
+	gridT->addWidget( Edit_Ticket_Out, 4, 1 );
+	auto *btnTicketOut = new QPushButton( tr( "Browse..." ) );
+	connect( btnTicketOut, &QPushButton::clicked, this, [this]() {
+		QString start = Edit_Ticket_Out->text().trimmed();
+		if( start.isEmpty() )
+			start = QDir( Edit_Output_Dir->text() ).filePath( QStringLiteral( "root_ticket.der" ) );
+		const QString file = QFileDialog::getSaveFileName(
+			this, tr( "Restore ticket (.der)" ), start,
+			tr( "Ticket (*.der);;All (*)" ) );
+		if( ! file.isEmpty() )
+			Edit_Ticket_Out->setText( QDir::toNativeSeparators( file ) );
+	} );
+	gridT->addWidget( btnTicketOut, 4, 2 );
 
 	gridT->addWidget( new QLabel( tr( "SEP ticket (.der):" ) ), 5, 0 );
 	Edit_Sep_Ticket_Out = new QLineEdit();
-	gridT->addWidget( Edit_Sep_Ticket_Out, 5, 1, 1, 2 );
+	Edit_Sep_Ticket_Out->setPlaceholderText( tr( "Forge writes here — Browse to choose path" ) );
+	gridT->addWidget( Edit_Sep_Ticket_Out, 5, 1 );
+	auto *btnSepTicketOut = new QPushButton( tr( "Browse..." ) );
+	connect( btnSepTicketOut, &QPushButton::clicked, this, [this]() {
+		QString start = Edit_Sep_Ticket_Out->text().trimmed();
+		if( start.isEmpty() )
+			start = QDir( Edit_Output_Dir->text() ).filePath( QStringLiteral( "sep_root_ticket.der" ) );
+		const QString file = QFileDialog::getSaveFileName(
+			this, tr( "SEP ticket (.der)" ), start,
+			tr( "Ticket (*.der);;All (*)" ) );
+		if( ! file.isEmpty() )
+			Edit_Sep_Ticket_Out->setText( QDir::toNativeSeparators( file ) );
+	} );
+	gridT->addWidget( btnSepTicketOut, 5, 2 );
 
 	Btn_Forge_Tickets = new QPushButton( tr( "Forge restore + SEP tickets" ) );
 	Btn_Forge_Tickets->setToolTip( tr(
@@ -216,7 +248,12 @@ void iOS_Firmware_Tool_Window::Setup_Ui()
 
 	gridS->addWidget( new QLabel( tr( "IVKEY (IV then key, no space):" ) ), 2, 0 );
 	Edit_SEP_IVKEY = new QLineEdit();
-	Edit_SEP_IVKEY->setPlaceholderText( tr( "Paste Apple Wiki IV+key for this build" ) );
+	Edit_SEP_IVKEY->setPlaceholderText( tr(
+		"SEP-Firmware only: 32-char IV then 64-char Key, no spaces (96 hex)" ) );
+	Edit_SEP_IVKEY->setToolTip( tr(
+		"Apple Wiki → your IPSW build → iPhone12,1 → heading SEP-Firmware "
+		"(sep-firmware.n104.RELEASE.im4p). Paste IV immediately followed by Key. "
+		"Do not use iBoot/iBEC keys. Build 18A373 keys do not decrypt 18A5351d." ) );
 	gridS->addWidget( Edit_SEP_IVKEY, 2, 1 );
 	auto *btnWiki = new QPushButton( tr( "Apple Wiki…" ) );
 	connect( btnWiki, &QPushButton::clicked, this, []() {
@@ -227,11 +264,37 @@ void iOS_Firmware_Tool_Window::Setup_Ui()
 
 	gridS->addWidget( new QLabel( tr( "Decrypted SEP:" ) ), 3, 0 );
 	Edit_SEP_Dec = new QLineEdit();
-	gridS->addWidget( Edit_SEP_Dec, 3, 1, 1, 2 );
+	Edit_SEP_Dec->setPlaceholderText( tr( "img4 decrypt output" ) );
+	gridS->addWidget( Edit_SEP_Dec, 3, 1 );
+	auto *btnSepDec = new QPushButton( tr( "Browse..." ) );
+	connect( btnSepDec, &QPushButton::clicked, this, [this]() {
+		QString start = Edit_SEP_Dec->text().trimmed();
+		if( start.isEmpty() )
+			start = QDir( Edit_Output_Dir->text() ).filePath( QStringLiteral( "sep-firmware.n104.RELEASE" ) );
+		const QString file = QFileDialog::getSaveFileName(
+			this, tr( "Decrypted SEP" ), start, tr( "All (*)" ) );
+		if( ! file.isEmpty() )
+			Edit_SEP_Dec->setText( QDir::toNativeSeparators( file ) );
+	} );
+	gridS->addWidget( btnSepDec, 3, 2 );
 
 	gridS->addWidget( new QLabel( tr( "Packed SEP (.img4):" ) ), 4, 0 );
 	Edit_SEP_Out = new QLineEdit();
-	gridS->addWidget( Edit_SEP_Out, 4, 1, 1, 2 );
+	Edit_SEP_Out->setPlaceholderText( tr( "MACHINE → SEP firmware" ) );
+	gridS->addWidget( Edit_SEP_Out, 4, 1 );
+	auto *btnSepOut = new QPushButton( tr( "Browse..." ) );
+	connect( btnSepOut, &QPushButton::clicked, this, [this]() {
+		QString start = Edit_SEP_Out->text().trimmed();
+		if( start.isEmpty() )
+			start = QDir( Edit_Output_Dir->text() ).filePath(
+				QStringLiteral( "sep-firmware.n104.RELEASE.new.img4" ) );
+		const QString file = QFileDialog::getSaveFileName(
+			this, tr( "Packed SEP firmware" ), start,
+			tr( "IMG4 (*.img4);;All (*)" ) );
+		if( ! file.isEmpty() )
+			Edit_SEP_Out->setText( QDir::toNativeSeparators( file ) );
+	} );
+	gridS->addWidget( btnSepOut, 4, 2 );
 
 	Btn_Pack_SEP = new QPushButton( tr( "Decrypt + pack SEP firmware" ) );
 	Btn_Pack_SEP->setToolTip( tr(
@@ -564,7 +627,12 @@ QString iOS_Firmware_Tool_Window::Restore_Ramdisk_From_Manifest( const QString &
 		if( back.contains( QLatin1String( "Erase" ), Qt::CaseInsensitive ) )
 			score += 5;
 		if( back.contains( QLatin1String( "Customer" ), Qt::CaseInsensitive ) )
-			score += 2;
+			score += 8;
+		// Update ramdisk takes verify_storage_for_update + newfs_apfs System.
+		// Inferno GUI restore needs Customer/Erase (038-44135 on 18A5351d).
+		if( back.contains( QLatin1String( "Update" ), Qt::CaseInsensitive )
+		    && ! back.contains( QLatin1String( "Erase" ), Qt::CaseInsensitive ) )
+			score -= 20;
 		if( score > best_score )
 		{
 			best_score = score;
@@ -668,7 +736,10 @@ void iOS_Firmware_Tool_Window::Run_Forge_Tickets()
 	if( shsh.isEmpty() || ! QFile::exists( shsh ) )
 	{
 		QMessageBox::warning( this, tr( "ticket.shsh2" ),
-			tr( "Select ChefKiss ticket.shsh2 (ChefKiss extras… or extras/Inferno/ticket.shsh2)." ) );
+			tr( "ticket.shsh2 is not inside the IPSW and AQEMU does not ship it.\n\n"
+			    "On ChefKiss Inferno file setup, download the ticket SHSH they provide "
+			    "for this flow, save it, then Browse… to that file.\n"
+			    "https://chefkiss.dev/guides/inferno/file-setup/" ) );
 		return;
 	}
 	QSettings s;
@@ -719,7 +790,11 @@ void iOS_Firmware_Tool_Window::Run_Pack_SEP()
 	if( ! Ensure_Img4_Available() )
 		return;
 	const QString im4p = Edit_SEP_IM4P->text().trimmed();
-	const QString ivkey = Edit_SEP_IVKEY->text().trimmed().remove( QLatin1Char( ' ' ) );
+	QString ivkey = Edit_SEP_IVKEY->text();
+	ivkey.replace( QRegularExpression( QStringLiteral( "(?i)\\biv\\s*:" ) ), QString() );
+	ivkey.replace( QRegularExpression( QStringLiteral( "(?i)\\bkey\\s*:" ) ), QString() );
+	ivkey.replace( QRegularExpression( QStringLiteral( "[^0-9A-Fa-f]" ) ), QString() );
+	ivkey = ivkey.toLower();
 	const QString ticket = Edit_Sep_Ticket_Out->text().trimmed();
 	if( im4p.isEmpty() || ! QFile::exists( im4p ) )
 	{
@@ -727,10 +802,12 @@ void iOS_Firmware_Tool_Window::Run_Pack_SEP()
 			tr( "Unpack the IPSW first, or browse to sep-firmware.n104.RELEASE.im4p." ) );
 		return;
 	}
-	if( ivkey.isEmpty() )
+	if( ivkey.size() != 96 )
 	{
 		QMessageBox::warning( this, tr( "IVKEY" ),
-			tr( "Paste the Apple Wiki IV and key concatenated (no space) for this SEP file." ) );
+			tr( "Need the SEP-Firmware IV (32 hex) immediately followed by its Key (64 hex), "
+			    "96 characters total. Not iBoot. Must match this IPSW build.\n\n"
+			    "You pasted %1 hex character(s)." ).arg( ivkey.size() ) );
 		return;
 	}
 	if( ticket.isEmpty() || ! QFile::exists( ticket ) )

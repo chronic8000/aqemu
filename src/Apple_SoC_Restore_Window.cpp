@@ -16,6 +16,9 @@
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QApplication>
+#include <QCoreApplication>
+#include <QComboBox>
+#include <QSpinBox>
 #include <QClipboard>
 #include <QSettings>
 #include <QDir>
@@ -73,6 +76,8 @@ Apple_SoC_Restore_Window::Apple_SoC_Restore_Window( Virtual_Machine *vm, QWidget
 	, VM( vm )
 	, Process( new QProcess( this ) )
 	, Companion_Process( new QProcess( this ) )
+	, CB_Nand_Size( nullptr )
+	, SB_Nand_Size( nullptr )
 {
 	setWindowTitle( tr( "Apple SoC Restore (Inferno companion)" ) );
 	resize( AQ_Px( 780, this ), AQ_Px( 680, this ) );
@@ -107,6 +112,37 @@ Apple_SoC_Restore_Window::Apple_SoC_Restore_Window( Virtual_Machine *vm, QWidget
 	ipswLay->addWidget( Edit_IPSW, 1 );
 	ipswLay->addWidget( btnIpsw );
 	form->addRow( tr( "IPSW:" ), ipswLay );
+
+	CB_Nand_Size = new QComboBox();
+	SB_Nand_Size = new QSpinBox();
+	AQ_Apply_Apple_SoC_Nand_Controls( CB_Nand_Size, SB_Nand_Size,
+		vm ? vm->Get_Apple_Nand_Size_GiB() : AQ_Default_Apple_SoC_Nand_GiB() );
+	CB_Nand_Size->setToolTip( tr(
+		"Size used when `root` is created (Wipe + Power On). "
+		"16–256 GiB presets, or Custom 16–2048 GiB. Does not grow an already-restored iPhone." ) );
+	QHBoxLayout *nandLay = new QHBoxLayout();
+	nandLay->addWidget( CB_Nand_Size );
+	nandLay->addWidget( SB_Nand_Size );
+	form->addRow( tr( "NAND (root) size:" ), nandLay );
+	connect( CB_Nand_Size, QOverload<int>::of( &QComboBox::currentIndexChanged ),
+	         this, [this]( int ) {
+		AQ_On_Apple_SoC_Nand_Combo_Changed( CB_Nand_Size, SB_Nand_Size );
+		if( VM )
+			VM->Set_Apple_Nand_Size_GiB(
+				AQ_Read_Apple_SoC_Nand_Controls( CB_Nand_Size, SB_Nand_Size ) );
+	} );
+	connect( SB_Nand_Size, QOverload<int>::of( &QSpinBox::valueChanged ),
+	         this, [this]( int ) {
+		AQ_On_Apple_SoC_Nand_Spin_Changed( CB_Nand_Size, SB_Nand_Size );
+		if( VM )
+			VM->Set_Apple_Nand_Size_GiB(
+				AQ_Read_Apple_SoC_Nand_Controls( CB_Nand_Size, SB_Nand_Size ) );
+	} );
+
+	Label_VM_File = new QLabel();
+	Label_VM_File->setWordWrap( true );
+	Label_VM_File->setTextInteractionFlags( Qt::TextSelectableByMouse );
+	form->addRow( tr( "iOS VM file:" ), Label_VM_File );
 
 	{
 		QSettings s;
@@ -235,6 +271,11 @@ Apple_SoC_Restore_Window::Apple_SoC_Restore_Window( Virtual_Machine *vm, QWidget
 	btnRestore->setToolTip( tr(
 		"Upload the IPSW into the companion over SSH and run idevicerestore there" ) );
 	connect( btnRestore, &QPushButton::clicked, this, &Apple_SoC_Restore_Window::Run_IDeviceRestore );
+	QPushButton *btnWipe = new QPushButton( tr( "Wipe Inferno disks…" ) );
+	btnWipe->setToolTip( tr(
+		"Delete this iOS VM's Inferno NVMe images (root, nvram, …) after -256 / partial flash.\n"
+		"Folder is next to the VM .aqemu file shown above. Power Off iOS first." ) );
+	connect( btnWipe, &QPushButton::clicked, this, &Apple_SoC_Restore_Window::Wipe_Inferno_Disks );
 	QPushButton *btnFsPatch = new QPushButton( tr( "Apply filesystem patches…" ) );
 	btnFsPatch->setToolTip( tr(
 		"After restore completes: patch the iOS guest root disk "
@@ -247,6 +288,7 @@ Apple_SoC_Restore_Window::Apple_SoC_Restore_Window( Virtual_Machine *vm, QWidget
 	btns->addWidget( btnStopCompanion );
 	btns->addWidget( btnDiag );
 	btns->addWidget( btnRestore );
+	btns->addWidget( btnWipe );
 	btns->addWidget( btnFsPatch );
 	btns->addStretch();
 	QPushButton *btnClose = new QPushButton( tr( "Close" ) );
@@ -320,6 +362,9 @@ void Apple_SoC_Restore_Window::Sync_Conn_To_VM()
 	VM->Set_Apple_USB_Conn_Port( Conn_Port() );
 	if( ! Edit_IPSW->text().trimmed().isEmpty() )
 		VM->Set_Apple_IPSW_Path( Edit_IPSW->text().trimmed() );
+	if( CB_Nand_Size || SB_Nand_Size )
+		VM->Set_Apple_Nand_Size_GiB(
+			AQ_Read_Apple_SoC_Nand_Controls( CB_Nand_Size, SB_Nand_Size ) );
 	QSettings s;
 	s.setValue( QStringLiteral( "Apple_SoC_Restore/Companion_Disk" ), Companion_Disk() );
 }
@@ -483,6 +528,19 @@ void Apple_SoC_Restore_Window::Create_Companion_Helper()
 
 void Apple_SoC_Restore_Window::Refresh_Companion_Snippet()
 {
+	if( Label_VM_File )
+	{
+		if( VM )
+		{
+			const QString xml = QDir::toNativeSeparators( VM->Get_VM_XML_File_Path() );
+			const QString disks = QDir::toNativeSeparators( AQ_Apple_SoC_Image_Dir( VM ) );
+			Label_VM_File->setText( tr( "%1\nInferno disks: %2" )
+				.arg( xml.isEmpty() ? tr( "(unsaved VM)" ) : xml, disks ) );
+		}
+		else
+			Label_VM_File->setText( tr( "(no iOS VM selected)" ) );
+	}
+
 	const QString type = Conn_Type();
 	const QString addr = Conn_Addr();
 	const QString disk = Companion_Disk();
@@ -877,9 +935,18 @@ void Apple_SoC_Restore_Window::Set_VM( Virtual_Machine *vm )
 	VM = vm;
 	if( ! vm )
 		return;
-	if( Edit_IPSW && Edit_IPSW->text().trimmed().isEmpty() )
-		Edit_IPSW->setText( vm->Get_Apple_IPSW_Path() );
+	const QString ipsw = vm->Get_Apple_IPSW_Path().trimmed();
+	if( Edit_IPSW && ! ipsw.isEmpty() )
+		Edit_IPSW->setText( QDir::toNativeSeparators( ipsw ) );
+	if( CB_Nand_Size || SB_Nand_Size )
+		AQ_Apply_Apple_SoC_Nand_Controls( CB_Nand_Size, SB_Nand_Size,
+			vm->Get_Apple_Nand_Size_GiB() );
 	Refresh_Companion_Snippet();
+}
+
+void Apple_SoC_Restore_Window::Wipe_Inferno_Disks()
+{
+	AQ_Prompt_Wipe_Apple_SoC_Disks( VM, this );
 }
 
 void Apple_SoC_Restore_Window::Stop_Companion_WSL()
@@ -1022,6 +1089,26 @@ void Apple_SoC_Restore_Window::Run_IDeviceRestore()
 		return;
 	}
 
+	{
+		const QString base = QFileInfo( ipsw ).fileName();
+		QString extra;
+		if( base.contains( QLatin1String( "18A5351d" ), Qt::CaseInsensitive ) )
+		{
+			extra = tr(
+				"\n\nThis filename is iOS 14.0 beta 5 (18A5351d). "
+				"If Firmware Tool tickets and SEP .new.img4 were made from 18A373 (GM), "
+				"restore will die after NORData with -256. "
+				"Stop companion, browse to the matching IPSW, Start companion, then Restore." );
+		}
+		if( QMessageBox::question( this, tr( "Restore IPSW" ),
+			tr( "idevicerestore will use this file (must match tickets + SEP pack):\n\n%1\n\n"
+			    "If companion was started earlier with a different IPSW folder, "
+			    "Stop companion and Start companion first so the 9p share is restaged." )
+				.arg( QDir::toNativeSeparators( ipsw ) ) + extra,
+			QMessageBox::Ok | QMessageBox::Cancel, QMessageBox::Ok ) != QMessageBox::Ok )
+			return;
+	}
+
 	QSettings s;
 	s.setValue( QStringLiteral( "Apple_SoC_Restore/SSH_User" ), ssh_user );
 
@@ -1051,6 +1138,43 @@ void Apple_SoC_Restore_Window::Run_IDeviceRestore()
 		return;
 	}
 
+	auto find_inferno_extra = []( const QString &name ) -> QString {
+		QString cpath = AQ_Inferno_Extras_Dir() + QLatin1Char( '/' ) + name;
+		if( QFileInfo::exists( cpath ) )
+			return QFileInfo( cpath ).absoluteFilePath();
+		QDir d( QCoreApplication::applicationDirPath() );
+		for( int i = 0; i < 8; ++i )
+		{
+			const QString t = d.filePath( QStringLiteral( "extras/Inferno/" ) + name );
+			if( QFileInfo::exists( t ) )
+				return QFileInfo( t ).absoluteFilePath();
+			if( ! d.cdUp() )
+				break;
+		}
+		return QString();
+	};
+	QString cfs_wsl;
+	{
+		const QString cpath = find_inferno_extra(
+			QStringLiteral( "force_create_fs_partitions.c" ) );
+		if( ! cpath.isEmpty() )
+			cfs_wsl = Windows_Path_To_WSL( cpath );
+	}
+	QString cfs_py_wsl;
+	{
+		const QString ppath = find_inferno_extra(
+			QStringLiteral( "patch_idevicerestore_cfs.py" ) );
+		if( ! ppath.isEmpty() )
+			cfs_py_wsl = Windows_Path_To_WSL( ppath );
+	}
+	QString cfs_sh_wsl;
+	{
+		const QString spath = find_inferno_extra(
+			QStringLiteral( "build_force_cfs.sh" ) );
+		if( ! spath.isEmpty() )
+			cfs_sh_wsl = Windows_Path_To_WSL( spath );
+	}
+
 	const QByteArray body = QStringLiteral(
 		"#!/usr/bin/env bash\n"
 		"set -euo pipefail\n"
@@ -1070,6 +1194,9 @@ void Apple_SoC_Restore_Window::Run_IDeviceRestore()
 		"-o NumberOfPasswordPrompts=1 -o ConnectTimeout=15 "
 		"-o LogLevel=ERROR)\n"
 		"GUEST=%1\n"
+		"CFS_C=%2\n"
+		"CFS_PY=%3\n"
+		"CFS_SH=%4\n"
 		"ssh_do() { sshpass -e ssh -p 32222 \"${SSH_OPTS[@]}\" \"$GUEST@127.0.0.1\" \"$@\"; }\n"
 		// Companion image was patched with NOPASSWD for bob. Use only sudo -n and
 		// single-quoted remote commands. Never embed passwords / printf %% formats in
@@ -1132,6 +1259,82 @@ void Apple_SoC_Restore_Window::Run_IDeviceRestore()
 		"  exit 4\n"
 		"fi\n"
 		"echo 'idevicerestore looks ChefKiss-patched (INFO: model is present).'\n"
+		"echo 'Pinning companion idevicerestore to ChefKiss-era 74e3bd9 if needed (once)...'\n"
+		"if [ -n \"$CFS_PY\" ] && [ -f \"$CFS_PY\" ]; then\n"
+		"  sshpass -e scp -P 32222 \"${SSH_OPTS[@]}\" \"$CFS_PY\" "
+		"\"$GUEST@127.0.0.1:/tmp/aqemu_patch_idr_cfs.py\" || true\n"
+		"  ssh_do 'sed -i \"s/\\r$//\" /tmp/aqemu_patch_idr_cfs.py 2>/dev/null' || true\n"
+		"  ssh_do 'sudo -n /usr/bin/python3 /tmp/aqemu_patch_idr_cfs.py --force /usr/local/bin/idevicerestore' || {\n"
+		"    echo 'FATAL: could not pin idevicerestore to 74e3bd9 (git/autotools/network).'\n"
+		"    echo 'Working Inferno restores use 74e3bd9; 45145e9 sends CFS=false (GPT 78).'\n"
+		"    exit 5; }\n"
+		"else\n"
+		"  echo 'FATAL: patch_idevicerestore_cfs.py not next to aqemu extras/Inferno';\n"
+		"  exit 5\n"
+		"fi\n"
+		"ssh_do 'ldd /usr/local/bin/idevicerestore 2>/dev/null | head -20' || true\n"
+		"rm -f /tmp/aqemu_force_cfs.c\n"
+		"if [ -n \"$CFS_C\" ] && [ -f \"$CFS_C\" ]; then\n"
+		"  cp \"$CFS_C\" /tmp/aqemu_force_cfs.c\n"
+		"  echo \"Using USB plist helper source: $CFS_C\"\n"
+		"else\n"
+		"  echo 'WARNING: force_create_fs_partitions.c not found (checked extras/Inferno next to aqemu.exe and source tree).'\n"
+		"fi\n"
+		"cat > /tmp/aqemu-idr-wrap.sh << 'WEOF'\n"
+		"#!/bin/bash\n"
+		"export LD_LIBRARY_PATH=/usr/local/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}\n"
+		"unset LD_PRELOAD\n"
+		"echo \"AQEMU wrap: vanilla idevicerestore (no LD_PRELOAD)\"\n"
+		"echo \"AQEMU wrap argv: $*\"\n"
+		"exec /usr/local/bin/idevicerestore --erase --restore-mode \"$@\"\n"
+		"WEOF\n"
+		"WRAP_OK=0\n"
+		"if [ -f /tmp/aqemu_force_cfs.c ]; then\n"
+		"  if [ -n \"$CFS_SH\" ] && [ -f \"$CFS_SH\" ]; then\n"
+		"    sed -i 's/\\r$//' \"$CFS_SH\" 2>/dev/null || true\n"
+		"    sshpass -e scp -P 32222 \"${SSH_OPTS[@]}\" /tmp/aqemu_force_cfs.c /tmp/aqemu-idr-wrap.sh \"$CFS_SH\" "
+		"\"$GUEST@127.0.0.1:/tmp/\" || true\n"
+		"  else\n"
+		"    sshpass -e scp -P 32222 \"${SSH_OPTS[@]}\" /tmp/aqemu_force_cfs.c /tmp/aqemu-idr-wrap.sh "
+		"\"$GUEST@127.0.0.1:/tmp/\" || true\n"
+		"  fi\n"
+		"  ssh_do 'sed -i \"s/\\r$//\" /tmp/build_force_cfs.sh /tmp/aqemu_force_cfs.c "
+		"/tmp/aqemu-idr-wrap.sh /tmp/aqemu_patch_idr_cfs.py 2>/dev/null' || true\n"
+		"  if ssh_do 'sudo -n bash /tmp/build_force_cfs.sh /tmp/aqemu_force_cfs.c /usr/local/lib/aqemu_force_cfs.so'; then\n"
+		"    echo 'USB plist helper refreshed (.so; idevicerestore was not rebuilt).'\n"
+		"  else\n"
+		"    echo 'WARNING: could not compile helper into /usr/local/lib (need cc/gcc + sudo).'\n"
+		"  fi\n"
+		"  if ssh_do 'test -s /usr/local/lib/aqemu_force_cfs.so'; then\n"
+		"    ssh_do 'sudo -n cp /tmp/aqemu-idr-wrap.sh /usr/local/bin/aqemu-idr-wrap.sh && "
+		"    sudo -n chmod 755 /usr/local/bin/aqemu-idr-wrap.sh' && WRAP_OK=1\n"
+		"  fi\n"
+		"else\n"
+		"  echo 'WARNING: skipped USB plist helper (source .c missing); ramrod may keep CreateFilesystemPartitions=false.'\n"
+		"fi\n"
+		// MODE=3 is CDC Ethernet (Device Tools reverse-tether). Restore needs
+		// usbmux MODE=1. Restart mux NOW, before iOS USB appears.
+		"echo 'Ensuring companion usbmuxd (MODE=1 for restore, not Device Tools MODE=3)...'\n"
+		"ssh_do 'sudo -n bash -c \""
+		"mkdir -p /etc/systemd/system/usbmuxd.service.d; "
+		"rm -f /etc/systemd/system/usbmuxd.service.d/aqemu-mode3.conf; "
+		"echo [Service] > /etc/systemd/system/usbmuxd.service.d/aqemu-restore-mode1.conf; "
+		"echo Environment=USBMUXD_DEFAULT_DEVICE_MODE=1 >> /etc/systemd/system/usbmuxd.service.d/aqemu-restore-mode1.conf; "
+		"systemctl daemon-reload >/dev/null 2>&1 || true; "
+		"systemctl restart usbmuxd >/dev/null 2>&1 || systemctl start usbmuxd >/dev/null 2>&1 || true; "
+		"sleep 1; "
+		"if ! pgrep -x usbmuxd >/dev/null; then "
+		"  MUX=/usr/sbin/usbmuxd; "
+		"  [ -x /usr/local/sbin/usbmuxd ] && MUX=/usr/local/sbin/usbmuxd; "
+		"  echo systemd usbmuxd missing - starting $MUX; "
+		"  USBMUXD_DEFAULT_DEVICE_MODE=1 $MUX -U usbmux >/tmp/aqemu-usbmuxd.log 2>&1 || "
+		"  USBMUXD_DEFAULT_DEVICE_MODE=1 $MUX -U root >/tmp/aqemu-usbmuxd.log 2>&1 || true; "
+		"  sleep 1; "
+		"fi; "
+		"echo --- usbmuxd ---; "
+		"pgrep -a usbmuxd || echo NONE; "
+		"ls -l /var/run/usbmuxd 2>/dev/null || echo no /var/run/usbmuxd socket; "
+		"systemctl is-active usbmuxd 2>/dev/null || true\"' || true\n"
 		"check_8030() {\n"
 		// Modern ss prints ESTAB (not ESTABLISHED); match either.
 		"  ss -tnp 2>/dev/null | grep -E ':8030\\b' | grep -iE 'estab' || true\n"
@@ -1147,28 +1350,38 @@ void Apple_SoC_Restore_Window::Run_IDeviceRestore()
 		"  echo 'No ESTABLISHED on :8030 yet (iOS not connected - that is OK, Power On iOS now).'\n"
 		"fi\n"
 		"echo\n"
-		"echo 'Power On the iOS guest NOW (companion SSH is up). Waiting for idevice...'\n"
+		"echo 'Power On the iOS guest NOW (companion SSH is up). Waiting for USB...'\n"
 		"echo 'IMPORTANT: iOS only waits ~120s for restore once the Apple logo appears.'\n"
+		"echo 'lsusb Apple + usbmuxd is enough. idevice_id can still be empty for a moment.'\n"
 		"DEV=\n"
-		"for i in $(seq 1 60); do\n"
-		"  ssh_do 'sudo -n systemctl start usbmuxd' 2>/dev/null || true\n"
+		"for i in $(seq 1 40); do\n"
 		"  LS=$(ssh_do 'lsusb 2>/dev/null' || true)\n"
-		"  DEV=$(ssh_do 'idevice_id -l 2>/dev/null | head -1' || true)\n"
 		"  EST=$(check_8030)\n"
 		"  if echo \"$LS\" | grep -qiE 'Apple|05ac:'; then\n"
 		"    echo \"lsusb Apple device seen (try $i):\"\n"
 		"    echo \"$LS\" | grep -iE 'Apple|05ac:' || true\n"
+		"    if [ -n \"$EST\" ]; then echo \"TCP ESTABLISHED on :8030: $EST\"; fi\n"
+		"    echo 'Waiting 3s for usbmuxd to claim the device...'\n"
+		"    sleep 3\n"
+		"    ssh_do 'echo --- after USB ---; pgrep -a usbmuxd || echo NONE; "
+		"ls -l /var/run/usbmuxd 2>/dev/null || echo no socket; "
+		"idevice_id -l; irecovery -q 2>&1 | head -12' || true\n"
+		"    DEV=$(ssh_do 'idevice_id -l 2>/dev/null | head -1' || true)\n"
+		"    if [ -z \"$DEV\" ]; then\n"
+		"      echo 'idevice_id still empty; starting idevicerestore anyway (it waits 10s for mux/recovery).'\n"
+		"      DEV='00008030-1122334455667788'\n"
+		"    fi\n"
+		"    break\n"
 		"  fi\n"
-		"  if [ -n \"$EST\" ]; then echo \"TCP ESTABLISHED on :8030: $EST\"; fi\n"
-		"  if [ -n \"$DEV\" ]; then break; fi\n"
-		"  echo \"  ($i/60) waiting for idevice...\"\n"
-		"  sleep 3\n"
+		"  if [ -n \"$EST\" ]; then echo \"TCP ESTABLISHED on :8030 (waiting for companion lsusb): $EST\"; fi\n"
+		"  echo \"  ($i/40) waiting for USB (lsusb Apple)...\"\n"
+		"  sleep 2\n"
 		"done\n"
 		"if [ -z \"$DEV\" ]; then\n"
 		"  echo\n"
-		"  echo 'Still no device after waiting.'\n"
+		"  echo 'Still no Apple USB after waiting (lsusb had no 05ac).'\n"
 		"  echo 'Order: Start companion -> wait for SSH -> Power On iOS -> Restore quickly.'\n"
-		"  ssh_do 'lsusb; idevice_id -l' || true\n"
+		"  ssh_do 'lsusb; idevice_id -l; irecovery -q 2>&1 | head -20' || true\n"
 		"  exit 2\n"
 		"fi\n"
 		"echo \"Device: $DEV\"\n"
@@ -1189,27 +1402,41 @@ void Apple_SoC_Restore_Window::Run_IDeviceRestore()
 		"if [ -n \"$EST\" ]; then echo \"Pre-restore bridge ESTABLISHED: $EST\"; "
 		"else echo 'Pre-restore bridge: no ESTABLISHED on :8030 (check iOS USB remote config)'; fi\n"
 		"echo 'Starting idevicerestore NOW (Inferno ~120s window)...'\n"
+		"if [ \"$WRAP_OK\" = 1 ]; then\n"
+		"  IDR_CMD='/usr/local/bin/aqemu-idr-wrap.sh'\n"
+		"else\n"
+		"  IDR_CMD='idevicerestore'\n"
+		"fi\n"
+		"echo \"Running: sudo -n $IDR_CMD --debug -e --erase --restore-mode -y $ECID_ARG $TICKET_ARG IPSW\"\n"
 		"ok=0\n"
-		"for attempt in 1 2 3 4 5; do\n"
-		"  echo \"=== idevicerestore attempt $attempt/5 ===\"\n"
+		"for attempt in 1 2; do\n"
+		"  echo \"=== idevicerestore attempt $attempt/2 ===\"\n"
 		"  if [ \"$attempt\" != 1 ]; then\n"
-		"    echo 'Retry: Power Off iOS, wait 5s, Power On iOS, then click Restore again...'\n"
-		"    DEV=\n"
-		"    for j in $(seq 1 40); do\n"
-		"      ssh_do 'sudo -n systemctl start usbmuxd' 2>/dev/null || true\n"
-		"      DEV=$(ssh_do 'idevice_id -l 2>/dev/null | head -1' || true)\n"
-		"      [ -n \"$DEV\" ] && break\n"
-		"      sleep 3\n"
-		"    done\n"
-		"    echo 'Restarting usbmuxd (Inferno tip when mode discovery fails)...'\n"
-		"    ssh_do 'sudo -n systemctl restart usbmuxd' 2>/dev/null || true\n"
-		"    sleep 2\n"
+		"    echo 'Retry discovery. Do not restart usbmuxd (that drops USB-TCP).'\n"
+		"    ssh_do 'pgrep -x usbmuxd >/dev/null || sudo -n systemctl start usbmuxd' || true\n"
+		"    sleep 1\n"
 		"  fi\n"
-		"  if sshpass -e ssh -t -p 32222 \"${SSH_OPTS[@]}\" \"$GUEST@127.0.0.1\" "
-		"\"export LD_LIBRARY_PATH=/usr/local/lib:\\${LD_LIBRARY_PATH:-}; "
-		"sudo -n -E idevicerestore -d -y -e -R $ECID_ARG $TICKET_ARG "
-		"/mnt/aqemu_ipsw/aqemu-restore-current.ipsw\"; then\n"
-		"    ok=1; break\n"
+		"  set +e\n"
+		"  set +o pipefail\n"
+		"  sshpass -e ssh -t -p 32222 \"${SSH_OPTS[@]}\" \"$GUEST@127.0.0.1\" "
+		"\"sudo -n $IDR_CMD --debug -e --erase --restore-mode -y "
+		"$ECID_ARG $TICKET_ARG /mnt/aqemu_ipsw/aqemu-restore-current.ipsw\" "
+		"2>&1 | tee /tmp/aqemu-idr-last.log\n"
+		"  idr_ec=${PIPESTATUS[0]}\n"
+		"  set -e\n"
+		"  set -o pipefail\n"
+		"  if [ \"$idr_ec\" = 0 ]; then ok=1; break; fi\n"
+		"  if grep -qiE 'invalid GPT header|Missing data volume|FAILURE:7[58]|FAILURE:47|failed to create APFS Filesystem|format_media' "
+		"/tmp/aqemu-idr-last.log; then\n"
+		"    echo\n"
+		"    echo 'Stopped retries: ramrod storage/format.'\n"
+		"    echo '78 invalid header = zeros. 78 GPT format = empty GPT, need APFS Data volume.'\n"
+		"    echo '75 = APFS partition without Data. Power Off, Power On (formats Data volume).'\n"
+		"    echo '47 format_media / newfs_apfs Resource busy = Update ramdisk (CFS=false).'\n"
+		"    echo '  MACHINE Restore ramdisk must be CustomerRamDisk (e.g. 038-44135), not Update (038-44087).'\n"
+		"    echo '  Trustcache must match that ramdisk. Then Power Off iOS and Restore again.'\n"
+		"    ssh_do 'echo --- /tmp/aqemu-cfs.log ---; cat /tmp/aqemu-cfs.log 2>/dev/null | tail -50' || true\n"
+		"    break\n"
 		"  fi\n"
 		"  echo \"attempt $attempt failed - USB recheck:\"\n"
 		"  ssh_do 'lsusb | grep -iE \"Apple|05ac\" || true; idevice_id -l || true' || true\n"
@@ -1221,6 +1448,8 @@ void Apple_SoC_Restore_Window::Run_IDeviceRestore()
 		"  echo 'If log said \"Unable to discover device type\" after serial INFERNO_*:'\n"
 		"  echo '  companion idevicerestore lacks ChefKiss N104DEV→AP patch.'\n"
 		"  echo '  https://chefkiss.dev/Extras/Inferno/idevicerestore.patch'\n"
+		"  echo 'If log said \"invalid GPT header\" or \"Storage with GPT format\" (78) or \"Missing data volume\" (75):'\n"
+		"  echo '  Update-path ramrod needs an APFS Data volume. Power Off, Power On, Restore.'\n"
 		"  echo 'If log reached \"Done sending NORData\" then \"Could not read data (-256)\":'\n"
 		"  echo '  USB bridge dropped mid-restore (common). After partial restore you MUST:'\n"
 		"  echo '  1) Power Off iOS guest completely'\n"
@@ -1237,7 +1466,10 @@ void Apple_SoC_Restore_Window::Run_IDeviceRestore()
 		"  exit 1\n"
 		"fi\n"
 		"echo 'idevicerestore finished.'\n" )
-		.arg( Shell_Single_Quote( ssh_user ) )
+		.arg( Shell_Single_Quote( ssh_user ),
+		      Shell_Single_Quote( cfs_wsl ),
+		      Shell_Single_Quote( cfs_py_wsl ),
+		      Shell_Single_Quote( cfs_sh_wsl ) )
 		.toUtf8();
 
 	script_file.write( body );
@@ -1298,14 +1530,11 @@ void Apple_SoC_Restore_Window::On_Process_Finished( int code, QProcess::ExitStat
 	{
 		Append_Log( tr(
 			"\nRestore notes:\n"
-			"  - Companion + IPSW 9p can be fine while USB is still missing.\n"
-			"  - Apple logo with empty bar = waiting for restore host; it times out\n"
-			"    if the USB bridge never attaches (~120s window).\n"
-			"  - \"Unable to discover device type\" (after serial): ChefKiss\n"
-			"    idevicerestore.patch missing (N104DEV→AP). Ticket comes after that.\n"
-			"  - \"Done sending NORData\" then \"Could not read data (-256)\": bridge dropped.\n"
-			"    Wipe *_inferno NVMe images (see extras/Inferno/wipe-ios-nvme.ps1), then retry.\n"
-			"  - See https://chefkiss.dev/guides/inferno/troubleshooting/" ) );
+			"  - Companion SSH must be up before Power On iOS (~120s Apple-logo window).\n"
+			"  - First Restore this session may rebuild companion idevicerestore; Power On\n"
+			"    only when the log says Power On the iOS guest NOW.\n"
+			"  - GPT 78/75: Power Off, Power On (APFS Data seed), Restore once.\n"
+			"  - NORData then read error -256: USB bridge dropped; wipe disks and retry." ) );
 	}
 }
 

@@ -63,7 +63,7 @@ Toolbar **Net** (or **File → Guest Internet / iOS Device Tools…**) → same 
 
 ### A7. Buttons
 
-Toolbar: Vol− / Vol+ / Home / Side / SOS / Pad / Net. Swipe-home is unreliable — use **Home**.
+Toolbar: Vol− / Vol+ / Home / Side / SOS / Pad / Net. Swipe-home is ignored on Inferno (Face ID MT-SPI). After SpringBoard, use **Home**. On **Welcome to iPhone / Swipe up to get started**, Home often does nothing — use **SOS** (ChefKiss workaround).
 
 ---
 
@@ -112,7 +112,7 @@ Typical files after unpack (names vary by IPSW):
 | Look for | Used as |
 | --- | --- |
 | `BuildManifest.plist` | Filled into Step 2 automatically |
-| `DeviceTree.n104ap.im4p` | Step 3 decrypt/extract → **DeviceTree** `.dtb` / `.dec` |
+| `Firmware/all_flash/DeviceTree.n104ap.im4p` | Step 4 decrypt/extract → MACHINE **DeviceTree** `.dtb` / `.dec` (not the SEP `.im4p`) |
 | `kernelcache.release.*` or research kernel | **Kernel** (decrypted / `.research`) |
 | Restore ramdisk **`.dmg`** (`RestoreRamDisk` in BuildManifest, e.g. `038-44135-124.dmg`) | MACHINE **Restore ramdisk (-initrd)** (suggested if empty). Not the largest IPSW `.dmg` |
 | `Firmware/all_flash/sep-firmware.n104.RELEASE.im4p` | Later pack into **repackaged** SEP `.img4` — not the MACHINE SEP field raw |
@@ -120,6 +120,24 @@ Typical files after unpack (names vary by IPSW):
 | `kernelcache` / firmware folders | Keep the whole extract; do not delete until MACHINE paths work |
 
 **Kernel** is the research/decrypted kernelcache Inferno can `-kernel`, not a random Mach-O from the IPSW payload folder unless ChefKiss says that file is the one.
+
+### The three `.dmg` files in `firmware_extracted`
+
+After unpack you will see **three `.dmg` files** at the root of `firmware_extracted` (names vary by IPSW build; the `18A5351d` example names are below):
+
+| File | Role | Do you use it? |
+| --- | --- | --- |
+| `038-44087-125.dmg` | **UpdateRamdisk** — OTA delta update environment. Not used for a fresh restore | **No** — ignore it |
+| `038-44135-124.dmg` | **RestoreRamdisk** — the recovery-mode environment that `idevicerestore` boots the device into. This is what goes in **MACHINE → Restore ramdisk (-initrd)** | **Yes — this is your `-initrd`** |
+| `038-44337-083.dmg` | **RootFilesystem** — the full iOS APFS/HFS image. `idevicerestore` flashes this to the `root` NVMe image. You never set this field manually; the restore companion handles it automatically from the IPSW | **No** — handled automatically |
+
+`BuildManifest.plist` (`RestoreRamDisk` key) identifies which `.dmg` is which. AQEMU's Firmware Tool reads that key and **pre-fills** the Restore ramdisk field for you, so you should not need to guess.
+
+**How `-initrd` puts the device into recovery:**
+
+When **Restore ramdisk (-initrd)** is set in MACHINE, AQEMU passes `-initrd <path>` to Inferno QEMU. QEMU maps that file as `md0` and appends `rd=md0 nand-enable-reformat=1 -restore` to the kernel boot args, which tells iOS to boot into restore mode instead of SpringBoard. The device is now in a state where `idevicerestore` (running in the companion) can connect over USB/TCP and flash the IPSW.
+
+**After restore succeeds:** the FS-patch step **clears** the Restore ramdisk field automatically. Do not set it again unless you are doing a re-restore.
 
 ---
 
@@ -133,8 +151,11 @@ Unsigned IPSWs need a **forged AP ticket**. A 2-byte placeholder will fail resto
 
 1. **Model** — `n104ap` (iPhone 11 / t8030).
 2. **BuildManifest.plist** — already filled after Unpack.
-3. **ticket.shsh2** — **Browse…** or **ChefKiss extras…** ([ChefKiss extras](https://chefkiss.dev/Extras/Inferno/)). You can drop the file next to the bundled scripts as `extras/Inferno/ticket.shsh2`. AQEMU remembers the path. AQEMU does **not** ship this blob.
-4. **Forge restore + SEP tickets** — AQEMU runs the bundled scripts (installs `pyasn1` via pip if needed). You never type the command.
+3. **ticket.shsh2** — **not in the IPSW.** It is a **SHSH blob** ChefKiss hosts for Inferno’s unsigned-IPSW ticket scripts (contains an Apple **Img4** `ApImg4Ticket`). AQEMU does **not** ship it, download it, or put it in the installer — that would redistribute Apple signing material. You get it from ChefKiss:
+
+   Open [Inferno file setup](https://chefkiss.dev/guides/inferno/file-setup/) → **Creating the AP Ticket** → the sentence *“a ticket shsh is provided here”* (that **here** is their `ticket.shsh2`). Save the file, then **Browse…** in the Firmware Tool. You may keep a local copy as `extras/Inferno/ticket.shsh2` (gitignored). Firmware Tool **How to get this…** opens that same guide page.
+4. **Restore ticket / SEP ticket (.der)** — leave the suggested paths (next to the extract) or **Browse…** to choose where Forge **writes**. You do not hunt for these in the IPSW.
+5. Click **Forge restore + SEP tickets** — that **creates** the `.der` files (installs `pyasn1` via pip if needed). You never type the command.
 
 Outputs (next to the extract by default):
 
@@ -145,15 +166,19 @@ Forge again whenever you **change IPSW build**. Python 3: **File → Configure �
 
 ### DeviceTree / kernel IM4P (Step 4)
 
+Do **not** reuse `sep-firmware.n104.RELEASE.im4p` here — that file is Step 3 only. Step 4 is **DeviceTree** (and optionally kernelcache). Browse to:
+
+`firmware_extracted/Firmware/all_flash/DeviceTree.n104ap.im4p`
+
 IM4P files are still wrapped. Step 4 needs **`pyimg4`** on PATH or `pyimg4.exe` beside `aqemu.exe` (AQEMU does not vendor it).
 
-| Operation | Use |
-| --- | --- |
-| Extract raw payload | Pull payload out of `.im4p` |
-| Decrypt payload | Needs **AES IV** and **AES Key** (hex) from The Apple Wiki for that build/file |
-| Show payload info | Inspect before decrypt |
+| Operation | AES IV / AES Key | Use |
+| --- | --- | --- |
+| Show payload info | Leave blank | Check whether the IM4P is encrypted |
+| Extract raw payload | Leave blank | Only if info shows no encryption |
+| Decrypt payload | **Required** — DeviceTree (or kernel) IV and Key from The Apple Wiki for **this file and this build**. Not the Step 3 SEP IVKEY |
 
-**DeviceTree must not stay `.im4p`.** Start will refuse raw IM4P. Decrypt/extract until you have `.dtb` or `.dec`. Empty MACHINE DeviceTree is filled from a `.dec`/`.dtb` result.
+**DeviceTree must not stay `.im4p`.** Start will refuse raw IM4P. Decrypt until you have `.dtb` or `.dec`. Empty MACHINE DeviceTree is filled from that result. Kernel is usually ChefKiss’s **research** kernel, not a second pass on SEP.
 
 If pyimg4 is missing: **File → Configure → iOS firmware tools → pyimg4**, or copy `pyimg4.exe` next to `aqemu.exe` / on PATH.
 
@@ -164,10 +189,39 @@ Raw `sep-firmware.n104.RELEASE.im4p` is **not** what Inferno `sep-fw=` wants. Wi
 Still in **File → iOS Firmware Tool…**:
 
 1. **SEP .im4p** — filled after Unpack (`Firmware/all_flash/sep-firmware.n104.RELEASE.im4p`).
-2. **IVKEY** — Apple Wiki IV and key **concatenated** (no space) for that file. **Apple Wiki…** opens the keys page.
+2. **IVKEY** — Apple Wiki keys for **this IPSW build** and the file **`sep-firmware.n104.RELEASE.im4p`** only. **Not iBoot, iBEC, iBSS, or LLB.**
+
+   Open [The Apple Wiki firmware keys](https://theapplewiki.com/wiki/Firmware_Keys) (Firmware Tool **Apple Wiki…**). Open the page for **your** build + **iPhone 11 / iPhone12,1** (example GM: [Keys:Azul 18A373 (iPhone12,1)](https://theapplewiki.com/wiki/Keys:Azul_18A373_(iPhone12,1)); ChefKiss sample IPSW is **18A5351d** beta 5: [Keys:AzulSeed 18A5351d (iPhone12,1)](https://theapplewiki.com/wiki/Keys:AzulSeed_18A5351d_(iPhone12,1))).
+
+   Find the heading **SEP-Firmware** / `sep-firmware.n104.RELEASE.im4p`. Copy **IV** then **Key**, lowercase hex, **no spaces, no `0x`, no newlines**:
+
+   `IVKEY` = `IV` + `Key` (IV first, 32 hex chars, then the 64-char key → **96 hex characters**).
+
+   Example from **18A5351d** SEP-Firmware (ChefKiss sample IPSW / iPhone12,1). Use this only if that is your IPSW:
+
+   ```text
+   IV:  017a328b048aab2edcc4cfe043c2d844
+   Key: a55e67143d57938e37ec6b83ba9e181c0d24bd0a6a14f9f39752b967a9c45cfc
+   ```
+
+   Paste as one line:
+
+   ```text
+   017a328b048aab2edcc4cfe043c2d844a55e67143d57938e37ec6b83ba9e181c0d24bd0a6a14f9f39752b967a9c45cfc
+   ```
+
+   Wrong: iBoot keys. Wrong: **18A373 GM keys** on a **18A5351d** IPSW (or the reverse). Wrong: 14.7.1 `18G82` keys on 14.0. The Firmware Tool strips spaces; do not insert commas or `IV:` / `Key:` labels.
 3. **Decrypt + pack SEP firmware** — AQEMU runs `img4` decrypt then wrap with `-T rsep` and the Step 2 SEP ticket. MACHINE **SEP firmware** is set to the `.new.img4`.
 
-Place **`img4.exe`** (xerub [img4lib](https://github.com/xerub/img4lib)) in **File → Configure → iOS firmware tools**, beside `aqemu.exe`, or on PATH. You do not type the ChefKiss `for /f` command.
+Place **`img4.exe`** (xerub [img4lib](https://github.com/xerub/img4lib), not `pyimg4.exe`) in **File → Configure → iOS firmware tools**, beside `aqemu.exe`, or on PATH. You do not type the ChefKiss `for /f` command.
+
+On Windows the upstream tree is Unix-style; AQEMU’s port is:
+
+```text
+.\scripts\build_img4_windows.ps1
+```
+
+That produces `build_win\img4.exe` (MinGW + OpenSSL + in-tree lzfse). Needs MSYS2 UCRT64/MINGW64 `gcc` and OpenSSL.
 
 ### SEP ROM and SecureROM
 
@@ -194,7 +248,7 @@ SEP ROM for t8030 / iPhone 11 is the **Cebu B1** dump from ChefKiss’s ROM coll
 
 | Field | What to set |
 | --- | --- |
-| **DeviceTree (.dtb / .im4p)** | Extracted **`.dtb` or `.dec`**. Not wrapped `.im4p` |
+| **DeviceTree (.dec / .dtb / .im4p)** | Firmware Tool `.dec` (or `.dtb`). Not wrapped `.im4p`. Browse filter includes `.dec` |
 | **Kernel (.research / .elf)** | Decrypted / research kernelcache |
 | **Boot arguments** | Leave Inferno/AQEMU defaults unless ChefKiss says otherwise. Do not paste random `-append` into Additional Args |
 
@@ -204,7 +258,7 @@ SEP ROM for t8030 / iPhone 11 is the **Cebu B1** dump from ChefKiss’s ROM coll
 | --- | --- |
 | **Trustcache** | Trustcache file from IPSW / Inferno recipe |
 | **Restore ticket** | `root_ticket.der` (real, not placeholder) |
-| **SEP firmware** | `sep-firmware.n104.RELEASE.new.img4` (repackaged) |
+| **SEP firmware** | **MACHINE tab → Options → SEP firmware** (same row — there is no second “Machine SEP” box). Packed `sep-firmware.n104.RELEASE.new.img4` from Firmware Tool Step 3. Not raw `.im4p` |
 | **SEP ROM** | Cebu B1 dump |
 | **SecureROM (optional)** | Empty unless you have it |
 | **IPSW (restore)** | The `.ipsw` / `.zip` Restore dialog uploads |
@@ -223,7 +277,7 @@ Save the VM after filling this. Start validates kernel + DeviceTree; missing/wro
 | SSH port | **32222** (hostfwd) |
 | USB remote | Same **127.0.0.1:8030** |
 | **Start companion in WSL** | Boots companion + `usb-tcp-remote` |
-| **Stop companion** | Before wiping disks / resizing `root` if needed |
+| **Wipe Inferno disks…** | After `-256` / partial flash. **File → Wipe Inferno disks…**, MACHINE **Wipe Inferno disks…**, or this Restore button. Shows the selected VM’s `.aqemu` path and `*_inferno` folder (not hardcoded). Power Off iOS first. Does not wipe companion.qcow2 |
 | **Diagnose** | USB / SSH / 8030 checks |
 | **Restore IPSW via SSH…** | Uploads IPSW, runs patched `idevicerestore` **inside** the companion |
 
@@ -241,7 +295,7 @@ Patched `idevicerestore` rewrites Inferno **`N104DEV` → AP**. Without it: `Una
 
 ## B6. Grow `root` (32 GiB)
 
-ChefKiss: `qemu-img create -f raw root 32G`. AQEMU auto-creates **8 GiB** (~9 GB in Settings). Enough for SpringBoard; **not** enough for large IPAs (UTM SE died around **800 MB free** with `PackageExtractionFailed`).
+ChefKiss: `qemu-img create -f raw root 32G`. Pick **NAND (root) size** on MACHINE, Restore, or the New VM disk page: **16 / 32 / 64 / 128 / 256 GiB** or **Custom** (16–2048 GiB). That size is used when `root` is **created**. Growing the file after iOS is installed does **not** change Settings until you **Wipe Inferno disks**, Power On (new `root` at the chosen size), then restore.
 
 Images live in:
 
@@ -284,7 +338,9 @@ Growing the file **after** iOS is installed does **not** change Settings until A
 | Symptom | Fix |
 | --- | --- |
 | `Unable to discover device type` | Companion `idevicerestore` missing DEV→AP patch |
-| `Could not read data (-256)` after NORData | Wrong SEP; need **repackaged** `.new.img4`. Partial flash: wipe NVMe, restore again |
+| `Could not read data (-256)` after NORData | **SEP firmware** on MACHINE is still raw `.im4p`, or Restore IPSW build ≠ ticket/SEP pack. Power Off → **Wipe Inferno disks…** → pack `.new.img4` → Restore the **same** IPSW |
+| `invalid GPT header` / status 78 | Empty zeros, or **Storage with GPT format** (valid empty GPT). Update-path ramrod needs an APFS **Data** volume. Power Off, Power On (AQEMU formats seed APFS via WSL mkapfs). |
+| `Missing data volume` / status 75 | APFS partition exists but has no Data role volume. Same Power On format step. |
 | Tiny / placeholder ticket | Forge `root_ticket.der` for **this** IPSW |
 | Device never appears | Companion + iOS up, **same** 8030, wait, **Diagnose** |
 | Write lock on `root` | Second Inferno QEMU still running |
@@ -315,15 +371,17 @@ Second-pass launchd-only: `apply-launchd-only-wsl.sh` with `ROOT_IMG` set (no ha
 1. MACHINE **Restore ramdisk** empty.  
 2. Companion may stay up (USB / internet / IPA).  
 3. **Power On** — TCG is slow. Setup (“Welcome to iPhone”) then SpringBoard.  
-4. Use **Home**, not swipe-home.
+4. **Do not swipe** from the bottom. Inferno’s touch (MT-SPI) ignores Home / App Switcher swipes ([ChefKiss #53](https://github.com/ChefKissInc/Inferno/issues/53)).  
+5. After you have a Home screen, **Home** (F6) works. On **Welcome to iPhone / Swipe up to get started**, Home is ignored (that screen wants a Face ID swipe, and iPhone12,1 has no Home button). After the display times out to the lock screen, Home may wake/unlock — that is expected.  
+6. To leave Welcome: click toolbar **SOS** (must **hold Vol+ and Side together**). If SOS only shows the volume HUD, the buttons did not overlap — click **Monitor** and run `sendkey f4-f5 2500` (do not Power Off). When slide-to-power-off appears, either tap the **X**, then **double-click Home** (App Switcher) and close Setup, **or** slide to power off, wait for a blank-ish display, then **Power On** / Reset (do not Wipe, do not Restore).
 
 | Toolbar | Inferno |
 | --- | --- |
 | Vol− | F3 |
 | Vol+ | F4 |
 | Side (power) | F5 (hold uses QEMU `sendkey` hold_ms) |
-| Home | F6 (double = App Switcher) |
-| SOS | Hold Vol+, then Side |
+| Home | F6 (double = App Switcher). Does nothing on Welcome swipe-up. |
+| SOS | Hold Vol+, then Side — use this on Welcome |
 | Pad | Floating pad (not an iPhone bezel) |
 | Net | Device Tools / internet |
 
@@ -415,19 +473,13 @@ Screenshot: Device Tools **Screenshot** (file on companion `/tmp/aqemu-ios.png`)
 
 Use when Settings stays ~9 GB after a host resize, restore half-flashed, or SpringBoard never appears.
 
-**A.** Power Off iOS. Stop leftover Inferno QEMU. Optionally stop companion.
+**A.** Power Off iOS. Optionally **Stop companion**.
 
-**B.** Wipe guest NVMe (iOS off):
+**B.** **File → Wipe Inferno disks…** (or Restore dialog **Wipe Inferno disks…**). Confirm. AQEMU uses the **selected** iOS VM’s `.aqemu` file — the dialog shows that path and the `*_inferno` folder next to it. No PowerShell.
 
-```powershell
-powershell -File extras\Inferno\wipe-ios-nvme.ps1 -VmXml "C:\Users\<you>\AQEMU_VM\iOS_ARM64_.aqemu"
-```
+**C.** Power On once (recreates empty images) → Power Off → grow `root` in the GUI if you use 32 GiB ([§6](#b6-grow-root-32-gib)).
 
-Type `YES`. Deletes `root`, `nvram`, `firmware`, … under `*_inferno\`. If `root` is a **symlink**, delete/replace the **target** too.
-
-**C.** Power On once (recreates **8 GiB** empties) → Power Off → sparse-resize `root` to **32 GiB** ([§6](#b6-grow-root-32-gib)).
-
-**D.** Put **Restore ramdisk** back. Save. Start companion. Power On iOS. Confirm restore boot args. **Restore IPSW via SSH…**
+**D.** Put **Restore ramdisk (-initrd)** back. Save. **Start companion**. Power On iOS. Confirm restore boot args. **Restore IPSW via SSH…** (IPSW must match MACHINE **IPSW (restore)** / tickets / SEP pack).
 
 **E.** FS patches → initrd cleared → Power On → SpringBoard. Enable internet again. Reinstall IPAs.
 
