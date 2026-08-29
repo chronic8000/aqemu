@@ -42,4 +42,12 @@ Install dirs `qemu-build*` / `qemu-install` are gitignored.
 
 ## Optional: pyimg4 (iOS firmware tool)
 
-AQEMU’s **File → iOS Firmware Tool** unpacks IPSWs, forges restore/SEP tickets (bundled Python scripts), packs SEP firmware with external **`img4`**, and processes IM4P with **`pyimg4`**. AQEMU does **not** vendor `img4lib` / `pyimg4` under `third_party/` — put `img4.exe` / `pyimg4.exe` next to `aqemu.exe` or on PATH. Python 3 is only started from the GUI (pip-installs pyasn1 if needed).
+AQEMU’s **File → iOS Firmware Tool** unpacks IPSWs, forges restore/SEP tickets (bundled Python scripts), packs SEP firmware with external **`img4`**, and processes IM4P with **`pyimg4`**. AQEMU does **not** vendor [xerub/img4lib](https://github.com/xerub/img4lib) or `pyimg4` in git.
+
+**Windows `img4.exe`:** MSYS2 gcc + OpenSSL, then from the repo root:
+
+```
+.\scripts\build_img4_windows.ps1
+```
+
+That clones `third_party/img4lib` (gitignored), overlays `extras/Inferno/patches/img4lib_vfs_file_win.c` (`O_BINARY` / `_commit`), and copies `img4.exe` next to `build_win\aqemu.exe`. Point **File → Configure → iOS firmware tools → img4** at that binary, or leave it beside AQEMU. `pyimg4.exe` is Step 4 only — do not use it as `img4`. Python 3 is only started from the GUI (pip-installs pyasn1 if needed).

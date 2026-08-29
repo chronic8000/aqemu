@@ -5,6 +5,9 @@
 #include <QStringList>
 
 class Virtual_Machine;
+class QWidget;
+class QComboBox;
+class QSpinBox;
 
 /** True when this VM should use the Inferno Apple SoC launch profile. */
 bool AQ_Is_Apple_SoC_VM( const Virtual_Machine *vm );
@@ -30,11 +33,41 @@ QString AQ_Apple_SoC_QEMU_Log_Path( const Virtual_Machine *vm );
  */
 bool AQ_Validate_Apple_SoC_Boot_Files( const Virtual_Machine *vm, QString *error_out = nullptr );
 
+/** Default NAND size (GiB). Presets: 16, 32, 64, 128, 256, plus Custom (16–2048). */
+int AQ_Default_Apple_SoC_Nand_GiB();
+int AQ_Min_Apple_SoC_Nand_GiB();
+int AQ_Max_Apple_SoC_Nand_GiB();
+int AQ_Clamp_Apple_SoC_Nand_GiB( int gib );
+qint64 AQ_Apple_SoC_Nand_Bytes( int gib );
+void AQ_Setup_Apple_SoC_Nand_Spin( QSpinBox *spin );
+void AQ_Populate_Apple_SoC_Nand_Combo( QComboBox *cb, int current_gib );
+void AQ_Apply_Apple_SoC_Nand_Controls( QComboBox *cb, QSpinBox *spin, int gib );
+int AQ_Read_Apple_SoC_Nand_Controls( const QComboBox *cb, const QSpinBox *spin );
+void AQ_On_Apple_SoC_Nand_Combo_Changed( QComboBox *cb, QSpinBox *spin );
+void AQ_On_Apple_SoC_Nand_Spin_Changed( QComboBox *cb, QSpinBox *spin );
+
 /**
  * Ensure the standard raw image set exists under image_dir.
- * Creates/grows missing or undersized files. Returns false on I/O / disk-space failure.
+ * `root_bytes` is NAND size used when creating `root` (or growing a seed).
+ * A finished restore GPT is never resized — Settings stays at the restore size
+ * until Wipe + recreate + restore. Empty `root` gets a GPT APFS seed volume.
  */
 bool AQ_Ensure_Apple_SoC_Disk_Images( const QString &image_dir, QString *error_out = nullptr );
+bool AQ_Ensure_Apple_SoC_Disk_Images( const QString &image_dir, qint64 root_bytes,
+                                      QString *error_out = nullptr );
+
+/**
+ * Delete Inferno NVMe raw images for this VM (root, nvram, firmware, …).
+ * Image dir is derived from vm->Get_VM_XML_File_Path() (never a hardcoded .aqemu).
+ * Does not delete the .aqemu file or companion.qcow2.
+ */
+bool AQ_Wipe_Apple_SoC_Disk_Images( const Virtual_Machine *vm, QString *error_out = nullptr );
+
+/** True if guest root has a real restore GPT (not the AQEMU_SEED placeholder). */
+bool AQ_Apple_SoC_Root_Has_GPT( const Virtual_Machine *vm );
+
+/** Confirm + wipe in the GUI. Refuses while the iOS guest is running. */
+void AQ_Prompt_Wipe_Apple_SoC_Disks( Virtual_Machine *vm, QWidget *parent );
 
 /**
  * Build Inferno-specific argv pieces that AQEMU would not emit from generic UI:

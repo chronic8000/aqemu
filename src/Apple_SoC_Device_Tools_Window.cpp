@@ -56,6 +56,98 @@ QString Companion_Ensure_Ideviceinstaller()
 		"fi; " );
 }
 
+
+/** Ensure zsign is available on the companion — builds from pinned source if needed. */
+QString Companion_Ensure_Zsign()
+{
+	// Pin to a known commit (matches ZSIGN_VERSION from prior successful companion builds).
+	// No releases/latest binary download — that URL is mutable and unsigned.
+	return QStringLiteral(
+		"if ! command -v zsign >/dev/null 2>&1; then "
+		"  sudo -n apt-get install -y -qq zsign 2>/dev/null || true; "
+		"fi; "
+		"if ! command -v zsign >/dev/null 2>&1; then "
+		"  echo 'zsign not found - building from pinned source (one-time, ~60s)...'; "
+		"  sudo -n apt-get install -y -qq git make g++ libssl-dev libminizip-dev 2>/dev/null || "
+		"    sudo apt-get install -y -qq git make g++ libssl-dev libminizip-dev 2>/dev/null || true; "
+		"  _ZS=$(mktemp -d); "
+		"  git init \"$_ZS/zsign\" >/dev/null 2>&1; "
+		"  git -C \"$_ZS/zsign\" remote add origin https://github.com/zhlynn/zsign.git; "
+		"  if ! git -C \"$_ZS/zsign\" fetch --depth 1 origin e803f87 2>&1; then "
+		"    echo ERROR: could not fetch pinned zsign commit e803f87.; "
+		"    rm -rf \"$_ZS\"; exit 127; "
+		"  fi; "
+		"  git -C \"$_ZS/zsign\" checkout --detach FETCH_HEAD >/dev/null 2>&1; "
+		"  cd \"$_ZS/zsign/build/linux\" 2>/dev/null || { echo ERROR: zsign source layout unexpected; rm -rf \"$_ZS\"; exit 127; }; "
+		"  make -j$(nproc) 2>&1 | grep -vE '^(In file|\\^|note:)' || true; "
+		"  _ZS_BIN=$(find \"$_ZS/zsign\" -name zsign -type f -perm /111 2>/dev/null | head -1); "
+		"  if [ -n \"$_ZS_BIN\" ]; then "
+		"    sudo mv \"$_ZS_BIN\" /usr/local/bin/zsign && echo 'zsign installed'; "
+		"  else "
+		"    echo ERROR: zsign build failed.; "
+		"    cd / && rm -rf \"$_ZS\"; "
+		"    exit 127; "
+		"  fi; "
+		"  cd / && rm -rf \"$_ZS\"; "
+		"fi; "
+		"if ! command -v zsign >/dev/null 2>&1; then "
+		"  echo ERROR: zsign could not be installed on companion.; "
+		"  echo 'Please install zsign manually: https://github.com/zhlynn/zsign'; "
+		"  exit 127; "
+		"fi; " );
+}
+
+/**
+ * Adhoc-sign an IPA with zsign, producing a proper CMS blob that installd accepts.
+ * zsign generates a self-signed certificate + CMS structure, unlike ldid which only
+ * writes hash data without a CMS wrapper. installd on iOS 14 requires the CMS blob.
+ * Exits non-zero if signing fails so ideviceinstaller is not run on an unsigned IPA.
+ */
+QString Companion_Zsign_IPA( const QString &remote_ipa )
+{
+	const QString q = Shell_Quote( remote_ipa );
+	return QStringLiteral(
+		"echo 'Signing IPA with zsign (adhoc CMS)...'; "
+		"_CERTDIR=$(mktemp -d); "
+		"openssl req -x509 -newkey rsa:2048 -keyout \"$_CERTDIR/key.pem\" "
+		"  -out \"$_CERTDIR/cert.pem\" -days 3650 -nodes "
+		"  -subj '/CN=AQEMU Adhoc/O=AQEMU/C=US' 2>/dev/null; "
+		"openssl pkcs12 -export -out \"$_CERTDIR/cert.p12\" "
+		"  -inkey \"$_CERTDIR/key.pem\" -in \"$_CERTDIR/cert.pem\" "
+		"  -passout pass:aqemu 2>/dev/null; "
+		"cat > \"$_CERTDIR/fake.mobileprovision\" << 'PROVEOF'\n"
+		"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+		"<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n"
+		"<plist version=\"1.0\"><dict>\n"
+		"  <key>AppIDName</key><string>AQEMU Adhoc</string>\n"
+		"  <key>ApplicationIdentifierPrefix</key><array><string>AQEMUADHOC</string></array>\n"
+		"  <key>TeamIdentifier</key><array><string>AQEMUADHOC</string></array>\n"
+		"  <key>Entitlements</key><dict>\n"
+		"    <key>application-identifier</key><string>AQEMUADHOC.*</string>\n"
+		"    <key>get-task-allow</key><true/>\n"
+		"  </dict>\n"
+		"  <key>ExpirationDate</key><date>2099-01-01T00:00:00Z</date>\n"
+		"  <key>Name</key><string>AQEMU Adhoc Profile</string>\n"
+		"  <key>UUID</key><string>AQEMU000-0000-0000-0000-AQEMU0000000</string>\n"
+		"  <key>Version</key><integer>1</integer>\n"
+		"</dict></plist>\n"
+		"PROVEOF\n"
+		"_ZS_OUT=$(mktemp /tmp/aqemu-signed-XXXXXX.ipa); "
+		"if ! zsign -k \"$_CERTDIR/cert.p12\" -p aqemu "
+		"  -m \"$_CERTDIR/fake.mobileprovision\" "
+		"  -o \"$_ZS_OUT\" -z 9 '%1' 2>&1; then "
+		"  rm -f \"$_ZS_OUT\"; rm -rf \"$_CERTDIR\"; "
+		"  echo ERROR: zsign failed.; exit 1; "
+		"fi; "
+		"if [ ! -s \"$_ZS_OUT\" ]; then "
+		"  rm -f \"$_ZS_OUT\"; rm -rf \"$_CERTDIR\"; "
+		"  echo ERROR: zsign produced empty output.; exit 1; "
+		"fi; "
+		"mv \"$_ZS_OUT\" '%1'; "
+		"rm -rf \"$_CERTDIR\"; "
+		"echo 'zsign complete.'; " ).arg( q );
+}
+
 } // namespace
 
 void AQ_Show_Apple_SoC_Device_Tools_Window( Virtual_Machine *vm, QWidget *parent,
@@ -160,9 +252,22 @@ Apple_SoC_Device_Tools_Window::Apple_SoC_Device_Tools_Window( Virtual_Machine *v
 	devBtns->addWidget( btnShot );
 	devBtns->addStretch();
 	devLay->addLayout( devBtns );
+
+	Chk_Sign_IPA = new QCheckBox( tr( "Adhoc-sign IPA before install (zsign) — required for unsigned / sideloaded IPAs" ) );
+	Chk_Sign_IPA->setChecked( true );
+	Chk_Sign_IPA->setToolTip( tr(
+		"Uses zsign on the companion to re-sign the IPA with a self-signed adhoc certificate.\n"
+		"zsign produces a proper CMS/PKCS7 code signature that installd accepts on iOS 14.\n"
+		"Unlike ldid, zsign generates the full CMS blob required by MICodeSigningVerifier.\n"
+		"zsign is auto-built on the companion on first use (~60 seconds, one-time).\n"
+		"Required for IPAs without a valid Apple code signature (e.g. UTM, emulators, custom builds).\n"
+		"Safe to leave on — already-signed App Store IPAs are handled transparently." ) );
+	devLay->addWidget( Chk_Sign_IPA );
+
 	devLay->addWidget( new QLabel( tr(
 		"IPA install uses <code>ideviceinstaller</code> on the companion "
 		"(auto-tries <code>apt install ideviceinstaller</code> if missing). "
+		"Signing uses <code>zsign</code> (built from source on first use, ~60s). "
 		"Enable guest internet first if the device is not listed." ) ) );
 	devLay->addStretch();
 	Tabs->addTab( dev, tr( "Device" ) );
@@ -357,9 +462,16 @@ void Apple_SoC_Device_Tools_Window::Run_Install_IPA()
 		return;
 	const QString wsl = Windows_Path_To_WSL( QFileInfo( ipa ).absoluteFilePath() );
 	const QString remote_path = QStringLiteral( "/tmp/aqemu-install.ipa" );
-	const QString remote =
-		Companion_Ensure_Ideviceinstaller() +
-		QStringLiteral( "ideviceinstaller -i " ) + remote_path;
+
+	QString remote = Companion_Ensure_Ideviceinstaller();
+	if( Chk_Sign_IPA && Chk_Sign_IPA->isChecked() )
+	{
+		remote += Companion_Ensure_Zsign();
+		remote += Companion_Zsign_IPA( remote_path );
+	}
+	remote += QStringLiteral( "echo 'Uploading ipa to running uphone'; "
+	                          "ideviceinstaller -i " ) + remote_path;
+
 	Start_Companion_SSH(
 		QStringLiteral(
 			"echo Uploading IPA...; "

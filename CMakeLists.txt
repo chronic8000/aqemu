@@ -563,6 +563,24 @@ ADD_CUSTOM_COMMAND( TARGET aqemu POST_BUILD
 	COMMAND ${CMAKE_COMMAND} -E copy_if_different
 		"${CMAKE_SOURCE_DIR}/extras/Inferno/create_septicket.py"
 		"$<TARGET_FILE_DIR:aqemu>/extras/Inferno/create_septicket.py"
+	COMMAND ${CMAKE_COMMAND} -E copy_if_different
+		"${CMAKE_SOURCE_DIR}/extras/Inferno/force_create_fs_partitions.c"
+		"$<TARGET_FILE_DIR:aqemu>/extras/Inferno/force_create_fs_partitions.c"
+	COMMAND ${CMAKE_COMMAND} -E copy_if_different
+		"${CMAKE_SOURCE_DIR}/extras/Inferno/patch_idevicerestore_cfs.py"
+		"$<TARGET_FILE_DIR:aqemu>/extras/Inferno/patch_idevicerestore_cfs.py"
+	COMMAND ${CMAKE_COMMAND} -E copy_if_different
+		"${CMAKE_SOURCE_DIR}/extras/Inferno/build_force_cfs.sh"
+		"$<TARGET_FILE_DIR:aqemu>/extras/Inferno/build_force_cfs.sh"
+	COMMAND ${CMAKE_COMMAND} -E copy_if_different
+		"${CMAKE_SOURCE_DIR}/extras/Inferno/seed-root-gpt.py"
+		"$<TARGET_FILE_DIR:aqemu>/extras/Inferno/seed-root-gpt.py"
+	COMMAND ${CMAKE_COMMAND} -E copy_if_different
+		"${CMAKE_SOURCE_DIR}/extras/Inferno/format-seed-apfs.sh"
+		"$<TARGET_FILE_DIR:aqemu>/extras/Inferno/format-seed-apfs.sh"
+	COMMAND ${CMAKE_COMMAND} -E copy_if_different
+		"${CMAKE_SOURCE_DIR}/extras/Inferno/wipe-ios-nvme.ps1"
+		"$<TARGET_FILE_DIR:aqemu>/extras/Inferno/wipe-ios-nvme.ps1"
 	COMMENT "Bundle extras/Inferno scripts, ticket helpers, and iOS install guide"
 )
 # companion-bin (idevice* tools) for optional scp into the Ubuntu companion

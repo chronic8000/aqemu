@@ -28,6 +28,7 @@ private slots:
 	void Stop_Companion_WSL();
 	void Run_Diagnose_WSL();
 	void Run_IDeviceRestore();
+	void Wipe_Inferno_Disks();
 	void On_Process_Output();
 	void On_Process_Finished( int code, QProcess::ExitStatus st );
 	void On_Companion_Finished( int code, QProcess::ExitStatus st );
@@ -46,6 +47,8 @@ private:
 
 	Virtual_Machine *VM;
 	QLineEdit *Edit_IPSW;
+	QComboBox *CB_Nand_Size;
+	QSpinBox *SB_Nand_Size;
 	QLineEdit *Edit_Companion_Disk;
 	QLineEdit *Edit_SSH_User;
 	QLineEdit *Edit_SSH_Password;
@@ -53,6 +56,7 @@ private:
 	QComboBox *CB_Conn_Type;
 	QSpinBox *SB_Conn_Port;
 	QLabel *Label_Status;
+	QLabel *Label_VM_File;
 	QTextEdit *Text_Log;
 	QTextEdit *Text_Companion;
 	QProcess *Process;

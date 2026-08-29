@@ -43,6 +43,9 @@ installer/wix/.wix/
 *.msix
 *.msixbundle
 
+# Local xerub/img4lib clone (Windows port: scripts/build_img4_windows.ps1)
+third_party/img4lib/
+
 # Bundled QEMU build outputs
 third_party/qemu-build/
 third_party/qemu-build-win/

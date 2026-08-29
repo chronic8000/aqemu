@@ -142,6 +142,9 @@ Main_Window::Main_Window( QWidget *parent )
 	, Edit_Apple_SecureROM( nullptr )
 	, Edit_Apple_IPSW( nullptr )
 	, Edit_Apple_Initrd( nullptr )
+	, CB_Apple_Nand_Size( nullptr )
+	, SB_Apple_Nand_Size( nullptr )
+	, Label_Apple_Nand_On_Disk( nullptr )
 	, Edit_Apple_USB_Conn_Addr( nullptr )
 	, CB_Apple_USB_Conn_Type( nullptr )
 	, SB_Apple_USB_Conn_Port( nullptr )
@@ -250,6 +253,16 @@ Main_Window::Main_Window( QWidget *parent )
 		connect( actFs, &QAction::triggered, this, &Main_Window::slot_Apple_SoC_FS_Patch_triggered );
 		ui.menuFile->insertAction( ui.actionCreate_HDD_Image, actFs );
 		ui.menuVM->insertAction( ui.actionManage_Snapshots, actFs );
+	}
+	{
+		QAction *actWipe = new QAction( QIcon( QStringLiteral( ":/default_mac.png" ) ),
+			tr( "&Wipe Inferno disks…" ), this );
+		actWipe->setStatusTip( tr(
+			"Delete the selected iOS VM's Inferno NVMe images (after -256 / partial restore). "
+			"Path comes from that VM's .aqemu file." ) );
+		connect( actWipe, &QAction::triggered, this, &Main_Window::slot_Apple_SoC_Wipe_Disks_triggered );
+		ui.menuFile->insertAction( ui.actionCreate_HDD_Image, actWipe );
+		ui.menuVM->insertAction( ui.actionManage_Snapshots, actWipe );
 	}
 	// File → Guest Internet / iOS Device Tools (companion reverse-tether + idevice*)
 	{
@@ -6334,6 +6347,11 @@ void Main_Window::slot_iOS_Firmware_Tool_triggered()
 	connect( &dlg, &iOS_Firmware_Tool_Window::Restore_Ramdisk_Suggested,
 	         this, [this, fill_if]( const QString &path ) {
 		fill_if( Edit_Apple_Initrd, path, false );
+		const QFileInfo fi( path );
+		const QString tc = fi.absolutePath() + QStringLiteral( "/Firmware/" )
+			+ fi.fileName() + QStringLiteral( ".trustcache" );
+		if( QFile::exists( tc ) && Edit_Apple_Trustcache )
+			fill_if( Edit_Apple_Trustcache, QDir::toNativeSeparators( tc ), true );
 	} );
 	connect( &dlg, &iOS_Firmware_Tool_Window::Sep_Firmware_Suggested,
 	         this, [this, fill_if]( const QString &path ) {
@@ -6415,6 +6433,18 @@ void Main_Window::slot_Apple_SoC_FS_Patch_triggered()
 	    ( Get_Current_VM() && Uses_Apple_SoC_Boot_UI( Get_Current_VM() ) ) )
 		Apply_Apple_SoC_Fields_To_VM( vm );
 	AQ_Show_Apple_SoC_FS_Patch_Window( vm, this );
+}
+
+void Main_Window::slot_Apple_SoC_Wipe_Disks_triggered()
+{
+	Virtual_Machine *vm = Resolve_Apple_SoC_VM();
+	if( ! vm )
+	{
+		AQGraphic_Warning( tr( "Wipe Inferno disks" ),
+			tr( "Select the iOS (Apple SoC) VM in the list first." ) );
+		return;
+	}
+	AQ_Prompt_Wipe_Apple_SoC_Disks( vm, this );
 }
 
 void Main_Window::slot_Apple_SoC_Device_Tools_triggered()
@@ -6502,7 +6532,15 @@ void Main_Window::Build_Apple_SoC_Inferno_Ui()
 	add_path_row( tr( "Restore ticket:" ), &Edit_Apple_Ticket,
 		tr( "Ticket (*);;All (*)" ) );
 	add_path_row( tr( "SEP firmware:" ), &Edit_Apple_SEP_FW,
-		tr( "SEP FW (*);;All (*)" ) );
+		tr( "SEP IMG4 (*.img4);;IM4P (*.im4p);;All (*)" ) );
+	if( Edit_Apple_SEP_FW )
+	{
+		Edit_Apple_SEP_FW->setToolTip( tr(
+			"MACHINE tab → Options → SEP firmware.\n"
+			"Use the packed file from Firmware Tool Step 3:\n"
+			"sep-firmware.n104.RELEASE.new.img4\n"
+			"Not the raw IPSW .im4p (that causes restore -256 after NORData)." ) );
+	}
 	add_path_row( tr( "SEP ROM:" ), &Edit_Apple_SEP_ROM,
 		tr( "SEP ROM (*);;All (*)" ) );
 	add_path_row( tr( "SecureROM (optional):" ), &Edit_Apple_SecureROM,
@@ -6522,6 +6560,34 @@ void Main_Window::Build_Apple_SoC_Inferno_Ui()
 			"SpringBoard boot (File → Apply iOS filesystem patches clears it).\n"
 			"Typical: …/firmware_extracted/038-44135-124.dmg" ) );
 	}
+
+	QHBoxLayout *nandRow = new QHBoxLayout();
+	nandRow->addWidget( new QLabel( tr( "NAND (root) size:" ) ) );
+	CB_Apple_Nand_Size = new QComboBox();
+	SB_Apple_Nand_Size = new QSpinBox();
+	AQ_Apply_Apple_SoC_Nand_Controls( CB_Apple_Nand_Size, SB_Apple_Nand_Size,
+		AQ_Default_Apple_SoC_Nand_GiB() );
+	CB_Apple_Nand_Size->setToolTip( tr(
+		"Size of Inferno NAND file `root` when it is created (first Power On or after Wipe).\n"
+		"Presets 16–256 GiB, or Custom (16–2048 GiB). ChefKiss uses 32 GiB.\n"
+		"Changing this does not grow an already-restored iPhone — "
+		"Wipe Inferno disks, Power On, then Restore IPSW." ) );
+	nandRow->addWidget( CB_Apple_Nand_Size );
+	nandRow->addWidget( SB_Apple_Nand_Size );
+	Label_Apple_Nand_On_Disk = new QLabel();
+	Label_Apple_Nand_On_Disk->setWordWrap( true );
+	nandRow->addWidget( Label_Apple_Nand_On_Disk, 1 );
+	lay->addLayout( nandRow );
+	connect( CB_Apple_Nand_Size, QOverload<int>::of( &QComboBox::currentIndexChanged ),
+	         this, [this]( int ) {
+		AQ_On_Apple_SoC_Nand_Combo_Changed( CB_Apple_Nand_Size, SB_Apple_Nand_Size );
+		VM_Changed();
+	} );
+	connect( SB_Apple_Nand_Size, QOverload<int>::of( &QSpinBox::valueChanged ),
+	         this, [this]( int ) {
+		AQ_On_Apple_SoC_Nand_Spin_Changed( CB_Apple_Nand_Size, SB_Apple_Nand_Size );
+		VM_Changed();
+	} );
 
 	CH_Apple_KASLR_Off = new QCheckBox( tr( "Disable KASLR (kaslr-off)" ) );
 	CH_Apple_KASLR_Off->setChecked( true );
@@ -6591,6 +6657,12 @@ void Main_Window::Build_Apple_SoC_Inferno_Ui()
 	connect( Btn_Apple_SoC_Restore, &QPushButton::clicked,
 	         this, &Main_Window::slot_Apple_SoC_Restore_triggered );
 	btnRow->addWidget( Btn_Apple_SoC_Restore );
+	QPushButton *btnWipeNvme = new QPushButton( tr( "Wipe Inferno disks…" ) );
+	btnWipeNvme->setToolTip( tr(
+		"Delete this VM's Inferno NVMe images (root, nvram, …) after a failed restore.\n"
+		"Uses the selected VM's .aqemu path — nothing hardcoded." ) );
+	connect( btnWipeNvme, &QPushButton::clicked, this, &Main_Window::slot_Apple_SoC_Wipe_Disks_triggered );
+	btnRow->addWidget( btnWipeNvme );
 	QPushButton *btnFsPatch = new QPushButton( tr( "Apply filesystem patches…" ) );
 	btnFsPatch->setToolTip( tr(
 		"After restore: patch the iOS guest root NVMe (dyld cache + LaunchDaemons). "
@@ -6627,6 +6699,9 @@ void Main_Window::Apply_Apple_SoC_Fields_To_VM( Virtual_Machine *vm )
 		vm->Set_Apple_IPSW_Path( Edit_Apple_IPSW->text() );
 	if( Edit_Apple_Initrd )
 		vm->Set_Apple_Initrd_Path( Edit_Apple_Initrd->text() );
+	if( CB_Apple_Nand_Size || SB_Apple_Nand_Size )
+		vm->Set_Apple_Nand_Size_GiB(
+			AQ_Read_Apple_SoC_Nand_Controls( CB_Apple_Nand_Size, SB_Apple_Nand_Size ) );
 	if( CH_Apple_KASLR_Off )
 		vm->Use_Apple_KASLR_Off( CH_Apple_KASLR_Off->isChecked() );
 	if( CB_Apple_USB_Conn_Type )
@@ -6659,6 +6734,10 @@ void Main_Window::Load_Apple_SoC_Fields_From_VM( const Virtual_Machine *vm )
 		Edit_Apple_IPSW->setText( vm->Get_Apple_IPSW_Path() );
 	if( Edit_Apple_Initrd )
 		Edit_Apple_Initrd->setText( vm->Get_Apple_Initrd_Path() );
+	if( CB_Apple_Nand_Size || SB_Apple_Nand_Size )
+		AQ_Apply_Apple_SoC_Nand_Controls( CB_Apple_Nand_Size, SB_Apple_Nand_Size,
+			vm->Get_Apple_Nand_Size_GiB() );
+	Refresh_Apple_Nand_On_Disk_Label( vm );
 	if( CH_Apple_KASLR_Off )
 		CH_Apple_KASLR_Off->setChecked( vm->Use_Apple_KASLR_Off() );
 	if( CB_Apple_USB_Conn_Type )
@@ -6676,6 +6755,27 @@ void Main_Window::Load_Apple_SoC_Fields_From_VM( const Virtual_Machine *vm )
 		Edit_Apple_USB_Conn_Addr->setText( vm->Get_Apple_USB_Conn_Addr() );
 	if( SB_Apple_USB_Conn_Port )
 		SB_Apple_USB_Conn_Port->setValue( vm->Get_Apple_USB_Conn_Port() > 0 ? vm->Get_Apple_USB_Conn_Port() : 8030 );
+}
+
+void Main_Window::Refresh_Apple_Nand_On_Disk_Label( const Virtual_Machine *vm )
+{
+	if( ! Label_Apple_Nand_On_Disk )
+		return;
+	if( ! vm )
+	{
+		Label_Apple_Nand_On_Disk->clear();
+		return;
+	}
+	const QString root = QDir( AQ_Apple_SoC_Image_Dir( vm ) ).filePath( QStringLiteral( "root" ) );
+	const QFileInfo fi( root );
+	if( ! fi.exists() || fi.size() <= 0 )
+	{
+		Label_Apple_Nand_On_Disk->setText( tr( "Not created yet — Power On or Wipe+Power On builds `root` at the size above." ) );
+		return;
+	}
+	const double gib = double( fi.size() ) / ( 1024.0 * 1024.0 * 1024.0 );
+	Label_Apple_Nand_On_Disk->setText( tr( "On disk now: %1 GiB (Settings follows restore, not this combo)." )
+		.arg( gib, 0, 'f', 1 ) );
 }
 
 void Main_Window::Update_Machine_Accelerators()
@@ -8120,9 +8220,9 @@ void Main_Window::on_TB_Linux_Initrd_SetPath_clicked()
 
 void Main_Window::on_TB_DeviceTree_SetPath_clicked()
 {
-	QString dtb = QFileDialog::getOpenFileName( this, tr("Select DeviceTree File (.dtb / .im4p)"),
+	QString dtb = QFileDialog::getOpenFileName( this, tr("Select DeviceTree File"),
 												Get_Last_Dir_Path(ui.Edit_DeviceTree_Path->text()),
-												tr("DeviceTree Files (*.dtb *.im4p);;All Files (*)") );
+												tr("DeviceTree (*.dec *.dtb);;IM4P wrapped (*.im4p);;All Files (*)") );
 
 	if( ! dtb.isEmpty() )
 		ui.Edit_DeviceTree_Path->setText( QDir::toNativeSeparators(dtb) );

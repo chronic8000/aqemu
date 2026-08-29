@@ -48,11 +48,11 @@ Apple_SoC_Button_Pad::Apple_SoC_Button_Pad( QWidget *parent )
 	Btn_Vol_Down = make_btn( tr( "Vol−" ), tr( "Volume down (Inferno F3)" ) );
 	Btn_Vol_Up = make_btn( tr( "Vol+" ), tr( "Volume up (Inferno F4)" ) );
 	Btn_Home = make_btn( tr( "Home" ),
-		tr( "Home / Menu (Inferno F6)\nClick once: Home screen\nDouble-click: App Switcher" ) );
+		tr( "Home / Menu (Inferno F6)\nClick once: Home screen\nDouble-click: App Switcher\nDoes nothing on Welcome / Swipe up — use SOS" ) );
 	Btn_Power = make_btn( tr( "Side" ),
 		tr( "Power / Side button (Inferno F5)\nClick: sleep/wake\nHold ~2s: power menu" ) );
 	Btn_SOS = make_btn( tr( "SOS" ),
-		tr( "SOS / slide-to-power-off combo\n(Vol up hold, then Side — ChefKiss guide)" ) );
+		tr( "SOS / slide-to-power-off combo\n(Vol up hold, then Side — ChefKiss guide)\nUse this on Welcome / Swipe up to get started" ) );
 
 	lay->addWidget( Btn_Vol_Down );
 	lay->addWidget( Btn_Vol_Up );
