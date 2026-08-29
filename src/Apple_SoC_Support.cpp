@@ -347,6 +347,13 @@ static bool Root_Image_Needs_Placeholder_Gpt( const QString &path )
 }
 
 #ifdef Q_OS_WIN32
+static QString Shell_Single_Quote( const QString &raw )
+{
+	QString s = raw;
+	s.replace( QLatin1Char( '\'' ), QLatin1String( "'\\''" ) );
+	return QLatin1Char( '\'' ) + s + QLatin1Char( '\'' );
+}
+
 static bool Format_Seed_Apfs_Via_Wsl( const QString &path, QString *error_out )
 {
 	if( Partition_Has_Nxsb( path ) )
@@ -362,9 +369,10 @@ static bool Format_Seed_Apfs_Via_Wsl( const QString &path, QString *error_out )
 	}
 	QSettings s;
 	const QString distro = s.value( QStringLiteral( "WSL_Launch/Distro" ), QString() ).toString();
-	const QString cmd = QStringLiteral( "tr -d '\\r' < '%1' | sh -s -- '%2'" )
-				    .arg( Windows_Path_To_WSL( script ),
-					  Windows_Path_To_WSL( QFileInfo( path ).absoluteFilePath() ) );
+	const QString cmd = QStringLiteral( "tr -d '\\r' < %1 | sh -s -- %2" )
+				    .arg( Shell_Single_Quote( Windows_Path_To_WSL( script ) ),
+					  Shell_Single_Quote( Windows_Path_To_WSL(
+						  QFileInfo( path ).absoluteFilePath() ) ) );
 	if( ! WSL_Run_Privileged_Script( distro, cmd, 300000 ) )
 	{
 		AQWarning( "Format_Seed_Apfs_Via_Wsl",

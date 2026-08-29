@@ -6568,14 +6568,50 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 #ifdef Q_OS_WIN32
 	const bool force_reims_embedded = is_reims_display;
 	const bool force_apple_soc_embedded = is_apple_soc_display;
+	// Store / headless Windows QEMU builds reject -display gtk|sdl. Force AQEMU
+	// embed (-display none + VNC) when the binary has no native GUI backend.
+	bool force_headless_embed = false;
+	{
+		QString system_name = Current_Emulator_Devices.System.QEMU_Name;
+		if( system_name.isEmpty() )
+			system_name = Computer_Type;
+		const QString preferred = Get_Current_Emulator_Binary_Path( system_name );
+		const QStringList avail = AQ_QEMU_List_Display_Backends( preferred );
+		const QString db = Display_Backend.trimmed().toLower();
+		const bool wants_native =
+			Prefer_Native_VGA_Window() ||
+			db == QLatin1String( "gtk" ) ||
+			db == QLatin1String( "sdl" );
+		if( wants_native )
+		{
+			const bool has_native =
+				avail.contains( QLatin1String( "sdl" ) ) ||
+				avail.contains( QLatin1String( "gtk" ) );
+			// Only force embed when we know the binary lacks gtk/sdl, or the user
+			// explicitly picked gtk/sdl and -display help could not be probed.
+			if( ( ! avail.isEmpty() && ! has_native ) ||
+			    ( avail.isEmpty() &&
+			      ( db == QLatin1String( "gtk" ) || db == QLatin1String( "sdl" ) ) ) )
+			{
+				force_headless_embed = true;
+				AQDebug( "Virtual_Machine::Build_QEMU_Args_General()",
+					 QStringLiteral(
+						 "QEMU has no gtk/sdl display backend — using embedded VNC "
+						 "(-display none) instead of \"%1\"" )
+						 .arg( db.isEmpty() ? QStringLiteral( "native" ) : db ) );
+			}
+		}
+	}
 #else
 	const bool force_reims_embedded = false;
 	const bool force_apple_soc_embedded = false;
+	const bool force_headless_embed = false;
 #endif
 	const bool native_vga_window =
 		! force_nographic &&
 		! force_reims_embedded &&
 		! force_apple_soc_embedded &&
+		! force_headless_embed &&
 		! Build_QEMU_Args_for_Tab_Info &&
 		! Build_QEMU_Args_for_Script_Mode &&
 		Prefer_Native_VGA_Window();
@@ -6586,6 +6622,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		! Build_QEMU_Args_for_Script_Mode &&
 		( force_reims_embedded ||
 		  force_apple_soc_embedded ||
+		  force_headless_embed ||
 		  ( Settings.value( "Embedded_Session", "yes" ).toString() == "yes" &&
 		    ! native_vga_window ) );
 
@@ -9735,10 +9772,11 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			Args << "-vnc" << QString( "127.0.0.1:%1" ).arg( vnc_disp );
 		}
 	}
-	else if( native_vga_window ||
-	         ( ! disp_backend.isEmpty() &&
-	           disp_backend != QLatin1String( "nographic" ) &&
-	           ! SPICE.Use_SPICE() && ! VNC ) )
+	else if( ! force_headless_embed &&
+	         ( native_vga_window ||
+	           ( ! disp_backend.isEmpty() &&
+	             disp_backend != QLatin1String( "nographic" ) &&
+	             ! SPICE.Use_SPICE() && ! VNC ) ) )
 	{
 		QString disp = disp_backend;
 		if( disp.isEmpty() || disp == QLatin1String( "auto" ) || disp == QLatin1String( "default" ) )
@@ -9750,7 +9788,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			const QString found = AQ_Find_QEMU_Binary_With_Native_Display( system_name, preferred );
 			disp = AQ_QEMU_Pick_Native_Display( found );
 			if( disp.isEmpty() )
-				disp = QStringLiteral( "sdl" );
+				disp = QStringLiteral( "none" );
 		}
 		if( disp == QLatin1String( "none" ) || disp == QLatin1String( "curses" ) ||
 		    disp == QLatin1String( "sdl" ) || disp == QLatin1String( "gtk" ) ||
@@ -9762,7 +9800,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 				Args << "-display" << disp;
 		}
 		else
-			Args << "-display" << QStringLiteral( "sdl,show-cursor=on,gl=on" );
+			Args << "-display" << QStringLiteral( "none" );
 	}
 	else if( SPICE.Use_SPICE() )
 	{

@@ -194,6 +194,7 @@ class VM_Session_Widget : public QWidget
 		QHash<QString, QString> Connected_USB_Ids; // instance key -> qemu device id
 		bool USB_Enum_Busy;
 		bool Apple_SOS_Busy;
+		quint64 Apple_SOS_Generation;
 		QPointer<QThread> USB_Scan_Thread;
 		Serial_Console_Window *Serial_Win;
 		Apple_SoC_Button_Pad *Button_Pad;

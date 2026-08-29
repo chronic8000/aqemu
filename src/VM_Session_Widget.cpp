@@ -122,6 +122,7 @@ VM_Session_Widget::VM_Session_Widget( QWidget *parent )
 	, Menu_USB( nullptr )
 	, USB_Enum_Busy( false )
 	, Apple_SOS_Busy( false )
+	, Apple_SOS_Generation( 0 )
 	, Serial_Win( nullptr )
 	, Button_Pad( nullptr )
 	, Light_FD0( nullptr )
@@ -790,6 +791,10 @@ void VM_Session_Widget::Detach()
 		disconnect( q, SIGNAL(Connected()), this, SLOT(On_QMP_Connected()) );
 		disconnect( q, SIGNAL(Block_Stats(QJsonArray)), this, SLOT(On_Block_Stats(QJsonArray)) );
 	}
+
+	// Invalidate in-flight SOS timers so they do not press/release keys on another VM.
+	++Apple_SOS_Generation;
+	Apple_SOS_Busy = false;
 
 	VM = nullptr;
 	QMP = nullptr;
@@ -1571,14 +1576,25 @@ void VM_Session_Widget::Send_Apple_SOS_Combo()
 	if( Apple_SOS_Busy )
 		return;
 
-	if( Send_Qmp_Key( QStringLiteral( "f4" ), true ) )
+	QMP_Client *const sos_qmp = Active_QMP();
+	if( sos_qmp && sos_qmp->Is_Connected() &&
+	    Send_Qmp_Key( QStringLiteral( "f4" ), true ) )
 	{
 		Apple_SOS_Busy = true;
-		QTimer::singleShot( 500, this, [this]() {
+		const quint64 gen = Apple_SOS_Generation;
+		QTimer::singleShot( 500, this, [this, gen, sos_qmp]() {
+			if( gen != Apple_SOS_Generation || Active_QMP() != sos_qmp )
+			{
+				Apple_SOS_Busy = false;
+				return;
+			}
 			Send_Qmp_Key( QStringLiteral( "f5" ), true );
-			QTimer::singleShot( 2000, this, [this]() {
-				Send_Qmp_Key( QStringLiteral( "f5" ), false );
-				Send_Qmp_Key( QStringLiteral( "f4" ), false );
+			QTimer::singleShot( 2000, this, [this, gen, sos_qmp]() {
+				if( gen == Apple_SOS_Generation && Active_QMP() == sos_qmp )
+				{
+					Send_Qmp_Key( QStringLiteral( "f5" ), false );
+					Send_Qmp_Key( QStringLiteral( "f4" ), false );
+				}
 				Apple_SOS_Busy = false;
 			} );
 		} );

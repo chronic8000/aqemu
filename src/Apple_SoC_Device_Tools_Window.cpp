@@ -57,34 +57,36 @@ QString Companion_Ensure_Ideviceinstaller()
 }
 
 
-/** Ensure zsign is available on the companion — builds from source if needed. */
+/** Ensure zsign is available on the companion — builds from pinned source if needed. */
 QString Companion_Ensure_Zsign()
 {
+	// Pin to a known commit (matches ZSIGN_VERSION from prior successful companion builds).
+	// No releases/latest binary download — that URL is mutable and unsigned.
 	return QStringLiteral(
-		// Try apt first (some Ubuntu PPAs have zsign)
 		"if ! command -v zsign >/dev/null 2>&1; then "
 		"  sudo -n apt-get install -y -qq zsign 2>/dev/null || true; "
 		"fi; "
-		// Build from source if still missing (zsign uses a plain Makefile, not CMake)
 		"if ! command -v zsign >/dev/null 2>&1; then "
-		"  echo 'zsign not found - building from source (one-time, ~60s)...'; "
+		"  echo 'zsign not found - building from pinned source (one-time, ~60s)...'; "
 		"  sudo -n apt-get install -y -qq git make g++ libssl-dev libminizip-dev 2>/dev/null || "
 		"    sudo apt-get install -y -qq git make g++ libssl-dev libminizip-dev 2>/dev/null || true; "
 		"  _ZS=$(mktemp -d); "
-		"  git clone --depth 1 https://github.com/zhlynn/zsign.git \"$_ZS/zsign\" 2>&1 | grep -v '^remote:'; "
-		// The Makefile lives in build/linux/, not the repo root
-		"  cd \"$_ZS/zsign/build/linux\"; "
+		"  git init \"$_ZS/zsign\" >/dev/null 2>&1; "
+		"  git -C \"$_ZS/zsign\" remote add origin https://github.com/zhlynn/zsign.git; "
+		"  if ! git -C \"$_ZS/zsign\" fetch --depth 1 origin e803f87 2>&1; then "
+		"    echo ERROR: could not fetch pinned zsign commit e803f87.; "
+		"    rm -rf \"$_ZS\"; exit 127; "
+		"  fi; "
+		"  git -C \"$_ZS/zsign\" checkout --detach FETCH_HEAD >/dev/null 2>&1; "
+		"  cd \"$_ZS/zsign/build/linux\" 2>/dev/null || { echo ERROR: zsign source layout unexpected; rm -rf \"$_ZS\"; exit 127; }; "
 		"  make -j$(nproc) 2>&1 | grep -vE '^(In file|\\^|note:)' || true; "
 		"  _ZS_BIN=$(find \"$_ZS/zsign\" -name zsign -type f -perm /111 2>/dev/null | head -1); "
 		"  if [ -n \"$_ZS_BIN\" ]; then "
 		"    sudo mv \"$_ZS_BIN\" /usr/local/bin/zsign && echo 'zsign installed'; "
 		"  else "
-		"    echo 'zsign build failed - trying pre-built binary...'; "
-		"    _ARCH=$(uname -m); "
-		"    [ \"$_ARCH\" = 'aarch64' ] && _ARCH='arm64' || _ARCH='amd64'; "
-		"    sudo curl -fsSL \"https://github.com/zhlynn/zsign/releases/latest/download/zsign_linux_${_ARCH}\" "
-		"      -o /usr/local/bin/zsign 2>/dev/null "
-		"      && sudo chmod +x /usr/local/bin/zsign && echo 'zsign binary downloaded' || true; "
+		"    echo ERROR: zsign build failed.; "
+		"    cd / && rm -rf \"$_ZS\"; "
+		"    exit 127; "
 		"  fi; "
 		"  cd / && rm -rf \"$_ZS\"; "
 		"fi; "
@@ -99,6 +101,7 @@ QString Companion_Ensure_Zsign()
  * Adhoc-sign an IPA with zsign, producing a proper CMS blob that installd accepts.
  * zsign generates a self-signed certificate + CMS structure, unlike ldid which only
  * writes hash data without a CMS wrapper. installd on iOS 14 requires the CMS blob.
+ * Exits non-zero if signing fails so ideviceinstaller is not run on an unsigned IPA.
  */
 QString Companion_Zsign_IPA( const QString &remote_ipa )
 {
@@ -106,15 +109,12 @@ QString Companion_Zsign_IPA( const QString &remote_ipa )
 	return QStringLiteral(
 		"echo 'Signing IPA with zsign (adhoc CMS)...'; "
 		"_CERTDIR=$(mktemp -d); "
-		// Generate self-signed cert + p12
 		"openssl req -x509 -newkey rsa:2048 -keyout \"$_CERTDIR/key.pem\" "
 		"  -out \"$_CERTDIR/cert.pem\" -days 3650 -nodes "
 		"  -subj '/CN=AQEMU Adhoc/O=AQEMU/C=US' 2>/dev/null; "
 		"openssl pkcs12 -export -out \"$_CERTDIR/cert.p12\" "
 		"  -inkey \"$_CERTDIR/key.pem\" -in \"$_CERTDIR/cert.pem\" "
 		"  -passout pass:aqemu 2>/dev/null; "
-		// Write a minimal fake mobileprovision XML that zsign accepts
-		// (zsign only needs it to extract entitlements/team; content doesn't matter for adhoc)
 		"cat > \"$_CERTDIR/fake.mobileprovision\" << 'PROVEOF'\n"
 		"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
 		"<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n"
@@ -133,17 +133,19 @@ QString Companion_Zsign_IPA( const QString &remote_ipa )
 		"</dict></plist>\n"
 		"PROVEOF\n"
 		"_ZS_OUT=$(mktemp /tmp/aqemu-signed-XXXXXX.ipa); "
-		"zsign -k \"$_CERTDIR/cert.p12\" -p aqemu "
+		"if ! zsign -k \"$_CERTDIR/cert.p12\" -p aqemu "
 		"  -m \"$_CERTDIR/fake.mobileprovision\" "
-		"  -o \"$_ZS_OUT\" -z 9 '%1' 2>&1; "
-		"if [ -s \"$_ZS_OUT\" ]; then "
-		"  mv \"$_ZS_OUT\" '%1'; "
-		"  echo 'zsign complete.'; "
-		"else "
-		"  rm -f \"$_ZS_OUT\"; "
-		"  echo 'WARNING: zsign could not sign IPA. Proceeding with original (will likely fail installd).'; "
+		"  -o \"$_ZS_OUT\" -z 9 '%1' 2>&1; then "
+		"  rm -f \"$_ZS_OUT\"; rm -rf \"$_CERTDIR\"; "
+		"  echo ERROR: zsign failed.; exit 1; "
 		"fi; "
-		"rm -rf \"$_CERTDIR\"; " ).arg( q );
+		"if [ ! -s \"$_ZS_OUT\" ]; then "
+		"  rm -f \"$_ZS_OUT\"; rm -rf \"$_CERTDIR\"; "
+		"  echo ERROR: zsign produced empty output.; exit 1; "
+		"fi; "
+		"mv \"$_ZS_OUT\" '%1'; "
+		"rm -rf \"$_CERTDIR\"; "
+		"echo 'zsign complete.'; " ).arg( q );
 }
 
 } // namespace
