@@ -1,1 +1,5 @@
+option('pi3_optimizations', type : 'boolean', value : false, description : 'Enable compiler optimizations for Raspberry Pi 3')
+option('pi4_optimizations', type : 'boolean', value : false, description : 'Enable compiler and linker optimizations for Raspberry Pi 4')
 option('pi5_optimizations', type : 'boolean', value : false, description : 'Enable compiler and linker optimizations for Raspberry Pi 5')
+option('raspberry_pi_build', type : 'boolean', value : false, description : 'Enable Raspberry Pi build target and optimizations')
+

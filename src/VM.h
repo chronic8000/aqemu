@@ -364,6 +364,7 @@ class Virtual_Machine: public QObject
 		
 		bool Use_USB_Hub() const;
 		void Use_USB_Hub( bool use );
+		QString Get_Primary_USB_Bus() const;
 		
 		bool Get_Use_Linux_Boot() const;
 		void Set_Use_Linux_Boot( bool use );

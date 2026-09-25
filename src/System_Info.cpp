@@ -2921,15 +2921,13 @@ bool System_Info::Scan_USB_Sys( QList<VM_USB> &list )
 	QStringList usb_dirs;
 	QStringList all_usb_dirs = dir.entryList( QStringList("*"), QDir::Dirs, QDir::Name );
 	
-	// add only unique usb device folders
-	QRegExp re_usbNum = QRegExp( "^usb\\d+$" ); // like: usb5
+	// add only unique usb device folders (exclude root hubs like usb1, usb2)
 	QRegExp re_NumNum = QRegExp( "^\\d+[-]\\d+$" ); // like: 1-2
 	QRegExp re_NumNumNum = QRegExp( "^\\d+[-]\\d+[.]\\d+$" ); // like: 1-2.1
 	
 	foreach( QString cur_dir, all_usb_dirs )
 	{
-		if( re_usbNum.exactMatch(cur_dir) ) usb_dirs << cur_dir;
-		else if( re_NumNum.exactMatch(cur_dir) ) usb_dirs << cur_dir;
+		if( re_NumNum.exactMatch(cur_dir) ) usb_dirs << cur_dir;
 		else if( re_NumNumNum.exactMatch(cur_dir) ) usb_dirs << cur_dir;
 		else continue;
 	}
@@ -3006,15 +3004,10 @@ bool System_Info::Scan_USB_Sys( QList<VM_USB> &list )
 					   "Cannot read speed from /sys/bus/usb/devices/" );
 		}
 		
-		// Serial Number
-		if( Read_SysFS_File(usb_path + "serial", data) )
+		// Serial Number (optional attribute on many USB devices)
+		if( QFile::exists( usb_path + "serial" ) && Read_SysFS_File( usb_path + "serial", data ) )
 		{
 			tmp_usb.Set_Serial_Number( data );
-		}
-		else
-		{
-			AQWarning( "bool System_Info::Scan_USB_Sys( QList<VM_USB> &list )",
-					   "Cannot read serial from /sys/bus/usb/devices/" );
 		}
 		
 		// Bus
@@ -3053,6 +3046,10 @@ bool System_Info::Scan_USB_Sys( QList<VM_USB> &list )
 			continue;
 		}
 		
+		// Filter out host root hubs and internal virtual controllers
+		if( Is_Root_Hub( tmp_usb ) )
+			continue;
+
 		// All Data Read
 		tmp_usb.Set_Use_Host_Device( true );
 		list << tmp_usb;
@@ -3280,6 +3277,9 @@ bool System_Info::Scan_USB_Proc( QList<VM_USB> &list )
 					tmp_usb.Set_Serial_Number( serialNumber_list[1] );
 				}
 				
+				if( Is_Root_Hub( tmp_usb ) )
+					continue;
+
 				list << tmp_usb;
 			}
 		}
@@ -3667,6 +3667,8 @@ bool System_Info::Scan_Host_USB_Snapshot( QList<VM_USB> &out )
 		if( ! instance.isEmpty() )
 			u.Set_DevPath( instance );
 		u.Set_Speed( QStringLiteral( "480" ) );
+		if( Is_Root_Hub( u ) )
+			continue;
 		out << u;
 	}
 
@@ -3748,6 +3750,52 @@ QList<VM_USB> System_Info::Get_Host_Gamepads()
 			pads << all[i];
 	}
 	return pads;
+}
+
+bool System_Info::Is_Root_Hub( const VM_USB &device )
+{
+	const QString vid = device.Get_Vendor_ID().toLower().trimmed();
+	if( vid == QLatin1String( "1d6b" ) )
+		return true;
+	const QString name = ( device.Get_Manufacturer_Name() + QLatin1Char( ' ' ) +
+	                       device.Get_Product_Name() ).toLower();
+	if( name.contains( QLatin1String( "root hub" ) ) ||
+	    name.contains( QLatin1String( "roothub" ) ) ||
+	    name.contains( QLatin1String( "host controller" ) ) )
+		return true;
+	return false;
+}
+
+bool System_Info::Is_Host_Input_Device( const VM_USB &device )
+{
+	if( Is_Likely_Gamepad( device ) )
+		return false;
+	const QString name = ( device.Get_Manufacturer_Name() + QLatin1Char( ' ' ) +
+	                       device.Get_Product_Name() ).toLower();
+	return name.contains( QLatin1String( "keyboard" ) ) ||
+	       name.contains( QLatin1String( "mouse" ) ) ||
+	       name.contains( QLatin1String( "trackball" ) ) ||
+	       name.contains( QLatin1String( "touchpad" ) );
+}
+
+bool System_Info::Is_UsbDk_Installed()
+{
+#ifdef Q_OS_WIN32
+	SC_HANDLE scm = OpenSCManagerW( NULL, NULL, SC_MANAGER_CONNECT );
+	if( ! scm )
+		return false;
+	SC_HANDLE svc = OpenServiceW( scm, L"UsbDkHelper", SERVICE_QUERY_STATUS );
+	if( ! svc )
+	{
+		CloseServiceHandle( scm );
+		return false;
+	}
+	CloseServiceHandle( svc );
+	CloseServiceHandle( scm );
+	return true;
+#else
+	return true;
+#endif
 }
 
 Host_GPU::Host_GPU()

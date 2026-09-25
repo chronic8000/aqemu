@@ -102,6 +102,7 @@ private:
     qreal m_verticalFactor;
     QSize m_lastScaleParentSize;
     QSize m_lastScaleFrameSize;
+    QSize m_lastFrameSize;
 #ifndef QTONLY
     VncHostPreferences *m_hostPreferences;
 #endif

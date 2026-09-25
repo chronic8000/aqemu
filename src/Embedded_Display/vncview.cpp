@@ -23,6 +23,7 @@
 
 #include "vncview.h"
 #include "krdc_debug.h"
+#include "Guest_Display_View.h"
 
 #include <QApplication>
 #include <QCoreApplication>
@@ -67,11 +68,17 @@ VncView::VncView(QWidget *parent, const QUrl &url, KConfigGroup configGroup)
         m_verticalFactor(1.0),
         m_lastScaleParentSize(),
         m_lastScaleFrameSize(),
+        m_lastFrameSize(),
         m_forceLocalCursor(false)
 #ifdef LIBSSH_FOUND
         , m_sshTunnelThread(nullptr)
 #endif
 {
+    QPalette pal = palette();
+    pal.setColor(QPalette::Window, Qt::black);
+    setPalette(pal);
+    setAutoFillBackground(true);
+
     m_url = url;
     m_host = url.host();
     m_port = url.port();
@@ -90,6 +97,10 @@ VncView::VncView(QWidget *parent, const QUrl &url, KConfigGroup configGroup)
 
     m_clipboard = QApplication::clipboard();
     connect(m_clipboard, SIGNAL(dataChanged()), this, SLOT(clipboardDataChanged()));
+
+    setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    setMinimumSize(1, 1);
+    setMaximumSize(QSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX));
 
 #ifndef QTONLY
     m_hostPreferences = new VncHostPreferences(configGroup, this);
@@ -126,12 +137,14 @@ QSize VncView::framebufferSize()
 
 QSize VncView::sizeHint() const
 {
-    return size();
+    if (m_frame.isNull())
+        return QSize(1024, 768);
+    return m_frame.size();
 }
 
 QSize VncView::minimumSizeHint() const
 {
-    return size();
+    return QSize(1, 1);
 }
 
 void VncView::scaleResize(int w, int h)
@@ -139,33 +152,31 @@ void VncView::scaleResize(int w, int h)
     RemoteView::scaleResize(w, h);
 
     if (m_scale) {
-        if (m_frame.isNull() || m_frame.width() <= 0 || m_frame.height() <= 0 || w <= 0 || h <= 0) {
-            m_verticalFactor = 1.0;
-            m_horizontalFactor = 1.0;
-            return;
+        if (w <= 0 || h <= 0) {
+            if (parentWidget() && parentWidget()->width() > 0 && parentWidget()->height() > 0) {
+                w = parentWidget()->width();
+                h = parentWidget()->height();
+            } else if (width() > 0 && height() > 0) {
+                w = width();
+                h = height();
+            } else {
+                return;
+            }
         }
 
-        m_verticalFactor = (qreal) h / m_frame.height();
-        m_horizontalFactor = (qreal) w / m_frame.width();
+        const int fw = m_frame.isNull() ? 1024 : qMax(1, m_frame.width());
+        const int fh = m_frame.isNull() ? 768 : qMax(1, m_frame.height());
 
-#ifndef QTONLY
-        if (Settings::keepAspectRatio()) {
-            m_verticalFactor = m_horizontalFactor = qMin(m_verticalFactor, m_horizontalFactor);
-        }
-#else
-        m_verticalFactor = m_horizontalFactor = qMin(m_verticalFactor, m_horizontalFactor);
-#endif
+        // Stretched mode: always stretch to fill the entire canvas
+        m_horizontalFactor = (qreal) w / (qreal) fw;
+        m_verticalFactor = (qreal) h / (qreal) fh;
 
-        const int newW = qMax(1, qRound(m_frame.width() * m_horizontalFactor));
-        const int newH = qMax(1, qRound(m_frame.height() * m_verticalFactor));
-        // Avoid layout thrash when already at the target size (mouse jump + log spam).
-        if (width() == newW && height() == newH &&
-            maximumWidth() == newW && maximumHeight() == newH)
-            return;
-        setMaximumSize(newW, newH); //This is a hack to force Qt to center the view in the scroll area
-        resize(newW, newH);
         m_lastScaleParentSize = QSize( w, h );
         m_lastScaleFrameSize = m_frame.size();
+
+        setMinimumSize(1, 1);
+        setMaximumSize(QSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX));
+        setGeometry(0, 0, w, h);
     }
 }
 
@@ -436,6 +447,12 @@ void VncView::updateImage(int x, int y, int w, int h)
 
     m_frame = vncThread.image(); // already a deep copy from setImage()
 
+    const bool frameSizeChanged = (m_frame.size() != m_lastFrameSize);
+    if (frameSizeChanged) {
+        m_lastFrameSize = m_frame.size();
+        emit framebufferSizeChanged(m_frame.width(), m_frame.height());
+    }
+
     if (!m_initDone) {
         if (!vncThread.username().isEmpty()) {
             m_url.setUserName(vncThread.username());
@@ -458,7 +475,8 @@ void VncView::updateImage(int x, int y, int w, int h)
             scaleResize(m_hostPreferences->width(), m_hostPreferences->height());
             qCDebug(KRDC) << "m_frame.size():" << m_frame.size() << "size()" << size();
 #else
-//TODO: qtonly alternative
+            if (parentWidget())
+                scaleResize(parentWidget()->width(), parentWidget()->height());
 #endif
         }
 
@@ -476,32 +494,27 @@ void VncView::updateImage(int x, int y, int w, int h)
 #endif
     }
 
-    if ((y == 0 && x == 0)) {
-        if (m_scale) {
-            // Under aspect-fit scaling the widget size is intentionally != guest
-            // framebuffer size. Treating that as a resize trigger caused a
-            // permanent scaleResize loop (log spam "2048 945") and mouse jumps.
-            const QSize parentSz = parentWidget() ? parentWidget()->size() : QSize();
-            if (m_frame.size() != m_lastScaleFrameSize || parentSz != m_lastScaleParentSize) {
+    if (m_scale) {
+        const QSize parentSz = parentWidget() ? parentWidget()->size() : size();
+        if (frameSizeChanged || m_frame.size() != m_lastScaleFrameSize || parentSz != m_lastScaleParentSize) {
+            const int targetW = parentWidget() ? parentWidget()->width() : width();
+            const int targetH = parentWidget() ? parentWidget()->height() : height();
+            if (targetW > 0 && targetH > 0) {
+                setMinimumSize(1, 1);
                 setMaximumSize(QSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX));
-                if (parentWidget())
-                    scaleResize(parentWidget()->width(), parentWidget()->height());
+                scaleResize(targetW, targetH);
             }
-        } else if (m_frame.size() != size()) {
-            qCDebug(KRDC) << "Updating framebuffer size";
-            qCDebug(KRDC) << "Resizing: " << m_frame.width() << m_frame.height();
-            resize(m_frame.width(), m_frame.height());
-            setMaximumSize(m_frame.width(), m_frame.height()); //This is a hack to force Qt to center the view in the scroll area
-            setMinimumSize(m_frame.width(), m_frame.height());
-            emit framebufferSizeChanged(m_frame.width(), m_frame.height());
         }
+        update();
+    } else if (frameSizeChanged || m_frame.size() != size()) {
+        qCDebug(KRDC) << "Updating framebuffer size";
+        qCDebug(KRDC) << "Resizing: " << m_frame.width() << m_frame.height();
+        resize(m_frame.width(), m_frame.height());
+        setMaximumSize(m_frame.width(), m_frame.height()); //This is a hack to force Qt to center the view in the scroll area
+        setMinimumSize(m_frame.width(), m_frame.height());
     }
 
-    // Scaled dirty-rect updates leave strip/ghost artifacts (XP text mode).
-    // Full widget repaint matches Spice_View and keeps the frame coherent.
-    if( m_scale )
-        update();
-    else
+    if( ! m_scale )
         repaint(QRectF(x * m_horizontalFactor, y * m_verticalFactor,
                        w * m_horizontalFactor, h * m_verticalFactor).toAlignedRect());
 }
@@ -564,14 +577,12 @@ void VncView::paintEvent(QPaintEvent *event)
     event->accept();
 
     QPainter painter(this);
-    // Smooth scaling blurs VGA text and leaves ghost strips; nearest-neighbor
-    // keeps SeaBIOS / XP setup glyphs readable.
-    painter.setRenderHint( QPainter::SmoothPixmapTransform, false );
+    // Smooth transform when scaling to fill canvas
+    painter.setRenderHint( QPainter::SmoothPixmapTransform, true );
 
     if( m_scale )
     {
-        // Always draw the full guest frame when scaled (partial dirty rects
-        // mis-align under non-integer factors).
+        // Always stretch to fill the full widget canvas
         painter.drawImage( rect(), m_frame, m_frame.rect() );
     }
     else
@@ -588,6 +599,14 @@ void VncView::paintEvent(QPaintEvent *event)
 void VncView::resizeEvent(QResizeEvent *event)
 {
     RemoteView::resizeEvent(event);
+    if (m_scale && !m_frame.isNull() && width() > 0 && height() > 0) {
+        const int fw = qMax(1, m_frame.width());
+        const int fh = qMax(1, m_frame.height());
+        m_horizontalFactor = (qreal) width() / (qreal) fw;
+        m_verticalFactor = (qreal) height() / (qreal) fh;
+        m_lastScaleParentSize = size();
+        m_lastScaleFrameSize = m_frame.size();
+    }
     update();
 }
 
@@ -680,16 +699,22 @@ void VncView::mouseEventHandler(QMouseEvent *e)
         }
     }
 
-    // Absolute VNC: clamp while grabbed/dragged outside the view.
-    int gx = qRound(e->x() / m_horizontalFactor);
-    int gy = qRound(e->y() / m_verticalFactor);
-    if (m_stickyMouseGrab || m_dragMouseGrab) {
-        const QSize fb = framebufferSize();
-        if (fb.width() > 0 && fb.height() > 0) {
-            gx = qBound(0, gx, fb.width() - 1);
-            gy = qBound(0, gy, fb.height() - 1);
-        }
+    // Absolute VNC: calculate guest coordinates from stretched widget coordinates
+    const int fw = m_frame.isNull() ? 1024 : m_frame.width();
+    const int fh = m_frame.isNull() ? 768 : m_frame.height();
+
+    int gx = 0;
+    int gy = 0;
+    if (m_scale && width() > 0 && height() > 0) {
+        gx = qRound(e->x() * (qreal) fw / (qreal) width());
+        gy = qRound(e->y() * (qreal) fh / (qreal) height());
+    } else {
+        gx = qRound(e->x() / m_horizontalFactor);
+        gy = qRound(e->y() / m_verticalFactor);
     }
+    gx = qBound(0, gx, fw - 1);
+    gy = qBound(0, gy, fh - 1);
+
     vncThread.mouseEvent(gx, gy, m_buttonMask);
 }
 

@@ -102,7 +102,8 @@ Spice_View::Spice_View( QWidget *parent )
 	setFocusPolicy( Qt::StrongFocus );
 	setMouseTracking( true );
 	setAttribute( Qt::WA_OpaquePaintEvent );
-	setMinimumSize( 160, 100 );
+	setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Expanding );
+	setMinimumSize( 1, 1 );
 
 #if defined(AQEMU_HAVE_SPICE_GLIB) || defined(AQEMU_HAVE_SPICE_GTK)
 	Install_Quiet_GSpice_Once();
@@ -143,6 +144,20 @@ bool Spice_View::Spice_GTK_Available() const
 QString Spice_View::Backend_Name() const
 {
 	return Spice_Available() ? QStringLiteral( "spice" ) : QStringLiteral( "spice-unavailable" );
+}
+
+QSize Spice_View::sizeHint() const
+{
+	if( Primary_Width > 0 && Primary_Height > 0 )
+		return QSize( Primary_Width, Primary_Height );
+	if( ! Frame.isNull() )
+		return Frame.size();
+	return QSize( 1024, 768 );
+}
+
+QSize Spice_View::minimumSizeHint() const
+{
+	return QSize( 1, 1 );
 }
 
 void Spice_View::Pump_GLib()
@@ -717,33 +732,25 @@ void Spice_View::Copy_Invalidate( int x, int y, int w, int h )
 
 QRectF Spice_View::Scaled_Dest_Rect() const
 {
-	if( Primary_Width <= 0 || Primary_Height <= 0 || width() <= 0 || height() <= 0 )
+	if( width() <= 0 || height() <= 0 )
 		return QRectF();
 
-	const qreal sx = qreal( width() ) / qreal( Primary_Width );
-	const qreal sy = qreal( height() ) / qreal( Primary_Height );
-	const qreal s = qMin( sx, sy );
-	const qreal dw = Primary_Width * s;
-	const qreal dh = Primary_Height * s;
-	return QRectF( ( width() - dw ) * 0.5, ( height() - dh ) * 0.5, dw, dh );
+	// Always stretch to fill the full canvas
+	return QRectF( 0, 0, width(), height() );
 }
 
 QPoint Spice_View::Guest_From_Widget( const QPoint &widget_pos ) const
 {
-	const QRectF dest = Scaled_Dest_Rect();
-	if( dest.isEmpty() )
+	if( width() <= 0 || height() <= 0 )
 		return QPoint( -1, -1 );
 
-	const qreal gx = ( widget_pos.x() - dest.x() ) * Primary_Width / dest.width();
-	const qreal gy = ( widget_pos.y() - dest.y() ) * Primary_Height / dest.height();
-	const int ix = qBound( 0, int( std::floor( gx ) ), Primary_Width - 1 );
-	const int iy = qBound( 0, int( std::floor( gy ) ), Primary_Height - 1 );
+	const int fw = Primary_Width > 0 ? Primary_Width : ( Frame.isNull() ? 1024 : Frame.width() );
+	const int fh = Primary_Height > 0 ? Primary_Height : ( Frame.isNull() ? 768 : Frame.height() );
 
-	// Allow a small margin around the destination rect for seamless edge reaching
-	const qreal margin = 4.0;
-	if( widget_pos.x() < dest.x() - margin || widget_pos.y() < dest.y() - margin ||
-	    widget_pos.x() > dest.right() + margin || widget_pos.y() > dest.bottom() + margin )
-		return QPoint( -1, -1 );
+	const qreal gx = (qreal) widget_pos.x() * (qreal) fw / (qreal) width();
+	const qreal gy = (qreal) widget_pos.y() * (qreal) fh / (qreal) height();
+	const int ix = qBound( 0, int( std::floor( gx ) ), fw - 1 );
+	const int iy = qBound( 0, int( std::floor( gy ) ), fh - 1 );
 
 	return QPoint( ix, iy );
 }
@@ -912,10 +919,8 @@ void Spice_View::paintEvent( QPaintEvent *event )
 		return;
 	}
 
-	const QRectF dest = Scaled_Dest_Rect();
-	// FastTransformation avoids bilinear fringe / rainbow speckles on scaled edges.
-	p.setRenderHint( QPainter::SmoothPixmapTransform, false );
-	p.drawImage( dest, Frame );
+	p.setRenderHint( QPainter::SmoothPixmapTransform, true );
+	p.drawImage( rect(), Frame, Frame.rect() );
 }
 
 void Spice_View::resizeEvent( QResizeEvent *event )

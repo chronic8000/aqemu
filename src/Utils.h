@@ -142,6 +142,11 @@ QString AQ_Normalize_File_Path( const QString &path );
  */
 QString AQ_Qemu_Drive_File_Key( const QString &path );
 
+/**
+ * Probe QEMU binary for supported -audiodev backends and select the best supported match.
+ */
+QString AQ_Pick_Host_Audio_Backend( const QString &qemu_binary, const QString &preferred = QString() );
+
 /** True if s looks like a real AppleSMC OSK (not network/Proxmox junk). */
 bool AQ_Is_Plausible_Apple_SMC_OSK( const QString &osk );
 
@@ -277,6 +282,12 @@ QString AQ_Get_QEMU_Data_Dir( const QString &qemu_binary_path );
 QString AQ_Resolve_Host_Tool( const QString &settings_key,
                              const QStringList &exe_names,
                              const QStringList &app_dir_relatives = QStringList() );
+
+/** Executable extension for current host OS (".exe" on Windows, "" on Linux/POSIX). */
+QString Get_Binary_Extension();
+
+/** True if host Linux system has writable /dev/kvm device node. */
+bool Is_Native_KVM_Available();
 
 #endif
 

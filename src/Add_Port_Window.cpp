@@ -38,7 +38,7 @@ Add_Port_Window::Add_Port_Window( QWidget *parent )
 	ui.RB_Dev->setEnabled( true );
 	#endif
 	
-	#ifdef Q_OS_WIN32
+	#ifdef Q_OS_WIN
 	ui.RB_COM->setEnabled( true );
 	#endif
 	

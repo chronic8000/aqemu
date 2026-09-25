@@ -94,6 +94,12 @@ class System_Info
 		/** True if USB device looks like an Xbox / PlayStation / Nintendo / generic gamepad. */
 		static bool Is_Likely_Gamepad( const VM_USB &device );
 		static QList<VM_USB> Get_Host_Gamepads();
+		/** True if USB device is a Linux Foundation or host root hub / host controller. */
+		static bool Is_Root_Hub( const VM_USB &device );
+		/** True if USB device looks like a host primary keyboard or mouse. */
+		static bool Is_Host_Input_Device( const VM_USB &device );
+		/** True if UsbDk is installed and active on Windows (always true on Linux). */
+		static bool Is_UsbDk_Installed();
 
 		static bool Update_Host_GPU();
 		/** Cached GPU list — never blocks. Empty until Update_Host_GPU has run. */

@@ -11,14 +11,33 @@ incdir = include_directories('src')
 
 add_global_arguments( ['-DVNC_DISPLAY', '-DQTONLY'] , language : 'cpp')
 
-# Raspberry Pi 5 Optimizations
+# Raspberry Pi Optimizations (Pi 3, Pi 4, Pi 5)
+is_pi_build = get_option('raspberry_pi_build')
+
+if get_option('pi3_optimizations')
+  add_project_arguments('-O3', '-mcpu=cortex-a53', '-mtune=cortex-a53', language : 'cpp')
+  is_pi_build = true
+endif
+
+if get_option('pi4_optimizations')
+  add_project_arguments('-O3', '-mcpu=cortex-a72', '-mtune=cortex-a72', language : 'cpp')
+  add_project_link_arguments('-Wl,-z,max-page-size=65536', language : 'cpp')
+  is_pi_build = true
+endif
+
 if get_option('pi5_optimizations')
   add_project_arguments('-O3', '-mcpu=cortex-a76', '-mtune=cortex-a76', language : 'cpp')
   add_project_link_arguments('-Wl,-z,max-page-size=65536', language : 'cpp')
+  is_pi_build = true
+endif
+
+if is_pi_build
+  add_project_arguments('-DRASPBERRY_PI_BUILD=1', language : 'cpp')
 endif
 
 aqemu_headers =    ['src/No_Boot_Device.h',
                     'src/Highlighted_Label.h',
+                    'src/AQ_UI_Style.h',
                     'src/main.h',
                     'src/Service.h',
                     'src/Run_Guard.h',
@@ -65,6 +84,22 @@ aqemu_headers =    ['src/No_Boot_Device.h',
                     'src/VM_Devices.h',
                     'src/VM_Wizard_Window.h',
                     'src/VNC_Password_Window.h',
+                    'src/WSL_Wizard_Window.h',
+                    'src/WSL_Secure_Credentials.h',
+                    'src/iOS_Firmware_Tool_Window.h',
+                    'src/Apple_SoC_Support.h',
+                    'src/Apple_SoC_Restore_Window.h',
+                    'src/Apple_SoC_FS_Patch_Window.h',
+                    'src/Apple_SoC_Button_Pad.h',
+                    'src/Apple_SoC_Device_Tools_Window.h',
+                    'src/Inferno_Companion_Setup.h',
+                    'src/QMP_Client.h',
+                    'src/QEMU_Help_Browser.h',
+                    'src/Blockdev_Graph_Window.h',
+                    'src/Migrate_Progress_Dialog.h',
+                    'src/Embedded_Display/Guest_Display_View.h',
+                    'src/Embedded_Display/Spice_View.h',
+                    'src/VM_Session_Widget.h',
                     'src/Embedded_Display/Machine_View.h',
                     'src/Embedded_Display/remoteview.h',
                     'src/Embedded_Display/vncclientthread.h',
@@ -73,6 +108,7 @@ aqemu_headers =    ['src/No_Boot_Device.h',
 
 aqemu_sources =    ['src/No_Boot_Device.cpp',
                     'src/Highlighted_Label.cpp',
+                    'src/AQ_UI_Style.cpp',
                     'src/Service.cpp',
                     'src/Run_Guard.cpp',
                     'src/QEMU_Docopt.cpp',
@@ -102,6 +138,7 @@ aqemu_sources =    ['src/No_Boot_Device.cpp',
                     'src/HDD_Image_Info.cpp',
                     'src/main.cpp',
                     'src/Main_Window.cpp',
+                    'src/WSL_Wizard_Window.cpp',
                     'src/Monitor_Window.cpp',
                     'src/Network_Widget.cpp',
                     'src/Old_Network_Widget.cpp',
@@ -114,11 +151,35 @@ aqemu_sources =    ['src/No_Boot_Device.cpp',
                     'src/Snapshots_Window.cpp',
                     'src/SPICE_Settings_Widget.cpp',
                     'src/System_Info.cpp',
+                    'src/QEMU_Probe_Catalog.cpp',
                     'src/Utils.cpp',
                     'src/VM.cpp',
                     'src/VM_Devices.cpp',
                     'src/VM_Wizard_Window.cpp',
+                    'src/Guest_Capabilities.cpp',
+                    'src/ISO_Guess.cpp',
+                    'src/iOS_Firmware_Tool_Window.cpp',
+                    'src/Apple_SoC_Support.cpp',
+                    'src/Apple_SoC_Restore_Window.cpp',
+                    'src/Apple_SoC_FS_Patch_Window.cpp',
+                    'src/Apple_SoC_Button_Pad.cpp',
+                    'src/Apple_SoC_Device_Tools_Window.cpp',
+                    'src/Inferno_Companion_Setup.cpp',
+                    'src/Storage_Browser_Window.cpp',
+                    'src/Serial_Console_Window.cpp',
+                    'src/URL_Fetch.cpp',
+                    'src/Remote_Host_Window.cpp',
+                    'src/Migrate_URI_Dialog.cpp',
+                    'src/WSL_Launch.cpp',
+                    'src/WSL_Secure_Credentials.cpp',
                     'src/VNC_Password_Window.cpp',
+                    'src/QMP_Client.cpp',
+                    'src/QEMU_Help_Browser.cpp',
+                    'src/Blockdev_Graph_Window.cpp',
+                    'src/Migrate_Progress_Dialog.cpp',
+                    'src/Embedded_Display/Guest_Display_View.cpp',
+                    'src/Embedded_Display/Spice_View.cpp',
+                    'src/VM_Session_Widget.cpp',
                     'src/Embedded_Display/Machine_View.cpp',
                     'src/Embedded_Display/remoteview.cpp',
                     'src/Embedded_Display/vncclientthread.cpp',

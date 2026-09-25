@@ -32,6 +32,7 @@ class QMP_Client : public QObject
 		bool Query_Block();
 		bool Query_Blockstats();
 		bool Human_Monitor( const QString &command_line );
+		int Send_Hmp_Tracked( const QString &command_line );
 		/** Outgoing migration: uri e.g. tcp:host:port. Optional blk/inc for storage migration. */
 		bool Migrate( const QString &uri, bool blk = false, bool inc = false );
 		bool Query_Migrate();
@@ -45,6 +46,7 @@ class QMP_Client : public QObject
 		void Connected();
 		void Disconnected();
 		void Error( const QString &message );
+		void Command_Result( int id, const QString &cmd, bool ok, const QString &error_desc, const QJsonObject &raw_reply );
 		void Event_Received( const QJsonObject &event );
 		void Reply_Received( const QJsonObject &reply );
 		void Block_Info( const QJsonArray &devices );

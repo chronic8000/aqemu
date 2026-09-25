@@ -42,7 +42,7 @@
 #include <QCoreApplication>
 #include <QScreen>
 
-#ifdef Q_OS_WIN32
+#ifdef Q_OS_WIN
 #include <windows.h>
 #else
 #include <QTest>
@@ -53,6 +53,11 @@
 #include <QHBoxLayout>
 #include <QDesktopWidget>
 
+#if defined(Q_OS_LINUX)
+#include <sys/prctl.h>
+#include <signal.h>
+#endif
+
 //GenerateHTMLInfo
 #include <QTextEdit>
 #include <QTextFrame>
@@ -60,6 +65,7 @@
 #include <QPalette>
 //GenerateHTMLInfo
 
+#include <QProcess>
 #include "VM.h"
 #include "QMP_Client.h"
 #include "Utils.h"
@@ -71,6 +77,22 @@
 #include "System_Info.h"
 #include "QEMU_Probe_Catalog.h"
 #include "VNC_Password_Window.h"
+
+namespace {
+class VM_Child_Process : public QProcess
+{
+public:
+	explicit VM_Child_Process( QObject *parent = nullptr ) : QProcess( parent ) {}
+
+protected:
+	void setupChildProcess() override
+	{
+#if defined(Q_OS_LINUX)
+		prctl( PR_SET_PDEATHSIG, SIGTERM );
+#endif
+	}
+};
+}
 
 using namespace TinyXML2QDomWrapper;
 
@@ -90,7 +112,7 @@ Virtual_Machine::Virtual_Machine( const QString &name )
 
 Virtual_Machine::Virtual_Machine( const Virtual_Machine &vm )
 {
-	QEMU_Process = new QProcess();
+	QEMU_Process = new VM_Child_Process();
 	QEMU_Kill_Target_Pid = 0;
 	Monitor_Socket = new QTcpSocket( this );
 	Use_Monitor_TCP = false;
@@ -401,7 +423,7 @@ Virtual_Machine::~Virtual_Machine()
 
 void Virtual_Machine::Shared_Constructor()
 {
-	QEMU_Process = new QProcess();
+	QEMU_Process = new VM_Child_Process();
 	QEMU_Kill_Target_Pid = 0;
 	Monitor_Socket = new QTcpSocket( this );
 	Use_Monitor_TCP = false;
@@ -6565,7 +6587,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	const bool is_reims_display =
 		Computer_Type.contains( QLatin1String( "reimsvgpu" ), Qt::CaseInsensitive );
 	const bool is_apple_soc_display = AQ_Is_Apple_SoC_VM( this );
-#ifdef Q_OS_WIN32
+#ifdef Q_OS_WIN
 	const bool force_reims_embedded = is_reims_display;
 	const bool force_apple_soc_embedded = is_apple_soc_display;
 	// Store / headless Windows QEMU builds reject -display gtk|sdl. Force AQEMU
@@ -6630,7 +6652,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	{
 		if( QMP_Port <= 0 )
 			QMP_Port = Find_Free_TCP_Port( 4444 );
-#ifndef Q_OS_WIN32
+#ifndef Q_OS_WIN
 		if( Embedded_Spice_Port <= 0 )
 			Embedded_Spice_Port = Find_Free_TCP_Port( 5930 );
 #else
@@ -6646,7 +6668,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			Args << "-qmp" << QString( "tcp:127.0.0.1:%1,server,nowait" ).arg( QMP_Port );
 	}
 
-	#ifdef Q_OS_WIN32
+	#ifdef Q_OS_WIN
 	QString monitor_host = Settings.value("Emulator_Monitor_Hostname", "127.0.0.1").toString();
 	if( monitor_host.toLower() == "localhost" ) monitor_host = "127.0.0.1";
 
@@ -6786,7 +6808,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 				 Computer_Type.contains( "qemu-system-arm", Qt::CaseInsensitive ) ||
 				 Computer_Type.contains( "applesoc", Qt::CaseInsensitive ) )
 		{
-			#ifdef Q_OS_WIN32
+			#ifdef Q_OS_WIN
 			cpu_arg = QStringLiteral( "max,pauth-impdef=on" );
 			#else
 			if( Machine_Accelerator == VM::KVM )
@@ -6831,7 +6853,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			QStringList feats;
 			feats << base;
 			feats << QStringLiteral( "vendor=GenuineIntel" );
-			#ifdef Q_OS_WIN32
+			#ifdef Q_OS_WIN
 			if( Launch_Via_WSL )
 			{
 				const QString distro = Settings.value( QStringLiteral( "WSL_Launch/Distro" ), QString() ).toString();
@@ -6851,7 +6873,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			const bool aarch64 =
 				Computer_Type.contains( "aarch64", Qt::CaseInsensitive ) ||
 				Computer_Type.contains( "qemu-system-arm", Qt::CaseInsensitive );
-			#ifdef Q_OS_WIN32
+			#ifdef Q_OS_WIN
 			const bool tcg_guest = aarch64; // WHPX cannot accelerate aarch64 on x86 hosts
 			#else
 			const bool tcg_guest = aarch64 && Machine_Accelerator != VM::KVM;
@@ -6880,7 +6902,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	if( need_audiodev )
 	{
 		QString audiodev_backend;
-		#ifdef Q_OS_WIN32
+		#ifdef Q_OS_WIN
 		if( Launch_Via_WSL )
 		{
 			// Linux QEMU in WSL often lacks pa/sdl (minimal/server builds).
@@ -6893,26 +6915,24 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		}
 		else
 		{
-			// Native Windows QEMU: prefer sdl when dsound is unavailable in the build.
-			audiodev_backend = Settings.value( "QEMU_AUDIO/QEMU_AUDIO_DRV", "sdl" ).toString();
-			if( audiodev_backend != "dsound" && audiodev_backend != "sdl" &&
-			    audiodev_backend != "wav" && audiodev_backend != "none" )
-				audiodev_backend = "sdl";
+			const QString pref = Settings.value( "QEMU_AUDIO/QEMU_AUDIO_DRV", "sdl" ).toString();
+			const QString bin = Get_Current_Emulator_Binary_Path( Current_Emulator_Devices.System.QEMU_Name );
+			audiodev_backend = AQ_Pick_Host_Audio_Backend( bin, pref );
 		}
 		#else
-		if( Settings.value("QEMU_AUDIO/Use_Default_Driver", "yes").toString() == "no" )
-			audiodev_backend = Settings.value("QEMU_AUDIO/QEMU_AUDIO_DRV", "pa").toString();
-		else
-			audiodev_backend = "pa";
-		if( audiodev_backend == "alsa" || audiodev_backend == "oss" || audiodev_backend == "sdl" ||
-			audiodev_backend == "pa" || audiodev_backend == "pipewire" )
-			; // keep
-		else
-			audiodev_backend = "pa";
+		const QString pref = ( Settings.value("QEMU_AUDIO/Use_Default_Driver", "yes").toString() == "no" )
+			? Settings.value("QEMU_AUDIO/QEMU_AUDIO_DRV", "pa").toString()
+			: QStringLiteral("pa");
+		const QString bin = Get_Current_Emulator_Binary_Path( Current_Emulator_Devices.System.QEMU_Name );
+		audiodev_backend = AQ_Pick_Host_Audio_Backend( bin, pref );
 		#endif
 		
 		if( ! Audiodev_Backend.trimmed().isEmpty() )
-			audiodev_backend = Audiodev_Backend.trimmed();
+		{
+			const QString bin = Get_Current_Emulator_Binary_Path( Current_Emulator_Devices.System.QEMU_Name );
+			const QString probed = AQ_Pick_Host_Audio_Backend( bin, Audiodev_Backend.trimmed() );
+			audiodev_backend = probed;
+		}
 		QString audiodev_arg = audiodev_backend + ",id=snd0";
 		if( Audiodev_Timer_Period > 0 )
 			audiodev_arg += QStringLiteral( ",timer-period=%1" ).arg( Audiodev_Timer_Period );
@@ -7015,10 +7035,12 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	// Inferno Apple SoC: no PC VGA device  display is onboard (SDL/VNC host window only).
 	if( is_apple_soc_video )
 		effective_video.clear();
-	if( effective_video == QLatin1String( "vmware" ) )
-		effective_video = QStringLiteral( "vmware-svga" );
+	const bool is_x86_pc =
+		Computer_Type.contains( QLatin1String( "x86_64" ), Qt::CaseInsensitive ) ||
+		Computer_Type.contains( QLatin1String( "i386" ), Qt::CaseInsensitive );
+
 	if( effective_video == QLatin1String( "virtio" ) )
-		effective_video = QStringLiteral( "virtio-gpu-pci" );
+		effective_video = is_x86_pc ? QStringLiteral( "virtio-vga" ) : QStringLiteral( "virtio-gpu-pci" );
 	const bool win11_early_display =
 		is_virt_arch && Win11_Lifecycle_Mode == VM::Win11_Install;
 	if( win11_early_display )
@@ -7103,30 +7125,25 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		else if( effective_video == "virtio-vga-gl" )
 			Args << "-device" << "virtio-vga-gl";
 		else if( ( effective_video == "virtio-gpu-pci" ||
+		           effective_video == "virtio-vga" ||
 		           effective_video == "virtio" ||
 		           ( ( effective_video.isEmpty() || effective_video == "default" ) &&
 		             ( System_Info::Uses_Device_Based_Video( Computer_Type ) ) ) ) &&
 		         !is_reims_vgpu &&
 		         effective_video != "none" )
 		{
-			// VirtIO-GPU with EDID. Do NOT auto-add ramfb here (BVM normal/boot mode):
-			// combining ramfb + virtio-gpu causes "Display output is not active" reboot loops.
-			QString virtio = QStringLiteral( "virtio-gpu-pci,edid=on,max_outputs=1" );
+			QString dev_name = is_x86_pc ? QStringLiteral( "virtio-vga" ) : QStringLiteral( "virtio-gpu-pci" );
+			if( effective_video == "virtio-gpu-pci" || effective_video == "virtio-vga" )
+				dev_name = effective_video;
+			QString virtio = dev_name + QStringLiteral( ",edid=on,max_outputs=1" );
 			const QString mode = Display_Resolution.trimmed().toLower();
 			int rw = 0, rh = 0;
 			bool have_size = false;
 
-			if( mode.isEmpty() || mode == "native" )
-			{
-				int nrw = 0, nrh = 0;
-				if( AQ_Resolve_Display_Size( QStringLiteral( "native" ), &nrw, &nrh ) )
-				{
-					rw = nrw;
-					rh = nrh;
-					have_size = true;
-				}
-			}
-			else if( mode != "auto" )
+			// In embedded session mode, NEVER lock xres/yres on virtio-gpu/virtio-vga.
+			// Locking xres/yres locks QEMU's scanout buffer to a fixed hardware size,
+			// causing black letterboxing and preventing guest OS dynamic resolution changes.
+			if( ! embedded_session && ! mode.isEmpty() && mode != "native" && mode != "auto" )
 			{
 				int nrw = 0, nrh = 0;
 				if( AQ_Resolve_Display_Size( mode, &nrw, &nrh ) )
@@ -7224,7 +7241,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	// and never force KVM just because Launch_Via_WSL is set (PPC/ARM on x86 WSL).
 	const bool want_native_accel =
 		( Machine_Accelerator == VM::KVM ) && ! legacy_force_tcg && is_x86_guest && ! apple_soc;
-	#ifdef Q_OS_WIN32
+	#ifdef Q_OS_WIN
 	if( apple_soc )
 		use_separate_tcg_accel = true; // Inferno is TCG on x86 hosts (even under WSL)
 	else if( Launch_Via_WSL && ! is_virt_arch )
@@ -7424,35 +7441,12 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			}
             StorageArgs << Build_Native_Device_Args( FD0.Get_Native_Device(), Build_QEMU_Args_for_Tab_Info );
 		}
-		else if( ! no_pc_fdd_ide && embedded_session )
+		else if( ! no_pc_fdd_ide && embedded_session && ( QFile::exists(FD0.Get_File_Name()) || Build_QEMU_Args_for_Tab_Info ) )
 		{
 			// x86 embedded: keep stable id for QMP hotswap
-			if( QFile::exists(FD0.Get_File_Name()) || Build_QEMU_Args_for_Tab_Info )
-				StorageArgs << "-drive" << QString( "file=%1,if=floppy,index=0,format=raw,id=aqemu-fd0" )
-					.arg( FD0.Get_File_Name() );
-			else
-				StorageArgs << "-drive" << "if=floppy,index=0,format=raw,id=aqemu-fd0,file.driver=null-co,file.size=1474560";
+			StorageArgs << "-drive" << QString( "file=%1,if=floppy,index=0,format=raw,id=aqemu-fd0" )
+				.arg( AQ_Normalize_File_Path( FD0.Get_File_Name() ) );
 		}
-		else if( ! no_pc_fdd_ide )
-		{
-			if( QFile::exists(FD0.Get_File_Name()) || Build_QEMU_Args_for_Tab_Info )
-			{
-				if( Build_QEMU_Args_for_Script_Mode )
-					StorageArgs << "-fda" << "\"" + FD0.Get_File_Name() + "\"";
-				else
-					StorageArgs << "-fda" << FD0.Get_File_Name();
-			}
-			else
-			{
-				AQError( "QStringList Virtual_Machine::Build_QEMU_Args()",
-							QString("Image \"%1\" doesn't exists!").arg(FD0.Get_File_Name()) );
-			}
-		}
-		// virt/pseries/etc: classic floppy not supported - skip
-	}
-	else if( ! no_pc_fdd_ide && embedded_session )
-	{
-		StorageArgs << "-drive" << "if=floppy,index=0,format=raw,id=aqemu-fd0,file.driver=null-co,file.size=1474560";
 	}
 	
 	// FD1
@@ -7468,33 +7462,11 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			}
             StorageArgs << Build_Native_Device_Args( FD1.Get_Native_Device(), Build_QEMU_Args_for_Tab_Info );
 		}
-		else if( ! no_pc_fdd_ide && embedded_session )
+		else if( ! no_pc_fdd_ide && embedded_session && ( QFile::exists(FD1.Get_File_Name()) || Build_QEMU_Args_for_Tab_Info ) )
 		{
-			if( QFile::exists(FD1.Get_File_Name()) || Build_QEMU_Args_for_Tab_Info )
-				StorageArgs << "-drive" << QString( "file=%1,if=floppy,index=1,format=raw,id=aqemu-fd1" )
-					.arg( FD1.Get_File_Name() );
-			else
-				StorageArgs << "-drive" << "if=floppy,index=1,format=raw,id=aqemu-fd1,file.driver=null-co,file.size=1474560";
+			StorageArgs << "-drive" << QString( "file=%1,if=floppy,index=1,format=raw,id=aqemu-fd1" )
+				.arg( AQ_Normalize_File_Path( FD1.Get_File_Name() ) );
 		}
-        else if( ! no_pc_fdd_ide )
-		{
-			if( QFile::exists(FD1.Get_File_Name()) || Build_QEMU_Args_for_Tab_Info )
-			{
-				if( Build_QEMU_Args_for_Script_Mode )
-					StorageArgs << "-fdb" << "\"" + FD1.Get_File_Name() + "\"";
-				else
-					StorageArgs << "-fdb" << FD1.Get_File_Name();
-            }
-			else
-			{
-				AQError( "QStringList Virtual_Machine::Build_QEMU_Args()",
-							QString("Image \"%1\" doesn't exist!").arg(FD1.Get_File_Name()) );
-			}
-		}
-	}
-	else if( ! no_pc_fdd_ide && embedded_session )
-	{
-		StorageArgs << "-drive" << "if=floppy,index=1,format=raw,id=aqemu-fd1,file.driver=null-co,file.size=1474560";
 	}
 	
 	// CD-ROM
@@ -7553,10 +7525,10 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			if( QFile::exists(CD_ROM.Get_File_Name()) || Build_QEMU_Args_for_Tab_Info )
 			{
 				const int cd_boot = Bootindex_For( *this, VM::Boot_From_CDROM );
-				// Match virtio-win QEMU ARM guide: usb-storage + media=cdrom.
+				const QString cd_path = AQ_Normalize_File_Path( CD_ROM.Get_File_Name() );
 				const QString drive = QString(
-					"file=%1,if=none,id=aqemu-cdrom,format=raw,media=cdrom,readonly=on,cache=unsafe,aio=threads" )
-					.arg( CD_ROM.Get_File_Name() );
+					"file=%1,if=none,id=aqemu-cdrom,format=raw,media=cdrom,readonly=on" )
+					.arg( cd_path );
 				const QString usb_dev = With_Bootindex(
 					QStringLiteral( "usb-storage,bus=aqemu_iso_xhci.0,drive=aqemu-cdrom" ),
 					cd_boot );
@@ -7577,13 +7549,12 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		else if( is_next_cube )
 		{
 			// NeXT Cube has onboard ESP SCSI (block_default_type=IF_SCSI).
-			// Do NOT invent virtio-scsi-pci - that device does not exist on m68k.
-			// Keep CD off SCSI ID 0: NeXT `bsd` / default sd boots unit 0 (the HD).
 			if( QFile::exists( CD_ROM.Get_File_Name() ) || Build_QEMU_Args_for_Tab_Info )
 			{
+				const QString cd_path = AQ_Normalize_File_Path( CD_ROM.Get_File_Name() );
 				const QString drive = QString(
 					"file=%1,if=scsi,media=cdrom,readonly=on,format=raw,unit=3" )
-					.arg( CD_ROM.Get_File_Name() );
+					.arg( cd_path );
 				if( Build_QEMU_Args_for_Script_Mode )
 					StorageArgs << "-drive" << "\"" + drive + "\"";
 				else
@@ -7596,9 +7567,10 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			if( QFile::exists( CD_ROM.Get_File_Name() ) || Build_QEMU_Args_for_Tab_Info )
 			{
 				has_virt_scsi = true;
+				const QString cd_path = AQ_Normalize_File_Path( CD_ROM.Get_File_Name() );
 				const QString drive = QString(
-					"file=%1,if=none,id=aqemu-cdrom,format=raw,media=cdrom,readonly=on,cache=unsafe,aio=threads" )
-					.arg( CD_ROM.Get_File_Name() );
+					"file=%1,if=none,id=aqemu-cdrom,format=raw,media=cdrom,readonly=on" )
+					.arg( cd_path );
 				StorageArgs << "-drive" << drive;
 				StorageArgs << "-device" << "scsi-cd,drive=aqemu-cdrom,bus=aq-vscsi.0";
 			}
@@ -7606,36 +7578,27 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		else if( embedded_session )
 		{
 			if( QFile::exists(CD_ROM.Get_File_Name()) || Build_QEMU_Args_for_Tab_Info )
-				StorageArgs << "-drive" << QString( "file=%1,if=ide,index=2,media=cdrom,readonly=on,format=raw,id=aqemu-cdrom,cache=unsafe,aio=threads" )
-					.arg( CD_ROM.Get_File_Name() );
-			else
-				StorageArgs << "-drive" << "if=ide,index=2,media=cdrom,readonly=on,format=raw,id=aqemu-cdrom,cache=unsafe,aio=threads,file.driver=null-co";
-			ide_index_2_used = true;
+			{
+				const QString cd_path = AQ_Normalize_File_Path( CD_ROM.Get_File_Name() );
+				StorageArgs << "-drive" << QString( "file=%1,if=ide,index=2,media=cdrom,readonly=on,format=raw,id=aqemu-cdrom" )
+					.arg( cd_path );
+				ide_index_2_used = true;
+			}
 		}
 		else
 		{
 			if( QFile::exists(CD_ROM.Get_File_Name()) || Build_QEMU_Args_for_Tab_Info )
 			{
-				// Prefer -drive over -cdrom so we can set cache (DOS/Win9x IDE CD is PIO-heavy)
-				const QString drive = QString( "file=%1,if=ide,index=2,media=cdrom,readonly=on,format=raw,cache=unsafe,aio=threads" )
-					.arg( CD_ROM.Get_File_Name() );
+				const QString cd_path = AQ_Normalize_File_Path( CD_ROM.Get_File_Name() );
+				const QString drive = QString( "file=%1,if=ide,index=2,media=cdrom,readonly=on,format=raw" )
+					.arg( cd_path );
 				if( Build_QEMU_Args_for_Script_Mode )
 					StorageArgs << "-drive" << "\"" + drive + "\"";
 				else
 					StorageArgs << "-drive" << drive;
 				ide_index_2_used = true;
 			}
-			else
-			{
-				AQError( "QStringList Virtual_Machine::Build_QEMU_Args()",
-							QString("Image \"%1\" doesn't exist!").arg(CD_ROM.Get_File_Name()) );
-			}
 		}
-	}
-	else if( ! no_pc_fdd_ide && embedded_session && ! mac_recovery_active )
-	{
-		StorageArgs << "-drive" << "if=ide,index=2,media=cdrom,readonly=on,format=raw,id=aqemu-cdrom,cache=unsafe,aio=threads,file.driver=null-co";
-		ide_index_2_used = true;
 	}
 	
 	// OpenCore first (Intel macOS). Prefer AHCI on q35 so OpenCore scans the volume;
@@ -7870,7 +7833,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 				const bool win11_disk_bvm =
 					Win11_Lifecycle_Mode != VM::Win11_Install;
 				// Windows: cache=none (O_DIRECT) lies with "Image is not in qcow2 format"
-				#ifdef Q_OS_WIN32
+				#ifdef Q_OS_WIN
 				const QString cache = QStringLiteral( "writeback" );
 				#else
 				const QString cache = QStringLiteral( "none" );
@@ -7915,7 +7878,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 						is_virt_arch &&
 						Win11_Lifecycle_Mode != VM::Win11_Install;
 					// Windows: cache=none (O_DIRECT) lies with "Image is not in qcow2 format"
-					#ifdef Q_OS_WIN32
+					#ifdef Q_OS_WIN
 					const QString cache = QStringLiteral( "writeback" );
 					#else
 					const QString cache = QStringLiteral( "none" );
@@ -8099,7 +8062,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	// from the first available disk/CD/floppy.
 	if( Current_Emulator_Devices.PSO_Boot_Order && ! is_virt_arch )
 	{
-#ifdef Q_OS_WIN32
+#ifdef Q_OS_WIN
 		AQWarning( "QStringList Virtual_Machine::Build_QEMU_Args()",
 		           "Omitting -boot on Windows (bundled QEMU crashes on -boot). "
 		           "Use device boot order / boot menu inside the guest firmware if needed." );
@@ -9002,6 +8965,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	}
 	
 	// USB
+	bool usb_xhci_arg_added = false; // USB 3.0 controller
 	if( ! System_Info::Update_Host_USB() ) // check USB support
 	{
 		AQDebug( "QStringList Virtual_Machine::Build_QEMU_Args()",
@@ -9012,7 +8976,6 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		if( USB_Ports.count() > 0 || Pass_Through_Gamepads || Emulate_USB_Gamepad )
 		{
 			bool usb_ehci_arg_added = false; // USB 2.0 controller
-			bool usb_xhci_arg_added = false; // USB 3.0 controller
 			
 			Args << "-usb";
 			
@@ -9118,8 +9081,24 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 					{
 						QString usbControllerID = "";
 						
+						const bool modern_usb =
+							is_virt_arch ||
+							effective_machine.contains( QLatin1String("q35"), Qt::CaseInsensitive ) ||
+							effective_machine.contains( QLatin1String("virt"), Qt::CaseInsensitive ) ||
+							USB_Hub ||
+							Current_Emulator_Devices.PSO_Device_USB_XHCI;
+
+						if( modern_usb )
+						{
+							if( ! usb_xhci_arg_added )
+							{
+								Args << "-device" << "qemu-xhci,id=aqemu_usb_hub";
+								usb_xhci_arg_added = true;
+							}
+							usbControllerID = QStringLiteral( "aqemu_usb_hub.0" );
+						}
 						// Add USB 3.0 controller if need
-						if( Current_Emulator_Devices.PSO_Device_USB_EHCI &&
+						else if( Current_Emulator_Devices.PSO_Device_USB_EHCI &&
 							current_USB_Device.Get_Speed().toInt() == 5000 )
 						{
 							if( ! usb_xhci_arg_added )
@@ -9470,7 +9449,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	if( VirtIO_RNG && ! AQ_Is_Apple_SoC_VM( this ) )
 	{
 		// Windows QEMU builds do not provide rng-random (/dev/urandom); use rng-builtin
-		#ifdef Q_OS_WIN32
+		#ifdef Q_OS_WIN
 		Args << "-object" << "rng-builtin,id=rng0";
 		#else
 		Args << "-object" << "rng-random,id=rng0,filename=/dev/urandom";
@@ -9501,9 +9480,9 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			mt == "virtio-tablet" || mt == "virtio-mouse";
 		const bool want_vmmouse = ( mt == "vmmouse" );
 
-		bool added_xhci = false;
+		bool added_xhci = usb_xhci_arg_added;
 		bool added_uhci = false;
-		QString usb_bus; // e.g. aqemu_mouse_xhci.0
+		QString usb_bus = added_xhci ? QStringLiteral( "aqemu_usb_hub.0" ) : QString();
 
 		auto ensure_usb_controller = [ & ]()
 		{
@@ -9575,9 +9554,10 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		{
 			Args << "-device" << "qemu-xhci,id=aqemu_usb_hub";
 			added_xhci = true;
+			usb_xhci_arg_added = true;
 			usb_bus = QStringLiteral( "aqemu_usb_hub.0" );
 			// Very old configs with USB_Hub but Mouse_Type still ps2 after a bad load:
-			// do not auto-add a second tablet here  Mouse_Type is authoritative.
+			// do not auto-add a second tablet here   Mouse_Type is authoritative.
 		}
 
 		// aarch64/virt has no PS/2; Win11 installer needs usb-kbd before virtio drivers.
@@ -11515,6 +11495,15 @@ void Virtual_Machine::Kill_Orphan_QEMU_Using_Disks()
 	QProcess wsl_killer;
 	wsl_killer.start( QStringLiteral( "wsl.exe" ), wsl_args );
 	wsl_killer.waitForFinished( 8000 );
+#elif defined(Q_OS_UNIX) && !defined(Q_OS_DARWIN)
+	for( const QString &d : disks )
+	{
+		if( d.isEmpty() )
+			continue;
+		QProcess fuser;
+		fuser.start( "fuser", QStringList() << "-k" << "-TERM" << d );
+		fuser.waitForFinished( 2000 );
+	}
 #else
 	Q_UNUSED( disks );
 #endif
@@ -13084,6 +13073,24 @@ void Virtual_Machine::Use_USB_Hub( bool use )
 	USB_Hub = use;
 }
 
+QString Virtual_Machine::Get_Primary_USB_Bus() const
+{
+	const bool modern_usb =
+		Computer_Type.contains( "aarch64", Qt::CaseInsensitive ) ||
+		Computer_Type.contains( "qemu-system-arm", Qt::CaseInsensitive ) ||
+		Machine_Type.contains( "q35", Qt::CaseInsensitive ) ||
+		Machine_Type.contains( "virt", Qt::CaseInsensitive ) ||
+		USB_Hub;
+
+	if( modern_usb )
+		return QStringLiteral( "aqemu_usb_hub.0" );
+
+	if( Current_Emulator_Devices.PSO_Device_USB_EHCI )
+		return QStringLiteral( "xhci.0" );
+
+	return QStringLiteral( "aqemu_usb_hub.0" );
+}
+
 void Virtual_Machine::Add_USB_Port( const VM_USB &u )
 {
 	USB_Ports.append( VM_USB(u) );
@@ -14397,27 +14404,39 @@ void Virtual_Machine::QEMU_Finished( int exitCode, QProcess::ExitStatus exitStat
 		}
 		else
 		{
-			QString error = QEMU_Stderr_History;
-			if( error.trimmed().isEmpty() )
-				error = QEMU_Stdout_History;
-			if( error.trimmed().isEmpty() )
+			QString error = QEMU_Stderr_History.trimmed();
+			if( error.isEmpty() )
 			{
-				if( exitStatus == QProcess::CrashExit )
+				if( exitCode == 137 || exitCode == -9 || exitCode == 9 )
 				{
-					error = tr( "QEMU crashed while starting or running this VM "
-					            "(Windows exit code 0x%1)." )
-						.arg( QString::number( static_cast<quint32>( exitCode ), 16 ).toUpper() );
+					error = tr( "QEMU was killed by the system (Out Of Memory / OOM killer).\n\n"
+					            "The host ran out of physical RAM. Windows 7 is configured with %1 MB of RAM, "
+					            "which exceeded available system memory.\n\n"
+					            "To prevent this, please lower the VM's assigned RAM (e.g. 3072 MB or 4096 MB) in General settings." )
+					        .arg( Memory_Size );
 				}
-				else
+				else if( exitStatus == QProcess::CrashExit )
+				{
+					error = tr( "QEMU crashed or was terminated unexpectedly (exit code %1)." )
+						.arg( exitCode );
+				}
+				else if( exitCode != 0 )
+				{
 					error = tr( "QEMU exited with code %1." ).arg( exitCode );
+				}
+				else if( ! QEMU_Stdout_History.trimmed().isEmpty() &&
+				         ! QEMU_Stdout_History.contains( "monitor - type 'help'" ) )
+				{
+					error = QEMU_Stdout_History.trimmed();
+				}
 			}
 			AQError( exitStatus == QProcess::CrashExit ? "QEMU Crashed!"
 			                                           : "QEMU return value != 0",
 			         error );
 			Show_QEMU_Error( error );
 			AQGraphic_Error( "Virtual_Machine::QEMU_Finished",
-			                 exitStatus == QProcess::CrashExit ? tr( "QEMU crashed" )
-			                                                   : tr( "QEMU failed to start" ),
+			                 ( exitCode == 137 || exitCode == -9 || exitCode == 9 ) ? tr( "Out of Memory" )
+			                 : ( exitStatus == QProcess::CrashExit ? tr( "QEMU crashed" ) : tr( "QEMU failed to start" ) ),
 			                 error, false );
 		}
 	}

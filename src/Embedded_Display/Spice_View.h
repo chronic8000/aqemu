@@ -49,6 +49,9 @@ class Spice_View : public Guest_Display_View
 		void Send_Shift_F10();
 		QString Backend_Name() const override;
 
+		QSize sizeHint() const override;
+		QSize minimumSizeHint() const override;
+
 		bool Spice_GTK_Available() const;
 		bool Spice_Available() const { return Spice_GTK_Available(); }
 

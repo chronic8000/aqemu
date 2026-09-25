@@ -1,3 +1,46 @@
+2026-09-25 Chronic Engineering — AQEMU 1.3.1 (Embedded Canvas Scaling & Dynamic USB Overhaul)
+
+	* Embedded Display Canvas Auto-Stretch & Scaling:
+	  - Fixed QEMU hardware scanout forcing bug: In embedded session mode, never
+	    append `,xres=...,yres=...` to virtio-gpu-pci / virtio-vga. Forcing scanout
+	    dimensions was locking the virtual GPU to a fixed buffer, causing guest
+	    VGA desktops (e.g. 1024x768) to be letterboxed with solid black borders
+	    and breaking in-guest resolution switching.
+	  - Map `virtio` on x86 PC/Q35 to `virtio-vga` instead of `virtio-gpu-pci` to
+	    ensure full legacy VGA register and mode switching compatibility during
+	    early boot and desktop transitions.
+	  - VncView & Spice_View: Removed aspect-ratio letterboxing clamping; views now
+	    unconditionally stretch the guest frame across the full widget canvas
+	    (`painter.drawImage( rect(), frame, frame.rect() )`).
+	  - Implemented `sizeHint()` and `minimumSizeHint()` returning `QSize(1, 1)`
+	    along with `QSizePolicy::Expanding` across display widgets and containers
+	    to allow dynamic resizing without minimum-size locking.
+	  - MachineView (QScrollArea): Disabled scrollbars (`Qt::ScrollBarAlwaysOff`),
+	    set `Qt::AlignLeft | Qt::AlignTop` with zeroed margins, and explicitly
+	    resize and position `View` at `(0, 0, width, height)` on all resize events.
+	  - Synchronized VM_Session_Widget: Viewport geometry is immediately propagated
+	    to embedded views during window resize, maximize, and fullscreen switches.
+	  - Input coordinate transformation: Dynamic pointer matrix maps host widget
+	    coordinates directly to guest framebuffer width/height with boundary clamping.
+
+	* USB Passthrough & Hotplug Overhaul:
+	  - Automatic modern USB 3.0 XHCI hub (`aqemu_usb_hub.0`) injection for x86 (Q35)
+	    and ARM (virt) architectures, replacing legacy EHCI/UHCI speed matching bugs.
+	  - Asynchronous, tracked QMP USB hotplugging (`device_add` and `device_del`)
+	    with error handling, non-blocking UI, and dynamic status labels in toolbar.
+	  - Added safety warning when attempting to pass through primary host input devices
+	    (keyboards/mice) to prevent host lockouts.
+	  - Host USB device enumeration: Full `/sys/bus/usb/devices` fallback handling
+	    for composite devices, multi-interface hardware, and host-based printers
+	    (such as Ricoh SP 211 / DDST GDI printers).
+
+	* Multiplatform & Build System:
+	  - Added CMake toolchain profile for Windows on ARM (`resources/cmake/toolchains/generic-win-arm64.cmake`).
+	  - Updated Meson build configuration for Raspberry Pi 5 ARM64 optimizations.
+	  - Added Out-of-Memory (OOM-killer, exit code 137/-9) diagnostics and ram-tuning
+	    guidance in `Virtual_Machine::QEMU_Finished`.
+	  - Added `*.bz2` to `.gitignore` to prevent generated documentation archives from polluting tree.
+
 2026-08-08 Chronic Engineering — AQEMU 1.3.0 (Apple SoC Inferno + Reims WSL)
 
 	* Version bump to 1.3.0 across code, MSI/MSIX, WiX, and packaging docs.

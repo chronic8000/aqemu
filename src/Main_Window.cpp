@@ -77,7 +77,7 @@
 #include <QSpacerItem>
 #include <QGroupBox>
 #include <QTabBar>
-#ifndef Q_OS_WIN32
+#ifndef Q_OS_WIN
 #include <QtDBus>
 #endif
 
@@ -308,7 +308,7 @@ Main_Window::Main_Window( QWidget *parent )
 		Settings.setValue( "Embedded_Display_Backend", "spice" );
 #endif
 	}
-#ifdef Q_OS_WIN32
+#ifdef Q_OS_WIN
 	// Migrate existing installs off spice-client-glib (process crashes on channel errors).
 	if( Settings.value( "Embedded_Display_Backend" ).toString().toLower() == QLatin1String( "spice" ) )
 		Settings.setValue( "Embedded_Display_Backend", "vnc" );
@@ -518,7 +518,7 @@ Main_Window::Main_Window( QWidget *parent )
     block_VM_changed_signals = false;
 
 	Init_System_Tray();
-#ifdef Q_OS_WIN32
+#ifdef Q_OS_WIN
 	QTimer::singleShot( 0, this, [this]() { Maybe_Prompt_WSL_Config_On_Boot(); } );
 #endif
 }
@@ -619,7 +619,7 @@ void Main_Window::Hide_To_Tray()
 
 void Main_Window::init_dbus()
 {
-#ifndef Q_OS_WIN32
+#ifndef Q_OS_WIN
     //dbus listening stuff
 
     if (!QDBusConnection::sessionBus().isConnected()) {
@@ -658,7 +658,7 @@ Main_Window::~Main_Window()
     delete Media_Settings_Widget;
     delete SMP_Settings;
 
-#ifndef Q_OS_WIN32
+#ifndef Q_OS_WIN
     QDBusConnection::sessionBus().unregisterService("org.aqemu.main_window");
 #endif
 }
@@ -3588,7 +3588,7 @@ void Main_Window::Enter_Session_Mode( Virtual_Machine *vm )
 		? vm->Get_Embedded_VNC_Port()
 		: ( vm->Get_Embedded_Display_Port() + Settings.value( "First_VNC_Port", "5910" ).toString().toInt() );
 	QString backend = Settings.value( "Embedded_Display_Backend", "vnc" ).toString();
-#ifdef Q_OS_WIN32
+#ifdef Q_OS_WIN
 	if( backend.toLower() == QLatin1String( "spice" ) )
 		backend = QStringLiteral( "vnc" );
 #endif
@@ -3616,7 +3616,7 @@ void Main_Window::Enter_Session_Mode_Preparing( Virtual_Machine *vm )
 	ui.Tool_Bar_VM_Control->setVisible( false );
 
 	QString backend = Settings.value( "Embedded_Display_Backend", "vnc" ).toString();
-#ifdef Q_OS_WIN32
+#ifdef Q_OS_WIN
 	if( backend.toLower() == QLatin1String( "spice" ) )
 		backend = QStringLiteral( "vnc" );
 #endif
@@ -6142,7 +6142,7 @@ void Main_Window::Computer_Type_Changed()
 		if( ! select_cpu( keep_cpu_caption ) && is_virt_arch )
 		{
 			QString prefer_cpu =
-			#ifdef Q_OS_WIN32
+			#ifdef Q_OS_WIN
 				QStringLiteral( "max" );
 			#else
 				QStringLiteral( "host" );
@@ -6462,7 +6462,7 @@ void Main_Window::slot_Apple_SoC_Device_Tools_triggered()
 
 void Main_Window::Maybe_Prompt_WSL_Config_On_Boot()
 {
-#ifdef Q_OS_WIN32
+#ifdef Q_OS_WIN
 	const QString distro = Settings.value( QStringLiteral( "WSL_Launch/Distro" ), QString() ).toString();
 	const QString user = Settings.value( QStringLiteral( "WSL_Launch/Username" ), QString() ).toString();
 	if( ! distro.trimmed().isEmpty() && WSL_Is_Valid_Username( user ) )
@@ -7325,7 +7325,7 @@ void Main_Window::on_Button_VirtIO_Defaults_clicked()
 
 	// CPU: max (or host on Linux)
 	QString prefer =
-	#ifdef Q_OS_WIN32
+	#ifdef Q_OS_WIN
 		"max";
 	#else
 		"host";
@@ -7649,7 +7649,7 @@ void Main_Window::Apply_Intel_Mac_GPU_Passthrough_Ui_From_Cache()
 				vendors = tr( "scanning…" );
 		}
 
-#ifdef Q_OS_WIN32
+#ifdef Q_OS_WIN
 		const QString vk = WSL_Probe_Accelerated_Vulkan_GPU(
 			QSettings().value( QStringLiteral( "WSL_Launch/Distro" ), QString() ).toString() );
 		const QStringList vk_all = WSL_List_Accelerated_Vulkan_GPUs(
@@ -8048,7 +8048,7 @@ void Main_Window::on_Button_Delete_Redirections_clicked()
 void Main_Window::Update_Current_Redirection_Item()
 {
 	// Port < 1024
-	#ifndef Q_OS_WIN32
+	#ifndef Q_OS_WIN
 	if( ui.SB_Redir_Port->value() < 1024 &&
 		Settings.value("Ignore_Redirection_Port_Varning", "no").toString() == "no" )
 	{

@@ -185,7 +185,7 @@ static bool Ensure_Raw_Image( const QString &path, qint64 size_bytes, QString *e
 	}
 	f.close();
 
-#ifdef Q_OS_WIN32
+#ifdef Q_OS_WIN
 	// Mark sparse before sizing so multi-GiB logical size does not fill the disk.
 	QProcess fsutil;
 	fsutil.start( QStringLiteral( "fsutil" ),
@@ -346,7 +346,7 @@ static bool Root_Image_Needs_Placeholder_Gpt( const QString &path )
 	return name.isEmpty() || name == QLatin1String( kSeedPartName );
 }
 
-#ifdef Q_OS_WIN32
+#ifdef Q_OS_WIN
 static QString Shell_Single_Quote( const QString &raw )
 {
 	QString s = raw;
@@ -651,7 +651,7 @@ static bool Seed_Root_Placeholder_Gpt( const QString &path, QString *error_out, 
 		return false;
 	}
 	f.close();
-#ifdef Q_OS_WIN32
+#ifdef Q_OS_WIN
 	// mkapfs is best-effort. Never block Power On if WSL/git/loop fails.
 	Format_Seed_Apfs_Via_Wsl( path, nullptr );
 #endif

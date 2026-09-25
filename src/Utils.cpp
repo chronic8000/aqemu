@@ -51,7 +51,7 @@
 #include <unistd.h>
 #endif
 
-#ifdef Q_OS_WIN32
+#ifdef Q_OS_WIN
 #include <iostream>
 #include <windows.h>
 HANDLE Console_HANDLE = GetStdHandle( STD_OUTPUT_HANDLE );
@@ -98,7 +98,7 @@ void AQEMU_Startup_Log( const char *stage )
 		return;
 	std::cout << "[AQEMU] " << stage << std::endl;
 	std::cout.flush();
-#ifdef Q_OS_WIN32
+#ifdef Q_OS_WIN
 	if( Console_HANDLE != INVALID_HANDLE_VALUE )
 		SetConsoleTextAttribute( Console_HANDLE, 7 );
 #endif
@@ -265,7 +265,7 @@ QString AQEMU_User_Data_Dir()
 	QString root = QStandardPaths::writableLocation( QStandardPaths::AppLocalDataLocation );
 	if( root.isEmpty() )
 	{
-		#ifdef Q_OS_WIN32
+		#ifdef Q_OS_WIN
 		root = QDir::homePath() + QStringLiteral( "/AppData/Local/aqemu/AQEMU" );
 		#else
 		root = QDir::homePath() + QStringLiteral( "/.local/share/AQEMU" );
@@ -308,7 +308,7 @@ bool AQEMU_Path_Is_Install_Dir( const QString &path )
 void AQEMU_Ensure_Writable_User_Paths( QSettings &settings )
 {
 	QString vm_dir = settings.value( QStringLiteral( "VM_Directory" ), QString() ).toString().trimmed();
-	#ifdef Q_OS_WIN32
+	#ifdef Q_OS_WIN
 	// Store / Windows: default VMs under AppData (never next to the exe / WindowsApps).
 	if( vm_dir.isEmpty() || AQEMU_Path_Is_Install_Dir( vm_dir ) ||
 	    vm_dir == QLatin1String( "~" ) )
@@ -1166,6 +1166,69 @@ QString AQ_Qemu_Drive_File_Key( const QString &path )
 	return QStringLiteral( "file=%1" ).arg( p );
 }
 
+QString AQ_Pick_Host_Audio_Backend( const QString &qemu_binary, const QString &preferred )
+{
+	static QMap<QString, QStringList> cache;
+	const QString qemu = qemu_binary.trimmed();
+	if( qemu.isEmpty() )
+		return QStringLiteral( "none" );
+
+	QStringList supported;
+	if( cache.contains( qemu ) )
+	{
+		supported = cache.value( qemu );
+	}
+	else
+	{
+		QProcess p;
+		p.start( qemu, QStringList() << QStringLiteral( "-audiodev" ) << QStringLiteral( "help" ) );
+		if( p.waitForFinished( 2000 ) )
+		{
+			QString out = QString::fromUtf8( p.readAllStandardOutput() );
+			if( out.isEmpty() )
+				out = QString::fromUtf8( p.readAllStandardError() );
+			const QStringList lines = out.split( QRegularExpression( QStringLiteral( "[\\r\\n]+" ) ),
+			                                     QString::SkipEmptyParts );
+			for( const QString &line : lines )
+			{
+				const QString t = line.trimmed().toLower();
+				if( t.isEmpty() || t.contains( QLatin1Char( ' ' ) ) ||
+				    t.startsWith( QLatin1String( "available" ) ) )
+					continue;
+				supported << t;
+			}
+		}
+		cache.insert( qemu, supported );
+	}
+
+	if( supported.isEmpty() )
+		return QStringLiteral( "none" );
+
+	const QString pref = preferred.trimmed().toLower();
+	if( ! pref.isEmpty() && supported.contains( pref ) )
+		return pref;
+
+	const QStringList priority = {
+		QStringLiteral( "pa" ),
+		QStringLiteral( "pipewire" ),
+		QStringLiteral( "alsa" ),
+		QStringLiteral( "sdl" ),
+		QStringLiteral( "dsound" ),
+		QStringLiteral( "spice" ),
+		QStringLiteral( "oss" ),
+		QStringLiteral( "wav" ),
+		QStringLiteral( "none" )
+	};
+
+	for( const QString &driver : priority )
+	{
+		if( supported.contains( driver ) )
+			return driver;
+	}
+
+	return supported.first();
+}
+
 bool AQ_Is_Apple_Partition_Map_Image( const QString &path )
 {
 	QFile f( AQ_Normalize_File_Path( path ) );
@@ -1528,7 +1591,7 @@ QString Get_Last_Dir_Path( const QString &path )
 
 bool It_Host_Device( const QString &path )
 {
-	#ifdef Q_OS_WIN32
+	#ifdef Q_OS_WIN
 	// FIXME
 	return false;
 	#else
@@ -1542,7 +1605,7 @@ void Check_AQEMU_Permissions()
 	QSettings settings;
 	QFileInfo test_perm;
 	
-	#ifndef Q_OS_WIN32
+	#ifndef Q_OS_WIN
 	// This Section For Unix Like OS.
 	test_perm = QFileInfo( settings.fileName() );
 	
@@ -2836,3 +2899,22 @@ QString AQ_Resolve_Host_Tool( const QString &settings_key,
 	}
 	return QString();
 }
+
+QString Get_Binary_Extension()
+{
+#ifdef Q_OS_WIN
+	return QStringLiteral( ".exe" );
+#else
+	return QString();
+#endif
+}
+
+bool Is_Native_KVM_Available()
+{
+#ifdef Q_OS_LINUX
+	return QFile::exists( QStringLiteral( "/dev/kvm" ) ) && QFileInfo( QStringLiteral( "/dev/kvm" ) ).isWritable();
+#else
+	return false;
+#endif
+}
+

@@ -17,7 +17,7 @@
 #include <QTextCodec>
 #include <QSettings>
 
-#ifdef Q_OS_WIN32
+#ifdef Q_OS_WIN
 
 namespace {
 
@@ -1084,7 +1084,7 @@ QString WSL_Pick_Audio_Backend( const QString &distro,
 	return QStringLiteral( "none" );
 }
 
-#else // ! Q_OS_WIN32
+#else // ! Q_OS_WIN
 
 void WSL_Clear_Probe_Cache() {}
 bool WSL_Is_Available( bool ) { return false; }
@@ -1093,6 +1093,8 @@ bool WSL_Ensure_KVM_Access( const QString & ) { return false; }
 bool WSL_Run_Privileged_Script( const QString &, const QString &, int ) { return false; }
 QString WSL_Sanitize_Username( const QString & ) { return QString(); }
 bool WSL_Is_Valid_Username( const QString & ) { return false; }
+QStringList WSL_Get_Installed_Distros() { return QStringList(); }
+QString WSL_Get_Distro_Default_User( const QString & ) { return QString(); }
 QString Windows_Path_To_WSL( const QString &windows_path ) { return windows_path; }
 QStringList Rewrite_Args_For_WSL( const QStringList &win_args ) { return win_args; }
 QStringList Build_WSL_Launch_Args( const QString &, const QString &, const QStringList &qemu_args )
