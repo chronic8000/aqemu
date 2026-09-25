@@ -234,6 +234,7 @@ prep = qt5.preprocess(
 q5exe = executable('aqemu',
                     sources : [aqemu_sources, prep],
                     dependencies : [qt5dep, vncclient],
+                    win_subsystem : 'windows',
                     include_directories : incdir, install : true)
 
 install_man('resources/docs/aqemu.1')

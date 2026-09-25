@@ -490,6 +490,68 @@
      </item>
     </widget>
    </item>
+   <item row="10" column="0">
+    <widget class="QCheckBox" name="CH_Block_Size">
+     <property name="text">
+      <string>&amp;Block Size (Sectors)</string>
+     </property>
+     <property name="toolTip">
+      <string>Sector block sizes: 512 for legacy disks, 4096 for 4Kn Advanced Format / NVMe drives.</string>
+     </property>
+    </widget>
+   </item>
+   <item row="10" column="2" colspan="3">
+    <layout class="QHBoxLayout" name="horizontalLayout_BlockSize">
+     <item>
+      <widget class="QLabel" name="Label_Logical_Block_Size">
+       <property name="text">
+        <string>Logical:</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QComboBox" name="CB_Logical_Block_Size">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
+       <item>
+        <property name="text">
+         <string>512</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>4096</string>
+        </property>
+       </item>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="Label_Physical_Block_Size">
+       <property name="text">
+        <string>Physical:</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QComboBox" name="CB_Physical_Block_Size">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
+       <item>
+        <property name="text">
+         <string>512</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>4096</string>
+        </property>
+       </item>
+      </widget>
+     </item>
+    </layout>
+   </item>
   </layout>
  </widget>
  <customwidgets>
@@ -753,6 +815,18 @@
      <y>368</y>
     </hint>
    </hints>
+  </connection>
+  <connection>
+   <sender>CH_Block_Size</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>CB_Logical_Block_Size</receiver>
+   <slot>setEnabled(bool)</slot>
+  </connection>
+  <connection>
+   <sender>CH_Block_Size</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>CB_Physical_Block_Size</receiver>
+   <slot>setEnabled(bool)</slot>
   </connection>
  </connections>
 </ui>

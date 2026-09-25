@@ -5763,7 +5763,11 @@ void Main_Window::on_actionManage_Snapshots_triggered()
 
 void Main_Window::on_actionShow_QEMU_Arguments_triggered()
 {
+#ifdef Q_OS_WIN
+	if( VM_List.count() > 0 ) QMessageBox::information( this, tr("QEMU Arguments:"), Get_QEMU_Args().replace(" -"," ^\n    -") );
+#else
 	if( VM_List.count() > 0 ) QMessageBox::information( this, tr("QEMU Arguments:"), Get_QEMU_Args().replace(" -"," \\\n    -") );
+#endif
 	else QMessageBox::information( this, tr("QEMU Arguments:"), tr("No VM Found!") );
 }
 
@@ -5780,28 +5784,77 @@ void Main_Window::on_actionCreate_Shell_Script_triggered()
 		return;
 	}
 
-	QString script_code = "#!/bin/sh\n# This script was created by AQEMU\n" + Get_Current_Binary_Name();
-	QStringList all_args = cur_vm->Build_QEMU_Args_For_Script();
+#ifdef Q_OS_WIN
+	const QString filter_str = tr("Batch Script (*.bat);;PowerShell Script (*.ps1);;Shell Script (*.sh);;All Files (*)");
+	const QString default_ext = QStringLiteral(".bat");
+#else
+	const QString filter_str = tr("Shell Script Files (*.sh);;Batch Script (*.bat);;PowerShell Script (*.ps1);;All Files (*)");
+	const QString default_ext = QStringLiteral(".sh");
+#endif
 
-	for( int ix = 0; ix < all_args.count(); ix++ ) script_code += " " + all_args[ ix ];
-
-	script_code = script_code.remove( "-monitor stdio" );
-
-	// Save Script
 	QString selectedFilter = "";
 	QString fileName = QFileDialog::getSaveFileName( this, tr("Save VM to Script"),
-											 "VM_" + Get_FS_Compatible_VM_Name(cur_vm->Get_Machine_Name()),
-											 tr("Shell Script Files (*.sh);;All Files (*)") );
+											 "VM_" + Get_FS_Compatible_VM_Name(cur_vm->Get_Machine_Name()) + default_ext,
+											 filter_str, &selectedFilter );
 
 	if( ! fileName.isEmpty() )
 	{
 		fileName = QDir::toNativeSeparators( fileName );
 
-		// Save to File
-		if( selectedFilter.indexOf("(*.sh)") >= 0 &&
-			fileName.endsWith(".sh") == false )
-		{
+		if( selectedFilter.contains("*.bat") && ! fileName.endsWith(".bat", Qt::CaseInsensitive) && ! fileName.endsWith(".cmd", Qt::CaseInsensitive) )
+			fileName += ".bat";
+		else if( selectedFilter.contains("*.ps1") && ! fileName.endsWith(".ps1", Qt::CaseInsensitive) )
+			fileName += ".ps1";
+		else if( selectedFilter.contains("*.sh") && ! fileName.endsWith(".sh", Qt::CaseInsensitive) )
 			fileName += ".sh";
+
+		QStringList all_args = cur_vm->Build_QEMU_Args_For_Script();
+		all_args.removeAll( QStringLiteral("-monitor") );
+		all_args.removeAll( QStringLiteral("stdio") );
+
+		QString script_code;
+		const QString bin_path = Get_Current_Binary_Name();
+
+		if( fileName.endsWith(".bat", Qt::CaseInsensitive) || fileName.endsWith(".cmd", Qt::CaseInsensitive) )
+		{
+			const QString native_bin = QDir::toNativeSeparators( bin_path );
+			script_code = QStringLiteral("@echo off\r\nREM This script was created by AQEMU\r\n\"") + native_bin + QStringLiteral("\"");
+			for( int ix = 0; ix < all_args.count(); ix++ )
+			{
+				QString arg = all_args[ix];
+				if( arg.startsWith('-') )
+					script_code += QStringLiteral(" ^\r\n    ") + arg;
+				else
+					script_code += QStringLiteral(" ") + arg;
+			}
+			script_code += QStringLiteral(" %*\r\n");
+		}
+		else if( fileName.endsWith(".ps1", Qt::CaseInsensitive) )
+		{
+			const QString native_bin = QDir::toNativeSeparators( bin_path );
+			script_code = QStringLiteral("# This script was created by AQEMU\r\n& \"") + native_bin + QStringLiteral("\"");
+			for( int ix = 0; ix < all_args.count(); ix++ )
+			{
+				QString arg = all_args[ix];
+				if( arg.startsWith('-') )
+					script_code += QStringLiteral(" `\r\n    ") + arg;
+				else
+					script_code += QStringLiteral(" ") + arg;
+			}
+			script_code += QStringLiteral(" @args\r\n");
+		}
+		else
+		{
+			script_code = QStringLiteral("#!/bin/sh\n# This script was created by AQEMU\n\"") + bin_path + QStringLiteral("\"");
+			for( int ix = 0; ix < all_args.count(); ix++ )
+			{
+				QString arg = all_args[ix];
+				if( arg.startsWith('-') )
+					script_code += QStringLiteral(" \\\n    ") + arg;
+				else
+					script_code += QStringLiteral(" ") + arg;
+			}
+			script_code += QStringLiteral(" \"$@\"\n");
 		}
 
 		QFile scriptFile( fileName );
@@ -5814,8 +5867,8 @@ void Main_Window::on_actionCreate_Shell_Script_triggered()
 		}
 
 		QTextStream out( &scriptFile );
-		out << script_code << " \"$@\"\n";
-		
+		out << script_code;
+
 		// Set File Permissions
 		scriptFile.setPermissions( scriptFile.permissions() | QFile::ExeOwner | QFile::ExeUser );
 	}

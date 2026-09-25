@@ -160,6 +160,119 @@ if (-not (Test-Path $shareBios)) {
     }
 }
 
+# Ensure runtime DLL dependencies are fully bundled (GCC, Qt, GLib, QEMU deps)
+Write-Host "Checking runtime DLL dependencies for MS Store / MSIX sandbox..."
+$binSearchDirs = @()
+if ($env:MSYSTEM_PREFIX -and (Test-Path (Join-Path $env:MSYSTEM_PREFIX "bin"))) {
+    $binSearchDirs += (Join-Path $env:MSYSTEM_PREFIX "bin")
+}
+foreach ($cand in @(
+    "C:\msys64\ucrt64\bin",
+    "C:\msys64\mingw64\bin",
+    "C:\msys64\clang64\bin"
+)) {
+    if ((Test-Path $cand) -and ($binSearchDirs -notcontains $cand)) {
+        $binSearchDirs += $cand
+    }
+}
+foreach ($p in ($env:PATH -split ";")) {
+    if ($p -and (Test-Path $p) -and ($binSearchDirs -notcontains $p)) {
+        if ((Test-Path (Join-Path $p "libwinpthread-1.dll")) -or (Test-Path (Join-Path $p "Qt5Core.dll"))) {
+            $binSearchDirs += $p
+        }
+    }
+}
+
+# Run windeployqt if available to collect Qt plugins (platforms, styles) and Qt DLLs
+$windeployqt = $null
+foreach ($d in $binSearchDirs) {
+    $wdq = Join-Path $d "windeployqt.exe"
+    if (Test-Path $wdq) {
+        $windeployqt = $wdq
+        break
+    }
+}
+if ($windeployqt) {
+    Write-Host "Running windeployqt: $windeployqt ..."
+    & $windeployqt --no-translations --compiler-runtime (Join-Path $layoutDir "aqemu.exe") 2>&1 | Out-Null
+}
+
+# Explicit list of standard MinGW / GCC / QEMU runtime DLLs
+$essentialDlls = @(
+    "libwinpthread-1.dll", "libgcc_s_seh-1.dll", "libstdc++-6.dll", "libgomp-1.dll",
+    "libglib-2.0-0.dll", "libgthread-2.0-0.dll", "libgobject-2.0-0.dll", "libgio-2.0-0.dll", "libgmodule-2.0-0.dll",
+    "libintl-8.dll", "libiconv-2.dll", "libpcre2-8-0.dll", "libpixman-1-0.dll",
+    "zlib1.dll", "libpng16-16.dll", "libjpeg-8.dll",
+    "libslirp-0.dll", "libusb-1.0.0.dll", "libusbredirparser-1.dll",
+    "libepoxy-0.dll", "libffi-8.dll", "libbrotlidec.dll", "libbrotlicommon.dll",
+    "libspice-client-glib-2.0-8.dll", "libspice-client-gtk-3.0-5.dll", "libspice-server-1.dll"
+)
+
+foreach ($dll in $essentialDlls) {
+    $dest = Join-Path $layoutDir $dll
+    if (-not (Test-Path $dest)) {
+        foreach ($d in $binSearchDirs) {
+            $src = Join-Path $d $dll
+            if (Test-Path $src) {
+                Copy-Item $src $dest -Force
+                Write-Host "Bundled runtime DLL: $dll"
+                break
+            }
+        }
+    }
+}
+
+# Recursive PE import scan: ensure every imported DLL is present or in System32
+$knownSysDlls = @(
+    "KERNEL32.DLL", "USER32.DLL", "GDI32.DLL", "ADVAPI32.DLL", "SHELL32.DLL", "OLE32.DLL",
+    "OLEAUT32.DLL", "COMCTL32.DLL", "COMDLG32.DLL", "WS2_32.DLL", "SHLWAPI.DLL", "VERSION.DLL",
+    "IMM32.DLL", "WINMM.DLL", "UXTHEME.DLL", "DWMAPI.DLL", "IPHLPAPI.DLL", "DNSAPI.DLL",
+    "NETAPI32.DLL", "SECUR32.DLL", "CRYPT32.DLL", "BCRYPT.DLL", "NCRYPT.DLL", "USERENV.DLL",
+    "WTSAPI32.DLL", "SETUPAPI.DLL", "WINHTTP.DLL", "WININET.DLL", "OPENGL32.DLL", "GLU32.DLL",
+    "POWRPROF.DLL", "MSVCRT.DLL", "UCRTBASE.DLL", "NTDLL.DLL"
+)
+
+$checkedFiles = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+$missingDlls = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+
+function Resolve-PEImports([string] $filePath) {
+    if (-not (Test-Path $filePath) -or ($checkedFiles.Contains($filePath))) { return }
+    $checkedFiles.Add($filePath) | Out-Null
+    try {
+        $bytes = [System.IO.File]::ReadAllBytes($filePath)
+        $text = [System.Text.Encoding]::ASCII.GetString($bytes)
+        $matches = [regex]::Matches($text, '[A-Za-z0-9_\-\.]+\.dll', [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+        foreach ($m in $matches) {
+            $dllName = $m.Value
+            if ($knownSysDlls -contains $dllName.ToUpperInvariant()) { continue }
+            if ($dllName.StartsWith("api-ms-win-") -or $dllName.StartsWith("ext-ms-win-")) { continue }
+            $inLayout = Join-Path $layoutDir $dllName
+            if (-not (Test-Path $inLayout)) {
+                $found = $false
+                foreach ($d in $binSearchDirs) {
+                    $cand = Join-Path $d $dllName
+                    if (Test-Path $cand) {
+                        Copy-Item $cand $inLayout -Force
+                        Write-Host "Auto-resolved dependency: $dllName"
+                        $found = $true
+                        Resolve-PEImports $inLayout
+                        break
+                    }
+                }
+                if (-not $found) {
+                    $missingDlls.Add($dllName) | Out-Null
+                }
+            }
+        }
+    } catch {}
+}
+
+# Scan aqemu.exe and all qemu-system-*.exe
+Get-ChildItem $layoutDir -Filter "*.exe" | ForEach-Object { Resolve-PEImports $_.FullName }
+if ($missingDlls.Count -gt 0) {
+    Write-Warning ("Layout may be missing {0} runtime DLL(s): {1}" -f $missingDlls.Count, ($missingDlls -join ", "))
+}
+
 $qemuSystems = @(Get-ChildItem (Join-Path $layoutDir "qemu-system-*.exe") -ErrorAction SilentlyContinue)
 Write-Host ("Staged qemu-system-* count: {0}" -f $qemuSystems.Count)
 if ($qemuSystems.Count -lt 10) {

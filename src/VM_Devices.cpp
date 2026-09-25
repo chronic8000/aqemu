@@ -1652,6 +1652,11 @@ VM_Native_Storage_Device::VM_Native_Storage_Device()
 	AIO = "threads";
 	UBoot = false;
 	Boot = false;
+	UDiscard = false;
+	Discard = false;
+	UBlock_Size = false;
+	Logical_Block_Size = 512;
+	Physical_Block_Size = 512;
 }
 
 VM_Native_Storage_Device::VM_Native_Storage_Device( const VM_Native_Storage_Device &sd )
@@ -1682,6 +1687,9 @@ VM_Native_Storage_Device::VM_Native_Storage_Device( const VM_Native_Storage_Devi
 	Boot = sd.Get_Boot();
 	UDiscard = sd.Use_Discard();
 	Discard = sd.Get_Discard();
+	UBlock_Size = sd.Use_Block_Size();
+	Logical_Block_Size = sd.Get_Logical_Block_Size();
+	Physical_Block_Size = sd.Get_Physical_Block_Size();
 }
 
 bool VM_Native_Storage_Device::Get_Native_Mode() const
@@ -1696,6 +1704,8 @@ bool VM_Native_Storage_Device::Get_Native_Mode() const
 	if( UInterface ) return true;
 	if( UMedia ) return true;
 	if( USnapshot ) return true;
+	if( UDiscard ) return true;
+	if( UBlock_Size ) return true;
 	
 	// Nativ device options not used
 	return false;
@@ -1734,7 +1744,10 @@ bool VM_Native_Storage_Device::operator==( const VM_Native_Storage_Device &sd ) 
 		UBoot == sd.Use_Boot() &&
 		Boot == sd.Get_Boot() &&
 		UDiscard == sd.Use_Discard() &&
-		Discard == sd.Get_Discard() )
+		Discard == sd.Get_Discard() &&
+		UBlock_Size == sd.Use_Block_Size() &&
+		Logical_Block_Size == sd.Get_Logical_Block_Size() &&
+		Physical_Block_Size == sd.Get_Physical_Block_Size() )
 	{
 		return true;
 	}
@@ -2008,6 +2021,36 @@ bool VM_Native_Storage_Device::Get_Discard() const
 void VM_Native_Storage_Device::Set_Discard( bool discard )
 {
 	Discard = discard;
+}
+
+bool VM_Native_Storage_Device::Use_Block_Size() const
+{
+	return UBlock_Size;
+}
+
+void VM_Native_Storage_Device::Use_Block_Size( bool use )
+{
+	UBlock_Size = use;
+}
+
+int VM_Native_Storage_Device::Get_Logical_Block_Size() const
+{
+	return Logical_Block_Size;
+}
+
+void VM_Native_Storage_Device::Set_Logical_Block_Size( int bytes )
+{
+	Logical_Block_Size = bytes;
+}
+
+int VM_Native_Storage_Device::Get_Physical_Block_Size() const
+{
+	return Physical_Block_Size;
+}
+
+void VM_Native_Storage_Device::Set_Physical_Block_Size( int bytes )
+{
+	Physical_Block_Size = bytes;
 }
 
 //===========================================================================

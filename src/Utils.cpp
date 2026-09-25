@@ -606,14 +606,28 @@ QString QEMU_IMG_Format_Help_Text( const QStringList &formats )
 	return text;
 }
 
-QString AQ_Get_Bundled_QEMU_Dir()
+static bool AQ_Dir_Contains_QEMU( const QString &dir_path )
 {
-	const QString app_dir = QDir::cleanPath( QCoreApplication::applicationDirPath() );
+	if( dir_path.isEmpty() )
+		return false;
 #ifdef Q_OS_WIN32
 	const QString suf = QStringLiteral( ".exe" );
 #else
 	const QString suf;
 #endif
+	const QString d = QDir::toNativeSeparators( dir_path );
+	const QString marker = d + QDir::separator() + QStringLiteral( "qemu-system-x86_64" ) + suf;
+	const QString marker2 = d + QDir::separator() + QStringLiteral( "qemu-system-i386" ) + suf;
+	const QString marker3 = d + QDir::separator() + QStringLiteral( "qemu-system-aarch64" ) + suf;
+	const QString marker4 = d + QDir::separator() + QStringLiteral( "qemu-system-applesoc" ) + suf;
+	const QString marker5 = d + QDir::separator() + QStringLiteral( "qemu-system-reims3d" );
+	return QFile::exists( marker ) || QFile::exists( marker2 ) || QFile::exists( marker3 ) ||
+	       QFile::exists( marker4 ) || QFile::exists( marker5 );
+}
+
+QString AQ_Get_Bundled_QEMU_Dir()
+{
+	const QString app_dir = QDir::cleanPath( QCoreApplication::applicationDirPath() );
 	QStringList probes = QStringList()
 		<< app_dir
 		<< ( app_dir + QDir::separator() + QStringLiteral( "qemu" ) )
@@ -621,25 +635,10 @@ QString AQ_Get_Bundled_QEMU_Dir()
 		<< QDir::cleanPath( app_dir + QStringLiteral( "/.." ) )
 		<< QDir::cleanPath( app_dir + QStringLiteral( "/../qemu" ) );
 
-#ifdef Q_OS_WIN32
-	probes << QStringLiteral( "C:/Program Files/qemu" )
-	       << QStringLiteral( "C:/Program Files (x86)/qemu" );
-#else
-	probes << QStringLiteral( "/usr/bin" )
-	       << QStringLiteral( "/usr/local/bin" );
-#endif
-
 	for( int i = 0; i < probes.count(); ++i )
 	{
 		const QString d = QDir::toNativeSeparators( probes[i] );
-		const QString marker = d + QDir::separator() + QStringLiteral( "qemu-system-x86_64" ) + suf;
-		const QString marker2 = d + QDir::separator() + QStringLiteral( "qemu-system-i386" ) + suf;
-		const QString marker3 = d + QDir::separator() + QStringLiteral( "qemu-system-aarch64" ) + suf;
-		const QString marker4 = d + QDir::separator() + QStringLiteral( "qemu-system-applesoc" ) + suf;
-		// Prefer real Linux Reims ELF as a bundle marker; Windows reimsvgpu.exe alone is incomplete.
-		const QString marker5 = d + QDir::separator() + QStringLiteral( "qemu-system-reims3d" );
-		if( QFile::exists( marker ) || QFile::exists( marker2 ) || QFile::exists( marker3 ) ||
-		    QFile::exists( marker4 ) || QFile::exists( marker5 ) )
+		if( AQ_Dir_Contains_QEMU( d ) )
 		{
 			return d.endsWith( QDir::separator() ) ? d : ( d + QDir::separator() );
 		}
@@ -650,6 +649,40 @@ QString AQ_Get_Bundled_QEMU_Dir()
 bool AQ_Has_Bundled_QEMU()
 {
 	return ! AQ_Get_Bundled_QEMU_Dir().isEmpty();
+}
+
+QString AQ_Get_System_QEMU_Dir()
+{
+	QStringList probes;
+#ifdef Q_OS_WIN32
+	probes << QStringLiteral( "C:/Program Files/qemu" )
+	       << QStringLiteral( "C:/Program Files (x86)/qemu" );
+#else
+	probes << QStringLiteral( "/usr/bin" )
+	       << QStringLiteral( "/usr/local/bin" );
+#endif
+	for( int i = 0; i < probes.count(); ++i )
+	{
+		const QString d = QDir::toNativeSeparators( probes[i] );
+		if( AQ_Dir_Contains_QEMU( d ) )
+		{
+			return d.endsWith( QDir::separator() ) ? d : ( d + QDir::separator() );
+		}
+	}
+	return QString();
+}
+
+bool AQ_Has_System_QEMU()
+{
+	return ! AQ_Get_System_QEMU_Dir().isEmpty();
+}
+
+QString AQ_Get_Default_QEMU_Dir()
+{
+	QString bundled = AQ_Get_Bundled_QEMU_Dir();
+	if( ! bundled.isEmpty() )
+		return bundled;
+	return AQ_Get_System_QEMU_Dir();
 }
 
 QString AQ_Find_Reims_GOP_ROM()
@@ -811,18 +844,23 @@ QString AQ_Get_QEMU_Source_Mode()
 {
 	QSettings s;
 	const QString m = s.value( QStringLiteral( "QEMU_Source" ), QString() ).toString().trimmed().toLower();
-	if( m == QLatin1String( "bundled" ) || m == QLatin1String( "custom" ) )
+	if( m == QLatin1String( "bundled" ) || m == QLatin1String( "system" ) || m == QLatin1String( "custom" ) )
 		return m;
-	// Default: portable builds ship QEMU next to aqemu — prefer that.
-	return AQ_Has_Bundled_QEMU() ? QStringLiteral( "bundled" ) : QStringLiteral( "custom" );
+	if( AQ_Has_Bundled_QEMU() )
+		return QStringLiteral( "bundled" );
+	if( AQ_Has_System_QEMU() )
+		return QStringLiteral( "system" );
+	return QStringLiteral( "custom" );
 }
 
 void AQ_Set_QEMU_Source_Mode( const QString &mode )
 {
 	QSettings s;
 	const QString m = mode.trimmed().toLower();
-	s.setValue( QStringLiteral( "QEMU_Source" ),
-		( m == QLatin1String( "bundled" ) ) ? QStringLiteral( "bundled" ) : QStringLiteral( "custom" ) );
+	if( m == QLatin1String( "bundled" ) || m == QLatin1String( "system" ) )
+		s.setValue( QStringLiteral( "QEMU_Source" ), m );
+	else
+		s.setValue( QStringLiteral( "QEMU_Source" ), QStringLiteral( "custom" ) );
 }
 
 bool AQ_Apply_QEMU_Dir_As_Default_Emulator( const QString &dir_in, const QString &display_name )

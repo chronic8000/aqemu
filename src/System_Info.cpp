@@ -4159,13 +4159,29 @@ bool System_Info::Auto_Find_And_Save_Emulators()
 		QSettings srcSet;
 		const QString mode = srcSet.value( QStringLiteral( "QEMU_Source" ), QString() )
 			.toString().trimmed().toLower();
-		if( mode != QLatin1String( "custom" ) )
+		if( mode != QLatin1String( "custom" ) && mode != QLatin1String( "system" ) )
 		{
 			if( AQ_Apply_QEMU_Dir_As_Default_Emulator(
 					AQ_Get_Bundled_QEMU_Dir(),
 					QObject::tr( "Built-in QEMU" ) ) )
 			{
 				AQ_Set_QEMU_Source_Mode( QStringLiteral( "bundled" ) );
+				return true;
+			}
+		}
+	}
+	else if( AQ_Has_System_QEMU() )
+	{
+		QSettings srcSet;
+		const QString mode = srcSet.value( QStringLiteral( "QEMU_Source" ), QString() )
+			.toString().trimmed().toLower();
+		if( mode != QLatin1String( "custom" ) )
+		{
+			if( AQ_Apply_QEMU_Dir_As_Default_Emulator(
+					AQ_Get_System_QEMU_Dir(),
+					QObject::tr( "System QEMU" ) ) )
+			{
+				AQ_Set_QEMU_Source_Mode( QStringLiteral( "system" ) );
 				return true;
 			}
 		}

@@ -83,8 +83,9 @@ Advanced_Settings_Window::Advanced_Settings_Window( QWidget *parent )
 		srcLay->setContentsMargins( 12, 16, 12, 12 );
 		srcLay->setSpacing( 8 );
 
-		RB_QEMU_Built_In = new QRadioButton( tr( "Use built-in QEMU (recommended)" ) );
-		RB_QEMU_Custom = new QRadioButton( tr( "Use a custom QEMU installation" ) );
+		RB_QEMU_Built_In = new QRadioButton( tr( "Use built-in portable QEMU (recommended)" ) );
+		RB_QEMU_System = new QRadioButton( tr( "Use system-installed QEMU" ) );
+		RB_QEMU_Custom = new QRadioButton( tr( "Use a custom QEMU installation path" ) );
 		srcLay->addWidget( RB_QEMU_Built_In );
 
 		Label_QEMU_Built_In_Path = new QLabel();
@@ -98,6 +99,19 @@ Advanced_Settings_Window::Advanced_Settings_Window( QWidget *parent )
 		applyLay->addWidget( TB_QEMU_Use_Built_In );
 		applyLay->addStretch( 1 );
 		srcLay->addLayout( applyLay );
+
+		srcLay->addWidget( RB_QEMU_System );
+		Label_QEMU_System_Path = new QLabel();
+		Label_QEMU_System_Path->setWordWrap( true );
+		Label_QEMU_System_Path->setStyleSheet( QStringLiteral( "color: palette(mid);" ) );
+		srcLay->addWidget( Label_QEMU_System_Path );
+
+		QHBoxLayout *applySysLay = new QHBoxLayout();
+		TB_QEMU_Use_System = new QToolButton();
+		TB_QEMU_Use_System->setText( tr( "Apply system QEMU now" ) );
+		applySysLay->addWidget( TB_QEMU_Use_System );
+		applySysLay->addStretch( 1 );
+		srcLay->addLayout( applySysLay );
 
 		srcLay->addWidget( RB_QEMU_Custom );
 		QHBoxLayout *pathLay = new QHBoxLayout();
@@ -124,17 +138,32 @@ Advanced_Settings_Window::Advanced_Settings_Window( QWidget *parent )
 		ui.gridLayout->addWidget( srcWrap, 0, 0, 1, 2 );
 
 		const bool has_bundled = AQ_Has_Bundled_QEMU();
+		const bool has_system = AQ_Has_System_QEMU();
 		RB_QEMU_Built_In->setEnabled( has_bundled );
 		TB_QEMU_Use_Built_In->setEnabled( has_bundled );
 		if( has_bundled )
 			Label_QEMU_Built_In_Path->setText( tr( "Location: %1" ).arg( AQ_Get_Bundled_QEMU_Dir() ) );
 		else
 			Label_QEMU_Built_In_Path->setText( tr(
-				"No built-in QEMU found next to aqemu. Use a custom installation, "
+				"No built-in QEMU found next to aqemu. Use a system/custom installation, "
 				"or reinstall the portable zip from GitHub Releases." ) );
+
+		RB_QEMU_System->setEnabled( has_system );
+		TB_QEMU_Use_System->setEnabled( has_system );
+		if( has_system )
+			Label_QEMU_System_Path->setText( tr( "Location: %1" ).arg( AQ_Get_System_QEMU_Dir() ) );
+		else
+			Label_QEMU_System_Path->setText( tr(
+				"No system-installed QEMU found in standard directories (e.g. C:\\Program Files\\qemu or /usr/bin)." ) );
 
 		const QString mode = AQ_Get_QEMU_Source_Mode();
 		if( mode == QLatin1String( "bundled" ) && has_bundled )
+			RB_QEMU_Built_In->setChecked( true );
+		else if( mode == QLatin1String( "system" ) && has_system )
+			RB_QEMU_System->setChecked( true );
+		else if( ! has_bundled && has_system )
+			RB_QEMU_System->setChecked( true );
+		else if( has_bundled )
 			RB_QEMU_Built_In->setChecked( true );
 		else
 			RB_QEMU_Custom->setChecked( true );
@@ -144,12 +173,16 @@ Advanced_Settings_Window::Advanced_Settings_Window( QWidget *parent )
 			Edit_QEMU_Custom_Path->setText( QDir::toNativeSeparators( def.Get_Path() ) );
 		else if( has_bundled )
 			Edit_QEMU_Custom_Path->setText( QDir::toNativeSeparators( AQ_Get_Bundled_QEMU_Dir() ) );
+		else if( has_system )
+			Edit_QEMU_Custom_Path->setText( QDir::toNativeSeparators( AQ_Get_System_QEMU_Dir() ) );
 
 		connect( RB_QEMU_Built_In, SIGNAL(toggled(bool)), this, SLOT(On_QEMU_Source_Toggled(bool)) );
+		connect( RB_QEMU_System, SIGNAL(toggled(bool)), this, SLOT(On_QEMU_Source_Toggled(bool)) );
 		connect( RB_QEMU_Custom, SIGNAL(toggled(bool)), this, SLOT(On_QEMU_Source_Toggled(bool)) );
 		connect( TB_QEMU_Custom_Browse, SIGNAL(clicked()), this, SLOT(On_QEMU_Custom_Browse_clicked()) );
 		connect( TB_QEMU_Use_Built_In, SIGNAL(clicked()), this, SLOT(On_QEMU_Use_Built_In_clicked()) );
-		On_QEMU_Source_Toggled( RB_QEMU_Built_In->isChecked() );
+		connect( TB_QEMU_Use_System, SIGNAL(clicked()), this, SLOT(On_QEMU_Use_System_clicked()) );
+		On_QEMU_Source_Toggled( true );
 		Update_QEMU_Source_Banner();
 	}
 
@@ -1378,6 +1411,8 @@ void Advanced_Settings_Window::On_QEMU_Source_Toggled( bool )
 		TB_QEMU_Custom_Browse->setEnabled( custom );
 	if( TB_QEMU_Use_Built_In )
 		TB_QEMU_Use_Built_In->setEnabled( ! custom && AQ_Has_Bundled_QEMU() );
+	if( TB_QEMU_Use_System )
+		TB_QEMU_Use_System->setEnabled( ! custom && AQ_Has_System_QEMU() );
 	Update_QEMU_Source_Banner();
 }
 
@@ -1415,7 +1450,30 @@ void Advanced_Settings_Window::On_QEMU_Use_Built_In_clicked()
 	ui.Edit_QEMU_IMG_Path->setText( Settings.value( "QEMU-IMG_Path", "" ).toString() );
 	Update_QEMU_Source_Banner();
 	QMessageBox::information( this, tr( "QEMU" ),
-		tr( "Using built-in QEMU:\n%1" ).arg( AQ_Get_Bundled_QEMU_Dir() ) );
+		tr( "Using built-in portable QEMU:\n%1" ).arg( AQ_Get_Bundled_QEMU_Dir() ) );
+}
+
+void Advanced_Settings_Window::On_QEMU_Use_System_clicked()
+{
+	if( ! AQ_Has_System_QEMU() )
+	{
+		AQGraphic_Warning( tr( "QEMU" ), tr( "No system-installed QEMU found in standard directories." ) );
+		return;
+	}
+	if( ! AQ_Apply_QEMU_Dir_As_Default_Emulator( AQ_Get_System_QEMU_Dir(), tr( "System QEMU" ) ) )
+	{
+		AQGraphic_Warning( tr( "QEMU" ), tr( "Failed to configure system-installed QEMU." ) );
+		return;
+	}
+	AQ_Set_QEMU_Source_Mode( QStringLiteral( "system" ) );
+	if( RB_QEMU_System )
+		RB_QEMU_System->setChecked( true );
+	Load_Emulators_Info();
+	Update_Emulators_Info();
+	ui.Edit_QEMU_IMG_Path->setText( Settings.value( "QEMU-IMG_Path", "" ).toString() );
+	Update_QEMU_Source_Banner();
+	QMessageBox::information( this, tr( "QEMU" ),
+		tr( "Using system-installed QEMU:\n%1" ).arg( AQ_Get_System_QEMU_Dir() ) );
 }
 
 void Advanced_Settings_Window::Update_QEMU_Source_Banner()
@@ -1426,7 +1484,13 @@ void Advanced_Settings_Window::Update_QEMU_Source_Banner()
 	{
 		ui.Label_Installed_Emulators->setText( tr(
 			"<p><span style=\"font-size:10pt; font-weight:600; color:#2e7d32;\">OK:</span> "
-			"<span style=\"font-size:10pt;\">Built-in QEMU is available — no separate install required.</span></p>" ) );
+			"<span style=\"font-size:10pt;\">Built-in portable QEMU is active.</span></p>" ) );
+	}
+	else if( AQ_Has_System_QEMU() && RB_QEMU_System && RB_QEMU_System->isChecked() )
+	{
+		ui.Label_Installed_Emulators->setText( tr(
+			"<p><span style=\"font-size:10pt; font-weight:600; color:#2e7d32;\">OK:</span> "
+			"<span style=\"font-size:10pt;\">System-installed QEMU is active.</span></p>" ) );
 	}
 	else if( Emulators.count() > 0 )
 	{
@@ -1439,7 +1503,14 @@ void Advanced_Settings_Window::Update_QEMU_Source_Banner()
 	{
 		ui.Label_Installed_Emulators->setText( tr(
 			"<p><span style=\"font-size:10pt; font-weight:600; color:#e65100;\">Tip:</span> "
-			"<span style=\"font-size:10pt;\">Built-in QEMU found — click “Apply built-in QEMU now” "
+			"<span style=\"font-size:10pt;\">Built-in portable QEMU found — click “Apply built-in QEMU now” "
+			"or choose it above.</span></p>" ) );
+	}
+	else if( AQ_Has_System_QEMU() )
+	{
+		ui.Label_Installed_Emulators->setText( tr(
+			"<p><span style=\"font-size:10pt; font-weight:600; color:#e65100;\">Tip:</span> "
+			"<span style=\"font-size:10pt;\">System-installed QEMU found — click “Apply system QEMU now” "
 			"or choose it above.</span></p>" ) );
 	}
 	else

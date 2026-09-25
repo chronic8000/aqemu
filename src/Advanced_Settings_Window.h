@@ -77,6 +77,7 @@ class Advanced_Settings_Window: public QDialog
 		void On_QEMU_Source_Toggled( bool checked );
 		void On_QEMU_Custom_Browse_clicked();
 		void On_QEMU_Use_Built_In_clicked();
+		void On_QEMU_Use_System_clicked();
 		void Update_QEMU_Source_Banner();
 		
 		bool Load_Emulators_Info();
@@ -114,11 +115,14 @@ class Advanced_Settings_Window: public QDialog
 	private:
 		QGroupBox *GB_QEMU_Source;
 		QRadioButton *RB_QEMU_Built_In;
+		QRadioButton *RB_QEMU_System;
 		QRadioButton *RB_QEMU_Custom;
 		QLineEdit *Edit_QEMU_Custom_Path;
 		QToolButton *TB_QEMU_Custom_Browse;
 		QToolButton *TB_QEMU_Use_Built_In;
+		QToolButton *TB_QEMU_Use_System;
 		QLabel *Label_QEMU_Built_In_Path;
+		QLabel *Label_QEMU_System_Path;
 };
 
 #endif

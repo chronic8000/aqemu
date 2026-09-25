@@ -107,6 +107,13 @@ QString QEMU_IMG_Format_Help_Text( const QStringList &formats );
 QString AQ_Get_Bundled_QEMU_Dir();
 bool AQ_Has_Bundled_QEMU();
 
+/** Standard system-installed directory that contains qemu-system-* (e.g. C:\Program Files\qemu or /usr/bin). Empty if none. */
+QString AQ_Get_System_QEMU_Dir();
+bool AQ_Has_System_QEMU();
+
+/** Default QEMU directory (prefers bundled portable, falls back to system). */
+QString AQ_Get_Default_QEMU_Dir();
+
 /** Reims UEFI GOP option ROM (reims-vgpu-gop.rom) beside aqemu.exe/share or resources. */
 QString AQ_Find_Reims_GOP_ROM();
 /** Matching UEFI driver PE (reims-vgpu-efi.efi) for OpenCore Drivers/. */

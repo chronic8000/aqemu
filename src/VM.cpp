@@ -5922,6 +5922,15 @@ VM_Native_Storage_Device Virtual_Machine::Load_VM_Native_Storage_Device( const Q
 	// Discard
 	tmp_device.Set_Discard( Second_Element.firstChildElement("Discard").text() == "true" );
 
+	// Use Block Size
+	tmp_device.Use_Block_Size( Second_Element.firstChildElement("Use_Block_Size").text() == "true" );
+
+	// Logical Block Size
+	tmp_device.Set_Logical_Block_Size( Second_Element.firstChildElement("Logical_Block_Size").text().toInt() > 0 ? Second_Element.firstChildElement("Logical_Block_Size").text().toInt() : 512 );
+
+	// Physical Block Size
+	tmp_device.Set_Physical_Block_Size( Second_Element.firstChildElement("Physical_Block_Size").text().toInt() > 0 ? Second_Element.firstChildElement("Physical_Block_Size").text().toInt() : 512 );
+
 
 	return tmp_device;
 }
@@ -6255,6 +6264,24 @@ void Virtual_Machine::Save_VM_Native_Storage_Device( QDomDocument &New_Dom_Docum
 	else
 	        Dom_Text = New_Dom_Document.createTextNode( "false" );
 
+	Sec_Element.appendChild( Dom_Text );
+
+	// Use Block Size
+	Sec_Element = New_Dom_Document.createElement( "Use_Block_Size" );
+	Dom_Element.appendChild( Sec_Element );
+	Dom_Text = New_Dom_Document.createTextNode( device.Use_Block_Size() ? "true" : "false" );
+	Sec_Element.appendChild( Dom_Text );
+
+	// Logical Block Size
+	Sec_Element = New_Dom_Document.createElement( "Logical_Block_Size" );
+	Dom_Element.appendChild( Sec_Element );
+	Dom_Text = New_Dom_Document.createTextNode( QString::number( device.Get_Logical_Block_Size() ) );
+	Sec_Element.appendChild( Dom_Text );
+
+	// Physical Block Size
+	Sec_Element = New_Dom_Document.createElement( "Physical_Block_Size" );
+	Dom_Element.appendChild( Sec_Element );
+	Dom_Text = New_Dom_Document.createTextNode( QString::number( device.Get_Physical_Block_Size() ) );
 	Sec_Element.appendChild( Dom_Text );
 }
 
@@ -7850,8 +7877,14 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 					drive = QString( "file=%1,if=none,id=aqhd0,cache=%2,aio=threads" )
 						.arg( HDA.Get_File_Name(), cache );
 				}
-				const QString virtio_dev = With_Bootindex(
-					QStringLiteral( "virtio-blk-pci,drive=aqhd0" ), hdd_boot );
+				QString virtio_dev_str = QStringLiteral( "virtio-blk-pci,drive=aqhd0" );
+				if( HDA.Get_Native_Device().Use_Block_Size() )
+				{
+					const int lbs = HDA.Get_Native_Device().Get_Logical_Block_Size() > 0 ? HDA.Get_Native_Device().Get_Logical_Block_Size() : 512;
+					const int pbs = HDA.Get_Native_Device().Get_Physical_Block_Size() > 0 ? HDA.Get_Native_Device().Get_Physical_Block_Size() : 512;
+					virtio_dev_str += QStringLiteral( ",logical_block_size=%1,physical_block_size=%2" ).arg( lbs ).arg( pbs );
+				}
+				const QString virtio_dev = With_Bootindex( virtio_dev_str, hdd_boot );
 				if( Build_QEMU_Args_for_Script_Mode )
 				{
 					StorageArgs << "-device" << virtio_dev;
@@ -7895,8 +7928,14 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 						drive = QString( "file=%1,if=none,id=aqhd0,cache=%2,aio=threads" )
 							.arg( HDA.Get_File_Name(), cache );
 					}
-					const QString virtio_dev = With_Bootindex(
-						QStringLiteral( "virtio-blk-pci,drive=aqhd0" ), hdd_boot );
+					QString virtio_dev_str = QStringLiteral( "virtio-blk-pci,drive=aqhd0" );
+					if( HDA.Get_Native_Device().Use_Block_Size() )
+					{
+						const int lbs = HDA.Get_Native_Device().Get_Logical_Block_Size() > 0 ? HDA.Get_Native_Device().Get_Logical_Block_Size() : 512;
+						const int pbs = HDA.Get_Native_Device().Get_Physical_Block_Size() > 0 ? HDA.Get_Native_Device().Get_Physical_Block_Size() : 512;
+						virtio_dev_str += QStringLiteral( ",logical_block_size=%1,physical_block_size=%2" ).arg( lbs ).arg( pbs );
+					}
+					const QString virtio_dev = With_Bootindex( virtio_dev_str, hdd_boot );
 					if( Build_QEMU_Args_for_Script_Mode )
 					{
 						StorageArgs << "-device" << virtio_dev;
@@ -10288,6 +10327,17 @@ QStringList Virtual_Machine::Build_Native_Device_Args( VM_Native_Storage_Device 
 	        else opt << "discard=ignore";
 	}
 
+	// Block Size
+	QString block_size_dev_opts = "";
+	if( device.Use_Block_Size() )
+	{
+		const int log_sz = device.Get_Logical_Block_Size() > 0 ? device.Get_Logical_Block_Size() : 512;
+		const int phys_sz = device.Get_Physical_Block_Size() > 0 ? device.Get_Physical_Block_Size() : 512;
+		block_size_dev_opts = QStringLiteral( ",logical_block_size=%1,physical_block_size=%2" ).arg( log_sz ).arg( phys_sz );
+		opt << QStringLiteral( "logical_block_size=%1" ).arg( log_sz );
+		opt << QStringLiteral( "physical_block_size=%1" ).arg( phys_sz );
+	}
+
 	// Create complete drive string
 	QString driveStr = "";
 	for( int ox = 0; ox < opt.count(); ++ox )
@@ -10308,7 +10358,7 @@ QStringList Virtual_Machine::Build_Native_Device_Args( VM_Native_Storage_Device 
 	    const int boot_idx = Bootindex_For( *this,
 		device.Get_Media() == VM::DM_CD_ROM ? VM::Boot_From_CDROM : VM::Boot_From_HDD );
 	    args << "-device" << With_Bootindex(
-		devtype + ",bus=aq-vscsi.0,drive=" + vsname, boot_idx );
+		devtype + ",bus=aq-vscsi.0,drive=" + vsname + block_size_dev_opts, boot_idx );
 	}
 	else if( device.Get_Interface() == VM::DI_NVMe &&
 			 ( ! device.Use_Media() || device.Get_Media() == VM::DM_Disk ) )
@@ -10316,7 +10366,7 @@ QStringList Virtual_Machine::Build_Native_Device_Args( VM_Native_Storage_Device 
 		const int boot_idx = Bootindex_For( *this, VM::Boot_From_HDD );
 		// serial= is required by some guests (SteamOS recovery looks for NVMe)
 		args << "-device" << With_Bootindex(
-			"nvme,drive=" + vsname + ",serial=aqemu-nvme0", boot_idx );
+			"nvme,drive=" + vsname + ",serial=aqemu-nvme0" + block_size_dev_opts, boot_idx );
 	}
 	else if( device.Get_Interface() == VM::DI_AHCI )
 	{
@@ -10333,14 +10383,14 @@ QStringList Virtual_Machine::Build_Native_Device_Args( VM_Native_Storage_Device 
 			device.Get_Media() == VM::DM_CD_ROM ? VM::Boot_From_CDROM : VM::Boot_From_HDD );
 		args << "-device" << With_Bootindex(
 			QStringLiteral( "%1,bus=aqemu_ahci.%2,drive=%3" )
-				.arg( devtype ).arg( unit ).arg( vsname ),
+				.arg( devtype ).arg( unit ).arg( vsname ) + block_size_dev_opts,
 			boot_idx );
 	}
 	else if( device.Get_Interface() == VM::DI_Virtio && virt_arch_blk &&
 			 ( ! device.Use_Media() || device.Get_Media() == VM::DM_Disk ) )
 	{
 		const int boot_idx = Bootindex_For( *this, VM::Boot_From_HDD );
-		QString vblk = QStringLiteral( "virtio-blk-pci,drive=" ) + vsname;
+		QString vblk = QStringLiteral( "virtio-blk-pci,drive=" ) + vsname + block_size_dev_opts;
 		if( Use_IOThread_Flag )
 			vblk += QStringLiteral( ",iothread=aq-iothread0" );
 		args << "-device" << With_Bootindex( vblk, boot_idx );
@@ -10376,10 +10426,10 @@ QStringList Virtual_Machine::Build_Native_Device_Args( VM_Native_Storage_Device 
 			if( args.isEmpty() )
 			{
 				if( device.Get_Interface() == VM::DI_NVMe )
-					args << "-device" << QStringLiteral( "nvme,drive=%1,serial=aqemu-nvme0" ).arg( node );
+					args << "-device" << QStringLiteral( "nvme,drive=%1,serial=aqemu-nvme0" ).arg( node ) + block_size_dev_opts;
 				else
 				{
-					QString vblk = QStringLiteral( "virtio-blk-pci,drive=" ) + node;
+					QString vblk = QStringLiteral( "virtio-blk-pci,drive=" ) + node + block_size_dev_opts;
 					if( Use_IOThread_Flag )
 						vblk += QStringLiteral( ",iothread=aq-iothread0" );
 					args << "-device" << vblk;
@@ -15921,8 +15971,11 @@ QString Virtual_Machine::GenerateHTMLInfoText(int info_mode)
         frame->setFrameFormat( frame_format2 );
 
         cell = table2->cellAt( table2->rows()-1, 1 );
-        cell_cursor = cell.firstCursorPosition();
+#ifdef Q_OS_WIN
+        cell_cursor.insertText( Build_QEMU_Args_For_Tab_Info().join(" ").replace(" -"," ^\n    -"), format );
+#else
         cell_cursor.insertText( Build_QEMU_Args_For_Tab_Info().join(" ").replace(" -"," \\\n    -"), format );
+#endif
     }
 
     // Move the cursor to the top

@@ -69,6 +69,7 @@ class First_Start_Wizard: public QDialog
 		Emulator Emul;
 
 		QRadioButton *RB_FS_QEMU_Built_In;
+		QRadioButton *RB_FS_QEMU_System;
 		QRadioButton *RB_FS_QEMU_Custom;
 };
 

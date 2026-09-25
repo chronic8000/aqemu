@@ -40,6 +40,35 @@
 	  - Added Out-of-Memory (OOM-killer, exit code 137/-9) diagnostics and ram-tuning
 	    guidance in `Virtual_Machine::QEMU_Finished`.
 	  - Added `*.bz2` to `.gitignore` to prevent generated documentation archives from polluting tree.
+	  - Windows subsystem: Set `WIN32_EXECUTABLE TRUE` in CMakeLists.txt and `win_subsystem: 'windows'`
+	    in meson.build to eliminate the extraneous terminal/console window on launch (Fixes #53).
+
+	* Command Line & Script Export:
+	  - Use `^` Windows caret line continuations instead of Unix `\` backslashes when displaying
+	    or exporting QEMU commands on Windows (Fixes #55).
+	  - Added support for exporting Windows Batch scripts (`.bat` / `.cmd`) and PowerShell scripts
+	    (`.ps1`) with native path separators, quoting, argument forwarding, and line continuations (Fixes #55).
+
+	* QEMU Installation Discovery & Disambiguation:
+	  - Disambiguated built-in (portable, alongside aqemu.exe) from system-installed QEMU (e.g.
+	    `C:\Program Files\qemu` or `/usr/bin`) across First Start Wizard and Settings dialogs.
+	  - Added `AQ_Get_System_QEMU_Dir()` and `AQ_Has_System_QEMU()` helpers alongside `AQ_Get_Bundled_QEMU_Dir()`
+	    to prevent mislabeling system-wide installs as portable bundled builds (Fixes #52).
+
+	* Storage Device Block Sizes (4096 / 4Kn Sectors):
+	  - Added configurable `logical_block_size` and `physical_block_size` (512 vs 4096 bytes)
+	    to `VM_Native_Storage_Device`, Add New Device UI, and VM XML configurations (Fixes #50).
+	  - Emits `,logical_block_size=...,physical_block_size=...` for `virtio-blk-pci`, `scsi-hd`,
+	    `ide-hd`, `nvme`, and direct `-drive` flags for modern Advanced Format 4Kn disks (Fixes #50).
+
+	* Packaging & Store Sandboxing:
+	  - Enhanced `installer/build-msix.ps1` with automated `windeployqt` integration, GCC/MinGW
+	    runtime DLL bundling, and recursive PE import dependency resolution to prevent DLL load
+	    errors on Microsoft Store and MSIX packaged installations (Fixes #54).
+
+	* Documentation & Project Links:
+	  - Updated `README.md` to point directly to active GitHub project repository and release
+	    pages, removing dead `neonsovereign.store` domain references (Fixes #48).
 
 2026-08-08 Chronic Engineering — AQEMU 1.3.0 (Apple SoC Inferno + Reims WSL)
 
