@@ -182,7 +182,7 @@ Apple_SoC_Restore_Window::Apple_SoC_Restore_Window( Virtual_Machine *vm, QWidget
 	CB_Conn_Type->addItem( tr( "IPv4 localhost (recommended — match both VMs)" ), QStringLiteral( "ipv4" ) );
 	CB_Conn_Type->addItem( tr( "UNIX socket" ), QStringLiteral( "unix" ) );
 	QString ctype = vm ? vm->Get_Apple_USB_Conn_Type().trimmed().toLower() : QString();
-#ifdef Q_OS_WIN32
+#ifdef Q_OS_WIN
 	// Default / empty / leftover unix → ipv4 127.0.0.1:8030 (Inferno tip).
 	if( ctype.isEmpty() || ctype == QLatin1String( "unix" ) )
 	{
@@ -198,7 +198,7 @@ Apple_SoC_Restore_Window::Apple_SoC_Restore_Window( Virtual_Machine *vm, QWidget
 	Edit_Conn_Addr = new QLineEdit();
 	{
 		QString saved = vm ? vm->Get_Apple_USB_Conn_Addr().trimmed() : QString();
-#ifdef Q_OS_WIN32
+#ifdef Q_OS_WIN
 		if( CB_Conn_Type->currentData().toString() == QLatin1String( "ipv4" ) )
 		{
 			if( saved.isEmpty() || saved.startsWith( QLatin1Char( '/' ) ) )
@@ -582,7 +582,7 @@ void Apple_SoC_Restore_Window::Refresh_Companion_Snippet()
 		const QString fmt = disk.endsWith( QLatin1String( ".qcow2" ), Qt::CaseInsensitive )
 			? QStringLiteral( "qcow2" )
 			: QStringLiteral( "raw" );
-#ifdef Q_OS_WIN32
+#ifdef Q_OS_WIN
 		const QString disk_path = Windows_Path_To_WSL( disk );
 #else
 		const QString disk_path = disk;
@@ -681,7 +681,7 @@ void Apple_SoC_Restore_Window::Start_Companion_WSL()
 	// (write lock loop). If AQEMU's Ubuntu companion is Running, Power Off that
 	// VM in the list first; Start companion will fail with a clear lock error otherwise.
 
-#ifdef Q_OS_WIN32
+#ifdef Q_OS_WIN
 	QString distro, user;
 	if( ! Ensure_WSL_Creds( &distro, &user ) )
 	{
@@ -951,7 +951,7 @@ void Apple_SoC_Restore_Window::Wipe_Inferno_Disks()
 
 void Apple_SoC_Restore_Window::Stop_Companion_WSL()
 {
-#ifdef Q_OS_WIN32
+#ifdef Q_OS_WIN
 	QString distro, user;
 	if( ! Ensure_WSL_Creds( &distro, &user ) )
 	{
@@ -996,7 +996,7 @@ void Apple_SoC_Restore_Window::Stop_Companion_WSL()
 void Apple_SoC_Restore_Window::Run_Diagnose_WSL()
 {
 	Sync_Conn_To_VM();
-#ifdef Q_OS_WIN32
+#ifdef Q_OS_WIN
 	QString distro, user;
 	if( ! Ensure_WSL_Creds( &distro, &user ) )
 		return;
@@ -1112,7 +1112,7 @@ void Apple_SoC_Restore_Window::Run_IDeviceRestore()
 	QSettings s;
 	s.setValue( QStringLiteral( "Apple_SoC_Restore/SSH_User" ), ssh_user );
 
-#ifdef Q_OS_WIN32
+#ifdef Q_OS_WIN
 	QString distro, user;
 	if( ! Ensure_WSL_Creds( &distro, &user ) )
 	{

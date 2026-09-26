@@ -96,6 +96,7 @@ class VM_Session_Widget : public QWidget
 		void On_Block_Stats( const QJsonArray &stats );
 		void On_USB_Menu_About_To_Show();
 		void On_USB_Device_Toggled( bool checked );
+		void On_QMP_Command_Result( int id, const QString &cmd, bool ok, const QString &error_desc, const QJsonObject &raw_reply );
 		void On_Serial_Console();
 		void On_Restore_IPSW();
 		void On_Grab_Mouse();
@@ -152,6 +153,7 @@ class VM_Session_Widget : public QWidget
 		QString USB_Instance_Key( const VM_USB &u, int index ) const;
 		QString USB_Qemu_Device_Id( const QString &instance_key ) const;
 		QString USB_Device_Add_Command( const VM_USB &u, const QString &qemu_id ) const;
+		QString USB_Target_Bus() const;
 
 		Virtual_Machine *VM;
 		QMP_Client *QMP;
@@ -176,6 +178,7 @@ class VM_Session_Widget : public QWidget
 		QAction *Act_Eject_FD0;
 		QAction *Act_Insert_FD1;
 		QAction *Act_Eject_FD1;
+		QAction *Sep_Floppy;
 		QAction *Act_Restore_IPSW;
 		QAction *Act_Grab_Mouse;
 		QAction *Act_CAD;
@@ -192,6 +195,14 @@ class VM_Session_Widget : public QWidget
 		QToolButton *TB_USB;
 		QMenu *Menu_USB;
 		QHash<QString, QString> Connected_USB_Ids; // instance key -> qemu device id
+		struct Pending_USB_Op {
+			QString key;
+			QString qemu_id;
+			QString label;
+			bool checked;
+			QPointer<QAction> action;
+		};
+		QHash<int, Pending_USB_Op> Pending_USB_Ops;
 		bool USB_Enum_Busy;
 		bool Apple_SOS_Busy;
 		quint64 Apple_SOS_Generation;

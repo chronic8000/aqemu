@@ -19,7 +19,7 @@
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--2.0-blue.svg" alt="License: GPL-2.0"/></a>
   <a href="https://apps.microsoft.com/detail/9p0hgkhq9w19"><img src="https://img.shields.io/badge/Microsoft%20Store-AQEMU%20VM%20Manager-0078D4?logo=microsoftstore" alt="Microsoft Store"/></a>
-  <a href="https://neonsovereign.store/aqemu.html"><img src="https://img.shields.io/badge/website-neonsovereign.store-brightgreen.svg" alt="Official Website"/></a>
+  <a href="https://github.com/chronic8000/aqemu"><img src="https://img.shields.io/badge/project-chronic8000%2Faqemu-brightgreen.svg" alt="GitHub Project"/></a>
   <a href="https://github.com/chronic8000/aqemu"><img src="https://img.shields.io/badge/QEMU-11.0.2%20bundle-orange.svg" alt="QEMU 11.0.2"/></a>
   <a href="https://github.com/chronic8000/aqemu"><img src="https://img.shields.io/badge/host-Windows%20%7C%20Linux%20%7C%20Pi%205-success.svg" alt="Hosts"/></a>
   <a href="PRIVACY.md"><img src="https://img.shields.io/badge/privacy-policy-lightgrey.svg" alt="Privacy"/></a>
@@ -96,7 +96,7 @@ Get it with automatic updates: [AQEMU VM Manager on the Microsoft Store](https:/
 | | |
 |--|--|
 | **Microsoft Store** | [AQEMU VM Manager on Microsoft Store](https://apps.microsoft.com/detail/9p0hgkhq9w19) (Official Windows installation with automatic updates) |
-| **Website** | [AQEMU Official Website](https://neonsovereign.store/aqemu.html) |
+| **Releases & Source** | [GitHub Releases](https://github.com/chronic8000/aqemu/releases) / [Repository](https://github.com/chronic8000/aqemu) |
 | **File bugs** | [GitHub Issues](https://github.com/chronic8000/aqemu/issues) — host OS, guest OS, and exact log outputs help us triage quickly. Historical [tobimensch/aqemu issues](https://github.com/tobimensch/aqemu/issues) are archived context only; triage lives in [`docs/TOBIMENSCH_ISSUE_TRIAGE.md`](docs/TOBIMENSCH_ISSUE_TRIAGE.md) |
 | **What we care about** | **iOS on Windows 11**, install wizards, embedded SPICE, Win9x/XP TCG, Win11 ARM, Intel macOS, Solaris x86, AIX/pseries, migrate/QMP tools |
 
@@ -132,7 +132,7 @@ We keep the original authors’ names. We do **not** inherit their old donation 
 |--|--|
 | **Home** | https://github.com/chronic8000/aqemu |
 | **Store** | https://apps.microsoft.com/detail/9p0hgkhq9w19 |
-| **Website** | https://neonsovereign.store/aqemu.html |
+| **Releases** | https://github.com/chronic8000/aqemu/releases |
 | **Issues** | https://github.com/chronic8000/aqemu/issues |
 | **Discussions** | https://github.com/chronic8000/aqemu/discussions |
 | **License** | [GNU GPLv2](LICENSE) |

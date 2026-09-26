@@ -64,13 +64,17 @@ static QString AQ_Toolbar_Style( const QWidget *w )
 	const int pad = AQ_Px( 4, w );
 	const int btn_pad_h = AQ_Px( 6, w );
 	const int rad = AQ_Px( 3, w );
+	const int sep_w = AQ_Px( 1, w );
+	const int sep_h = AQ_Px( 16, w );
+	const int sep_margin = AQ_Px( 4, w );
 	return QStringLiteral(
 		"QToolBar { background: #2d2d30; border: none; border-bottom: 1px solid #1a1a1a;"
 		" spacing: %1px; padding: %1px; }"
 		"QToolButton { color: #eee; padding: %1px %2px; border-radius: %3px; }"
 		"QToolButton:hover { background: rgba(255,255,255,30); }"
 		"QToolButton:pressed { background: rgba(255,255,255,50); }"
-	).arg( pad ).arg( btn_pad_h ).arg( rad );
+		"QToolBar::separator { width: %4px; height: %5px; margin: 4px %6px; background: rgba(255,255,255,40); }"
+	).arg( pad ).arg( btn_pad_h ).arg( rad ).arg( sep_w ).arg( sep_h ).arg( sep_margin );
 }
 
 static QString AQ_Drive_Light_Style( const QWidget *w, const QString &bg, const QString &border )
@@ -106,6 +110,7 @@ VM_Session_Widget::VM_Session_Widget( QWidget *parent )
 	, Act_Eject_FD0( nullptr )
 	, Act_Insert_FD1( nullptr )
 	, Act_Eject_FD1( nullptr )
+	, Sep_Floppy( nullptr )
 	, Act_Restore_IPSW( nullptr )
 	, Act_Grab_Mouse( nullptr )
 	, Act_CAD( nullptr )
@@ -145,10 +150,14 @@ VM_Session_Widget::VM_Session_Widget( QWidget *parent )
 
 	Placeholder->setAlignment( Qt::AlignCenter );
 	Placeholder->setText( tr( "Starting embedded guest display…" ) );
+	Placeholder->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Expanding );
+	Spice->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Expanding );
+	Stack->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Expanding );
 	Stack->addWidget( Placeholder );
 	Stack->addWidget( Spice );
 #ifdef VNC_DISPLAY
 	Vnc = new MachineView( this, nullptr );
+	Vnc->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Expanding );
 	Stack->addWidget( Vnc );
 #endif
 
@@ -215,22 +224,20 @@ void VM_Session_Widget::Build_Toolbar()
 	// Removable media
 	Act_Insert_CD = Add_Toolbar_Action( QIcon( ":/cdrom.png" ), tr( "Insert CD/DVD image…" ), SLOT(On_Change_CD()) );
 	Act_Eject_CD = Add_Toolbar_Action( QIcon( ":/eject.png" ), tr( "Eject CD/DVD" ), SLOT(On_Eject_CD()) );
-	Toolbar->addSeparator();
+
+	Sep_Floppy = Toolbar->addSeparator();
 	Act_Insert_FD0 = Add_Toolbar_Action( QIcon( ":/fdd.png" ), tr( "Insert floppy A image…" ), SLOT(On_Change_FD0()) );
 	Act_Eject_FD0 = Add_Toolbar_Action( QIcon( ":/eject.png" ), tr( "Eject floppy A" ), SLOT(On_Eject_FD0()) );
 	Act_Insert_FD1 = Add_Toolbar_Action( QIcon( ":/fdd.png" ), tr( "Insert floppy B image…" ), SLOT(On_Change_FD1()) );
 	Act_Eject_FD1 = Add_Toolbar_Action( QIcon( ":/eject.png" ), tr( "Eject floppy B" ), SLOT(On_Eject_FD1()) );
 	Toolbar->addSeparator();
 
+	// Apple controls & Restore IPSW (only visible on Apple SoC VMs)
 	Act_Restore_IPSW = Add_Toolbar_Action(
 		QIcon( ":/default_mac.png" ),
 		tr( "Restore IPSW (Inferno companion + idevicerestore)…" ),
 		SLOT(On_Restore_IPSW()) );
-	Act_Restore_IPSW->setVisible( false );
 
-	// Inferno hardware buttons (ChefKiss F-keys) — shown only for Apple SoC
-	QAction *sep_apple = Toolbar->addSeparator();
-	Apple_Sep_Actions << sep_apple;
 	Act_Apple_Vol_Down = Toolbar->addAction( tr( "Vol−" ), this, SLOT(On_Apple_Vol_Down()) );
 	Act_Apple_Vol_Down->setToolTip( tr( "Volume down (Inferno F3)" ) );
 	Act_Apple_Vol_Up = Toolbar->addAction( tr( "Vol+" ), this, SLOT(On_Apple_Vol_Up()) );
@@ -255,16 +262,19 @@ void VM_Session_Widget::Build_Toolbar()
 	Act_Guest_Internet->setToolTip( tr(
 		"Enable guest internet (companion reverse-tether)\n"
 		"Not the AQEMU Network NIC tab — opens Device Tools → Internet" ) );
+
+	QAction *sep_apple = Toolbar->addSeparator();
+	Apple_Sep_Actions << sep_apple;
+
 	for( QAction *a : { Act_Apple_Vol_Down, Act_Apple_Vol_Up, Act_Apple_Home, Act_Apple_Power,
-	                    Act_Apple_SOS, Act_Apple_More, Act_Button_Pad, Act_Guest_Internet, sep_apple } )
+	                    Act_Apple_SOS, Act_Apple_More, Act_Button_Pad, Act_Guest_Internet,
+	                    Act_Restore_IPSW, sep_apple } )
 	{
 		if( a )
 			a->setVisible( false );
 	}
 
-	Toolbar->addSeparator();
-
-	// USB hotplug (VMware-style connect/disconnect menu)
+	// Peripheral / Integration Tools (USB + Serial console together)
 	Menu_USB = new QMenu( this );
 	TB_USB = new QToolButton( Toolbar );
 	TB_USB->setIcon( QIcon( ":/usb.png" ) );
@@ -274,7 +284,6 @@ void VM_Session_Widget::Build_Toolbar()
 	TB_USB->setAutoRaise( true );
 	Toolbar->addWidget( TB_USB );
 	connect( Menu_USB, SIGNAL(aboutToShow()), this, SLOT(On_USB_Menu_About_To_Show()) );
-	Toolbar->addSeparator();
 
 	Add_Toolbar_Action( QIcon( ":/key.png" ), tr( "Serial console (guest COM / ttyS0)" ),
 	                    SLOT(On_Serial_Console()) );
@@ -510,6 +519,13 @@ void VM_Session_Widget::resizeEvent( QResizeEvent *event )
 	if( Fullscreen_Active && Fullscreen_Toolbar_Visible )
 		Toolbar->setGeometry( 0, 0, width(), Toolbar->sizeHint().height() );
 	Position_Button_Pad();
+#ifdef VNC_DISPLAY
+	if( Vnc && Stack && Stack->currentWidget() == Vnc )
+	{
+		const QSize vp = Vnc->viewport() ? Vnc->viewport()->size() : Vnc->size();
+		Vnc->resizeView( vp.width(), vp.height() );
+	}
+#endif
 }
 
 void VM_Session_Widget::changeEvent( QEvent *event )
@@ -546,7 +562,7 @@ QString VM_Session_Widget::Pick_Backend( const QString &preferred ) const
 	if( p.isEmpty() )
 		p = QSettings().value( "Embedded_Display_Backend", "vnc" ).toString().toLower();
 
-#ifdef Q_OS_WIN32
+#ifdef Q_OS_WIN
 	// Windows: spice-client-glib channel teardown / ERROR_LINK retries have been
 	// crashing the whole AQEMU process. Prefer LibVNC (QEMU already opens -vnc).
 	if( p != QLatin1String( "spice" ) )
@@ -590,6 +606,8 @@ void VM_Session_Widget::Attach_VM( Virtual_Machine *vm, QMP_Client *qmp,
 	{
 		connect( q, SIGNAL(Connected()), this, SLOT(On_QMP_Connected()), Qt::UniqueConnection );
 		connect( q, SIGNAL(Block_Stats(QJsonArray)), this, SLOT(On_Block_Stats(QJsonArray)), Qt::UniqueConnection );
+		connect( q, SIGNAL(Command_Result(int,QString,bool,QString,QJsonObject)),
+		         this, SLOT(On_QMP_Command_Result(int,QString,bool,QString,QJsonObject)), Qt::UniqueConnection );
 		if( q->Is_Connected() )
 			On_QMP_Connected();
 	}
@@ -749,6 +767,7 @@ void VM_Session_Widget::Detach()
 	Display_Connect_Attempts = 0;
 	Last_Drive_IO.clear();
 	Connected_USB_Ids.clear();
+	Pending_USB_Ops.clear();
 	Toolbar_Show_Timer->stop();
 	Toolbar_Hide_Timer->stop();
 
@@ -1025,21 +1044,75 @@ QString VM_Session_Widget::USB_Qemu_Device_Id( const QString &instance_key ) con
 	return QStringLiteral( "aqusb_%1" ).arg( s.left( 48 ) );
 }
 
+QString VM_Session_Widget::USB_Target_Bus() const
+{
+	if( VM )
+		return VM->Get_Primary_USB_Bus();
+	return QStringLiteral( "aqemu_usb_hub.0" );
+}
+
 QString VM_Session_Widget::USB_Device_Add_Command( const VM_USB &u, const QString &qemu_id ) const
 {
-	if( ! u.Get_Bus().isEmpty() && ! u.Get_Addr().isEmpty() )
+	QSettings Settings;
+	const QString id_style = Settings.value( "USB_ID_Style", "VendorProduct" ).toString();
+
+	auto hex_id = []( QString id ) -> QString {
+		id = id.trimmed().toLower();
+		if( id.isEmpty() )
+			return QStringLiteral( "0x0" );
+		if( id.startsWith( QLatin1String( "0x" ) ) )
+			return id;
+		return QLatin1String( "0x" ) + id;
+	};
+
+	const QString target_bus = USB_Target_Bus();
+	const QString bus_prop = target_bus.isEmpty() ? QString() : QStringLiteral( ",bus=%1" ).arg( target_bus );
+
+	const bool have_vid_pid = ! u.Get_Vendor_ID().trimmed().isEmpty() &&
+	                          ! u.Get_Product_ID().trimmed().isEmpty();
+	const bool have_bus_path = ! u.Get_Bus().trimmed().isEmpty() &&
+	                           ! u.Get_DevPath().trimmed().isEmpty();
+	const bool have_bus_addr = ! u.Get_Bus().trimmed().isEmpty() &&
+	                           ! u.Get_Addr().trimmed().isEmpty();
+
+	if( id_style == "BusPath" && have_bus_path )
+	{
+		return QStringLiteral( "device_add usb-host%1,hostbus=%2,hostport=%3,id=%4" )
+			.arg( bus_prop, u.Get_Bus(), u.Get_DevPath(), qemu_id );
+	}
+	else if( id_style == "BusAddr" && have_bus_addr )
 	{
 		bool ok_bus = false, ok_addr = false;
 		const int bus = u.Get_Bus().toInt( &ok_bus );
 		const int addr = u.Get_Addr().toInt( &ok_addr );
 		if( ok_bus && ok_addr )
 		{
-			return QStringLiteral( "device_add usb-host,hostbus=%1,hostaddr=%2,id=%3" )
-				.arg( bus ).arg( addr ).arg( qemu_id );
+			return QStringLiteral( "device_add usb-host%1,hostbus=%2,hostaddr=%3,id=%4" )
+				.arg( bus_prop ).arg( bus ).arg( addr ).arg( qemu_id );
 		}
 	}
-	return QStringLiteral( "device_add usb-host,vendorid=0x%1,productid=0x%2,id=%3" )
-		.arg( u.Get_Vendor_ID().toLower(), u.Get_Product_ID().toLower(), qemu_id );
+
+	// Default / Preferred: VendorProduct (resilient to device reconnects / resets)
+	if( have_vid_pid )
+	{
+		return QStringLiteral( "device_add usb-host%1,vendorid=%2,productid=%3,id=%4" )
+			.arg( bus_prop )
+			.arg( hex_id( u.Get_Vendor_ID() ) )
+			.arg( hex_id( u.Get_Product_ID() ) )
+			.arg( qemu_id );
+	}
+	else if( have_bus_path )
+	{
+		return QStringLiteral( "device_add usb-host%1,hostbus=%2,hostport=%3,id=%4" )
+			.arg( bus_prop, u.Get_Bus(), u.Get_DevPath(), qemu_id );
+	}
+	else if( have_bus_addr )
+	{
+		return QStringLiteral( "device_add usb-host%1,hostbus=%2,hostaddr=%3,id=%4" )
+			.arg( bus_prop, u.Get_Bus(), u.Get_Addr(), qemu_id );
+	}
+
+	return QString();
 }
 
 void VM_Session_Widget::Send_Hmp_Command( const QString &cmd )
@@ -1104,7 +1177,7 @@ void VM_Session_Widget::Rebuild_USB_Menu()
 
 	Menu_USB->clear();
 
-	QAction *hint = Menu_USB->addAction( tr( "Host USB devices (toggle to connect)" ) );
+	QAction *hint = Menu_USB->addAction( tr( "Host USB devices (VMware-style connect)" ) );
 	hint->setEnabled( false );
 	Menu_USB->addSeparator();
 
@@ -1120,25 +1193,49 @@ void VM_Session_Widget::Rebuild_USB_Menu()
 		return;
 	}
 
+	int shown_devices = 0;
 	for( int i = 0; i < host.count(); ++i )
 	{
 		const VM_USB &u = host[i];
+		// Filter out host root hubs and internal controllers
+		if( System_Info::Is_Root_Hub( u ) )
+			continue;
+
 		const QString vidpid = u.Get_ID_Line().toLower();
 		if( vidpid.isEmpty() || ! vidpid.contains( QLatin1Char( ':' ) ) )
 			continue;
 		const QString key = USB_Instance_Key( u, i );
 		const QString qemu_id = USB_Qemu_Device_Id( key );
 
-		QString label = u.Get_Product_Name().trimmed();
-		if( label.isEmpty() )
-			label = vidpid;
+		QString base_name = u.Get_Product_Name().trimmed();
+		if( base_name.isEmpty() )
+			base_name = vidpid;
 		else
-			label = QStringLiteral( "%1  (%2)" ).arg( label, vidpid );
+			base_name = QStringLiteral( "%1 (%2)" ).arg( base_name, vidpid );
 		if( ! u.Get_Bus().isEmpty() && ! u.Get_Addr().isEmpty() )
-			label += QStringLiteral( "  [%1.%2]" ).arg( u.Get_Bus(), u.Get_Addr() );
+			base_name += QStringLiteral( " [%1.%2]" ).arg( u.Get_Bus(), u.Get_Addr() );
+
+		const bool is_connected = Connected_USB_Ids.contains( key );
+		const bool is_host_input = System_Info::Is_Host_Input_Device( u );
+
+		QString label = base_name;
+		if( is_connected )
+			label += tr( "  [Connected — Click to Disconnect]" );
+		else
+			label += tr( "  [Click to Connect]" );
+
+		if( is_host_input )
+			label += tr( "  ⚠ (Host Input)" );
 
 		QAction *act = Menu_USB->addAction( label );
 		act->setCheckable( true );
+		if( is_connected )
+			act->setToolTip( tr( "Click to disconnect this device from the virtual machine and return it to the host." ) );
+		else if( is_host_input )
+			act->setToolTip( tr( "Warning: Host input device (keyboard/mouse). Disconnecting from host may leave host without input." ) );
+		else
+			act->setToolTip( tr( "Click to connect this device to the virtual machine (disconnects from host)." ) );
+
 		QVariantMap data;
 		data.insert( QStringLiteral( "key" ), key );
 		data.insert( QStringLiteral( "qemu_id" ), qemu_id );
@@ -1146,11 +1243,21 @@ void VM_Session_Widget::Rebuild_USB_Menu()
 		data.insert( QStringLiteral( "pid" ), u.Get_Product_ID().toLower() );
 		data.insert( QStringLiteral( "bus" ), u.Get_Bus() );
 		data.insert( QStringLiteral( "addr" ), u.Get_Addr() );
+		data.insert( QStringLiteral( "devpath" ), u.Get_DevPath() );
+		data.insert( QStringLiteral( "label" ), base_name );
+		data.insert( QStringLiteral( "is_host_input" ), is_host_input );
 		act->setData( data );
 		act->blockSignals( true );
-		act->setChecked( Connected_USB_Ids.contains( key ) );
+		act->setChecked( is_connected );
 		act->blockSignals( false );
 		connect( act, SIGNAL(toggled(bool)), this, SLOT(On_USB_Device_Toggled(bool)) );
+		++shown_devices;
+	}
+
+	if( shown_devices == 0 )
+	{
+		QAction *empty = Menu_USB->addAction( tr( "(No removable USB devices detected)" ) );
+		empty->setEnabled( false );
 	}
 
 	if( ! Connected_USB_Ids.isEmpty() )
@@ -1165,6 +1272,7 @@ void VM_Session_Widget::Rebuild_USB_Menu()
 					Send_Hmp_Command( QStringLiteral( "device_del %1" ).arg( ids[i] ) );
 			}
 			Connected_USB_Ids.clear();
+			Rebuild_USB_Menu();
 		} );
 	}
 }
@@ -1177,6 +1285,8 @@ void VM_Session_Widget::On_USB_Device_Toggled( bool checked )
 	const QVariantMap data = act->data().toMap();
 	const QString key = data.value( QStringLiteral( "key" ) ).toString();
 	QString qemu_id = data.value( QStringLiteral( "qemu_id" ) ).toString();
+	const QString dev_label = data.value( QStringLiteral( "label" ) ).toString();
+	const bool is_host_input = data.value( QStringLiteral( "is_host_input" ) ).toBool();
 	if( key.isEmpty() )
 		return;
 	if( qemu_id.isEmpty() )
@@ -1184,18 +1294,143 @@ void VM_Session_Widget::On_USB_Device_Toggled( bool checked )
 
 	if( checked )
 	{
+		// Safety check for primary host keyboard and mouse
+		if( is_host_input )
+		{
+			const QMessageBox::StandardButton btn = QMessageBox::warning(
+				this,
+				tr( "Pass Through Host Input Device" ),
+				tr( "Warning: '%1' appears to be a host keyboard or mouse.\n\n"
+				    "Passing it through to the virtual machine will disconnect it from your host operating system.\n\n"
+				    "Are you sure you want to pass it through?" ).arg( dev_label ),
+				QMessageBox::Yes | QMessageBox::No,
+				QMessageBox::No );
+			if( btn != QMessageBox::Yes )
+			{
+				act->blockSignals( true );
+				act->setChecked( false );
+				act->blockSignals( false );
+				return;
+			}
+		}
+
 		VM_USB tmp;
 		tmp.Set_Vendor_ID( data.value( QStringLiteral( "vid" ) ).toString() );
 		tmp.Set_Product_ID( data.value( QStringLiteral( "pid" ) ).toString() );
 		tmp.Set_Bus( data.value( QStringLiteral( "bus" ) ).toString() );
 		tmp.Set_Addr( data.value( QStringLiteral( "addr" ) ).toString() );
-		Send_Hmp_Command( USB_Device_Add_Command( tmp, qemu_id ) );
-		Connected_USB_Ids.insert( key, qemu_id );
+		tmp.Set_DevPath( data.value( QStringLiteral( "devpath" ) ).toString() );
+		const QString add_cmd = USB_Device_Add_Command( tmp, qemu_id );
+		if( ! add_cmd.isEmpty() )
+		{
+			if( QMP_Client *q = Active_QMP() )
+			{
+				if( q->Is_Connected() )
+				{
+					const int cmd_id = q->Send_Hmp_Tracked( add_cmd );
+					if( cmd_id > 0 )
+					{
+						Pending_USB_Ops.insert( cmd_id, { key, qemu_id, dev_label, true, act } );
+						return;
+					}
+				}
+			}
+			Send_Monitor( add_cmd );
+			Connected_USB_Ids.insert( key, qemu_id );
+			act->setText( dev_label + tr( "  [Connected — Click to Disconnect]" ) );
+		}
 	}
 	else
 	{
-		Send_Hmp_Command( QStringLiteral( "device_del %1" ).arg( qemu_id ) );
+		const QString del_cmd = QStringLiteral( "device_del %1" ).arg( qemu_id );
+		if( QMP_Client *q = Active_QMP() )
+		{
+			if( q->Is_Connected() )
+			{
+				const int cmd_id = q->Send_Hmp_Tracked( del_cmd );
+				if( cmd_id > 0 )
+				{
+					Pending_USB_Ops.insert( cmd_id, { key, qemu_id, dev_label, false, act } );
+					return;
+				}
+			}
+		}
+		Send_Monitor( del_cmd );
 		Connected_USB_Ids.remove( key );
+		act->setText( dev_label + tr( "  [Click to Connect]" ) );
+	}
+}
+
+void VM_Session_Widget::On_QMP_Command_Result( int id, const QString &cmd, bool ok,
+                                              const QString &error_desc, const QJsonObject &raw_reply )
+{
+	Q_UNUSED( cmd );
+	Q_UNUSED( raw_reply );
+
+	if( ! Pending_USB_Ops.contains( id ) )
+		return;
+
+	const Pending_USB_Op op = Pending_USB_Ops.take( id );
+
+	if( ok )
+	{
+		if( op.checked )
+		{
+			Connected_USB_Ids.insert( op.key, op.qemu_id );
+			if( op.action )
+			{
+				op.action->blockSignals( true );
+				op.action->setChecked( true );
+				op.action->setText( QStringLiteral( "%1  [Connected — Click to Disconnect]" ).arg( op.label ) );
+				op.action->blockSignals( false );
+			}
+		}
+		else
+		{
+			Connected_USB_Ids.remove( op.key );
+			if( op.action )
+			{
+				op.action->blockSignals( true );
+				op.action->setChecked( false );
+				op.action->setText( QStringLiteral( "%1  [Click to Connect]" ).arg( op.label ) );
+				op.action->blockSignals( false );
+			}
+		}
+	}
+	else
+	{
+		const QString err = error_desc.trimmed().isEmpty()
+			? tr( "QEMU command failed with unknown error." )
+			: error_desc.trimmed();
+
+		if( op.checked )
+		{
+			Connected_USB_Ids.remove( op.key );
+			if( op.action )
+			{
+				op.action->blockSignals( true );
+				op.action->setChecked( false );
+				op.action->setText( QStringLiteral( "%1  [Click to Connect]" ).arg( op.label ) );
+				op.action->blockSignals( false );
+			}
+			QMessageBox::critical( this, tr( "USB Passthrough Error" ),
+				tr( "Failed to connect USB device to virtual machine:\n\n%1\n\nError: %2" )
+					.arg( op.label, err ) );
+		}
+		else
+		{
+			Connected_USB_Ids.insert( op.key, op.qemu_id );
+			if( op.action )
+			{
+				op.action->blockSignals( true );
+				op.action->setChecked( true );
+				op.action->setText( QStringLiteral( "%1  [Connected — Click to Disconnect]" ).arg( op.label ) );
+				op.action->blockSignals( false );
+			}
+			QMessageBox::warning( this, tr( "USB Disconnect Error" ),
+				tr( "Failed to disconnect USB device from virtual machine:\n\n%1\n\nError: %2" )
+					.arg( op.label, err ) );
+		}
 	}
 }
 
@@ -1203,18 +1438,18 @@ bool VM_Session_Widget::Change_Medium_Id( const QString &block_id, const QString
 {
 	const QString unix_path = QDir::fromNativeSeparators( path );
 
-	// QMP (device= backend name). Fire-and-forget — also always send HMP,
-	// which is what actually works for if=floppy drives on current QEMU.
+	// Prefer QMP blockdev-change-medium when connected
 	if( QMP_Client *q = Active_QMP() )
 	{
 		if( q->Is_Connected() )
+		{
 			q->Change_Medium( block_id, unix_path );
+			return true;
+		}
 	}
 
+	// Legacy monitor fallback
 	Send_Monitor( QString( "change %1 \"%2\"" ).arg( block_id, unix_path ) );
-	const QString hmp = Hmp_Device_Name( block_id );
-	if( hmp != block_id )
-		Send_Monitor( QString( "change %1 \"%2\"" ).arg( hmp, unix_path ) );
 	return true;
 }
 
@@ -1241,12 +1476,7 @@ void VM_Session_Widget::Apply_Runtime_Boot_Order()
 
 	// Update SeaBIOS boot list without relaunching QEMU (fixes insert-then-reset).
 	const QString cmd = QString( "boot_set %1" ).arg( letters );
-	if( QMP_Client *q = Active_QMP() )
-	{
-		if( q->Is_Connected() )
-			q->Human_Monitor( cmd );
-	}
-	Send_Monitor( cmd );
+	Send_Hmp_Command( cmd );
 	AQDebug( "VM_Session_Widget::Apply_Runtime_Boot_Order()", cmd );
 }
 
@@ -1340,13 +1570,13 @@ bool VM_Session_Widget::Eject_Medium_Id( const QString &block_id )
 	if( QMP_Client *q = Active_QMP() )
 	{
 		if( q->Is_Connected() )
+		{
 			q->Eject_Medium( block_id, true );
+			return true;
+		}
 	}
 
 	Send_Monitor( QString( "eject -f %1" ).arg( block_id ) );
-	const QString hmp = Hmp_Device_Name( block_id );
-	if( hmp != block_id )
-		Send_Monitor( QString( "eject -f %1" ).arg( hmp ) );
 	return true;
 }
 
@@ -1608,7 +1838,8 @@ void VM_Session_Widget::Update_Apple_Controls_Visibility()
 {
 	const bool apple = VM && AQ_Is_Apple_SoC_VM( VM );
 	for( QAction *a : { Act_Apple_Vol_Down, Act_Apple_Vol_Up, Act_Apple_Home, Act_Apple_Power,
-	                    Act_Apple_SOS, Act_Apple_More, Act_Button_Pad, Act_Guest_Internet } )
+	                    Act_Apple_SOS, Act_Apple_More, Act_Button_Pad, Act_Guest_Internet,
+	                    Act_Restore_IPSW } )
 	{
 		if( a )
 			a->setVisible( apple );
@@ -1618,23 +1849,32 @@ void VM_Session_Widget::Update_Apple_Controls_Visibility()
 		if( a )
 			a->setVisible( apple );
 	}
-	// Hide PC-centric keys / floppies for iPhone sessions
+
+	// Floppy drives: only visible if VM has floppies enabled and not Apple
+	const bool has_fd0 = ! apple && VM && VM->Get_FD0().Get_Enabled();
+	const bool has_fd1 = ! apple && VM && VM->Get_FD1().Get_Enabled();
+	if( Act_Insert_FD0 )
+		Act_Insert_FD0->setVisible( has_fd0 );
+	if( Act_Eject_FD0 )
+		Act_Eject_FD0->setVisible( has_fd0 );
+	if( Light_FD0 )
+		Light_FD0->setVisible( has_fd0 );
+
+	if( Act_Insert_FD1 )
+		Act_Insert_FD1->setVisible( has_fd1 );
+	if( Act_Eject_FD1 )
+		Act_Eject_FD1->setVisible( has_fd1 );
+	if( Light_FD1 )
+		Light_FD1->setVisible( has_fd1 );
+
+	if( Sep_Floppy )
+		Sep_Floppy->setVisible( has_fd0 || has_fd1 );
+
+	// Hide PC-centric keys for iPhone sessions
 	if( Act_CAD )
 		Act_CAD->setVisible( ! apple );
 	if( Act_Shift_F10 )
 		Act_Shift_F10->setVisible( ! apple );
-	if( Act_Insert_FD0 )
-		Act_Insert_FD0->setVisible( ! apple );
-	if( Act_Eject_FD0 )
-		Act_Eject_FD0->setVisible( ! apple );
-	if( Act_Insert_FD1 )
-		Act_Insert_FD1->setVisible( ! apple );
-	if( Act_Eject_FD1 )
-		Act_Eject_FD1->setVisible( ! apple );
-	if( Light_FD0 )
-		Light_FD0->setVisible( ! apple );
-	if( Light_FD1 )
-		Light_FD1->setVisible( ! apple );
 
 	if( ! apple && Button_Pad )
 	{

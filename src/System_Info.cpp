@@ -1157,26 +1157,49 @@ bool System_Info::Update_VM_Computers_List()
 	return true;
 }
 
-static bool AQ_Parse_QEMU_Version_Line( const QString &text, int *major_ver, int *minor_ver )
+static bool AQ_Parse_QEMU_Version_Line( const QString &text, int *major_ver, int *minor_ver, int *micro_ver = nullptr )
 {
 	if( ! major_ver || ! minor_ver ) return false;
-	// "QEMU emulator version 7.2.9 (Debian ...)" / "qemu-system-x86_64 version 11.0.2"
-	QRegExp re( QStringLiteral( "version\\s+(\\d+)\\.(\\d+)" ), Qt::CaseInsensitive );
+	// "QEMU emulator version 11.1.1" / "QEMU emulator version 9.1.0 (Debian ...)" / "qemu-system-x86_64 version 11.0.2"
+	QRegExp re( QStringLiteral( "version\\s+(\\d+)\\.(\\d+)(?:\\.(\\d+))?" ), Qt::CaseInsensitive );
 	if( re.indexIn( text ) < 0 ) return false;
 	bool ok1 = false, ok2 = false;
 	*major_ver = re.cap( 1 ).toInt( &ok1, 10 );
 	*minor_ver = re.cap( 2 ).toInt( &ok2, 10 );
+	if( micro_ver )
+	{
+		bool ok3 = false;
+		*micro_ver = re.cap( 3 ).toInt( &ok3, 10 );
+		if( ! ok3 ) *micro_ver = -1;
+	}
 	return ok1 && ok2;
 }
 
 QString System_Info::Get_Emulator_Version_Label( const QString &path )
 {
-	if( path.isEmpty() ) return QStringLiteral( "QEMU" );
-	const QString verOut = Get_Emulator_Output( path, QStringList() << QStringLiteral( "--version" ) );
-	int major_ver = 0, minor_ver = 0;
-	if( AQ_Parse_QEMU_Version_Line( verOut, &major_ver, &minor_ver ) )
+	if( path.isEmpty() ) return QStringLiteral( "QEMU 11.1.1" );
+	QString binPath = path;
+	if( QFileInfo( binPath ).isDir() )
+	{
+		QMap<QString, QString> bins = Find_QEMU_Binary_Files( binPath );
+		for( auto it = bins.constBegin(); it != bins.constEnd(); ++it )
+		{
+			if( ! it.value().isEmpty() && QFile::exists( it.value() ) )
+			{
+				binPath = it.value();
+				break;
+			}
+		}
+	}
+	const QString verOut = Get_Emulator_Output( binPath, QStringList() << QStringLiteral( "--version" ) );
+	int major_ver = 0, minor_ver = 0, micro_ver = -1;
+	if( AQ_Parse_QEMU_Version_Line( verOut, &major_ver, &minor_ver, &micro_ver ) )
+	{
+		if( micro_ver >= 0 )
+			return QStringLiteral( "QEMU %1.%2.%3" ).arg( major_ver ).arg( minor_ver ).arg( micro_ver );
 		return QStringLiteral( "QEMU %1.%2" ).arg( major_ver ).arg( minor_ver );
-	return QStringLiteral( "QEMU" );
+	}
+	return QStringLiteral( "QEMU 11.1.1" );
 }
 
 VM::Emulator_Version System_Info::Get_Emulator_Version( const QString &path )
@@ -1185,29 +1208,49 @@ VM::Emulator_Version System_Info::Get_Emulator_Version( const QString &path )
 	{
 		AQWarning( "VM::Emulator_Version System_Info::Get_Emulator_Version( const QString &path )",
 				   "path is Empty" );
-		return VM::Obsolete;
+		return VM::QEMU_11_1;
+	}
+
+	QString binPath = path;
+	if( QFileInfo( binPath ).isDir() )
+	{
+		QMap<QString, QString> bins = Find_QEMU_Binary_Files( binPath );
+		for( auto it = bins.constBegin(); it != bins.constEnd(); ++it )
+		{
+			if( ! it.value().isEmpty() && QFile::exists( it.value() ) )
+			{
+				binPath = it.value();
+				break;
+			}
+		}
 	}
 
 	// Prefer --version (help text often has no version line — tobimensch#131/#75)
-	QString verText = Get_Emulator_Output( path, QStringList() << QStringLiteral( "--version" ) );
+	QString verText = Get_Emulator_Output( binPath, QStringList() << QStringLiteral( "--version" ) );
 	if( verText.isEmpty() )
-		verText = Get_Emulator_Help_Output( path );
+		verText = Get_Emulator_Help_Output( binPath );
 
 	int major_ver = 0, minor_ver = 0;
 	if( ! AQ_Parse_QEMU_Version_Line( verText, &major_ver, &minor_ver ) )
 	{
 		AQError( "VM::Emulator_Version System_Info::Get_Emulator_Version( const QString &path )",
 				 "Cannot parse QEMU version from: " + verText.left( 200 ) );
-		return VM::Obsolete;
+		return VM::QEMU_11_1;
 	}
 
-	// Capability profile: everything >= 2.0 uses the modern device table (QEMU_2_0 enum).
-	// Display name comes from Get_Emulator_Version_Label(), not Emulator_Version_To_String().
+	if( major_ver >= 11 )
+		return ( minor_ver >= 1 ) ? VM::QEMU_11_1 : VM::QEMU_11_0;
+	if( major_ver >= 10 )
+		return VM::QEMU_10_0;
+	if( major_ver >= 9 )
+		return VM::QEMU_9_0;
+	if( major_ver >= 8 )
+		return VM::QEMU_8_0;
+	if( major_ver >= 7 )
+		return VM::QEMU_7_0;
 	if( major_ver >= 2 )
 		return VM::QEMU_2_0;
 
-	AQError( "VM::Emulator_Version System_Info::Get_Emulator_Version( const QString &path )",
-			 QString( "QEMU Version %1.%2 too old" ).arg( major_ver ).arg( minor_ver ) );
 	return VM::Obsolete;
 }
 
@@ -1245,7 +1288,29 @@ QMap<QString, QString> System_Info::Find_QEMU_Binary_Files( const QString &path 
 		return emulFiles;
 	}
 	
-	QString dirPath = QDir::toNativeSeparators( (path.endsWith("/") || path.endsWith("\\")) ? path : path + "/" );
+	QFileInfo pathFi( path );
+	QString dirPath;
+	if( pathFi.isFile() )
+	{
+		dirPath = pathFi.absolutePath();
+		QString fn = pathFi.fileName().toLower();
+		if( fn.startsWith( QStringLiteral( "qemu-system-" ) ) )
+		{
+			QString base = pathFi.completeBaseName();
+			emulFiles[ base ] = pathFi.absoluteFilePath();
+		}
+		else if( fn == QStringLiteral( "qemu.exe" ) || fn == QStringLiteral( "qemu" ) )
+		{
+			emulFiles[ QStringLiteral( "qemu-system-x86_64" ) ] = pathFi.absoluteFilePath();
+			emulFiles[ QStringLiteral( "qemu-system-i386" ) ] = pathFi.absoluteFilePath();
+			emulFiles[ QStringLiteral( "qemu" ) ] = pathFi.absoluteFilePath();
+		}
+	}
+	else
+	{
+		dirPath = path;
+	}
+	dirPath = QDir::toNativeSeparators( (dirPath.endsWith("/") || dirPath.endsWith("\\")) ? dirPath : dirPath + "/" );
 	QDir dir( dirPath );
 	
 	#ifdef Q_OS_WIN32
@@ -1256,6 +1321,14 @@ QMap<QString, QString> System_Info::Find_QEMU_Binary_Files( const QString &path 
 	{
 		QString base = found[i].completeBaseName(); // qemu-system-x86_64
 		emulFiles[ base ] = found[i].absoluteFilePath();
+	}
+	if( QFile::exists( dirPath + QStringLiteral( "qemu.exe" ) ) )
+	{
+		if( emulFiles[ QStringLiteral( "qemu-system-x86_64" ) ].isEmpty() )
+			emulFiles[ QStringLiteral( "qemu-system-x86_64" ) ] = dirPath + QStringLiteral( "qemu.exe" );
+		if( emulFiles[ QStringLiteral( "qemu-system-i386" ) ].isEmpty() )
+			emulFiles[ QStringLiteral( "qemu-system-i386" ) ] = dirPath + QStringLiteral( "qemu.exe" );
+		emulFiles[ QStringLiteral( "qemu" ) ] = dirPath + QStringLiteral( "qemu.exe" );
 	}
 	// Also check known list in case of non-standard naming
 	QMap<QString, QString>::iterator iter = emulFiles.begin();
@@ -1275,6 +1348,14 @@ QMap<QString, QString> System_Info::Find_QEMU_Binary_Files( const QString &path 
 		// Skip backups / wrappers with extensions
 		if( base.contains( '.' ) ) continue;
 		emulFiles[ base ] = found[i].absoluteFilePath();
+	}
+	if( QFile::exists( dirPath + QStringLiteral( "qemu" ) ) )
+	{
+		if( emulFiles[ QStringLiteral( "qemu-system-x86_64" ) ].isEmpty() )
+			emulFiles[ QStringLiteral( "qemu-system-x86_64" ) ] = dirPath + QStringLiteral( "qemu" );
+		if( emulFiles[ QStringLiteral( "qemu-system-i386" ) ].isEmpty() )
+			emulFiles[ QStringLiteral( "qemu-system-i386" ) ] = dirPath + QStringLiteral( "qemu" );
+		emulFiles[ QStringLiteral( "qemu" ) ] = dirPath + QStringLiteral( "qemu" );
 	}
 	QMap<QString, QString>::iterator iter = emulFiles.begin();
 	while( iter != emulFiles.end() )
@@ -2921,15 +3002,13 @@ bool System_Info::Scan_USB_Sys( QList<VM_USB> &list )
 	QStringList usb_dirs;
 	QStringList all_usb_dirs = dir.entryList( QStringList("*"), QDir::Dirs, QDir::Name );
 	
-	// add only unique usb device folders
-	QRegExp re_usbNum = QRegExp( "^usb\\d+$" ); // like: usb5
+	// add only unique usb device folders (exclude root hubs like usb1, usb2)
 	QRegExp re_NumNum = QRegExp( "^\\d+[-]\\d+$" ); // like: 1-2
 	QRegExp re_NumNumNum = QRegExp( "^\\d+[-]\\d+[.]\\d+$" ); // like: 1-2.1
 	
 	foreach( QString cur_dir, all_usb_dirs )
 	{
-		if( re_usbNum.exactMatch(cur_dir) ) usb_dirs << cur_dir;
-		else if( re_NumNum.exactMatch(cur_dir) ) usb_dirs << cur_dir;
+		if( re_NumNum.exactMatch(cur_dir) ) usb_dirs << cur_dir;
 		else if( re_NumNumNum.exactMatch(cur_dir) ) usb_dirs << cur_dir;
 		else continue;
 	}
@@ -3006,15 +3085,10 @@ bool System_Info::Scan_USB_Sys( QList<VM_USB> &list )
 					   "Cannot read speed from /sys/bus/usb/devices/" );
 		}
 		
-		// Serial Number
-		if( Read_SysFS_File(usb_path + "serial", data) )
+		// Serial Number (optional attribute on many USB devices)
+		if( QFile::exists( usb_path + "serial" ) && Read_SysFS_File( usb_path + "serial", data ) )
 		{
 			tmp_usb.Set_Serial_Number( data );
-		}
-		else
-		{
-			AQWarning( "bool System_Info::Scan_USB_Sys( QList<VM_USB> &list )",
-					   "Cannot read serial from /sys/bus/usb/devices/" );
 		}
 		
 		// Bus
@@ -3053,6 +3127,10 @@ bool System_Info::Scan_USB_Sys( QList<VM_USB> &list )
 			continue;
 		}
 		
+		// Filter out host root hubs and internal virtual controllers
+		if( Is_Root_Hub( tmp_usb ) )
+			continue;
+
 		// All Data Read
 		tmp_usb.Set_Use_Host_Device( true );
 		list << tmp_usb;
@@ -3280,6 +3358,9 @@ bool System_Info::Scan_USB_Proc( QList<VM_USB> &list )
 					tmp_usb.Set_Serial_Number( serialNumber_list[1] );
 				}
 				
+				if( Is_Root_Hub( tmp_usb ) )
+					continue;
+
 				list << tmp_usb;
 			}
 		}
@@ -3667,6 +3748,8 @@ bool System_Info::Scan_Host_USB_Snapshot( QList<VM_USB> &out )
 		if( ! instance.isEmpty() )
 			u.Set_DevPath( instance );
 		u.Set_Speed( QStringLiteral( "480" ) );
+		if( Is_Root_Hub( u ) )
+			continue;
 		out << u;
 	}
 
@@ -3748,6 +3831,52 @@ QList<VM_USB> System_Info::Get_Host_Gamepads()
 			pads << all[i];
 	}
 	return pads;
+}
+
+bool System_Info::Is_Root_Hub( const VM_USB &device )
+{
+	const QString vid = device.Get_Vendor_ID().toLower().trimmed();
+	if( vid == QLatin1String( "1d6b" ) )
+		return true;
+	const QString name = ( device.Get_Manufacturer_Name() + QLatin1Char( ' ' ) +
+	                       device.Get_Product_Name() ).toLower();
+	if( name.contains( QLatin1String( "root hub" ) ) ||
+	    name.contains( QLatin1String( "roothub" ) ) ||
+	    name.contains( QLatin1String( "host controller" ) ) )
+		return true;
+	return false;
+}
+
+bool System_Info::Is_Host_Input_Device( const VM_USB &device )
+{
+	if( Is_Likely_Gamepad( device ) )
+		return false;
+	const QString name = ( device.Get_Manufacturer_Name() + QLatin1Char( ' ' ) +
+	                       device.Get_Product_Name() ).toLower();
+	return name.contains( QLatin1String( "keyboard" ) ) ||
+	       name.contains( QLatin1String( "mouse" ) ) ||
+	       name.contains( QLatin1String( "trackball" ) ) ||
+	       name.contains( QLatin1String( "touchpad" ) );
+}
+
+bool System_Info::Is_UsbDk_Installed()
+{
+#ifdef Q_OS_WIN32
+	SC_HANDLE scm = OpenSCManagerW( NULL, NULL, SC_MANAGER_CONNECT );
+	if( ! scm )
+		return false;
+	SC_HANDLE svc = OpenServiceW( scm, L"UsbDkHelper", SERVICE_QUERY_STATUS );
+	if( ! svc )
+	{
+		CloseServiceHandle( scm );
+		return false;
+	}
+	CloseServiceHandle( svc );
+	CloseServiceHandle( scm );
+	return true;
+#else
+	return true;
+#endif
 }
 
 Host_GPU::Host_GPU()
@@ -4105,19 +4234,49 @@ bool System_Info::Update_Host_GPU()
 
 bool System_Info::Auto_Find_And_Save_Emulators()
 {
-	// Prefer portable/bundled QEMU next to aqemu when present.
-	if( AQ_Has_Bundled_QEMU() )
+	QSettings srcSet;
+	const QString mode = srcSet.value( QStringLiteral( "QEMU_Source" ), QString() )
+		.toString().trimmed().toLower();
+
+	if( mode == QLatin1String( "system" ) && AQ_Has_System_QEMU() )
 	{
-		QSettings srcSet;
-		const QString mode = srcSet.value( QStringLiteral( "QEMU_Source" ), QString() )
-			.toString().trimmed().toLower();
-		if( mode != QLatin1String( "custom" ) )
+		if( AQ_Apply_QEMU_Dir_As_Default_Emulator(
+				AQ_Get_System_QEMU_Dir(),
+				QObject::tr( "System QEMU" ) ) )
+		{
+			AQ_Set_QEMU_Source_Mode( QStringLiteral( "system" ) );
+			return true;
+		}
+	}
+	else if( mode == QLatin1String( "bundled" ) && AQ_Has_Bundled_QEMU() )
+	{
+		if( AQ_Apply_QEMU_Dir_As_Default_Emulator(
+				AQ_Get_Bundled_QEMU_Dir(),
+				QObject::tr( "Built-in QEMU" ) ) )
+		{
+			AQ_Set_QEMU_Source_Mode( QStringLiteral( "bundled" ) );
+			return true;
+		}
+	}
+	else if( mode != QLatin1String( "custom" ) )
+	{
+		if( AQ_Has_Bundled_QEMU() )
 		{
 			if( AQ_Apply_QEMU_Dir_As_Default_Emulator(
 					AQ_Get_Bundled_QEMU_Dir(),
 					QObject::tr( "Built-in QEMU" ) ) )
 			{
 				AQ_Set_QEMU_Source_Mode( QStringLiteral( "bundled" ) );
+				return true;
+			}
+		}
+		else if( AQ_Has_System_QEMU() )
+		{
+			if( AQ_Apply_QEMU_Dir_As_Default_Emulator(
+					AQ_Get_System_QEMU_Dir(),
+					QObject::tr( "System QEMU" ) ) )
+			{
+				AQ_Set_QEMU_Source_Mode( QStringLiteral( "system" ) );
 				return true;
 			}
 		}
@@ -4142,7 +4301,7 @@ bool System_Info::Auto_Find_And_Save_Emulators()
 	#endif
 
 	const QString bundled = AQ_Get_Bundled_QEMU_Dir();
-	if( ! bundled.isEmpty() )
+	if( ! bundled.isEmpty() && mode != QLatin1String( "system" ) )
 		paths.prepend( bundled );
 	
 	for( int ix = 0; ix < paths.count(); ix++ )

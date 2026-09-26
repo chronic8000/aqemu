@@ -1172,7 +1172,17 @@ bool VM_Wizard_Window::Ensure_Emulator_Ready()
 	}
 
 	// Only trigger disk/binary scan if devices list is uninitialized in settings
-	if( AQ_Has_Bundled_QEMU() && AQ_Get_QEMU_Source_Mode() != QLatin1String( "custom" ) )
+	const QString srcMode = AQ_Get_QEMU_Source_Mode();
+	if( srcMode == QLatin1String( "system" ) && AQ_Has_System_QEMU() )
+	{
+		const QString sys_dir = AQ_Get_System_QEMU_Dir();
+		if( AQ_Apply_QEMU_Dir_As_Default_Emulator( sys_dir, tr( "System QEMU" ) ) )
+		{
+			Current_Emulator = Get_Default_Emulator();
+			All_Systems = Current_Emulator.Get_Devices();
+		}
+	}
+	else if( AQ_Has_Bundled_QEMU() && srcMode != QLatin1String( "custom" ) )
 	{
 		const QString bundled = AQ_Get_Bundled_QEMU_Dir();
 		if( AQ_Apply_QEMU_Dir_As_Default_Emulator( bundled, tr( "Built-in QEMU" ) ) )

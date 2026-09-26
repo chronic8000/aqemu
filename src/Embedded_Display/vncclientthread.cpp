@@ -25,7 +25,7 @@
 #include "krdc_debug.h"
 
 #include <cerrno>
-#ifndef Q_OS_WIN32
+#ifndef Q_OS_WIN
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <sys/types.h>
@@ -146,6 +146,41 @@ void VncClientThread::setClientColorDepth(rfbClient* cl, VncClientThread::ColorD
     }
 }
 
+static bool SendCleanQEMUEncodings(rfbClient *cl)
+{
+    if (!cl || cl->sock < 0)
+        return false;
+
+    // Standard RFB encodings accepted by QEMU, strictly excluding rfbEncodingExtDesktopSize (-308).
+    // Including rfbEncodingNewFBSize (-223) allows clean resolution changes without LibVNCClient bug #640.
+    const uint32_t encs[] = {
+        htonl(rfbEncodingZRLE),
+        htonl(rfbEncodingZlib),
+        htonl(rfbEncodingHextile),
+        htonl(rfbEncodingCopyRect),
+        htonl(rfbEncodingRaw),
+        htonl(rfbEncodingNewFBSize),
+        htonl(rfbEncodingPointerPos),
+        htonl(rfbEncodingXCursor),
+        htonl(rfbEncodingRichCursor),
+        htonl(rfbEncodingLastRect)
+    };
+    const uint16_t nEncodings = sizeof(encs) / sizeof(encs[0]);
+
+    rfbSetEncodingsMsg msg;
+    msg.type = rfbSetEncodings;
+    msg.pad = 0;
+    msg.nEncodings = htons(nEncodings);
+
+    const int totalLen = sz_rfbSetEncodingsMsg + sizeof(encs);
+    QByteArray packet;
+    packet.resize(totalLen);
+    memcpy(packet.data(), &msg, sz_rfbSetEncodingsMsg);
+    memcpy(packet.data() + sz_rfbSetEncodingsMsg, encs, sizeof(encs));
+
+    return WriteToRFBServer(cl, packet.constData(), totalLen);
+}
+
 rfbBool VncClientThread::newclient()
 {
     //8bit color hack for Intel(r) AMT KVM "classic vnc" = vnc server built in in Intel Vpro chipsets.
@@ -165,25 +200,44 @@ rfbBool VncClientThread::newclient()
 
     switch (quality()) {
     case RemoteView::High:
-        cl->appData.encodingsString = "copyrect zlib hextile raw";
+        cl->appData.encodingsString = "desktop-size cursor copyrect zlib hextile raw";
         cl->appData.compressLevel = 0;
         cl->appData.qualityLevel = 9;
         break;
     case RemoteView::Medium:
-        cl->appData.encodingsString = "copyrect zrle ultra zlib hextile corre rre raw";
+        cl->appData.encodingsString = "desktop-size cursor copyrect zrle ultra zlib hextile corre rre raw";
         cl->appData.compressLevel = 5;
         cl->appData.qualityLevel = 7;
         break;
     case RemoteView::Low:
     case RemoteView::Unknown:
     default:
-        cl->appData.encodingsString = "copyrect zrle ultra zlib hextile corre rre raw";
+        cl->appData.encodingsString = "desktop-size cursor copyrect zrle ultra zlib hextile corre rre raw";
         cl->appData.compressLevel = 9;
         cl->appData.qualityLevel = 1;
     }
 
     SetFormatAndEncodings(cl);
-    qCDebug(KRDC) << "Client created";
+    SendCleanQEMUEncodings(cl);
+
+    QImage img;
+    switch(colorDepth()) {
+    case bpp8:
+        img = QImage(cl->frameBuffer, width, height, width, QImage::Format_Indexed8);
+        img.setColorTable(m_colorTable);
+        break;
+    case bpp16:
+        img = QImage(cl->frameBuffer, width, height, 2*width, QImage::Format_RGB16);
+        break;
+    case bpp32:
+    default:
+        img = QImage(cl->frameBuffer, width, height, 4*width, QImage::Format_RGB32);
+        break;
+    }
+    setImage(img);
+    emitUpdated(0, 0, width, height);
+
+    qCDebug(KRDC) << "Client created / framebuffer reallocated:" << width << "x" << height;
     return true;
 }
 
@@ -492,13 +546,11 @@ void VncClientThread::run()
         }
         if (i) {
             if (!HandleRFBServerMessage(cl)) {
-                if (m_keepalive.failed && !m_stopped) {
+                if (!m_stopped) {
                     do {
-                        // Reconnect after a short delay. That way, if the
-                        // attempt fails very quickly, we don't sit in a very
-                        // tight loop.
+                        // Reconnect after a short delay on resolution switch or socket error
                         clientDestroy();
-                        msleep(1000);
+                        msleep(200);
                         if (m_stopped)
                             break;
                         clientStateChange(RemoteView::Connecting, i18n("Reconnecting."));
@@ -600,7 +652,7 @@ void VncClientThread::clientSetKeepalive()
         return;
     }
 
-#ifdef Q_OS_WIN32
+#ifdef Q_OS_WIN
     // TCP_KEEPIDLE / KEEPINTVL / KEEPCNT are Linux-specific; enable basic keepalive.
     BOOL alive = TRUE;
     if (setsockopt(cl->sock, SOL_SOCKET, SO_KEEPALIVE,

@@ -39,7 +39,8 @@ class VM
 		
 		// Emulators Version
 		enum Emulator_Version { Obsolete,
-								QEMU_2_0, QEMU_2_1, QEMU_2_2, QEMU_2_3, QEMU_2_4, QEMU_2_5, QEMU_2_6 };
+								QEMU_2_0, QEMU_2_1, QEMU_2_2, QEMU_2_3, QEMU_2_4, QEMU_2_5, QEMU_2_6,
+								QEMU_7_0, QEMU_8_0, QEMU_9_0, QEMU_10_0, QEMU_11_0, QEMU_11_1 };
 		
 		// Virtual Machine State
 		enum VM_State { VMS_Running, VMS_Power_Off, VMS_Pause, VMS_Saved, VMS_In_Error };
@@ -690,6 +691,13 @@ class VM_Native_Storage_Device
 		
 		bool Get_Discard() const;
 		void Set_Discard( bool discard );
+
+		bool Use_Block_Size() const;
+		void Use_Block_Size( bool use );
+		int Get_Logical_Block_Size() const;
+		void Set_Logical_Block_Size( int bytes );
+		int Get_Physical_Block_Size() const;
+		void Set_Physical_Block_Size( int bytes );
 	private:
 		bool UFile_Path;
 		QString File_Path;
@@ -722,6 +730,9 @@ class VM_Native_Storage_Device
 		bool Boot;
 		bool UDiscard;
 		bool Discard;
+		bool UBlock_Size;
+		int Logical_Block_Size;
+		int Physical_Block_Size;
 };
 
 // Virtual Machine Storage Device (FDD, CD, HDD)

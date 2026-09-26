@@ -157,6 +157,17 @@ void Add_New_Device_Window::Set_Device( const VM_Native_Storage_Device &dev )
 	ui.CH_Discard->setChecked( Device.Use_Discard() );
 	ui.CB_Discard->setCurrentIndex( Device.Get_Discard() ? 0 : 1 );
 
+	// Block Size
+	const bool optical_init = ( Device.Get_Media() == VM::DM_CD_ROM );
+	ui.CH_Block_Size->setChecked( ! optical_init && Device.Use_Block_Size() );
+	ui.CH_Block_Size->setEnabled( ! optical_init );
+	ui.CB_Logical_Block_Size->setEnabled( ! optical_init && ui.CH_Block_Size->isChecked() );
+	ui.CB_Physical_Block_Size->setEnabled( ! optical_init && ui.CH_Block_Size->isChecked() );
+	const int log_sz = Device.Get_Logical_Block_Size();
+	const int phys_sz = Device.Get_Physical_Block_Size();
+	ui.CB_Logical_Block_Size->setCurrentText( QString::number( log_sz > 0 ? log_sz : 512 ) );
+	ui.CB_Physical_Block_Size->setCurrentText( QString::number( phys_sz > 0 ? phys_sz : 512 ) );
+
 	
 	// cyls, heads, secs, trans
 	ui.GB_hdachs_Settings->setChecked( Device.Use_hdachs() );
@@ -446,8 +457,21 @@ void Add_New_Device_Window::on_CB_Interface_currentIndexChanged( const QString &
 void Add_New_Device_Window::on_CB_Media_currentIndexChanged( int )
 {
 	// Selecting CD-ROM implies media=cdrom must be emitted (tobimensch#110)
-	if( ui.CB_Media->currentIndex() == 1 )
+	const bool optical = ( ui.CB_Media->currentIndex() == 1 );
+	if( optical )
+	{
 		ui.CH_Media->setChecked( true );
+		ui.CH_Block_Size->setChecked( false );
+		ui.CH_Block_Size->setEnabled( false );
+		ui.CB_Logical_Block_Size->setEnabled( false );
+		ui.CB_Physical_Block_Size->setEnabled( false );
+	}
+	else
+	{
+		ui.CH_Block_Size->setEnabled( true );
+		ui.CB_Logical_Block_Size->setEnabled( ui.CH_Block_Size->isChecked() );
+		ui.CB_Physical_Block_Size->setEnabled( ui.CH_Block_Size->isChecked() );
+	}
 	Enforce_Interface_Honesty();
 }
 
@@ -589,6 +613,11 @@ void Add_New_Device_Window::done(int r)
 	// Discard
 	Device.Use_Discard( ui.CH_Discard->isChecked() );
 	Device.Set_Discard( (ui.CB_Discard->currentIndex() == 0) ? true : false );
+
+	// Block Size
+	Device.Use_Block_Size( Device.Get_Media() == VM::DM_Disk && ui.CH_Block_Size->isChecked() );
+	Device.Set_Logical_Block_Size( ui.CB_Logical_Block_Size->currentText().toInt() > 0 ? ui.CB_Logical_Block_Size->currentText().toInt() : 512 );
+	Device.Set_Physical_Block_Size( ui.CB_Physical_Block_Size->currentText().toInt() > 0 ? ui.CB_Physical_Block_Size->currentText().toInt() : 512 );
 
 	    // hdachs
 	    if( ui.GB_hdachs_Settings->isChecked() )

@@ -497,10 +497,14 @@ int AQEMU_Main::find_data_folders()
         dataDirs << QDir::cleanPath(QCoreApplication::applicationDirPath()) + "/";
         
         // 3. Current working directory options
+        const QString app_dir = QDir::cleanPath( QCoreApplication::applicationDirPath() );
+        dataDirs << app_dir + "/resources/";
+        dataDirs << app_dir + "/../resources/";
+        dataDirs << app_dir + "/";
         dataDirs << QDir::cleanPath(QDir::currentPath() + "/resources/") + "/";
         dataDirs << QDir::cleanPath(QDir::currentPath()) + "/";
         
-        #ifdef Q_OS_WIN32
+        #ifdef Q_OS_WIN
         // 4. Typical installation folders on Windows
         dataDirs << "C:/Program Files/AQEMU/resources/"
                  << "C:/Program Files/AQEMU/"
@@ -518,8 +522,8 @@ int AQEMU_Main::find_data_folders()
         {
             QDir dataDir( dataDirs[dx] );
 
-            if( dataDir.exists("./os_icons") &&
-                dataDir.exists("./os_templates") )
+            if( ( dataDir.exists("./os_icons") && dataDir.exists("./os_templates") ) ||
+                ( QFileInfo::exists( dataDirs[dx] + "os_icons" ) && QFileInfo::exists( dataDirs[dx] + "os_templates" ) ) )
             {
                 settings->setValue( "AQEMU_Data_Folder", QDir::toNativeSeparators(dataDirs[dx]) );
                 AQDebug( "int main( int argc, char *argv[] )", "Use Data Folder: " + dataDirs[dx] );
@@ -530,32 +534,20 @@ int AQEMU_Main::find_data_folders()
         // Found?
         if( settings->value("AQEMU_Data_Folder", "").toString().isEmpty() )
         {
-            #ifdef Q_OS_WIN32
-            // Windows portable release: silently fallback to application directory
+#ifdef Q_OS_WIN
             const QString defaultAppDir = QDir::toNativeSeparators( QDir::cleanPath( QCoreApplication::applicationDirPath() ) + "/" );
-            settings->setValue( "AQEMU_Data_Folder", defaultAppDir );
-            AQDebug( "int main( int argc, char *argv[] )", "Windows fallback AQEMU_Data_Folder: " + defaultAppDir );
-            #else
-            QMessageBox::information( NULL, QObject::tr("Error!"),
-                                      QObject::tr("Cannot Locate AQEMU Data Folder!\n"
-                                                  "You Should Select This Folder in Next Window!"),
-                                      QMessageBox::Ok );
-
-            QString aqemuDataDir = QFileDialog::getExistingDirectory( NULL, QObject::tr("Please Select AQEMU Data Folder:"),
-                                                                      "/", QFileDialog::ShowDirsOnly );
-
-            if( aqemuDataDir.isEmpty() )
+            if( QFileInfo::exists( defaultAppDir + "os_icons" ) || QFileInfo::exists( defaultAppDir + "resources/os_icons" ) )
             {
-                QMessageBox::critical( NULL, QObject::tr("Error!"),
-                                       QObject::tr("AQEMU won't Work If Data Folder isn't Selected!") );
-                return -1;
+                settings->setValue( "AQEMU_Data_Folder", defaultAppDir );
+                AQDebug( "int main( int argc, char *argv[] )", "Fallback AQEMU_Data_Folder: " + defaultAppDir );
             }
             else
             {
-                if( ! aqemuDataDir.endsWith("/") && ! aqemuDataDir.endsWith("\\") ) aqemuDataDir += "/";
-                settings->setValue( "AQEMU_Data_Folder", QDir::toNativeSeparators(aqemuDataDir) );
+                AQWarning( "find_data_folders", "AQEMU data folders (os_icons/os_templates) not found in app directory" );
             }
-            #endif
+#else
+            AQWarning( "find_data_folders", "AQEMU data folders not found in /usr/share/aqemu or relative resource paths" );
+#endif
         }
     }
 
@@ -571,25 +563,14 @@ void AQEMU_Main::log_settings()
         AQUse_Log( true );
 
         QString log_path = settings->value("Log/Log_Path", "").toString();
-        #ifdef Q_OS_WIN32
+        #ifdef Q_OS_WIN
         // Always AppData on Windows (Store-safe; never write next to the exe).
         log_path = AQEMU_Default_Log_Path();
         settings->setValue( "Log/Log_Path", log_path );
         #else
         if( log_path.isEmpty() )
         {
-            QFileInfo logFileDir( settings->fileName() );
-            QString logDirPath = logFileDir.absolutePath();
-
-            if( ! QFile::exists(logDirPath) )
-            {
-                QDir dir;
-                if( ! dir.mkpath(logDirPath) )
-                    AQGraphic_Warning( QObject::tr("Error"),
-                                       QObject::tr("Cannot create directory for log file! Path: %1").arg(logDirPath) );
-            }
-
-            log_path = QDir::toNativeSeparators( logDirPath + "/aqemu.log" );
+            log_path = AQEMU_Default_Log_Path();
             settings->setValue( "Log/Log_Path", log_path );
         }
         #endif
@@ -663,21 +644,30 @@ void AQEMU_Main::vm_dir_exists_or_create()
 {
     // VM Directory Exists?
     QDir vm_dir;
-    const QString configured = settings->value("VM_Directory", "").toString();
+    QString configured = settings->value("VM_Directory", "").toString().trimmed();
+    if( configured.isEmpty() )
+    {
+        configured = AQEMU_Default_VM_Directory();
+        settings->setValue( "VM_Directory", configured );
+    }
     if( ! vm_dir.exists(configured) )
     {
-        #ifdef Q_OS_WIN32
-        const QString create_path = AQEMU_Default_VM_Directory();
-        settings->setValue( "VM_Directory", create_path );
-        AQEMU_Startup_Log( QStringLiteral( "Created VM directory: %1" ).arg( create_path ) );
-        #else
-        int ret = QMessageBox::question( NULL, QObject::tr("Warning!"),
-                                         QObject::tr("AQEMU VM Folder doesn't Exists! Create It?"),
-                                         QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes );
-
-        if( ret == QMessageBox::Yes )
-            vm_dir.mkpath( QDir::homePath() + "/.aqemu" );
-        #endif
+        if( vm_dir.mkpath( configured ) )
+        {
+            AQEMU_Startup_Log( QStringLiteral( "Created VM directory: %1" ).arg( configured ) );
+        }
+        else
+        {
+            AQWarning( "void AQEMU_Main::vm_dir_exists_or_create()",
+                       QStringLiteral( "Failed to create VM directory: %1" ).arg( configured ) );
+            const QString fallback = AQEMU_Default_VM_Directory();
+            if( fallback != configured && vm_dir.mkpath( fallback ) )
+            {
+                configured = fallback;
+                settings->setValue( "VM_Directory", configured );
+                AQEMU_Startup_Log( QStringLiteral( "Fell back to default VM directory: %1" ).arg( configured ) );
+            }
+        }
     }
 }
 

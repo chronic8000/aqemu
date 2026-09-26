@@ -27,7 +27,7 @@ quint16 Find_Free_TCP_Port( quint16 start )
 	};
 
 	auto is_risky_windows_port = []( quint16 p ) -> bool {
-#ifdef Q_OS_WIN32
+#ifdef Q_OS_WIN
 		// Common Hyper-V excluded bands observed on Win10/11 hosts.
 		if( p >= 25995 && p <= 26094 ) return true;
 		if( p >= 59013 && p <= 59112 ) return true;
@@ -161,6 +161,24 @@ void QMP_Client::Handle_Line( const QByteArray &line )
 			else
 				emit Block_Info( arr );
 		}
+
+		bool ok = true;
+		QString err_msg;
+		if( cmd == "human-monitor-command" )
+		{
+			const QString ret_str = obj.value( "return" ).toString();
+			if( ret_str.startsWith( "Error:", Qt::CaseInsensitive ) ||
+			    ret_str.contains( "could not open", Qt::CaseInsensitive ) ||
+			    ret_str.contains( "failed to", Qt::CaseInsensitive ) ||
+			    ret_str.contains( "device is already", Qt::CaseInsensitive ) ||
+			    ret_str.contains( "duplicate id", Qt::CaseInsensitive ) ||
+			    ret_str.contains( "doesn't take value", Qt::CaseInsensitive ) )
+			{
+				ok = false;
+				err_msg = ret_str.trimmed();
+			}
+		}
+		emit Command_Result( reply_id, cmd, ok, err_msg, obj );
 		return;
 	}
 
@@ -171,7 +189,13 @@ void QMP_Client::Handle_Line( const QByteArray &line )
 	}
 
 	if( obj.contains( "error" ) )
-		emit Error( obj.value( "error" ).toObject().value( "desc" ).toString() );
+	{
+		const int reply_id = obj.value( "id" ).toInt( -1 );
+		const QString cmd = Pending_Commands.take( reply_id );
+		const QString err_msg = obj.value( "error" ).toObject().value( "desc" ).toString();
+		emit Error( err_msg );
+		emit Command_Result( reply_id, cmd, false, err_msg, obj );
+	}
 }
 
 bool QMP_Client::Send_Command( const QString &execute, const QJsonObject &arguments )
@@ -257,6 +281,28 @@ bool QMP_Client::Human_Monitor( const QString &command_line )
 	QJsonObject args;
 	args.insert( "command-line", command_line );
 	return Send_Command( "human-monitor-command", args );
+}
+
+int QMP_Client::Send_Hmp_Tracked( const QString &command_line )
+{
+	if( Socket->state() != QAbstractSocket::ConnectedState )
+		return 0;
+
+	const int id = Next_Id++;
+	QJsonObject args;
+	args.insert( "command-line", command_line );
+
+	QJsonObject cmd;
+	cmd.insert( "execute", "human-monitor-command" );
+	cmd.insert( "arguments", args );
+	cmd.insert( "id", id );
+	Pending_Commands.insert( id, "human-monitor-command" );
+
+	QByteArray payload = QJsonDocument( cmd ).toJson( QJsonDocument::Compact );
+	payload.append( '\n' );
+	if( Socket->write( payload ) == payload.size() )
+		return id;
+	return 0;
 }
 
 bool QMP_Client::Migrate( const QString &uri, bool blk, bool inc )

@@ -45,9 +45,17 @@ MachineView::MachineView( QWidget *parent, Virtual_Machine* cur_vm ) : QScrollAr
 	fullscreenEnabled = false;
 	showSplash( true );
 	setFrameShape( QFrame::NoFrame );
-	setAlignment( Qt::AlignCenter );
+	setLineWidth( 0 );
+	setMidLineWidth( 0 );
+	setAlignment( Qt::AlignLeft | Qt::AlignTop );
 	setWidgetResizable( true );
-	// Session / embed mode: scale guest to fit window (aspect preserved in VncView)
+	setHorizontalScrollBarPolicy( Qt::ScrollBarAlwaysOff );
+	setVerticalScrollBarPolicy( Qt::ScrollBarAlwaysOff );
+	setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Expanding );
+	setContentsMargins( 0, 0, 0, 0 );
+	if( viewport() )
+		viewport()->setContentsMargins( 0, 0, 0, 0 );
+	// Session / embed mode: scale guest to stretch and fill window canvas
 	Scaling = true;
 	Reinit_Timer = new QTimer( this );
 	VNC_Connected = false;
@@ -56,9 +64,16 @@ MachineView::MachineView( QWidget *parent, Virtual_Machine* cur_vm ) : QScrollAr
 	VNC_Height = 0;
 
 	QPalette p = palette();
-	p.setColor( QPalette::Window, QColor( 32, 32, 32 ) );
+	p.setColor( QPalette::Window, Qt::black );
 	setPalette( p );
 	setAutoFillBackground( true );
+	if( viewport() )
+	{
+		QPalette vp = viewport()->palette();
+		vp.setColor( QPalette::Window, Qt::black );
+		viewport()->setPalette( vp );
+		viewport()->setAutoFillBackground( true );
+	}
 }
 
 void MachineView::on_MouseEnteredFromTheLeft()
@@ -106,19 +121,31 @@ void MachineView::Set_Fullscreen( bool on )
 
 void MachineView::resizeEvent( QResizeEvent *event )
 {
+	QScrollArea::resizeEvent( event );
 	const QSize vp = viewport() ? viewport()->size() : event->size();
 	resizeView( vp.width(), vp.height() );
-	QScrollArea::resizeEvent( event );
 }
 
 void MachineView::resizeView( int widgetWidth, int widgetHeight )
 {
+	if( ! View )
+		return;
+	if( widgetWidth <= 0 || widgetHeight <= 0 )
+	{
+		const QSize vp = viewport() ? viewport()->size() : size();
+		widgetWidth = vp.width();
+		widgetHeight = vp.height();
+	}
+	if( widgetWidth <= 0 || widgetHeight <= 0 )
+		return;
+
 	View->blockSignals( true );
 	
 	if( Scaling )
 	{
 		View->enableScaling( true );
 		View->scaleResize( widgetWidth, widgetHeight );
+		View->setGeometry( 0, 0, widgetWidth, widgetHeight );
 	}
 	else
 	{
@@ -149,10 +176,14 @@ void MachineView::initView()
 	url.setPort( VNC_Port );
 	
 	View = new VncView( this, url );
+	View->enableScaling( Scaling );
 	View->start();
 	showSplash( false );
 
     connectView();
+
+	const QSize vp = viewport() ? viewport()->size() : maximumViewportSize();
+	resizeView( vp.width(), vp.height() );
 	
 	// This is for auto reiniting VNC
 	QTimer::singleShot( 1000, this, SLOT(Check_Connection()) );
@@ -219,10 +250,14 @@ void MachineView::reinitVNC()
 		url.setPort( VNC_Port );
 		
 		View = new VncView( this, url );
+		View->enableScaling( Scaling );
 		View->start();
 		showSplash( false );
 		
 		connectView();
+
+		const QSize vp = viewport() ? viewport()->size() : maximumViewportSize();
+		resizeView( vp.width(), vp.height() );
 	}
 	else
 	{
@@ -273,7 +308,8 @@ void MachineView::showSplash( bool show )
 	else
 	{
 		fullscreen( false );
-		View->hide();
+		if( View )
+			View->hide();
 		takeWidget();
 		splashShown = true;
 	}

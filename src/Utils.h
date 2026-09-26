@@ -107,6 +107,13 @@ QString QEMU_IMG_Format_Help_Text( const QStringList &formats );
 QString AQ_Get_Bundled_QEMU_Dir();
 bool AQ_Has_Bundled_QEMU();
 
+/** Standard system-installed directory that contains qemu-system-* (e.g. C:\Program Files\qemu or /usr/bin). Empty if none. */
+QString AQ_Get_System_QEMU_Dir();
+bool AQ_Has_System_QEMU();
+
+/** Default QEMU directory (prefers bundled portable, falls back to system). */
+QString AQ_Get_Default_QEMU_Dir();
+
 /** Reims UEFI GOP option ROM (reims-vgpu-gop.rom) beside aqemu.exe/share or resources. */
 QString AQ_Find_Reims_GOP_ROM();
 /** Matching UEFI driver PE (reims-vgpu-efi.efi) for OpenCore Drivers/. */
@@ -141,6 +148,11 @@ QString AQ_Normalize_File_Path( const QString &path );
  * file.driver=file,file.filename=… when the path has spaces or special chars.
  */
 QString AQ_Qemu_Drive_File_Key( const QString &path );
+
+/**
+ * Probe QEMU binary for supported -audiodev backends and select the best supported match.
+ */
+QString AQ_Pick_Host_Audio_Backend( const QString &qemu_binary, const QString &preferred = QString() );
 
 /** True if s looks like a real AppleSMC OSK (not network/Proxmox junk). */
 bool AQ_Is_Plausible_Apple_SMC_OSK( const QString &osk );
@@ -277,6 +289,12 @@ QString AQ_Get_QEMU_Data_Dir( const QString &qemu_binary_path );
 QString AQ_Resolve_Host_Tool( const QString &settings_key,
                              const QStringList &exe_names,
                              const QStringList &app_dir_relatives = QStringList() );
+
+/** Executable extension for current host OS (".exe" on Windows, "" on Linux/POSIX). */
+QString Get_Binary_Extension();
+
+/** True if host Linux system has writable /dev/kvm device node. */
+bool Is_Native_KVM_Available();
 
 #endif
 

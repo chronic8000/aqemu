@@ -1,0 +1,21 @@
+# CMake Toolchain Profile for Windows ARM64 (WoA)
+set(CMAKE_SYSTEM_NAME Windows)
+set(CMAKE_SYSTEM_PROCESSOR ARM64)
+
+# Default cross-compiler prefix for LLVM-MinGW / MinGW ARM64
+if(NOT CMAKE_C_COMPILER)
+    set(CMAKE_C_COMPILER aarch64-w64-mingw32-gcc)
+endif()
+
+if(NOT CMAKE_CXX_COMPILER)
+    set(CMAKE_CXX_COMPILER aarch64-w64-mingw32-g++)
+endif()
+
+if(NOT CMAKE_RC_COMPILER)
+    set(CMAKE_RC_COMPILER aarch64-w64-mingw32-windres)
+endif()
+
+set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)

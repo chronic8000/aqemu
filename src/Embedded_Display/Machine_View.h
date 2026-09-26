@@ -58,9 +58,11 @@ class MachineView : public QScrollArea
 		void captureAllMouseEvents();
 		bool isMouseGrabbed() const;
 		void setMouseGrabbed( bool on );
+		void resizeView( int widgetWidth, int widgetHeight );
 		
 	protected:
 		bool event( QEvent *event );
+		void resizeEvent( QResizeEvent *event );
 		
 	public slots:
 		void on_MouseEnteredFromTheLeft();
@@ -81,8 +83,6 @@ class MachineView : public QScrollArea
 		void Connected();
 		
 	private:
-		void resizeEvent( QResizeEvent *event );
-		void resizeView( int widgetWidth, int widgetHeight );
 		void connectView();
 		
 		bool VNC_Connected;

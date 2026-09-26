@@ -24,6 +24,7 @@ build_win/aqemu_out.txt
 aqemu_err.log
 aqemu_run.log
 *.log
+*.bz2
 
 # Editor / OS
 .vs/

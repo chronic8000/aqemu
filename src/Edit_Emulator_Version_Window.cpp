@@ -28,7 +28,15 @@ Edit_Emulator_Version_Window::Edit_Emulator_Version_Window( QWidget *parent )
 	: QDialog( parent )
 {
 	ui.setupUi( this );
-	
+
+	ui.CB_Versions->addItem( "QEMU 11.1+" );
+	ui.CB_Versions->addItem( "QEMU 11.0" );
+	ui.CB_Versions->addItem( "QEMU 10.x" );
+	ui.CB_Versions->addItem( "QEMU 9.x" );
+	ui.CB_Versions->addItem( "QEMU 8.x" );
+	ui.CB_Versions->addItem( "QEMU 7.x" );
+	ui.CB_Versions->addItem( "QEMU 2.x" );
+
 	Emulators = Get_Emulators_List();
 	Load_Emulators();
 }

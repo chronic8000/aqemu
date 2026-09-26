@@ -21,7 +21,10 @@ OPTION( DEBUG "Build with debug information" )
 OPTION( WITHOUT_EMBEDDED_DISPLAY "Build without support Embedded VNC Display" )
 OPTION( UPDATE_TRANSLATIONS "Update source translation files (WARNING: make clean will delete the source .ts files!)" )
 OPTION( INSTALL_MAN "Install MAN page file" "ON" )
+OPTION( PI3_OPTIMIZATIONS "Enable compiler optimizations for Raspberry Pi 3" OFF )
+OPTION( PI4_OPTIMIZATIONS "Enable compiler and linker optimizations for Raspberry Pi 4" OFF )
 OPTION( PI5_OPTIMIZATIONS "Enable compiler and linker optimizations for Raspberry Pi 5" OFF )
+OPTION( RASPBERRY_PI_BUILD "Enable Raspberry Pi build target and optimizations" OFF )
 OPTION( AQEMU_BUNDLE_QEMU "Prefer/copy QEMU from AQEMU_QEMU_PREFIX into the build tree" OFF )
 OPTION( AQEMU_WITH_SPICE_GTK "Build embedded SPICE client via spice-client-glib (Linux/Pi/Windows)" OFF )
 SET( AQEMU_QEMU_PREFIX "${CMAKE_SOURCE_DIR}/third_party/qemu-install" CACHE PATH "Prefix of a built QEMU bundle (bin/qemu-system-*)" )
@@ -35,14 +38,33 @@ IF( DEBUG )
 	ADD_DEFINITIONS( -Wall -g )
 ENDIF( DEBUG )
 
-# Raspberry Pi 5 Optimizations
+# Raspberry Pi Optimizations (Pi 3, Pi 4, Pi 5)
+IF( PI3_OPTIMIZATIONS )
+	ADD_COMPILE_OPTIONS( -O3 -mcpu=cortex-a53 -mtune=cortex-a53 )
+	MESSAGE( STATUS "Raspberry Pi 3 optimizations enabled (-mcpu=cortex-a53)" )
+	SET( RASPBERRY_PI_BUILD ON )
+ENDIF( PI3_OPTIMIZATIONS )
+
+IF( PI4_OPTIMIZATIONS )
+	ADD_COMPILE_OPTIONS( -O3 -mcpu=cortex-a72 -mtune=cortex-a72 )
+	SET( CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-z,max-page-size=65536" )
+	MESSAGE( STATUS "Raspberry Pi 4 optimizations enabled (-mcpu=cortex-a72, -z max-page-size=65536)" )
+	SET( RASPBERRY_PI_BUILD ON )
+ENDIF( PI4_OPTIMIZATIONS )
+
 IF( PI5_OPTIMIZATIONS )
 	# Optimize for Cortex-A76 and enable high-level optimizations
 	ADD_COMPILE_OPTIONS( -O3 -mcpu=cortex-a76 -mtune=cortex-a76 )
 	# Align ELF load segments to 64KB page boundaries to support 16KB kernels on Pi 5
 	SET( CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-z,max-page-size=65536" )
 	MESSAGE( STATUS "Raspberry Pi 5 optimizations enabled (-mcpu=cortex-a76, -z max-page-size=65536)" )
+	SET( RASPBERRY_PI_BUILD ON )
 ENDIF( PI5_OPTIMIZATIONS )
+
+IF( RASPBERRY_PI_BUILD )
+	ADD_DEFINITIONS( -DRASPBERRY_PI_BUILD=1 )
+	MESSAGE( STATUS "Raspberry Pi target build configuration active" )
+ENDIF( RASPBERRY_PI_BUILD )
 
 # For finding VNC libs
 SET( CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/resources/cmake/modules )
@@ -323,6 +345,7 @@ TARGET_LINK_LIBRARIES( aqemu
 
 IF( WIN32 )
 	TARGET_LINK_LIBRARIES( aqemu advapi32 )
+	SET_TARGET_PROPERTIES( aqemu PROPERTIES WIN32_EXECUTABLE TRUE )
 ENDIF()
 
 # Embedded VNC display
@@ -637,6 +660,7 @@ INSTALL( FILES ${links} DESTINATION share/aqemu/docs )
 
 FILE( GLOB pixmaps "${CMAKE_CURRENT_SOURCE_DIR}/resources/menu_data/*.png" )
 INSTALL( FILES ${pixmaps} DESTINATION share/pixmaps )
+INSTALL( FILES "${CMAKE_CURRENT_SOURCE_DIR}/resources/menu_data/aqemu.png" DESTINATION share/icons/hicolor/48x48/apps )
 
 FILE( GLOB app_menu "${CMAKE_CURRENT_SOURCE_DIR}/resources/menu_data/aqemu.desktop" )
 INSTALL( FILES ${app_menu} DESTINATION share/applications )
