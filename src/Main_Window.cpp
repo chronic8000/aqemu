@@ -533,23 +533,56 @@ void Main_Window::Init_System_Tray()
 
 	Tray_Icon = new QSystemTrayIcon( this );
 
-	// Use the icon theme so the desktop panel (wf-panel-pi / lxpanel) looks up "aqemu" in
-	// the hicolor theme.  We install 16×16 and 22×22 variants (alongside 48×48) so the panel
-	// selects an appropriately small size rather than pulling the 48×48 and expanding the bar.
-	QIcon tray_icon = QIcon::fromTheme( QStringLiteral( "aqemu" ) );
+	QIcon tray_icon;
+
+#ifdef Q_OS_LINUX
+	// -------------------------------------------------------------------------
+	// wf-panel-pi (Raspberry Pi OS Wayland) always rescales the SNI IconPixmap
+	// to its own "icon_size" value (equal to the panel height, typically 36 px)
+	// via Gdk::Pixbuf::scale_simple().  GTK system applets have ~10 px of built-
+	// in padding so their visible content is ~16 px.  To match that appearance:
+	//   • We do NOT use QIcon::fromTheme() — that sends an IconName which causes
+	//     wf-panel-pi to look up the hicolor theme at full panel height (48 px).
+	//   • We send a raw IconPixmap via addPixmap() (empty IconName → panel uses
+	//     the pixmap directly).
+	//   • The pixmap is a kTraySlot × kTraySlot transparent canvas with the real
+	//     icon scaled to kIconContent × kIconContent and centred.  When the panel
+	//     rescales the canvas back to kTraySlot it is a no-op, so the visible
+	//     icon remains kIconContent px with transparent padding on all sides.
+	// -------------------------------------------------------------------------
+	{
+		constexpr int kTraySlot    = 36;  // default wf-panel-pi panel height (Pi OS Bookworm)
+		constexpr int kIconContent = 16;  // visible icon pixels — matches GTK applet padding
+		constexpr int kOffset      = ( kTraySlot - kIconContent ) / 2;  // = 10 px each side
+
+		QPixmap base( QStringLiteral( ":/aqemu.png" ) );
+		if( base.isNull() )
+			base = windowIcon().pixmap( 64, 64 );
+
+		QPixmap canvas( kTraySlot, kTraySlot );
+		canvas.fill( Qt::transparent );
+		if( !base.isNull() )
+		{
+			QPainter painter( &canvas );
+			painter.setRenderHint( QPainter::SmoothPixmapTransform );
+			painter.drawPixmap( kOffset, kOffset,
+				base.scaled( kIconContent, kIconContent,
+				             Qt::IgnoreAspectRatio, Qt::SmoothTransformation ) );
+			painter.end();
+		}
+		tray_icon.addPixmap( canvas, QIcon::Normal, QIcon::Off );
+	}
+#else
+	// On Windows / macOS the platform handles tray icon sizing natively.
+	tray_icon = windowIcon();
 	if( tray_icon.isNull() )
 	{
-		// Fallback: embed a hard-scaled 16×16 pixmap so at least something appears.
-		QPixmap basePixmap( QStringLiteral( ":/aqemu.png" ) );
-		if( basePixmap.isNull() )
-			basePixmap = windowIcon().pixmap( 256, 256 );
-		if( ! basePixmap.isNull() )
-			tray_icon.addPixmap(
-				basePixmap.scaled( 16, 16, Qt::IgnoreAspectRatio, Qt::SmoothTransformation ),
-				QIcon::Normal, QIcon::Off );
-		else
-			tray_icon = windowIcon();
+		QPixmap px( QStringLiteral( ":/aqemu.png" ) );
+		if( !px.isNull() )
+			tray_icon.addPixmap( px );
 	}
+#endif
+
 	Tray_Icon->setIcon( tray_icon );
 	Tray_Icon->setToolTip( QStringLiteral( "AQEMU" ) );
 
