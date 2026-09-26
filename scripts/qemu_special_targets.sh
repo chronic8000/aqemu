@@ -318,6 +318,57 @@ EOF
   return 0
 }
 
+aqemu_ensure_nettle() {
+  local root="$1"
+
+  # Ensure common MSYS2 bin paths are on PATH
+  if [[ "${MSYSTEM:-}" == "CLANGARM64" ]]; then
+    export PATH="C:/msys64/clangarm64/bin:C:/msys64/usr/bin:/clangarm64/bin:/usr/bin:${PATH}"
+  elif [[ "${MSYSTEM:-}" == "UCRT64" ]]; then
+    export PATH="C:/msys64/ucrt64/bin:C:/msys64/usr/bin:/ucrt64/bin:/usr/bin:${PATH}"
+  elif [[ "${MSYSTEM:-}" == "MINGW64" ]]; then
+    export PATH="C:/msys64/mingw64/bin:C:/msys64/usr/bin:/mingw64/bin:/usr/bin:${PATH}"
+  fi
+
+  local pkg_tool="${PKG_CONFIG:-pkg-config}"
+  if "$pkg_tool" --exists nettle hogweed gmp 2>/dev/null; then
+    echo "Found nettle, hogweed, and gmp via pkg-config"
+    return 0
+  fi
+
+  if command -v pacman >/dev/null 2>&1; then
+    case "${MSYSTEM:-}" in
+      CLANGARM64)
+        echo "Installing missing nettle/gmp dependencies for CLANGARM64..."
+        pacman -S --needed --noconfirm mingw-w64-clang-aarch64-nettle mingw-w64-clang-aarch64-gmp 2>/dev/null || \
+        pacman -S --needed --noconfirm mingw-w64-clang-aarch64-nettle3 mingw-w64-clang-aarch64-gmp 2>/dev/null || true
+        ;;
+      UCRT64)
+        echo "Installing missing nettle/gmp dependencies for UCRT64..."
+        pacman -S --needed --noconfirm mingw-w64-ucrt-x86_64-nettle mingw-w64-ucrt-x86_64-gmp 2>/dev/null || \
+        pacman -S --needed --noconfirm mingw-w64-ucrt-x86_64-nettle3 mingw-w64-ucrt-x86_64-gmp 2>/dev/null || true
+        ;;
+      MINGW64)
+        echo "Installing missing nettle/gmp dependencies for MINGW64..."
+        pacman -S --needed --noconfirm mingw-w64-x86_64-nettle mingw-w64-x86_64-gmp 2>/dev/null || \
+        pacman -S --needed --noconfirm mingw-w64-x86_64-nettle3 mingw-w64-x86_64-gmp 2>/dev/null || true
+        ;;
+      *)
+        pacman -S --needed --noconfirm nettle gmp 2>/dev/null || true
+        ;;
+    esac
+  fi
+
+  if command -v apt-get >/dev/null 2>&1; then
+    if ! "$pkg_tool" --exists nettle hogweed 2>/dev/null; then
+      echo "Installing nettle/gmp via apt..."
+      sudo apt-get update && sudo apt-get install -y libnettle-dev libhogweed-dev libgmp-dev || true
+    fi
+  fi
+
+  return 0
+}
+
 aqemu_build_applesoc() {
   local prefix="${1:?Install prefix required}"
   local jobs="${2:-$(nproc 2>/dev/null || echo 4)}"
@@ -331,6 +382,7 @@ aqemu_build_applesoc() {
 
   aqemu_ensure_meson "${root}"
   aqemu_ensure_lzfse "${root}"
+  aqemu_ensure_nettle "${root}"
 
   local inferno_src="${root}/third_party/inferno"
   local inferno_build="${root}/third_party/inferno-build"
@@ -350,15 +402,16 @@ aqemu_build_applesoc() {
     git -C "${inferno_src}" submodule update --init --depth 1 util/mlib
   fi
 
-  # Ensure hw/arm/apple-silicon links against liblzfse
+  # Ensure hw/arm/apple-silicon links against liblzfse, nettle, hogweed, and gmp
   if [[ -f "${inferno_src}/hw/arm/apple-silicon/meson.build" ]]; then
     python3 -c "
 p = '${inferno_src}/hw/arm/apple-silicon/meson.build'
 content = open(p).read()
-if 'liblzfse' not in content:
-    print('Adding liblzfse dependency to hw/arm/apple-silicon/meson.build...')
-    new_content = content.replace('if_true: tasn1', 'if_true: [tasn1, liblzfse]')
-    open(p, 'w').write(new_content)
+if 'hogweed' not in content:
+    print('Adding nettle, hogweed, gmp dependencies to hw/arm/apple-silicon/meson.build...')
+    content = content.replace('if_true: [tasn1, liblzfse]', 'if_true: [tasn1, liblzfse, nettle, hogweed, gmp]')
+    content = content.replace('if_true: tasn1', 'if_true: [tasn1, liblzfse, nettle, hogweed, gmp]')
+    open(p, 'w').write(content)
 " || true
   fi
 
@@ -405,8 +458,9 @@ if 'liblzfse' not in content:
   conf_args+=(
     --disable-whpx
     --enable-lzfse
+    --enable-nettle
     --extra-cflags="${lzfse_inc_flag}"
-    --extra-ldflags="${lzfse_lib_flag}"
+    --extra-ldflags="${lzfse_lib_flag} -lhogweed -lnettle -lgmp"
   )
 
   echo "Configuring ChefKiss Inferno..."
