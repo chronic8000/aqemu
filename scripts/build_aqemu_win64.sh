@@ -107,6 +107,17 @@ for plat in /ucrt64/share/qt5/plugins/platforms/qwindows.dll /ucrt64/lib/qt5/plu
   fi
 done
 
+# Deploy QEMU binaries and runtime DLLs if built under third_party/qemu-install
+if [[ -d "${ROOT}/third_party/qemu-install/bin" ]]; then
+  echo "Deploying QEMU executables and runtime dependencies from third_party/qemu-install..."
+  cp -f "${ROOT}/third_party/qemu-install/bin"/*.exe "${BUILD_DIR}/" 2>/dev/null || true
+  cp -f "${ROOT}/third_party/qemu-install/bin"/*.dll "${BUILD_DIR}/" 2>/dev/null || true
+  if [[ -d "${ROOT}/third_party/qemu-install/share" ]]; then
+    mkdir -p "${BUILD_DIR}/share"
+    cp -rf "${ROOT}/third_party/qemu-install/share"/* "${BUILD_DIR}/share/" 2>/dev/null || true
+  fi
+fi
+
 # Recursively resolve and copy all transitive DLL dependencies from /ucrt64/bin
 echo "Resolving all transitive runtime DLL dependencies with ldd..."
 for pass in 1 2 3 4; do
@@ -118,13 +129,18 @@ for pass in 1 2 3 4; do
         cp -f "$dep" "${BUILD_DIR}/"
         NEW_COPIED=$((NEW_COPIED + 1))
       fi
-    done < <(ldd "$bin" 2>/dev/null | grep -i '/ucrt64/bin/' | awk '{print $3}' | sort -u)
+    done < <(ldd "$bin" 2>/dev/null | grep -iE '/(ucrt64|mingw64)/bin/' | awk '{print $3}' | sort -u)
   done
   if [[ $NEW_COPIED -eq 0 ]]; then
     break
   fi
   echo "Pass $pass: copied $NEW_COPIED additional runtime dependencies"
 done
+
+# Ensure third_party/qemu-install/bin also has all the resolved runtime DLLs so QEMU runs standalone
+if [[ -d "${ROOT}/third_party/qemu-install/bin" ]]; then
+  cp -f "${BUILD_DIR}"/*.dll "${ROOT}/third_party/qemu-install/bin/" 2>/dev/null || true
+fi
 
 echo "=== Build Succeeded! ==="
 echo "Executable: ${BUILD_DIR}/aqemu.exe"

@@ -2909,6 +2909,15 @@ QString System_Info::Get_Emulator_Help_Output( const QString &path )
 QString System_Info::Get_Emulator_Output( const QString &path, const QStringList &args )
 {
 	QProcess qemu_pr;
+#ifdef Q_OS_WIN32
+	QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+	const QString binDir = QDir::toNativeSeparators( QFileInfo( path ).absolutePath() );
+	const QString appDir = QDir::toNativeSeparators( QCoreApplication::applicationDirPath() );
+	const QString curPath = env.value( QStringLiteral( "PATH" ), QString() );
+	const QString msysPaths = QStringLiteral( "C:\\msys64\\clangarm64\\bin;C:\\msys64\\ucrt64\\bin;C:\\msys64\\mingw64\\bin" );
+	env.insert( QStringLiteral( "PATH" ), binDir + QLatin1Char( ';' ) + appDir + QLatin1Char( ';' ) + msysPaths + QLatin1Char( ';' ) + curPath );
+	qemu_pr.setProcessEnvironment( env );
+#endif
 	qemu_pr.start( path, args );
 	
 	if( ! qemu_pr.waitForFinished( 5000 ) )

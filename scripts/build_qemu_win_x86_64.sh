@@ -34,6 +34,43 @@ else
 fi
 unset PKG_CONFIG_LIBDIR || true
 
+deploy_qemu_dlls() {
+  local prefix="$1"
+  local bin_dir="${prefix}/bin"
+  [[ -d "${bin_dir}" ]] || bin_dir="${prefix}"
+  echo "=== Deploying QEMU runtime DLLs into ${bin_dir} ==="
+
+  for pass in 1 2 3 4; do
+    local new_copied=0
+    for bin in "${bin_dir}"/*.exe "${bin_dir}"/*.dll; do
+      [[ -f "$bin" ]] || continue
+      while read -r dep; do
+        if [[ -f "$dep" && ! -f "${bin_dir}/$(basename "$dep")" ]]; then
+          cp -f "$dep" "${bin_dir}/"
+          new_copied=$((new_copied + 1))
+        fi
+      done < <(ldd "$bin" 2>/dev/null | grep -iE '/(ucrt64|mingw64)/bin/' | awk '{print $3}' | sort -u)
+    done
+    if [[ $new_copied -eq 0 ]]; then
+      break
+    fi
+    echo "Pass $pass: deployed $new_copied runtime DLLs to ${bin_dir}"
+  done
+
+  # If AQEMU build_win directory exists, synchronize QEMU executables and runtime DLLs into it
+  if [[ -d "${ROOT}/build_win" ]]; then
+    echo "Synchronizing QEMU executables and runtime DLLs to ${ROOT}/build_win/..."
+    cp -f "${bin_dir}"/*.exe "${ROOT}/build_win/" 2>/dev/null || true
+    cp -f "${bin_dir}"/*.dll "${ROOT}/build_win/" 2>/dev/null || true
+  fi
+}
+
+if [[ "${TARGET_ARG}" == "--dlls-only" || "${TARGET_ARG}" == "--deploy-only" ]]; then
+  deploy_qemu_dlls "${PREFIX}"
+  echo "QEMU runtime DLL deployment completed successfully!"
+  exit 0
+fi
+
 echo "=== Building QEMU for Windows x86_64 (${MSYSTEM} / Target: ${TARGET_ARG}) ==="
 echo "Using compiler: $(which gcc 2>/dev/null || echo gcc)"
 echo "Using PKG_CONFIG: ${PKG_CONFIG}"
@@ -93,4 +130,5 @@ echo "Installed QEMU bundle to ${PREFIX}"
 ls -la "${PREFIX}"/bin/qemu-system-* "${PREFIX}"/qemu-system-* "${PREFIX}"/bin/qemu-img* 2>/dev/null || true
 
 aqemu_qemu_verify_install "${PREFIX}" "${VERIFY_TARGET}"
-echo "Windows x86_64 QEMU build completed successfully!"
+deploy_qemu_dlls "${PREFIX}"
+echo "Windows x86_64 QEMU build and runtime DLL deployment completed successfully!"

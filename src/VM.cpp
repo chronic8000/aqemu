@@ -82,7 +82,17 @@ namespace {
 class VM_Child_Process : public QProcess
 {
 public:
-	explicit VM_Child_Process( QObject *parent = nullptr ) : QProcess( parent ) {}
+	explicit VM_Child_Process( QObject *parent = nullptr ) : QProcess( parent )
+	{
+#if defined(Q_OS_WIN32)
+		QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+		const QString appDir = QDir::toNativeSeparators( QCoreApplication::applicationDirPath() );
+		const QString curPath = env.value( QStringLiteral( "PATH" ), QString() );
+		const QString msysPaths = QStringLiteral( "C:\\msys64\\clangarm64\\bin;C:\\msys64\\ucrt64\\bin;C:\\msys64\\mingw64\\bin" );
+		env.insert( QStringLiteral( "PATH" ), appDir + QLatin1Char( ';' ) + msysPaths + QLatin1Char( ';' ) + curPath );
+		setProcessEnvironment( env );
+#endif
+	}
 
 protected:
 	void setupChildProcess() override
@@ -11333,6 +11343,16 @@ bool Virtual_Machine::Start_impl()
         QStringList qemu_args = this->Build_QEMU_Args();
         AQWarning( "bool Virtual_Machine::Start()",
                  QString( "Starting: \"%1\" %2" ).arg( bin_path, qemu_args.join( " " ) ) );
+#if defined(Q_OS_WIN32)
+        QProcessEnvironment env = QEMU_Process->processEnvironment();
+        if( env.isEmpty() ) env = QProcessEnvironment::systemEnvironment();
+        const QString binDir = QDir::toNativeSeparators( QFileInfo( bin_path ).absolutePath() );
+        const QString appDir = QDir::toNativeSeparators( QCoreApplication::applicationDirPath() );
+        const QString curPath = env.value( QStringLiteral( "PATH" ), QString() );
+        const QString msysPaths = QStringLiteral( "C:\\msys64\\clangarm64\\bin;C:\\msys64\\ucrt64\\bin;C:\\msys64\\mingw64\\bin" );
+        env.insert( QStringLiteral( "PATH" ), binDir + QLatin1Char( ';' ) + appDir + QLatin1Char( ';' ) + msysPaths + QLatin1Char( ';' ) + curPath );
+        QEMU_Process->setProcessEnvironment( env );
+#endif
         QEMU_Process->start( bin_path, qemu_args );
 		if( ! QEMU_Process->waitForStarted( 15000 ) )
 		{

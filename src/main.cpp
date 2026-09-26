@@ -44,6 +44,7 @@
 #include <sys/types.h>
 #endif
 #ifdef Q_OS_WIN32
+#include <windows.h>
 #include <io.h>
 #include <stdio.h>
 #else
@@ -673,6 +674,10 @@ void AQEMU_Main::vm_dir_exists_or_create()
 
 int main( int argc, char *argv[] )
 {
+#ifdef Q_OS_WIN32
+	// Suppress blocking modal system error dialogs (e.g. missing DLL dialogs) during child process execution/probing
+	SetErrorMode( SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX );
+#endif
 	AQ_Enable_High_Dpi();
 	return AQEMU_Main().main(argc,argv);
 }

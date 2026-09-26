@@ -178,6 +178,17 @@ for sty in /clangarm64/share/qt5/plugins/styles/*.dll /clangarm64/lib/qt5/plugin
   fi
 done
 
+# Deploy QEMU binaries and runtime DLLs if built under third_party/qemu-install
+if [[ -d "${ROOT}/third_party/qemu-install/bin" ]]; then
+  echo "Deploying QEMU executables and runtime dependencies from third_party/qemu-install..."
+  cp -f "${ROOT}/third_party/qemu-install/bin"/*.exe "${BUILD_DIR}/" 2>/dev/null || true
+  cp -f "${ROOT}/third_party/qemu-install/bin"/*.dll "${BUILD_DIR}/" 2>/dev/null || true
+  if [[ -d "${ROOT}/third_party/qemu-install/share" ]]; then
+    mkdir -p "${BUILD_DIR}/share"
+    cp -rf "${ROOT}/third_party/qemu-install/share"/* "${BUILD_DIR}/share/" 2>/dev/null || true
+  fi
+fi
+
 # Recursively resolve and copy all transitive DLL dependencies from /clangarm64/bin
 echo "Resolving all transitive runtime DLL dependencies with ldd..."
 for pass in 1 2 3 4; do
@@ -196,6 +207,11 @@ for pass in 1 2 3 4; do
   fi
   echo "Pass $pass: copied $NEW_COPIED additional runtime dependencies"
 done
+
+# Ensure third_party/qemu-install/bin also has all the resolved runtime DLLs so QEMU runs standalone
+if [[ -d "${ROOT}/third_party/qemu-install/bin" ]]; then
+  cp -f "${BUILD_DIR}"/*.dll "${ROOT}/third_party/qemu-install/bin/" 2>/dev/null || true
+fi
 
 echo "=== Build Succeeded! ==="
 echo "Executable: ${BUILD_DIR}/aqemu.exe"
