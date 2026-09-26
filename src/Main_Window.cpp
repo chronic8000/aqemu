@@ -533,26 +533,22 @@ void Main_Window::Init_System_Tray()
 
 	Tray_Icon = new QSystemTrayIcon( this );
 
-	// Load the source pixmap directly from the embedded resource (avoids Qt extracting a
-	// large pixmap from the window icon which can cause wf-panel-pi / lxpanel to bulge).
-	// Use 16x16 — the standard system-tray icon size on Raspberry Pi OS (wf-panel-pi).
-	QPixmap basePixmap( QStringLiteral( ":/aqemu.png" ) );
-	if( basePixmap.isNull() )
-		basePixmap = windowIcon().pixmap( 256, 256 );
-
-	// Build a QIcon that contains ONLY the single small pixmap so the desktop panel
-	// cannot pick a higher-resolution candidate and render an oversized icon.
-	QIcon tray_icon;
-	if( ! basePixmap.isNull() )
+	// Use the icon theme so the desktop panel (wf-panel-pi / lxpanel) looks up "aqemu" in
+	// the hicolor theme.  We install 16×16 and 22×22 variants (alongside 48×48) so the panel
+	// selects an appropriately small size rather than pulling the 48×48 and expanding the bar.
+	QIcon tray_icon = QIcon::fromTheme( QStringLiteral( "aqemu" ) );
+	if( tray_icon.isNull() )
 	{
-		const int traySize = 16;
-		tray_icon.addPixmap(
-			basePixmap.scaled( traySize, traySize, Qt::IgnoreAspectRatio, Qt::SmoothTransformation ),
-			QIcon::Normal, QIcon::Off );
-	}
-	else
-	{
-		tray_icon = windowIcon();
+		// Fallback: embed a hard-scaled 16×16 pixmap so at least something appears.
+		QPixmap basePixmap( QStringLiteral( ":/aqemu.png" ) );
+		if( basePixmap.isNull() )
+			basePixmap = windowIcon().pixmap( 256, 256 );
+		if( ! basePixmap.isNull() )
+			tray_icon.addPixmap(
+				basePixmap.scaled( 16, 16, Qt::IgnoreAspectRatio, Qt::SmoothTransformation ),
+				QIcon::Normal, QIcon::Off );
+		else
+			tray_icon = windowIcon();
 	}
 	Tray_Icon->setIcon( tray_icon );
 	Tray_Icon->setToolTip( QStringLiteral( "AQEMU" ) );

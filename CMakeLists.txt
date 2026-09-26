@@ -683,6 +683,10 @@ INSTALL( FILES ${links} DESTINATION share/aqemu/docs )
 FILE( GLOB pixmaps "${CMAKE_CURRENT_SOURCE_DIR}/resources/menu_data/*.png" )
 INSTALL( FILES ${pixmaps} DESTINATION share/pixmaps )
 INSTALL( FILES "${CMAKE_CURRENT_SOURCE_DIR}/resources/menu_data/aqemu.png" DESTINATION share/icons/hicolor/48x48/apps )
+INSTALL( FILES "${CMAKE_CURRENT_SOURCE_DIR}/resources/icons/aqemu_16.png"
+    DESTINATION share/icons/hicolor/16x16/apps RENAME aqemu.png )
+INSTALL( FILES "${CMAKE_CURRENT_SOURCE_DIR}/resources/icons/aqemu_22.png"
+    DESTINATION share/icons/hicolor/22x22/apps RENAME aqemu.png )
 
 FILE( GLOB app_menu "${CMAKE_CURRENT_SOURCE_DIR}/resources/menu_data/aqemu.desktop" )
 INSTALL( FILES ${app_menu} DESTINATION share/applications )
