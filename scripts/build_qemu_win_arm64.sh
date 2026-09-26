@@ -34,6 +34,21 @@ echo "=== Building QEMU for Windows on ARM (CLANGARM64 / Target: ${TARGET_ARG}) 
 echo "Using compiler: $(which clang 2>/dev/null || echo clang)"
 echo "Using PKG_CONFIG: ${PKG_CONFIG}"
 
+# Ensure required QEMU build dependencies are installed
+QEMU_BUILD_DEPS=(
+  mingw-w64-clang-aarch64-glib2
+  mingw-w64-clang-aarch64-pixman
+  mingw-w64-clang-aarch64-libslirp
+  mingw-w64-clang-aarch64-ninja
+  mingw-w64-clang-aarch64-zlib
+)
+for dep in "${QEMU_BUILD_DEPS[@]}"; do
+  if ! pacman -Q "$dep" >/dev/null 2>&1; then
+    echo "Installing required dependency: $dep"
+    pacman -S --needed --noconfirm "$dep"
+  fi
+done
+
 if [[ ! -f "${QEMU_SRC}/configure" && ! -f "${QEMU_SRC}/meson.build" ]]; then
   echo "QEMU sources missing. Running: git submodule update --init --depth 1 third_party/qemu"
   git -C "${ROOT}" submodule update --init --depth 1 third_party/qemu
