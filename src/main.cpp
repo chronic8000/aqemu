@@ -534,9 +534,20 @@ int AQEMU_Main::find_data_folders()
         // Found?
         if( settings->value("AQEMU_Data_Folder", "").toString().isEmpty() )
         {
+#ifdef Q_OS_WIN
             const QString defaultAppDir = QDir::toNativeSeparators( QDir::cleanPath( QCoreApplication::applicationDirPath() ) + "/" );
-            settings->setValue( "AQEMU_Data_Folder", defaultAppDir );
-            AQDebug( "int main( int argc, char *argv[] )", "Fallback AQEMU_Data_Folder: " + defaultAppDir );
+            if( QFileInfo::exists( defaultAppDir + "os_icons" ) || QFileInfo::exists( defaultAppDir + "resources/os_icons" ) )
+            {
+                settings->setValue( "AQEMU_Data_Folder", defaultAppDir );
+                AQDebug( "int main( int argc, char *argv[] )", "Fallback AQEMU_Data_Folder: " + defaultAppDir );
+            }
+            else
+            {
+                AQWarning( "find_data_folders", "AQEMU data folders (os_icons/os_templates) not found in app directory" );
+            }
+#else
+            AQWarning( "find_data_folders", "AQEMU data folders not found in /usr/share/aqemu or relative resource paths" );
+#endif
         }
     }
 
@@ -641,8 +652,22 @@ void AQEMU_Main::vm_dir_exists_or_create()
     }
     if( ! vm_dir.exists(configured) )
     {
-        vm_dir.mkpath( configured );
-        AQEMU_Startup_Log( QStringLiteral( "Created VM directory: %1" ).arg( configured ) );
+        if( vm_dir.mkpath( configured ) )
+        {
+            AQEMU_Startup_Log( QStringLiteral( "Created VM directory: %1" ).arg( configured ) );
+        }
+        else
+        {
+            AQWarning( "void AQEMU_Main::vm_dir_exists_or_create()",
+                       QStringLiteral( "Failed to create VM directory: %1" ).arg( configured ) );
+            const QString fallback = AQEMU_Default_VM_Directory();
+            if( fallback != configured && vm_dir.mkpath( fallback ) )
+            {
+                configured = fallback;
+                settings->setValue( "VM_Directory", configured );
+                AQEMU_Startup_Log( QStringLiteral( "Fell back to default VM directory: %1" ).arg( configured ) );
+            }
+        }
     }
 }
 

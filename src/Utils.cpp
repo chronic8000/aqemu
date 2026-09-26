@@ -610,6 +610,14 @@ static bool AQ_Dir_Contains_QEMU( const QString &dir_path )
 {
 	if( dir_path.isEmpty() )
 		return false;
+	QFileInfo fi( dir_path );
+	if( fi.isFile() )
+	{
+		QString name = fi.fileName().toLower();
+		return name.startsWith( QStringLiteral( "qemu-system-" ) ) ||
+		       name == QStringLiteral( "qemu.exe" ) ||
+		       name == QStringLiteral( "qemu" );
+	}
 #ifdef Q_OS_WIN32
 	const QString suf = QStringLiteral( ".exe" );
 #else
@@ -621,8 +629,9 @@ static bool AQ_Dir_Contains_QEMU( const QString &dir_path )
 	const QString marker3 = d + QDir::separator() + QStringLiteral( "qemu-system-aarch64" ) + suf;
 	const QString marker4 = d + QDir::separator() + QStringLiteral( "qemu-system-applesoc" ) + suf;
 	const QString marker5 = d + QDir::separator() + QStringLiteral( "qemu-system-reims3d" );
+	const QString marker6 = d + QDir::separator() + QStringLiteral( "qemu" ) + suf;
 	return QFile::exists( marker ) || QFile::exists( marker2 ) || QFile::exists( marker3 ) ||
-	       QFile::exists( marker4 ) || QFile::exists( marker5 );
+	       QFile::exists( marker4 ) || QFile::exists( marker5 ) || QFile::exists( marker6 );
 }
 
 QString AQ_Get_Bundled_QEMU_Dir()
@@ -865,13 +874,20 @@ void AQ_Set_QEMU_Source_Mode( const QString &mode )
 
 bool AQ_Apply_QEMU_Dir_As_Default_Emulator( const QString &dir_in, const QString &display_name )
 {
-	QString dir = QDir::toNativeSeparators( dir_in.trimmed() );
-	if( dir.isEmpty() )
+	QString path = QDir::toNativeSeparators( dir_in.trimmed() );
+	if( path.isEmpty() )
 		return false;
+
+	QString dir = path;
+	QFileInfo fi( path );
+	if( fi.isFile() )
+	{
+		dir = fi.absolutePath();
+	}
 	if( ! ( dir.endsWith( QLatin1Char( '/' ) ) || dir.endsWith( QLatin1Char( '\\' ) ) ) )
 		dir += QDir::separator();
 
-	QMap<QString, QString> qemu_list = System_Info::Find_QEMU_Binary_Files( dir );
+	QMap<QString, QString> qemu_list = System_Info::Find_QEMU_Binary_Files( path );
 	bool found = false;
 	for( QMap<QString, QString>::const_iterator it = qemu_list.constBegin(); it != qemu_list.constEnd(); ++it )
 	{
@@ -895,7 +911,7 @@ bool AQ_Apply_QEMU_Dir_As_Default_Emulator( const QString &dir_in, const QString
 		}
 	}
 	if( qemu_version == VM::Obsolete )
-		qemu_version = VM::QEMU_2_0;
+		qemu_version = VM::QEMU_11_1;
 
 	QMap<QString, Available_Devices> devList;
 	for( QMap<QString, QString>::const_iterator it = qemu_list.constBegin(); it != qemu_list.constEnd(); ++it )
@@ -1208,41 +1224,52 @@ QString AQ_Pick_Host_Audio_Backend( const QString &qemu_binary, const QString &p
 {
 	static QMap<QString, QStringList> cache;
 	const QString qemu = qemu_binary.trimmed();
-	if( qemu.isEmpty() )
-		return QStringLiteral( "none" );
+	const QString pref = preferred.trimmed().toLower();
 
 	QStringList supported;
-	if( cache.contains( qemu ) )
+	if( ! qemu.isEmpty() )
 	{
-		supported = cache.value( qemu );
-	}
-	else
-	{
-		QProcess p;
-		p.start( qemu, QStringList() << QStringLiteral( "-audiodev" ) << QStringLiteral( "help" ) );
-		if( p.waitForFinished( 2000 ) )
+		if( cache.contains( qemu ) )
 		{
-			QString out = QString::fromUtf8( p.readAllStandardOutput() );
-			if( out.isEmpty() )
-				out = QString::fromUtf8( p.readAllStandardError() );
-			const QStringList lines = out.split( QRegularExpression( QStringLiteral( "[\\r\\n]+" ) ),
-			                                     QString::SkipEmptyParts );
-			for( const QString &line : lines )
-			{
-				const QString t = line.trimmed().toLower();
-				if( t.isEmpty() || t.contains( QLatin1Char( ' ' ) ) ||
-				    t.startsWith( QLatin1String( "available" ) ) )
-					continue;
-				supported << t;
-			}
+			supported = cache.value( qemu );
 		}
-		cache.insert( qemu, supported );
+		else
+		{
+			QProcess p;
+			p.start( qemu, QStringList() << QStringLiteral( "-audiodev" ) << QStringLiteral( "help" ) );
+			if( p.waitForFinished( 2000 ) )
+			{
+				QString out = QString::fromUtf8( p.readAllStandardOutput() );
+				if( out.isEmpty() )
+					out = QString::fromUtf8( p.readAllStandardError() );
+				const QStringList lines = out.split( QRegularExpression( QStringLiteral( "[\\r\\n]+" ) ),
+				                                     QString::SkipEmptyParts );
+				for( const QString &line : lines )
+				{
+					const QString t = line.trimmed().toLower();
+					if( t.isEmpty() || t.contains( QLatin1Char( ' ' ) ) ||
+					    t.startsWith( QLatin1String( "available" ) ) )
+						continue;
+					supported << t;
+				}
+			}
+			cache.insert( qemu, supported );
+		}
 	}
 
 	if( supported.isEmpty() )
-		return QStringLiteral( "none" );
+	{
+		if( ! pref.isEmpty() && pref != QLatin1String( "none" ) )
+			return pref;
+#ifdef Q_OS_WIN32
+		return QStringLiteral( "dsound" );
+#elif defined(Q_OS_DARWIN)
+		return QStringLiteral( "coreaudio" );
+#else
+		return QStringLiteral( "pa" );
+#endif
+	}
 
-	const QString pref = preferred.trimmed().toLower();
 	if( ! pref.isEmpty() && supported.contains( pref ) )
 		return pref;
 
@@ -1703,28 +1730,17 @@ void Check_AQEMU_Permissions()
 
 VM::Emulator_Version String_To_Emulator_Version( const QString &str )
 {
-	if( str == "QEMU 0.9.0" ) return VM::QEMU_2_0;
-	else if( str == "QEMU 0.9.1" ) return VM::QEMU_2_0;
-	else if( str == "QEMU 0.10.X" ) return VM::QEMU_2_0;
-	else if( str == "QEMU 0.11.X" ) return VM::QEMU_2_0;
-	else if( str == "QEMU 0.12.X" ) return VM::QEMU_2_0;
-	else if( str == "QEMU 0.13.X" ) return VM::QEMU_2_0;
-	else if( str == "QEMU 0.14.X" ) return VM::QEMU_2_0;
-	else if( str == "QEMU 0.15.X" ) return VM::QEMU_2_0;
-	else if( str == "QEMU 1.0" ) return VM::QEMU_2_0;
-	else if( str == "QEMU 2.0" || str == "QEMU 2.0+" || str.contains( "QEMU" ) ) return VM::QEMU_2_0;
-	else if( str == "KVM 7X" ) return VM::QEMU_2_0;
-	else if( str == "KVM 8X" ) return VM::QEMU_2_0;
-	else if( str == "KVM 0.11.X" ) return VM::QEMU_2_0;
-	else if( str == "KVM 0.12.X" ) return VM::QEMU_2_0;
-	else if( str == "KVM 0.13.X" ) return VM::QEMU_2_0;
-	else if( str == "KVM 0.14.X" ) return VM::QEMU_2_0;
-	else if( str == "KVM 0.15.X" ) return VM::QEMU_2_0;
-	else if( str == "KVM 1.0" ) return VM::QEMU_2_0;
+	if( str.startsWith( "QEMU 11.1" ) ) return VM::QEMU_11_1;
+	else if( str.startsWith( "QEMU 11" ) ) return VM::QEMU_11_0;
+	else if( str.startsWith( "QEMU 10" ) ) return VM::QEMU_10_0;
+	else if( str.startsWith( "QEMU 9" ) ) return VM::QEMU_9_0;
+	else if( str.startsWith( "QEMU 8" ) ) return VM::QEMU_8_0;
+	else if( str.startsWith( "QEMU 7" ) ) return VM::QEMU_7_0;
+	else if( str.startsWith( "QEMU 2" ) ) return VM::QEMU_2_0;
 	else if( str == "Obsolete" ) return VM::Obsolete;
 	else
 	{
-		return VM::QEMU_2_0;
+		return VM::QEMU_11_1;
 	}
 }
 
@@ -1732,17 +1748,30 @@ QString Emulator_Version_To_String( VM::Emulator_Version ver )
 {
 	switch( ver )
 	{
+		case VM::QEMU_11_1:
+			return "QEMU 11.1+";
+		case VM::QEMU_11_0:
+			return "QEMU 11.0";
+		case VM::QEMU_10_0:
+			return "QEMU 10.x";
+		case VM::QEMU_9_0:
+			return "QEMU 9.x";
+		case VM::QEMU_8_0:
+			return "QEMU 8.x";
+		case VM::QEMU_7_0:
+			return "QEMU 7.x";
+		case VM::QEMU_2_6:
+		case VM::QEMU_2_5:
+		case VM::QEMU_2_4:
+		case VM::QEMU_2_3:
+		case VM::QEMU_2_2:
+		case VM::QEMU_2_1:
 		case VM::QEMU_2_0:
-			// Capability bucket for all modern QEMU; prefer Get_Emulator_Version_Label for UI names
-			return "QEMU 2.0+";
-			
+			return "QEMU 2.x";
 		case VM::Obsolete:
 			return "Obsolete";
-			
 		default:
-			AQError( "QString Emulator_Version_To_String( VM::Emulator_Version ver )",
-					 QString("Emulator version \"%1\" not valid!").arg((int)ver) );
-			return "";
+			return "QEMU 11.1+";
 	}
 }
 
@@ -2404,6 +2433,14 @@ QString AQ_Find_QEMU_Binary_With_Native_Display( const QString &system_name,
 		if( ! preferred_path.trimmed().isEmpty() )
 			candidates << QDir::toNativeSeparators( preferred_path );
 	}
+	else if( mode == QLatin1String( "system" ) )
+	{
+		const QString sys_dir = AQ_Get_System_QEMU_Dir();
+		if( ! sys_dir.isEmpty() )
+			candidates << QDir::toNativeSeparators( sys_dir + exe );
+		if( ! preferred_path.trimmed().isEmpty() )
+			candidates << QDir::toNativeSeparators( preferred_path );
+	}
 	else
 	{
 		if( ! bundled_dir.isEmpty() )
@@ -2412,9 +2449,12 @@ QString AQ_Find_QEMU_Binary_With_Native_Display( const QString &system_name,
 			candidates << QDir::toNativeSeparators( preferred_path );
 	}
 
-	const QString app_dir = QCoreApplication::applicationDirPath();
-	if( ! app_dir.isEmpty() )
-		candidates << QDir::toNativeSeparators( app_dir + QLatin1Char( '/' ) + exe );
+	if( mode != QLatin1String( "system" ) )
+	{
+		const QString app_dir = QCoreApplication::applicationDirPath();
+		if( ! app_dir.isEmpty() )
+			candidates << QDir::toNativeSeparators( app_dir + QLatin1Char( '/' ) + exe );
+	}
 
 #ifdef Q_OS_WIN32
 	candidates << QDir::toNativeSeparators(

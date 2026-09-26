@@ -47,7 +47,13 @@ Emulator_Options_Window::Emulator_Options_Window( QWidget *parent )
 	
 	Update_Info = false;
 
-
+	ui.CB_Version->addItem( "QEMU 11.1+" );
+	ui.CB_Version->addItem( "QEMU 11.0" );
+	ui.CB_Version->addItem( "QEMU 10.x" );
+	ui.CB_Version->addItem( "QEMU 9.x" );
+	ui.CB_Version->addItem( "QEMU 8.x" );
+	ui.CB_Version->addItem( "QEMU 7.x" );
+	ui.CB_Version->addItem( "QEMU 2.x" );
 }
 
 void Emulator_Options_Window::on_Button_Find_clicked()
@@ -179,18 +185,11 @@ void Emulator_Options_Window::Set_Emulator( const Emulator &emul )
 	else ui.RB_Save_Options->setChecked( true ); // Use saved emulator available options
 	
 	// Force Version
-	switch( Current_Emulator.Get_Version() )
-	{
-		case VM::QEMU_2_0:
-			ui.CB_Version->setCurrentIndex( 1 );
-			break;
-			
-		default:
-			AQWarning( "void Emulator_Options_Window::Set_Emulator( Emulator emul )",
-					   "Version NOT Valid! Use Default" );
-			ui.CB_Version->setCurrentIndex( 0 );
-			break;
-	}
+	int verIdx = ui.CB_Version->findText( Emulator_Version_To_String( Current_Emulator.Get_Version() ) );
+	if( verIdx >= 0 )
+		ui.CB_Version->setCurrentIndex( verIdx );
+	else
+		ui.CB_Version->setCurrentIndex( 0 );
 	
 	// Emulator Binary Files
 	QMap<QString, QString> bin_files = Current_Emulator.Get_Binary_Files();

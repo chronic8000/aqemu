@@ -782,6 +782,20 @@ void Advanced_Settings_Window::done(int r)
 		    Update_Emulators_Info();
 		    ui.Edit_QEMU_IMG_Path->setText( Settings.value( "QEMU-IMG_Path", "" ).toString() );
 	    }
+	    else if( RB_QEMU_System && RB_QEMU_System->isChecked() && AQ_Has_System_QEMU() )
+	    {
+		    AQ_Set_QEMU_Source_Mode( QStringLiteral( "system" ) );
+		    if( ! AQ_Apply_QEMU_Dir_As_Default_Emulator(
+				    AQ_Get_System_QEMU_Dir(), tr( "System QEMU" ) ) )
+		    {
+			    AQGraphic_Warning( tr( "QEMU" ),
+				    tr( "Could not configure the system-installed QEMU." ) );
+			    return;
+		    }
+		    Load_Emulators_Info();
+		    Update_Emulators_Info();
+		    ui.Edit_QEMU_IMG_Path->setText( Settings.value( "QEMU-IMG_Path", "" ).toString() );
+	    }
 	    else if( RB_QEMU_Custom && RB_QEMU_Custom->isChecked() )
 	    {
 		    AQ_Set_QEMU_Source_Mode( QStringLiteral( "custom" ) );

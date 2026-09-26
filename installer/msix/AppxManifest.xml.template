@@ -17,7 +17,7 @@
     Name="__IDENTITY_NAME__"
     Publisher="__PUBLISHER__"
     Version="__VERSION__"
-    ProcessorArchitecture="x64" />
+    ProcessorArchitecture="__PROCESSOR_ARCHITECTURE__" />
 
   <Properties>
     <DisplayName>AQEMU VM Manager</DisplayName>

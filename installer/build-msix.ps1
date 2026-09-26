@@ -11,7 +11,8 @@
 param(
     [string] $RepoRoot = "",
     [string] $BuildDir = "",
-    [string] $Version = "1.3.0.0",
+    [string] $Version = "1.3.1.0",
+    [string] $Architecture = "x64",
     [string] $OutDir = "",
     # Must match Partner Center Product identity Publisher (CN=...)
     [string] $Publisher = "CN=16318CB3-C262-4B44-BCCF-310B0DDA3950",
@@ -50,11 +51,20 @@ if ($Version -notmatch '^\d+\.\d+\.\d+\.\d+$') {
     }
 }
 
+$arch = $Architecture.ToLowerInvariant().Trim()
+if ($arch -eq "arm64" -or $arch -eq "aarch64") {
+    $archTag = "win-arm64"
+    $manifestArch = "arm64"
+} else {
+    $archTag = "win64"
+    $manifestArch = "x64"
+}
+
 $msixSrc = Join-Path $RepoRoot "installer\msix"
 $layoutDir = Join-Path $RepoRoot "installer\msix_layout"
-$msixName = "AQEMU-$Version-win64.msix"
+$msixName = "AQEMU-$Version-$archTag.msix"
 if ($Version -match '^(\d+\.\d+\.\d+)\.0$') {
-    $msixName = "AQEMU-$($Matches[1])-win64.msix"
+    $msixName = "AQEMU-$($Matches[1])-$archTag.msix"
 }
 $msixPath = Join-Path $OutDir $msixName
 $certDir = Join-Path $RepoRoot "installer\certs"
@@ -292,6 +302,7 @@ $manifest = $template.
     Replace("__IDENTITY_NAME__", $IdentityName).
     Replace("__PUBLISHER__", $Publisher).
     Replace("__PUBLISHER_DISPLAY_NAME__", $PublisherDisplayName).
+    Replace("__PROCESSOR_ARCHITECTURE__", $manifestArch).
     Replace("__VERSION__", $Version)
 $manifestPath = Join-Path $layoutDir "AppxManifest.xml"
 $utf8NoBom = New-Object System.Text.UTF8Encoding $false

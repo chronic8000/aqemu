@@ -7468,11 +7468,17 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			}
             StorageArgs << Build_Native_Device_Args( FD0.Get_Native_Device(), Build_QEMU_Args_for_Tab_Info );
 		}
-		else if( ! no_pc_fdd_ide && embedded_session && ( QFile::exists(FD0.Get_File_Name()) || Build_QEMU_Args_for_Tab_Info ) )
+		else if( ! no_pc_fdd_ide )
 		{
-			// x86 embedded: keep stable id for QMP hotswap
-			StorageArgs << "-drive" << QString( "file=%1,if=floppy,index=0,format=raw,id=aqemu-fd0" )
-				.arg( AQ_Normalize_File_Path( FD0.Get_File_Name() ) );
+			if( QFile::exists(FD0.Get_File_Name()) || Build_QEMU_Args_for_Tab_Info )
+			{
+				StorageArgs << "-drive" << QString( "file=%1,if=floppy,index=0,format=raw,id=aqemu-fd0" )
+					.arg( AQ_Normalize_File_Path( FD0.Get_File_Name() ) );
+			}
+			else
+			{
+				StorageArgs << "-drive" << QStringLiteral( "if=floppy,index=0,format=raw,id=aqemu-fd0,file.driver=null-co,file.size=1474560" );
+			}
 		}
 	}
 	
@@ -7489,10 +7495,17 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			}
             StorageArgs << Build_Native_Device_Args( FD1.Get_Native_Device(), Build_QEMU_Args_for_Tab_Info );
 		}
-		else if( ! no_pc_fdd_ide && embedded_session && ( QFile::exists(FD1.Get_File_Name()) || Build_QEMU_Args_for_Tab_Info ) )
+		else if( ! no_pc_fdd_ide )
 		{
-			StorageArgs << "-drive" << QString( "file=%1,if=floppy,index=1,format=raw,id=aqemu-fd1" )
-				.arg( AQ_Normalize_File_Path( FD1.Get_File_Name() ) );
+			if( QFile::exists(FD1.Get_File_Name()) || Build_QEMU_Args_for_Tab_Info )
+			{
+				StorageArgs << "-drive" << QString( "file=%1,if=floppy,index=1,format=raw,id=aqemu-fd1" )
+					.arg( AQ_Normalize_File_Path( FD1.Get_File_Name() ) );
+			}
+			else
+			{
+				StorageArgs << "-drive" << QStringLiteral( "if=floppy,index=1,format=raw,id=aqemu-fd1,file.driver=null-co,file.size=1474560" );
+			}
 		}
 	}
 	
@@ -7611,18 +7624,28 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 					.arg( cd_path );
 				ide_index_2_used = true;
 			}
+			else
+			{
+				StorageArgs << "-drive" << QStringLiteral( "if=ide,index=2,media=cdrom,readonly=on,id=aqemu-cdrom" );
+				ide_index_2_used = true;
+			}
 		}
 		else
 		{
 			if( QFile::exists(CD_ROM.Get_File_Name()) || Build_QEMU_Args_for_Tab_Info )
 			{
 				const QString cd_path = AQ_Normalize_File_Path( CD_ROM.Get_File_Name() );
-				const QString drive = QString( "file=%1,if=ide,index=2,media=cdrom,readonly=on,format=raw" )
+				const QString drive = QString( "file=%1,if=ide,index=2,media=cdrom,readonly=on,format=raw,id=aqemu-cdrom" )
 					.arg( cd_path );
 				if( Build_QEMU_Args_for_Script_Mode )
 					StorageArgs << "-drive" << "\"" + drive + "\"";
 				else
 					StorageArgs << "-drive" << drive;
+				ide_index_2_used = true;
+			}
+			else
+			{
+				StorageArgs << "-drive" << QStringLiteral( "if=ide,index=2,media=cdrom,readonly=on,id=aqemu-cdrom" );
 				ide_index_2_used = true;
 			}
 		}
@@ -10327,9 +10350,9 @@ QStringList Virtual_Machine::Build_Native_Device_Args( VM_Native_Storage_Device 
 	        else opt << "discard=ignore";
 	}
 
-	// Block Size
+	// Block Size (disks only; never optical/CD-ROM)
 	QString block_size_dev_opts = "";
-	if( device.Use_Block_Size() )
+	if( device.Use_Block_Size() && ( ! device.Use_Media() || device.Get_Media() == VM::DM_Disk ) )
 	{
 		const int log_sz = device.Get_Logical_Block_Size() > 0 ? device.Get_Logical_Block_Size() : 512;
 		const int phys_sz = device.Get_Physical_Block_Size() > 0 ? device.Get_Physical_Block_Size() : 512;
@@ -10358,7 +10381,7 @@ QStringList Virtual_Machine::Build_Native_Device_Args( VM_Native_Storage_Device 
 	    const int boot_idx = Bootindex_For( *this,
 		device.Get_Media() == VM::DM_CD_ROM ? VM::Boot_From_CDROM : VM::Boot_From_HDD );
 	    args << "-device" << With_Bootindex(
-		devtype + ",bus=aq-vscsi.0,drive=" + vsname + block_size_dev_opts, boot_idx );
+		devtype + ",bus=aq-vscsi.0,drive=" + vsname + (devtype == "scsi-hd" ? block_size_dev_opts : QString()), boot_idx );
 	}
 	else if( device.Get_Interface() == VM::DI_NVMe &&
 			 ( ! device.Use_Media() || device.Get_Media() == VM::DM_Disk ) )
@@ -10366,7 +10389,7 @@ QStringList Virtual_Machine::Build_Native_Device_Args( VM_Native_Storage_Device 
 		const int boot_idx = Bootindex_For( *this, VM::Boot_From_HDD );
 		// serial= is required by some guests (SteamOS recovery looks for NVMe)
 		args << "-device" << With_Bootindex(
-			"nvme,drive=" + vsname + ",serial=aqemu-nvme0" + block_size_dev_opts, boot_idx );
+			"nvme,drive=" + vsname + ",serial=aqemu-nvme0", boot_idx );
 	}
 	else if( device.Get_Interface() == VM::DI_AHCI )
 	{
@@ -10383,7 +10406,7 @@ QStringList Virtual_Machine::Build_Native_Device_Args( VM_Native_Storage_Device 
 			device.Get_Media() == VM::DM_CD_ROM ? VM::Boot_From_CDROM : VM::Boot_From_HDD );
 		args << "-device" << With_Bootindex(
 			QStringLiteral( "%1,bus=aqemu_ahci.%2,drive=%3" )
-				.arg( devtype ).arg( unit ).arg( vsname ) + block_size_dev_opts,
+				.arg( devtype ).arg( unit ).arg( vsname ) + (devtype == "ide-hd" ? block_size_dev_opts : QString()),
 			boot_idx );
 	}
 	else if( device.Get_Interface() == VM::DI_Virtio && virt_arch_blk &&
@@ -11551,8 +11574,30 @@ void Virtual_Machine::Kill_Orphan_QEMU_Using_Disks()
 		if( d.isEmpty() )
 			continue;
 		QProcess fuser;
-		fuser.start( "fuser", QStringList() << "-k" << "-TERM" << d );
-		fuser.waitForFinished( 2000 );
+		fuser.start( QStringLiteral( "fuser" ), QStringList() << d );
+		if( fuser.waitForFinished( 2000 ) )
+		{
+			const QString out = QString::fromUtf8( fuser.readAllStandardOutput() ) +
+			                    QString::fromUtf8( fuser.readAllStandardError() );
+			const QStringList tokens = out.split( QRegularExpression( QStringLiteral( "\\s+" ) ), QString::SkipEmptyParts );
+			for( const QString &tok : tokens )
+			{
+				bool ok = false;
+				pid_t pid = tok.toInt( &ok );
+				if( ! ok || pid <= 1 )
+					continue;
+				QFile cmdFile( QStringLiteral( "/proc/%1/cmdline" ).arg( pid ) );
+				if( cmdFile.open( QIODevice::ReadOnly ) )
+				{
+					const QString cmdline = QString::fromUtf8( cmdFile.readAll() );
+					cmdFile.close();
+					if( cmdline.contains( QLatin1String( "qemu-system" ), Qt::CaseInsensitive ) )
+					{
+						kill( pid, SIGTERM );
+					}
+				}
+			}
+		}
 	}
 #else
 	Q_UNUSED( disks );
@@ -13138,7 +13183,7 @@ QString Virtual_Machine::Get_Primary_USB_Bus() const
 	if( Current_Emulator_Devices.PSO_Device_USB_EHCI )
 		return QStringLiteral( "xhci.0" );
 
-	return QStringLiteral( "aqemu_usb_hub.0" );
+	return QString();
 }
 
 void Virtual_Machine::Add_USB_Port( const VM_USB &u )
@@ -14459,11 +14504,11 @@ void Virtual_Machine::QEMU_Finished( int exitCode, QProcess::ExitStatus exitStat
 			{
 				if( exitCode == 137 || exitCode == -9 || exitCode == 9 )
 				{
-					error = tr( "QEMU was killed by the system (Out Of Memory / OOM killer).\n\n"
-					            "The host ran out of physical RAM. Windows 7 is configured with %1 MB of RAM, "
-					            "which exceeded available system memory.\n\n"
-					            "To prevent this, please lower the VM's assigned RAM (e.g. 3072 MB or 4096 MB) in General settings." )
-					        .arg( Memory_Size );
+					error = tr( "QEMU was terminated forcibly by the system (signal 9 / SIGKILL).\n\n"
+					            "This commonly occurs when the host operating system runs out of physical memory "
+					            "(Out Of Memory / OOM killer). The virtual machine '%1' is allocated %2 MB of RAM.\n\n"
+					            "If this termination was caused by memory pressure, consider reducing the VM's assigned RAM in General settings." )
+					        .arg( Machine_Name ).arg( Memory_Size );
 				}
 				else if( exitStatus == QProcess::CrashExit )
 				{

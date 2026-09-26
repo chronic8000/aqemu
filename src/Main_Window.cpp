@@ -5809,8 +5809,18 @@ void Main_Window::on_actionCreate_Shell_Script_triggered()
 			fileName += ".sh";
 
 		QStringList all_args = cur_vm->Build_QEMU_Args_For_Script();
-		all_args.removeAll( QStringLiteral("-monitor") );
-		all_args.removeAll( QStringLiteral("stdio") );
+		for( int ix = 0; ix < all_args.count(); ++ix )
+		{
+			if( all_args[ix] == QLatin1String( "-monitor" ) )
+			{
+				all_args.removeAt( ix );
+				if( ix < all_args.count() && all_args[ix] == QLatin1String( "stdio" ) )
+				{
+					all_args.removeAt( ix );
+				}
+				--ix;
+			}
+		}
 
 		QString script_code;
 		const QString bin_path = Get_Current_Binary_Name();

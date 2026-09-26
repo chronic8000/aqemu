@@ -1,8 +1,8 @@
 [Desktop Entry]
-Exec=/home/chronic/.local/bin/aqemu
+Exec=aqemu
 Terminal=false
 Type=Application
-Icon=/home/chronic/.local/share/pixmaps/aqemu.png
+Icon=aqemu
 StartupNotify=true
 Categories=System;Emulator;
 
