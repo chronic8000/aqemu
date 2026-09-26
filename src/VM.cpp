@@ -4778,6 +4778,12 @@ bool Virtual_Machine::Load_VM( const QString &file_name )
 					
                     Second_Element = Second_Element.firstChildElement( "Native_Device" );
                     FD0.Set_Native_Device( Load_VM_Native_Storage_Device(Second_Element) );
+					{
+						VM_Native_Storage_Device dev = FD0.Get_Native_Device();
+						dev.Use_Discard( false );
+						dev.Set_Discard( false );
+						FD0.Set_Native_Device( dev );
+					}
 					
 					// Floppy 1
 					FD1 = VM_Storage_Device();
@@ -4787,6 +4793,12 @@ bool Virtual_Machine::Load_VM( const QString &file_name )
 					
                     Second_Element = Second_Element.firstChildElement( "Native_Device" );
                     FD1.Set_Native_Device( Load_VM_Native_Storage_Device(Second_Element) );
+					{
+						VM_Native_Storage_Device dev = FD1.Get_Native_Device();
+						dev.Use_Discard( false );
+						dev.Set_Discard( false );
+						FD1.Set_Native_Device( dev );
+					}
 					
 					// CD-ROM
 					CD_ROM = VM_Storage_Device();
@@ -4796,6 +4808,12 @@ bool Virtual_Machine::Load_VM( const QString &file_name )
 					
                     Second_Element = Second_Element.firstChildElement( "Native_Device" );
                     CD_ROM.Set_Native_Device( Load_VM_Native_Storage_Device(Second_Element) );
+					{
+						VM_Native_Storage_Device dev = CD_ROM.Get_Native_Device();
+						dev.Use_Discard( false );
+						dev.Set_Discard( false );
+						CD_ROM.Set_Native_Device( dev );
+					}
 				}
 			}
 			
@@ -6248,7 +6266,8 @@ void Virtual_Machine::Save_VM_Native_Storage_Device( QDomDocument &New_Dom_Docum
 	Sec_Element = New_Dom_Document.createElement( "Use_Discard" );
 	Dom_Element.appendChild( Sec_Element );
 
-	if( device.Use_Discard() )
+	const bool can_discard = ( ! device.Use_Media() || device.Get_Media() == VM::DM_Disk );
+	if( device.Use_Discard() && can_discard )
 	        Dom_Text = New_Dom_Document.createTextNode( "true" );
 	else
 	        Dom_Text = New_Dom_Document.createTextNode( "false" );
@@ -6259,7 +6278,7 @@ void Virtual_Machine::Save_VM_Native_Storage_Device( QDomDocument &New_Dom_Docum
 	Sec_Element = New_Dom_Document.createElement( "Discard" );
 	Dom_Element.appendChild( Sec_Element );
 
-	if ( device.Get_Discard() )
+	if ( device.Get_Discard() && can_discard )
 	        Dom_Text = New_Dom_Document.createTextNode( "true" );
 	else
 	        Dom_Text = New_Dom_Document.createTextNode( "false" );
