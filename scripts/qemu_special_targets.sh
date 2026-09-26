@@ -230,7 +230,13 @@ aqemu_build_applesoc() {
     conf_args+=(--cxx="${CXX}")
   fi
   if [[ -n "${AQEMU_QEMU_EXTRA_CONFIGURE:-}" ]]; then
-    conf_args+=("${AQEMU_QEMU_EXTRA_CONFIGURE[@]}")
+    for flag in "${AQEMU_QEMU_EXTRA_CONFIGURE[@]}"; do
+      # Inferno removed the 'docs' option from its Meson options
+      if [[ "$flag" == "--disable-docs" || "$flag" == "--enable-docs" ]]; then
+        continue
+      fi
+      conf_args+=("$flag")
+    done
   fi
 
   echo "Configuring ChefKiss Inferno..."
