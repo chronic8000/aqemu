@@ -38,6 +38,11 @@ echo "=== Building QEMU for Windows x86_64 (${MSYSTEM} / Target: ${TARGET_ARG}) 
 echo "Using compiler: $(which gcc 2>/dev/null || echo gcc)"
 echo "Using PKG_CONFIG: ${PKG_CONFIG}"
 
+if ! which diff >/dev/null 2>&1; then
+  echo "Installing missing dependency: diffutils"
+  pacman -S --needed --noconfirm diffutils
+fi
+
 if [[ ! -f "${QEMU_SRC}/configure" && ! -f "${QEMU_SRC}/meson.build" ]]; then
   echo "QEMU sources missing. Running: git submodule update --init --depth 1 third_party/qemu"
   git -C "${ROOT}" submodule update --init --depth 1 third_party/qemu

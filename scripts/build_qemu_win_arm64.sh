@@ -36,6 +36,7 @@ echo "Using PKG_CONFIG: ${PKG_CONFIG}"
 
 # Ensure required QEMU build dependencies are installed
 QEMU_BUILD_DEPS=(
+  diffutils
   mingw-w64-clang-aarch64-glib2
   mingw-w64-clang-aarch64-pixman
   mingw-w64-clang-aarch64-libslirp
