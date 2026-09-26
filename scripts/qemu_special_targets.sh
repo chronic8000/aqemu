@@ -205,6 +205,12 @@ aqemu_build_applesoc() {
     echo "Using existing ChefKiss Inferno source at ${inferno_src}"
   fi
 
+  # Ensure Inferno's required C library submodules (util/mlib) are initialized
+  if [[ ! -f "${inferno_src}/util/mlib/m-algo.h" ]]; then
+    echo "Initializing Inferno submodule: util/mlib..."
+    git -C "${inferno_src}" submodule update --init --depth 1 util/mlib
+  fi
+
   rm -rf "${inferno_stage}"
   mkdir -p "${inferno_build}" "${inferno_stage}" "${prefix}/bin"
   cd "${inferno_build}"
