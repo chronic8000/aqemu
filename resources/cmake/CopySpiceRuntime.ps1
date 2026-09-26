@@ -12,13 +12,17 @@ if (-not (Test-Path $DestDir)) {
 
 $objdump = Join-Path $BinDir "objdump.exe"
 if (-not (Test-Path $objdump)) {
-	# Fallback: copy seed + a few known deps only
+	$objdump = Join-Path $BinDir "llvm-objdump.exe"
+}
+if (-not (Test-Path $objdump)) {
+	# Fallback: copy seed + known deps only
 	$fallback = @(
 		$SeedDll,
 		"libglib-2.0-0.dll", "libgobject-2.0-0.dll", "libgio-2.0-0.dll",
 		"libgmodule-2.0-0.dll", "libintl-8.dll", "libiconv-2.dll",
 		"libpcre2-8-0.dll", "libffi-8.dll", "libpixman-1-0.dll",
-		"zlib1.dll", "libjpeg-8.dll", "libwinpthread-1.dll", "libgcc_s_seh-1.dll"
+		"zlib1.dll", "libjpeg-8.dll", "libwinpthread-1.dll", "libgcc_s_seh-1.dll",
+		"libunwind.dll", "libc++.dll"
 	)
 	foreach ($dll in $fallback) {
 		$src = Join-Path $BinDir $dll

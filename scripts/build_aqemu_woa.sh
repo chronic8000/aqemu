@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# Build AQEMU for Windows on ARM (WoA) via MSYS2 CLANGARM64 Shell
+# ==============================================================================
+# Run this script directly from the "MSYS2 CLANGARM64" terminal on Windows on ARM.
+#
+# Usage: ./scripts/build_aqemu_woa.sh [--deps]
+# ==============================================================================
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+BUILD_DIR="${ROOT}/build_woa"
+
+if [[ "${MSYSTEM:-}" != "CLANGARM64" ]]; then
+  echo "WARNING: You are in MSYSTEM='${MSYSTEM:-unknown}'. For native Windows on ARM, open the MSYS2 CLANGARM64 shell."
+fi
+
+# Optional: install all necessary dependencies
+if [[ "${1:-}" == "--deps" ]]; then
+  echo "Installing CLANGARM64 dependencies..."
+  pacman -S --needed --noconfirm \
+    mingw-w64-clang-aarch64-toolchain \
+    mingw-w64-clang-aarch64-qt5-base \
+    mingw-w64-clang-aarch64-cmake \
+    mingw-w64-clang-aarch64-ninja \
+    mingw-w64-clang-aarch64-pkgconf \
+    mingw-w64-clang-aarch64-spice-gtk \
+    mingw-w64-clang-aarch64-libvncserver \
+    mingw-w64-clang-aarch64-libslirp \
+    mingw-w64-clang-aarch64-libusb
+fi
+
+mkdir -p "${BUILD_DIR}"
+cd "${BUILD_DIR}"
+
+export PKG_CONFIG="${PKG_CONFIG:-pkg-config}"
+export PKG_CONFIG_PATH="/clangarm64/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
+
+CMAKE_FLAGS=(
+  -G Ninja
+  -DCMAKE_BUILD_TYPE=Release
+  -DWIN_ARM64_OPTIMIZATIONS=ON
+  -DAQEMU_WITH_SPICE_GTK=ON
+)
+
+if [[ -d "${ROOT}/third_party/qemu-install/bin" ]]; then
+  CMAKE_FLAGS+=(-DAQEMU_BUNDLE_QEMU=ON -DAQEMU_QEMU_PREFIX="${ROOT}/third_party/qemu-install")
+fi
+
+echo "Configuring CMake for Windows on ARM..."
+cmake "${CMAKE_FLAGS[@]}" "${ROOT}"
+
+echo "Building native ARM64 AQEMU..."
+ninja -j"$(nproc 2>/dev/null || echo 4)"
+
+echo "=== Build Succeeded! ==="
+echo "Executable: ${BUILD_DIR}/aqemu.exe"

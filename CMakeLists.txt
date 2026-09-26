@@ -66,6 +66,18 @@ IF( RASPBERRY_PI_BUILD )
 	MESSAGE( STATUS "Raspberry Pi target build configuration active" )
 ENDIF( RASPBERRY_PI_BUILD )
 
+# Windows on ARM (WoA / Snapdragon)
+OPTION( WIN_ARM64_OPTIMIZATIONS "Enable optimizations for Windows on ARM (WoA / Snapdragon)" OFF )
+IF( WIN32 )
+	IF( WIN_ARM64_OPTIMIZATIONS OR CMAKE_SYSTEM_PROCESSOR MATCHES "^(ARM64|aarch64)" OR CMAKE_GENERATOR_PLATFORM MATCHES "^(ARM64|arm64)" )
+		ADD_DEFINITIONS( -DWIN_ARM64=1 -D_ARM64_=1 )
+		IF( CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU" )
+			ADD_COMPILE_OPTIONS( -O3 )
+		ENDIF()
+		MESSAGE( STATUS "Windows on ARM (WoA / Snapdragon) optimizations enabled" )
+	ENDIF()
+ENDIF( WIN32 )
+
 # For finding VNC libs
 SET( CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/resources/cmake/modules )
 
@@ -414,8 +426,14 @@ IF( AQEMU_WITH_SPICE_GTK )
 				BREAK()
 			ENDIF()
 		ENDFOREACH()
-		IF( NOT _spice_bin_dir AND EXISTS "C:/msys64/ucrt64/bin" )
-			SET( _spice_bin_dir "C:/msys64/ucrt64/bin" )
+		IF( NOT _spice_bin_dir )
+			IF( EXISTS "C:/msys64/clangarm64/bin" )
+				SET( _spice_bin_dir "C:/msys64/clangarm64/bin" )
+			ELSEIF( EXISTS "C:/msys64/ucrt64/bin" )
+				SET( _spice_bin_dir "C:/msys64/ucrt64/bin" )
+			ELSEIF( EXISTS "C:/msys64/mingw64/bin" )
+				SET( _spice_bin_dir "C:/msys64/mingw64/bin" )
+			ENDIF()
 		ENDIF()
 		IF( _spice_bin_dir )
 			FILE( GLOB _spice_seed "${_spice_bin_dir}/libspice-client-glib-*.dll" )
@@ -499,14 +517,18 @@ IF( AQEMU_BUNDLE_QEMU )
 			"${_qemu_bin_dir}/libusbredir*.dll"
 		)
 		FILE( GLOB _qemu_dlls ${_qemu_dll_globs} )
-		# MSYS2 install often leaves these only under /mingw64/bin — probe that too on Windows.
-		IF( WIN32 AND EXISTS "C:/msys64/mingw64/bin" )
-			FILE( GLOB _msys_dlls
-				"C:/msys64/mingw64/bin/libslirp*.dll"
-				"C:/msys64/mingw64/bin/libusb-1.0*.dll"
-				"C:/msys64/mingw64/bin/libusbredir*.dll"
-			)
-			LIST( APPEND _qemu_dlls ${_msys_dlls} )
+		# MSYS2 install leaves runtime DLLs under /clangarm64/bin, /ucrt64/bin, or /mingw64/bin.
+		IF( WIN32 )
+			FOREACH( _cand_msys "C:/msys64/clangarm64/bin" "C:/msys64/ucrt64/bin" "C:/msys64/mingw64/bin" )
+				IF( EXISTS "${_cand_msys}" )
+					FILE( GLOB _msys_dlls
+						"${_cand_msys}/libslirp*.dll"
+						"${_cand_msys}/libusb-1.0*.dll"
+						"${_cand_msys}/libusbredir*.dll"
+					)
+					LIST( APPEND _qemu_dlls ${_msys_dlls} )
+				ENDIF()
+			ENDFOREACH()
 		ENDIF()
 		FOREACH( _qd ${_qemu_dlls} )
 			ADD_CUSTOM_COMMAND( TARGET aqemu POST_BUILD

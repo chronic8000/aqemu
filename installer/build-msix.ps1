@@ -80,6 +80,8 @@ if ([string]::IsNullOrWhiteSpace($PfxPassword)) {
 
 function Find-SdkTool([string] $name) {
     $patterns = @(
+        "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\arm64\$name",
+        "${env:ProgramFiles}\Windows Kits\10\bin\*\arm64\$name",
         "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\$name",
         "${env:ProgramFiles}\Windows Kits\10\bin\*\x64\$name"
     )
@@ -177,6 +179,7 @@ if ($env:MSYSTEM_PREFIX -and (Test-Path (Join-Path $env:MSYSTEM_PREFIX "bin"))) 
     $binSearchDirs += (Join-Path $env:MSYSTEM_PREFIX "bin")
 }
 foreach ($cand in @(
+    "C:\msys64\clangarm64\bin",
     "C:\msys64\ucrt64\bin",
     "C:\msys64\mingw64\bin",
     "C:\msys64\clang64\bin"
@@ -207,9 +210,10 @@ if ($windeployqt) {
     & $windeployqt --no-translations --compiler-runtime (Join-Path $layoutDir "aqemu.exe") 2>&1 | Out-Null
 }
 
-# Explicit list of standard MinGW / GCC / QEMU runtime DLLs
+# Explicit list of standard MinGW / GCC / LLVM / QEMU runtime DLLs
 $essentialDlls = @(
     "libwinpthread-1.dll", "libgcc_s_seh-1.dll", "libstdc++-6.dll", "libgomp-1.dll",
+    "libunwind.dll", "libc++.dll",
     "libglib-2.0-0.dll", "libgthread-2.0-0.dll", "libgobject-2.0-0.dll", "libgio-2.0-0.dll", "libgmodule-2.0-0.dll",
     "libintl-8.dll", "libiconv-2.dll", "libpcre2-8-0.dll", "libpixman-1-0.dll",
     "zlib1.dll", "libpng16-16.dll", "libjpeg-8.dll",

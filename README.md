@@ -21,7 +21,7 @@
   <a href="https://apps.microsoft.com/detail/9p0hgkhq9w19"><img src="https://img.shields.io/badge/Microsoft%20Store-AQEMU%20VM%20Manager-0078D4?logo=microsoftstore" alt="Microsoft Store"/></a>
   <a href="https://github.com/chronic8000/aqemu"><img src="https://img.shields.io/badge/project-chronic8000%2Faqemu-brightgreen.svg" alt="GitHub Project"/></a>
   <a href="https://github.com/chronic8000/aqemu"><img src="https://img.shields.io/badge/QEMU-11.0.2%20bundle-orange.svg" alt="QEMU 11.0.2"/></a>
-  <a href="https://github.com/chronic8000/aqemu"><img src="https://img.shields.io/badge/host-Windows%20%7C%20Linux%20%7C%20Pi%205-success.svg" alt="Hosts"/></a>
+  <a href="https://github.com/chronic8000/aqemu"><img src="https://img.shields.io/badge/host-Windows%20(x64%20%7C%20ARM64)%20%7C%20Linux%20%7C%20Pi%205-success.svg" alt="Hosts"/></a>
   <a href="PRIVACY.md"><img src="https://img.shields.io/badge/privacy-policy-lightgrey.svg" alt="Privacy"/></a>
 </p>
 
@@ -194,10 +194,11 @@ AQEMU distinguishes explicit **TCG**, native acceleration and Xen. On Windows, t
 
 Compatibility guardrails handle vintage Windows guests that hang under WHPX, non-x86 guests on x86 hosts and KVM-capable AArch64 Linux hosts. Configuration refreshes preserve user-selected accelerator, machine and CPU values instead of resetting them to the first list entry.
 
-### 8. Windows, Linux and Pi hosts that match how people work
+### 8. Windows (x86_64 & Windows on ARM / Snapdragon), Linux and Raspberry Pi 5 hosts that match how people work
+- **Windows on ARM (WoA)**: Native ARM64 execution for Qualcomm Snapdragon laptops (Snapdragon X Elite, X Plus, 8cx), Clang/LLVM toolchains, and native Store MSIX generation  
+- **Raspberry Pi 5**: Cortex-A76 microarchitecture tuning, 64KB ELF segment alignment for 16KB-page kernels, Wayland desktop support, and KVM hardware virtualization  
 - **WHPX** when the guest arch allows it; **never** shoved onto PPC/ARM guests that cannot use it  
 - **WSL/KVM** launch path for heavy guests (Intel macOS) when `/dev/kvm` is there; optional WSL password can be saved in **Windows Credential Manager** (never in `AQEMU.ini`)  
-- **Raspberry Pi 5** build flags and aarch64 friendliness  
 - Store-safe writable data under `%LOCALAPPDATA%`
 
 ### 9. A complete Windows distribution pipeline
@@ -238,6 +239,34 @@ On **Raspberry Pi 5 / Linux aarch64** hosts, the same profile can lean on **KVM*
   <img src="screenshots/win11-arm-profile.png" alt="AQEMU Windows 11 ARM virtual machine profile" width="900"/>
   <br/><i>AQEMU keeps the complete Windows 11 ARM machine profile visible: AArch64, TCG, VirtIO GPU, UEFI and lifecycle mode.</i>
 </p>
+
+---
+
+## 🚀 Windows on ARM (WoA / Qualcomm Snapdragon Laptops)
+
+AQEMU provides **first-class native ARM64 support for Windows on ARM (WoA)**, engineered specifically for modern Qualcomm Snapdragon laptops (such as **Snapdragon X Elite**, **Snapdragon X Plus**, and **Snapdragon 8cx Gen 2/3** devices like the Microsoft Surface Pro 11, Surface Laptop 7, Lenovo ThinkPad T14s Gen 6, Samsung Galaxy Book4 Edge, and HP EliteBook Ultra):
+
+- **Pure Native ARM64 Execution**: No x86 translation overhead. AQEMU compiles and runs directly as an ARM64 binary with full native speed and responsiveness.
+- **NEON Vector Optimizations**: Builds leverage `-DWIN_ARM64=1 -D_ARM64_=1` with AArch64 SIMD and Clang/LLVM `-O3` vectorization.
+- **Embedded SPICE Display**: Native ARM64 `spice-client-glib-2.0` integration with automated LLVM runtime dependency bundling (`libunwind.dll`, `libc++.dll`).
+- **Native Microsoft Store MSIX Packaging**: Generate signed, store-ready native ARM64 MSIX packages directly on Snapdragon devices using [`installer/build-msix.ps1`](installer/build-msix.ps1) or [`scripts/build_aqemu_woa.ps1`](scripts/build_aqemu_woa.ps1) (`-BuildMsix`).
+- **Seamless MSYS2 CLANGARM64 Toolchain**: Compiles natively on ARM64 Windows using the MSYS2 `CLANGARM64` subsystem or cross-compiles using LLVM-MinGW (`generic-win-arm64.cmake`).
+- **Dedicated Automated Build Scripts**:
+  - PowerShell (Native Windows): [`scripts/build_aqemu_woa.ps1`](scripts/build_aqemu_woa.ps1)
+  - MSYS2 CLANGARM64 (Bash): [`scripts/build_aqemu_woa.sh`](scripts/build_aqemu_woa.sh)
+
+---
+
+## 🍓 Raspberry Pi 5 Enhancements
+
+AQEMU includes hardware-tailored enhancements specifically for the **Raspberry Pi 5** (Broadcom BCM2712 / quad-core ARM Cortex-A76) running 64-bit Raspberry Pi OS or Debian Bookworm:
+
+- **Cortex-A76 Pipeline Tuning**: Compiled with `-mcpu=cortex-a76 -mtune=cortex-a76` and aggressive NEON floating-point vectorization for maximum performance.
+- **64KB ELF Segment Alignment (`-Wl,-z,max-page-size=65536`)**: Standard 64-bit Raspberry Pi OS Bookworm kernels run with a **16KB memory page size**. AQEMU is built with 64KB ELF segment alignment to guarantee seamless binary loading, avoiding memory fault crashes or ELF alignment rejections on 16KB/64KB kernels.
+- **KVM Near-Native Acceleration**: On Raspberry Pi 5 hosts, ARM64 guests (including Windows 11 ARM and Linux AArch64 distributions) utilize `/dev/kvm` hardware virtualization for near-bare-metal execution speeds.
+- **Wayland & SPICE GTK Desktop Acceleration**: Built-in support for native Wayland sessions (`QT_QPA_PLATFORM=wayland`) and hardware-accelerated embedded SPICE display.
+- **Dedicated Automated Build Script**:
+  - Raspberry Pi 5 / Debian Bookworm: [`scripts/build_aqemu_pi5.sh`](scripts/build_aqemu_pi5.sh)
 
 ---
 
@@ -449,51 +478,124 @@ The Microsoft Store version includes:
 - Dedicated Windows app installation & single-click launcher
 - **AMD and NVIDIA** GPU acceleration for Reims guests through WSLg Vulkan (WSL required)
 
-### Build from Source (Linux / Pi 5 / Windows)
+### Build from Source (Linux / Pi 5 / Windows x64 & ARM64)
 
-AQEMU is 100% open-source software under **GPLv2**. You can clone and build the application directly from source on Linux, Raspberry Pi 5, or Windows (see [Build instructions](#build) below).
+AQEMU is 100% open-source software under **GPLv2**. Automated, dedicated build scripts are provided in the [`scripts/`](scripts/) directory for every supported platform.
 
 ---
 
 ## Build
 
-### Linux
+### 1. Raspberry Pi 5 (ARM64 / Raspberry Pi OS / Debian)
+
+AQEMU provides a dedicated build script [`scripts/build_aqemu_pi5.sh`](scripts/build_aqemu_pi5.sh) configured with Cortex-A76 tuning, 64KB ELF segment alignment (for 16KB-page kernels), and embedded SPICE GTK.
+
+**Install dependencies (Debian / Raspberry Pi OS 64-bit):**
+```bash
+sudo apt update
+sudo apt install -y build-essential cmake ninja-build pkg-config \
+  qtbase5-dev libqt5widgets5 libqt5network5 libqt5dbus5 libvncserver-dev \
+  libspice-client-glib-2.0-dev libslirp-dev libusb-1.0-0-dev qemu-system qemu-utils
+```
+
+**Build with the dedicated script:**
+```bash
+git clone --recursive https://github.com/chronic8000/aqemu.git
+cd aqemu
+./scripts/build_aqemu_pi5.sh
+
+# Run AQEMU (Wayland or X11)
+QT_QPA_PLATFORM=wayland ./build_pi5/aqemu
+# Or install into ~/.local:
+./scripts/build_aqemu_pi5.sh --install
+```
+
+---
+
+### 2. Windows on ARM (WoA / Qualcomm Snapdragon Laptops)
+
+For native ARM64 Windows builds on Qualcomm Snapdragon laptops (Snapdragon X Elite, X Plus, 8cx) using MSYS2:
+
+#### Option A: MSYS2 CLANGARM64 Bash (Recommended on Snapdragon)
+Open the **MSYS2 CLANGARM64** terminal on your Snapdragon laptop:
+```bash
+git clone --recursive https://github.com/chronic8000/aqemu.git
+cd aqemu
+
+# Install required CLANGARM64 dependencies and build:
+./scripts/build_aqemu_woa.sh --deps
+
+# Run native ARM64 AQEMU:
+./build_woa/aqemu.exe
+```
+
+#### Option B: Native PowerShell
+From standard PowerShell (with MSYS2 installed at `C:\msys64`):
+```powershell
+git clone --recursive https://github.com/chronic8000/aqemu.git
+cd aqemu
+
+# Build native ARM64 binary:
+.\scripts\build_aqemu_woa.ps1
+
+# Optional: Build and package a native ARM64 Microsoft Store MSIX:
+.\scripts\build_aqemu_woa.ps1 -BuildMsix
+```
+
+---
+
+### 3. Windows x86_64
+
+For 64-bit Intel/AMD Windows PCs using MSYS2 UCRT64 or WinLibs:
+
+#### Option A: MSYS2 UCRT64 Bash
+Open the **MSYS2 UCRT64** terminal:
+```bash
+git clone --recursive https://github.com/chronic8000/aqemu.git
+cd aqemu
+
+# Install dependencies and build:
+./scripts/build_aqemu_win64.sh --deps
+
+# Run:
+./build_win64/aqemu.exe
+```
+
+#### Option B: Native PowerShell
+From standard PowerShell:
+```powershell
+# Build x86_64 binary:
+.\scripts\build_aqemu_win64.ps1
+
+# Optional: package as MSIX:
+.\scripts\build_aqemu_win64.ps1 -BuildMsix
+```
+
+---
+
+### 4. Linux x86_64
+
+AQEMU provides a dedicated build script [`scripts/build_aqemu_linux_x86_64.sh`](scripts/build_aqemu_linux_x86_64.sh):
 
 ```bash
 sudo apt update
 sudo apt install -y build-essential cmake ninja-build pkg-config \
   qtbase5-dev libqt5widgets5 libvncserver-dev extra-cmake-modules \
-  libspice-client-glib-2.0-dev qemu-system qemu-utils
+  libspice-client-glib-2.0-dev libslirp-dev libusb-1.0-0-dev qemu-system qemu-utils
 
 git clone --recursive https://github.com/chronic8000/aqemu.git
-cd aqemu && mkdir build && cd build
-cmake -G Ninja -DAQEMU_WITH_SPICE_GTK=ON ..
-ninja && ./aqemu
+cd aqemu
+./scripts/build_aqemu_linux_x86_64.sh
+
+# Run:
+./build_linux/aqemu
+# Or install to ~/.local:
+./scripts/build_aqemu_linux_x86_64.sh --install
 ```
 
-### Raspberry Pi 5
+---
 
-```bash
-cmake -G Ninja -DPI5_OPTIMIZATIONS=ON -DAQEMU_WITH_SPICE_GTK=ON ..
-# QT_QPA_PLATFORM=wayland aqemu
-```
-
-### Windows
-
-**WinLibs UCRT MinGW** + **Qt 5.15**; SPICE from **MSYS2 ucrt64** via `PKG_CONFIG_PATH` only.
-
-```powershell
-$env:PKG_CONFIG_PATH = "C:\msys64\ucrt64\lib\pkgconfig"
-mkdir build_win -Force; cd build_win
-cmake -G Ninja `
-  -DCMAKE_PREFIX_PATH="C:/Qt/5.15.2/mingw81_64" `
-  -DAQEMU_WITH_SPICE_GTK=ON `
-  ..
-ninja
-.\aqemu.exe
-```
-
-### Bundle QEMU 11.0.2
+### 5. Bundle QEMU 11.0.2
 
 ```bash
 git submodule update --init --depth 1 third_party/qemu
@@ -502,12 +604,16 @@ git submodule update --init --depth 1 third_party/qemu
 cmake -DAQEMU_BUNDLE_QEMU=ON -DAQEMU_QEMU_PREFIX=$PWD/third_party/qemu-install ...
 ```
 
-| CMake option | Meaning |
-|--------------|---------|
-| `AQEMU_WITH_SPICE_GTK` | Embedded spice-client-glib viewer |
-| `WITHOUT_EMBEDDED_DISPLAY` | Disable LibVNC fallback |
-| `AQEMU_BUNDLE_QEMU` | Copy `qemu-system-*` beside AQEMU |
-| `PI5_OPTIMIZATIONS` | Cortex-A76 + 64KB alignment |
+### 6. CMake Options Reference
+
+| CMake Option | Default | Description |
+|--------------|---------|-------------|
+| `AQEMU_WITH_SPICE_GTK` | `ON` | Embedded SPICE client display support (`spice-client-glib-2.0`) |
+| `WIN_ARM64_OPTIMIZATIONS` | `OFF` (auto-detected on ARM64) | Enables native Windows on ARM (WoA / Snapdragon) `-DWIN_ARM64=1` and `-O3` optimizations |
+| `PI5_OPTIMIZATIONS` | `OFF` | Enables Raspberry Pi 5 Cortex-A76 tuning and 64KB ELF segment alignment |
+| `WITHOUT_EMBEDDED_DISPLAY` | `OFF` | Disable embedded display engines (LibVNC / SPICE) |
+| `AQEMU_BUNDLE_QEMU` | `OFF` | Copy bundled QEMU 11.0.2 binaries and firmware beside AQEMU executable |
+| `AQEMU_QEMU_PREFIX` | `""` | Source prefix path for bundled QEMU binaries |
 
 ---
 
