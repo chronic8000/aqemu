@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
-# Windows QEMU bundle build for AQEMU.
-# Default: pure MSYS2 (same gcc + glib/spice). Requires fix_msys2_gcc_admin.ps1 once.
+# ==============================================================================
+# Universal Windows QEMU bundle build launcher (MSYS2)
+# ==============================================================================
+# Routes to Windows on ARM (CLANGARM64) or Windows x86_64 (UCRT64/MINGW64)
+# ==============================================================================
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-exec bash "${ROOT}/scripts/build_qemu_windows_msys.sh" "$@"
+
+if [[ "${MSYSTEM:-}" == "CLANGARM64" || "${PROCESSOR_ARCHITECTURE:-}" == "ARM64" ]]; then
+  exec bash "${ROOT}/scripts/build_qemu_win_arm64.sh" "$@"
+else
+  exec bash "${ROOT}/scripts/build_qemu_win_x86_64.sh" "$@"
+fi

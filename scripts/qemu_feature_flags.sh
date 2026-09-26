@@ -28,12 +28,24 @@ aqemu_qemu_feature_flags() {
 	)
 
 	# Hard requirements — fail the build rather than ship a half-broken emulator.
-	# Note: pkg-config module is "slirp" (not "libslirp") on MSYS2/Fedora.
-	aqemu_qemu_require_pkg slirp \
-		"pacman -S mingw-w64-x86_64-libslirp   (Windows)  /  apt install libslirp-dev (Linux)"
-	aqemu_qemu_require_pkg spice-server \
-		"pacman -S mingw-w64-x86_64-spice       (Windows)  /  apt install libspice-server-dev (Linux)"
-	AQEMU_QEMU_EXTRA_CONFIGURE+=(--enable-spice)
+	# Note: pkg-config module may be "slirp" or "libslirp" depending on distro/MSYS2.
+	if "$PKG_CONFIG" --exists slirp 2>/dev/null; then
+		echo "OK: slirp ($($PKG_CONFIG --modversion slirp 2>/dev/null || true))"
+	elif "$PKG_CONFIG" --exists libslirp 2>/dev/null; then
+		echo "OK: libslirp ($($PKG_CONFIG --modversion libslirp 2>/dev/null || true))"
+	else
+		echo "ERROR: pkg-config module 'slirp' / 'libslirp' not found." >&2
+		echo "Install: pacman -S mingw-w64-x86_64-libslirp (Windows) / pacman -S mingw-w64-clang-aarch64-libslirp (WoA) / apt install libslirp-dev (Linux)" >&2
+		return 1
+	fi
+
+	# SPICE server: enable when available.
+	if "$PKG_CONFIG" --exists spice-server 2>/dev/null; then
+		AQEMU_QEMU_EXTRA_CONFIGURE+=(--enable-spice)
+		echo "OK: spice-server ($($PKG_CONFIG --modversion spice-server 2>/dev/null || true))"
+	else
+		echo "WARN: spice-server pkg-config module not found — building without SPICE server (VNC embedded display remains available)"
+	fi
 
 	# Optional but enable when present (every target benefits).
 	# Map QEMU --enable-* name -> pkg-config module name(s).
@@ -90,24 +102,51 @@ aqemu_qemu_feature_flags() {
 }
 
 # After install: refuse a broken bundle.
+# Usage: aqemu_qemu_verify_install <prefix> [target]
 aqemu_qemu_verify_install() {
 	local prefix="$1"
+	local target="${2:-}"
 	local bin=""
-	for cand in \
-		"${prefix}/qemu-system-x86_64.exe" \
-		"${prefix}/bin/qemu-system-x86_64.exe" \
-		"${prefix}/qemu-system-x86_64" \
-		"${prefix}/bin/qemu-system-x86_64"
-	do
-		if [[ -x "$cand" ]]; then
-			bin="$cand"
-			break
-		fi
-	done
+
+	# If a specific target was given, probe for that emulator first
+	if [[ -n "$target" ]]; then
+		for cand in \
+			"${prefix}/qemu-system-${target}.exe" \
+			"${prefix}/bin/qemu-system-${target}.exe" \
+			"${prefix}/qemu-system-${target}" \
+			"${prefix}/bin/qemu-system-${target}"
+		do
+			if [[ -x "$cand" ]]; then
+				bin="$cand"
+				break
+			fi
+		done
+	fi
+
+	# Fallback to x86_64 or any installed qemu-system-*
 	if [[ -z "$bin" ]]; then
-		echo "ERROR: qemu-system-x86_64 not found under ${prefix}" >&2
+		for cand in \
+			"${prefix}/qemu-system-x86_64.exe" \
+			"${prefix}/bin/qemu-system-x86_64.exe" \
+			"${prefix}/qemu-system-x86_64" \
+			"${prefix}/bin/qemu-system-x86_64"
+		do
+			if [[ -x "$cand" ]]; then
+				bin="$cand"
+				break
+			fi
+		done
+	fi
+
+	if [[ -z "$bin" ]]; then
+		bin="$(find "${prefix}" -maxdepth 2 -name 'qemu-system-*' -type f 2>/dev/null | head -1 || true)"
+	fi
+
+	if [[ -z "$bin" || ! -x "$bin" ]]; then
+		echo "ERROR: no qemu-system-* binary found under ${prefix}" >&2
 		return 1
 	fi
+
 	local help
 	help="$("$bin" -netdev help 2>&1 || true)"
 	if ! grep -qE '(^|[[:space:]])user($|[[:space:]])' <<<"$help"; then

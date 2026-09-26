@@ -595,13 +595,82 @@ cd aqemu
 
 ---
 
-### 5. Bundle QEMU 11.0.2
+### 5. Compiling QEMU 11.0.2 & Bundling with AQEMU
 
+Dedicated QEMU build scripts are provided for every host platform, with full AQEMU feature parity (SLIRP user networking, embedded SPICE & VNC displays, USB redirection, curl, and native acceleration):
+
+#### Host-Specific QEMU Build Scripts:
+- **Raspberry Pi 5 (ARM64 Cortex-A76 + 64KB page alignment):**
+  ```bash
+  ./scripts/build_qemu_pi5.sh                 # Builds all targets
+  ./scripts/build_qemu_pi5.sh aarch64         # Builds qemu-system-aarch64 only
+  ```
+- **Linux ARM64 / AArch64:**
+  ```bash
+  ./scripts/build_qemu_linux_arm64.sh [TARGET]
+  ```
+- **Linux x86_64:**
+  ```bash
+  ./scripts/build_qemu_linux_x86_64.sh [TARGET]
+  ```
+- **Windows on ARM (Snapdragon laptops via MSYS2 CLANGARM64):**
+  ```bash
+  ./scripts/build_qemu_win_arm64.sh [TARGET]
+  # Or via PowerShell: .\scripts\build_qemu_win_arm64.ps1 -Target aarch64
+  ```
+- **Windows x86_64 (MSYS2 UCRT64 / MinGW64):**
+  ```bash
+  ./scripts/build_qemu_win_x86_64.sh [TARGET]
+  # Or via PowerShell: .\scripts\build_qemu_win_x86_64.ps1 -Target x86_64
+  ```
+
+#### Individual Architecture & Target Scripts (`scripts/qemu_targets/`):
+Dedicated standalone build scripts are provided for **all 31 supported target architectures**, including upstream QEMU targets plus **ChefKiss Inferno** and **steelbrain Reims vGPU**:
+
+| Target Script | Target Emulator Binary | Target Description |
+|:---|:---|:---|
+| [`build_qemu_x86_64.sh`](scripts/qemu_targets/build_qemu_x86_64.sh) | `qemu-system-x86_64` | Intel / AMD 64-bit PC |
+| [`build_qemu_i386.sh`](scripts/qemu_targets/build_qemu_i386.sh) | `qemu-system-i386` | Intel / AMD 32-bit PC |
+| [`build_qemu_aarch64.sh`](scripts/qemu_targets/build_qemu_aarch64.sh) | `qemu-system-aarch64` | ARM 64-bit (ARMv8/v9) |
+| [`build_qemu_arm.sh`](scripts/qemu_targets/build_qemu_arm.sh) | `qemu-system-arm` | ARM 32-bit |
+| [`build_qemu_applesoc.sh`](scripts/qemu_targets/build_qemu_applesoc.sh) | `qemu-system-applesoc` | **ChefKiss Inferno** (iOS / Apple Silicon A13/t8030) |
+| [`build_qemu_reims.sh`](scripts/qemu_targets/build_qemu_reims.sh) | `qemu-system-reims3d` | **steelbrain Reims vGPU** (macOS Metal → Vulkan paravirtualization) |
+| [`build_qemu_ppc64.sh`](scripts/qemu_targets/build_qemu_ppc64.sh) | `qemu-system-ppc64` | PowerPC 64-bit (PowerNV, pSeries) |
+| [`build_qemu_ppc.sh`](scripts/qemu_targets/build_qemu_ppc.sh) | `qemu-system-ppc` | PowerPC 32-bit (Mac G3/G4, PREP) |
+| [`build_qemu_riscv64.sh`](scripts/qemu_targets/build_qemu_riscv64.sh) | `qemu-system-riscv64` | RISC-V 64-bit |
+| [`build_qemu_riscv32.sh`](scripts/qemu_targets/build_qemu_riscv32.sh) | `qemu-system-riscv32` | RISC-V 32-bit |
+| [`build_qemu_mips64el.sh`](scripts/qemu_targets/build_qemu_mips64el.sh) | `qemu-system-mips64el` | MIPS 64-bit Little Endian |
+| [`build_qemu_mips64.sh`](scripts/qemu_targets/build_qemu_mips64.sh) | `qemu-system-mips64` | MIPS 64-bit Big Endian |
+| [`build_qemu_mipsel.sh`](scripts/qemu_targets/build_qemu_mipsel.sh) | `qemu-system-mipsel` | MIPS 32-bit Little Endian |
+| [`build_qemu_mips.sh`](scripts/qemu_targets/build_qemu_mips.sh) | `qemu-system-mips` | MIPS 32-bit Big Endian |
+| [`build_qemu_s390x.sh`](scripts/qemu_targets/build_qemu_s390x.sh) | `qemu-system-s390x` | IBM S390x Mainframe |
+| [`build_qemu_sparc64.sh`](scripts/qemu_targets/build_qemu_sparc64.sh) | `qemu-system-sparc64` | SPARC 64-bit |
+| [`build_qemu_sparc.sh`](scripts/qemu_targets/build_qemu_sparc.sh) | `qemu-system-sparc` | SPARC 32-bit |
+| [`build_qemu_m68k.sh`](scripts/qemu_targets/build_qemu_m68k.sh) | `qemu-system-m68k` | Motorola 68000 / ColdFire |
+| [`build_qemu_loongarch64.sh`](scripts/qemu_targets/build_qemu_loongarch64.sh) | `qemu-system-loongarch64` | LoongArch 64-bit |
+| [`build_qemu_alpha.sh`](scripts/qemu_targets/build_qemu_alpha.sh) | `qemu-system-alpha` | DEC Alpha Server |
+| [`build_qemu_hppa.sh`](scripts/qemu_targets/build_qemu_hppa.sh) | `qemu-system-hppa` | HP PA-RISC |
+| [`build_qemu_sh4.sh`](scripts/qemu_targets/build_qemu_sh4.sh) | `qemu-system-sh4` | SuperH SH-4 |
+| [`build_qemu_sh4eb.sh`](scripts/qemu_targets/build_qemu_sh4eb.sh) | `qemu-system-sh4eb` | SuperH SH-4 Big Endian |
+| [`build_qemu_microblaze.sh`](scripts/qemu_targets/build_qemu_microblaze.sh) | `qemu-system-microblaze` | Xilinx MicroBlaze |
+| [`build_qemu_microblazeel.sh`](scripts/qemu_targets/build_qemu_microblazeel.sh) | `qemu-system-microblazeel` | Xilinx MicroBlaze Little Endian |
+| [`build_qemu_or1k.sh`](scripts/qemu_targets/build_qemu_or1k.sh) | `qemu-system-or1k` | OpenRISC 1000 |
+| [`build_qemu_rx.sh`](scripts/qemu_targets/build_qemu_rx.sh) | `qemu-system-rx` | Renesas RX |
+| [`build_qemu_avr.sh`](scripts/qemu_targets/build_qemu_avr.sh) | `qemu-system-avr` | AVR Microcontroller |
+| [`build_qemu_tricore.sh`](scripts/qemu_targets/build_qemu_tricore.sh) | `qemu-system-tricore` | Infineon TriCore |
+| [`build_qemu_xtensa.sh`](scripts/qemu_targets/build_qemu_xtensa.sh) | `qemu-system-xtensa` | Tensilica Xtensa |
+| [`build_qemu_xtensaeb.sh`](scripts/qemu_targets/build_qemu_xtensaeb.sh) | `qemu-system-xtensaeb` | Tensilica Xtensa Big Endian |
+
+To build all 31 individual targets in batch:
 ```bash
-git submodule update --init --depth 1 third_party/qemu
-# Linux: scripts/build_qemu_linux.sh
-# Windows MSYS2: scripts/build_qemu_windows_msys.sh
-cmake -DAQEMU_BUNDLE_QEMU=ON -DAQEMU_QEMU_PREFIX=$PWD/third_party/qemu-install ...
+./scripts/qemu_targets/build_all_targets.sh
+```
+
+#### Bundling with AQEMU:
+Once built, configure AQEMU with the bundle prefix:
+```bash
+cmake -B build -G Ninja -DAQEMU_BUNDLE_QEMU=ON -DAQEMU_QEMU_PREFIX=$PWD/third_party/qemu-install
+ninja -C build
 ```
 
 ### 6. CMake Options Reference
