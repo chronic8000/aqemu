@@ -35,7 +35,14 @@ if [[ "${1:-}" == "--deps" ]]; then
     mingw-w64-clang-aarch64-libvncserver
     mingw-w64-clang-aarch64-libslirp
     mingw-w64-clang-aarch64-libusb
-    mingw-w64-clang-aarch64-libarchive
+    mingw-w64-clang-aarch64-libarchive \
+    mingw-w64-clang-aarch64-libuv \
+    mingw-w64-clang-aarch64-jsoncpp \
+    mingw-w64-clang-aarch64-rhash \
+    mingw-w64-clang-aarch64-cppdap \
+    mingw-w64-clang-aarch64-curl \
+    mingw-w64-clang-aarch64-expat \
+    mingw-w64-clang-aarch64-zlib
   )
 
   # Retry up to 3 times to gracefully recover from transient MSYS2 mirror dropouts
@@ -78,10 +85,22 @@ echo "CMake:      $(which cmake 2>/dev/null || echo 'not found')"
 echo "Ninja:      $(which ninja 2>/dev/null || echo 'not found')"
 
 # Check if cmake runs or is missing runtime DLLs (e.g. from interrupted pacman download)
-if ! cmake --version >/dev/null 2>&1; then
-  echo "WARNING: 'cmake' failed to start (possible missing runtime DLLs like libarchive)."
-  echo "Attempting repair by reinstalling cmake and libarchive..."
-  pacman -S --noconfirm mingw-w64-clang-aarch64-cmake mingw-w64-clang-aarch64-libarchive || true
+if ! cmake --version; then
+  echo "WARNING: 'cmake' failed to start. Checking missing DLL dependencies with ldd:"
+  ldd /clangarm64/bin/cmake.exe 2>&1 | grep -i "not found" || true
+  echo "Attempting repair by installing all cmake runtime dependencies..."
+  pacman -S --noconfirm --needed \
+    mingw-w64-clang-aarch64-cmake \
+    mingw-w64-clang-aarch64-libarchive \
+    mingw-w64-clang-aarch64-libuv \
+    mingw-w64-clang-aarch64-jsoncpp \
+    mingw-w64-clang-aarch64-rhash \
+    mingw-w64-clang-aarch64-cppdap \
+    mingw-w64-clang-aarch64-curl \
+    mingw-w64-clang-aarch64-expat \
+    mingw-w64-clang-aarch64-zlib || true
+  echo "Retrying cmake..."
+  cmake --version
 fi
 
 mkdir -p "${BUILD_DIR}"
@@ -101,7 +120,10 @@ if [[ -d "${ROOT}/third_party/qemu-install/bin" ]]; then
 fi
 
 echo "Configuring CMake for Windows on ARM..."
-cmake "${CMAKE_FLAGS[@]}" "${ROOT}"
+if ! cmake "${CMAKE_FLAGS[@]}" "${ROOT}"; then
+  echo "ERROR: CMake configuration failed."
+  exit 1
+fi
 
 echo "Building native ARM64 AQEMU..."
 ninja -j"$(nproc 2>/dev/null || echo 4)"
