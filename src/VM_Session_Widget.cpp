@@ -64,13 +64,17 @@ static QString AQ_Toolbar_Style( const QWidget *w )
 	const int pad = AQ_Px( 4, w );
 	const int btn_pad_h = AQ_Px( 6, w );
 	const int rad = AQ_Px( 3, w );
+	const int sep_w = AQ_Px( 1, w );
+	const int sep_h = AQ_Px( 16, w );
+	const int sep_margin = AQ_Px( 4, w );
 	return QStringLiteral(
 		"QToolBar { background: #2d2d30; border: none; border-bottom: 1px solid #1a1a1a;"
 		" spacing: %1px; padding: %1px; }"
 		"QToolButton { color: #eee; padding: %1px %2px; border-radius: %3px; }"
 		"QToolButton:hover { background: rgba(255,255,255,30); }"
 		"QToolButton:pressed { background: rgba(255,255,255,50); }"
-	).arg( pad ).arg( btn_pad_h ).arg( rad );
+		"QToolBar::separator { width: %4px; height: %5px; margin: 4px %6px; background: rgba(255,255,255,40); }"
+	).arg( pad ).arg( btn_pad_h ).arg( rad ).arg( sep_w ).arg( sep_h ).arg( sep_margin );
 }
 
 static QString AQ_Drive_Light_Style( const QWidget *w, const QString &bg, const QString &border )
@@ -106,6 +110,7 @@ VM_Session_Widget::VM_Session_Widget( QWidget *parent )
 	, Act_Eject_FD0( nullptr )
 	, Act_Insert_FD1( nullptr )
 	, Act_Eject_FD1( nullptr )
+	, Sep_Floppy( nullptr )
 	, Act_Restore_IPSW( nullptr )
 	, Act_Grab_Mouse( nullptr )
 	, Act_CAD( nullptr )
@@ -219,22 +224,20 @@ void VM_Session_Widget::Build_Toolbar()
 	// Removable media
 	Act_Insert_CD = Add_Toolbar_Action( QIcon( ":/cdrom.png" ), tr( "Insert CD/DVD image…" ), SLOT(On_Change_CD()) );
 	Act_Eject_CD = Add_Toolbar_Action( QIcon( ":/eject.png" ), tr( "Eject CD/DVD" ), SLOT(On_Eject_CD()) );
-	Toolbar->addSeparator();
+
+	Sep_Floppy = Toolbar->addSeparator();
 	Act_Insert_FD0 = Add_Toolbar_Action( QIcon( ":/fdd.png" ), tr( "Insert floppy A image…" ), SLOT(On_Change_FD0()) );
 	Act_Eject_FD0 = Add_Toolbar_Action( QIcon( ":/eject.png" ), tr( "Eject floppy A" ), SLOT(On_Eject_FD0()) );
 	Act_Insert_FD1 = Add_Toolbar_Action( QIcon( ":/fdd.png" ), tr( "Insert floppy B image…" ), SLOT(On_Change_FD1()) );
 	Act_Eject_FD1 = Add_Toolbar_Action( QIcon( ":/eject.png" ), tr( "Eject floppy B" ), SLOT(On_Eject_FD1()) );
 	Toolbar->addSeparator();
 
+	// Apple controls & Restore IPSW (only visible on Apple SoC VMs)
 	Act_Restore_IPSW = Add_Toolbar_Action(
 		QIcon( ":/default_mac.png" ),
 		tr( "Restore IPSW (Inferno companion + idevicerestore)…" ),
 		SLOT(On_Restore_IPSW()) );
-	Act_Restore_IPSW->setVisible( false );
 
-	// Inferno hardware buttons (ChefKiss F-keys) — shown only for Apple SoC
-	QAction *sep_apple = Toolbar->addSeparator();
-	Apple_Sep_Actions << sep_apple;
 	Act_Apple_Vol_Down = Toolbar->addAction( tr( "Vol−" ), this, SLOT(On_Apple_Vol_Down()) );
 	Act_Apple_Vol_Down->setToolTip( tr( "Volume down (Inferno F3)" ) );
 	Act_Apple_Vol_Up = Toolbar->addAction( tr( "Vol+" ), this, SLOT(On_Apple_Vol_Up()) );
@@ -259,16 +262,19 @@ void VM_Session_Widget::Build_Toolbar()
 	Act_Guest_Internet->setToolTip( tr(
 		"Enable guest internet (companion reverse-tether)\n"
 		"Not the AQEMU Network NIC tab — opens Device Tools → Internet" ) );
+
+	QAction *sep_apple = Toolbar->addSeparator();
+	Apple_Sep_Actions << sep_apple;
+
 	for( QAction *a : { Act_Apple_Vol_Down, Act_Apple_Vol_Up, Act_Apple_Home, Act_Apple_Power,
-	                    Act_Apple_SOS, Act_Apple_More, Act_Button_Pad, Act_Guest_Internet, sep_apple } )
+	                    Act_Apple_SOS, Act_Apple_More, Act_Button_Pad, Act_Guest_Internet,
+	                    Act_Restore_IPSW, sep_apple } )
 	{
 		if( a )
 			a->setVisible( false );
 	}
 
-	Toolbar->addSeparator();
-
-	// USB hotplug (VMware-style connect/disconnect menu)
+	// Peripheral / Integration Tools (USB + Serial console together)
 	Menu_USB = new QMenu( this );
 	TB_USB = new QToolButton( Toolbar );
 	TB_USB->setIcon( QIcon( ":/usb.png" ) );
@@ -278,7 +284,6 @@ void VM_Session_Widget::Build_Toolbar()
 	TB_USB->setAutoRaise( true );
 	Toolbar->addWidget( TB_USB );
 	connect( Menu_USB, SIGNAL(aboutToShow()), this, SLOT(On_USB_Menu_About_To_Show()) );
-	Toolbar->addSeparator();
 
 	Add_Toolbar_Action( QIcon( ":/key.png" ), tr( "Serial console (guest COM / ttyS0)" ),
 	                    SLOT(On_Serial_Console()) );
@@ -1833,7 +1838,8 @@ void VM_Session_Widget::Update_Apple_Controls_Visibility()
 {
 	const bool apple = VM && AQ_Is_Apple_SoC_VM( VM );
 	for( QAction *a : { Act_Apple_Vol_Down, Act_Apple_Vol_Up, Act_Apple_Home, Act_Apple_Power,
-	                    Act_Apple_SOS, Act_Apple_More, Act_Button_Pad, Act_Guest_Internet } )
+	                    Act_Apple_SOS, Act_Apple_More, Act_Button_Pad, Act_Guest_Internet,
+	                    Act_Restore_IPSW } )
 	{
 		if( a )
 			a->setVisible( apple );
@@ -1843,23 +1849,32 @@ void VM_Session_Widget::Update_Apple_Controls_Visibility()
 		if( a )
 			a->setVisible( apple );
 	}
-	// Hide PC-centric keys / floppies for iPhone sessions
+
+	// Floppy drives: only visible if VM has floppies enabled and not Apple
+	const bool has_fd0 = ! apple && VM && VM->Get_FD0().Get_Enabled();
+	const bool has_fd1 = ! apple && VM && VM->Get_FD1().Get_Enabled();
+	if( Act_Insert_FD0 )
+		Act_Insert_FD0->setVisible( has_fd0 );
+	if( Act_Eject_FD0 )
+		Act_Eject_FD0->setVisible( has_fd0 );
+	if( Light_FD0 )
+		Light_FD0->setVisible( has_fd0 );
+
+	if( Act_Insert_FD1 )
+		Act_Insert_FD1->setVisible( has_fd1 );
+	if( Act_Eject_FD1 )
+		Act_Eject_FD1->setVisible( has_fd1 );
+	if( Light_FD1 )
+		Light_FD1->setVisible( has_fd1 );
+
+	if( Sep_Floppy )
+		Sep_Floppy->setVisible( has_fd0 || has_fd1 );
+
+	// Hide PC-centric keys for iPhone sessions
 	if( Act_CAD )
 		Act_CAD->setVisible( ! apple );
 	if( Act_Shift_F10 )
 		Act_Shift_F10->setVisible( ! apple );
-	if( Act_Insert_FD0 )
-		Act_Insert_FD0->setVisible( ! apple );
-	if( Act_Eject_FD0 )
-		Act_Eject_FD0->setVisible( ! apple );
-	if( Act_Insert_FD1 )
-		Act_Insert_FD1->setVisible( ! apple );
-	if( Act_Eject_FD1 )
-		Act_Eject_FD1->setVisible( ! apple );
-	if( Light_FD0 )
-		Light_FD0->setVisible( ! apple );
-	if( Light_FD1 )
-		Light_FD1->setVisible( ! apple );
 
 	if( ! apple && Button_Pad )
 	{

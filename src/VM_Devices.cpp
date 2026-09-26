@@ -1694,20 +1694,18 @@ VM_Native_Storage_Device::VM_Native_Storage_Device( const VM_Native_Storage_Devi
 
 bool VM_Native_Storage_Device::Get_Native_Mode() const
 {
-	if( UAIO ) return true;
-	if( UBoot ) return true;
+	if( UInterface ) return true;
 	if( UBus_Unit ) return true;
-	if( UCache ) return true;
+	if( UIndex ) return true;
 	if( UFile_Path ) return true;
 	if( Uhdachs ) return true;
-	if( UIndex ) return true;
-	if( UInterface ) return true;
-	if( UMedia ) return true;
+	if( UAIO ) return true;
+	if( UCache ) return true;
 	if( USnapshot ) return true;
-	if( UDiscard ) return true;
-	if( UBlock_Size ) return true;
-	
-	// Nativ device options not used
+	if( UBoot ) return true;
+	if( UMedia ) return true;
+
+	// Ancillary options (Discard, Block_Size) do not constitute native device mode on their own
 	return false;
 }
 

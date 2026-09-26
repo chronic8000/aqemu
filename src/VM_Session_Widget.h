@@ -178,6 +178,7 @@ class VM_Session_Widget : public QWidget
 		QAction *Act_Eject_FD0;
 		QAction *Act_Insert_FD1;
 		QAction *Act_Eject_FD1;
+		QAction *Sep_Floppy;
 		QAction *Act_Restore_IPSW;
 		QAction *Act_Grab_Mouse;
 		QAction *Act_CAD;

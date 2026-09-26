@@ -7458,7 +7458,8 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	// FD0
 	if( FD0.Get_Enabled() )
 	{
-        if( FD0.Get_Native_Mode() )
+        if( FD0.Get_Native_Mode() &&
+            ( FD0.Get_Native_Device().Use_Interface() || FD0.Get_Native_Device().Use_File_Path() ) )
 		{
 			// Testing for 'virtio-scsi' interface type
             VM::Device_Interface iftype = FD0.Get_Native_Device().Get_Interface();
@@ -7485,7 +7486,8 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	// FD1
 	if( FD1.Get_Enabled() )
 	{
-        if( FD1.Get_Native_Mode() )
+        if( FD1.Get_Native_Mode() &&
+            ( FD1.Get_Native_Device().Use_Interface() || FD1.Get_Native_Device().Use_File_Path() ) )
         {
             // Testing for the interface type 'virtio-scsi'
             VM::Device_Interface iftype = FD1.Get_Native_Device().Get_Interface();
@@ -7549,7 +7551,8 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 
 	if( attach_cdrom )
     {
-        if( CD_ROM.Get_Native_Mode() )
+        if( CD_ROM.Get_Native_Mode() &&
+            ( CD_ROM.Get_Native_Device().Use_Interface() || CD_ROM.Get_Native_Device().Use_File_Path() ) )
         {
             // Testing for the interface type 'virtio-scsi'
             VM::Device_Interface iftype = CD_ROM.Get_Native_Device().Get_Interface();
@@ -7557,7 +7560,18 @@ QStringList Virtual_Machine::Build_QEMU_Args()
             {
 				has_virt_scsi = true;
 			}
-            StorageArgs << Build_Native_Device_Args( CD_ROM.Get_Native_Device(), Build_QEMU_Args_for_Tab_Info );
+			VM_Native_Storage_Device native_cd = CD_ROM.Get_Native_Device();
+			if( ! native_cd.Use_File_Path() && ! CD_ROM.Get_File_Name().isEmpty() )
+			{
+				native_cd.Use_File_Path( true );
+				native_cd.Set_File_Path( AQ_Normalize_File_Path( CD_ROM.Get_File_Name() ) );
+			}
+			if( ! native_cd.Use_Media() )
+			{
+				native_cd.Use_Media( true );
+				native_cd.Set_Media( VM::DM_CD_ROM );
+			}
+            StorageArgs << Build_Native_Device_Args( native_cd, Build_QEMU_Args_for_Tab_Info );
 		}
 		else if( is_virt_arch )
 		{
@@ -10343,8 +10357,8 @@ QStringList Virtual_Machine::Build_Native_Device_Args( VM_Native_Storage_Device 
 	}
 	
 
-	// Discard
-	if( device.Use_Discard() )
+	// Discard (disks only; optical drives do not support discard/trim)
+	if( device.Use_Discard() && ( ! device.Use_Media() || device.Get_Media() != VM::DM_CD_ROM ) )
 	{
 	        if( device.Get_Discard() ) opt << "discard=unmap";
 	        else opt << "discard=ignore";
@@ -10359,6 +10373,23 @@ QStringList Virtual_Machine::Build_Native_Device_Args( VM_Native_Storage_Device 
 		block_size_dev_opts = QStringLiteral( ",logical_block_size=%1,physical_block_size=%2" ).arg( log_sz ).arg( phys_sz );
 		opt << QStringLiteral( "logical_block_size=%1" ).arg( log_sz );
 		opt << QStringLiteral( "physical_block_size=%1" ).arg( phys_sz );
+	}
+
+	// Check if drive options have a valid target (file, interface, media, or driver)
+	bool has_valid_target = false;
+	for( const QString &o : opt )
+	{
+		if( o.startsWith( "file=" ) || o.startsWith( "if=" ) || o.startsWith( "media=" ) || o.startsWith( "driver=" ) )
+		{
+			has_valid_target = true;
+			break;
+		}
+	}
+	if( ! has_valid_target )
+	{
+		AQWarning( "Virtual_Machine::Build_Native_Device_Args",
+				   "Native device has no file, interface, or media specified; skipping invalid -drive" );
+		return QStringList();
 	}
 
 	// Create complete drive string
