@@ -80,14 +80,32 @@ echo "Building AQEMU..."
 ninja -j"$(nproc 2>/dev/null || echo 4)"
 
 echo "=== Deploying Windows x86_64 Runtime Libraries ==="
-if which windeployqt >/dev/null 2>&1; then
-  echo "Running windeployqt for Qt5 DLLs and plugins..."
-  windeployqt --no-translations --compiler-runtime "${BUILD_DIR}/aqemu.exe" || true
+# Try windeployqt or windeployqt-qt5 if available
+WDQ="$(which windeployqt-qt5 2>/dev/null || which windeployqt 2>/dev/null || true)"
+if [[ -n "${WDQ}" && -x "${WDQ}" ]]; then
+  echo "Running ${WDQ} for Qt5 DLLs and plugins..."
+  "${WDQ}" --no-translations --compiler-runtime "${BUILD_DIR}/aqemu.exe" || true
 fi
 
-echo "Copying LibVNCServer runtime DLLs..."
+# Ensure essential Qt5 and LibVNCServer runtime DLLs are copied
+echo "Copying Qt5 and runtime DLLs into ${BUILD_DIR}..."
+cp -f /ucrt64/bin/Qt5Core.dll "${BUILD_DIR}/" 2>/dev/null || true
+cp -f /ucrt64/bin/Qt5Gui.dll "${BUILD_DIR}/" 2>/dev/null || true
+cp -f /ucrt64/bin/Qt5Widgets.dll "${BUILD_DIR}/" 2>/dev/null || true
+cp -f /ucrt64/bin/Qt5Network.dll "${BUILD_DIR}/" 2>/dev/null || true
+cp -f /ucrt64/bin/Qt5PrintSupport.dll "${BUILD_DIR}/" 2>/dev/null || true
 cp -f /ucrt64/bin/libvncclient*.dll "${BUILD_DIR}/" 2>/dev/null || true
 cp -f /ucrt64/bin/libvncserver*.dll "${BUILD_DIR}/" 2>/dev/null || true
+
+# Deploy Qt platform plugin (required for GUI window display on Windows)
+mkdir -p "${BUILD_DIR}/platforms"
+for plat in /ucrt64/share/qt5/plugins/platforms/qwindows.dll /ucrt64/lib/qt5/plugins/platforms/qwindows.dll /ucrt64/plugins/platforms/qwindows.dll; do
+  if [[ -f "${plat}" ]]; then
+    cp -f "${plat}" "${BUILD_DIR}/platforms/"
+    echo "Deployed platforms/qwindows.dll from ${plat}"
+    break
+  fi
+done
 
 echo "=== Build Succeeded! ==="
 echo "Executable: ${BUILD_DIR}/aqemu.exe"
