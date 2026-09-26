@@ -688,6 +688,13 @@ INSTALL( FILES "${CMAKE_CURRENT_SOURCE_DIR}/resources/icons/aqemu_16.png"
 INSTALL( FILES "${CMAKE_CURRENT_SOURCE_DIR}/resources/icons/aqemu_22.png"
     DESTINATION share/icons/hicolor/22x22/apps RENAME aqemu.png )
 
+FOREACH(res 16 22 24 32 48 64 128 256)
+    IF(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/resources/icons/aqemu_tray_${res}.png")
+        INSTALL( FILES "${CMAKE_CURRENT_SOURCE_DIR}/resources/icons/aqemu_tray_${res}.png"
+            DESTINATION "share/icons/hicolor/${res}x${res}/apps" RENAME aqemu-tray.png )
+    ENDIF()
+ENDFOREACH()
+
 FILE( GLOB app_menu "${CMAKE_CURRENT_SOURCE_DIR}/resources/menu_data/aqemu.desktop" )
 INSTALL( FILES ${app_menu} DESTINATION share/applications )
 

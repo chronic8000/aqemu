@@ -8,6 +8,7 @@
         <file alias="pointcursormask.png">icons/pointcursormask.png</file>
         <file alias="pointcursor.png">icons/pointcursor.png</file>
         <file alias="aqemu.png">icons/aqemu.png</file>
+        <file alias="aqemu_tray.png">icons/aqemu_tray.png</file>
         <file alias="vnc.png">icons/vnc.png</file>
         <file alias="qemu-black-and-orange.png">icons/qemu-black-and-orange.png</file>
         <file alias="pepper.png">icons/pepper.png</file>

@@ -537,73 +537,39 @@ void Main_Window::Init_System_Tray()
 
 #ifdef Q_OS_LINUX
 	// -------------------------------------------------------------------------
-	// wf-panel-pi (Raspberry Pi OS Wayland) always rescales the SNI IconPixmap
-	// to: get_icon_size() × gtk_widget_get_scale_factor()  (physical pixels)
-	// via Gdk::Pixbuf::scale_simple().  get_icon_size() returns the panel height
-	// in logical pixels (36 on Pi OS Bookworm). gtk_widget_get_scale_factor()
-	// returns the Wayland compositor output scale (e.g. 2 on a 4K/HiDPI display).
+	// On Linux (Raspberry Pi OS wf-panel-pi, GNOME, KDE, etc.):
+	// Use QIcon::fromTheme("aqemu-tray") which exports IconName over D-Bus SNI.
+	// wf-panel-pi's StatusNotifierItem handler uses set_taskbar_icon() for named icons,
+	// rendering them via Cairo surfaces with gtk_widget_get_scale_factor() awareness.
+	// This ensures the top bar panel NEVER bulges or increases height, regardless
+	// of display scaling (1x, 2x HiDPI, etc.).
 	//
-	// Strategy:
-	//   • Build the canvas at exactly  kPanelLogical × scaleFactor  physical px.
-	//   • Centre the visible icon at   kIconLogical  × scaleFactor  physical px.
-	//   • The panel's scale_simple() call becomes a no-op (input == output size),
-	//     so the icon always appears kIconLogical (16 px) regardless of HiDPI.
-	//   • We use addPixmap() not fromTheme() → empty IconName → panel uses the
-	//     raw IconPixmap rather than looking up the theme at full panel height.
-	//
-	// Scale factor detection order:
-	//   1. GDK_SCALE env var (set by some compositors / display configs).
-	//   2. Qt's devicePixelRatio (correct for Wayland-native Qt and XWayland).
+	// We install padded icon assets (aqemu-tray) to hicolor so the visible circular
+	// glyph matches neighboring GTK system applets (updater, bluetooth, volume)
+	// with proper proportional padding at any scale.
 	// -------------------------------------------------------------------------
+	tray_icon = QIcon::fromTheme( QStringLiteral( "aqemu-tray" ) );
+	if( tray_icon.isNull() )
+		tray_icon = QIcon::fromTheme( QStringLiteral( "aqemu" ) );
+	if( tray_icon.isNull() )
 	{
-		constexpr int kPanelLogical  = 36; // wf-panel-pi default panel height (Pi OS Bookworm)
-		constexpr int kIconLogical   = 16; // visible content — matches GTK system-applet padding
-
-		// Determine the integer scale factor that GTK/wf-panel-pi uses.
-		int scaleFactor = 1;
-		const QByteArray gdkScaleEnv = qgetenv( "GDK_SCALE" );
-		if( !gdkScaleEnv.isEmpty() )
-		{
-			bool ok = false;
-			const int gs = gdkScaleEnv.toInt( &ok );
-			if( ok && gs >= 1 ) scaleFactor = gs;
-		}
-		if( scaleFactor == 1 && QGuiApplication::primaryScreen() )
-		{
-			// Fallback: Qt reports the compositor scale via devicePixelRatio.
-			// Round to the nearest integer to match gtk_widget_get_scale_factor().
-			scaleFactor = qMax( 1, qRound( QGuiApplication::primaryScreen()->devicePixelRatio() ) );
-		}
-
-		// Physical pixel dimensions for the canvas and icon content.
-		const int canvasPx = kPanelLogical * scaleFactor;
-		const int iconPx   = kIconLogical  * scaleFactor;
-		const int offset   = ( canvasPx - iconPx ) / 2;
-
-		QPixmap base( QStringLiteral( ":/aqemu.png" ) );
-		if( base.isNull() )
-			base = windowIcon().pixmap( 64, 64 );
-
-		QPixmap canvas( canvasPx, canvasPx );
-		canvas.fill( Qt::transparent );
-		if( !base.isNull() )
-		{
-			QPainter painter( &canvas );
-			painter.setRenderHint( QPainter::SmoothPixmapTransform );
-			painter.drawPixmap( offset, offset,
-				base.scaled( iconPx, iconPx,
-				             Qt::IgnoreAspectRatio, Qt::SmoothTransformation ) );
-			painter.end();
-		}
-		tray_icon.addPixmap( canvas, QIcon::Normal, QIcon::Off );
+		QPixmap px( QStringLiteral( ":/aqemu_tray.png" ) );
+		if( px.isNull() )
+			px = QPixmap( QStringLiteral( ":/aqemu.png" ) );
+		if( ! px.isNull() )
+			tray_icon.addPixmap( px );
+		else
+			tray_icon = windowIcon();
 	}
 #else
 	// Windows / macOS: platform handles tray icon sizing natively.
 	tray_icon = windowIcon();
 	if( tray_icon.isNull() )
 	{
-		QPixmap px( QStringLiteral( ":/aqemu.png" ) );
-		if( !px.isNull() )
+		QPixmap px( QStringLiteral( ":/aqemu_tray.png" ) );
+		if( px.isNull() )
+			px = QPixmap( QStringLiteral( ":/aqemu.png" ) );
+		if( ! px.isNull() )
 			tray_icon.addPixmap( px );
 	}
 #endif
