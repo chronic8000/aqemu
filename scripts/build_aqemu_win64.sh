@@ -107,5 +107,24 @@ for plat in /ucrt64/share/qt5/plugins/platforms/qwindows.dll /ucrt64/lib/qt5/plu
   fi
 done
 
+# Recursively resolve and copy all transitive DLL dependencies from /ucrt64/bin
+echo "Resolving all transitive runtime DLL dependencies with ldd..."
+for pass in 1 2 3 4; do
+  NEW_COPIED=0
+  for bin in "${BUILD_DIR}"/*.dll "${BUILD_DIR}"/*.exe "${BUILD_DIR}"/platforms/*.dll; do
+    [[ -f "$bin" ]] || continue
+    while read -r dep; do
+      if [[ -f "$dep" && ! -f "${BUILD_DIR}/$(basename "$dep")" ]]; then
+        cp -f "$dep" "${BUILD_DIR}/"
+        NEW_COPIED=$((NEW_COPIED + 1))
+      fi
+    done < <(ldd "$bin" 2>/dev/null | grep -i '/ucrt64/bin/' | awk '{print $3}' | sort -u)
+  done
+  if [[ $NEW_COPIED -eq 0 ]]; then
+    break
+  fi
+  echo "Pass $pass: copied $NEW_COPIED additional runtime dependencies"
+done
+
 echo "=== Build Succeeded! ==="
 echo "Executable: ${BUILD_DIR}/aqemu.exe"
