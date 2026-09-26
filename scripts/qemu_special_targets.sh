@@ -106,6 +106,81 @@ EOF
   fi
 }
 
+aqemu_ensure_cargo() {
+  local root="$1"
+
+  # 1. Check if cargo is already in PATH
+  if command -v cargo >/dev/null 2>&1; then
+    echo "Found cargo: $(command -v cargo)"
+    return 0
+  fi
+
+  # 2. Check common Windows user .cargo/bin paths
+  for cand in \
+    "${USERPROFILE:-}/.cargo/bin" \
+    "${HOME}/.cargo/bin" \
+    "/c/Users/${USER:-}/.cargo/bin" \
+    "/c/Users/${USERNAME:-}/.cargo/bin" \
+    /c/Users/*/.cargo/bin \
+    /clangarm64/bin \
+    /ucrt64/bin \
+    /mingw64/bin; do
+    if [[ -x "${cand}/cargo.exe" || -x "${cand}/cargo" ]]; then
+      echo "Found cargo in ${cand}, adding to PATH..."
+      export PATH="${cand}:${PATH}"
+      return 0
+    fi
+  done
+
+  # 3. Check pacman on MSYS2
+  if command -v pacman >/dev/null 2>&1; then
+    case "${MSYSTEM:-}" in
+      CLANGARM64)
+        echo "Installing missing dependency: mingw-w64-clang-aarch64-rust (provides cargo)..."
+        pacman -S --needed --noconfirm mingw-w64-clang-aarch64-rust 2>/dev/null || true
+        ;;
+      UCRT64)
+        echo "Installing missing dependency: mingw-w64-ucrt-x86_64-rust (provides cargo)..."
+        pacman -S --needed --noconfirm mingw-w64-ucrt-x86_64-rust 2>/dev/null || true
+        ;;
+      MINGW64)
+        echo "Installing missing dependency: mingw-w64-x86_64-rust (provides cargo)..."
+        pacman -S --needed --noconfirm mingw-w64-x86_64-rust 2>/dev/null || true
+        ;;
+      *)
+        pacman -S --needed --noconfirm rust 2>/dev/null || true
+        ;;
+    esac
+    if command -v cargo >/dev/null 2>&1; then
+      echo "Installed cargo: $(command -v cargo)"
+      return 0
+    fi
+  fi
+
+  # 4. Check apt-get on Debian/Ubuntu
+  if command -v apt-get >/dev/null 2>&1; then
+    echo "Installing cargo via apt..."
+    sudo apt-get update && sudo apt-get install -y cargo rustc || true
+  fi
+
+  if command -v cargo >/dev/null 2>&1; then
+    echo "Found cargo: $(command -v cargo)"
+    return 0
+  fi
+
+  # 5. Check if rustup can be run
+  if command -v rustup >/dev/null 2>&1; then
+    rustup default stable || true
+    if command -v cargo >/dev/null 2>&1; then
+      return 0
+    fi
+  fi
+
+  echo "ERROR: 'cargo' (Rust toolchain) is required to compile steelbrain Reims vGPU." >&2
+  echo "Please install Rust (e.g. pacman -S mingw-w64-clang-aarch64-rust or https://rustup.rs)" >&2
+  return 1
+}
+
 aqemu_build_applesoc() {
   local prefix="${1:?Install prefix required}"
   local jobs="${2:-$(nproc 2>/dev/null || echo 4)}"
@@ -204,6 +279,17 @@ aqemu_build_reims() {
   echo "======================================================================"
 
   aqemu_ensure_meson "${root}"
+  aqemu_ensure_cargo "${root}"
+
+  # Reims vGPU uses Vulkan on Windows and Linux (Metal is Apple macOS only)
+  case "$(uname -s 2>/dev/null || echo unknown)" in
+    Darwin)
+      export REIMS_VGPU_BACKEND="${REIMS_VGPU_BACKEND:-metal}"
+      ;;
+    *)
+      export REIMS_VGPU_BACKEND="${REIMS_VGPU_BACKEND:-vulkan}"
+      ;;
+  esac
 
   local reims_dir="${root}/third_party/reims-vgpu"
   local reims_build="${root}/third_party/reims-build"
@@ -236,6 +322,7 @@ aqemu_build_reims() {
   local conf_args=(
     --prefix="${reims_stage}"
     --target-list="x86_64-softmmu"
+    -Dreims_vgpu_backend="${REIMS_VGPU_BACKEND}"
   )
 
   if [[ -n "${CC:-}" ]]; then
