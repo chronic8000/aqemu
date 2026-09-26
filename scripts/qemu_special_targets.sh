@@ -231,13 +231,14 @@ aqemu_build_applesoc() {
   fi
   if [[ -n "${AQEMU_QEMU_EXTRA_CONFIGURE:-}" ]]; then
     for flag in "${AQEMU_QEMU_EXTRA_CONFIGURE[@]}"; do
-      # Inferno removed the 'docs' option from its Meson options
-      if [[ "$flag" == "--disable-docs" || "$flag" == "--enable-docs" ]]; then
+      # Inferno removed 'docs' and Apple Silicon emulation is strictly TCG (no WHPX)
+      if [[ "$flag" == "--disable-docs" || "$flag" == "--enable-docs" || "$flag" == "--enable-whpx" ]]; then
         continue
       fi
       conf_args+=("$flag")
     done
   fi
+  conf_args+=(--disable-whpx)
 
   echo "Configuring ChefKiss Inferno..."
   "${inferno_src}/configure" "${conf_args[@]}"

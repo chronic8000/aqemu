@@ -78,8 +78,12 @@ aqemu_qemu_feature_flags() {
 	# Platform accelerators when available
 	case "$(uname -s 2>/dev/null || echo unknown)" in
 		MINGW*|MSYS*|CYGWIN*|Windows_NT)
-			AQEMU_QEMU_EXTRA_CONFIGURE+=(--enable-whpx)
-			echo "OK: whpx (Windows Hypervisor Platform)"
+			if [[ "${MSYSTEM:-}" == "CLANGARM64" || "$(uname -m 2>/dev/null)" == "aarch64" ]]; then
+				echo "NOTE: WHPX hypervisor is x86_64-only in QEMU — skipped on Windows on ARM (TCG used)"
+			else
+				AQEMU_QEMU_EXTRA_CONFIGURE+=(--enable-whpx)
+				echo "OK: whpx (Windows Hypervisor Platform)"
+			fi
 			;;
 		Linux)
 			AQEMU_QEMU_EXTRA_CONFIGURE+=(--enable-kvm)
