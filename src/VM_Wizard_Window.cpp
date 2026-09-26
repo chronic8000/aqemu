@@ -1153,7 +1153,7 @@ QString VM_Wizard_Window::Selected_Tree_Leaf( QTreeWidget *tree ) const
 
 bool VM_Wizard_Window::Ensure_Emulator_Ready()
 {
-	if( ! All_Systems.isEmpty() && All_Systems.count() >= 5 )
+	if( ! All_Systems.isEmpty() )
 		return true;
 
 	Current_Emulator = Get_Default_Emulator();
@@ -1163,7 +1163,7 @@ bool VM_Wizard_Window::Ensure_Emulator_Ready()
 	for( QMap<QString, Available_Devices>::iterator it = All_Systems.begin(); it != All_Systems.end(); ++it )
 		QEMU_Probe_Catalog::Merge_Into( it.value() );
 
-	if( ! All_Systems.isEmpty() && All_Systems.count() >= 5 )
+	if( ! All_Systems.isEmpty() )
 	{
 		ui.CB_Computer_Type->clear();
 		for( QMap<QString, Available_Devices>::const_iterator it = All_Systems.constBegin(); it != All_Systems.constEnd(); ++it )
@@ -1182,13 +1182,91 @@ bool VM_Wizard_Window::Ensure_Emulator_Ready()
 			All_Systems = Current_Emulator.Get_Devices();
 		}
 	}
-	else if( AQ_Has_Bundled_QEMU() && srcMode != QLatin1String( "custom" ) )
+	else if( AQ_Has_Bundled_QEMU() )
 	{
 		const QString bundled = AQ_Get_Bundled_QEMU_Dir();
 		if( AQ_Apply_QEMU_Dir_As_Default_Emulator( bundled, tr( "Built-in QEMU" ) ) )
 		{
 			Current_Emulator = Get_Default_Emulator();
 			All_Systems = Current_Emulator.Get_Devices();
+		}
+	}
+
+	// If still empty, check the application directory directly
+	if( All_Systems.isEmpty() )
+	{
+		const QString app_dir = QCoreApplication::applicationDirPath();
+		if( AQ_Apply_QEMU_Dir_As_Default_Emulator( app_dir, tr( "Portable QEMU" ) ) )
+		{
+			Current_Emulator = Get_Default_Emulator();
+			All_Systems = Current_Emulator.Get_Devices();
+		}
+	}
+
+	// Catalog & binary auto-discovery fallback
+	if( All_Systems.isEmpty() )
+	{
+		const QString appDir = QCoreApplication::applicationDirPath();
+		QString qemuDir = AQ_Get_Bundled_QEMU_Dir();
+		if( qemuDir.isEmpty() ) qemuDir = appDir;
+
+		QMap<QString, QString> bins = System_Info::Find_QEMU_Binary_Files( qemuDir );
+		for( auto it = bins.constBegin(); it != bins.constEnd(); ++it )
+		{
+			if( it.value().isEmpty() || ! QFile::exists( it.value() ) )
+				continue;
+			Available_Devices ad;
+			if( QEMU_Probe_Catalog::Load_Architecture( it.key(), ad ) )
+			{
+				All_Systems[ it.key() ] = ad;
+			}
+			else
+			{
+				ad.System.QEMU_Name = it.key();
+				ad.System.Caption = it.key();
+				if( it.key().contains( "aarch64" ) )
+				{
+					ad.System.Caption = tr( "ARM64 / AArch64 (qemu-system-aarch64)" );
+					ad.Machine_List.append( Device_Map( tr( "Generic Virtual Machine (virt)" ), "virt" ) );
+					ad.CPU_List.append( Device_Map( tr( "max" ), "max" ) );
+					ad.CPU_List.append( Device_Map( tr( "cortex-a57" ), "cortex-a57" ) );
+					ad.CPU_List.append( Device_Map( tr( "cortex-a72" ), "cortex-a72" ) );
+					ad.CPU_List.append( Device_Map( tr( "host" ), "host" ) );
+					ad.Video_Card_List.append( Device_Map( tr( "virtio-gpu-pci" ), "virtio-gpu-pci" ) );
+					ad.Video_Card_List.append( Device_Map( tr( "ramfb" ), "ramfb" ) );
+					ad.Network_Card_List.append( Device_Map( tr( "virtio-net-pci" ), "virtio-net-pci" ) );
+					ad.Network_Card_List.append( Device_Map( tr( "e1000" ), "e1000" ) );
+				}
+				else
+				{
+					ad.System.Caption = tr( "x86-64 (qemu-system-x86_64)" );
+					ad.Machine_List.append( Device_Map( tr( "Standard PC (q35 + ICH9)" ), "q35" ) );
+					ad.Machine_List.append( Device_Map( tr( "Standard PC (i440FX + PIIX)" ), "pc" ) );
+					ad.CPU_List.append( Device_Map( tr( "max" ), "max" ) );
+					ad.CPU_List.append( Device_Map( tr( "host" ), "host" ) );
+					ad.Video_Card_List.append( Device_Map( tr( "virtio-vga" ), "virtio-vga" ) );
+					ad.Video_Card_List.append( Device_Map( tr( "qxl-vga" ), "qxl-vga" ) );
+					ad.Network_Card_List.append( Device_Map( tr( "virtio-net-pci" ), "virtio-net-pci" ) );
+					ad.Network_Card_List.append( Device_Map( tr( "e1000" ), "e1000" ) );
+				}
+				ad.Audio_Card_List.Audio_VirtIO = true;
+				ad.Audio_Card_List.Audio_HDA = true;
+				ad.Audio_Card_List.Audio_USB = true;
+				QEMU_Probe_Catalog::Merge_Into( ad );
+				All_Systems[ it.key() ] = ad;
+			}
+		}
+
+		if( ! All_Systems.isEmpty() )
+		{
+			Emulator emul;
+			emul.Set_Name( tr( "Default QEMU" ) );
+			emul.Set_Path( qemuDir );
+			emul.Set_Binary_Files( bins );
+			emul.Set_Devices( All_Systems );
+			emul.Set_Default( true );
+			emul.Save();
+			Update_Emulators_List();
 		}
 	}
 

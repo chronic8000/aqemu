@@ -1973,11 +1973,49 @@ Available_Devices System_Info::Get_Emulator_Info( const QString &path, bool *ok,
 	
 	if( all_help.isEmpty() )
 	{
-		AQError( "Available_Devices System_Info::Get_Emulator_Info( const QString &path, bool *ok,"
-				 "VM::Emulator_Version version, const QString &internalName )",
-				 "Cannot read emulator help text" );
-		*ok = false;
-		return Available_Devices();
+		AQWarning( "Available_Devices System_Info::Get_Emulator_Info",
+				   QString( "Cannot read emulator help text for \"%1\" (%2) - loading catalog fallback" )
+				       .arg( path, internalName ) );
+		Available_Devices fbDev;
+		if( QEMU_Probe_Catalog::Load_Architecture( internalName, fbDev ) )
+		{
+			*ok = true;
+			return fbDev;
+		}
+		// Built-in safe defaults
+		fbDev.System.QEMU_Name = internalName;
+		fbDev.System.Caption = internalName;
+		if( internalName.contains( "aarch64" ) )
+		{
+			fbDev.System.Caption = QObject::tr( "ARM64 / AArch64 (qemu-system-aarch64)" );
+			fbDev.Machine_List.append( Device_Map( QObject::tr( "Generic Virtual Machine (virt)" ), "virt" ) );
+			fbDev.CPU_List.append( Device_Map( QObject::tr( "max" ), "max" ) );
+			fbDev.CPU_List.append( Device_Map( QObject::tr( "cortex-a57" ), "cortex-a57" ) );
+			fbDev.CPU_List.append( Device_Map( QObject::tr( "cortex-a72" ), "cortex-a72" ) );
+			fbDev.CPU_List.append( Device_Map( QObject::tr( "host" ), "host" ) );
+			fbDev.Video_Card_List.append( Device_Map( QObject::tr( "virtio-gpu-pci" ), "virtio-gpu-pci" ) );
+			fbDev.Video_Card_List.append( Device_Map( QObject::tr( "ramfb" ), "ramfb" ) );
+			fbDev.Network_Card_List.append( Device_Map( QObject::tr( "virtio-net-pci" ), "virtio-net-pci" ) );
+			fbDev.Network_Card_List.append( Device_Map( QObject::tr( "e1000" ), "e1000" ) );
+		}
+		else
+		{
+			fbDev.System.Caption = QObject::tr( "x86-64 (qemu-system-x86_64)" );
+			fbDev.Machine_List.append( Device_Map( QObject::tr( "Standard PC (q35 + ICH9)" ), "q35" ) );
+			fbDev.Machine_List.append( Device_Map( QObject::tr( "Standard PC (i440FX + PIIX)" ), "pc" ) );
+			fbDev.CPU_List.append( Device_Map( QObject::tr( "max" ), "max" ) );
+			fbDev.CPU_List.append( Device_Map( QObject::tr( "host" ), "host" ) );
+			fbDev.Video_Card_List.append( Device_Map( QObject::tr( "virtio-vga" ), "virtio-vga" ) );
+			fbDev.Video_Card_List.append( Device_Map( QObject::tr( "qxl-vga" ), "qxl-vga" ) );
+			fbDev.Network_Card_List.append( Device_Map( QObject::tr( "virtio-net-pci" ), "virtio-net-pci" ) );
+			fbDev.Network_Card_List.append( Device_Map( QObject::tr( "e1000" ), "e1000" ) );
+		}
+		fbDev.Audio_Card_List.Audio_VirtIO = true;
+		fbDev.Audio_Card_List.Audio_HDA = true;
+		fbDev.Audio_Card_List.Audio_USB = true;
+		QEMU_Probe_Catalog::Merge_Into( fbDev );
+		*ok = true;
+		return fbDev;
 	}
 	
 	// Device for return
