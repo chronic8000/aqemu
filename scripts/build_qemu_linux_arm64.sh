@@ -32,7 +32,25 @@ export CXXFLAGS="${CXXFLAGS:-} -O3"
 mkdir -p "${BUILD_DIR}" "${PREFIX}"
 cd "${BUILD_DIR}"
 
-# Determine target list
+# Feature flags
+# shellcheck source=qemu_feature_flags.sh
+source "${ROOT}/scripts/qemu_feature_flags.sh"
+aqemu_qemu_feature_flags
+
+# shellcheck source=qemu_special_targets.sh
+source "${ROOT}/scripts/qemu_special_targets.sh"
+
+JOBS="$(nproc 2>/dev/null || echo 4)"
+
+# Check if an individual special target was requested (applesoc / reims)
+if aqemu_is_special_target "${TARGET_ARG}"; then
+  echo "Special target requested: ${TARGET_ARG}"
+  aqemu_build_special_target "${TARGET_ARG}" "${PREFIX}" "${JOBS}"
+  echo "Special target '${TARGET_ARG}' built successfully!"
+  exit 0
+fi
+
+# Determine target list for upstream QEMU
 # shellcheck source=qemu_softmmu_targets.sh
 source "${ROOT}/scripts/qemu_softmmu_targets.sh"
 
@@ -47,20 +65,23 @@ fi
 
 echo "Configuring targets: ${TARGETS}"
 
-# Feature flags
-# shellcheck source=qemu_feature_flags.sh
-source "${ROOT}/scripts/qemu_feature_flags.sh"
-aqemu_qemu_feature_flags
-
 "${QEMU_SRC}/configure" \
   --prefix="${PREFIX}" \
   --target-list="${TARGETS}" \
   "${AQEMU_QEMU_EXTRA_CONFIGURE[@]}"
 
-JOBS="$(nproc 2>/dev/null || echo 4)"
 echo "Building with ${JOBS} parallel jobs..."
 ninja -C "${BUILD_DIR}" -j"${JOBS}"
 ninja -C "${BUILD_DIR}" install
+
+# Build special targets when building 'all'
+if [[ "${TARGET_ARG}" == "all" || "${TARGET_ARG}" == "ALL" ]]; then
+  echo "=== Building special target: applesoc (ChefKiss Inferno) ==="
+  aqemu_build_applesoc "${PREFIX}" "${JOBS}"
+
+  echo "=== Building special target: reims (steelbrain Reims vGPU) ==="
+  aqemu_build_reims "${PREFIX}" "${JOBS}"
+fi
 
 echo "Installed QEMU to ${PREFIX}"
 ls -la "${PREFIX}/bin"/qemu-system-* "${PREFIX}/bin"/qemu-img 2>/dev/null || true

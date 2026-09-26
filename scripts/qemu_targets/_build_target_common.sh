@@ -83,83 +83,13 @@ JOBS="$(nproc 2>/dev/null || echo 4)"
 # ------------------------------------------------------------------------------
 # 3. Handle Special Targets: applesoc (Inferno) and reims (Reims vGPU)
 # ------------------------------------------------------------------------------
-if [[ "${TARGET}" == "applesoc" || "${TARGET}" == "inferno" ]]; then
-  echo "--> Building ChefKiss Inferno (qemu-system-applesoc)..."
-  INFERNO_SRC="${ROOT}/third_party/inferno"
-  INFERNO_BUILD="${ROOT}/third_party/inferno-build"
+# shellcheck source=../qemu_special_targets.sh
+source "${ROOT}/scripts/qemu_special_targets.sh"
 
-  if [[ ! -d "${INFERNO_SRC}" ]]; then
-    echo "Cloning ChefKiss Inferno repository..."
-    git clone --depth 1 https://github.com/ChefKissInc/Inferno.git "${INFERNO_SRC}"
-  else
-    echo "Using existing ChefKiss Inferno source at ${INFERNO_SRC}"
-  fi
-
-  mkdir -p "${INFERNO_BUILD}"
-  cd "${INFERNO_BUILD}"
-
-  "${INFERNO_SRC}/configure" \
-    --prefix="${PREFIX}" \
-    --target-list="aarch64-softmmu" \
-    "${AQEMU_QEMU_EXTRA_CONFIGURE[@]}"
-
-  ninja -j"${JOBS}"
-  ninja install
-
-  # Ensure qemu-system-applesoc exists (symlink or copy from aarch64 binary if needed)
-  if [[ -f "${PREFIX}/bin/qemu-system-aarch64" && ! -f "${PREFIX}/bin/qemu-system-applesoc" ]]; then
-    cp -f "${PREFIX}/bin/qemu-system-aarch64" "${PREFIX}/bin/qemu-system-applesoc"
-  elif [[ -f "${PREFIX}/bin/qemu-system-aarch64.exe" && ! -f "${PREFIX}/bin/qemu-system-applesoc.exe" ]]; then
-    cp -f "${PREFIX}/bin/qemu-system-aarch64.exe" "${PREFIX}/bin/qemu-system-applesoc.exe"
-  fi
-
-  aqemu_qemu_verify_install "${PREFIX}" "applesoc"
-  echo "ChefKiss Inferno (qemu-system-applesoc) build completed successfully!"
-  exit 0
-fi
-
-if [[ "${TARGET}" == "reims" || "${TARGET}" == "reims3d" || "${TARGET}" == "reimsvgpu" ]]; then
-  echo "--> Building steelbrain Reims vGPU (qemu-system-reims3d / reimsvgpu)..."
-  REIMS_SRC="${ROOT}/third_party/reims-vgpu"
-  REIMS_BUILD="${ROOT}/third_party/reims-build"
-
-  if [[ ! -d "${REIMS_SRC}" ]]; then
-    echo "Cloning steelbrain reims-vgpu repository..."
-    git clone --depth 1 --recurse-submodules https://github.com/steelbrain/reims-vgpu.git "${REIMS_SRC}"
-  else
-    echo "Using existing steelbrain reims-vgpu source at ${REIMS_SRC}"
-  fi
-
-  mkdir -p "${REIMS_BUILD}"
-  cd "${REIMS_BUILD}"
-
-  # Reims provides a modified QEMU tree in vendor/qemu or custom targets
-  REIMS_QEMU_SRC="${REIMS_SRC}/vendor/qemu"
-  if [[ ! -d "${REIMS_QEMU_SRC}" ]]; then
-    REIMS_QEMU_SRC="${REIMS_SRC}"
-  fi
-
-  if [[ -f "${REIMS_QEMU_SRC}/configure" ]]; then
-    "${REIMS_QEMU_SRC}/configure" \
-      --prefix="${PREFIX}" \
-      --target-list="x86_64-softmmu" \
-      "${AQEMU_QEMU_EXTRA_CONFIGURE[@]}"
-    ninja -j"${JOBS}"
-    ninja install
-  fi
-
-  # Install binary under target name expected by AQEMU
-  if [[ "${IS_WINDOWS}" == "true" ]]; then
-    if [[ -f "${PREFIX}/bin/qemu-system-x86_64.exe" && ! -f "${PREFIX}/bin/qemu-system-reimsvgpu.exe" ]]; then
-      cp -f "${PREFIX}/bin/qemu-system-x86_64.exe" "${PREFIX}/bin/qemu-system-reimsvgpu.exe"
-    fi
-  else
-    if [[ -f "${PREFIX}/bin/qemu-system-x86_64" && ! -f "${PREFIX}/bin/qemu-system-reims3d" ]]; then
-      cp -f "${PREFIX}/bin/qemu-system-x86_64" "${PREFIX}/bin/qemu-system-reims3d"
-    fi
-  fi
-
-  echo "Reims vGPU build completed successfully!"
+if aqemu_is_special_target "${TARGET}"; then
+  aqemu_build_special_target "${TARGET}" "${PREFIX}" "${JOBS}"
+  aqemu_qemu_verify_install "${PREFIX}" "${TARGET}"
+  echo "Special target '${TARGET}' build completed successfully!"
   exit 0
 fi
 
