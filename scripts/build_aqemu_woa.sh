@@ -91,11 +91,18 @@ echo -n "Testing Ninja: "
 ninja --version 2>&1 || echo "FAILED"
 
 echo "Testing CMake..."
-if ! cmake --version; then
-  echo "WARNING: 'cmake --version' exited with error status: $?"
+set +e
+CMAKE_TEST_OUT="$(cmake --version 2>&1)"
+CMAKE_TEST_EXIT=$?
+set -e
+if [[ $CMAKE_TEST_EXIT -ne 0 ]]; then
+  echo "WARNING: 'cmake --version' failed with exit code: ${CMAKE_TEST_EXIT}"
+  echo "CMake output: ${CMAKE_TEST_OUT:-[no output]}"
   echo "--- Full ldd output for cmake.exe ---"
   ldd /clangarm64/bin/cmake.exe 2>&1 || true
   echo "-------------------------------------"
+  echo "Checking Windows Application Error log..."
+  powershell.exe -NoProfile -Command "Get-WinEvent -FilterHashtable @{LogName='Application'; ProviderName='Application Error'} -MaxEvents 2 2>\$null | Format-List -Property Message" 2>/dev/null || true
 fi
 
 mkdir -p "${BUILD_DIR}"
@@ -115,8 +122,19 @@ if [[ -d "${ROOT}/third_party/qemu-install/bin" ]]; then
 fi
 
 echo "Configuring CMake for Windows on ARM..."
-if ! cmake "${CMAKE_FLAGS[@]}" "${ROOT}"; then
-  echo "ERROR: CMake configuration failed."
+set +e
+cmake "${CMAKE_FLAGS[@]}" "${ROOT}"
+CMAKE_CONFIG_EXIT=$?
+set -e
+if [[ $CMAKE_CONFIG_EXIT -ne 0 ]]; then
+  echo "ERROR: CMake configuration failed with exit code: ${CMAKE_CONFIG_EXIT}"
+  echo "Checking Windows Application Error log for crash details..."
+  powershell.exe -NoProfile -Command "Get-WinEvent -FilterHashtable @{LogName='Application'; ProviderName='Application Error'} -MaxEvents 2 2>\$null | Format-List -Property Message" 2>/dev/null || true
+  echo ""
+  echo "Troubleshooting Tip:"
+  echo "If a library ABI mismatch occurred after updating packages, run:"
+  echo "  pacman -Syu --noconfirm"
+  echo "to bring all MSYS2 packages into full sync."
   exit 1
 fi
 
