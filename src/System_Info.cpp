@@ -27,6 +27,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QDir>
+#include <QCoreApplication>
 #include <QTextStream>
 #include <QJsonDocument>
 #include <QJsonArray>
