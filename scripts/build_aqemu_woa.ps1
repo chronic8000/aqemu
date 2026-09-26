@@ -55,7 +55,8 @@ if (-not (Test-Path $clangarm64Bin)) {
     Write-Host "            mingw-w64-clang-aarch64-qt5-base mingw-w64-clang-aarch64-cmake \"
     Write-Host "            mingw-w64-clang-aarch64-ninja mingw-w64-clang-aarch64-pkgconf \"
     Write-Host "            mingw-w64-clang-aarch64-spice-gtk mingw-w64-clang-aarch64-libvncserver \"
-    Write-Host "            mingw-w64-clang-aarch64-libslirp mingw-w64-clang-aarch64-libusb)"
+    Write-Host "            mingw-w64-clang-aarch64-libslirp mingw-w64-clang-aarch64-libusb \"
+    Write-Host "            mingw-w64-clang-aarch64-gobject-introspection)"
     Write-Host ""
 }
 

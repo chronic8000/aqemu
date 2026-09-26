@@ -42,7 +42,8 @@ if [[ "${1:-}" == "--deps" ]]; then
     mingw-w64-clang-aarch64-cppdap \
     mingw-w64-clang-aarch64-curl \
     mingw-w64-clang-aarch64-expat \
-    mingw-w64-clang-aarch64-zlib
+    mingw-w64-clang-aarch64-zlib \
+    mingw-w64-clang-aarch64-gobject-introspection
   )
 
   # Retry up to 3 times to gracefully recover from transient MSYS2 mirror dropouts

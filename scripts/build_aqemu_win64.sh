@@ -28,7 +28,8 @@ if [[ "${1:-}" == "--deps" ]]; then
     mingw-w64-ucrt-x86_64-spice-gtk
     mingw-w64-ucrt-x86_64-libvncserver
     mingw-w64-ucrt-x86_64-libslirp
-    mingw-w64-ucrt-x86_64-libusb
+    mingw-w64-ucrt-x86_64-libusb \
+    mingw-w64-ucrt-x86_64-gobject-introspection
   )
 
   # Retry up to 3 times to gracefully recover from transient MSYS2 mirror dropouts
