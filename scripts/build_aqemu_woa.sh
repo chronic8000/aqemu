@@ -84,23 +84,18 @@ echo "Compiler:   $(which clang 2>/dev/null || echo 'not found')"
 echo "CMake:      $(which cmake 2>/dev/null || echo 'not found')"
 echo "Ninja:      $(which ninja 2>/dev/null || echo 'not found')"
 
-# Check if cmake runs or is missing runtime DLLs (e.g. from interrupted pacman download)
+echo -n "Testing Clang: "
+${CC} --version 2>&1 | head -n1 || echo "FAILED"
+
+echo -n "Testing Ninja: "
+ninja --version 2>&1 || echo "FAILED"
+
+echo "Testing CMake..."
 if ! cmake --version; then
-  echo "WARNING: 'cmake' failed to start. Checking missing DLL dependencies with ldd:"
-  ldd /clangarm64/bin/cmake.exe 2>&1 | grep -i "not found" || true
-  echo "Attempting repair by installing all cmake runtime dependencies..."
-  pacman -S --noconfirm --needed \
-    mingw-w64-clang-aarch64-cmake \
-    mingw-w64-clang-aarch64-libarchive \
-    mingw-w64-clang-aarch64-libuv \
-    mingw-w64-clang-aarch64-jsoncpp \
-    mingw-w64-clang-aarch64-rhash \
-    mingw-w64-clang-aarch64-cppdap \
-    mingw-w64-clang-aarch64-curl \
-    mingw-w64-clang-aarch64-expat \
-    mingw-w64-clang-aarch64-zlib || true
-  echo "Retrying cmake..."
-  cmake --version
+  echo "WARNING: 'cmake --version' exited with error status: $?"
+  echo "--- Full ldd output for cmake.exe ---"
+  ldd /clangarm64/bin/cmake.exe 2>&1 || true
+  echo "-------------------------------------"
 fi
 
 mkdir -p "${BUILD_DIR}"
