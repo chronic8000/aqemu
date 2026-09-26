@@ -80,6 +80,20 @@ if ! which diff >/dev/null 2>&1; then
   pacman -S --needed --noconfirm diffutils
 fi
 
+if [[ "${MSYSTEM:-}" == "UCRT64" ]]; then
+  for dep in mingw-w64-ucrt-x86_64-meson mingw-w64-ucrt-x86_64-ninja mingw-w64-ucrt-x86_64-python; do
+    if ! pacman -Q "$dep" >/dev/null 2>&1; then
+      pacman -S --needed --noconfirm "$dep" || true
+    fi
+  done
+else
+  for dep in mingw-w64-x86_64-meson mingw-w64-x86_64-ninja mingw-w64-x86_64-python; do
+    if ! pacman -Q "$dep" >/dev/null 2>&1; then
+      pacman -S --needed --noconfirm "$dep" || true
+    fi
+  done
+fi
+
 if [[ ! -f "${QEMU_SRC}/configure" && ! -f "${QEMU_SRC}/meson.build" ]]; then
   echo "QEMU sources missing. Running: git submodule update --init --depth 1 third_party/qemu"
   git -C "${ROOT}" submodule update --init --depth 1 third_party/qemu

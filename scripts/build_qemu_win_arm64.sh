@@ -79,6 +79,8 @@ QEMU_BUILD_DEPS=(
   mingw-w64-clang-aarch64-libslirp
   mingw-w64-clang-aarch64-ninja
   mingw-w64-clang-aarch64-zlib
+  mingw-w64-clang-aarch64-meson
+  mingw-w64-clang-aarch64-python
 )
 for dep in "${QEMU_BUILD_DEPS[@]}"; do
   if ! pacman -Q "$dep" >/dev/null 2>&1; then

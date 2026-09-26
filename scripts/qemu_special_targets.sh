@@ -24,6 +24,88 @@ aqemu_is_special_target() {
   esac
 }
 
+aqemu_ensure_meson() {
+  local root="$1"
+
+  # Ensure common MSYS2 bin paths are on PATH
+  if [[ "${MSYSTEM:-}" == "CLANGARM64" ]]; then
+    export PATH="C:/msys64/clangarm64/bin:C:/msys64/usr/bin:/clangarm64/bin:/usr/bin:${PATH}"
+  elif [[ "${MSYSTEM:-}" == "UCRT64" ]]; then
+    export PATH="C:/msys64/ucrt64/bin:C:/msys64/usr/bin:/ucrt64/bin:/usr/bin:${PATH}"
+  elif [[ "${MSYSTEM:-}" == "MINGW64" ]]; then
+    export PATH="C:/msys64/mingw64/bin:C:/msys64/usr/bin:/mingw64/bin:/usr/bin:${PATH}"
+  fi
+
+  if command -v meson >/dev/null 2>&1; then
+    echo "Found meson: $(command -v meson)"
+    return 0
+  fi
+
+  # Attempt pacman installation
+  if command -v pacman >/dev/null 2>&1; then
+    case "${MSYSTEM:-}" in
+      CLANGARM64)
+        echo "Installing missing dependency: mingw-w64-clang-aarch64-meson..."
+        pacman -S --needed --noconfirm mingw-w64-clang-aarch64-meson mingw-w64-clang-aarch64-python 2>/dev/null || true
+        ;;
+      UCRT64)
+        echo "Installing missing dependency: mingw-w64-ucrt-x86_64-meson..."
+        pacman -S --needed --noconfirm mingw-w64-ucrt-x86_64-meson mingw-w64-ucrt-x86_64-python 2>/dev/null || true
+        ;;
+      MINGW64)
+        echo "Installing missing dependency: mingw-w64-x86_64-meson..."
+        pacman -S --needed --noconfirm mingw-w64-x86_64-meson mingw-w64-x86_64-python 2>/dev/null || true
+        ;;
+      *)
+        pacman -S --needed --noconfirm meson 2>/dev/null || true
+        ;;
+    esac
+  fi
+
+  if command -v meson >/dev/null 2>&1; then
+    echo "Installed meson: $(command -v meson)"
+    return 0
+  fi
+
+  # Check existing QEMU pyvenv for meson
+  local pyvenv_meson
+  pyvenv_meson="$(find "${root}/third_party" -maxdepth 4 \( -name "meson" -o -name "meson.exe" \) -path "*/pyvenv/*" 2>/dev/null | head -1 || true)"
+  if [[ -n "${pyvenv_meson}" ]]; then
+    local pyvenv_bin
+    pyvenv_bin="$(dirname "${pyvenv_meson}")"
+    echo "Using meson from pyvenv at ${pyvenv_bin}"
+    export PATH="${pyvenv_bin}:${PATH}"
+    return 0
+  fi
+
+  # Check if python can run meson
+  for py_cand in python3 python /clangarm64/bin/python.exe /ucrt64/bin/python.exe /mingw64/bin/python.exe; do
+    if command -v "$py_cand" >/dev/null 2>&1 && "$py_cand" -c "import mesonbuild" 2>/dev/null; then
+      local shim_dir="${root}/third_party/.bin"
+      mkdir -p "${shim_dir}"
+      cat <<EOF > "${shim_dir}/meson"
+#!/usr/bin/env bash
+exec "$py_cand" -m mesonbuild.mesonmain "\$@"
+EOF
+      chmod +x "${shim_dir}/meson"
+      export PATH="${shim_dir}:${PATH}"
+      echo "Configured meson wrapper using $py_cand at ${shim_dir}/meson"
+      return 0
+    fi
+  done
+
+  # Fallback for Debian/Ubuntu
+  if command -v apt-get >/dev/null 2>&1; then
+    echo "Installing meson via apt..."
+    sudo apt-get update && sudo apt-get install -y meson || true
+  fi
+
+  if ! command -v meson >/dev/null 2>&1; then
+    echo "ERROR: 'meson' command not found. Please run: pacman -S mingw-w64-clang-aarch64-meson" >&2
+    return 1
+  fi
+}
+
 aqemu_build_applesoc() {
   local prefix="${1:?Install prefix required}"
   local jobs="${2:-$(nproc 2>/dev/null || echo 4)}"
@@ -34,6 +116,8 @@ aqemu_build_applesoc() {
   echo "  Building Special Target: applesoc (ChefKiss Inferno Apple Silicon)"
   echo "  Install Prefix: ${prefix}"
   echo "======================================================================"
+
+  aqemu_ensure_meson "${root}"
 
   local inferno_src="${root}/third_party/inferno"
   local inferno_build="${root}/third_party/inferno-build"
@@ -118,6 +202,8 @@ aqemu_build_reims() {
   echo "  Building Special Target: reims (steelbrain Reims vGPU)"
   echo "  Install Prefix: ${prefix}"
   echo "======================================================================"
+
+  aqemu_ensure_meson "${root}"
 
   local reims_dir="${root}/third_party/reims-vgpu"
   local reims_build="${root}/third_party/reims-build"
