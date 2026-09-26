@@ -50,11 +50,12 @@ if (-not (Test-Path $clangarm64Bin)) {
     Write-Host "  1. Install MSYS2 from https://www.msys2.org/"
     Write-Host "  2. Open the 'MSYS2 CLANGARM64' terminal"
     Write-Host "  3. Run:"
-    Write-Host "     pacman -S --needed mingw-w64-clang-aarch64-toolchain \"
-    Write-Host "       mingw-w64-clang-aarch64-qt5-base mingw-w64-clang-aarch64-cmake \"
-    Write-Host "       mingw-w64-clang-aarch64-ninja mingw-w64-clang-aarch64-pkgconf \"
-    Write-Host "       mingw-w64-clang-aarch64-spice-gtk mingw-w64-clang-aarch64-libvncserver \"
-    Write-Host "       mingw-w64-clang-aarch64-libslirp mingw-w64-clang-aarch64-libusb"
+    Write-Host "     ./scripts/build_aqemu_woa.sh --deps"
+    Write-Host "     (or: pacman -S --needed mingw-w64-clang-aarch64-toolchain \"
+    Write-Host "            mingw-w64-clang-aarch64-qt5-base mingw-w64-clang-aarch64-cmake \"
+    Write-Host "            mingw-w64-clang-aarch64-ninja mingw-w64-clang-aarch64-pkgconf \"
+    Write-Host "            mingw-w64-clang-aarch64-spice-gtk mingw-w64-clang-aarch64-libvncserver \"
+    Write-Host "            mingw-w64-clang-aarch64-libslirp mingw-w64-clang-aarch64-libusb)"
     Write-Host ""
 }
 

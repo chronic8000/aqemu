@@ -529,6 +529,8 @@ cd aqemu
 ./build_woa/aqemu.exe
 ```
 
+> **Note on MSYS2 downloads:** If MSYS2 mirrors experience transient connection timeouts during package downloads, simply re-run `./scripts/build_aqemu_woa.sh --deps`. Pacman caches all completed packages in `/var/cache/pacman/pkg/` and will seamlessly resume downloading only the remaining packages without starting over. The script also automatically disables the default 10-second download timeout in `/etc/pacman.conf`.
+
 #### Option B: Native PowerShell
 From standard PowerShell (with MSYS2 installed at `C:\msys64`):
 ```powershell
