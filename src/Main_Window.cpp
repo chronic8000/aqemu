@@ -538,42 +538,67 @@ void Main_Window::Init_System_Tray()
 #ifdef Q_OS_LINUX
 	// -------------------------------------------------------------------------
 	// wf-panel-pi (Raspberry Pi OS Wayland) always rescales the SNI IconPixmap
-	// to its own "icon_size" value (equal to the panel height, typically 36 px)
-	// via Gdk::Pixbuf::scale_simple().  GTK system applets have ~10 px of built-
-	// in padding so their visible content is ~16 px.  To match that appearance:
-	//   • We do NOT use QIcon::fromTheme() — that sends an IconName which causes
-	//     wf-panel-pi to look up the hicolor theme at full panel height (48 px).
-	//   • We send a raw IconPixmap via addPixmap() (empty IconName → panel uses
-	//     the pixmap directly).
-	//   • The pixmap is a kTraySlot × kTraySlot transparent canvas with the real
-	//     icon scaled to kIconContent × kIconContent and centred.  When the panel
-	//     rescales the canvas back to kTraySlot it is a no-op, so the visible
-	//     icon remains kIconContent px with transparent padding on all sides.
+	// to: get_icon_size() × gtk_widget_get_scale_factor()  (physical pixels)
+	// via Gdk::Pixbuf::scale_simple().  get_icon_size() returns the panel height
+	// in logical pixels (36 on Pi OS Bookworm). gtk_widget_get_scale_factor()
+	// returns the Wayland compositor output scale (e.g. 2 on a 4K/HiDPI display).
+	//
+	// Strategy:
+	//   • Build the canvas at exactly  kPanelLogical × scaleFactor  physical px.
+	//   • Centre the visible icon at   kIconLogical  × scaleFactor  physical px.
+	//   • The panel's scale_simple() call becomes a no-op (input == output size),
+	//     so the icon always appears kIconLogical (16 px) regardless of HiDPI.
+	//   • We use addPixmap() not fromTheme() → empty IconName → panel uses the
+	//     raw IconPixmap rather than looking up the theme at full panel height.
+	//
+	// Scale factor detection order:
+	//   1. GDK_SCALE env var (set by some compositors / display configs).
+	//   2. Qt's devicePixelRatio (correct for Wayland-native Qt and XWayland).
 	// -------------------------------------------------------------------------
 	{
-		constexpr int kTraySlot    = 36;  // default wf-panel-pi panel height (Pi OS Bookworm)
-		constexpr int kIconContent = 16;  // visible icon pixels — matches GTK applet padding
-		constexpr int kOffset      = ( kTraySlot - kIconContent ) / 2;  // = 10 px each side
+		constexpr int kPanelLogical  = 36; // wf-panel-pi default panel height (Pi OS Bookworm)
+		constexpr int kIconLogical   = 16; // visible content — matches GTK system-applet padding
+
+		// Determine the integer scale factor that GTK/wf-panel-pi uses.
+		int scaleFactor = 1;
+		const QByteArray gdkScaleEnv = qgetenv( "GDK_SCALE" );
+		if( !gdkScaleEnv.isEmpty() )
+		{
+			bool ok = false;
+			const int gs = gdkScaleEnv.toInt( &ok );
+			if( ok && gs >= 1 ) scaleFactor = gs;
+		}
+		if( scaleFactor == 1 && QGuiApplication::primaryScreen() )
+		{
+			// Fallback: Qt reports the compositor scale via devicePixelRatio.
+			// Round to the nearest integer to match gtk_widget_get_scale_factor().
+			scaleFactor = qMax( 1, qRound( QGuiApplication::primaryScreen()->devicePixelRatio() ) );
+		}
+
+		// Physical pixel dimensions for the canvas and icon content.
+		const int canvasPx = kPanelLogical * scaleFactor;
+		const int iconPx   = kIconLogical  * scaleFactor;
+		const int offset   = ( canvasPx - iconPx ) / 2;
 
 		QPixmap base( QStringLiteral( ":/aqemu.png" ) );
 		if( base.isNull() )
 			base = windowIcon().pixmap( 64, 64 );
 
-		QPixmap canvas( kTraySlot, kTraySlot );
+		QPixmap canvas( canvasPx, canvasPx );
 		canvas.fill( Qt::transparent );
 		if( !base.isNull() )
 		{
 			QPainter painter( &canvas );
 			painter.setRenderHint( QPainter::SmoothPixmapTransform );
-			painter.drawPixmap( kOffset, kOffset,
-				base.scaled( kIconContent, kIconContent,
+			painter.drawPixmap( offset, offset,
+				base.scaled( iconPx, iconPx,
 				             Qt::IgnoreAspectRatio, Qt::SmoothTransformation ) );
 			painter.end();
 		}
 		tray_icon.addPixmap( canvas, QIcon::Normal, QIcon::Off );
 	}
 #else
-	// On Windows / macOS the platform handles tray icon sizing natively.
+	// Windows / macOS: platform handles tray icon sizing natively.
 	tray_icon = windowIcon();
 	if( tray_icon.isNull() )
 	{
