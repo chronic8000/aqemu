@@ -79,5 +79,15 @@ cmake "${CMAKE_FLAGS[@]}" "${ROOT}"
 echo "Building AQEMU..."
 ninja -j"$(nproc 2>/dev/null || echo 4)"
 
+echo "=== Deploying Windows x86_64 Runtime Libraries ==="
+if which windeployqt >/dev/null 2>&1; then
+  echo "Running windeployqt for Qt5 DLLs and plugins..."
+  windeployqt --no-translations --compiler-runtime "${BUILD_DIR}/aqemu.exe" || true
+fi
+
+echo "Copying LibVNCServer runtime DLLs..."
+cp -f /ucrt64/bin/libvncclient*.dll "${BUILD_DIR}/" 2>/dev/null || true
+cp -f /ucrt64/bin/libvncserver*.dll "${BUILD_DIR}/" 2>/dev/null || true
+
 echo "=== Build Succeeded! ==="
 echo "Executable: ${BUILD_DIR}/aqemu.exe"

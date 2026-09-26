@@ -379,6 +379,15 @@ IF( NOT WITHOUT_EMBEDDED_DISPLAY )
 	ENDIF()
 	IF( WIN32 )
 		TARGET_LINK_LIBRARIES( aqemu ws2_32 )
+		FOREACH( _vnc_dir "C:/msys64/clangarm64/bin" "C:/msys64/ucrt64/bin" "C:/msys64/mingw64/bin" )
+			IF( EXISTS "${_vnc_dir}/libvncclient.dll" )
+				ADD_CUSTOM_COMMAND( TARGET aqemu POST_BUILD
+					COMMAND ${CMAKE_COMMAND} -E copy_if_different "${_vnc_dir}/libvncclient.dll" "$<TARGET_FILE_DIR:aqemu>"
+					COMMENT "Bundle libvncclient.dll next to aqemu.exe"
+				)
+				BREAK()
+			ENDIF()
+		ENDFOREACH()
 	ENDIF()
 ENDIF( NOT WITHOUT_EMBEDDED_DISPLAY )
 

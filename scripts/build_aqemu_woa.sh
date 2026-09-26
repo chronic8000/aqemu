@@ -142,5 +142,15 @@ fi
 echo "Building native ARM64 AQEMU..."
 ninja -j"$(nproc 2>/dev/null || echo 4)"
 
+echo "=== Deploying Windows on ARM Runtime Libraries ==="
+if which windeployqt >/dev/null 2>&1; then
+  echo "Running windeployqt for Qt5 ARM64 DLLs and plugins..."
+  windeployqt --no-translations --compiler-runtime "${BUILD_DIR}/aqemu.exe" || true
+fi
+
+echo "Copying LibVNCServer runtime DLLs..."
+cp -f /clangarm64/bin/libvncclient*.dll "${BUILD_DIR}/" 2>/dev/null || true
+cp -f /clangarm64/bin/libvncserver*.dll "${BUILD_DIR}/" 2>/dev/null || true
+
 echo "=== Build Succeeded! ==="
 echo "Executable: ${BUILD_DIR}/aqemu.exe"
