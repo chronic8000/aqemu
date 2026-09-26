@@ -533,21 +533,22 @@ void Main_Window::Init_System_Tray()
 
 	Tray_Icon = new QSystemTrayIcon( this );
 
-	// Scale icon specifically for desktop system trays (22x22).
-	// Supplying an unscaled 64x64 window icon directly to QSystemTrayIcon causes Linux desktop
-	// panels (such as Raspberry Pi OS wf-panel-pi / lxpanel) to display an oversized 64px icon,
-	// bulging and expanding the entire panel/taskbar height.
-	QPixmap basePixmap;
-	if( ! windowIcon().isNull() )
-		basePixmap = windowIcon().pixmap( 64, 64 );
+	// Load the source pixmap directly from the embedded resource (avoids Qt extracting a
+	// large pixmap from the window icon which can cause wf-panel-pi / lxpanel to bulge).
+	// Use 16x16 — the standard system-tray icon size on Raspberry Pi OS (wf-panel-pi).
+	QPixmap basePixmap( QStringLiteral( ":/aqemu.png" ) );
 	if( basePixmap.isNull() )
-		basePixmap = QPixmap( QStringLiteral( ":/aqemu.png" ) );
+		basePixmap = windowIcon().pixmap( 256, 256 );
 
+	// Build a QIcon that contains ONLY the single small pixmap so the desktop panel
+	// cannot pick a higher-resolution candidate and render an oversized icon.
 	QIcon tray_icon;
 	if( ! basePixmap.isNull() )
 	{
-		// 22x22 is the standard native tray icon size on Raspberry Pi OS (wf-panel-pi) and Linux desktops
-		tray_icon.addPixmap( basePixmap.scaled( 22, 22, Qt::KeepAspectRatio, Qt::SmoothTransformation ) );
+		const int traySize = 16;
+		tray_icon.addPixmap(
+			basePixmap.scaled( traySize, traySize, Qt::IgnoreAspectRatio, Qt::SmoothTransformation ),
+			QIcon::Normal, QIcon::Off );
 	}
 	else
 	{
