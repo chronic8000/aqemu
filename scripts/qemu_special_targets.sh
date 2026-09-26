@@ -181,6 +181,143 @@ aqemu_ensure_cargo() {
   return 1
 }
 
+aqemu_ensure_lzfse() {
+  local root="$1"
+  local lzfse_dir="${root}/third_party/lzfse"
+  local lzfse_build="${root}/third_party/lzfse-build"
+  local lzfse_install="${root}/third_party/lzfse-install"
+
+  # Ensure common MSYS2 bin paths are on PATH
+  if [[ "${MSYSTEM:-}" == "CLANGARM64" ]]; then
+    export PATH="C:/msys64/clangarm64/bin:C:/msys64/usr/bin:/clangarm64/bin:/usr/bin:${PATH}"
+  elif [[ "${MSYSTEM:-}" == "UCRT64" ]]; then
+    export PATH="C:/msys64/ucrt64/bin:C:/msys64/usr/bin:/ucrt64/bin:/usr/bin:${PATH}"
+  elif [[ "${MSYSTEM:-}" == "MINGW64" ]]; then
+    export PATH="C:/msys64/mingw64/bin:C:/msys64/usr/bin:/mingw64/bin:/usr/bin:${PATH}"
+  fi
+
+  # Determine MSYS2 prefix if applicable
+  local msys_prefix=""
+  if [[ -n "${MINGW_PREFIX:-}" && -d "${MINGW_PREFIX}/include" ]]; then
+    msys_prefix="${MINGW_PREFIX}"
+  elif [[ "${MSYSTEM:-}" == "CLANGARM64" && -d "/clangarm64/include" ]]; then
+    msys_prefix="/clangarm64"
+  elif [[ "${MSYSTEM:-}" == "UCRT64" && -d "/ucrt64/include" ]]; then
+    msys_prefix="/ucrt64"
+  elif [[ "${MSYSTEM:-}" == "MINGW64" && -d "/mingw64/include" ]]; then
+    msys_prefix="/mingw64"
+  elif [[ -d "C:/msys64/clangarm64/include" ]]; then
+    msys_prefix="C:/msys64/clangarm64"
+  fi
+
+  # 1. Check if lzfse.h and liblzfse.a / lzfse library already exist
+  local found_h=0
+  for inc_dir in \
+    "${msys_prefix}/include" \
+    /clangarm64/include \
+    /ucrt64/include \
+    /mingw64/include \
+    /usr/include \
+    /usr/local/include \
+    "${lzfse_install}/include"; do
+    if [[ -n "${inc_dir}" && -f "${inc_dir}/lzfse.h" ]]; then
+      echo "Found lzfse.h in ${inc_dir}"
+      found_h=1
+      break
+    fi
+  done
+
+  # 2. Try system package manager if missing on Linux
+  if [[ ${found_h} -eq 0 ]]; then
+    if command -v apt-get >/dev/null 2>&1; then
+      echo "Installing lzfse via apt..."
+      sudo apt-get update && sudo apt-get install -y lzfse liblzfse-dev || true
+      for inc_dir in /usr/include /usr/local/include; do
+        if [[ -f "${inc_dir}/lzfse.h" ]]; then
+          found_h=1
+          break
+        fi
+      done
+    fi
+  fi
+
+  # 3. If still not installed or missing static library, build from source
+  if [[ ${found_h} -eq 0 || ! -f "${lzfse_install}/lib/liblzfse.a" ]]; then
+    echo "======================================================================"
+    echo "  Building lzfse (Apple LZFSE compression library for Inferno)"
+    echo "======================================================================"
+    if [[ ! -d "${lzfse_dir}" || ! -f "${lzfse_dir}/CMakeLists.txt" ]]; then
+      echo "Cloning lzfse repository..."
+      git clone --depth 1 https://github.com/lzfse/lzfse.git "${lzfse_dir}"
+    fi
+
+    mkdir -p "${lzfse_build}" "${lzfse_install}/include" "${lzfse_install}/lib" "${lzfse_install}/lib/pkgconfig"
+
+    local c_compiler="${CC:-}"
+    if [[ -z "${c_compiler}" ]]; then
+      if command -v clang >/dev/null 2>&1; then
+        c_compiler="clang"
+      elif command -v gcc >/dev/null 2>&1; then
+        c_compiler="gcc"
+      else
+        c_compiler="cc"
+      fi
+    fi
+
+    local ar_tool="ar"
+    if command -v llvm-ar >/dev/null 2>&1; then
+      ar_tool="llvm-ar"
+    elif command -v ar >/dev/null 2>&1; then
+      ar_tool="ar"
+    fi
+
+    echo "Compiling lzfse static library using ${c_compiler}..."
+    (
+      cd "${lzfse_dir}"
+      "${c_compiler}" -O3 -fPIC -c \
+        src/lzfse_decode.c src/lzfse_decode_base.c src/lzfse_encode.c \
+        src/lzfse_encode_base.c src/lzfse_fse.c src/lzvn_decode_base.c \
+        src/lzvn_encode_base.c
+      "${ar_tool}" rcs "${lzfse_install}/lib/liblzfse.a" *.o
+      cp -f src/lzfse.h "${lzfse_install}/include/"
+      rm -f *.o
+    )
+
+    # Generate pkg-config metadata
+    cat <<EOF > "${lzfse_install}/lib/pkgconfig/lzfse.pc"
+prefix=${lzfse_install}
+exec_prefix=\${prefix}
+libdir=\${exec_prefix}/lib
+includedir=\${prefix}/include
+
+Name: lzfse
+Description: LZFSE compression library
+Version: 1.0
+Libs: -L\${libdir} -llzfse
+Cflags: -I\${includedir}
+EOF
+
+    # In MSYS2, also copy into toolchain sysroot so all subprojects/tools find it automatically
+    if [[ -n "${msys_prefix}" ]]; then
+      if [[ -d "${msys_prefix}/include" && -w "${msys_prefix}/include" ]]; then
+        echo "Installing lzfse headers and library into MSYS2 sysroot (${msys_prefix})..."
+        cp -f "${lzfse_install}/include/lzfse.h" "${msys_prefix}/include/" 2>/dev/null || true
+        cp -f "${lzfse_install}/lib/liblzfse.a" "${msys_prefix}/lib/" 2>/dev/null || true
+        mkdir -p "${msys_prefix}/lib/pkgconfig"
+        cp -f "${lzfse_install}/lib/pkgconfig/lzfse.pc" "${msys_prefix}/lib/pkgconfig/" 2>/dev/null || true
+      fi
+    fi
+  fi
+
+  # Export compiler and linker search paths
+  export CFLAGS="-I${lzfse_install}/include ${CFLAGS:-}"
+  export CXXFLAGS="-I${lzfse_install}/include ${CXXFLAGS:-}"
+  export LDFLAGS="-L${lzfse_install}/lib ${LDFLAGS:-}"
+  export PKG_CONFIG_PATH="${lzfse_install}/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
+
+  return 0
+}
+
 aqemu_build_applesoc() {
   local prefix="${1:?Install prefix required}"
   local jobs="${2:-$(nproc 2>/dev/null || echo 4)}"
@@ -193,10 +330,12 @@ aqemu_build_applesoc() {
   echo "======================================================================"
 
   aqemu_ensure_meson "${root}"
+  aqemu_ensure_lzfse "${root}"
 
   local inferno_src="${root}/third_party/inferno"
   local inferno_build="${root}/third_party/inferno-build"
   local inferno_stage="${root}/third_party/inferno-stage"
+  local lzfse_install="${root}/third_party/lzfse-install"
 
   if [[ ! -d "${inferno_src}" || ! -f "${inferno_src}/configure" ]]; then
     echo "Cloning ChefKiss Inferno repository (Apple Silicon / iOS)..."
@@ -211,6 +350,18 @@ aqemu_build_applesoc() {
     git -C "${inferno_src}" submodule update --init --depth 1 util/mlib
   fi
 
+  # Ensure hw/arm/apple-silicon links against liblzfse
+  if [[ -f "${inferno_src}/hw/arm/apple-silicon/meson.build" ]]; then
+    python3 -c "
+p = '${inferno_src}/hw/arm/apple-silicon/meson.build'
+content = open(p).read()
+if 'liblzfse' not in content:
+    print('Adding liblzfse dependency to hw/arm/apple-silicon/meson.build...')
+    new_content = content.replace('if_true: tasn1', 'if_true: [tasn1, liblzfse]')
+    open(p, 'w').write(new_content)
+" || true
+  fi
+
   rm -rf "${inferno_stage}"
   mkdir -p "${inferno_build}" "${inferno_stage}" "${prefix}/bin"
   cd "${inferno_build}"
@@ -222,6 +373,13 @@ aqemu_build_applesoc() {
       source "${root}/scripts/qemu_feature_flags.sh"
       aqemu_qemu_feature_flags
     fi
+  fi
+
+  local lzfse_inc_flag="-I${lzfse_install}/include"
+  local lzfse_lib_flag="-L${lzfse_install}/lib"
+  if command -v cygpath >/dev/null 2>&1; then
+    lzfse_inc_flag="-I$(cygpath -m "${lzfse_install}/include")"
+    lzfse_lib_flag="-L$(cygpath -m "${lzfse_install}/lib")"
   fi
 
   local conf_args=(
@@ -244,7 +402,12 @@ aqemu_build_applesoc() {
       conf_args+=("$flag")
     done
   fi
-  conf_args+=(--disable-whpx)
+  conf_args+=(
+    --disable-whpx
+    --enable-lzfse
+    --extra-cflags="${lzfse_inc_flag}"
+    --extra-ldflags="${lzfse_lib_flag}"
+  )
 
   echo "Configuring ChefKiss Inferno..."
   "${inferno_src}/configure" "${conf_args[@]}"

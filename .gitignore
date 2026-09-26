@@ -51,6 +51,9 @@ third_party/img4lib/
 third_party/qemu-build/
 third_party/qemu-build-win/
 third_party/qemu-install/
+third_party/inferno*/
+third_party/reims*/
+third_party/lzfse*/
 
 # Local OSX-KVM clone + Apple recovery images (fetch with fetch-macOS-v2.py)
 scripts/OSX-KVM/
