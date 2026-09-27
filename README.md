@@ -181,6 +181,7 @@ An asynchronous **QMP client** drives pause/resume, ACPI shutdown, reset, media 
 | **Intel macOS + Reims** | OpenCore + OVMF + OSK; **Reims** accel via WSL `qemu-system-reims3d` + Vulkan (**AMD and NVIDIA** on Windows) |
 | **Classic Mac OS (PPC)** | `mac99` / PowerPC profiles, no PC floppy nonsense |
 | **Solaris 11.4 / AIX / OS/2 / ReactOS** | Wizard defaults matching real QEMU flags (AIX = `ppc64`/`pseries`, TCG on Windows) |
+| **TrueNAS / ZFS (4Kn Native Disks)** | **4096-byte native sector emulation** — VMware & VirtualBox fail on 4Kn disks; AQEMU emulates 4Kn natively on raw/qcow2/VirtIO/NVMe |
 
 ### 6. Deeper QEMU without living in a shell
 
@@ -292,6 +293,44 @@ AQEMU integrates **steelbrain's `qemu-reims-vgpu`** so Intel macOS guests can us
 - Wizard profiles: **`macOS x86_64 vGPU (Reims)`** (and related Reims targets)
 - Computer type: `qemu-system-reimsvgpu` (AQEMU label) → WSL launch of **`qemu-system-reims3d`**
 - Defaults: q35, OpenCore/Intel macOS profile fields, `reims-vgpu-pci`, Launch via WSL enabled, embedded early-boot display
+
+---
+
+## 💾 Native 4096-Byte (4Kn) Sector Disks & TrueNAS / ZFS Emulation
+
+**The 4096-byte (4Kn) native sector disk niche is a killer feature for AQEMU:**
+
+- **VMware Workstation & VirtualBox**: Neither hypervisor supports native 4096-byte sector disks on standard virtual disks (they only emulate 512e / 512n).
+- **Hyper-V**: Hyper-V only supports 4Kn disks if you convert them to proprietary `.vhdx` containers.
+- **QEMU & AQEMU**: QEMU is the **only hypervisor** capable of natively emulating both 512B and 4096B logical and physical sector sizes across raw images, QCOW2 files, and VirtIO / NVMe / SCSI storage interfaces.
+
+### Why this matters
+Enterprise storage operating systems (such as **TrueNAS CORE**, **TrueNAS SCALE**, **FreeBSD**, and modern Linux distributions with native **ZFS pools**) frequently run on native 4Kn drives. When restoring or testing TrueNAS VM backups, other hypervisors fail because their virtual controllers force 512-byte logical sectors. 
+
+AQEMU provides end-to-end native 4Kn and 512e support everywhere:
+1. **New VM Wizard**: Choose `Default (512 Bytes / 512n)`, `4096 Bytes Native (4Kn - Advanced Format / TrueNAS / ZFS)`, or `512e` on both the Typical storage page and the Custom Devices page.
+2. **TrueNAS / ZFS Backup Import**: Attach existing disks directly in the wizard and immediately assign native 4096B sector size geometry without format conversion.
+3. **QCOW2 4K Cluster Alignment**: When creating new disk images in the New VM Wizard or via **File → New Disk Image**, choose `4 KB (4Kn / ZFS Aligned)` cluster size to perfectly match 4Kn sectors and ZFS record sizes, eliminating write amplification.
+4. **Properties Window**: Toggle or review sector formats (`512n`, `4Kn`, `512e`) directly on the **Hard Disk** properties tab with real-time bidirectional synchronization with Advanced Storage settings.
+5. **Intelligent Bus Elevation & Safety**: Automatically elevates storage buses to VirtIO, NVMe, or SCSI for native 4Kn, while gracefully clamping legacy IDE controllers to 512e to prevent QEMU initialization crashes.
+
+---
+
+## 🖥️ Display Canvas Auto-Stretch & Dynamic Resolution Scaling
+
+In AQEMU 1.3.1+, embedded SPICE and VNC sessions feature seamless auto-stretching:
+- **No Letterboxing or Black Borders**: The guest display dynamically scales to fill the entire application canvas during window resize, maximize, and fullscreen transitions.
+- **Dynamic In-Guest Resolution Changes**: In-guest resolution switches (e.g. from 640x480 boot splash to 1080p desktop) instantly propagate without requiring VM reboots or session reconnections.
+- **Aspect Ratio & DPI Awareness**: Automatic coordinate translation ensures mouse and touch pointers maintain pixel-perfect precision across all scaling modes and HiDPI displays.
+
+---
+
+## 🔌 VMware-Style Physical USB Pass-Through & Hotplug
+
+AQEMU now provides physical USB hardware redirection directly from the session toolbar while the VM is actively running:
+- **Hotplug Physical Devices**: Redirect USB flash drives, external HDDs, Wi-Fi adapters, and host-based printers (e.g. DDST / GDI laser printers) straight into guest operating systems (such as Windows 10/11 running on a Raspberry Pi 5 or Windows PC).
+- **Modern USB 3.0 XHCI Controller**: Automatically configures USB 3.0 XHCI virtualization (`aqemu_usb_hub.0`), replacing legacy EHCI/UHCI speed mismatch issues.
+- **Safety Guardrails**: Prevents accidental redirection of the host's primary mouse or keyboard to avoid host lockouts.
 
 ---
 
@@ -433,6 +472,10 @@ Details: [`third_party/README.md`](third_party/README.md).
 - **Solaris / AIX / OS/2 / ReactOS** wizard defaults that match real QEMU recipes
 - **Advanced QEMU options** — NUMA, TPM, migrate, SMBIOS, fw_cfg, blockdev graph, …
 - **WSL/KVM launch** path on Windows (probe `/dev/kvm` in Settings)
+- **Native 4096-Byte (4Kn) Sector Disks** — First-class emulation for 4Kn native sector disks and 512e across VirtIO, NVMe, and SCSI. A killer capability missing in VMware Workstation and VirtualBox, making AQEMU the premier hypervisor for running TrueNAS and ZFS VM backups.
+- **QCOW2 4K Cluster Alignment** — Create disk images with 4 KB cluster size alignment directly from the wizard or File menu to eliminate write amplification on 4Kn / ZFS workloads.
+- **Embedded Display Canvas Auto-Stretch** — Seamless full-canvas stretching without letterboxing, maintaining crisp aspect rendering and immediate adaptation to dynamic in-guest resolution changes.
+- **VMware-Style USB Passthrough** — Hotplug host physical USB hardware (printers, flash drives, security dongles) directly into running guests via the session toolbar with modern XHCI 3.0 controller support.
 - **Pi 5** optimizations (`-mcpu=cortex-a76`, 64KB page alignment, Wayland)
 - **Microsoft Store–ready** posture: GPLv2 source public, [privacy policy](PRIVACY.md), no proprietary OS media in the box
 

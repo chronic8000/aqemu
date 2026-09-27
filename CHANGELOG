@@ -1,3 +1,26 @@
+2026-09-27 Chronic Engineering — AQEMU 1.3.2 (4Kn Native Sector Disks & Multi-Platform QEMU Build System)
+
+	* Native 4096-Byte (4Kn) Sector Disk & 512e Emulation:
+	  - New VM Wizard: Added Sector Size selector (Default 512n, 4096B Native 4Kn, 512e)
+	    to both Typical storage page and Custom Devices page.
+	  - TrueNAS / ZFS Backup Compatibility: Directly import existing VM disks and assign
+	    native 4096B sector size geometry without format conversions.
+	  - Automatic Bus Elevation: Elevated legacy IDE disk buses to VirtIO when 4Kn is
+	    selected, and safely clamped IDE/AHCI to 512e mode to prevent QEMU startup errors.
+	  - Properties Window: Added dedicated Sector Size dropdown directly on the Hard Disk
+	    tab with bidirectional synchronization with Advanced Device settings.
+	  - Create HDD Image: Added QCOW2 cluster size & 4K alignment options (4 KB through 2 MB)
+	    to eliminate write amplification on 4Kn and ZFS record-size workloads.
+	  - Core Engine: Fixed QEMU CLI generation to emit block sizes exclusively to frontend
+	    -device options (virtio-blk-pci, nvme, scsi-hd) rather than backend -drive options.
+
+	* Multi-Platform QEMU Build Scripts & Special Targets:
+	  - Added unified build scripts for special QEMU targets (applesoc / ChefKiss Inferno
+	    and reims / steelbrain Reims vGPU) across Windows on ARM, Linux, and Windows x64.
+	  - Automated dependency resolution for lzfse, nettle, hogweed, gmp, and Meson/Ninja.
+	  - Automated recursive runtime DLL bundling for Windows x64 and ARM64 Snapdragon devices.
+	  - System tray icon scaling: Fixed Wayland / wf-panel-pi panel height bulging on Linux.
+
 2026-09-25 Chronic Engineering — AQEMU 1.3.1 (Embedded Canvas Scaling & Dynamic USB Overhaul)
 
 	* Embedded Display Canvas Auto-Stretch & Scaling:
