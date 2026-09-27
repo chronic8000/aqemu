@@ -61,6 +61,10 @@ public:
 	                         QString &error_msg,
 	                         std::function<void(int progress, const QString &status)> progress_cb = nullptr );
 
+	// Extract only the OVF descriptor from OVA without extracting disk payloads (fast inspection)
+	static bool Extract_OVF_Only( const QString &ova_path, const QString &dest_dir,
+	                             QString &out_ovf_path, QString &error_msg );
+
 	// Pack files into a standard POSIX ustar .ova archive
 	static bool Pack_OVA( const QStringList &file_paths, const QString &dest_ova_path,
 	                      QString &error_msg,

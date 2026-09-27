@@ -17,6 +17,8 @@
 #include <QApplication>
 #include <QProcess>
 #include <QTemporaryDir>
+#include <QJsonDocument>
+#include <QJsonObject>
 
 Appliance_Export_Window::Appliance_Export_Window( const QList<Virtual_Machine*> &vms, int current_index, QWidget *parent )
 	: QDialog( parent ), Available_VMs( vms )
@@ -187,6 +189,21 @@ bool Appliance_Export_Window::Execute_Export()
 		}
 	}
 
+	// Check all source disks exist up front (no incomplete exports)
+	QStringList missing_disks;
+	for( const QString &src : source_disks )
+	{
+		if( ! QFile::exists( src ) )
+			missing_disks << src;
+	}
+	if( ! missing_disks.isEmpty() )
+	{
+		QMessageBox::critical( this, tr( "Missing Disk File" ),
+		                      tr( "The following virtual disk file configured for this VM could not be found:\n%1\n\nExport cannot continue." )
+		                      .arg( missing_disks.join( QStringLiteral( "\n" ) ) ) );
+		return false;
+	}
+
 	QList<OVF_Disk> ovf_disks;
 	QStringList files_to_pack;
 
@@ -194,15 +211,29 @@ bool Appliance_Export_Window::Execute_Export()
 	for( int i = 0; i < source_disks.size(); ++i )
 	{
 		const QString src = source_disks[i];
-		if( ! QFile::exists( src ) )
-			continue;
-
 		const QString vmdk_name = QStringLiteral( "%1-disk%2.vmdk" ).arg( vm->Get_Machine_Name() ).arg( i + 1 );
 		const QString vmdk_path = QDir( temp_dir.path() ).filePath( vmdk_name );
 
 		Label_Status->setText( tr( "Converting disk %1 to VMDK..." ).arg( i + 1 ) );
 		Progress_Bar->setValue( ( i * 60 ) / qMax( 1, source_disks.size() ) );
 		QApplication::processEvents();
+
+		// Query true virtual disk capacity
+		qint64 virtual_size = 0;
+		QProcess info_proc;
+		info_proc.start( qemu_img, QStringList() << QStringLiteral( "info" ) << QStringLiteral( "--output=json" ) << src );
+		if( info_proc.waitForFinished( 5000 ) && info_proc.exitCode() == 0 )
+		{
+			const QJsonDocument doc = QJsonDocument::fromJson( info_proc.readAllStandardOutput() );
+			if( doc.isObject() )
+			{
+				virtual_size = doc.object().value( QStringLiteral( "virtual-size" ) ).toVariant().toLongLong();
+			}
+		}
+		if( virtual_size <= 0 )
+		{
+			virtual_size = QFileInfo( src ).size();
+		}
 
 		QStringList args;
 		args << QStringLiteral( "convert" )
@@ -233,7 +264,7 @@ bool Appliance_Export_Window::Execute_Export()
 		od.disk_id = QStringLiteral( "vmdisk%1" ).arg( i + 1 );
 		od.href = vmdk_name;
 		od.local_extracted_path = vmdk_path;
-		od.capacity_bytes = QFileInfo( src ).size();
+		od.capacity_bytes = virtual_size;
 		ovf_disks << od;
 		files_to_pack << vmdk_path;
 	}

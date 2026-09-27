@@ -212,11 +212,9 @@ void Appliance_Import_Window::On_Appliance_Path_Changed( const QString &path )
 
 	if( OVF_Parser::Is_OVA_Archive( trimmed ) )
 	{
-		// Extract OVA to temp to read the OVF
+		// Extract only the OVF descriptor to temp to inspect metadata (no disk extraction!)
 		QString out_ovf;
-		QStringList out_files;
-		temp_scan.setAutoRemove( false ); // Keep for inspection
-		if( ! OVF_Parser::Extract_OVA( trimmed, temp_scan.path(), out_ovf, out_files, err ) )
+		if( ! OVF_Parser::Extract_OVF_Only( trimmed, temp_scan.path(), out_ovf, err ) )
 		{
 			Label_Status->setText( tr( "Failed to inspect OVA: %1" ).arg( err ) );
 			Btn_Import->setEnabled( false );
@@ -300,8 +298,26 @@ void Appliance_Import_Window::On_Start_Import()
 
 bool Appliance_Import_Window::Execute_Extraction_And_Conversion()
 {
-	const QString vm_name = Edit_VM_Name->text().trimmed().isEmpty() ? QStringLiteral( "Imported_Appliance" ) : Edit_VM_Name->text().trimmed();
-	const QString dest_folder = QDir( Edit_Dest_Dir->text() ).filePath( vm_name );
+	QString vm_name = Edit_VM_Name->text().trimmed();
+	if( vm_name.isEmpty() )
+		vm_name = QStringLiteral( "Imported_Appliance" );
+	// Sanitize VM name against path escape
+	vm_name.remove( QLatin1Char( '/' ) );
+	vm_name.remove( QLatin1Char( '\\' ) );
+	vm_name.remove( QLatin1Char( ':' ) );
+	vm_name.replace( QStringLiteral( ".." ), QStringLiteral( "_" ) );
+	if( vm_name.isEmpty() )
+		vm_name = QStringLiteral( "Imported_Appliance" );
+
+	const QString base_dest = Edit_Dest_Dir->text().trimmed();
+	const QString dest_folder = QDir( base_dest ).filePath( vm_name );
+	const QString clean_dest = QDir::cleanPath( dest_folder );
+	const QString clean_base = QDir::cleanPath( base_dest );
+	if( ! clean_dest.startsWith( clean_base ) )
+	{
+		QMessageBox::critical( this, tr( "Invalid Destination" ), tr( "The destination folder escapes the configured directory." ) );
+		return false;
+	}
 	QDir().mkpath( dest_folder );
 
 	QString ovf_path;
@@ -335,6 +351,24 @@ bool Appliance_Import_Window::Execute_Extraction_And_Conversion()
 		ovf_path = Current_Appliance.ovf_file_path;
 	}
 
+	// Verify all referenced disks exist before continuing (no partial/broken imports)
+	QStringList missing_disks;
+	for( const OVF_Disk &d : Current_Appliance.disks )
+	{
+		const QString src_disk = d.local_extracted_path.isEmpty()
+			? QDir( QFileInfo( ovf_path ).absolutePath() ).filePath( d.href )
+			: d.local_extracted_path;
+		if( ! QFile::exists( src_disk ) )
+			missing_disks << ( d.href.isEmpty() ? src_disk : d.href );
+	}
+	if( ! missing_disks.isEmpty() )
+	{
+		QMessageBox::critical( this, tr( "Missing Disks" ),
+		                      tr( "The appliance references virtual disks that could not be found:\n%1\n\nImport aborted." )
+		                      .arg( missing_disks.join( QStringLiteral( "\n" ) ) ) );
+		return false;
+	}
+
 	const QString target_fmt = CB_Disk_Format->currentData().toString();
 	const bool convert_to_qcow2 = target_fmt.startsWith( QStringLiteral( "qcow2" ) );
 	const bool align_4k = ( target_fmt == QStringLiteral( "qcow2_4k" ) );
@@ -350,13 +384,6 @@ bool Appliance_Import_Window::Execute_Extraction_And_Conversion()
 		const QString src_disk = d.local_extracted_path.isEmpty()
 			? QDir( QFileInfo( ovf_path ).absolutePath() ).filePath( d.href )
 			: d.local_extracted_path;
-
-		if( ! QFile::exists( src_disk ) )
-		{
-			QMessageBox::warning( this, tr( "Disk Not Found" ),
-			                      tr( "Could not locate virtual disk file:\n%1" ).arg( src_disk ) );
-			continue;
-		}
 
 		if( convert_to_qcow2 )
 		{
@@ -404,20 +431,72 @@ bool Appliance_Import_Window::Execute_Extraction_And_Conversion()
 	// Create and register Virtual_Machine
 	Virtual_Machine *vm = new Virtual_Machine();
 	vm->Set_Machine_Name( vm_name );
-	vm->Set_Computer_Type( CB_Guest_OS->currentText() );
+
+	// Resolve valid emulator target for the guest OS
+	const QString profile = CB_Guest_OS->currentText();
+	QString qemu_target = QStringLiteral( "qemu-system-x86_64" );
+	if( profile.contains( QStringLiteral( "32-bit" ) ) || profile.contains( QStringLiteral( "MS-DOS" ) ) ||
+	    profile.contains( QStringLiteral( "Windows 9" ) ) )
+	{
+		qemu_target = QStringLiteral( "qemu-system-i386" );
+	}
+	else if( profile.contains( QStringLiteral( "ARM" ) ) || profile.contains( QStringLiteral( "aarch64" ) ) )
+	{
+		qemu_target = QStringLiteral( "qemu-system-aarch64" );
+	}
+	vm->Set_Computer_Type( qemu_target );
+	vm->Set_Machine_Type( qemu_target == QStringLiteral( "qemu-system-x86_64" ) ? QStringLiteral( "q35" ) : QStringLiteral( "pc" ) );
+	vm->Update_Current_Emulator_Devices();
 	vm->Set_SMP_CPU_Count( SB_CPU->value() );
 	vm->Set_Memory_Size( SB_RAM->value() );
-	vm->Set_Machine_Type( QStringLiteral( "q35" ) );
+
+	// Network Configuration
+	vm->Set_Use_Network( true );
+	VM_Net_Card net;
+	net.Set_Net_Mode( VM::Net_Mode_Usermode );
+	QString model = QStringLiteral( "e1000" );
+	if( ! Current_Appliance.networks.isEmpty() && ! Current_Appliance.networks.first().adapter_type.isEmpty() )
+	{
+		const QString a = Current_Appliance.networks.first().adapter_type.toLower();
+		if( a.contains( QStringLiteral( "virtio" ) ) )
+			model = QStringLiteral( "virtio-net-pci" );
+		else if( a.contains( QStringLiteral( "pcnet" ) ) )
+			model = QStringLiteral( "pcnet" );
+		else if( a.contains( QStringLiteral( "rtl" ) ) )
+			model = QStringLiteral( "rtl8139" );
+		else if( a.contains( QStringLiteral( "e1000" ) ) )
+			model = QStringLiteral( "e1000" );
+	}
+	net.Set_Card_Model( model );
+	vm->Add_Network_Card( net );
+
+	auto controller_to_interface = []( const QString &ctrl ) -> VM::Device_Interface {
+		const QString c = ctrl.toLower();
+		if( c == QStringLiteral( "sata" ) )
+			return VM::DI_AHCI;
+		if( c == QStringLiteral( "ide" ) )
+			return VM::DI_IDE;
+		if( c == QStringLiteral( "scsi" ) )
+			return VM::DI_SCSI;
+		if( c == QStringLiteral( "virtio" ) )
+			return VM::DI_Virtio;
+		return VM::DI_AHCI;
+	};
 
 	// Attach Disks
 	if( ! final_disk_paths.isEmpty() )
 	{
+		const QString c_type0 = Current_Appliance.disks.isEmpty() ? QString() : Current_Appliance.disks[0].controller_type;
+		const VM::Device_Interface iface0 = controller_to_interface( c_type0 );
+
 		VM_HDD hda( true, final_disk_paths.first() );
 		VM_Native_Storage_Device native;
 		native.Use_File_Path( true );
 		native.Set_File_Path( final_disk_paths.first() );
 		native.Use_Interface( true );
-		native.Set_Interface( VM::DI_Virtio );
+		native.Set_Interface( iface0 );
+		native.Use_Media( true );
+		native.Set_Media( VM::DM_Disk );
 		if( align_4k || CB_Guest_OS->currentText().contains( QStringLiteral( "TrueNAS" ), Qt::CaseInsensitive ) )
 		{
 			native.Use_Block_Size( true );
@@ -431,11 +510,14 @@ bool Appliance_Import_Window::Execute_Extraction_And_Conversion()
 		QList<VM_Native_Storage_Device> extra_storage;
 		for( int i = 1; i < final_disk_paths.size(); ++i )
 		{
+			const QString c_type = ( i < Current_Appliance.disks.size() ) ? Current_Appliance.disks[i].controller_type : QString();
+			const VM::Device_Interface sec_iface = controller_to_interface( c_type );
+
 			VM_Native_Storage_Device sec;
 			sec.Use_File_Path( true );
 			sec.Set_File_Path( final_disk_paths[i] );
 			sec.Use_Interface( true );
-			sec.Set_Interface( VM::DI_Virtio );
+			sec.Set_Interface( sec_iface );
 			sec.Use_Media( true );
 			sec.Set_Media( VM::DM_Disk );
 			if( align_4k || CB_Guest_OS->currentText().contains( QStringLiteral( "TrueNAS" ), Qt::CaseInsensitive ) )
@@ -451,10 +533,23 @@ bool Appliance_Import_Window::Execute_Extraction_And_Conversion()
 	}
 
 	// Save VM configuration XML
-	const QString vm_file_path = QDir( Settings.value( "VM_Directory", QDir::homePath() + "/.aqemu/" ).toString() )
-		.filePath( vm_name + QStringLiteral( ".aqemu" ) );
+	const QString vm_dir = Settings.value( "VM_Directory", QDir::homePath() + "/.aqemu/" ).toString();
+	const QString vm_file_path = QDir( vm_dir ).filePath( vm_name + QStringLiteral( ".aqemu" ) );
+	const QString clean_vm_path = QDir::cleanPath( vm_file_path );
+	if( ! clean_vm_path.startsWith( QDir::cleanPath( vm_dir ) ) )
+	{
+		delete vm;
+		QMessageBox::critical( this, tr( "Path Error" ), tr( "VM configuration path escapes the VM directory." ) );
+		return false;
+	}
+
 	vm->Set_VM_XML_File_Path( vm_file_path );
-	vm->Save_VM( vm_file_path );
+	if( ! vm->Save_VM( vm_file_path ) )
+	{
+		delete vm;
+		QMessageBox::critical( this, tr( "Save Error" ), tr( "Failed to save the imported virtual machine configuration to '%1'." ).arg( vm_file_path ) );
+		return false;
+	}
 
 	Imported_VM = vm;
 	Progress_Bar->setValue( 100 );

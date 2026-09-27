@@ -65,6 +65,22 @@ static qint64 Parse_Octal( const char *str, int max_len )
 	return val;
 }
 
+static bool Checked_Write( QFile &out, const char *data, qint64 len, QString &err )
+{
+	qint64 total = 0;
+	while( total < len )
+	{
+		const qint64 w = out.write( data + total, len - total );
+		if( w <= 0 )
+		{
+			err = out.errorString();
+			return false;
+		}
+		total += w;
+	}
+	return true;
+}
+
 bool OVF_Parser::Extract_OVA( const QString &ova_path, const QString &dest_dir,
                              QString &out_ovf_path, QStringList &out_extracted_files,
                              QString &error_msg,
@@ -81,6 +97,7 @@ bool OVF_Parser::Extract_OVA( const QString &ova_path, const QString &dest_dir,
 	if( ! dir.exists() )
 		dir.mkpath( QStringLiteral( "." ) );
 
+	const QString canonical_dest = QFileInfo( dest_dir ).canonicalFilePath();
 	const qint64 total_size = file.size();
 	qint64 processed_bytes = 0;
 
@@ -112,22 +129,40 @@ bool OVF_Parser::Extract_OVA( const QString &ova_path, const QString &dest_dir,
 		if( name.isEmpty() )
 			continue;
 
+		// Security: Path traversal validation
+		const QString clean_name = QDir::cleanPath( name );
+		if( clean_name.startsWith( QLatin1String( "/" ) ) ||
+		    clean_name.startsWith( QLatin1String( "../" ) ) ||
+		    clean_name.contains( QLatin1String( "/../" ) ) ||
+		    clean_name.contains( QLatin1Char( ':' ) ) )
+		{
+			error_msg = QObject::tr( "Security: Invalid or traversing file path in OVA archive: '%1'" ).arg( name );
+			return false;
+		}
+
 		const qint64 entry_size = Parse_Octal( hdr.size, 12 );
 		const char type = hdr.typeflag;
+		const QString out_file_path = dir.filePath( clean_name );
 
-		const QString out_file_path = dir.filePath( name );
+		// Security: Ensure target path canonical parent remains inside destination
+		const QFileInfo target_info( out_file_path );
+		const QString parent_path = target_info.absolutePath();
+		QDir().mkpath( parent_path );
+		const QString canonical_parent = QFileInfo( parent_path ).canonicalFilePath();
+		if( ! canonical_parent.startsWith( canonical_dest ) && canonical_parent != canonical_dest )
+		{
+			error_msg = QObject::tr( "Security: Archive member '%1' escapes destination folder." ).arg( name );
+			return false;
+		}
 
 		if( type == '5' || name.endsWith( QLatin1Char( '/' ) ) )
 		{
 			// Directory entry
-			dir.mkpath( name );
+			QDir().mkpath( out_file_path );
 		}
 		else
 		{
 			// Regular file
-			QFileInfo fi( out_file_path );
-			dir.mkpath( fi.path() );
-
 			QFile out_file( out_file_path );
 			if( ! out_file.open( QIODevice::WriteOnly | QIODevice::Truncate ) )
 			{
@@ -147,9 +182,18 @@ bool OVF_Parser::Extract_OVA( const QString &ova_path, const QString &dest_dir,
 				if( bytes_read <= 0 )
 				{
 					error_msg = QObject::tr( "Unexpected end of archive while reading '%1'" ).arg( name );
+					out_file.close();
+					QFile::remove( out_file_path );
 					return false;
 				}
-				out_file.write( buffer.constData(), bytes_read );
+				const qint64 written = out_file.write( buffer.constData(), bytes_read );
+				if( written != bytes_read )
+				{
+					error_msg = QObject::tr( "Disk write error while extracting '%1': %2" ).arg( name, out_file.errorString() );
+					out_file.close();
+					QFile::remove( out_file_path );
+					return false;
+				}
 				remaining -= bytes_read;
 				processed_bytes += bytes_read;
 
@@ -158,6 +202,14 @@ bool OVF_Parser::Extract_OVA( const QString &ova_path, const QString &dest_dir,
 					const int pct = qBound( 0, static_cast<int>( ( processed_bytes * 100 ) / total_size ), 100 );
 					progress_cb( pct, QObject::tr( "Extracting %1..." ).arg( name ) );
 				}
+			}
+			out_file.flush();
+			if( out_file.error() != QFile::NoError )
+			{
+				error_msg = QObject::tr( "File error flushing '%1': %2" ).arg( name, out_file.errorString() );
+				out_file.close();
+				QFile::remove( out_file_path );
+				return false;
 			}
 			out_file.close();
 
@@ -174,7 +226,6 @@ bool OVF_Parser::Extract_OVA( const QString &ova_path, const QString &dest_dir,
 
 	if( out_ovf_path.isEmpty() )
 	{
-		// Search for any extracted .ovf
 		for( const QString &f : out_extracted_files )
 		{
 			if( f.endsWith( QStringLiteral( ".ovf" ), Qt::CaseInsensitive ) )
@@ -194,6 +245,95 @@ bool OVF_Parser::Extract_OVA( const QString &ova_path, const QString &dest_dir,
 	return true;
 }
 
+bool OVF_Parser::Extract_OVF_Only( const QString &ova_path, const QString &dest_dir,
+                                  QString &out_ovf_path, QString &error_msg )
+{
+	QFile file( ova_path );
+	if( ! file.open( QIODevice::ReadOnly ) )
+	{
+		error_msg = QObject::tr( "Cannot open OVA archive: %1" ).arg( file.errorString() );
+		return false;
+	}
+
+	QDir dir( dest_dir );
+	if( ! dir.exists() )
+		dir.mkpath( QStringLiteral( "." ) );
+
+	TarUStarHeader hdr;
+	while( file.read( reinterpret_cast<char*>( &hdr ), 512 ) == 512 )
+	{
+		bool all_zero = true;
+		const char *raw = reinterpret_cast<const char*>( &hdr );
+		for( int i = 0; i < 512; ++i )
+		{
+			if( raw[i] != 0 ) { all_zero = false; break; }
+		}
+		if( all_zero ) break;
+
+		QString name = QString::fromLatin1( hdr.name, qstrnlen( hdr.name, 100 ) ).trimmed();
+		if( hdr.prefix[0] != '\0' )
+		{
+			const QString prefix = QString::fromLatin1( hdr.prefix, qstrnlen( hdr.prefix, 155 ) ).trimmed();
+			if( ! prefix.isEmpty() )
+				name = prefix + QStringLiteral( "/" ) + name;
+		}
+
+		const qint64 entry_size = Parse_Octal( hdr.size, 12 );
+		const qint64 pad = ( 512 - ( entry_size % 512 ) ) % 512;
+
+		if( name.endsWith( QStringLiteral( ".ovf" ), Qt::CaseInsensitive ) )
+		{
+			const QString clean_name = QFileInfo( name ).fileName();
+			const QString target_path = dir.filePath( clean_name );
+
+			QFile out_file( target_path );
+			if( ! out_file.open( QIODevice::WriteOnly | QIODevice::Truncate ) )
+			{
+				error_msg = QObject::tr( "Cannot create file '%1': %2" ).arg( target_path, out_file.errorString() );
+				return false;
+			}
+
+			qint64 remaining = entry_size;
+			constexpr qint64 chunk_size = 64 * 1024;
+			QByteArray buffer;
+			buffer.resize( chunk_size );
+
+			while( remaining > 0 )
+			{
+				const qint64 to_read = qMin( remaining, chunk_size );
+				const qint64 bytes_read = file.read( buffer.data(), to_read );
+				if( bytes_read <= 0 )
+				{
+					error_msg = QObject::tr( "Premature EOF reading OVF descriptor." );
+					out_file.close();
+					QFile::remove( target_path );
+					return false;
+				}
+				if( out_file.write( buffer.constData(), bytes_read ) != bytes_read )
+				{
+					error_msg = QObject::tr( "Write failed for OVF descriptor." );
+					out_file.close();
+					QFile::remove( target_path );
+					return false;
+				}
+				remaining -= bytes_read;
+			}
+			out_file.flush();
+			out_file.close();
+			out_ovf_path = target_path;
+			return true; // Fast return: only the OVF descriptor was extracted!
+		}
+		else
+		{
+			// Skip this entry in the archive without reading disk data
+			file.seek( file.pos() + entry_size + pad );
+		}
+	}
+
+	error_msg = QObject::tr( "No .ovf descriptor found in the OVA archive." );
+	return false;
+}
+
 bool OVF_Parser::Pack_OVA( const QStringList &file_paths, const QString &dest_ova_path,
                           QString &error_msg,
                           std::function<void(int progress, const QString &status)> progress_cb )
@@ -209,8 +349,14 @@ bool OVF_Parser::Pack_OVA( const QStringList &file_paths, const QString &dest_ov
 	for( const QString &fp : file_paths )
 	{
 		QFileInfo fi( fp );
-		if( fi.exists() )
-			total_bytes += fi.size();
+		if( ! fi.exists() )
+		{
+			error_msg = QObject::tr( "File to package does not exist: %1" ).arg( fp );
+			out_archive.close();
+			QFile::remove( dest_ova_path );
+			return false;
+		}
+		total_bytes += fi.size();
 	}
 
 	qint64 written_bytes = 0;
@@ -221,6 +367,8 @@ bool OVF_Parser::Pack_OVA( const QStringList &file_paths, const QString &dest_ov
 		if( ! in_file.open( QIODevice::ReadOnly ) )
 		{
 			error_msg = QObject::tr( "Cannot read file '%1': %2" ).arg( fp, in_file.errorString() );
+			out_archive.close();
+			QFile::remove( dest_ova_path );
 			return false;
 		}
 
@@ -241,7 +389,7 @@ bool OVF_Parser::Pack_OVA( const QStringList &file_paths, const QString &dest_ov
 		hdr.typeflag = '0';
 		std::memcpy( hdr.magic, "ustar  ", 6 );
 
-		// Checksum: sum of all bytes in header with checksum field treated as 8 spaces ' '
+		// Checksum
 		std::memset( hdr.chksum, ' ', sizeof( hdr.chksum ) );
 		unsigned int sum = 0;
 		const unsigned char *raw = reinterpret_cast<const unsigned char*>( &hdr );
@@ -249,7 +397,14 @@ bool OVF_Parser::Pack_OVA( const QStringList &file_paths, const QString &dest_ov
 			sum += raw[i];
 		std::snprintf( hdr.chksum, sizeof( hdr.chksum ), "%06o", sum );
 
-		out_archive.write( reinterpret_cast<const char*>( &hdr ), 512 );
+		QString write_err;
+		if( ! Checked_Write( out_archive, reinterpret_cast<const char*>( &hdr ), 512, write_err ) )
+		{
+			error_msg = QObject::tr( "Failed to write TAR header for '%1': %2" ).arg( name, write_err );
+			out_archive.close();
+			QFile::remove( dest_ova_path );
+			return false;
+		}
 
 		constexpr qint64 chunk_size = 1024 * 1024;
 		QByteArray buf;
@@ -261,8 +416,19 @@ bool OVF_Parser::Pack_OVA( const QStringList &file_paths, const QString &dest_ov
 			const qint64 to_read = qMin( remaining, chunk_size );
 			const qint64 bytes_read = in_file.read( buf.data(), to_read );
 			if( bytes_read <= 0 )
-				break;
-			out_archive.write( buf.constData(), bytes_read );
+			{
+				error_msg = QObject::tr( "Premature EOF reading file '%1'" ).arg( name );
+				out_archive.close();
+				QFile::remove( dest_ova_path );
+				return false;
+			}
+			if( ! Checked_Write( out_archive, buf.constData(), bytes_read, write_err ) )
+			{
+				error_msg = QObject::tr( "Failed to write payload for '%1': %2" ).arg( name, write_err );
+				out_archive.close();
+				QFile::remove( dest_ova_path );
+				return false;
+			}
 			remaining -= bytes_read;
 			written_bytes += bytes_read;
 
@@ -277,15 +443,29 @@ bool OVF_Parser::Pack_OVA( const QStringList &file_paths, const QString &dest_ov
 		if( pad > 0 )
 		{
 			const QByteArray zero_pad( pad, '\0' );
-			out_archive.write( zero_pad );
+			if( ! Checked_Write( out_archive, zero_pad.constData(), pad, write_err ) )
+			{
+				error_msg = QObject::tr( "Failed to write TAR padding for '%1': %2" ).arg( name, write_err );
+				out_archive.close();
+				QFile::remove( dest_ova_path );
+				return false;
+			}
 		}
 	}
 
 	// Two 512-byte zero blocks terminate archive
 	const QByteArray end_pad( 1024, '\0' );
-	out_archive.write( end_pad );
-	out_archive.close();
+	QString write_err;
+	if( ! Checked_Write( out_archive, end_pad.constData(), 1024, write_err ) )
+	{
+		error_msg = QObject::tr( "Failed to write TAR termination blocks: %1" ).arg( write_err );
+		out_archive.close();
+		QFile::remove( dest_ova_path );
+		return false;
+	}
 
+	out_archive.flush();
+	out_archive.close();
 	return true;
 }
 
@@ -311,8 +491,38 @@ bool OVF_Parser::Parse_OVF( const QString &ovf_path, OVF_Appliance &appliance, Q
 
 	QMap<QString, OVF_File_Ref> file_refs;
 	QMap<QString, OVF_Disk> disks_by_id;
+	QMap<QString, QString> controller_types; // instance_id -> controller type
 
 	int cim_os_id = -1;
+
+	auto sanitize_and_resolve_disk = [&]( OVF_Disk &disk ) -> bool {
+		if( file_refs.contains( disk.file_ref ) )
+		{
+			QString clean_href = file_refs.value( disk.file_ref ).href;
+			clean_href = QDir::cleanPath( clean_href );
+			if( clean_href.startsWith( QLatin1Char( '/' ) ) ||
+			    clean_href.startsWith( QLatin1Char( '\\' ) ) ||
+			    clean_href.contains( QStringLiteral( ".." ) ) ||
+			    ( clean_href.length() >= 2 && clean_href[1] == QLatin1Char( ':' ) ) )
+			{
+				clean_href = QFileInfo( clean_href ).fileName();
+			}
+			disk.href = clean_href;
+			const QString resolved = QDir( appliance.base_dir ).filePath( clean_href );
+			const QString canonical_base = QFileInfo( appliance.base_dir ).canonicalFilePath();
+			if( ! canonical_base.isEmpty() )
+			{
+				QFileInfo fi_res( resolved );
+				if( fi_res.exists() && ! fi_res.canonicalFilePath().startsWith( canonical_base ) )
+				{
+					error_msg = QObject::tr( "Untrusted disk reference '%1' escapes appliance directory." ).arg( disk.href );
+					return false;
+				}
+			}
+			disk.local_extracted_path = resolved;
+		}
+		return true;
+	};
 
 	QXmlStreamReader xml( &file );
 	while( ! xml.atEnd() && ! xml.hasError() )
@@ -376,19 +586,30 @@ bool OVF_Parser::Parse_OVF( const QString &ovf_path, OVF_Appliance &appliance, Q
 			const QString vbox_os = xml.attributes().value( QStringLiteral( "http://www.virtualbox.org/ovf/machine" ), QStringLiteral( "ostype" ) ).toString();
 			if( ! vbox_os.isEmpty() )
 				appliance.os_type_raw = vbox_os;
-		}
-		else if( tag == QLatin1String( "Description" ) )
-		{
-			if( appliance.os_type_raw.isEmpty() )
-				appliance.os_type_raw = xml.readElementText().trimmed();
+
+			while( ! xml.atEnd() && ! ( xml.isEndElement() && xml.name() == QLatin1String( "OperatingSystemSection" ) ) )
+			{
+				xml.readNext();
+				if( xml.isStartElement() && xml.name() == QLatin1String( "Description" ) )
+				{
+					const QString desc = xml.readElementText().trimmed();
+					if( appliance.os_type_raw.isEmpty() )
+						appliance.os_type_raw = desc;
+				}
+			}
 		}
 		else if( tag == QLatin1String( "Item" ) )
 		{
 			// Parse virtual hardware items
 			int res_type = -1;
 			qint64 quantity = 0;
+			QString instance_id;
+			QString parent_id;
+			QString address_on_parent;
 			QString host_res;
 			QString caption;
+			QString res_sub_type;
+			QString connection;
 
 			while( ! xml.atEnd() && ! ( xml.isEndElement() && xml.name() == QLatin1String( "Item" ) ) )
 			{
@@ -400,6 +621,16 @@ bool OVF_Parser::Parse_OVF( const QString &ovf_path, OVF_Appliance &appliance, Q
 						res_type = xml.readElementText().toInt();
 					else if( sub == QLatin1String( "VirtualQuantity" ) )
 						quantity = xml.readElementText().toLongLong();
+					else if( sub == QLatin1String( "InstanceId" ) || sub == QLatin1String( "InstanceID" ) )
+						instance_id = xml.readElementText().trimmed();
+					else if( sub == QLatin1String( "Parent" ) )
+						parent_id = xml.readElementText().trimmed();
+					else if( sub == QLatin1String( "AddressOnParent" ) )
+						address_on_parent = xml.readElementText().trimmed();
+					else if( sub == QLatin1String( "ResourceSubType" ) )
+						res_sub_type = xml.readElementText().trimmed();
+					else if( sub == QLatin1String( "Connection" ) )
+						connection = xml.readElementText().trimmed();
 					else if( sub == QLatin1String( "HostResource" ) )
 						host_res = xml.readElementText().trimmed();
 					else if( sub == QLatin1String( "Caption" ) )
@@ -408,9 +639,36 @@ bool OVF_Parser::Parse_OVF( const QString &ovf_path, OVF_Appliance &appliance, Q
 			}
 
 			if( res_type == 3 && quantity > 0 ) // CPU
+			{
 				appliance.cpu_count = static_cast<int>( quantity );
+			}
 			else if( res_type == 4 && quantity > 0 ) // Memory
+			{
 				appliance.memory_mb = static_cast<int>( quantity );
+			}
+			else if( res_type == 5 ) // IDE Controller
+			{
+				if( ! instance_id.isEmpty() )
+					controller_types.insert( instance_id, QStringLiteral( "ide" ) );
+			}
+			else if( res_type == 6 ) // SCSI Controller
+			{
+				if( ! instance_id.isEmpty() )
+					controller_types.insert( instance_id, QStringLiteral( "scsi" ) );
+			}
+			else if( res_type == 20 ) // SATA Controller
+			{
+				if( ! instance_id.isEmpty() )
+					controller_types.insert( instance_id, QStringLiteral( "sata" ) );
+			}
+			else if( res_type == 10 ) // Ethernet Adapter
+			{
+				OVF_Network net;
+				net.name = caption.isEmpty() ? QStringLiteral( "Ethernet" ) : caption;
+				net.connection = connection;
+				net.adapter_type = res_sub_type.isEmpty() ? QStringLiteral( "e1000" ) : res_sub_type;
+				appliance.networks.append( net );
+			}
 			else if( res_type == 17 ) // Hard disk
 			{
 				QString disk_id;
@@ -422,11 +680,10 @@ bool OVF_Parser::Parse_OVF( const QString &ovf_path, OVF_Appliance &appliance, Q
 				if( disks_by_id.contains( disk_id ) )
 				{
 					OVF_Disk d = disks_by_id.value( disk_id );
-					if( file_refs.contains( d.file_ref ) )
-					{
-						d.href = file_refs.value( d.file_ref ).href;
-						d.local_extracted_path = QDir( appliance.base_dir ).filePath( d.href );
-					}
+					d.controller_type = controller_types.value( parent_id, QStringLiteral( "sata" ) );
+					d.unit = address_on_parent.toInt();
+					if( ! sanitize_and_resolve_disk( d ) )
+						return false;
 					appliance.disks.append( d );
 				}
 			}
@@ -445,11 +702,9 @@ bool OVF_Parser::Parse_OVF( const QString &ovf_path, OVF_Appliance &appliance, Q
 		for( auto it = disks_by_id.constBegin(); it != disks_by_id.constEnd(); ++it )
 		{
 			OVF_Disk d = it.value();
-			if( file_refs.contains( d.file_ref ) )
-			{
-				d.href = file_refs.value( d.file_ref ).href;
-				d.local_extracted_path = QDir( appliance.base_dir ).filePath( d.href );
-			}
+			d.controller_type = QStringLiteral( "sata" );
+			if( ! sanitize_and_resolve_disk( d ) )
+				return false;
 			appliance.disks.append( d );
 		}
 	}
@@ -579,10 +834,34 @@ QString OVF_Parser::Generate_OVF_XML( const Virtual_Machine &vm, const QList<OVF
 	xml.writeTextElement( QStringLiteral( "Name" ), vm_name );
 
 	// OperatingSystemSection
+	int cim_os_id = 101; // Linux default
+	const QString mname = vm.Get_Machine_Name().toLower();
+	if( mname.contains( QStringLiteral( "win 11" ) ) || mname.contains( QStringLiteral( "win11" ) ) ||
+	    mname.contains( QStringLiteral( "win 10" ) ) || mname.contains( QStringLiteral( "win10" ) ) )
+	{
+		cim_os_id = 116;
+	}
+	else if( mname.contains( QStringLiteral( "win 7" ) ) || mname.contains( QStringLiteral( "win7" ) ) )
+	{
+		cim_os_id = 103;
+	}
+	else if( mname.contains( QStringLiteral( "winxp" ) ) || mname.contains( QStringLiteral( "windows xp" ) ) )
+	{
+		cim_os_id = 70;
+	}
+	else if( mname.contains( QStringLiteral( "freebsd" ) ) || mname.contains( QStringLiteral( "truenas" ) ) )
+	{
+		cim_os_id = 36;
+	}
+	else if( mname.contains( QStringLiteral( "dos" ) ) )
+	{
+		cim_os_id = 1;
+	}
+
 	xml.writeStartElement( QStringLiteral( "OperatingSystemSection" ) );
-	xml.writeAttribute( QStringLiteral( "ovf:id" ), QStringLiteral( "102" ) ); // other/generic
+	xml.writeAttribute( QStringLiteral( "ovf:id" ), QString::number( cim_os_id ) );
 	xml.writeTextElement( QStringLiteral( "Info" ), QStringLiteral( "Guest Operating System" ) );
-	xml.writeTextElement( QStringLiteral( "Description" ), vm.Get_Computer_Type().isEmpty() ? vm_name : vm.Get_Computer_Type() );
+	xml.writeTextElement( QStringLiteral( "Description" ), vm.Get_Machine_Name().isEmpty() ? QStringLiteral( "Generic Guest" ) : vm.Get_Machine_Name() );
 	xml.writeEndElement(); // OperatingSystemSection
 
 	// VirtualHardwareSection
@@ -608,6 +887,15 @@ QString OVF_Parser::Generate_OVF_XML( const Virtual_Machine &vm, const QList<OVF
 	xml.writeTextElement( QStringLiteral( "rasd:AllocationUnits" ), QStringLiteral( "MegaBytes" ) );
 	xml.writeTextElement( QStringLiteral( "rasd:VirtualQuantity" ), QString::number( vm.Get_Memory_Size() ) );
 	xml.writeEndElement(); // Item (Memory)
+
+	// Network Adapter Item
+	xml.writeStartElement( QStringLiteral( "Item" ) );
+	xml.writeTextElement( QStringLiteral( "rasd:Caption" ), QStringLiteral( "Ethernet adapter on 'NAT'" ) );
+	xml.writeTextElement( QStringLiteral( "rasd:Connection" ), QStringLiteral( "NAT" ) );
+	xml.writeTextElement( QStringLiteral( "rasd:InstanceID" ), QString::number( instance_id++ ) );
+	xml.writeTextElement( QStringLiteral( "rasd:ResourceType" ), QStringLiteral( "10" ) ); // Ethernet Adapter
+	xml.writeTextElement( QStringLiteral( "rasd:ResourceSubType" ), QStringLiteral( "e1000" ) );
+	xml.writeEndElement(); // Item (Network)
 
 	// Storage Controller Item
 	const int controller_id = instance_id++;

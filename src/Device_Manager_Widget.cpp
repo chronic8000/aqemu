@@ -347,14 +347,19 @@ void Device_Manager_Widget::Update_Enabled_Actions()
 		else
 		{
 			bool found = false;
-			
-			for( int fx = 0; fx < 32; ++fx )
+			const QString dev_tag = ui.Devices_List->currentItem()->data(512).toString();
+			if( dev_tag.startsWith( QLatin1String("device") ) )
 			{
-				if( ui.Devices_List->currentItem()->data(512).toString() == "device" + QString::number(fx) )
+				bool ok = false;
+				int fx = dev_tag.mid(6).toInt( &ok );
+				if( ok && fx >= 0 && fx < Storage_Devices.count() )
 				{
 					found = true;
-					
-					ui.Label_Connected_To->setText( tr("Type: Storage Device") );
+					const VM_Native_Storage_Device &sd = Storage_Devices[fx];
+					if( sd.Use_Media() && sd.Get_Media() == VM::DM_CD_ROM )
+						ui.Label_Connected_To->setText( tr("Type: Optical Drive") );
+					else
+						ui.Label_Connected_To->setText( tr("Type: Storage Device") );
 					
 					ui.TB_Edit_Device->setEnabled( true );
 					ui.actionProperties->setEnabled( true );
@@ -485,18 +490,18 @@ void Device_Manager_Widget::on_Devices_List_customContextMenuRequested( const QP
 		else
 		{
 			bool found = false;
-			
-			for( int fx = 0; fx < 32; ++fx )
+			const QString dev_tag = ui.Devices_List->currentItem()->data(512).toString();
+			if( dev_tag.startsWith( QLatin1String("device") ) )
 			{
-				if( ui.Devices_List->currentItem()->data(512).toString() == "device" + QString::number(fx) )
+				bool ok = false;
+				int fx = dev_tag.mid(6).toInt( &ok );
+				if( ok && fx >= 0 && fx < Storage_Devices.count() )
 				{
 					found = true;
 					
 					Context_Menu = new QMenu( ui.Devices_List );
-					
 					Context_Menu->addAction( ui.actionProperties );
 					Context_Menu->addAction( ui.actionDelete );
-					
 					Context_Menu->exec( ui.Devices_List->mapToGlobal(pos) );
 				}
 			}

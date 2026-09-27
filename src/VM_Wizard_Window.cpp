@@ -4414,6 +4414,7 @@ void VM_Wizard_Window::on_Button_Next_clicked()
 			Appliance_Import_Window import_win( this );
 			if( import_win.exec() == QDialog::Accepted && import_win.Get_Imported_VM() != nullptr )
 			{
+				delete New_VM;
 				New_VM = import_win.Get_Imported_VM();
 				accept();
 			}
