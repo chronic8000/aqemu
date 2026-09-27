@@ -1,3 +1,22 @@
+2026-09-27 Chronic Engineering — AQEMU 1.3.3 (TrueNAS OS Profiles, 4Kn Automation & Official Web Tour)
+
+	* TrueNAS CORE & TrueNAS SCALE Operating System Profiles:
+	  - New VM Wizard: Added dedicated "TrueNAS / Storage" category alongside BSD and
+	    Linux entries for "TrueNAS CORE" and "TrueNAS SCALE".
+	  - Automated 4Kn Geometry: TrueNAS profiles automatically default to 4096-byte (4Kn)
+	    native sector size and Q35 + VirtIO disk/net architecture for maximum ZFS performance.
+	  - Intelligent ISO Guessing: Auto-detects TrueNAS CORE, TrueNAS SCALE, and FreeNAS
+	    installer ISOs from ISO9660 volume headers and file naming patterns.
+	  - OS Branding & Icons: Mapped TrueNAS CORE to FreeBSD icon and TrueNAS SCALE to Debian icon.
+
+	* Official Promotion Website & Store Licensing Documentation:
+	  - Launched modern GitHub Pages website at https://chronic8000.github.io/aqemu
+	    featuring interactive feature tour, 4Kn vs VMware/VirtualBox benchmark matrix,
+	    iOS on Windows 11 showcase, and live screenshot gallery.
+	  - Comprehensive Microsoft Store Purchasing & Offline Licensing FAQ: Documented
+	    100% offline usage (no DRM or connectivity required), multi-PC installation,
+	    logout persistence, automatic updates, and GPLv2 open-source transparency.
+
 2026-09-27 Chronic Engineering — AQEMU 1.3.2 (4Kn Native Sector Disks & Multi-Platform QEMU Build System)
 
 	* Native 4096-Byte (4Kn) Sector Disk & 512e Emulation:

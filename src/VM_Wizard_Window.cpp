@@ -1548,6 +1548,23 @@ void VM_Wizard_Window::Apply_OS_Defaults( const QString &os_name )
 		if( has_flag( "win2k_hack" ) )
 			Guest_Suggest_Win2K_Hack = true;
 
+		if( has_flag( "4kn_default" ) || os_name.contains( "TrueNAS", Qt::CaseInsensitive ) )
+		{
+			Guest_Sector_Size = QStringLiteral( "4096" );
+			if( CB_Typical_Sector_Size )
+				CB_Typical_Sector_Size->setCurrentIndex( 1 );
+			if( CB_Dev_Sector_Size )
+				CB_Dev_Sector_Size->setCurrentIndex( 1 );
+		}
+		else
+		{
+			Guest_Sector_Size = QStringLiteral( "512" );
+			if( CB_Typical_Sector_Size )
+				CB_Typical_Sector_Size->setCurrentIndex( 0 );
+			if( CB_Dev_Sector_Size )
+				CB_Dev_Sector_Size->setCurrentIndex( 0 );
+		}
+
 		if( has_flag( "host_default" ) || Selected_Target == "host" )
 		{
 			Selected_Target = host_arm ? "aarch64" : "x86_64";
@@ -2887,6 +2904,9 @@ void VM_Wizard_Window::Refresh_Devices_Page()
 		CB_Dev_Sector_Size->addItem( tr( "4096 Bytes Native (4Kn - Advanced Format / TrueNAS / ZFS)" ), QStringLiteral( "4096" ) );
 		CB_Dev_Sector_Size->addItem( tr( "512e (512B Logical / 4096B Physical)" ), QStringLiteral( "512e" ) );
 		CB_Dev_Sector_Size->setToolTip( tr( "Native 4096-byte (4Kn) sector size allows booting and running 4K-native disks (e.g. TrueNAS ZFS pools). Supported natively on VirtIO, NVMe, and SCSI." ) );
+	}
+	if( CB_Dev_Sector_Size )
+	{
 		if( Guest_Sector_Size == "4096" )
 			CB_Dev_Sector_Size->setCurrentIndex( 1 );
 		else if( Guest_Sector_Size == "512e" )
@@ -3338,6 +3358,15 @@ void VM_Wizard_Window::Apply_Apple_Nand_HDD_Page_Mode()
 void VM_Wizard_Window::Show_Typical_HDD_Page()
 {
 	Apply_Apple_Nand_HDD_Page_Mode();
+	if( CB_Typical_Sector_Size )
+	{
+		if( Guest_Sector_Size == "4096" )
+			CB_Typical_Sector_Size->setCurrentIndex( 1 );
+		else if( Guest_Sector_Size == "512e" )
+			CB_Typical_Sector_Size->setCurrentIndex( 2 );
+		else
+			CB_Typical_Sector_Size->setCurrentIndex( 0 );
+	}
 	ui.Wizard_Pages->setCurrentWidget( ui.Typical_HDD_Page );
 	ui.Label_Page->setText( Is_Apple_Silicon_Or_iOS_Template()
 		? tr( "NAND (root) size" )
@@ -6031,6 +6060,19 @@ QString VM_Wizard_Window::Find_OS_Icon( const QString os_name )
 	}
 
 	// select os family...
+
+	// TrueNAS / FreeNAS
+	if( os_name.contains( "truenas scale", Qt::CaseInsensitive ) )
+	{
+		QString p = icons_dir.filePath( "debian.png" );
+		if( QFile::exists( p ) ) return p;
+	}
+	if( os_name.contains( "truenas", Qt::CaseInsensitive ) ||
+	    os_name.contains( "freenas", Qt::CaseInsensitive ) )
+	{
+		QString p = icons_dir.filePath( "freebsd.png" );
+		if( QFile::exists( p ) ) return p;
+	}
 
 	// Linux
 	rex.setPattern( "*linux*" );
