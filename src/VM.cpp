@@ -9864,7 +9864,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		if( Embedded_VNC_Port >= 5901 )
 		{
 			const int vnc_disp = Embedded_VNC_Port - 5900;
-			Args << "-vnc" << QString( "127.0.0.1:%1" ).arg( vnc_disp );
+			Args << "-vnc" << QString( "127.0.0.1:%1,non-adaptive=on" ).arg( vnc_disp );
 		}
 	}
 	else if( ! force_headless_embed &&

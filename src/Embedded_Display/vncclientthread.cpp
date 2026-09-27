@@ -221,6 +221,15 @@ rfbBool VncClientThread::newclient()
     SetFormatAndEncodings(cl);
     SendCleanQEMUEncodings(cl);
 
+    if (cl && cl->sock >= 0) {
+        int one = 1;
+#ifdef Q_OS_WIN
+        setsockopt(cl->sock, IPPROTO_TCP, TCP_NODELAY, reinterpret_cast<const char *>(&one), sizeof(one));
+#else
+        setsockopt(cl->sock, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one));
+#endif
+    }
+
     QImage img;
     switch(colorDepth()) {
     case bpp8:
