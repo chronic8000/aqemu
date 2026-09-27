@@ -58,6 +58,7 @@
 #include "AQ_UI_Style.h"
 #include "Apple_SoC_Support.h"
 #include "Inferno_Companion_Setup.h"
+#include "Appliance_Import_Window.h"
 #include "WSL_Launch.h"
 #include "WSL_Wizard_Window.h"
 #include "VM_Wizard_Window.h"
@@ -120,6 +121,7 @@ VM_Wizard_Window::VM_Wizard_Window( QWidget *parent )
 	RB_Method_Architecture = nullptr;
 	RB_Method_Custom = nullptr;
 	RB_Method_Import = nullptr;
+	RB_Method_Appliance = nullptr;
 	Tree_OS = nullptr;
 	Tree_Platform = nullptr;
 	List_Arch = nullptr;
@@ -569,12 +571,14 @@ void VM_Wizard_Window::Build_Three_Path_Pages()
 	RB_Method_Architecture = new QRadioButton( tr( "CPU Architecture" ) );
 	RB_Method_Custom = new QRadioButton( tr( "Custom / Advanced" ) );
 	RB_Method_Import = new QRadioButton( tr( "Import Existing Disk" ) );
+	RB_Method_Appliance = new QRadioButton( tr( "Import Virtual Appliance (OVA / OVF)" ) );
 
 	Group_Creation_Method->addButton( RB_Method_Guest_OS, 0 );
 	Group_Creation_Method->addButton( RB_Method_Platform, 1 );
 	Group_Creation_Method->addButton( RB_Method_Architecture, 2 );
 	Group_Creation_Method->addButton( RB_Method_Custom, 3 );
 	Group_Creation_Method->addButton( RB_Method_Import, 4 );
+	Group_Creation_Method->addButton( RB_Method_Appliance, 5 );
 
 	RB_Method_Guest_OS->setChecked( true );
 
@@ -588,6 +592,8 @@ void VM_Wizard_Window::Build_Three_Path_Pages()
 		tr( "4. Custom / Advanced: Full manual control over QEMU binary, machine type, RAM, and hardware controller configurations." ) );
 	Add_Method_Card( methodLay, RB_Method_Import,
 		tr( "5. Import Existing Disk: Select an existing qcow2, raw, vmdk, or vhdx disk image — AQEMU resolves format & default controller." ) );
+	Add_Method_Card( methodLay, RB_Method_Appliance,
+		tr( "6. Import Virtual Appliance: Import a multi-disk virtual appliance (.ova or .ovf) from VirtualBox, VMware, or cloud." ) );
 
 	methodLay->addStretch( 1 );
 	scroll->setWidget( inner );
@@ -4402,6 +4408,17 @@ void VM_Wizard_Window::on_Button_Next_clicked()
 				"(and optional install ISO)." ) );
 			if( RB_Typical_Existing_Disk )
 				RB_Typical_Existing_Disk->setChecked( true );
+		}
+		else if( RB_Method_Appliance && RB_Method_Appliance->isChecked() )
+		{
+			Appliance_Import_Window import_win( this );
+			if( import_win.exec() == QDialog::Accepted && import_win.Get_Imported_VM() != nullptr )
+			{
+				delete New_VM;
+				New_VM = import_win.Get_Imported_VM();
+				accept();
+			}
+			return;
 		}
 		else
 		{

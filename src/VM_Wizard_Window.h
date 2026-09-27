@@ -269,6 +269,7 @@ class VM_Wizard_Window: public QDialog
 		QRadioButton *RB_Method_Architecture;
 		QRadioButton *RB_Method_Custom;
 		QRadioButton *RB_Method_Import;
+		QRadioButton *RB_Method_Appliance;
 		QTreeWidget *Tree_OS;
 		QTreeWidget *Tree_Platform;
 		QListWidget *List_Arch;

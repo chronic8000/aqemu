@@ -6446,6 +6446,15 @@ static bool Media_Is_Bootable_Now( const Virtual_Machine &vm, VM::Boot_Device ty
 				if( ! rec.isEmpty() && QFile::exists( rec ) )
 					return true;
 			}
+			// Modern multi-drive support: check extra optical drives in Storage_Devices
+			for( const VM_Native_Storage_Device &sd : vm.Get_Storage_Devices_List() )
+			{
+				if( sd.Use_Media() && sd.Get_Media() == VM::DM_CD_ROM )
+				{
+					if( sd.Use_File_Path() && ! sd.Get_File_Path().isEmpty() && QFile::exists( sd.Get_File_Path() ) )
+						return true;
+				}
+			}
 			return false;
 		}
 		case VM::Boot_From_HDD:
@@ -9147,15 +9156,14 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 						current_USB_Device = ports[ux];
 					}
 					
-					// Error! Not Found
+					// Device Not Connected on Host: Don't halt VM launch with a blocking modal error
 					if( Build_QEMU_Args_for_Tab_Info == false && usb_cmpr == false )
 					{
-						AQGraphic_Warning( tr("Warning!"),
-										   tr("USB Device %1 %2 (%3 %4) Not Found!").arg(ports[ux].Get_Manufacturer_Name())
-																					.arg(ports[ux].Get_Product_Name())
-																					.arg(ports[ux].Get_Vendor_ID())
-																					.arg(ports[ux].Get_Product_ID()) );
-						
+						AQWarning( "Virtual_Machine::Build_Args",
+								   tr("Configured USB device %1 %2 (%3:%4) is not currently connected to host; skipping.").arg(ports[ux].Get_Manufacturer_Name())
+																											.arg(ports[ux].Get_Product_Name())
+																											.arg(ports[ux].Get_Vendor_ID())
+																											.arg(ports[ux].Get_Product_ID()) );
 						continue;
 					}
 					
@@ -15281,6 +15289,26 @@ QString Virtual_Machine::GenerateHTMLInfoText(int info_mode)
                     fi = QFileInfo( Get_HDD().Get_File_Name() );
                     cell_cursor.insertText( fi.fileName(), format );
                     table->insertRows( table->rows(), 1 );
+                }
+
+                for( int sx = 0; sx < Get_Storage_Devices_List().count(); ++sx )
+                {
+                    const VM_Native_Storage_Device &dev = Get_Storage_Devices_List()[sx];
+                    if( dev.Use_File_Path() && ! dev.Get_File_Path().isEmpty() )
+                    {
+                        cell = table->cellAt( table->rows()-1, 1 );
+                        cell_cursor = cell.firstCursorPosition();
+                        if( dev.Use_Media() && dev.Get_Media() == VM::DM_CD_ROM )
+                            cell_cursor.insertText( tr("Optical Drive %1:").arg(sx + 1), format );
+                        else
+                            cell_cursor.insertText( tr("Storage Device %1:").arg(sx + 1), format );
+
+                        cell = table->cellAt( table->rows()-1, 2 );
+                        cell_cursor = cell.firstCursorPosition();
+                        fi = QFileInfo( dev.Get_File_Path() );
+                        cell_cursor.insertText( fi.fileName(), format );
+                        table->insertRows( table->rows(), 1 );
+                    }
                 }
             }
         }

@@ -1,3 +1,22 @@
+2026-09-27 Chronic Engineering — AQEMU 1.3.4 (Virtual Appliance OVA/OVF Import/Export & Universal Storage Overhaul)
+
+	* Virtual Appliance Import & Export (OVA / OVF):
+	  - Pure C++ DMTF OVF 1.0 XML & POSIX UStar streaming parser/generator with zero external dependencies.
+	  - File → Import Appliance (OVA / OVF)... (Ctrl+I) and New VM Wizard Method 6 for direct import.
+	  - Asynchronous OVA TAR extraction, disk geometry inspection, and automated mapping to 195 OS profiles.
+	  - Multi-disk VMDK to QCOW2 conversion with 4Kn / 4K cluster alignment support, or native VMDK retention.
+	  - File → Export Appliance (OVA)... (Ctrl+E) with stream-optimized VMDK packaging and OVF descriptor generation.
+
+	* Universal Multi-Disk & Multi-Optical Storage Overhaul:
+	  - Removed legacy limit of 4 hard disks and 1 CD-ROM across the entire application.
+	  - Arbitrary secondary hard disks and optical drives supported on VirtIO, SATA/AHCI, SCSI, and NVMe buses.
+	  - Add HDD and Add CD-ROM actions enabled at all times in Device Manager.
+	  - VM summary tables properly enumerate all native storage and optical drives.
+	  - Optical boot validation now inspects secondary CD-ROM devices in Storage_Devices.
+
+	* Persistent USB Passthrough Safety:
+	  - Non-blocking logging for unplugged host USB devices during VM boot to prevent halted startups.
+
 2026-09-27 Chronic Engineering — AQEMU 1.3.3 (TrueNAS OS Profiles, 4Kn Automation & Official Web Tour)
 
 	* TrueNAS CORE & TrueNAS SCALE Operating System Profiles:
