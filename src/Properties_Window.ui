@@ -241,6 +241,35 @@
         </property>
        </widget>
       </item>
+      <item row="3" column="0">
+       <widget class="QLabel" name="Label_HDD_Sector_Size">
+        <property name="text">
+         <string>Sector Size:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="1" colspan="2">
+       <widget class="QComboBox" name="CB_HDD_Sector_Size">
+        <property name="toolTip">
+         <string>Native sector size emulation. 4096B (4Kn) enables running modern TrueNAS, ZFS, and Advanced Format disks natively.</string>
+        </property>
+        <item>
+         <property name="text">
+          <string>Default (512 Bytes / 512n)</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>4096 Bytes Native (4Kn - ZFS / TrueNAS)</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>512e (512B Logical / 4096B Physical)</string>
+         </property>
+        </item>
+       </widget>
+      </item>
      </layout>
     </widget>
    </item>

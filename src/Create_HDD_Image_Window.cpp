@@ -124,14 +124,9 @@ void Create_HDD_Image_Window::on_Button_Browse_New_Image_clicked()
 
 void Create_HDD_Image_Window::on_CB_Format_currentIndexChanged( const QString &text )
 {
-	/*if( text == "qcow2" || text == "qcow" )
-	{
-		ui.CH_Encrypted->setEnabled( true );
-	}
-	else
-	{
-		ui.CH_Encrypted->setEnabled( false );
-	}*/
+	const bool is_qcow2 = ( text.toLower() == "qcow2" );
+	ui.Label_Cluster_Size->setEnabled( is_qcow2 );
+	ui.CB_Cluster_Size->setEnabled( is_qcow2 );
 }
 
 void Create_HDD_Image_Window::on_Button_Create_clicked()
@@ -167,6 +162,25 @@ void Create_HDD_Image_Window::on_Button_Create_clicked()
 			hd_size.Suffix= VM::Size_Suf_Kb;
 			break;
 	}
+
+	int cluster_bytes = 0;
+	if( ui.CB_Format->currentText().toLower() == "qcow2" )
+	{
+		switch( ui.CB_Cluster_Size->currentIndex() )
+		{
+			case 1: cluster_bytes = 4096; break;
+			case 2: cluster_bytes = 8192; break;
+			case 3: cluster_bytes = 16384; break;
+			case 4: cluster_bytes = 32768; break;
+			case 5: cluster_bytes = 65536; break;
+			case 6: cluster_bytes = 131072; break;
+			case 7: cluster_bytes = 262144; break;
+			case 8: cluster_bytes = 524288; break;
+			case 9: cluster_bytes = 1048576; break;
+			case 10: cluster_bytes = 2097152; break;
+			default: cluster_bytes = 0; break;
+		}
+	}
 	
 	if( ui.CH_Base_Image->isChecked() )
 	{
@@ -178,13 +192,13 @@ void Create_HDD_Image_Window::on_Button_Create_clicked()
 		else
 		{
 			Create_OK = Create_New_HDD_Image( false, ui.Edit_Base_Image_File_Name->text(),
-											  ui.Edit_File_Name->text(), ui.CB_Format->currentText(), hd_size, true );
+											  ui.Edit_File_Name->text(), ui.CB_Format->currentText(), hd_size, true, cluster_bytes );
 		}
 	}
 	else
 	{
 		Create_OK = Create_New_HDD_Image( false, "", ui.Edit_File_Name->text(),
-										  ui.CB_Format->currentText(), hd_size, true );
+										  ui.CB_Format->currentText(), hd_size, true, cluster_bytes );
 	}
 	
 	if( Create_OK )

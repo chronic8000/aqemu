@@ -160,6 +160,23 @@ void Properties_Window::Set_HDD( const VM_HDD &hd, const QString &name )
 	ui.GB_CDROM->setEnabled( false );
 	ui.GB_HDD->setVisible( true );
 	ui.GB_HDD->setEnabled( true );
+
+	const VM_Native_Storage_Device &native = hd.Get_Native_Device();
+	ui.CB_HDD_Sector_Size->blockSignals( true );
+	if( native.Use_Block_Size() )
+	{
+		if( native.Get_Logical_Block_Size() == 4096 && native.Get_Physical_Block_Size() == 4096 )
+			ui.CB_HDD_Sector_Size->setCurrentIndex( 1 );
+		else if( native.Get_Logical_Block_Size() == 512 && native.Get_Physical_Block_Size() == 4096 )
+			ui.CB_HDD_Sector_Size->setCurrentIndex( 2 );
+		else
+			ui.CB_HDD_Sector_Size->setCurrentIndex( 0 );
+	}
+	else
+	{
+		ui.CB_HDD_Sector_Size->setCurrentIndex( 0 );
+	}
+	ui.CB_HDD_Sector_Size->blockSignals( false );
 	
 	on_Button_Update_Info_clicked();
 	
@@ -540,6 +557,23 @@ void Properties_Window::on_TB_HDD_Advanced_Settings_clicked()
 		if( PW_HDD.Get_Native_Device().Get_Native_Mode() &&
 			PW_HDD.Get_Native_Device().Use_File_Path() == false )
 			ui.Edit_HDD_Image_Path->setText( "" );
+
+		const VM_Native_Storage_Device &native = PW_HDD.Get_Native_Device();
+		ui.CB_HDD_Sector_Size->blockSignals( true );
+		if( native.Use_Block_Size() )
+		{
+			if( native.Get_Logical_Block_Size() == 4096 && native.Get_Physical_Block_Size() == 4096 )
+				ui.CB_HDD_Sector_Size->setCurrentIndex( 1 );
+			else if( native.Get_Logical_Block_Size() == 512 && native.Get_Physical_Block_Size() == 4096 )
+				ui.CB_HDD_Sector_Size->setCurrentIndex( 2 );
+			else
+				ui.CB_HDD_Sector_Size->setCurrentIndex( 0 );
+		}
+		else
+		{
+			ui.CB_HDD_Sector_Size->setCurrentIndex( 0 );
+		}
+		ui.CB_HDD_Sector_Size->blockSignals( false );
 	}
 	
 	delete win;
@@ -569,4 +603,28 @@ void Properties_Window::on_Edit_HDD_Image_Path_textChanged()
 	// Update info
 	//on_Button_Update_Info_clicked();
 	HDD_Info->Update_Disk_Info( ui.Edit_HDD_Image_Path->text() );
+}
+
+void Properties_Window::on_CB_HDD_Sector_Size_currentIndexChanged( int index )
+{
+	VM_Native_Storage_Device tmpDev = PW_HDD.Get_Native_Device();
+	if( index == 1 ) // 4096 / 4Kn
+	{
+		tmpDev.Use_Block_Size( true );
+		tmpDev.Set_Logical_Block_Size( 4096 );
+		tmpDev.Set_Physical_Block_Size( 4096 );
+	}
+	else if( index == 2 ) // 512e
+	{
+		tmpDev.Use_Block_Size( true );
+		tmpDev.Set_Logical_Block_Size( 512 );
+		tmpDev.Set_Physical_Block_Size( 4096 );
+	}
+	else // Default 512
+	{
+		tmpDev.Use_Block_Size( false );
+		tmpDev.Set_Logical_Block_Size( 512 );
+		tmpDev.Set_Physical_Block_Size( 512 );
+	}
+	PW_HDD.Set_Native_Device( tmpDev );
 }

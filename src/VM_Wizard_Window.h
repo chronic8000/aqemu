@@ -204,6 +204,7 @@ class VM_Wizard_Window: public QDialog
 		QLineEdit *Edit_Typical_Disk_Path;
 		QToolButton *TB_Typical_Disk_Browse;
 		QWidget *Widget_Typical_Size_Row;
+		QComboBox *CB_Typical_Sector_Size;
 		QComboBox *CB_Wizard_Nand;
 		QSpinBox *SB_Wizard_Nand;
 		QLineEdit *Edit_Install_ISO;
@@ -287,6 +288,7 @@ class VM_Wizard_Window: public QDialog
 		VM::Sound_Cards Guest_Sound;
 		QString Guest_Compat_Tip;
 		QString Guest_Disk_Bus;
+		QString Guest_Sector_Size;
 		QString Guest_Video_Card;
 		bool Guest_Use_VirtIO_Extras;
 		bool Guest_Use_GPU_Passthrough;
@@ -300,6 +302,7 @@ class VM_Wizard_Window: public QDialog
 		QWidget *Devices_Page;
 		QLabel *Label_Devices_Summary;
 		QComboBox *CB_Dev_Disk;
+		QComboBox *CB_Dev_Sector_Size;
 		QComboBox *CB_Dev_NIC;
 		QComboBox *CB_Dev_Sound;
 		QComboBox *CB_Dev_Video;

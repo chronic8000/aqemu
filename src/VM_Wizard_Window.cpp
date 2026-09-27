@@ -88,6 +88,7 @@ VM_Wizard_Window::VM_Wizard_Window( QWidget *parent )
 	Edit_Typical_Disk_Path = nullptr;
 	TB_Typical_Disk_Browse = nullptr;
 	Widget_Typical_Size_Row = nullptr;
+	CB_Typical_Sector_Size = nullptr;
 	CB_Wizard_Nand = nullptr;
 	SB_Wizard_Nand = nullptr;
 	Edit_Install_ISO = nullptr;
@@ -142,6 +143,7 @@ VM_Wizard_Window::VM_Wizard_Window( QWidget *parent )
 	Devices_Page = nullptr;
 	Label_Devices_Summary = nullptr;
 	CB_Dev_Disk = nullptr;
+	CB_Dev_Sector_Size = nullptr;
 	CB_Dev_NIC = nullptr;
 	CB_Dev_Sound = nullptr;
 	CB_Dev_Video = nullptr;
@@ -151,6 +153,7 @@ VM_Wizard_Window::VM_Wizard_Window( QWidget *parent )
 	CH_Dev_Show_All = nullptr;
 	Label_Dev_GPU = nullptr;
 	Guest_Disk_Bus = QStringLiteral( "ide" );
+	Guest_Sector_Size = QStringLiteral( "512" );
 	Guest_Video_Card = QStringLiteral( "std" );
 	Guest_Use_VirtIO_Extras = false;
 	Guest_Use_GPU_Passthrough = false;
@@ -2533,6 +2536,8 @@ void VM_Wizard_Window::Apply_Guest_Hardware_To_New_VM()
 				native.Set_Interface( VM::DI_Virtio );
 			else if( Guest_Disk_Bus == QLatin1String( "virtio-scsi" ) )
 				native.Set_Interface( VM::DI_Virtio_SCSI );
+			else if( Guest_Disk_Bus == QLatin1String( "nvme" ) )
+				native.Set_Interface( VM::DI_NVMe );
 			else if( Guest_Disk_Bus == QLatin1String( "scsi" ) )
 				native.Set_Interface( VM::DI_SCSI );
 			else if( Guest_Disk_Bus == QLatin1String( "sata" ) )
@@ -2543,6 +2548,24 @@ void VM_Wizard_Window::Apply_Guest_Hardware_To_New_VM()
 			{
 				native.Use_File_Path( true );
 				native.Set_File_Path( hda.Get_File_Name() );
+			}
+			if( Guest_Sector_Size == QLatin1String( "4096" ) )
+			{
+				native.Use_Block_Size( true );
+				native.Set_Logical_Block_Size( 4096 );
+				native.Set_Physical_Block_Size( 4096 );
+			}
+			else if( Guest_Sector_Size == QLatin1String( "512e" ) )
+			{
+				native.Use_Block_Size( true );
+				native.Set_Logical_Block_Size( 512 );
+				native.Set_Physical_Block_Size( 4096 );
+			}
+			else if( Guest_Sector_Size == QLatin1String( "512" ) )
+			{
+				native.Use_Block_Size( false );
+				native.Set_Logical_Block_Size( 512 );
+				native.Set_Physical_Block_Size( 512 );
 			}
 			hda.Set_Native_Device( native );
 			New_VM->Set_HDA( hda );
@@ -2662,6 +2685,7 @@ void VM_Wizard_Window::Build_Devices_Page()
 	};
 
 	add_row( tr( "Disk bus:" ), &CB_Dev_Disk );
+	add_row( tr( "Sector size:" ), &CB_Dev_Sector_Size );
 	add_row( tr( "Network card:" ), &CB_Dev_NIC );
 	add_row( tr( "Sound:" ), &CB_Dev_Sound );
 	add_row( tr( "Display:" ), &CB_Dev_Video );
@@ -2857,6 +2881,19 @@ void VM_Wizard_Window::Refresh_Devices_Page()
 	}
 
 	fill_disk( CB_Dev_Disk, disks, prefer_disk );
+	if( CB_Dev_Sector_Size && CB_Dev_Sector_Size->count() == 0 )
+	{
+		CB_Dev_Sector_Size->addItem( tr( "Default (512 Bytes / 512n)" ), QStringLiteral( "512" ) );
+		CB_Dev_Sector_Size->addItem( tr( "4096 Bytes Native (4Kn - Advanced Format / TrueNAS / ZFS)" ), QStringLiteral( "4096" ) );
+		CB_Dev_Sector_Size->addItem( tr( "512e (512B Logical / 4096B Physical)" ), QStringLiteral( "512e" ) );
+		CB_Dev_Sector_Size->setToolTip( tr( "Native 4096-byte (4Kn) sector size allows booting and running 4K-native disks (e.g. TrueNAS ZFS pools). Supported natively on VirtIO, NVMe, and SCSI." ) );
+		if( Guest_Sector_Size == "4096" )
+			CB_Dev_Sector_Size->setCurrentIndex( 1 );
+		else if( Guest_Sector_Size == "512e" )
+			CB_Dev_Sector_Size->setCurrentIndex( 2 );
+		else
+			CB_Dev_Sector_Size->setCurrentIndex( 0 );
+	}
 	fill_named( CB_Dev_NIC, nics, prefer_nic );
 	fill_named( CB_Dev_Sound, sounds, prefer_sound );
 	fill_named( CB_Dev_Video, videos, prefer_video );
@@ -2911,6 +2948,8 @@ void VM_Wizard_Window::Apply_Devices_Page_To_State()
 		return;
 
 	Guest_Disk_Bus = CB_Dev_Disk->currentData().toString();
+	if( CB_Dev_Sector_Size )
+		Guest_Sector_Size = CB_Dev_Sector_Size->currentData().toString();
 	Guest_NIC_Model = CB_Dev_NIC ? CB_Dev_NIC->currentData().toString() : Guest_NIC_Model;
 	Guest_Video_Card = CB_Dev_Video ? CB_Dev_Video->currentData().toString() : Guest_Video_Card;
 	if( CB_Dev_Sound )
@@ -3051,6 +3090,24 @@ void VM_Wizard_Window::Enhance_Typical_HDD_Page()
 	tb_disk_pool->setToolTip( tr( "Browse VM storage folder" ) );
 	pathLay->addWidget( tb_disk_pool );
 	lay->addLayout( pathLay );
+
+	QWidget *Widget_Typical_Sector_Row = new QWidget( ui.Typical_HDD_Page );
+	QHBoxLayout *secLay = new QHBoxLayout( Widget_Typical_Sector_Row );
+	secLay->setContentsMargins( 0, 0, 0, 0 );
+	QLabel *lblSec = new QLabel( tr( "Sector size:" ), Widget_Typical_Sector_Row );
+	CB_Typical_Sector_Size = new QComboBox( Widget_Typical_Sector_Row );
+	CB_Typical_Sector_Size->addItem( tr( "Default (512 Bytes / 512n)" ), QStringLiteral( "512" ) );
+	CB_Typical_Sector_Size->addItem( tr( "4096 Bytes Native (4Kn - Advanced Format / TrueNAS / ZFS)" ), QStringLiteral( "4096" ) );
+	CB_Typical_Sector_Size->addItem( tr( "512e (512B Logical / 4096B Physical)" ), QStringLiteral( "512e" ) );
+	CB_Typical_Sector_Size->setToolTip( tr( "Native 4096-byte (4Kn) sector size emulation allows running disks from TrueNAS ZFS pools natively without translation." ) );
+	secLay->addWidget( lblSec );
+	secLay->addWidget( CB_Typical_Sector_Size, 1 );
+	lay->addWidget( Widget_Typical_Sector_Row );
+	connect( CB_Typical_Sector_Size, QOverload<int>::of( &QComboBox::currentIndexChanged ),
+	         this, [this]( int ) {
+		if( CB_Typical_Sector_Size )
+			Guest_Sector_Size = CB_Typical_Sector_Size->currentData().toString();
+	} );
 
 	lay->addWidget( new QLabel( tr( "Install media:" ), ui.Typical_HDD_Page ) );
 	Group_Typical_Install_Media = new QButtonGroup( ui.Typical_HDD_Page );
@@ -5040,8 +5097,43 @@ bool VM_Wizard_Window::Create_New_VM(bool simulate)
 		         && Edit_Typical_Disk_Path
 		         && ! Edit_Typical_Disk_Path->text().trimmed().isEmpty() )
 		{
-			New_VM->Set_HDA( VM_HDD( true,
-				QDir::toNativeSeparators( Edit_Typical_Disk_Path->text().trimmed() ) ) );
+			VM_HDD hda( true,
+				QDir::toNativeSeparators( Edit_Typical_Disk_Path->text().trimmed() ) );
+			if( CB_Typical_Sector_Size )
+			{
+				const QString sec = CB_Typical_Sector_Size->currentData().toString();
+				VM_Native_Storage_Device native = hda.Get_Native_Device();
+				if( sec == "4096" )
+				{
+					native.Use_Block_Size( true );
+					native.Set_Logical_Block_Size( 4096 );
+					native.Set_Physical_Block_Size( 4096 );
+					if( ! native.Use_Interface() || native.Get_Interface() == VM::DI_IDE )
+					{
+						native.Use_Interface( true );
+						native.Set_Interface( VM::DI_Virtio );
+					}
+				}
+				else if( sec == "512e" )
+				{
+					native.Use_Block_Size( true );
+					native.Set_Logical_Block_Size( 512 );
+					native.Set_Physical_Block_Size( 4096 );
+				}
+				else
+				{
+					native.Use_Block_Size( false );
+					native.Set_Logical_Block_Size( 512 );
+					native.Set_Physical_Block_Size( 512 );
+				}
+				if( ! native.Use_File_Path() || native.Get_File_Path().trimmed().isEmpty() )
+				{
+					native.Use_File_Path( true );
+					native.Set_File_Path( hda.Get_File_Name() );
+				}
+				hda.Set_Native_Device( native );
+			}
+			New_VM->Set_HDA( hda );
 		}
 		else
 		{
@@ -5056,10 +5148,47 @@ bool VM_Wizard_Window::Create_New_VM(bool simulate)
 			hd_size.Size = ui.SB_HDD_Size->value();
 			hd_size.Suffix = VM::Size_Suf_Gb;
 
-			if( ! simulate )
-				Create_New_HDD_Image( hda_file, hd_size );
+			const QString sec = CB_Typical_Sector_Size ? CB_Typical_Sector_Size->currentData().toString() : QStringLiteral( "512" );
+			const int cluster_sz = ( sec == "4096" ) ? 4096 : 0;
 
-			New_VM->Set_HDA( VM_HDD( true, hda_file ) );
+			if( ! simulate )
+				Create_New_HDD_Image( hda_file, hd_size, cluster_sz );
+
+			VM_HDD hda( true, hda_file );
+			if( CB_Typical_Sector_Size )
+			{
+				VM_Native_Storage_Device native = hda.Get_Native_Device();
+				if( sec == "4096" )
+				{
+					native.Use_Block_Size( true );
+					native.Set_Logical_Block_Size( 4096 );
+					native.Set_Physical_Block_Size( 4096 );
+					if( ! native.Use_Interface() || native.Get_Interface() == VM::DI_IDE )
+					{
+						native.Use_Interface( true );
+						native.Set_Interface( VM::DI_Virtio );
+					}
+				}
+				else if( sec == "512e" )
+				{
+					native.Use_Block_Size( true );
+					native.Set_Logical_Block_Size( 512 );
+					native.Set_Physical_Block_Size( 4096 );
+				}
+				else
+				{
+					native.Use_Block_Size( false );
+					native.Set_Logical_Block_Size( 512 );
+					native.Set_Physical_Block_Size( 512 );
+				}
+				if( ! native.Use_File_Path() || native.Get_File_Path().trimmed().isEmpty() )
+				{
+					native.Use_File_Path( true );
+					native.Set_File_Path( hda.Get_File_Name() );
+				}
+				hda.Set_Native_Device( native );
+			}
+			New_VM->Set_HDA( hda );
 		}
 
 		// Other HDD's

@@ -68,6 +68,7 @@ class Properties_Window: public QDialog
 		
 		void on_TB_HDD_Advanced_Settings_clicked();
 		void on_Edit_HDD_Image_Path_textChanged();
+		void on_CB_HDD_Sector_Size_currentIndexChanged( int index );
 		
 	private:
 		Ui::Properties_Window ui;

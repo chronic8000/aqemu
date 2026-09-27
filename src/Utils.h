@@ -86,8 +86,9 @@ bool AQEMU_Path_Is_Install_Dir( const QString &path );
 void AQEMU_Ensure_Writable_User_Paths( QSettings &settings );
 
 bool Create_New_HDD_Image( bool encrypted, const QString &base_image,
-						   const QString &file_name, const QString &format, VM::Device_Size size, bool verbose );
-bool Create_New_HDD_Image( const QString &file_name, VM::Device_Size size );
+						   const QString &file_name, const QString &format, VM::Device_Size size, bool verbose,
+						   int cluster_size = 0 );
+bool Create_New_HDD_Image( const QString &file_name, VM::Device_Size size, int cluster_size = 0 );
 bool Format_HDD_Image( const QString &file_name, VM::Disk_Info info );
 QString Get_QEMU_IMG_Path();
 

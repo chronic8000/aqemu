@@ -7970,8 +7970,8 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		{
 			if( QFile::exists(HDA.Get_File_Name()) || Build_QEMU_Args_for_Tab_Info )
 			{
-				// virt machines have no IDE ? use if=virtio like win11-pi5-kiosk
-				if( effective_machine == "virt" || is_virt_arch )
+				// virt machines have no IDE ? use if=virtio like win11-pi5-kiosk. Custom block sizes (4Kn) also require virtio-blk-pci.
+				if( effective_machine == "virt" || is_virt_arch || HDA.Get_Native_Device().Use_Block_Size() )
 				{
 					const int hdd_boot = Bootindex_For( *this, VM::Boot_From_HDD );
 					const bool win11_disk_bvm =
@@ -10262,10 +10262,11 @@ QStringList Virtual_Machine::Build_Native_Device_Args( VM_Native_Storage_Device 
 				break;
 				
 			case VM::DI_Virtio:
-				// aarch64: use virtio-blk-pci so we can set bootindex (if=virtio rejects it on qcow2)
+				// aarch64 / arm / riscv or when custom sector size is used: use virtio-blk-pci
 				if( Computer_Type.contains( "aarch64", Qt::CaseInsensitive ) ||
 					Computer_Type.contains( "qemu-system-arm", Qt::CaseInsensitive ) ||
-					Computer_Type.contains( "riscv", Qt::CaseInsensitive ) )
+					Computer_Type.contains( "riscv", Qt::CaseInsensitive ) ||
+					device.Use_Block_Size() )
 					opt << "if=none,id=" + vsname;
 				else
 					opt << "if=virtio";
@@ -10398,11 +10399,19 @@ QStringList Virtual_Machine::Build_Native_Device_Args( VM_Native_Storage_Device 
 	QString block_size_dev_opts = "";
 	if( device.Use_Block_Size() && ( ! device.Use_Media() || device.Get_Media() == VM::DM_Disk ) )
 	{
-		const int log_sz = device.Get_Logical_Block_Size() > 0 ? device.Get_Logical_Block_Size() : 512;
-		const int phys_sz = device.Get_Physical_Block_Size() > 0 ? device.Get_Physical_Block_Size() : 512;
+		int log_sz = device.Get_Logical_Block_Size() > 0 ? device.Get_Logical_Block_Size() : 512;
+		int phys_sz = device.Get_Physical_Block_Size() > 0 ? device.Get_Physical_Block_Size() : 512;
+		// IDE / AHCI (ide-hd) only supports 512-byte logical sectors (512e is supported)
+		if( ( device.Get_Interface() == VM::DI_IDE || device.Get_Interface() == VM::DI_AHCI ) && log_sz > 512 )
+		{
+			AQWarning( "Virtual_Machine::Build_Native_Device_Args",
+			           "IDE/AHCI controller does not support 4096-byte logical sectors. Clamping logical to 512 (512e mode). Use VirtIO, SCSI, or NVMe for native 4Kn." );
+			log_sz = 512;
+			if( phys_sz < 4096 ) phys_sz = 4096;
+		}
 		block_size_dev_opts = QStringLiteral( ",logical_block_size=%1,physical_block_size=%2" ).arg( log_sz ).arg( phys_sz );
-		opt << QStringLiteral( "logical_block_size=%1" ).arg( log_sz );
-		opt << QStringLiteral( "physical_block_size=%1" ).arg( phys_sz );
+		// Note: logical_block_size and physical_block_size are frontend device properties (-device),
+		// NOT backend drive properties (-drive). Adding them to opt breaks QEMU drive parsing.
 	}
 
 	// Check if drive options have a valid target (file, interface, media, or driver)
@@ -10450,7 +10459,7 @@ QStringList Virtual_Machine::Build_Native_Device_Args( VM_Native_Storage_Device 
 		const int boot_idx = Bootindex_For( *this, VM::Boot_From_HDD );
 		// serial= is required by some guests (SteamOS recovery looks for NVMe)
 		args << "-device" << With_Bootindex(
-			"nvme,drive=" + vsname + ",serial=aqemu-nvme0", boot_idx );
+			"nvme,drive=" + vsname + ",serial=aqemu-nvme0" + block_size_dev_opts, boot_idx );
 	}
 	else if( device.Get_Interface() == VM::DI_AHCI )
 	{
@@ -10470,7 +10479,7 @@ QStringList Virtual_Machine::Build_Native_Device_Args( VM_Native_Storage_Device 
 				.arg( devtype ).arg( unit ).arg( vsname ) + (devtype == "ide-hd" ? block_size_dev_opts : QString()),
 			boot_idx );
 	}
-	else if( device.Get_Interface() == VM::DI_Virtio && virt_arch_blk &&
+	else if( device.Get_Interface() == VM::DI_Virtio && (virt_arch_blk || device.Use_Block_Size()) &&
 			 ( ! device.Use_Media() || device.Get_Media() == VM::DM_Disk ) )
 	{
 		const int boot_idx = Bootindex_For( *this, VM::Boot_From_HDD );

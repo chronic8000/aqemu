@@ -969,7 +969,8 @@ bool AQ_Apply_QEMU_Dir_As_Default_Emulator( const QString &dir_in, const QString
 }
 
 bool Create_New_HDD_Image( bool encrypted, const QString &base_image,
-						   const QString &file_name, const QString &format, VM::Device_Size size, bool verbose )
+						   const QString &file_name, const QString &format, VM::Device_Size size, bool verbose,
+						   int cluster_size )
 {
 	// Ensure destination directory exists
 	QFileInfo outInfo( file_name );
@@ -987,6 +988,9 @@ bool Create_New_HDD_Image( bool encrypted, const QString &base_image,
 		args << "-b" << base_image;
 	
 	args << "-f" << format;
+
+	if( cluster_size > 0 && format.toLower() == "qcow2" )
+		args << "-o" << QStringLiteral( "cluster_size=%1" ).arg( cluster_size );
 	
 	args << file_name;
 	
@@ -1060,12 +1064,12 @@ bool Create_New_HDD_Image( bool encrypted, const QString &base_image,
 	}
 }
 
-bool Create_New_HDD_Image( const QString &file_name, VM::Device_Size size )
+bool Create_New_HDD_Image( const QString &file_name, VM::Device_Size size, int cluster_size )
 {
 	QSettings settings;
 	QString format = settings.value( "Default_HDD_Image_Format", "qcow2" ).toString();
 	
-	return Create_New_HDD_Image( false, "", file_name, format, size, false );
+	return Create_New_HDD_Image( false, "", file_name, format, size, false, cluster_size );
 }
 
 bool Format_HDD_Image( const QString &file_name, VM::Disk_Info info )

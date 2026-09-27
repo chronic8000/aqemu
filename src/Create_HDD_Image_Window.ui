@@ -274,6 +274,79 @@
       </widget>
      </item>
      <item>
+      <layout class="QHBoxLayout" name="horizontalLayout_Cluster">
+       <item>
+        <widget class="QLabel" name="Label_Cluster_Size">
+         <property name="text">
+          <string>Cluster Size / Alignment:</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QComboBox" name="CB_Cluster_Size">
+         <property name="toolTip">
+          <string>Cluster size for QCOW2 images. 4 KB aligns with 4Kn native sector disks and ZFS record sizes, minimizing write amplification.</string>
+         </property>
+         <item>
+          <property name="text">
+           <string>Default (64 KB)</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>4 KB (4Kn / ZFS Aligned)</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>8 KB</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>16 KB</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>32 KB</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>64 KB</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>128 KB</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>256 KB</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>512 KB</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>1 MB</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>2 MB</string>
+          </property>
+         </item>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item>
       <layout class="QHBoxLayout" name="horizontalLayout_3">
        <property name="leftMargin">
         <number>10</number>
