@@ -82,6 +82,13 @@ static ISO_Guess_Result guess_from_text( const QString &text, const char *source
 		hit( QStringLiteral( "Haiku (64-bit)" ), "high", QObject::tr( "Detected Haiku." ) );
 	else if( t.contains( "freedos" ) )
 		hit( QStringLiteral( "FreeDOS" ), "high", QObject::tr( "Detected FreeDOS." ) );
+	else if( t.contains( "truenas" ) || t.contains( "freenas" ) )
+	{
+		if( t.contains( "scale" ) )
+			hit( QStringLiteral( "TrueNAS SCALE" ), "high", QObject::tr( "Detected TrueNAS SCALE." ) );
+		else
+			hit( QStringLiteral( "TrueNAS CORE" ), "high", QObject::tr( "Detected TrueNAS CORE." ) );
+	}
 	else if( t.contains( "msdos" ) || t.contains( "ms-dos" ) )
 		hit( QStringLiteral( "MS-DOS" ), "medium", QObject::tr( "Detected MS-DOS." ) );
 	else if( t.contains( "linux" ) )
@@ -229,6 +236,15 @@ ISO_Guess_Result AQ_Guess_OS_From_Media( const QString &path )
 	else if( name.contains( "openbsd" ) )
 		hit( QStringLiteral( "OpenBSD (64-bit)" ), "medium",
 		     QObject::tr( "Filename looks like OpenBSD." ) );
+	else if( name.contains( "truenas" ) || name.contains( "freenas" ) )
+	{
+		if( name.contains( "scale" ) )
+			hit( QStringLiteral( "TrueNAS SCALE" ), "high",
+			     QObject::tr( "Filename looks like TrueNAS SCALE." ) );
+		else
+			hit( QStringLiteral( "TrueNAS CORE" ), "high",
+			     QObject::tr( "Filename looks like TrueNAS CORE." ) );
+	}
 	else if( name.contains( "solaris" ) || name.contains( "illumos" ) || name.contains( "omnios" ) )
 		hit( name.contains( "sparc" ) ? QStringLiteral( "Solaris SPARC" )
 		                              : QStringLiteral( "Solaris x86" ),

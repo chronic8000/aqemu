@@ -24,7 +24,8 @@
       "NetBSD (32-bit)",
       "NetBSD (64-bit)",
       "OpenBSD (32-bit)",
-      "OpenBSD (64-bit)"
+      "OpenBSD (64-bit)",
+      "TrueNAS CORE"
     ],
     "DEC": [
       "OpenVMS",
@@ -71,6 +72,7 @@
       "Ubuntu (32-bit)",
       "Ubuntu (64-bit)",
       "IPSW Restore Companion (Ubuntu)",
+      "TrueNAS SCALE",
       "Void Linux"
     ],
     "Microsoft": [
@@ -150,6 +152,10 @@
       "Solaris SPARC",
       "Solaris x86",
       "Solaris x86 (32-bit)"
+    ],
+    "TrueNAS / Storage": [
+      "TrueNAS CORE",
+      "TrueNAS SCALE"
     ],
     "Consoles & Retro": [
       "440 Bamboo",
@@ -2134,6 +2140,34 @@
       "sound": "ac97",
       "tip": "FreeBSD 32-bit → i386 PC.",
       "cpu": "qemu32"
+    },
+    "TrueNAS CORE": {
+      "target": "x86_64",
+      "machine": "q35",
+      "ram_mb": 8192,
+      "hdd_gb": 32,
+      "nic": "virtio-net-pci",
+      "sound": "none",
+      "tip": "TrueNAS CORE (FreeBSD/ZFS) → x86_64 + Q35 with VirtIO. Defaults to 4096-byte (4Kn) native sector size for optimal ZFS performance.",
+      "flags": [
+        "truenas",
+        "4kn_default"
+      ],
+      "cpu": "max"
+    },
+    "TrueNAS SCALE": {
+      "target": "x86_64",
+      "machine": "q35",
+      "ram_mb": 8192,
+      "hdd_gb": 32,
+      "nic": "virtio-net-pci",
+      "sound": "none",
+      "tip": "TrueNAS SCALE (Linux/Debian/ZFS) → x86_64 + Q35 with VirtIO. Defaults to 4096-byte (4Kn) native sector size for optimal OpenZFS performance.",
+      "flags": [
+        "truenas",
+        "4kn_default"
+      ],
+      "cpu": "max"
     },
     "OpenBSD (64-bit)": {
       "target": "x86_64",

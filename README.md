@@ -11,9 +11,9 @@
 
 <p align="center">
   <b>The QEMU virtual machine manager built for maximum power and modern ease.</b><br/>
-  69k+ additions beyond the legacy community tree — probe-driven hardware catalogs, embedded displays, QMP, bundled QEMU <b>11.0.2</b>, and 193 guest profiles.<br/>
+  69k+ additions beyond the legacy community tree — probe-driven hardware catalogs, embedded displays, QMP, bundled QEMU <b>11.0.2</b>, and 195 guest profiles.<br/>
   <b>Now Available on the Microsoft Store!</b><br/>
-  Maintained by <a href="https://github.com/chronic8000">Chronic Engineering</a>
+  Maintained by <a href="https://github.com/chronic8000">Chronic Engineering</a> • <a href="https://chronic8000.github.io/aqemu">chronic8000.github.io/aqemu</a>
 </p>
 
 <p align="center">
@@ -42,6 +42,9 @@ AQEMU is open-source under the **GNU General Public License v2 (GPL-2.0)**. You 
 If you want to support ongoing development, maintenance, and future feature releases while enjoying seamless automatic updates directly on Windows, purchase **AQEMU VM Manager** on the Microsoft Store:
 
 <p align="center">
+  <a href="https://chronic8000.github.io/aqemu">
+    <b>🌐 Visit the Official Website & Feature Tour: https://chronic8000.github.io/aqemu</b>
+  </a><br/><br/>
   <a href="ms-windows-store://pdp/?productid=9P0HGKHQ9W19">
     <b>👉 Open in Microsoft Store app (`ms-windows-store://pdp/?productid=9P0HGKHQ9W19`)</b>
   </a><br/>
@@ -49,6 +52,23 @@ If you want to support ongoing development, maintenance, and future feature rele
     <b>🌐 View on Web (`https://apps.microsoft.com/detail/9p0hgkhq9w19`)</b>
   </a>
 </p>
+
+### 🛍️ Microsoft Store Purchasing & Offline Licensing FAQ
+
+If you have never purchased software through the Microsoft Store before, here is a transparent breakdown of how purchasing, installation, and licensing work for **AQEMU VM Manager**:
+
+- **Account Only Needed for Initial Install**:
+  You only need to be signed in to your Microsoft Account (MSA) in the Microsoft Store app or browser to complete the purchase and download AQEMU.
+- **100% Offline Capability — Zero DRM or Telemetry**:
+  Once AQEMU is installed on your Windows machine, **you do NOT need to be online to use the software**. AQEMU runs completely offline with no phone-home mechanisms, no recurring license checks, and zero background connectivity requirements.
+- **Logging Out of the Store**:
+  After installing AQEMU, you can log out of your Microsoft Account in the Microsoft Store app or Windows if you wish. AQEMU remains fully installed, licensed, and operational on that device.
+- **Multiple PC Installs**:
+  Your single purchase allows you to install AQEMU on up to 10 Windows 10/11 devices associated with your Microsoft Account without paying again.
+- **Automatic & Safe Background Updates**:
+  Whenever a new release of AQEMU is published, the Microsoft Store automatically downloads and applies updates seamlessly without overwriting your virtual machines, disks, or custom configurations.
+- **Full Open-Source Freedom (GPLv2)**:
+  AQEMU is 100% Free and Open Source Software licensed under the GNU GPLv2. Purchasing on the Microsoft Store directly supports active engineering and ongoing feature development, while the complete source code remains freely available on GitHub.
 
 ---
 
@@ -130,6 +150,7 @@ We keep the original authors’ names. We do **not** inherit their old donation 
 
 | | |
 |--|--|
+| **Website** | https://chronic8000.github.io/aqemu |
 | **Home** | https://github.com/chronic8000/aqemu |
 | **Store** | https://apps.microsoft.com/detail/9p0hgkhq9w19 |
 | **Releases** | https://github.com/chronic8000/aqemu/releases |
@@ -156,11 +177,11 @@ The two UI paths intentionally serve different users:
 
 This prevents combinations such as PC floppy controllers on non-PC boards or Intel HDA on machines that cannot provide it, while preserving valid expert choices.
 
-### 2. Five creation paths and 193 guest profiles
+### 2. Five creation paths and 195 guest profiles
 
 The rebuilt wizard can start from a **Guest OS**, **System/Board**, **CPU Architecture**, **Custom/Advanced configuration**, or **Existing Disk**. It supports ISO and disk import, URL downloads, kernel/initrd network installs, ISO9660 identification and optional `osinfo-detect`.
 
-Its 193 profiles span DOS and Windows 1.x through Windows 11 ARM, Linux/BSD, Haiku, ReactOS, OS/2, Solaris, AIX, IRIX, HP-UX, classic Mac, PowerPC OS X, experimental Intel macOS, RISC-V, IBM Z and embedded boards. Profiles carry architecture-aware machine, CPU, memory, storage, video, input, audio, NIC and boot recommendations.
+Its 195 profiles span DOS and Windows 1.x through Windows 11 ARM, Linux/BSD, TrueNAS CORE & SCALE, Haiku, ReactOS, OS/2, Solaris, AIX, IRIX, HP-UX, classic Mac, PowerPC OS X, experimental Intel macOS, RISC-V, IBM Z and embedded boards. Profiles carry architecture-aware machine, CPU, memory, storage, video, input, audio, NIC and boot recommendations.
 
 ### 3. Built-in QEMU 11.0.2
 
@@ -307,8 +328,7 @@ AQEMU integrates **steelbrain's `qemu-reims-vgpu`** so Intel macOS guests can us
 ### Why this matters
 Enterprise storage operating systems (such as **TrueNAS CORE**, **TrueNAS SCALE**, **FreeBSD**, and modern Linux distributions with native **ZFS pools**) frequently run on native 4Kn drives. When restoring or testing TrueNAS VM backups, other hypervisors fail because their virtual controllers force 512-byte logical sectors. 
 
-AQEMU provides end-to-end native 4Kn and 512e support everywhere:
-1. **New VM Wizard**: Choose `Default (512 Bytes / 512n)`, `4096 Bytes Native (4Kn - Advanced Format / TrueNAS / ZFS)`, or `512e` on both the Typical storage page and the Custom Devices page.
+1. **New VM Wizard**: Choose **TrueNAS CORE** or **TrueNAS SCALE** from the dedicated **TrueNAS / Storage** category (or under BSD/Linux) to automatically configure 4096-byte (4Kn) native sector size, 8 GB RAM, Q35 machine, VirtIO network, and VirtIO disk with 4K cluster alignment. Manual overrides for `Default (512n)`, `4Kn`, and `512e` are also available on both Typical and Custom storage pages.
 2. **TrueNAS / ZFS Backup Import**: Attach existing disks directly in the wizard and immediately assign native 4096B sector size geometry without format conversion.
 3. **QCOW2 4K Cluster Alignment**: When creating new disk images in the New VM Wizard or via **File → New Disk Image**, choose `4 KB (4Kn / ZFS Aligned)` cluster size to perfectly match 4Kn sectors and ZFS record sizes, eliminating write amplification.
 4. **Properties Window**: Toggle or review sector formats (`512n`, `4Kn`, `512e`) directly on the **Hard Disk** properties tab with real-time bidirectional synchronization with Advanced Storage settings.

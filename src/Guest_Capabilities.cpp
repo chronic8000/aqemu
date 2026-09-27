@@ -99,7 +99,10 @@ Guest_Capabilities AQ_Compute_Guest_Capabilities(
 		os.contains( QLatin1String( "Solaris" ) ) || os == QLatin1String( "NixOS" ) ||
 		os == QLatin1String( "SteamOS" ) || os.contains( QLatin1String( "Chrome" ) ) ||
 		os == QLatin1String( "Haiku (64-bit)" ) || os == QLatin1String( "SerenityOS" ) ||
-		os == QLatin1String( "Alpine Linux (64-bit)" ) || os == QLatin1String( "Pop!_OS" );
+		os == QLatin1String( "Alpine Linux (64-bit)" ) || os == QLatin1String( "Pop!_OS" ) ||
+		os.contains( QLatin1String( "TrueNAS" ), Qt::CaseInsensitive ) ||
+		os.contains( QLatin1String( "FreeNAS" ), Qt::CaseInsensitive ) ||
+		has_flag( flags, "truenas" );
 
 	const bool embedded_arm =
 		tgt == QLatin1String( "aarch64" ) || tgt == QLatin1String( "arm" ) ||
