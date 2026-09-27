@@ -123,7 +123,8 @@ Spice_View::Spice_View( QWidget *parent )
 			"Embedded session uses VNC fallback with QEMU -display none.\n"
 			"cmake -DAQEMU_WITH_SPICE_GTK=ON (set PKG_CONFIG_PATH to spice-client-glib-2.0)." ) );
 
-	Glib_Timer->setInterval( 10 );
+	Glib_Timer->setTimerType( Qt::PreciseTimer );
+	Glib_Timer->setInterval( 4 );
 	connect( Glib_Timer, SIGNAL(timeout()), this, SLOT(Pump_GLib()) );
 }
 
@@ -911,15 +912,16 @@ void Spice_View::paintEvent( QPaintEvent *event )
 {
 	Q_UNUSED( event );
 	QPainter p( this );
-	p.fillRect( rect(), QColor( 20, 20, 20 ) );
 
 	if( Frame.isNull() )
 	{
+		p.fillRect( rect(), QColor( 20, 20, 20 ) );
 		Guest_Display_View::paintEvent( event );
 		return;
 	}
 
-	p.setRenderHint( QPainter::SmoothPixmapTransform, true );
+	// Fast nearest-neighbor transformation avoids massive CPU bilinear interpolation overhead
+	p.setRenderHint( QPainter::SmoothPixmapTransform, false );
 	p.drawImage( rect(), Frame, Frame.rect() );
 }
 

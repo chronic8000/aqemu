@@ -577,8 +577,8 @@ void VncView::paintEvent(QPaintEvent *event)
     event->accept();
 
     QPainter painter(this);
-    // Smooth transform when scaling to fill canvas
-    painter.setRenderHint( QPainter::SmoothPixmapTransform, true );
+    // Nearest-neighbor transform keeps VGA text crisp and avoids CPU bilinear scaling lag
+    painter.setRenderHint( QPainter::SmoothPixmapTransform, false );
 
     if( m_scale )
     {

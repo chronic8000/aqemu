@@ -153,12 +153,13 @@ static bool SendCleanQEMUEncodings(rfbClient *cl)
 
     // Standard RFB encodings accepted by QEMU, strictly excluding rfbEncodingExtDesktopSize (-308).
     // Including rfbEncodingNewFBSize (-223) allows clean resolution changes without LibVNCClient bug #640.
+    // Prioritize CopyRect, Hextile, and Raw for near-zero localhost latency and CPU overhead.
     const uint32_t encs[] = {
+        htonl(rfbEncodingCopyRect),
+        htonl(rfbEncodingHextile),
+        htonl(rfbEncodingRaw),
         htonl(rfbEncodingZRLE),
         htonl(rfbEncodingZlib),
-        htonl(rfbEncodingHextile),
-        htonl(rfbEncodingCopyRect),
-        htonl(rfbEncodingRaw),
         htonl(rfbEncodingNewFBSize),
         htonl(rfbEncodingPointerPos),
         htonl(rfbEncodingXCursor),
