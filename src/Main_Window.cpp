@@ -113,6 +113,8 @@
 #include "Utils.h"
 #include "QEMU_Probe_Catalog.h"
 #include "Blockdev_Graph_Window.h"
+#include "Appliance_Import_Window.h"
+#include "Appliance_Export_Window.h"
 #include "Service.h"
 #include "No_Boot_Device.h"
 
@@ -5179,6 +5181,26 @@ void Main_Window::on_actionConvert_HDD_Image_triggered()
 	Convert_HDD_Image_Window Convert_HDD_Win( this );
 
 	Convert_HDD_Win.exec();
+}
+
+void Main_Window::on_actionImport_Appliance_triggered()
+{
+	Appliance_Import_Window import_win( this );
+	if( import_win.exec() == QDialog::Accepted && import_win.Get_Imported_VM() != nullptr )
+	{
+		Add_VM_To_List( import_win.Get_Imported_VM() );
+	}
+}
+
+void Main_Window::on_actionExport_Appliance_triggered()
+{
+	if( VM_List.isEmpty() )
+	{
+		AQGraphic_Warning( tr("Export Appliance"), tr("No virtual machines available to export.") );
+		return;
+	}
+	Appliance_Export_Window export_win( VM_List, ui.Machines_List->currentRow(), this );
+	export_win.exec();
 }
 
 void Main_Window::on_actionShow_Advanced_Settings_Window_triggered()

@@ -4115,6 +4115,9 @@
     <addaction name="actionCreate_HDD_Image"/>
     <addaction name="actionConvert_HDD_Image"/>
     <addaction name="separator"/>
+    <addaction name="actionImport_Appliance"/>
+    <addaction name="actionExport_Appliance"/>
+    <addaction name="separator"/>
     <addaction name="actionShow_Advanced_Settings_Window"/>
     <addaction name="separator"/>
     <addaction name="actionShow_First_Run_Wizard"/>
@@ -4285,6 +4288,30 @@
    </property>
    <property name="toolTip">
     <string>Convert HDD Image</string>
+   </property>
+  </action>
+  <action name="actionImport_Appliance">
+   <property name="icon">
+    <iconset resource="../resources/icons.qrc">
+     <normaloff>:/document-open.png</normaloff>:/document-open.png</iconset>
+   </property>
+   <property name="text">
+    <string>&amp;Import Appliance (OVA / OVF)...</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+I</string>
+   </property>
+  </action>
+  <action name="actionExport_Appliance">
+   <property name="icon">
+    <iconset resource="../resources/icons.qrc">
+     <normaloff>:/document-save.png</normaloff>:/document-save.png</iconset>
+   </property>
+   <property name="text">
+    <string>&amp;Export Appliance (OVA)...</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+E</string>
    </property>
   </action>
   <action name="actionShow_Settings_Window">

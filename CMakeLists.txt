@@ -147,6 +147,9 @@ SET( aqemu_headers
 	src/Embedded_Display/Guest_Display_View.h
 	src/Embedded_Display/Spice_View.h
 	src/VM_Session_Widget.h
+	src/OVF_Parser.h
+	src/Appliance_Import_Window.h
+	src/Appliance_Export_Window.h
 )
 
 SET( aqemu_sources
@@ -224,6 +227,9 @@ SET( aqemu_sources
 	src/Embedded_Display/Guest_Display_View.cpp
 	src/Embedded_Display/Spice_View.cpp
 	src/VM_Session_Widget.cpp
+	src/OVF_Parser.cpp
+	src/Appliance_Import_Window.cpp
+	src/Appliance_Export_Window.cpp
 )
 
 SET( aqemu_ui

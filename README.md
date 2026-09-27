@@ -177,9 +177,9 @@ The two UI paths intentionally serve different users:
 
 This prevents combinations such as PC floppy controllers on non-PC boards or Intel HDA on machines that cannot provide it, while preserving valid expert choices.
 
-### 2. Five creation paths and 195 guest profiles
+### 2. Six creation paths and 195 guest profiles
 
-The rebuilt wizard can start from a **Guest OS**, **System/Board**, **CPU Architecture**, **Custom/Advanced configuration**, or **Existing Disk**. It supports ISO and disk import, URL downloads, kernel/initrd network installs, ISO9660 identification and optional `osinfo-detect`.
+The rebuilt wizard can start from a **Guest OS**, **System/Board**, **CPU Architecture**, **Custom/Advanced configuration**, **Existing Disk**, or **Virtual Appliance (OVA / OVF)**. It supports ISO and multi-disk appliance import, URL downloads, kernel/initrd network installs, ISO9660 identification and optional `osinfo-detect`.
 
 Its 195 profiles span DOS and Windows 1.x through Windows 11 ARM, Linux/BSD, TrueNAS CORE & SCALE, Haiku, ReactOS, OS/2, Solaris, AIX, IRIX, HP-UX, classic Mac, PowerPC OS X, experimental Intel macOS, RISC-V, IBM Z and embedded boards. Profiles carry architecture-aware machine, CPU, memory, storage, video, input, audio, NIC and boot recommendations.
 
@@ -333,6 +333,23 @@ Enterprise storage operating systems (such as **TrueNAS CORE**, **TrueNAS SCALE*
 3. **QCOW2 4K Cluster Alignment**: When creating new disk images in the New VM Wizard or via **File → New Disk Image**, choose `4 KB (4Kn / ZFS Aligned)` cluster size to perfectly match 4Kn sectors and ZFS record sizes, eliminating write amplification.
 4. **Properties Window**: Toggle or review sector formats (`512n`, `4Kn`, `512e`) directly on the **Hard Disk** properties tab with real-time bidirectional synchronization with Advanced Storage settings.
 5. **Intelligent Bus Elevation & Safety**: Automatically elevates storage buses to VirtIO, NVMe, or SCSI for native 4Kn, while gracefully clamping legacy IDE controllers to 512e to prevent QEMU initialization crashes.
+
+---
+
+## 📦 Virtual Appliance Import & Export (OVA / OVF) & Universal Storage
+
+### 📦 Seamless VirtualBox & VMware Interoperability
+- **Direct `.ova` & `.ovf` Import**: Import virtual appliances from VirtualBox, VMware ESXi/Workstation, or cloud platforms directly via `File → Import Appliance (OVA / OVF)...` (`Ctrl+I`) or through Creation Method 6 in the New VM Wizard.
+- **Built-in Pure C++ Streaming Parser**: Zero external runtime dependencies. Implements DMTF OVF 1.0 XML schema parsing, automated hardware translation (vCPU, memory, storage controllers, network interfaces), and streaming POSIX UStar TAR extraction.
+- **Intelligent Profile Mapping**: Automatically maps VirtualBox and VMware guest OS identifiers to the closest of AQEMU's 195 tuned operating system profiles.
+- **Format Conversion & 4Kn / Cluster Alignment**: Automatically converts VMDK disks to QCOW2 with optimal 4K cluster alignment or maintains native VMDK format based on user preference.
+- **Export Virtual Appliances (`.ova`)**: Export any existing AQEMU VM to a standard `.ova` package (`File → Export Appliance (OVA)...` / `Ctrl+E`), converting disks to stream-optimized VMDKs and generating compliant DMTF OVF descriptors.
+
+### 💽 Universal Multi-Disk & Multi-Optical Storage Overhaul
+- **Unrestricted Multi-Disk Capacity**: The legacy limit of 4 hard disks and 1 CD-ROM has been completely eliminated across the entire application.
+- **Modern Storage Buses**: Add arbitrary numbers of secondary disks and optical media attached to VirtIO, SATA/AHCI, SCSI, and NVMe controllers.
+- **Universal Recognition**: Storage devices are seamlessly tracked across the Device Manager, VM Information tables, boot media validators, snapshot engines, and file cleanup dialogs.
+- **Safe USB Passthrough**: Missing or unplugged host USB devices log non-blocking warnings instead of halting VM boot.
 
 ---
 

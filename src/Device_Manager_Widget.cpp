@@ -154,34 +154,13 @@ void Device_Manager_Widget::Update_Enabled_Actions()
 		ui.TB_Add_Floppy->setEnabled( true );
 	}
 	
-	if( CD_ROM.Get_Enabled() )
-	{
-		ui.actionAdd_CD_ROM->setEnabled( false );
-		ui.TB_Add_CDROM->setEnabled( false );
-	}
-	else
-	{
-		ui.actionAdd_CD_ROM->setEnabled( true );
-		ui.TB_Add_CDROM->setEnabled( true );
-	}
+	// CD-ROM: Always allowed to add optical drives (either primary or secondary via Storage_Devices)
+	ui.actionAdd_CD_ROM->setEnabled( true );
+	ui.TB_Add_CDROM->setEnabled( true );
 	
-	if( HDA.Get_Enabled() && HDB.Get_Enabled() &&
-		HDC.Get_Enabled() &&  HDD.Get_Enabled() )
-	{
-		ui.actionAdd_HDD->setEnabled( false );
-		ui.TB_Add_HDD->setEnabled( false );
-	}
-	else if( HDA.Get_Enabled() && HDB.Get_Enabled() &&
-			 HDD.Get_Enabled() && CD_ROM.Get_Enabled() )
-	{
-		ui.actionAdd_HDD->setEnabled( false );
-		ui.TB_Add_HDD->setEnabled( false );
-	}
-	else
-	{
-		ui.actionAdd_HDD->setEnabled( true );
-		ui.TB_Add_HDD->setEnabled( true );
-	}
+	// HDD: Always allowed to add hard disks (either HDA-HDD or additional drives via Storage_Devices)
+	ui.actionAdd_HDD->setEnabled( true );
+	ui.TB_Add_HDD->setEnabled( true );
 	
 	// Update Information
 	if( ui.Devices_List->currentItem() != NULL )
@@ -630,8 +609,27 @@ void Device_Manager_Widget::on_actionAdd_CD_ROM_triggered()
 	}
 	else
 	{
-		AQGraphic_Warning( tr("Warning!"),
-						   tr("Maximum CD-ROM Disk Count is 1") );
+		// Modern multi-drive support: add an additional optical drive via Storage_Devices
+		Add_New_Device_Window Device_Window;
+		VM_Native_Storage_Device tmp_dev;
+		tmp_dev.Use_Media( true );
+		tmp_dev.Set_Media( VM::DM_CD_ROM );
+		tmp_dev.Use_Interface( true );
+		tmp_dev.Set_Interface( VM::DI_AHCI );
+		if( Current_Machine_Devices )
+			Device_Window.Set_Emulator_Devices( *Current_Machine_Devices );
+		Device_Window.Set_Device( tmp_dev );
+		if( Device_Window.exec() == QDialog::Accepted )
+		{
+			Storage_Devices << Device_Window.Get_Device();
+			const QString p = Device_Window.Get_Device().Get_File_Path();
+			QListWidgetItem *cdit = new QListWidgetItem( QIcon(":/cdrom.png"),
+				tr("Optical Drive %1 (%2)").arg( Storage_Devices.count() ).arg( p.isEmpty() ? tr("empty") : p ),
+				ui.Devices_List );
+			cdit->setData( 512, "device" + QString::number(Storage_Devices.count() - 1) );
+			ui.Devices_List->addItem( cdit );
+			emit Device_Changed();
+		}
 	}
 }
 
@@ -701,8 +699,27 @@ void Device_Manager_Widget::on_actionAdd_HDD_triggered()
 	}
 	else
 	{
-		AQGraphic_Warning( tr("Warning!"),
-						   tr("Maximum Hard Disk Count is 4 excluding CD-ROM") );
+		// Modern multi-disk support: add an additional hard disk via Storage_Devices
+		Add_New_Device_Window Device_Window;
+		VM_Native_Storage_Device tmp_dev;
+		tmp_dev.Use_Media( true );
+		tmp_dev.Set_Media( VM::DM_Disk );
+		tmp_dev.Use_Interface( true );
+		tmp_dev.Set_Interface( VM::DI_Virtio );
+		if( Current_Machine_Devices )
+			Device_Window.Set_Emulator_Devices( *Current_Machine_Devices );
+		Device_Window.Set_Device( tmp_dev );
+		if( Device_Window.exec() == QDialog::Accepted )
+		{
+			Storage_Devices << Device_Window.Get_Device();
+			const QString p = Device_Window.Get_Device().Get_File_Path();
+			QListWidgetItem *hdit = new QListWidgetItem( QIcon(":/hdd.png"),
+				tr("Hard Disk %1 (%2)").arg( Storage_Devices.count() ).arg( p.isEmpty() ? tr("new disk") : p ),
+				ui.Devices_List );
+			hdit->setData( 512, "device" + QString::number(Storage_Devices.count() - 1) );
+			ui.Devices_List->addItem( hdit );
+			emit Device_Changed();
+		}
 	}
 }
 
@@ -884,7 +901,7 @@ void Device_Manager_Widget::on_actionProperties_triggered()
 			{
 				HDD = pw->Get_HDD();
 				
-				ui.Devices_List->currentItem()->setText( tr("HDD") + " (" + HDC.Get_File_Name() + ")" );
+				ui.Devices_List->currentItem()->setText( tr("HDD") + " (" + HDD.Get_File_Name() + ")" );
 				
 				emit Device_Changed();
 			}
@@ -894,7 +911,7 @@ void Device_Manager_Widget::on_actionProperties_triggered()
 	{
 		bool found = false;
 		
-		for( int fx = 0; fx < 32; ++fx )
+		for( int fx = 0; fx < Storage_Devices.count(); ++fx )
 		{
 			if( ui.Devices_List->currentItem()->data(512).toString() == "device" + QString::number(fx) )
 			{
@@ -914,6 +931,17 @@ void Device_Manager_Widget::on_actionProperties_triggered()
 					if( Storage_Devices[fx] != Device_Window.Get_Device() )
 					{
 						Storage_Devices[fx] = Device_Window.Get_Device();
+						const QString p = Storage_Devices[fx].Get_File_Path();
+						if( Storage_Devices[fx].Use_Media() && Storage_Devices[fx].Get_Media() == VM::DM_CD_ROM )
+						{
+							ui.Devices_List->currentItem()->setText(
+								tr("Optical Drive %1 (%2)").arg( fx + 1 ).arg( p.isEmpty() ? tr("empty") : p ) );
+						}
+						else
+						{
+							ui.Devices_List->currentItem()->setText(
+								tr("Hard Disk %1 (%2)").arg( fx + 1 ).arg( p.isEmpty() ? tr("new disk") : p ) );
+						}
 						
 						emit Device_Changed();
 					}
@@ -972,7 +1000,7 @@ void Device_Manager_Widget::on_actionDelete_triggered()
 	{
 		bool found = false;
 		
-		for( int fx = 0; fx < 32; ++fx )
+		for( int fx = 0; fx < Storage_Devices.count(); ++fx )
 		{
 			if( ui.Devices_List->currentItem()->data(512).toString() == "device" + QString::number(fx) )
 			{
