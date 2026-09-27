@@ -109,16 +109,10 @@ EOF
 aqemu_ensure_cargo() {
   local root="$1"
 
-  # 1. Check if cargo is already in PATH
-  if command -v cargo >/dev/null 2>&1; then
-    echo "Found cargo: $(command -v cargo)"
-    return 0
-  fi
-
-  # 2. Check common Windows user .cargo/bin paths
+  # 1. Prefer user .cargo/bin paths first (e.g. rustup toolchain)
   for cand in \
-    "${USERPROFILE:-}/.cargo/bin" \
     "${HOME}/.cargo/bin" \
+    "${USERPROFILE:-}/.cargo/bin" \
     "/c/Users/${USER:-}/.cargo/bin" \
     "/c/Users/${USERNAME:-}/.cargo/bin" \
     /c/Users/*/.cargo/bin \
@@ -131,6 +125,12 @@ aqemu_ensure_cargo() {
       return 0
     fi
   done
+
+  # 2. Check if cargo is already in PATH
+  if command -v cargo >/dev/null 2>&1; then
+    echo "Found cargo: $(command -v cargo)"
+    return 0
+  fi
 
   # 3. Check pacman on MSYS2
   if command -v pacman >/dev/null 2>&1; then
@@ -437,7 +437,7 @@ if 'hogweed' not in content:
 
   local conf_args=(
     --prefix="${inferno_stage}"
-    --target-list="aarch64-softmmu"
+    --target-list="aarch64-softmmu,arm-softmmu"
   )
 
   if [[ -n "${CC:-}" ]]; then
@@ -470,22 +470,48 @@ if 'hogweed' not in content:
   ninja -C "${inferno_build}" -j"${jobs}"
   ninja -C "${inferno_build}" install
 
-  # Copy built binary to prefix/bin as qemu-system-applesoc
+  # Copy built 64-bit binary to prefix/bin as qemu-system-applesoc, qemu-system-inferno, qemu-system-aarch64-inferno
+  local bin_64=""
   if [[ -f "${inferno_stage}/bin/qemu-system-aarch64.exe" ]]; then
-    cp -f "${inferno_stage}/bin/qemu-system-aarch64.exe" "${prefix}/bin/qemu-system-applesoc.exe"
-    echo "Successfully installed: ${prefix}/bin/qemu-system-applesoc.exe"
+    bin_64="${inferno_stage}/bin/qemu-system-aarch64.exe"
   elif [[ -f "${inferno_stage}/bin/qemu-system-aarch64" ]]; then
-    cp -f "${inferno_stage}/bin/qemu-system-aarch64" "${prefix}/bin/qemu-system-applesoc"
-    echo "Successfully installed: ${prefix}/bin/qemu-system-applesoc"
+    bin_64="${inferno_stage}/bin/qemu-system-aarch64"
   elif [[ -f "${inferno_stage}/qemu-system-aarch64.exe" ]]; then
-    cp -f "${inferno_stage}/qemu-system-aarch64.exe" "${prefix}/bin/qemu-system-applesoc.exe"
-    echo "Successfully installed: ${prefix}/bin/qemu-system-applesoc.exe"
+    bin_64="${inferno_stage}/qemu-system-aarch64.exe"
   elif [[ -f "${inferno_stage}/qemu-system-aarch64" ]]; then
-    cp -f "${inferno_stage}/qemu-system-aarch64" "${prefix}/bin/qemu-system-applesoc"
-    echo "Successfully installed: ${prefix}/bin/qemu-system-applesoc"
+    bin_64="${inferno_stage}/qemu-system-aarch64"
+  fi
+
+  if [[ -n "${bin_64}" ]]; then
+    local ext=""
+    [[ "${bin_64}" == *.exe ]] && ext=".exe"
+    cp -f "${bin_64}" "${prefix}/bin/qemu-system-applesoc${ext}"
+    cp -f "${bin_64}" "${prefix}/bin/qemu-system-inferno${ext}"
+    cp -f "${bin_64}" "${prefix}/bin/qemu-system-aarch64-inferno${ext}"
+    echo "Successfully installed: ${prefix}/bin/qemu-system-applesoc${ext} (and aliases)"
   else
     echo "ERROR: Failed to find compiled aarch64 binary in ${inferno_stage}" >&2
     return 1
+  fi
+
+  # Copy built 32-bit binary if available
+  local bin_32=""
+  if [[ -f "${inferno_stage}/bin/qemu-system-arm.exe" ]]; then
+    bin_32="${inferno_stage}/bin/qemu-system-arm.exe"
+  elif [[ -f "${inferno_stage}/bin/qemu-system-arm" ]]; then
+    bin_32="${inferno_stage}/bin/qemu-system-arm"
+  elif [[ -f "${inferno_stage}/qemu-system-arm.exe" ]]; then
+    bin_32="${inferno_stage}/qemu-system-arm.exe"
+  elif [[ -f "${inferno_stage}/qemu-system-arm" ]]; then
+    bin_32="${inferno_stage}/qemu-system-arm"
+  fi
+
+  if [[ -n "${bin_32}" ]]; then
+    local ext32=""
+    [[ "${bin_32}" == *.exe ]] && ext32=".exe"
+    cp -f "${bin_32}" "${prefix}/bin/qemu-system-applesoc32${ext32}"
+    cp -f "${bin_32}" "${prefix}/bin/qemu-system-arm-inferno${ext32}"
+    echo "Successfully installed: ${prefix}/bin/qemu-system-applesoc32${ext32} (and aliases)"
   fi
 
   # Merge any share data without overwriting existing upstream files
@@ -536,6 +562,17 @@ aqemu_build_reims() {
     reims_src="${reims_dir}"
   fi
 
+  # On aarch64 / ARM64, patch *const i8 -> *const std::ffi::c_char in Rust crates
+  if [[ "$(uname -m 2>/dev/null)" == "aarch64" || "$(uname -m 2>/dev/null)" == "arm64" ]]; then
+    for rust_file in \
+      "${reims_dir}/crates/reims-vgpu-vulkan/src/device.rs" \
+      "${reims_dir}/crates/reims-vgpu/src/backend/vulkan/caps/push_descriptor.rs"; do
+      if [[ -f "${rust_file}" ]]; then
+        sed -i 's/\*const i8/\*const std::ffi::c_char/g' "${rust_file}"
+      fi
+    done
+  fi
+
   rm -rf "${reims_stage}"
   mkdir -p "${reims_build}" "${reims_stage}" "${prefix}/bin"
   cd "${reims_build}"
@@ -572,27 +609,26 @@ aqemu_build_reims() {
   ninja -C "${reims_build}" -j"${jobs}"
   ninja -C "${reims_build}" install
 
-  # Copy built binary to prefix/bin as qemu-system-reimsvgpu / qemu-system-reims3d
+  # Copy built binary to prefix/bin as qemu-system-reimsvgpu / qemu-system-reims / qemu-system-reims3d / qemu-system-x86_64-reims
+  local bin_x86=""
   if [[ -f "${reims_stage}/bin/qemu-system-x86_64.exe" ]]; then
-    cp -f "${reims_stage}/bin/qemu-system-x86_64.exe" "${prefix}/bin/qemu-system-reimsvgpu.exe"
-    cp -f "${reims_stage}/bin/qemu-system-x86_64.exe" "${prefix}/bin/qemu-system-reims.exe"
-    cp -f "${reims_stage}/bin/qemu-system-x86_64.exe" "${prefix}/bin/qemu-system-reims3d.exe"
-    echo "Successfully installed: ${prefix}/bin/qemu-system-reimsvgpu.exe (and aliases)"
+    bin_x86="${reims_stage}/bin/qemu-system-x86_64.exe"
   elif [[ -f "${reims_stage}/bin/qemu-system-x86_64" ]]; then
-    cp -f "${reims_stage}/bin/qemu-system-x86_64" "${prefix}/bin/qemu-system-reims3d"
-    cp -f "${reims_stage}/bin/qemu-system-x86_64" "${prefix}/bin/qemu-system-reimsvgpu"
-    cp -f "${reims_stage}/bin/qemu-system-x86_64" "${prefix}/bin/qemu-system-reims"
-    echo "Successfully installed: ${prefix}/bin/qemu-system-reims3d (and aliases)"
+    bin_x86="${reims_stage}/bin/qemu-system-x86_64"
   elif [[ -f "${reims_stage}/qemu-system-x86_64.exe" ]]; then
-    cp -f "${reims_stage}/qemu-system-x86_64.exe" "${prefix}/bin/qemu-system-reimsvgpu.exe"
-    cp -f "${reims_stage}/qemu-system-x86_64.exe" "${prefix}/bin/qemu-system-reims.exe"
-    cp -f "${reims_stage}/qemu-system-x86_64.exe" "${prefix}/bin/qemu-system-reims3d.exe"
-    echo "Successfully installed: ${prefix}/bin/qemu-system-reimsvgpu.exe (and aliases)"
+    bin_x86="${reims_stage}/qemu-system-x86_64.exe"
   elif [[ -f "${reims_stage}/qemu-system-x86_64" ]]; then
-    cp -f "${reims_stage}/qemu-system-x86_64" "${prefix}/bin/qemu-system-reims3d"
-    cp -f "${reims_stage}/qemu-system-x86_64" "${prefix}/bin/qemu-system-reimsvgpu"
-    cp -f "${reims_stage}/qemu-system-x86_64" "${prefix}/bin/qemu-system-reims"
-    echo "Successfully installed: ${prefix}/bin/qemu-system-reims3d (and aliases)"
+    bin_x86="${reims_stage}/qemu-system-x86_64"
+  fi
+
+  if [[ -n "${bin_x86}" ]]; then
+    local ext=""
+    [[ "${bin_x86}" == *.exe ]] && ext=".exe"
+    cp -f "${bin_x86}" "${prefix}/bin/qemu-system-reimsvgpu${ext}"
+    cp -f "${bin_x86}" "${prefix}/bin/qemu-system-reims${ext}"
+    cp -f "${bin_x86}" "${prefix}/bin/qemu-system-reims3d${ext}"
+    cp -f "${bin_x86}" "${prefix}/bin/qemu-system-x86_64-reims${ext}"
+    echo "Successfully installed: ${prefix}/bin/qemu-system-reimsvgpu${ext} (and aliases)"
   else
     echo "ERROR: Failed to find compiled x86_64 binary in ${reims_stage}" >&2
     return 1
