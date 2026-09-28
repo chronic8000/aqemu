@@ -7,6 +7,7 @@
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGridLayout>
+#include <QScrollArea>
 #include <QGroupBox>
 #include <QFileDialog>
 #include <QMessageBox>
@@ -32,7 +33,6 @@ iOS_Firmware_Tool_Window::iOS_Firmware_Tool_Window( QWidget *parent )
 	, Last_Operation( Pending_Op::None )
 {
 	setWindowTitle( tr( "iOS Firmware Tool" ) );
-	resize( AQ_Px( 780, this ), AQ_Px( 860, this ) );
 	PyIMG4_Exe = Find_PyIMG4_Executable();
 	Img4_Exe = Find_Img4_Executable();
 
@@ -42,6 +42,7 @@ iOS_Firmware_Tool_Window::iOS_Firmware_Tool_Window( QWidget *parent )
 	         this, &iOS_Firmware_Tool_Window::On_Process_Finished );
 
 	Setup_Ui();
+	AQ_Intelligently_Size_Dialog( this, 800, 680 );
 }
 
 QString iOS_Firmware_Tool_Window::Find_PyIMG4_Executable() const
@@ -96,7 +97,22 @@ bool iOS_Firmware_Tool_Window::Ensure_PyIMG4_Available()
 
 void iOS_Firmware_Tool_Window::Setup_Ui()
 {
-	QVBoxLayout *main_lay = new QVBoxLayout( this );
+	QVBoxLayout *root_lay = new QVBoxLayout( this );
+	root_lay->setContentsMargins( 8, 8, 8, 8 );
+	root_lay->setSpacing( 6 );
+
+	QScrollArea *scroll = new QScrollArea( this );
+	scroll->setWidgetResizable( true );
+	scroll->setFrameShape( QFrame::NoFrame );
+	scroll->setHorizontalScrollBarPolicy( Qt::ScrollBarAsNeeded );
+	scroll->setVerticalScrollBarPolicy( Qt::ScrollBarAsNeeded );
+
+	QWidget *content = new QWidget( scroll );
+	content->setSizePolicy( QSizePolicy::Preferred, QSizePolicy::Minimum );
+	QVBoxLayout *main_lay = new QVBoxLayout( content );
+	main_lay->setContentsMargins( 4, 4, 4, 4 );
+	main_lay->setSpacing( 8 );
+	main_lay->setSizeConstraint( QLayout::SetMinimumSize );
 
 	QLabel *title = new QLabel( tr( "<b>iOS Firmware Unpacker</b>" ) );
 	title->setStyleSheet( QStringLiteral( "font-size: 14px;" ) );
@@ -111,6 +127,7 @@ void iOS_Firmware_Tool_Window::Setup_Ui()
 
 	QGroupBox *gb_ipsw = new QGroupBox( tr( "Step 1: Unpack IPSW Archive" ) );
 	QGridLayout *grid1 = new QGridLayout( gb_ipsw );
+	grid1->setColumnStretch( 1, 1 );
 
 	grid1->addWidget( new QLabel( tr( "IPSW File:" ) ), 0, 0 );
 	Edit_IPSW_Path = new QLineEdit();
@@ -137,12 +154,14 @@ void iOS_Firmware_Tool_Window::Setup_Ui()
 	QGroupBox *gb_tick = new QGroupBox( tr(
 		"Step 2: Forge restore + SEP tickets (this IPSW — no terminal)" ) );
 	QGridLayout *gridT = new QGridLayout( gb_tick );
-	gridT->addWidget( new QLabel( tr(
+	gridT->setColumnStretch( 1, 1 );
+	QLabel *lblTickInfo = new QLabel( tr(
 		"Uses bundled extras/Inferno scripts. Needs Python 3 with pyasn1 "
 		"(AQEMU will pip-install if missing). "
 		"ticket.shsh2 is not in the IPSW and is not shipped by AQEMU — "
-		"get it from ChefKiss Inferno file setup, then Browse…" ) ),
-		0, 0, 1, 3 );
+		"get it from ChefKiss Inferno file setup, then Browse…" ) );
+	lblTickInfo->setWordWrap( true );
+	gridT->addWidget( lblTickInfo, 0, 0, 1, 3 );
 
 	gridT->addWidget( new QLabel( tr( "Model:" ) ), 1, 0 );
 	CB_Ticket_Model = new QComboBox();
@@ -162,6 +181,7 @@ void iOS_Firmware_Tool_Window::Setup_Ui()
 	Edit_SHSH->setPlaceholderText( tr( "Not in the IPSW — Browse after you save ChefKiss’s file" ) );
 	gridT->addWidget( Edit_SHSH, 3, 1 );
 	auto *shshRow = new QHBoxLayout();
+	shshRow->setContentsMargins( 0, 0, 0, 0 );
 	auto *btnShsh = new QPushButton( tr( "Browse..." ) );
 	connect( btnShsh, &QPushButton::clicked, this, &iOS_Firmware_Tool_Window::Browse_SHSH );
 	auto *btnShshWeb = new QPushButton( tr( "How to get this…" ) );
@@ -232,11 +252,13 @@ void iOS_Firmware_Tool_Window::Setup_Ui()
 	QGroupBox *gb_sep = new QGroupBox( tr(
 		"Step 3: Pack SEP firmware (img4 — same ChefKiss recipe, no cmd.exe)" ) );
 	QGridLayout *gridS = new QGridLayout( gb_sep );
-	gridS->addWidget( new QLabel( tr(
+	gridS->setColumnStretch( 1, 1 );
+	QLabel *lblSepInfo = new QLabel( tr(
 		"Needs img4 (xerub img4lib) next to AQEMU or on PATH. "
 		"IV+Key concatenated from The Apple Wiki for this SEP IM4P. "
-		"Decrypt then wrap with the SEP ticket from Step 2." ) ),
-		0, 0, 1, 3 );
+		"Decrypt then wrap with the SEP ticket from Step 2." ) );
+	lblSepInfo->setWordWrap( true );
+	gridS->addWidget( lblSepInfo, 0, 0, 1, 3 );
 
 	gridS->addWidget( new QLabel( tr( "SEP .im4p:" ) ), 1, 0 );
 	Edit_SEP_IM4P = new QLineEdit();
@@ -306,6 +328,7 @@ void iOS_Firmware_Tool_Window::Setup_Ui()
 
 	QGroupBox *gb_im4p = new QGroupBox( tr( "Step 4: Process IM4P (DeviceTree / kernel — pyimg4)" ) );
 	QGridLayout *grid2 = new QGridLayout( gb_im4p );
+	grid2->setColumnStretch( 1, 1 );
 
 	grid2->addWidget( new QLabel( tr( "IM4P Payload File:" ) ), 0, 0 );
 	Edit_IM4P_Path = new QLineEdit();
@@ -339,6 +362,8 @@ void iOS_Firmware_Tool_Window::Setup_Ui()
 	QVBoxLayout *log_lay = new QVBoxLayout( gb_log );
 	Text_Console_Log = new QTextEdit();
 	Text_Console_Log->setReadOnly( true );
+	Text_Console_Log->setLineWrapMode( QTextEdit::WidgetWidth );
+	Text_Console_Log->setMinimumHeight( AQ_Px( 120, this ) );
 	Text_Console_Log->setStyleSheet(
 		QStringLiteral( "font-family: Consolas, monospace; font-size: 11px;" ) );
 	log_lay->addWidget( Text_Console_Log );
@@ -348,7 +373,9 @@ void iOS_Firmware_Tool_Window::Setup_Ui()
 	QHBoxLayout *paths_lay = new QHBoxLayout( gb_paths );
 	Text_Result_Paths = new QTextEdit();
 	Text_Result_Paths->setReadOnly( true );
-	Text_Result_Paths->setMaximumHeight( AQ_Px( 70, this ) );
+	Text_Result_Paths->setLineWrapMode( QTextEdit::WidgetWidth );
+	Text_Result_Paths->setMinimumHeight( AQ_Px( 50, this ) );
+	Text_Result_Paths->setMaximumHeight( AQ_Px( 90, this ) );
 	paths_lay->addWidget( Text_Result_Paths, 1 );
 
 	Btn_Copy_Paths = new QPushButton( tr( "Copy locations" ) );
@@ -356,12 +383,15 @@ void iOS_Firmware_Tool_Window::Setup_Ui()
 	paths_lay->addWidget( Btn_Copy_Paths );
 	main_lay->addWidget( gb_paths );
 
+	scroll->setWidget( content );
+	root_lay->addWidget( scroll, 1 );
+
 	QHBoxLayout *btn_lay = new QHBoxLayout();
 	btn_lay->addStretch( 1 );
 	QPushButton *btn_close = new QPushButton( tr( "Close" ) );
 	connect( btn_close, &QPushButton::clicked, this, &QDialog::accept );
 	btn_lay->addWidget( btn_close );
-	main_lay->addLayout( btn_lay );
+	root_lay->addLayout( btn_lay );
 }
 
 void iOS_Firmware_Tool_Window::Browse_IPSW_File()

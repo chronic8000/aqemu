@@ -15,6 +15,7 @@
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QFormLayout>
+#include <QScrollArea>
 #include <QHBoxLayout>
 #include <QMessageBox>
 #include <QProcessEnvironment>
@@ -83,18 +84,37 @@ Apple_SoC_FS_Patch_Window::Apple_SoC_FS_Patch_Window( Virtual_Machine *vm, QWidg
 	, Process( new QProcess( this ) )
 {
 	setWindowTitle( tr( "Apply iOS filesystem patches (Inferno)" ) );
-	resize( AQ_Px( 720, this ), AQ_Px( 520, this ) );
 
-	auto *lay = new QVBoxLayout( this );
-	lay->addWidget( new QLabel( tr(
+	QVBoxLayout *root_lay = new QVBoxLayout( this );
+	root_lay->setContentsMargins( 8, 8, 8, 8 );
+	root_lay->setSpacing( 6 );
+
+	QScrollArea *scroll = new QScrollArea( this );
+	scroll->setWidgetResizable( true );
+	scroll->setFrameShape( QFrame::NoFrame );
+	scroll->setHorizontalScrollBarPolicy( Qt::ScrollBarAsNeeded );
+	scroll->setVerticalScrollBarPolicy( Qt::ScrollBarAsNeeded );
+
+	QWidget *content = new QWidget( scroll );
+	content->setSizePolicy( QSizePolicy::Preferred, QSizePolicy::Minimum );
+	QVBoxLayout *lay = new QVBoxLayout( content );
+	lay->setContentsMargins( 4, 4, 4, 4 );
+	lay->setSpacing( 8 );
+	lay->setSizeConstraint( QLayout::SetMinimumSize );
+
+	QLabel *intro = new QLabel( tr(
 		"<b>Required after idevicerestore</b> for SpringBoard / setup to appear.<br>"
 		"Patches the <b>iOS guest</b> <code>root</code> NVMe image "
 		"(not the IPSW restore companion).<br>"
 		"ChefKiss guide: "
 		"<a href=\"https://chefkiss.dev/guides/inferno/fs-patches/\">"
-		"chefkiss.dev/guides/inferno/fs-patches</a>" ) ) );
+		"chefkiss.dev/guides/inferno/fs-patches</a>" ) );
+	intro->setWordWrap( true );
+	intro->setOpenExternalLinks( true );
+	lay->addWidget( intro );
 
 	auto *form = new QFormLayout();
+	form->setFieldGrowthPolicy( QFormLayout::ExpandingFieldsGrow );
 	Edit_Root = new QLineEdit();
 	Edit_Root->setPlaceholderText( tr( "…/<VM>_inferno/root" ) );
 	form->addRow( tr( "Guest root disk:" ), Edit_Root );
@@ -123,15 +143,22 @@ Apple_SoC_FS_Patch_Window::Apple_SoC_FS_Patch_Window( Virtual_Machine *vm, QWidg
 
 	Text_Log = new QTextEdit();
 	Text_Log->setReadOnly( true );
+	Text_Log->setLineWrapMode( QTextEdit::WidgetWidth );
+	Text_Log->setMinimumHeight( AQ_Px( 120, this ) );
 	lay->addWidget( new QLabel( tr( "Output:" ) ) );
 	lay->addWidget( Text_Log, 1 );
+
+	scroll->setWidget( content );
+	root_lay->addWidget( scroll, 1 );
 
 	auto *bottom = new QHBoxLayout();
 	bottom->addStretch();
 	QPushButton *btnClose = new QPushButton( tr( "Close" ) );
 	connect( btnClose, &QPushButton::clicked, this, &QDialog::accept );
 	bottom->addWidget( btnClose );
-	lay->addLayout( bottom );
+	root_lay->addLayout( bottom );
+
+	AQ_Intelligently_Size_Dialog( this, 720, 520 );
 
 	connect( Process, &QProcess::readyReadStandardOutput, this, &Apple_SoC_FS_Patch_Window::On_Process_Output );
 	connect( Process, &QProcess::readyReadStandardError, this, &Apple_SoC_FS_Patch_Window::On_Process_Output );
