@@ -92,6 +92,7 @@
 #include "QEMU_Help_Browser.h"
 #include "Create_HDD_Image_Window.h"
 #include "Convert_HDD_Image_Window.h"
+#include "SAN_Storage_Dialog.h"
 #include "VM_Wizard_Window.h"
 #include "VM_Session_Widget.h"
 #include <QStackedWidget>
@@ -5181,6 +5182,23 @@ void Main_Window::on_actionConvert_HDD_Image_triggered()
 	Convert_HDD_Image_Window Convert_HDD_Win( this );
 
 	Convert_HDD_Win.exec();
+}
+
+void Main_Window::on_actionAttach_SAN_Storage_triggered()
+{
+	if( VM_List.isEmpty() || ui.Machines_List->currentRow() < 0 )
+	{
+		SAN_Storage_Dialog dlg( this );
+		dlg.exec();
+		return;
+	}
+
+	if( Dev_Manager )
+	{
+		ui.Tabs->setCurrentWidget( ui.Tab_Media );
+		ui.TabWidget_Media->setCurrentWidget( Dev_Manager );
+		Dev_Manager->on_actionAdd_SAN_triggered();
+	}
 }
 
 void Main_Window::on_actionImport_Appliance_triggered()

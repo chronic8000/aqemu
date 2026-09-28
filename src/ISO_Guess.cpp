@@ -85,7 +85,12 @@ static ISO_Guess_Result guess_from_text( const QString &text, const char *source
 	else if( t.contains( "truenas" ) || t.contains( "freenas" ) )
 	{
 		if( t.contains( "scale" ) )
-			hit( QStringLiteral( "TrueNAS SCALE" ), "high", QObject::tr( "Detected TrueNAS SCALE." ) );
+		{
+			if( t.contains( "aarch64" ) || t.contains( "arm64" ) )
+				hit( QStringLiteral( "TrueNAS SCALE (ARM64)" ), "high", QObject::tr( "Detected TrueNAS SCALE (ARM64)." ) );
+			else
+				hit( QStringLiteral( "TrueNAS SCALE" ), "high", QObject::tr( "Detected TrueNAS SCALE." ) );
+		}
 		else
 			hit( QStringLiteral( "TrueNAS CORE" ), "high", QObject::tr( "Detected TrueNAS CORE." ) );
 	}
@@ -239,8 +244,14 @@ ISO_Guess_Result AQ_Guess_OS_From_Media( const QString &path )
 	else if( name.contains( "truenas" ) || name.contains( "freenas" ) )
 	{
 		if( name.contains( "scale" ) )
-			hit( QStringLiteral( "TrueNAS SCALE" ), "high",
-			     QObject::tr( "Filename looks like TrueNAS SCALE." ) );
+		{
+			if( name.contains( "aarch64" ) || name.contains( "arm64" ) )
+				hit( QStringLiteral( "TrueNAS SCALE (ARM64)" ), "high",
+				     QObject::tr( "Filename looks like TrueNAS SCALE (ARM64)." ) );
+			else
+				hit( QStringLiteral( "TrueNAS SCALE" ), "high",
+				     QObject::tr( "Filename looks like TrueNAS SCALE." ) );
+		}
 		else
 			hit( QStringLiteral( "TrueNAS CORE" ), "high",
 			     QObject::tr( "Filename looks like TrueNAS CORE." ) );

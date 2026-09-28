@@ -7953,7 +7953,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 					drive = QString( "file=%1,if=none,id=aqhd0,cache=%2,aio=threads" )
 						.arg( HDA.Get_File_Name(), cache );
 				}
-				QString virtio_dev_str = QStringLiteral( "virtio-blk-pci,drive=aqhd0" );
+				QString virtio_dev_str = QStringLiteral( "virtio-blk-pci,drive=aqhd0,serial=aqemu-aqhd0" );
 				if( HDA.Get_Native_Device().Use_Block_Size() )
 				{
 					const int lbs = HDA.Get_Native_Device().Get_Logical_Block_Size() > 0 ? HDA.Get_Native_Device().Get_Logical_Block_Size() : 512;
@@ -10271,11 +10271,13 @@ QStringList Virtual_Machine::Build_Native_Device_Args( VM_Native_Storage_Device 
 				break;
 				
 			case VM::DI_Virtio:
-				// aarch64 / arm / riscv or when custom sector size is used: use virtio-blk-pci
+				// aarch64 / arm / riscv, custom sector size, or TrueNAS/FreeNAS: use virtio-blk-pci
 				if( Computer_Type.contains( "aarch64", Qt::CaseInsensitive ) ||
 					Computer_Type.contains( "qemu-system-arm", Qt::CaseInsensitive ) ||
 					Computer_Type.contains( "riscv", Qt::CaseInsensitive ) ||
-					device.Use_Block_Size() )
+					device.Use_Block_Size() ||
+					Machine_Name.contains( "TrueNAS", Qt::CaseInsensitive ) ||
+					Machine_Name.contains( "FreeNAS", Qt::CaseInsensitive ) )
 					opt << "if=none,id=" + vsname;
 				else
 					opt << "if=virtio";
@@ -10460,15 +10462,15 @@ QStringList Virtual_Machine::Build_Native_Device_Args( VM_Native_Storage_Device 
 	    const int boot_idx = Bootindex_For( *this,
 		device.Get_Media() == VM::DM_CD_ROM ? VM::Boot_From_CDROM : VM::Boot_From_HDD );
 	    args << "-device" << With_Bootindex(
-		devtype + ",bus=aq-vscsi.0,drive=" + vsname + (devtype == "scsi-hd" ? block_size_dev_opts : QString()), boot_idx );
+		devtype + ",bus=aq-vscsi.0,drive=" + vsname + (devtype == "scsi-hd" ? (block_size_dev_opts + QStringLiteral( ",serial=aqemu-" ) + vsname) : QString()), boot_idx );
 	}
 	else if( device.Get_Interface() == VM::DI_NVMe &&
 			 ( ! device.Use_Media() || device.Get_Media() == VM::DM_Disk ) )
 	{
 		const int boot_idx = Bootindex_For( *this, VM::Boot_From_HDD );
-		// serial= is required by some guests (SteamOS recovery looks for NVMe)
+		// serial= is required by some guests (SteamOS recovery looks for NVMe; TrueNAS ZFS pools require unique disk serials)
 		args << "-device" << With_Bootindex(
-			"nvme,drive=" + vsname + ",serial=aqemu-nvme0" + block_size_dev_opts, boot_idx );
+			"nvme,drive=" + vsname + ",serial=aqemu-" + vsname + block_size_dev_opts, boot_idx );
 	}
 	else if( device.Get_Interface() == VM::DI_AHCI )
 	{
@@ -10485,14 +10487,14 @@ QStringList Virtual_Machine::Build_Native_Device_Args( VM_Native_Storage_Device 
 			device.Get_Media() == VM::DM_CD_ROM ? VM::Boot_From_CDROM : VM::Boot_From_HDD );
 		args << "-device" << With_Bootindex(
 			QStringLiteral( "%1,bus=aqemu_ahci.%2,drive=%3" )
-				.arg( devtype ).arg( unit ).arg( vsname ) + (devtype == "ide-hd" ? block_size_dev_opts : QString()),
+				.arg( devtype ).arg( unit ).arg( vsname ) + (devtype == "ide-hd" ? (block_size_dev_opts + QStringLiteral( ",serial=aqemu-" ) + vsname) : QString()),
 			boot_idx );
 	}
-	else if( device.Get_Interface() == VM::DI_Virtio && (virt_arch_blk || device.Use_Block_Size()) &&
+	else if( device.Get_Interface() == VM::DI_Virtio && (virt_arch_blk || device.Use_Block_Size() || Machine_Name.contains( "TrueNAS", Qt::CaseInsensitive ) || Machine_Name.contains( "FreeNAS", Qt::CaseInsensitive )) &&
 			 ( ! device.Use_Media() || device.Get_Media() == VM::DM_Disk ) )
 	{
 		const int boot_idx = Bootindex_For( *this, VM::Boot_From_HDD );
-		QString vblk = QStringLiteral( "virtio-blk-pci,drive=" ) + vsname + block_size_dev_opts;
+		QString vblk = QStringLiteral( "virtio-blk-pci,drive=" ) + vsname + block_size_dev_opts + QStringLiteral( ",serial=aqemu-" ) + vsname;
 		if( Use_IOThread_Flag )
 			vblk += QStringLiteral( ",iothread=aq-iothread0" );
 		args << "-device" << With_Bootindex( vblk, boot_idx );
@@ -10528,10 +10530,10 @@ QStringList Virtual_Machine::Build_Native_Device_Args( VM_Native_Storage_Device 
 			if( args.isEmpty() )
 			{
 				if( device.Get_Interface() == VM::DI_NVMe )
-					args << "-device" << QStringLiteral( "nvme,drive=%1,serial=aqemu-nvme0" ).arg( node ) + block_size_dev_opts;
+					args << "-device" << QStringLiteral( "nvme,drive=%1,serial=aqemu-%2" ).arg( node ).arg( vsname ) + block_size_dev_opts;
 				else
 				{
-					QString vblk = QStringLiteral( "virtio-blk-pci,drive=" ) + node + block_size_dev_opts;
+					QString vblk = QStringLiteral( "virtio-blk-pci,drive=" ) + node + block_size_dev_opts + QStringLiteral( ",serial=aqemu-" ) + vsname;
 					if( Use_IOThread_Flag )
 						vblk += QStringLiteral( ",iothread=aq-iothread0" );
 					args << "-device" << vblk;

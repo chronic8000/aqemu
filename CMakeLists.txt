@@ -150,6 +150,7 @@ SET( aqemu_headers
 	src/OVF_Parser.h
 	src/Appliance_Import_Window.h
 	src/Appliance_Export_Window.h
+	src/SAN_Storage_Dialog.h
 )
 
 SET( aqemu_sources
@@ -230,6 +231,7 @@ SET( aqemu_sources
 	src/OVF_Parser.cpp
 	src/Appliance_Import_Window.cpp
 	src/Appliance_Export_Window.cpp
+	src/SAN_Storage_Dialog.cpp
 )
 
 SET( aqemu_ui
@@ -266,6 +268,7 @@ SET( aqemu_ui
 	src/SPICE_Settings_Widget.ui
 	src/VM_Wizard_Window.ui
 	src/VNC_Password_Window.ui
+	src/SAN_Storage_Dialog.ui
 )
 
 SET( aqemu_qrc 

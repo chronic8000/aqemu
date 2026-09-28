@@ -26,6 +26,7 @@
 #include "Utils.h"
 #include "System_Info.h"
 #include "Add_New_Device_Window.h"
+#include "SAN_Storage_Dialog.h"
 
 Add_New_Device_Window::Add_New_Device_Window( QWidget *parent )
 	: QDialog( parent )
@@ -184,12 +185,14 @@ void Add_New_Device_Window::Set_Emulator_Devices( const Available_Devices &devic
 		ui.CH_File->setVisible( true );
 		ui.Edit_File_Path->setVisible( true );
 		ui.TB_File_Path_Browse->setVisible( true );
+		ui.TB_SAN_Browse->setVisible( true );
 	}
 	else
 	{
 		ui.CH_File->setVisible( false );
 		ui.Edit_File_Path->setVisible( false );
 		ui.TB_File_Path_Browse->setVisible( false );
+		ui.TB_SAN_Browse->setVisible( false );
 	}
 	
 	if( devices.PSO_Drive_If )
@@ -485,6 +488,42 @@ void Add_New_Device_Window::on_TB_File_Path_Browse_clicked()
 	
 	if( ! file_name.isEmpty() )
 		ui.Edit_File_Path->setText( QDir::toNativeSeparators(file_name) );
+}
+
+void Add_New_Device_Window::on_TB_SAN_Browse_clicked()
+{
+	SAN_Storage_Dialog dlg( this );
+	if( dlg.exec() == QDialog::Accepted )
+	{
+		const QString path = dlg.Get_Device_Path();
+		if( ! path.isEmpty() )
+		{
+			ui.CH_File->setChecked( true );
+			ui.Edit_File_Path->setEnabled( true );
+			ui.Edit_File_Path->setText( path );
+
+			// Map interface
+			const VM::Device_Interface iface = dlg.Get_Device_Interface();
+			const int combo_idx = Combo_Index_From_Interface( iface );
+			if( combo_idx >= 0 && combo_idx < ui.CB_Interface->count() )
+			{
+				ui.CH_Interface->setChecked( true );
+				ui.CB_Interface->setEnabled( true );
+				ui.CB_Interface->setCurrentIndex( combo_idx );
+			}
+
+			// Block size (e.g. 4096 / 512)
+			const int sector_size = dlg.Get_Logical_Sector_Size();
+			if( sector_size > 0 )
+			{
+				ui.CH_Block_Size->setChecked( true );
+				ui.CB_Logical_Block_Size->setEnabled( true );
+				ui.CB_Physical_Block_Size->setEnabled( true );
+				ui.CB_Logical_Block_Size->setCurrentText( QString::number( sector_size ) );
+				ui.CB_Physical_Block_Size->setCurrentText( QString::number( sector_size ) );
+			}
+		}
+	}
 }
 
 void Add_New_Device_Window::done(int r)

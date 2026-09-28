@@ -270,6 +270,26 @@
           </property>
          </widget>
         </item>
+        <item>
+         <widget class="QToolButton" name="TB_Add_SAN">
+          <property name="toolTip">
+           <string>Attach Remote SAN Storage (iSCSI / NVMe-oF)...</string>
+          </property>
+          <property name="text">
+           <string/>
+          </property>
+          <property name="icon">
+           <iconset resource="../resources/icons.qrc">
+            <normaloff>:/preferences-system-network-sharing.png</normaloff>:/preferences-system-network-sharing.png</iconset>
+          </property>
+          <property name="iconSize">
+           <size>
+            <width>32</width>
+            <height>32</height>
+           </size>
+          </property>
+         </widget>
+        </item>
        </layout>
       </item>
      </layout>
@@ -592,6 +612,18 @@
     <string>Add Device</string>
    </property>
   </action>
+  <action name="actionAdd_SAN">
+   <property name="icon">
+    <iconset resource="../resources/icons.qrc">
+     <normaloff>:/preferences-system-network-sharing.png</normaloff>:/preferences-system-network-sharing.png</iconset>
+   </property>
+   <property name="text">
+    <string>Attach Remote SAN Storage...</string>
+   </property>
+   <property name="toolTip">
+    <string>Attach Remote SAN Storage (iSCSI / NVMe-oF)...</string>
+   </property>
+  </action>
  </widget>
  <tabstops>
   <tabstop>TB_Add_Floppy</tabstop>
@@ -761,6 +793,22 @@
    <hints>
     <hint type="sourcelabel">
      <x>34</x>
+     <y>55</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>-1</x>
+     <y>-1</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>TB_Add_SAN</sender>
+   <signal>clicked()</signal>
+   <receiver>actionAdd_SAN</receiver>
+   <slot>trigger()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>220</x>
      <y>55</y>
     </hint>
     <hint type="destinationlabel">

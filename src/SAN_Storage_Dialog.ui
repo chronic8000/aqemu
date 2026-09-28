@@ -1,0 +1,657 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>SAN_Storage_Dialog</class>
+ <widget class="QDialog" name="SAN_Storage_Dialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>620</width>
+    <height>580</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Attach Remote SAN Storage (iSCSI &amp; NVMe-oF)</string>
+  </property>
+  <property name="windowIcon">
+   <iconset resource="../resources/icons.qrc">
+    <normaloff>:/preferences-system-network-sharing.png</normaloff>:/preferences-system-network-sharing.png</iconset>
+  </property>
+  <layout class="QVBoxLayout" name="mainVerticalLayout">
+   <property name="spacing">
+    <number>10</number>
+   </property>
+   <property name="leftMargin">
+    <number>12</number>
+   </property>
+   <property name="topMargin">
+    <number>12</number>
+   </property>
+   <property name="rightMargin">
+    <number>12</number>
+   </property>
+   <property name="bottomMargin">
+    <number>12</number>
+   </property>
+   <item>
+    <widget class="QFrame" name="headerFrame">
+     <property name="frameShape">
+      <enum>QFrame::StyledPanel</enum>
+     </property>
+     <property name="frameShadow">
+      <enum>QFrame::Raised</enum>
+     </property>
+     <layout class="QHBoxLayout" name="headerHLayout">
+      <property name="leftMargin">
+       <number>10</number>
+      </property>
+      <property name="topMargin">
+       <number>8</number>
+      </property>
+      <property name="rightMargin">
+       <number>10</number>
+      </property>
+      <property name="bottomMargin">
+       <number>8</number>
+      </property>
+      <item>
+       <widget class="QLabel" name="label_HeaderIcon">
+        <property name="pixmap">
+         <pixmap resource="../resources/icons.qrc">:/preferences-system-network-sharing.png</pixmap>
+        </property>
+        <property name="scaledContents">
+         <bool>false</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="label_HeaderDesc">
+        <property name="text">
+         <string>&lt;b&gt;Remote SAN Storage Integration&lt;/b&gt;&lt;br/&gt;Attach TrueNAS, Proxmox, or SAN block targets directly via QEMU iSCSI URIs or host NVMe-oF fabrics.</string>
+        </property>
+        <property name="wordWrap">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QTabWidget" name="tabWidget">
+     <property name="currentIndex">
+      <number>0</number>
+     </property>
+     <widget class="QWidget" name="tab_iSCSI">
+      <attribute name="title">
+       <string>iSCSI Target (RFC 3720 / libiscsi)</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="vbox_iSCSI">
+       <item>
+        <widget class="QGroupBox" name="group_iSCSI_Portal">
+         <property name="title">
+          <string>Portal Connection</string>
+         </property>
+         <layout class="QGridLayout" name="grid_iSCSI_Portal">
+          <item row="0" column="0">
+           <widget class="QLabel" name="label_PortalHost">
+            <property name="text">
+             <string>Target Host / IP:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QLineEdit" name="edit_iSCSI_Host">
+            <property name="placeholderText">
+             <string>192.168.1.100 or truenas.local</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="2">
+           <widget class="QLabel" name="label_PortalPort">
+            <property name="text">
+             <string>Port:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="3">
+           <widget class="QSpinBox" name="spin_iSCSI_Port">
+            <property name="maximum">
+             <number>65535</number>
+            </property>
+            <property name="value">
+             <number>3260</number>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="4">
+           <widget class="QPushButton" name="btn_Test_iSCSI">
+            <property name="text">
+             <string>Ping Port</string>
+            </property>
+            <property name="toolTip">
+             <string>Test TCP connection to the specified portal port</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="group_iSCSI_Target">
+         <property name="title">
+          <string>Target LUN &amp; Authentication</string>
+         </property>
+         <layout class="QGridLayout" name="grid_iSCSI_Target">
+          <item row="0" column="0">
+           <widget class="QLabel" name="label_TargetIQN">
+            <property name="text">
+             <string>Target IQN:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1" colspan="2">
+           <widget class="QComboBox" name="combo_iSCSI_IQN">
+            <property name="editable">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="3">
+           <widget class="QPushButton" name="btn_Discover_iSCSI">
+            <property name="text">
+             <string>Discover Targets</string>
+            </property>
+            <property name="toolTip">
+             <string>Query portal for published IQNs using SendTargets</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="label_LUN">
+            <property name="text">
+             <string>LUN Index:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QSpinBox" name="spin_iSCSI_LUN">
+            <property name="maximum">
+             <number>255</number>
+            </property>
+            <property name="value">
+             <number>0</number>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="2" colspan="2">
+           <widget class="QCheckBox" name="check_iSCSI_CHAP">
+            <property name="text">
+             <string>Enable CHAP Authentication</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0">
+           <widget class="QLabel" name="label_CHAP_User">
+            <property name="text">
+             <string>CHAP User:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="QLineEdit" name="edit_CHAP_User">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="2">
+           <widget class="QLabel" name="label_CHAP_Pass">
+            <property name="text">
+             <string>CHAP Password:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="3">
+           <widget class="QLineEdit" name="edit_CHAP_Pass">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="echoMode">
+             <enum>QLineEdit::Password</enum>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="group_iSCSI_Controller">
+         <property name="title">
+          <string>Virtual Controller &amp; Geometry</string>
+         </property>
+         <layout class="QGridLayout" name="grid_iSCSI_Controller">
+          <item row="0" column="0">
+           <widget class="QLabel" name="label_iSCSI_Iface">
+            <property name="text">
+             <string>Disk Controller:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QComboBox" name="combo_iSCSI_Iface">
+            <item>
+             <property name="text">
+              <string>VirtIO (virtio-blk-pci)</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>VirtIO-SCSI (scsi-hd)</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>NVMe (nvme)</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>AHCI / SATA (ide-hd)</string>
+             </property>
+            </item>
+           </widget>
+          </item>
+          <item row="0" column="2">
+           <widget class="QLabel" name="label_iSCSI_Sector">
+            <property name="text">
+             <string>Sector Size:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="3">
+           <widget class="QComboBox" name="combo_iSCSI_Sector">
+            <item>
+             <property name="text">
+              <string>4096 Bytes Native (4Kn - TrueNAS / ZFS)</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>512 Bytes (Standard)</string>
+             </property>
+            </item>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="group_iSCSI_Preview">
+         <property name="title">
+          <string>QEMU Target URI Preview</string>
+         </property>
+         <layout class="QHBoxLayout" name="hbox_iSCSI_Preview">
+          <item>
+           <widget class="QLineEdit" name="edit_iSCSI_Preview">
+            <property name="readOnly">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="btn_Copy_iSCSI_URI">
+            <property name="text">
+             <string>Copy URI</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QLabel" name="label_iSCSI_Status">
+         <property name="text">
+          <string>Enter Portal Host and Target IQN or click Discover Targets.</string>
+         </property>
+         <property name="wordWrap">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="tab_NVMeOF">
+      <attribute name="title">
+       <string>NVMe-oF (Fabrics TCP/RDMA)</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="vbox_NVMeOF">
+       <item>
+        <widget class="QGroupBox" name="group_NVMe_Params">
+         <property name="title">
+          <string>Fabric Connection Parameters</string>
+         </property>
+         <layout class="QGridLayout" name="grid_NVMe_Params">
+          <item row="0" column="0">
+           <widget class="QLabel" name="label_NVMe_Transport">
+            <property name="text">
+             <string>Transport:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QComboBox" name="combo_NVMe_Transport">
+            <item>
+             <property name="text">
+              <string>tcp (TCP/IP)</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>rdma (RoCE / iWARP)</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>fc (Fibre Channel)</string>
+             </property>
+            </item>
+           </widget>
+          </item>
+          <item row="0" column="2">
+           <widget class="QLabel" name="label_NVMe_Address">
+            <property name="text">
+             <string>Target Address / IP:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="3">
+           <widget class="QLineEdit" name="edit_NVMe_Address">
+            <property name="placeholderText">
+             <string>192.168.1.100</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="label_NVMe_Port">
+            <property name="text">
+             <string>Service Port:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QSpinBox" name="spin_NVMe_Port">
+            <property name="maximum">
+             <number>65535</number>
+            </property>
+            <property name="value">
+             <number>4420</number>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="2">
+           <widget class="QLabel" name="label_NVMe_NQN">
+            <property name="text">
+             <string>Subsystem NQN:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="3">
+           <widget class="QComboBox" name="combo_NVMe_NQN">
+            <property name="editable">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="group_NVMe_Actions">
+         <property name="title">
+          <string>Fabric Actions &amp; Controller Discovery</string>
+         </property>
+         <layout class="QHBoxLayout" name="hbox_NVMe_Actions">
+          <item>
+           <widget class="QPushButton" name="btn_Test_NVMe">
+            <property name="text">
+             <string>Ping Port</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="btn_Discover_NVMe">
+            <property name="text">
+             <string>Discover NQNs</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="btn_Connect_NVMe">
+            <property name="text">
+             <string>Connect Fabric</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="btn_Disconnect_NVMe">
+            <property name="text">
+             <string>Disconnect</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="group_NVMe_Controller">
+         <property name="title">
+          <string>Mapped Host Device &amp; Virtual Controller</string>
+         </property>
+         <layout class="QGridLayout" name="grid_NVMe_Controller">
+          <item row="0" column="0">
+           <widget class="QLabel" name="label_NVMe_Device">
+            <property name="text">
+             <string>Host Block Device:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QComboBox" name="combo_NVMe_Device">
+            <property name="editable">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="2">
+           <widget class="QPushButton" name="btn_Refresh_Host_NVMe">
+            <property name="text">
+             <string>Refresh Devices</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="label_NVMe_Iface">
+            <property name="text">
+             <string>Disk Controller:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QComboBox" name="combo_NVMe_Iface">
+            <item>
+             <property name="text">
+              <string>NVMe (nvme)</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>VirtIO (virtio-blk-pci)</string>
+             </property>
+            </item>
+           </widget>
+          </item>
+          <item row="1" column="2">
+           <widget class="QComboBox" name="combo_NVMe_Sector">
+            <item>
+             <property name="text">
+              <string>4096 Bytes Native (4Kn)</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>512 Bytes (Standard)</string>
+             </property>
+            </item>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QTextEdit" name="text_NVMe_Log">
+         <property name="readOnly">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="tab_Inventory">
+      <attribute name="title">
+       <string>Host SAN Inventory Scanner</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="vbox_Inventory">
+       <item>
+        <widget class="QLabel" name="label_InventoryDesc">
+         <property name="text">
+          <string>Scans /dev/disk/by-path/ and /sys/class/nvme/ for SAN block devices already connected to the host system.</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QTreeWidget" name="tree_Host_SAN">
+         <property name="rootIsDecorated">
+          <bool>false</bool>
+         </property>
+         <property name="itemsExpandable">
+          <bool>false</bool>
+         </property>
+         <property name="allColumnsShowFocus">
+          <bool>true</bool>
+         </property>
+         <column>
+          <property name="text">
+           <string>Device Node</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>Type</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>Size</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>Target Portal / Serial / NQN</string>
+          </property>
+         </column>
+        </widget>
+       </item>
+       <item>
+        <layout class="QHBoxLayout" name="hbox_InventoryButtons">
+         <item>
+          <widget class="QPushButton" name="btn_Scan_Host_SAN">
+           <property name="text">
+            <string>Rescan Host SAN Targets</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="spacer_Inventory">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item>
+          <widget class="QPushButton" name="btn_Select_Host_SAN">
+           <property name="text">
+            <string>Use Selected Device</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+      </layout>
+     </widget>
+    </widget>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="dialogButtonHLayout">
+     <item>
+      <spacer name="horizontalSpacer">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item>
+      <widget class="QPushButton" name="btn_Cancel">
+       <property name="text">
+        <string>Cancel</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="btn_Attach">
+       <property name="text">
+        <string>Attach to VM</string>
+       </property>
+       <property name="default">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+  </layout>
+ </widget>
+ <resources>
+  <include location="../resources/icons.qrc"/>
+ </resources>
+ <connections>
+  <connection>
+   <sender>btn_Cancel</sender>
+   <signal>clicked()</signal>
+   <receiver>SAN_Storage_Dialog</receiver>
+   <slot>reject()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>470</x>
+     <y>550</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>300</x>
+     <y>280</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+</ui>

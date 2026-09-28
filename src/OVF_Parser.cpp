@@ -724,7 +724,11 @@ QString OVF_Parser::Map_OS_To_AQEMU_Profile( const QString &os_str, int cim_os_i
 	if( t.contains( QStringLiteral( "truenas" ) ) || t.contains( QStringLiteral( "freenas" ) ) )
 	{
 		if( t.contains( QStringLiteral( "scale" ) ) )
+		{
+			if( t.contains( QStringLiteral( "aarch64" ) ) || t.contains( QStringLiteral( "arm64" ) ) )
+				return QStringLiteral( "TrueNAS SCALE (ARM64)" );
 			return QStringLiteral( "TrueNAS SCALE" );
+		}
 		return QStringLiteral( "TrueNAS CORE" );
 	}
 

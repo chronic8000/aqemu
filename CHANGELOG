@@ -1,3 +1,23 @@
+2026-09-28 Chronic Engineering — AQEMU 1.3.5 (TrueNAS ARM64 Support, Unique Disk Serials & Sponsorship Methods)
+
+	* TrueNAS SCALE (ARM64) & Multi-Architecture Storage:
+	  - Added dedicated "TrueNAS SCALE (ARM64)" profile targeting AArch64 virt machine,
+	    UEFI (AAVMF), 8GB RAM, virtio-net-pci, and 4Kn native sector sizes.
+	  - Updated ISO guessing engine (ISO_Guess.cpp) to detect ARM64/aarch64 TrueNAS SCALE ISOs.
+	  - Updated OVF Parser and Appliance Import to recognize TrueNAS SCALE ARM64.
+
+	* Guaranteed Unique Disk Serials (OpenZFS Pool Persistence):
+	  - Assigned unique, deterministic serial numbers (serial=aqemu-<name>) across all VirtIO
+	    (virtio-blk-pci), VirtIO-SCSI (scsi-hd), NVMe (nvme), and AHCI/SATA (ide-hd) drives.
+	  - Completely resolves OpenZFS pool creation and import warnings in TrueNAS caused by
+	    missing serials or duplicate hardcoded NVMe serials.
+
+	* Community Sponsorship & Donation Channels:
+	  - Added GitHub Sponsors configuration (.github/FUNDING.yml) with Ko-fi and PayPal.me.
+	  - Integrated donation badges and copyable crypto addresses (BTC, LTC, DOGE, XMR)
+	    into README.md, official website (docs/index.html), and Help → About dialog.
+	  - Interactive clipboard copy buttons with visual feedback on the website.
+
 2026-09-27 Chronic Engineering — AQEMU 1.3.4 (Virtual Appliance OVA/OVF Import/Export & Universal Storage Overhaul)
 
 	* Virtual Appliance Import & Export (OVA / OVF):

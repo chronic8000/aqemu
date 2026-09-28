@@ -56,6 +56,7 @@ class Device_Manager_Widget: public QWidget
 	public slots:
 		void Update_Enabled_Actions();
 		void Update_List_Mode();
+		void on_actionAdd_SAN_triggered();
 		
 	signals:
 		void Device_Changed();

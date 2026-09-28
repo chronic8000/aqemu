@@ -47,6 +47,7 @@ class Add_New_Device_Window: public QDialog
 		void on_CB_Interface_currentIndexChanged( const QString &text );
 		void on_CB_Media_currentIndexChanged( int index );
 		void on_TB_File_Path_Browse_clicked();
+		void on_TB_SAN_Browse_clicked();
 		void done(int);
 	
 	private:
