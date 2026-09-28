@@ -4085,6 +4085,8 @@
     <addaction name="actionSave_As_Template"/>
     <addaction name="actionCopy"/>
     <addaction name="separator"/>
+    <addaction name="actionAttach_SAN_Storage"/>
+    <addaction name="separator"/>
     <addaction name="actionPower_On"/>
     <addaction name="actionConnect_Session"/>
     <addaction name="actionPause"/>
@@ -4114,6 +4116,7 @@
     </property>
     <addaction name="actionCreate_HDD_Image"/>
     <addaction name="actionConvert_HDD_Image"/>
+    <addaction name="actionAttach_SAN_Storage"/>
     <addaction name="separator"/>
     <addaction name="actionImport_Appliance"/>
     <addaction name="actionExport_Appliance"/>
@@ -4288,6 +4291,18 @@
    </property>
    <property name="toolTip">
     <string>Convert HDD Image</string>
+   </property>
+  </action>
+  <action name="actionAttach_SAN_Storage">
+   <property name="icon">
+    <iconset resource="../resources/icons.qrc">
+     <normaloff>:/preferences-system-network-sharing.png</normaloff>:/preferences-system-network-sharing.png</iconset>
+   </property>
+   <property name="text">
+    <string>Attach Remote &amp;SAN Storage (iSCSI / NVMe-oF)...</string>
+   </property>
+   <property name="toolTip">
+    <string>Discover and attach remote iSCSI target or NVMe-oF fabric storage</string>
    </property>
   </action>
   <action name="actionImport_Appliance">

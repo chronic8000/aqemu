@@ -27,6 +27,7 @@
 
 #include "Device_Manager_Widget.h"
 #include "Add_New_Device_Window.h"
+#include "SAN_Storage_Dialog.h"
 #include "Utils.h"
 #include "Create_HDD_Image_Window.h"
 #include "System_Info.h"
@@ -124,6 +125,8 @@ void Device_Manager_Widget::Set_Enabled( bool on )
 	ui.TB_Add_CDROM->setEnabled( on );
 	ui.TB_Add_HDD->setEnabled( on );
 	ui.TB_Add_Device->setEnabled( on );
+	ui.TB_Add_SAN->setEnabled( on );
+	ui.actionAdd_SAN->setEnabled( on );
 	
 	ui.Label_Manage_Devices->setEnabled( on );
 	ui.TB_Edit_Device->setEnabled( on );
@@ -161,6 +164,10 @@ void Device_Manager_Widget::Update_Enabled_Actions()
 	// HDD: Always allowed to add hard disks (either HDA-HDD or additional drives via Storage_Devices)
 	ui.actionAdd_HDD->setEnabled( true );
 	ui.TB_Add_HDD->setEnabled( true );
+
+	// SAN Storage: Always allowed to attach remote iSCSI / NVMe-oF disks
+	ui.actionAdd_SAN->setEnabled( true );
+	ui.TB_Add_SAN->setEnabled( true );
 	
 	// Update Information
 	if( ui.Devices_List->currentItem() != NULL )
@@ -520,6 +527,7 @@ void Device_Manager_Widget::on_Devices_List_customContextMenuRequested( const QP
 		Context_Menu->addAction( ui.actionAdd_Floppy );
 		Context_Menu->addAction( ui.actionAdd_CD_ROM );
 		Context_Menu->addAction( ui.actionAdd_HDD );
+		Context_Menu->addAction( ui.actionAdd_SAN );
 		Context_Menu->addSeparator();
 		Context_Menu->addAction( ui.actionIcon_Mode );
 		Context_Menu->addAction( ui.actionList_Mode );
@@ -745,6 +753,27 @@ void Device_Manager_Widget::on_actionAdd_Device_triggered()
 		
 		ui.Devices_List->addItem( devit );
 		
+		emit Device_Changed();
+	}
+}
+
+void Device_Manager_Widget::on_actionAdd_SAN_triggered()
+{
+	SAN_Storage_Dialog dlg( this );
+	if( dlg.exec() == QDialog::Accepted )
+	{
+		VM_Native_Storage_Device dev = dlg.Get_Configured_Device();
+		Storage_Devices << dev;
+		const QString p = dev.Get_File_Path();
+		QString title;
+		if( p.startsWith( QLatin1String( "iscsi://" ), Qt::CaseInsensitive ) )
+			title = tr( "iSCSI SAN (%1)" ).arg( p );
+		else
+			title = tr( "NVMe-oF SAN (%1)" ).arg( p );
+		QListWidgetItem *it = new QListWidgetItem( QIcon( ":/preferences-system-network-sharing.png" ),
+		                                          title, ui.Devices_List );
+		it->setData( 512, "device" + QString::number( Storage_Devices.count() - 1 ) );
+		ui.Devices_List->addItem( it );
 		emit Device_Changed();
 	}
 }
@@ -1237,10 +1266,35 @@ void Device_Manager_Widget::Update_Icons()
 	{
 		for( int ix = 0; ix < Storage_Devices.count(); ++ix )
 		{
-			QListWidgetItem *hdit = new QListWidgetItem( QIcon(":/blockdevice.png"),
-														 Storage_Devices[ix].Get_QEMU_Device_Name(), ui.Devices_List );
-			hdit->setData( 512, "device" + QString::number(ix) );
-			
+			QIcon ico( ":/blockdevice.png" );
+			QString dev_title = Storage_Devices[ix].Get_QEMU_Device_Name();
+			const QString fp = Storage_Devices[ix].Get_File_Path();
+			if( fp.startsWith( QLatin1String( "iscsi://" ), Qt::CaseInsensitive ) )
+			{
+				ico = QIcon( ":/preferences-system-network-sharing.png" );
+				dev_title = tr( "iSCSI SAN (%1)" ).arg( fp );
+			}
+			else if( fp.contains( QLatin1String( "nvme" ), Qt::CaseInsensitive ) &&
+			         ( fp.contains( QLatin1String( "tcp" ), Qt::CaseInsensitive ) ||
+			           fp.contains( QLatin1String( "rdma" ), Qt::CaseInsensitive ) ||
+			           fp.contains( QLatin1String( "by-path" ), Qt::CaseInsensitive ) ||
+			           fp.startsWith( QLatin1String( "/dev/nvme" ), Qt::CaseInsensitive ) ) )
+			{
+				ico = QIcon( ":/preferences-system-network-sharing.png" );
+				dev_title = tr( "NVMe-oF / NVMe (%1)" ).arg( fp );
+			}
+			else if( Storage_Devices[ix].Use_Media() && Storage_Devices[ix].Get_Media() == VM::DM_CD_ROM )
+			{
+				ico = QIcon( ":/cdrom.png" );
+				dev_title = tr( "Optical Drive %1 (%2)" ).arg( ix + 1 ).arg( fp.isEmpty() ? tr( "empty" ) : fp );
+			}
+			else if( Storage_Devices[ix].Use_Media() && Storage_Devices[ix].Get_Media() == VM::DM_Disk )
+			{
+				ico = QIcon( ":/hdd.png" );
+				dev_title = tr( "Hard Disk %1 (%2)" ).arg( ix + 1 ).arg( fp.isEmpty() ? tr( "disk" ) : fp );
+			}
+			QListWidgetItem *hdit = new QListWidgetItem( ico, dev_title, ui.Devices_List );
+			hdit->setData( 512, "device" + QString::number( ix ) );
 			ui.Devices_List->addItem( hdit );
 		}
 	}
