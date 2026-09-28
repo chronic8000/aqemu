@@ -12,6 +12,7 @@
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QFormLayout>
+#include <QScrollArea>
 #include <QLabel>
 #include <QFileDialog>
 #include <QMessageBox>
@@ -80,9 +81,24 @@ Apple_SoC_Restore_Window::Apple_SoC_Restore_Window( Virtual_Machine *vm, QWidget
 	, SB_Nand_Size( nullptr )
 {
 	setWindowTitle( tr( "Apple SoC Restore (Inferno companion)" ) );
-	resize( AQ_Px( 780, this ), AQ_Px( 680, this ) );
 
-	QVBoxLayout *lay = new QVBoxLayout( this );
+	QVBoxLayout *root_lay = new QVBoxLayout( this );
+	root_lay->setContentsMargins( 8, 8, 8, 8 );
+	root_lay->setSpacing( 6 );
+
+	QScrollArea *scroll = new QScrollArea( this );
+	scroll->setWidgetResizable( true );
+	scroll->setFrameShape( QFrame::NoFrame );
+	scroll->setHorizontalScrollBarPolicy( Qt::ScrollBarAsNeeded );
+	scroll->setVerticalScrollBarPolicy( Qt::ScrollBarAsNeeded );
+
+	QWidget *content = new QWidget( scroll );
+	content->setSizePolicy( QSizePolicy::Preferred, QSizePolicy::Minimum );
+	QVBoxLayout *lay = new QVBoxLayout( content );
+	lay->setContentsMargins( 4, 4, 4, 4 );
+	lay->setSpacing( 8 );
+	lay->setSizeConstraint( QLayout::SetMinimumSize );
+
 	QLabel *intro = new QLabel( tr(
 		"<p><b>IPSW restore (ChefKiss Inferno) — two guests at once</b></p>"
 		"<ol>"
@@ -105,6 +121,7 @@ Apple_SoC_Restore_Window::Apple_SoC_Restore_Window( Virtual_Machine *vm, QWidget
 	lay->addWidget( intro );
 
 	QFormLayout *form = new QFormLayout();
+	form->setFieldGrowthPolicy( QFormLayout::ExpandingFieldsGrow );
 	Edit_IPSW = new QLineEdit( vm ? vm->Get_Apple_IPSW_Path() : QString() );
 	QPushButton *btnIpsw = new QPushButton( tr( "Browse…" ) );
 	connect( btnIpsw, &QPushButton::clicked, this, &Apple_SoC_Restore_Window::Browse_IPSW );
@@ -123,6 +140,7 @@ Apple_SoC_Restore_Window::Apple_SoC_Restore_Window( Virtual_Machine *vm, QWidget
 	QHBoxLayout *nandLay = new QHBoxLayout();
 	nandLay->addWidget( CB_Nand_Size );
 	nandLay->addWidget( SB_Nand_Size );
+	nandLay->addStretch( 1 );
 	form->addRow( tr( "NAND (root) size:" ), nandLay );
 	connect( CB_Nand_Size, QOverload<int>::of( &QComboBox::currentIndexChanged ),
 	         this, [this]( int ) {
@@ -248,11 +266,13 @@ Apple_SoC_Restore_Window::Apple_SoC_Restore_Window( Virtual_Machine *vm, QWidget
 
 	Text_Companion = new QTextEdit();
 	Text_Companion->setReadOnly( true );
-	Text_Companion->setMaximumHeight( AQ_Px( 120, this ) );
+	Text_Companion->setLineWrapMode( QTextEdit::WidgetWidth );
+	Text_Companion->setMinimumHeight( AQ_Px( 65, this ) );
+	Text_Companion->setMaximumHeight( AQ_Px( 100, this ) );
 	lay->addWidget( new QLabel( tr( "Companion QEMU (Linux guest + usb-tcp-remote; start BEFORE iOS):" ) ) );
 	lay->addWidget( Text_Companion );
 
-	QHBoxLayout *btns = new QHBoxLayout();
+	// Group buttons logically into two rows so they never force excessive dialog width
 	QPushButton *btnCopy = new QPushButton( tr( "Copy companion command" ) );
 	connect( btnCopy, &QPushButton::clicked, this, [this]() {
 		QApplication::clipboard()->setText( Text_Companion->toPlainText() );
@@ -267,6 +287,15 @@ Apple_SoC_Restore_Window::Apple_SoC_Restore_Window( Virtual_Machine *vm, QWidget
 	connect( btnStopCompanion, &QPushButton::clicked, this, &Apple_SoC_Restore_Window::Stop_Companion_WSL );
 	QPushButton *btnDiag = new QPushButton( tr( "Diagnose USB bridge" ) );
 	connect( btnDiag, &QPushButton::clicked, this, &Apple_SoC_Restore_Window::Run_Diagnose_WSL );
+
+	QHBoxLayout *companion_btns = new QHBoxLayout();
+	companion_btns->addWidget( btnCompanion );
+	companion_btns->addWidget( btnStopCompanion );
+	companion_btns->addWidget( btnDiag );
+	companion_btns->addWidget( btnCopy );
+	companion_btns->addStretch( 1 );
+	lay->addLayout( companion_btns );
+
 	QPushButton *btnRestore = new QPushButton( tr( "Restore IPSW via SSH…" ) );
 	btnRestore->setToolTip( tr(
 		"Upload the IPSW into the companion over SSH and run idevicerestore there" ) );
@@ -283,23 +312,33 @@ Apple_SoC_Restore_Window::Apple_SoC_Restore_Window( Virtual_Machine *vm, QWidget
 	connect( btnFsPatch, &QPushButton::clicked, this, [this]() {
 		AQ_Show_Apple_SoC_FS_Patch_Window( VM, this );
 	} );
-	btns->addWidget( btnCopy );
-	btns->addWidget( btnCompanion );
-	btns->addWidget( btnStopCompanion );
-	btns->addWidget( btnDiag );
-	btns->addWidget( btnRestore );
-	btns->addWidget( btnWipe );
-	btns->addWidget( btnFsPatch );
-	btns->addStretch();
-	QPushButton *btnClose = new QPushButton( tr( "Close" ) );
-	connect( btnClose, &QPushButton::clicked, this, &QDialog::accept );
-	btns->addWidget( btnClose );
-	lay->addLayout( btns );
+
+	QHBoxLayout *restore_btns = new QHBoxLayout();
+	restore_btns->addWidget( btnRestore );
+	restore_btns->addWidget( btnWipe );
+	restore_btns->addWidget( btnFsPatch );
+	restore_btns->addStretch( 1 );
+	lay->addLayout( restore_btns );
 
 	Text_Log = new QTextEdit();
 	Text_Log->setReadOnly( true );
+	Text_Log->setLineWrapMode( QTextEdit::WidgetWidth );
+	Text_Log->setMinimumHeight( AQ_Px( 120, this ) );
 	lay->addWidget( new QLabel( tr( "Output:" ) ) );
 	lay->addWidget( Text_Log, 1 );
+
+	scroll->setWidget( content );
+	root_lay->addWidget( scroll, 1 );
+
+	// Fixed bottom bar with Close button pinned at the bottom of the dialog
+	QHBoxLayout *bottom_bar = new QHBoxLayout();
+	bottom_bar->addStretch( 1 );
+	QPushButton *btnClose = new QPushButton( tr( "Close" ) );
+	connect( btnClose, &QPushButton::clicked, this, &QDialog::accept );
+	bottom_bar->addWidget( btnClose );
+	root_lay->addLayout( bottom_bar );
+
+	AQ_Intelligently_Size_Dialog( this, 780, 660 );
 
 	connect( CB_Conn_Type, QOverload<int>::of( &QComboBox::currentIndexChanged ),
 	         this, [this]( int ) {

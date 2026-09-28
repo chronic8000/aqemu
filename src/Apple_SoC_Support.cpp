@@ -839,8 +839,8 @@ void AQ_Prompt_Wipe_Apple_SoC_Disks( Virtual_Machine *vm, QWidget *parent )
 		"<code>root</code> gets a placeholder GPT (not a finished iOS install) so ramrod "
 		"can pass the header check when CreateFilesystemPartitions stays false.</p>"
 		"<p><b>VM:</b> %2</p>"
-		"<p><b>VM file (.aqemu):</b><br><code>%3</code></p>"
-		"<p><b>Disks folder:</b><br><code>%4</code></p>"
+		"<p><b>VM file (.aqemu):</b><br><code style=\"word-break: break-all;\">%3</code></p>"
+		"<p><b>Disks folder:</b><br><code style=\"word-break: break-all;\">%4</code></p>"
 		"<p><b>Will remove:</b> %5</p>"
 		"<p>Does <b>not</b> delete the VM file, IPSW, firmware extract, or companion.qcow2.</p>" )
 		.arg( AQ_Clamp_Apple_SoC_Nand_GiB( vm->Get_Apple_Nand_Size_GiB() ) )
@@ -851,8 +851,10 @@ void AQ_Prompt_Wipe_Apple_SoC_Disks( Virtual_Machine *vm, QWidget *parent )
 			      ? QObject::tr( "(folder empty — nothing to delete)" )
 			      : present.join( QStringLiteral( ", " ) ) );
 
-	if( QMessageBox::question( parent, QObject::tr( "Wipe Inferno disks" ), body,
-		QMessageBox::Yes | QMessageBox::No, QMessageBox::No ) != QMessageBox::Yes )
+	QMessageBox box( QMessageBox::Question, QObject::tr( "Wipe Inferno disks" ), body,
+	                 QMessageBox::Yes | QMessageBox::No, parent );
+	box.setDefaultButton( QMessageBox::No );
+	if( box.exec() != QMessageBox::Yes )
 		return;
 
 	QString err;

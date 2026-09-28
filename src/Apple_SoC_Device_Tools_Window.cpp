@@ -13,6 +13,7 @@
 #include <QDesktopServices>
 #include <QFileDialog>
 #include <QFormLayout>
+#include <QScrollArea>
 #include <QHBoxLayout>
 #include <QMessageBox>
 #include <QProcessEnvironment>
@@ -169,17 +170,35 @@ Apple_SoC_Device_Tools_Window::Apple_SoC_Device_Tools_Window( Virtual_Machine *v
 	, Process( new QProcess( this ) )
 {
 	setWindowTitle( tr( "iOS Device Tools / Guest Internet" ) );
-	resize( AQ_Px( 740, this ), AQ_Px( 580, this ) );
 
-	auto *lay = new QVBoxLayout( this );
-	lay->addWidget( new QLabel( tr(
+	QVBoxLayout *root_lay = new QVBoxLayout( this );
+	root_lay->setContentsMargins( 8, 8, 8, 8 );
+	root_lay->setSpacing( 6 );
+
+	QScrollArea *scroll = new QScrollArea( this );
+	scroll->setWidgetResizable( true );
+	scroll->setFrameShape( QFrame::NoFrame );
+	scroll->setHorizontalScrollBarPolicy( Qt::ScrollBarAsNeeded );
+	scroll->setVerticalScrollBarPolicy( Qt::ScrollBarAsNeeded );
+
+	QWidget *content = new QWidget( scroll );
+	content->setSizePolicy( QSizePolicy::Preferred, QSizePolicy::Minimum );
+	QVBoxLayout *lay = new QVBoxLayout( content );
+	lay->setContentsMargins( 4, 4, 4, 4 );
+	lay->setSpacing( 8 );
+	lay->setSizeConstraint( QLayout::SetMinimumSize );
+
+	QLabel *intro = new QLabel( tr(
 		"<b>Guest internet</b> is reverse-tether via the Ubuntu companion USB bridge "
 		"(not the AQEMU Network tab / user-mode NIC). "
 		"Start companion + iOS with USB remote <code>127.0.0.1:8030</code>, "
-		"then use <b>Enable guest internet</b> below." ) ) );
+		"then use <b>Enable guest internet</b> below." ) );
+	intro->setWordWrap( true );
+	lay->addWidget( intro );
 
 	QSettings s;
 	auto *form = new QFormLayout();
+	form->setFieldGrowthPolicy( QFormLayout::ExpandingFieldsGrow );
 	Edit_SSH_User = new QLineEdit(
 		s.value( QStringLiteral( "Apple_SoC_Restore/SSH_User" ), QString() ).toString() );
 	Edit_SSH_Password = new QLineEdit();
@@ -196,7 +215,7 @@ Apple_SoC_Device_Tools_Window::Apple_SoC_Device_Tools_Window( Virtual_Machine *v
 	// --- Internet (first) ---
 	auto *net = new QWidget();
 	auto *netLay = new QVBoxLayout( net );
-	netLay->addWidget( new QLabel( tr(
+	QLabel *lblNet = new QLabel( tr(
 		"<p>This configures the <b>companion</b> for reverse-tether:</p>"
 		"<ol>"
 		"<li><code>usbmuxd</code> with <code>USBMUXD_DEFAULT_DEVICE_MODE=3</code></li>"
@@ -204,7 +223,10 @@ Apple_SoC_Device_Tools_Window::Apple_SoC_Device_Tools_Window( Virtual_Machine *v
 		"<li>Checks <code>idevice_id</code> can see the iPhone guest</li>"
 		"</ol>"
 		"<p>Then open Safari / App Store on the guest. "
-		"(ChefKiss <a href=\"https://github.com/ChefKissInc/Inferno/discussions/192\">#192</a>)</p>" ) ) );
+		"(ChefKiss <a href=\"https://github.com/ChefKissInc/Inferno/discussions/192\">#192</a>)</p>" ) );
+	lblNet->setWordWrap( true );
+	lblNet->setOpenExternalLinks( true );
+	netLay->addWidget( lblNet );
 
 	auto *btnEnable = new QPushButton( tr( "Enable guest internet (reverse-tether)" ) );
 	btnEnable->setMinimumHeight( AQ_Px( 36, this ) );
@@ -264,11 +286,13 @@ Apple_SoC_Device_Tools_Window::Apple_SoC_Device_Tools_Window( Virtual_Machine *v
 		"Safe to leave on — already-signed App Store IPAs are handled transparently." ) );
 	devLay->addWidget( Chk_Sign_IPA );
 
-	devLay->addWidget( new QLabel( tr(
+	QLabel *lblDevInfo = new QLabel( tr(
 		"IPA install uses <code>ideviceinstaller</code> on the companion "
 		"(auto-tries <code>apt install ideviceinstaller</code> if missing). "
 		"Signing uses <code>zsign</code> (built from source on first use, ~60s). "
-		"Enable guest internet first if the device is not listed." ) ) );
+		"Enable guest internet first if the device is not listed." ) );
+	lblDevInfo->setWordWrap( true );
+	devLay->addWidget( lblDevInfo );
 	devLay->addStretch();
 	Tabs->addTab( dev, tr( "Device" ) );
 
@@ -281,15 +305,22 @@ Apple_SoC_Device_Tools_Window::Apple_SoC_Device_Tools_Window( Virtual_Machine *v
 
 	Text_Log = new QTextEdit();
 	Text_Log->setReadOnly( true );
+	Text_Log->setLineWrapMode( QTextEdit::WidgetWidth );
+	Text_Log->setMinimumHeight( AQ_Px( 120, this ) );
 	lay->addWidget( new QLabel( tr( "Output:" ) ) );
 	lay->addWidget( Text_Log, 1 );
+
+	scroll->setWidget( content );
+	root_lay->addWidget( scroll, 1 );
 
 	auto *bottom = new QHBoxLayout();
 	bottom->addStretch();
 	auto *btnClose = new QPushButton( tr( "Close" ) );
 	connect( btnClose, &QPushButton::clicked, this, &QDialog::accept );
 	bottom->addWidget( btnClose );
-	lay->addLayout( bottom );
+	root_lay->addLayout( bottom );
+
+	AQ_Intelligently_Size_Dialog( this, 750, 600 );
 
 	connect( Process, &QProcess::readyReadStandardOutput, this, &Apple_SoC_Device_Tools_Window::On_Process_Output );
 	connect( Process, &QProcess::readyReadStandardError, this, &Apple_SoC_Device_Tools_Window::On_Process_Output );

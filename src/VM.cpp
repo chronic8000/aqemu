@@ -9840,9 +9840,10 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			spiceArgs << QString( "port=%1" ).arg( Embedded_Spice_Port > 0 ? Embedded_Spice_Port : 5930 );
 			spiceArgs << "addr=127.0.0.1";
 			spiceArgs << "disable-ticketing=on";
-			// Local profile: avoid compression overhead on localhost
+			// Local profile: avoid compression overhead and stream detection lag on localhost
 			spiceArgs << "image-compression=off";
 			spiceArgs << "playback-compression=off";
+			spiceArgs << "streaming-video=off";
 			if( SPICE_Agent_Mouse == "on" )
 				spiceArgs << "agent-mouse=on";
 			else if( SPICE_Agent_Mouse == "off" )
@@ -9863,7 +9864,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		if( Embedded_VNC_Port >= 5901 )
 		{
 			const int vnc_disp = Embedded_VNC_Port - 5900;
-			Args << "-vnc" << QString( "127.0.0.1:%1" ).arg( vnc_disp );
+			Args << "-vnc" << QString( "127.0.0.1:%1,non-adaptive=on" ).arg( vnc_disp );
 		}
 	}
 	else if( ! force_headless_embed &&

@@ -247,7 +247,6 @@ void AQ_Inferno_Companion_Show_Notes( QWidget *parent, const QString &notes )
 {
 	QDialog dlg( parent );
 	dlg.setWindowTitle( QObject::tr( "Companion setup — do these steps next" ) );
-	dlg.resize( AQ_Px( 720, &dlg ), AQ_Px( 560, &dlg ) );
 
 	QVBoxLayout *lay = new QVBoxLayout( &dlg );
 	QLabel *intro = new QLabel( QObject::tr(
@@ -259,6 +258,7 @@ void AQ_Inferno_Companion_Show_Notes( QWidget *parent, const QString &notes )
 
 	QTextEdit *edit = new QTextEdit;
 	edit->setReadOnly( true );
+	edit->setLineWrapMode( QTextEdit::WidgetWidth );
 	edit->setPlainText( notes );
 	edit->setFont( QFont( QStringLiteral( "Consolas" ), 10 ) );
 	lay->addWidget( edit, 1 );
@@ -275,6 +275,7 @@ void AQ_Inferno_Companion_Show_Notes( QWidget *parent, const QString &notes )
 	btns->addWidget( btnClose );
 	lay->addLayout( btns );
 
+	AQ_Intelligently_Size_Dialog( &dlg, 720, 560 );
 	dlg.exec();
 }
 

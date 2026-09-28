@@ -407,3 +407,40 @@ void AQ_Cap_Content_Width( QWidget *root, int max_width )
 			gb->setMaximumWidth( max_width );
 	}
 }
+
+void AQ_Intelligently_Size_Dialog( QWidget *dialog, int preferred_w, int preferred_h )
+{
+	if( ! dialog )
+		return;
+
+	QScreen *scr = dialog->screen();
+	if( ! scr && dialog->parentWidget() )
+		scr = dialog->parentWidget()->screen();
+	if( ! scr )
+		scr = QGuiApplication::primaryScreen();
+
+	const QRect avail = scr ? scr->availableGeometry() : QRect( 0, 0, 1024, 768 );
+
+	// Leave margin for desktop taskbars, docks, and OS window decorations
+	const int max_w = qMax( 360, avail.width() - 32 );
+	const int max_h = qMax( 280, avail.height() - 48 );
+
+	// Scaled preferred target bounds
+	const int target_w = qBound( 380, qMin( AQ_Px( preferred_w, dialog ), static_cast<int>( avail.width() * 0.94 ) ), max_w );
+	const int target_h = qBound( 280, qMin( AQ_Px( preferred_h, dialog ), static_cast<int>( avail.height() * 0.88 ) ), max_h );
+
+	dialog->resize( target_w, target_h );
+
+	// Ensure dialog geometry stays inside available screen bounds
+	QRect rect = dialog->geometry();
+	rect.setSize( QSize( target_w, target_h ) );
+	if( ! avail.contains( rect ) )
+	{
+		rect.moveCenter( avail.center() );
+		if( rect.top() < avail.top() )
+			rect.moveTop( avail.top() );
+		if( rect.left() < avail.left() )
+			rect.moveLeft( avail.left() );
+		dialog->setGeometry( rect );
+	}
+}

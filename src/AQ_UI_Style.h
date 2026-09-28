@@ -64,4 +64,7 @@ void AQ_Tighten_Layout_Spacers( QLayout *layout, int gap_px = -1 );
 /** Cap readable content width on common panels under root. */
 void AQ_Cap_Content_Width( QWidget *root, int max_width = -1 );
 
+/** Intelligently size and constrain a dialog to fit comfortably within the available screen area. */
+void AQ_Intelligently_Size_Dialog( QWidget *dialog, int preferred_w = 780, int preferred_h = 640 );
+
 #endif
