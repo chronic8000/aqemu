@@ -19,6 +19,9 @@
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--2.0-blue.svg" alt="License: GPL-2.0"/></a>
   <a href="https://apps.microsoft.com/detail/9p0hgkhq9w19"><img src="https://img.shields.io/badge/Microsoft%20Store-AQEMU%20VM%20Manager-0078D4?logo=microsoftstore" alt="Microsoft Store"/></a>
+  <a href="https://ko-fi.com/chronicengineering"><img src="https://img.shields.io/badge/Ko--fi-chronicengineering-F16061?logo=ko-fi&logoColor=white" alt="Ko-fi"/></a>
+  <a href="https://paypal.me/chronicengineering"><img src="https://img.shields.io/badge/PayPal-chronicengineering-00457C?logo=paypal&logoColor=white" alt="PayPal"/></a>
+  <a href="#-sponsor--donate"><img src="https://img.shields.io/badge/sponsor-donate-ff69b4.svg" alt="Sponsor / Donate"/></a>
   <a href="https://github.com/chronic8000/aqemu"><img src="https://img.shields.io/badge/project-chronic8000%2Faqemu-brightgreen.svg" alt="GitHub Project"/></a>
   <a href="https://github.com/chronic8000/aqemu"><img src="https://img.shields.io/badge/QEMU-11.0.2%20bundle-orange.svg" alt="QEMU 11.0.2"/></a>
   <a href="https://github.com/chronic8000/aqemu"><img src="https://img.shields.io/badge/host-Windows%20(x64%20%7C%20ARM64)%20%7C%20Linux%20%7C%20Pi%205-success.svg" alt="Hosts"/></a>
@@ -69,6 +72,41 @@ If you have never purchased software through the Microsoft Store before, here is
   Whenever a new release of AQEMU is published, the Microsoft Store automatically downloads and applies updates seamlessly without overwriting your virtual machines, disks, or custom configurations.
 - **Full Open-Source Freedom (GPLv2)**:
   AQEMU is 100% Free and Open Source Software licensed under the GNU GPLv2. Purchasing on the Microsoft Store directly supports active engineering and ongoing feature development, while the complete source code remains freely available on GitHub.
+
+---
+
+## 💖 Sponsor & Donate
+
+AQEMU is 100% free and open-source software. If AQEMU has saved you time, made your virtualization workflows effortless, or if you simply want to support independent open-source engineering, ongoing releases, and new hardware profiles, donations are warmly appreciated!
+
+### ☕ Traditional & One-Off Payments
+
+| Platform | Link / Details | Supported Payment Methods |
+| :--- | :--- | :--- |
+| **Ko-fi** | [![Ko-fi](https://img.shields.io/badge/Ko--fi-chronicengineering-F16061?style=for-the-badge&logo=ko-fi&logoColor=white)](https://ko-fi.com/chronicengineering) | Credit/Debit Card, Apple Pay, Google Pay, PayPal (0% platform fee) |
+| **PayPal** | [![PayPal](https://img.shields.io/badge/PayPal.Me-chronicengineering-00457C?style=for-the-badge&logo=paypal&logoColor=white)](https://paypal.me/chronicengineering) | Direct PayPal Transfer / Balance |
+| **Microsoft Store** | [![Microsoft Store](https://img.shields.io/badge/Microsoft%20Store-AQEMU%20VM%20Manager-0078D4?style=for-the-badge&logo=microsoftstore)](https://apps.microsoft.com/detail/9p0hgkhq9w19) | One-time purchase with automatic Windows background updates |
+
+### 🪙 Cryptocurrency Wallets
+
+You can also send direct cryptocurrency donations to the following public addresses:
+
+- **Bitcoin (BTC)**:
+  ```text
+  bc1qcatc77vfq24d9csr3g3y4f4lvs7ukr002e42uw
+  ```
+- **Litecoin (LTC)**:
+  ```text
+  ltc1q55sea4z9pz33w2nss03na9vd328m4mue4ya6cv
+  ```
+- **Dogecoin (DOGE)**:
+  ```text
+  DHQHzd9NExzeUrGZe4jDW6HnJVmQNDZrat
+  ```
+- **Monero (XMR)**:
+  ```text
+  83Yt63ZQ4aAda7unczzNzLZ9DFP6RLw2Sev9zcGs4EuS15n6Mgfk1NeejmuBMyuchNSh3AFuUCezEeDGuvbraGo5Qbvuncd
+  ```
 
 ---
 

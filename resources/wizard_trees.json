@@ -73,6 +73,7 @@
       "Ubuntu (64-bit)",
       "IPSW Restore Companion (Ubuntu)",
       "TrueNAS SCALE",
+      "TrueNAS SCALE (ARM64)",
       "Void Linux"
     ],
     "Microsoft": [
@@ -155,7 +156,8 @@
     ],
     "TrueNAS / Storage": [
       "TrueNAS CORE",
-      "TrueNAS SCALE"
+      "TrueNAS SCALE",
+      "TrueNAS SCALE (ARM64)"
     ],
     "Consoles & Retro": [
       "440 Bamboo",
@@ -2166,6 +2168,21 @@
       "flags": [
         "truenas",
         "4kn_default"
+      ],
+      "cpu": "max"
+    },
+    "TrueNAS SCALE (ARM64)": {
+      "target": "aarch64",
+      "machine": "virt",
+      "ram_mb": 8192,
+      "hdd_gb": 32,
+      "nic": "virtio-net-pci",
+      "sound": "none",
+      "tip": "TrueNAS SCALE (ARM64 / Linux / ZFS) → AArch64 + virt with VirtIO. Defaults to 4096-byte (4Kn) native sector size for optimal OpenZFS performance.",
+      "flags": [
+        "truenas",
+        "4kn_default",
+        "uefi"
       ],
       "cpu": "max"
     },
