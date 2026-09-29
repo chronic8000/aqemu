@@ -1,0 +1,76 @@
+name: Build Windows MSIX (x86_64 & ARM64)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+      - '.gitignore'
+
+jobs:
+  build-msix:
+    name: Build MSIX (${{ matrix.arch }})
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            target_name: win64
+            msystem: UCRT64
+            build_dir: build_win
+            cmake_flags: ""
+            packages: >-
+              mingw-w64-ucrt-x86_64-toolchain
+              mingw-w64-ucrt-x86_64-cmake
+              mingw-w64-ucrt-x86_64-ninja
+              mingw-w64-ucrt-x86_64-pkgconf
+              mingw-w64-ucrt-x86_64-qt5-base
+
+          - arch: arm64
+            target_name: win-arm64
+            msystem: CLANGARM64
+            build_dir: build_woa
+            cmake_flags: "-DWIN_ARM64_OPTIMIZATIONS=ON"
+            packages: >-
+              mingw-w64-clang-aarch64-toolchain
+              mingw-w64-clang-aarch64-cmake
+              mingw-w64-clang-aarch64-ninja
+              mingw-w64-clang-aarch64-pkgconf
+              mingw-w64-clang-aarch64-qt5-base
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Setup MSYS2 (${{ matrix.msystem }})
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: ${{ matrix.msystem }}
+          update: true
+          install: ${{ matrix.packages }}
+
+      - name: Configure and build AQEMU (${{ matrix.arch }})
+        shell: msys2 {0}
+        run: |
+          cmake -G Ninja -B ${{ matrix.build_dir }} -S . \
+            -DCMAKE_BUILD_TYPE=Release \
+            ${{ matrix.cmake_flags }}
+          ninja -C ${{ matrix.build_dir }}
+
+      - name: Package MSIX (${{ matrix.arch }})
+        shell: powershell
+        run: |
+          powershell -NoProfile -ExecutionPolicy Bypass -File installer/build-msix.ps1 `
+            -Architecture "${{ matrix.arch }}" `
+            -BuildDir "${{ matrix.build_dir }}"
+
+      - name: Upload MSIX Artifact (${{ matrix.arch }})
+        uses: actions/upload-artifact@v4
+        with:
+          name: AQEMU-${{ matrix.target_name }}-msix
+          path: installer/out/*.msix
+          if-no-files-found: error
