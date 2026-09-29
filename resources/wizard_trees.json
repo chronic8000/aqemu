@@ -41,41 +41,63 @@
       "Linux on IBM Z",
       "OS/2"
     ],
-    "Linux": [
-      "AlmaLinux",
-      "Alpine Linux (32-bit)",
-      "Alpine Linux (64-bit)",
-      "Arch Linux (32-bit)",
-      "Arch Linux (64-bit)",
-      "CentOS Stream",
-      "Debian (32-bit)",
-      "Debian (64-bit)",
-      "elementary OS",
-      "Fedora (32-bit)",
-      "Fedora (64-bit)",
-      "Generic Linux (32-bit)",
-      "Generic Linux (64-bit)",
-      "Gentoo",
-      "Kali Linux",
-      "Linux Mint (32-bit)",
-      "Linux Mint (64-bit)",
-      "NixOS",
-      "openSUSE (32-bit)",
-      "openSUSE (64-bit)",
-      "Pop!_OS",
-      "RHEL",
-      "Rocky Linux",
-      "Slackware",
-      "SUSE Linux",
-      "Tiny Core Linux (32-bit)",
-      "Tiny Core Linux (64-bit)",
-      "Ubuntu (32-bit)",
-      "Ubuntu (64-bit)",
-      "IPSW Restore Companion (Ubuntu)",
-      "TrueNAS SCALE",
-      "TrueNAS SCALE (ARM64)",
-      "Void Linux"
-    ],
+    "Linux": {
+      "ARM64 / AArch64 (Modern ARM)": [
+        "AlmaLinux (ARM64)",
+        "Alpine Linux (ARM64)",
+        "Arch Linux ARM (ARM64)",
+        "CentOS Stream (ARM64)",
+        "Debian (ARM64)",
+        "Fedora (ARM64)",
+        "Generic Linux (ARM64)",
+        "Gentoo (ARM64)",
+        "Kali Linux (ARM64)",
+        "NixOS (ARM64)",
+        "openSUSE (ARM64)",
+        "Pop!_OS (ARM64)",
+        "Raspberry Pi OS (ARM64)",
+        "Rocky Linux (ARM64)",
+        "TrueNAS SCALE (ARM64)",
+        "Ubuntu (ARM64)",
+        "Void Linux (ARM64)"
+      ],
+      "x86_64 (64-bit PC)": [
+        "AlmaLinux",
+        "Alpine Linux (64-bit)",
+        "Arch Linux (64-bit)",
+        "CentOS Stream",
+        "Debian (64-bit)",
+        "elementary OS",
+        "Fedora (64-bit)",
+        "Generic Linux (64-bit)",
+        "Gentoo",
+        "Kali Linux",
+        "Linux Mint (64-bit)",
+        "NixOS",
+        "openSUSE (64-bit)",
+        "Pop!_OS",
+        "RHEL",
+        "Rocky Linux",
+        "Slackware",
+        "SUSE Linux",
+        "Tiny Core Linux (64-bit)",
+        "TrueNAS SCALE",
+        "Ubuntu (64-bit)",
+        "IPSW Restore Companion (Ubuntu)",
+        "Void Linux"
+      ],
+      "x86 32-bit (Legacy PC)": [
+        "Alpine Linux (32-bit)",
+        "Arch Linux (32-bit)",
+        "Debian (32-bit)",
+        "Fedora (32-bit)",
+        "Generic Linux (32-bit)",
+        "Linux Mint (32-bit)",
+        "openSUSE (32-bit)",
+        "Tiny Core Linux (32-bit)",
+        "Ubuntu (32-bit)"
+      ]
+    },
     "Microsoft": [
       "DR-DOS",
       "FreeDOS",
@@ -920,265 +942,748 @@
   "os_profiles": {
     "MS-DOS": {
       "target": "i386",
-      "machine": "isapc",
+      "machine": [
+        "pc-i440fx",
+        "pc"
+      ],
       "ram_mb": 32,
       "hdd_gb": 2,
-      "nic": "ne2k_isa",
-      "sound": "sb16_adlib_pcspk",
-      "tip": "DOS → x86 (i386 PC) + Legacy ISA. 64-bit guests cannot run DOS.",
-      "cpu": "486"
+      "nic": [
+        "ne2k_pci",
+        "pcnet",
+        "rtl8139"
+      ],
+      "sound": [
+        "sb16",
+        "es1370",
+        "none"
+      ],
+      "tip": "DOS \u2192 x86 (i386 PC) + Legacy ISA. 64-bit guests cannot run DOS.",
+      "cpu": "486",
+      "disk_bus": [
+        "ide"
+      ],
+      "vga": [
+        "cirrus",
+        "std"
+      ]
     },
     "PC DOS": {
       "target": "i386",
-      "machine": "isapc",
+      "machine": [
+        "pc-i440fx",
+        "pc"
+      ],
       "ram_mb": 32,
       "hdd_gb": 2,
-      "nic": "ne2k_isa",
-      "sound": "sb16_adlib_pcspk",
-      "tip": "PC DOS → x86 (i386 PC) + Legacy ISA.",
-      "cpu": "486"
+      "nic": [
+        "ne2k_pci",
+        "pcnet",
+        "rtl8139"
+      ],
+      "sound": [
+        "sb16",
+        "es1370",
+        "none"
+      ],
+      "tip": "PC DOS \u2192 x86 (i386 PC) + Legacy ISA.",
+      "cpu": "486",
+      "disk_bus": [
+        "ide"
+      ],
+      "vga": [
+        "cirrus",
+        "std"
+      ]
     },
     "DR-DOS": {
       "target": "i386",
-      "machine": "isapc",
+      "machine": [
+        "pc-i440fx",
+        "pc"
+      ],
       "ram_mb": 32,
       "hdd_gb": 2,
-      "nic": "ne2k_isa",
-      "sound": "sb16_adlib_pcspk",
-      "tip": "DR-DOS → x86 (i386 PC) + Legacy ISA.",
-      "cpu": "486"
+      "nic": [
+        "ne2k_pci",
+        "pcnet",
+        "rtl8139"
+      ],
+      "sound": [
+        "sb16",
+        "es1370",
+        "none"
+      ],
+      "tip": "DR-DOS \u2192 x86 (i386 PC) + Legacy ISA.",
+      "cpu": "486",
+      "disk_bus": [
+        "ide"
+      ],
+      "vga": [
+        "cirrus",
+        "std"
+      ]
     },
     "Windows 1.x": {
       "target": "i386",
-      "machine": "isapc",
+      "machine": [
+        "pc-i440fx",
+        "pc"
+      ],
       "ram_mb": 16,
       "hdd_gb": 2,
-      "nic": "ne2k_isa",
-      "sound": "sb16_adlib_pcspk",
+      "nic": [
+        "ne2k_pci",
+        "pcnet",
+        "rtl8139"
+      ],
+      "sound": [
+        "sb16",
+        "es1370",
+        "none"
+      ],
       "tip": "Windows 1.x needs x86 (i386 PC) / ISA PC. Cannot run as an x86_64 guest.",
-      "cpu": "486"
+      "cpu": "486",
+      "disk_bus": [
+        "ide"
+      ],
+      "vga": [
+        "cirrus",
+        "std"
+      ]
     },
     "Windows 2.x": {
       "target": "i386",
-      "machine": "isapc",
+      "machine": [
+        "pc-i440fx",
+        "pc"
+      ],
       "ram_mb": 16,
       "hdd_gb": 2,
-      "nic": "ne2k_isa",
-      "sound": "sb16_adlib_pcspk",
+      "nic": [
+        "ne2k_pci",
+        "pcnet",
+        "rtl8139"
+      ],
+      "sound": [
+        "sb16",
+        "es1370",
+        "none"
+      ],
       "tip": "Windows 2.x needs x86 (i386 PC) / ISA PC. Cannot run as an x86_64 guest.",
-      "cpu": "486"
+      "cpu": "486",
+      "disk_bus": [
+        "ide"
+      ],
+      "vga": [
+        "cirrus",
+        "std"
+      ]
     },
     "Windows 3.x": {
       "target": "i386",
-      "machine": "isapc",
+      "machine": [
+        "pc-i440fx",
+        "pc"
+      ],
       "ram_mb": 16,
       "hdd_gb": 2,
-      "nic": "ne2k_isa",
-      "sound": "sb16_adlib_pcspk",
+      "nic": [
+        "ne2k_pci",
+        "pcnet",
+        "rtl8139"
+      ],
+      "sound": [
+        "sb16",
+        "es1370",
+        "none"
+      ],
       "tip": "Windows 3.x needs x86 (i386 PC) / ISA PC. Cannot run as an x86_64 guest.",
-      "cpu": "486"
+      "cpu": "486",
+      "disk_bus": [
+        "ide"
+      ],
+      "vga": [
+        "cirrus",
+        "std"
+      ]
     },
     "Windows 95": {
       "target": "i386",
-      "machine": "pc",
+      "machine": [
+        "pc-i440fx",
+        "pc"
+      ],
       "ram_mb": 128,
       "hdd_gb": 8,
-      "nic": "rtl8139",
-      "sound": "sb16",
-      "tip": "Windows 95 → x86 (i386 PC) + pc (i440FX). Force TCG on Windows hosts; CPU pentium2; cirrus; ACPI off.",
+      "nic": [
+        "ne2k_pci",
+        "pcnet",
+        "rtl8139"
+      ],
+      "sound": [
+        "sb16",
+        "es1370",
+        "none"
+      ],
+      "tip": "Windows 95 \u2192 x86 (i386 PC) + pc (i440FX). Force TCG on Windows hosts; CPU pentium2; cirrus; ACPI off.",
       "flags": [
         "win95_98"
       ],
-      "cpu": "pentium2"
+      "cpu": "pentium2",
+      "disk_bus": [
+        "ide"
+      ],
+      "vga": [
+        "cirrus",
+        "std"
+      ]
     },
     "Windows 98": {
       "target": "i386",
-      "machine": "pc",
+      "machine": [
+        "pc-i440fx",
+        "pc"
+      ],
       "ram_mb": 128,
       "hdd_gb": 8,
-      "nic": "ne2k_pci",
-      "sound": "sb16",
+      "nic": [
+        "ne2k_pci",
+        "pcnet",
+        "rtl8139"
+      ],
+      "sound": [
+        "sb16",
+        "es1370",
+        "none"
+      ],
       "tip": "Windows 98 (proven AQEMU profile): i386 + pc, Force TCG / pentium2, cirrus, ACPI off, IDE disk, ne2k_pci, sb16, 128 MB, 1 CPU.",
       "flags": [
         "win95_98"
       ],
-      "cpu": "pentium2"
+      "cpu": "pentium2",
+      "disk_bus": [
+        "ide"
+      ],
+      "vga": [
+        "cirrus",
+        "std"
+      ]
     },
     "Windows ME": {
       "target": "i386",
-      "machine": "pc",
+      "machine": [
+        "pc-i440fx",
+        "pc"
+      ],
       "ram_mb": 256,
       "hdd_gb": 8,
-      "nic": "rtl8139",
-      "sound": "sb16_es1370_pcspk",
-      "tip": "Windows ME → x86 (i386 PC) + pc (i440FX). Not forced to pure TCG (unlike 95/98).",
-      "cpu": "pentium2"
+      "nic": [
+        "ne2k_pci",
+        "pcnet",
+        "rtl8139"
+      ],
+      "sound": [
+        "sb16",
+        "es1370",
+        "none"
+      ],
+      "tip": "Windows ME \u2192 x86 (i386 PC) + pc (i440FX). Not forced to pure TCG (unlike 95/98).",
+      "cpu": "pentium2",
+      "disk_bus": [
+        "ide"
+      ],
+      "vga": [
+        "cirrus",
+        "std"
+      ]
     },
     "Windows NT 3.x": {
       "target": "i386",
-      "machine": "pc",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "ram_mb": 128,
       "hdd_gb": 8,
-      "nic": "ne2k_pci",
-      "sound": "es1370",
-      "tip": "Windows NT 3.x → x86 (i386 PC). Avoid x86_64.",
-      "cpu": "pentium2"
+      "nic": [
+        "e1000e",
+        "virtio-net-pci",
+        "e1000"
+      ],
+      "sound": [
+        "intel-hda",
+        "ac97"
+      ],
+      "tip": "Windows NT 3.x \u2192 x86 (i386 PC). Avoid x86_64.",
+      "cpu": "pentium2",
+      "disk_bus": [
+        "ahci",
+        "nvme",
+        "virtio-blk-pci"
+      ],
+      "vga": [
+        "qxl",
+        "virtio-vga",
+        "std"
+      ]
     },
     "Windows NT 4.0": {
       "target": "i386",
-      "machine": "pc",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "ram_mb": 128,
       "hdd_gb": 8,
-      "nic": "ne2k_pci",
-      "sound": "es1370",
-      "tip": "Windows NT 4.0 → x86 (i386 PC). Avoid x86_64.",
-      "cpu": "pentium2"
+      "nic": [
+        "e1000e",
+        "virtio-net-pci",
+        "e1000"
+      ],
+      "sound": [
+        "intel-hda",
+        "ac97"
+      ],
+      "tip": "Windows NT 4.0 \u2192 x86 (i386 PC). Avoid x86_64.",
+      "cpu": "pentium2",
+      "disk_bus": [
+        "ahci",
+        "nvme",
+        "virtio-blk-pci"
+      ],
+      "vga": [
+        "qxl",
+        "virtio-vga",
+        "std"
+      ]
     },
     "Windows 2000": {
       "target": "i386",
-      "machine": "pc",
+      "machine": [
+        "pc-i440fx",
+        "pc"
+      ],
       "ram_mb": 512,
       "hdd_gb": 16,
-      "nic": "rtl8139",
-      "sound": "es1370_ac97",
-      "tip": "Windows 2000 → x86 (i386 PC) + pc. Win2K disk hack can help.",
+      "nic": [
+        "rtl8139",
+        "e1000",
+        "pcnet"
+      ],
+      "sound": [
+        "ac97",
+        "es1370"
+      ],
+      "tip": "Windows 2000 \u2192 x86 (i386 PC) + pc. Win2K disk hack can help.",
       "flags": [
         "win2k_hack"
       ],
-      "cpu": "pentium3"
+      "cpu": "pentium3",
+      "disk_bus": [
+        "ide",
+        "lsi53c895a",
+        "ahci"
+      ],
+      "vga": [
+        "vmware-svga",
+        "std"
+      ]
     },
     "Windows 11": {
       "target": "x86_64",
-      "machine": "q35",
+      "machine": [
+        "q35",
+        "pc-q35"
+      ],
       "ram_mb": 4096,
       "hdd_gb": 40,
-      "nic": "e1000",
-      "sound": "hda",
-      "tip": "Windows 11 → x86_64 (PC) + Q35. On ARM hosts AQEMU switches to AArch64 + virt.",
+      "nic": [
+        "virtio-net-pci",
+        "e1000e"
+      ],
+      "sound": [
+        "intel-hda"
+      ],
+      "tip": "Windows 11 \u2192 x86_64 (PC) + Q35. On ARM hosts AQEMU switches to AArch64 + virt.",
       "flags": [
         "win11_host_arm"
       ],
-      "cpu": "max"
+      "cpu": "max",
+      "disk_bus": [
+        "nvme",
+        "virtio-scsi-pci",
+        "ahci"
+      ],
+      "vga": [
+        "virtio-vga",
+        "bochs-display",
+        "std"
+      ]
     },
     "Windows Server 2000": {
       "target": "i386",
-      "machine": "pc",
+      "machine": [
+        "pc-i440fx",
+        "pc"
+      ],
       "ram_mb": 1024,
       "hdd_gb": 20,
-      "nic": "rtl8139",
-      "sound": "ac97",
-      "tip": "Windows Server 2000 → x86 (i386 PC).",
-      "cpu": "pentium3"
+      "nic": [
+        "rtl8139",
+        "e1000",
+        "pcnet"
+      ],
+      "sound": [
+        "ac97",
+        "es1370"
+      ],
+      "tip": "Windows Server 2000 \u2192 x86 (i386 PC).",
+      "cpu": "pentium3",
+      "disk_bus": [
+        "ide",
+        "lsi53c895a",
+        "ahci"
+      ],
+      "vga": [
+        "vmware-svga",
+        "std"
+      ]
     },
     "Windows Server 2003": {
       "target": "i386",
-      "machine": "pc",
+      "machine": [
+        "pc-i440fx",
+        "pc"
+      ],
       "ram_mb": 1024,
       "hdd_gb": 20,
-      "nic": "rtl8139",
-      "sound": "ac97",
-      "tip": "Windows Server 2003 → x86 (i386 PC).",
-      "cpu": "pentium3"
+      "nic": [
+        "rtl8139",
+        "e1000",
+        "pcnet"
+      ],
+      "sound": [
+        "ac97",
+        "es1370"
+      ],
+      "tip": "Windows Server 2003 \u2192 x86 (i386 PC).",
+      "cpu": "pentium3",
+      "disk_bus": [
+        "ide",
+        "lsi53c895a",
+        "ahci"
+      ],
+      "vga": [
+        "vmware-svga",
+        "std"
+      ]
     },
     "Windows Server 2012": {
       "target": "x86_64",
-      "machine": "q35",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "ram_mb": 4096,
       "hdd_gb": 40,
-      "nic": "e1000",
-      "sound": "hda",
-      "tip": "Windows Server 2012 → x86_64 (PC) + Q35.",
-      "cpu": "max"
+      "nic": [
+        "e1000e",
+        "virtio-net-pci",
+        "e1000"
+      ],
+      "sound": [
+        "intel-hda",
+        "ac97"
+      ],
+      "tip": "Windows Server 2012 \u2192 x86_64 (PC) + Q35.",
+      "cpu": "max",
+      "disk_bus": [
+        "ahci",
+        "nvme",
+        "virtio-blk-pci"
+      ],
+      "vga": [
+        "qxl",
+        "virtio-vga",
+        "std"
+      ]
     },
     "Windows Server 2016": {
       "target": "x86_64",
-      "machine": "q35",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "ram_mb": 4096,
       "hdd_gb": 40,
-      "nic": "e1000",
-      "sound": "hda",
-      "tip": "Windows Server 2016 → x86_64 (PC) + Q35.",
-      "cpu": "max"
+      "nic": [
+        "e1000e",
+        "virtio-net-pci",
+        "e1000"
+      ],
+      "sound": [
+        "intel-hda",
+        "ac97"
+      ],
+      "tip": "Windows Server 2016 \u2192 x86_64 (PC) + Q35.",
+      "cpu": "max",
+      "disk_bus": [
+        "ahci",
+        "nvme",
+        "virtio-blk-pci"
+      ],
+      "vga": [
+        "qxl",
+        "virtio-vga",
+        "std"
+      ]
     },
     "Windows Server 2019": {
       "target": "x86_64",
-      "machine": "q35",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "ram_mb": 4096,
       "hdd_gb": 40,
-      "nic": "e1000",
-      "sound": "hda",
-      "tip": "Windows Server 2019 → x86_64 (PC) + Q35.",
-      "cpu": "max"
+      "nic": [
+        "e1000e",
+        "virtio-net-pci",
+        "e1000"
+      ],
+      "sound": [
+        "intel-hda",
+        "ac97"
+      ],
+      "tip": "Windows Server 2019 \u2192 x86_64 (PC) + Q35.",
+      "cpu": "max",
+      "disk_bus": [
+        "ahci",
+        "nvme",
+        "virtio-blk-pci"
+      ],
+      "vga": [
+        "qxl",
+        "virtio-vga",
+        "std"
+      ]
     },
     "Windows Server 2022": {
       "target": "x86_64",
-      "machine": "q35",
+      "machine": [
+        "q35",
+        "pc-q35"
+      ],
       "ram_mb": 4096,
       "hdd_gb": 40,
-      "nic": "e1000",
-      "sound": "hda",
-      "tip": "Windows Server 2022 → x86_64 (PC) + Q35.",
-      "cpu": "max"
+      "nic": [
+        "virtio-net-pci",
+        "e1000e"
+      ],
+      "sound": [
+        "intel-hda"
+      ],
+      "tip": "Windows Server 2022 \u2192 x86_64 (PC) + Q35.",
+      "cpu": "max",
+      "disk_bus": [
+        "nvme",
+        "virtio-scsi-pci",
+        "ahci"
+      ],
+      "vga": [
+        "virtio-vga",
+        "bochs-display",
+        "std"
+      ]
     },
     "Windows Server 2025": {
       "target": "x86_64",
-      "machine": "q35",
+      "machine": [
+        "q35",
+        "pc-q35"
+      ],
       "ram_mb": 4096,
       "hdd_gb": 40,
-      "nic": "e1000",
-      "sound": "hda",
-      "tip": "Windows Server 2025 → x86_64 (PC) + Q35.",
-      "cpu": "max"
+      "nic": [
+        "virtio-net-pci",
+        "e1000e"
+      ],
+      "sound": [
+        "intel-hda"
+      ],
+      "tip": "Windows Server 2025 \u2192 x86_64 (PC) + Q35.",
+      "cpu": "max",
+      "disk_bus": [
+        "nvme",
+        "virtio-scsi-pci",
+        "ahci"
+      ],
+      "vga": [
+        "virtio-vga",
+        "bochs-display",
+        "std"
+      ]
     },
     "RHEL": {
       "target": "x86_64",
-      "machine": "q35",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "ram_mb": 4096,
       "hdd_gb": 20,
-      "nic": "virtio-net-pci",
-      "sound": "hda_virtio",
-      "tip": "RHEL → x86_64 (PC) + Q35 with VirtIO.",
-      "cpu": "max"
+      "nic": [
+        "virtio-net-pci",
+        "e1000e",
+        "e1000"
+      ],
+      "sound": [
+        "intel-hda",
+        "ac97"
+      ],
+      "tip": "RHEL \u2192 x86_64 (PC) + Q35 with VirtIO.",
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "ahci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-vga",
+        "qxl",
+        "std"
+      ]
     },
     "Rocky Linux": {
       "target": "x86_64",
-      "machine": "q35",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "ram_mb": 4096,
       "hdd_gb": 20,
-      "nic": "virtio-net-pci",
-      "sound": "hda_virtio",
-      "tip": "Rocky Linux → x86_64 (PC) + Q35 with VirtIO.",
-      "cpu": "max"
+      "nic": [
+        "virtio-net-pci",
+        "e1000e",
+        "e1000"
+      ],
+      "sound": [
+        "intel-hda",
+        "ac97"
+      ],
+      "tip": "Rocky Linux \u2192 x86_64 (PC) + Q35 with VirtIO.",
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "ahci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-vga",
+        "qxl",
+        "std"
+      ]
     },
     "AlmaLinux": {
       "target": "x86_64",
-      "machine": "q35",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "ram_mb": 4096,
       "hdd_gb": 20,
-      "nic": "virtio-net-pci",
-      "sound": "hda_virtio",
-      "tip": "AlmaLinux → x86_64 (PC) + Q35 with VirtIO.",
-      "cpu": "max"
+      "nic": [
+        "virtio-net-pci",
+        "e1000e",
+        "e1000"
+      ],
+      "sound": [
+        "intel-hda",
+        "ac97"
+      ],
+      "tip": "AlmaLinux \u2192 x86_64 (PC) + Q35 with VirtIO.",
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "ahci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-vga",
+        "qxl",
+        "std"
+      ]
     },
     "SUSE Linux": {
       "target": "x86_64",
-      "machine": "q35",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "ram_mb": 4096,
       "hdd_gb": 20,
-      "nic": "virtio-net-pci",
-      "sound": "hda_virtio",
-      "tip": "SUSE Linux → x86_64 (PC) + Q35 with VirtIO.",
-      "cpu": "max"
+      "nic": [
+        "virtio-net-pci",
+        "e1000e",
+        "e1000"
+      ],
+      "sound": [
+        "intel-hda",
+        "ac97"
+      ],
+      "tip": "SUSE Linux \u2192 x86_64 (PC) + Q35 with VirtIO.",
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "ahci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-vga",
+        "qxl",
+        "std"
+      ]
     },
     "Gentoo": {
       "target": "x86_64",
-      "machine": "q35",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "ram_mb": 4096,
       "hdd_gb": 20,
-      "nic": "virtio-net-pci",
-      "sound": "hda_virtio",
-      "tip": "Gentoo → x86_64 (PC) + Q35 with VirtIO.",
-      "cpu": "max"
+      "nic": [
+        "virtio-net-pci",
+        "e1000e",
+        "e1000"
+      ],
+      "sound": [
+        "intel-hda",
+        "ac97"
+      ],
+      "tip": "Gentoo \u2192 x86_64 (PC) + Q35 with VirtIO.",
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "ahci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-vga",
+        "qxl",
+        "std"
+      ]
     },
     "Slackware": {
       "target": "x86_64",
@@ -1187,167 +1692,420 @@
       "hdd_gb": 20,
       "nic": "virtio-net-pci",
       "sound": "hda_virtio",
-      "tip": "Slackware → x86_64 (PC) + Q35 with VirtIO.",
+      "tip": "Slackware \u2192 x86_64 (PC) + Q35 with VirtIO.",
       "cpu": "max"
     },
     "Kali Linux": {
       "target": "x86_64",
-      "machine": "q35",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "ram_mb": 4096,
       "hdd_gb": 20,
-      "nic": "virtio-net-pci",
-      "sound": "hda_virtio",
-      "tip": "Kali Linux → x86_64 (PC) + Q35 with VirtIO.",
-      "cpu": "max"
+      "nic": [
+        "virtio-net-pci",
+        "e1000e",
+        "e1000"
+      ],
+      "sound": [
+        "intel-hda",
+        "ac97"
+      ],
+      "tip": "Kali Linux \u2192 x86_64 (PC) + Q35 with VirtIO.",
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "ahci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-vga",
+        "qxl",
+        "std"
+      ]
     },
     "DragonFly BSD": {
       "target": "x86_64",
-      "machine": "q35",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "ram_mb": 2048,
       "hdd_gb": 20,
-      "nic": "virtio-net-pci",
-      "sound": "hda_virtio",
-      "tip": "DragonFly BSD → x86_64 (PC) + Q35 with VirtIO.",
-      "cpu": "max"
+      "nic": [
+        "virtio-net-pci",
+        "e1000e",
+        "e1000"
+      ],
+      "sound": [
+        "intel-hda",
+        "ac97"
+      ],
+      "tip": "DragonFly BSD \u2192 x86_64 (PC) + Q35 with VirtIO.",
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "ahci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-vga",
+        "qxl",
+        "std"
+      ]
     },
     "Mac OS 7": {
       "target": "ppc",
-      "machine": "mac99",
+      "machine": [
+        "mac99",
+        "g3beige"
+      ],
       "ram_mb": 256,
       "hdd_gb": 4,
-      "nic": "sungem",
-      "sound": "none",
-      "tip": "Classic Mac OS 7 → qemu-system-ppc + mac99. Supply your own boot CD/ISO or HDD image.",
-      "cpu": "g4"
+      "nic": [
+        "sungem"
+      ],
+      "sound": [
+        "screamer",
+        "none"
+      ],
+      "tip": "Classic Mac OS 7 \u2192 qemu-system-ppc + mac99. Supply your own boot CD/ISO or HDD image.",
+      "cpu": "g4",
+      "disk_bus": [
+        "ide"
+      ],
+      "vga": [
+        "std"
+      ]
     },
     "Mac OS 8": {
       "target": "ppc",
-      "machine": "mac99",
+      "machine": [
+        "mac99",
+        "g3beige"
+      ],
       "ram_mb": 256,
       "hdd_gb": 4,
-      "nic": "sungem",
-      "sound": "none",
-      "tip": "Classic Mac OS 8 → qemu-system-ppc + mac99. Supply your own boot CD/ISO or HDD image.",
-      "cpu": "g4"
+      "nic": [
+        "sungem"
+      ],
+      "sound": [
+        "screamer",
+        "none"
+      ],
+      "tip": "Classic Mac OS 8 \u2192 qemu-system-ppc + mac99. Supply your own boot CD/ISO or HDD image.",
+      "cpu": "g4",
+      "disk_bus": [
+        "ide"
+      ],
+      "vga": [
+        "std"
+      ]
     },
     "Mac OS 9": {
       "target": "ppc",
-      "machine": "mac99",
+      "machine": [
+        "mac99",
+        "g3beige"
+      ],
       "ram_mb": 256,
       "hdd_gb": 4,
-      "nic": "sungem",
-      "sound": "none",
-      "tip": "Classic Mac OS 9 → qemu-system-ppc + mac99. Supply your own boot CD/ISO or HDD image.",
-      "cpu": "g4"
+      "nic": [
+        "sungem"
+      ],
+      "sound": [
+        "screamer",
+        "none"
+      ],
+      "tip": "Classic Mac OS 9 \u2192 qemu-system-ppc + mac99. Supply your own boot CD/ISO or HDD image.",
+      "cpu": "g4",
+      "disk_bus": [
+        "ide"
+      ],
+      "vga": [
+        "std"
+      ]
     },
     "Mac OS X PPC": {
       "target": "ppc",
-      "machine": "mac99",
+      "machine": [
+        "mac99",
+        "g3beige"
+      ],
       "ram_mb": 512,
       "hdd_gb": 10,
-      "nic": "sungem",
-      "sound": "none",
-      "tip": "Mac OS X PPC → qemu-system-ppc + mac99. Ensure qemu-system-ppc is installed.",
-      "cpu": "g4"
+      "nic": [
+        "sungem"
+      ],
+      "sound": [
+        "screamer",
+        "none"
+      ],
+      "tip": "Mac OS X PPC \u2192 qemu-system-ppc + mac99. Ensure qemu-system-ppc is installed.",
+      "cpu": "g4",
+      "disk_bus": [
+        "ide"
+      ],
+      "vga": [
+        "std"
+      ]
     },
     "Mac OS X Intel": {
       "target": "x86_64",
-      "machine": "q35",
+      "machine": [
+        "q35",
+        "pc-q35"
+      ],
       "ram_mb": 4096,
       "hdd_gb": 40,
-      "nic": "e1000-82545em",
-      "sound": "hda",
+      "nic": [
+        "e1000-82545em",
+        "e1000e",
+        "virtio-net-pci"
+      ],
+      "sound": [
+        "intel-hda"
+      ],
       "tip": "Intel Mac OS X (experimental): qemu-system-x86_64 + q35 (PC-class hardware for OpenCore). Supply OpenCore, OVMF, OSK, install media.",
       "flags": [
         "intel_macos"
       ],
-      "cpu": "max"
+      "cpu": "max",
+      "disk_bus": [
+        "ahci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-vga",
+        "qxl",
+        "std"
+      ]
     },
     "macOS": {
       "target": "x86_64",
-      "machine": "q35",
+      "machine": [
+        "q35",
+        "pc-q35"
+      ],
       "ram_mb": 4096,
       "hdd_gb": 40,
-      "nic": "e1000-82545em",
-      "sound": "hda",
-      "tip": "Intel macOS (experimental): qemu-system-x86_64 + q35 (PC-class hardware for OpenCore — not Apple Silicon). On an x86_64 host AQEMU selects KVM/WHPX by default. Supply OpenCore, OVMF, OSK, install media. AQEMU does not ship Apple files.",
+      "nic": [
+        "e1000-82545em",
+        "e1000e",
+        "virtio-net-pci"
+      ],
+      "sound": [
+        "intel-hda"
+      ],
+      "tip": "Intel macOS (experimental): qemu-system-x86_64 + q35 (PC-class hardware for OpenCore \u2014 not Apple Silicon). On an x86_64 host AQEMU selects KVM/WHPX by default. Supply OpenCore, OVMF, OSK, install media. AQEMU does not ship Apple files.",
       "flags": [
         "intel_macos"
       ],
-      "cpu": "max"
+      "cpu": "max",
+      "disk_bus": [
+        "ahci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-vga",
+        "qxl",
+        "std"
+      ]
     },
     "Darwin": {
       "target": "x86_64",
-      "machine": "q35",
+      "machine": [
+        "q35",
+        "pc-q35"
+      ],
       "ram_mb": 4096,
       "hdd_gb": 40,
-      "nic": "e1000-82545em",
-      "sound": "hda",
+      "nic": [
+        "e1000-82545em",
+        "e1000e",
+        "virtio-net-pci"
+      ],
+      "sound": [
+        "intel-hda"
+      ],
       "tip": "Darwin / Intel macOS path: qemu-system-x86_64 + q35. Supply OpenCore, OVMF, OSK, install media.",
       "flags": [
         "intel_macos"
       ],
-      "cpu": "max"
+      "cpu": "max",
+      "disk_bus": [
+        "ahci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-vga",
+        "qxl",
+        "std"
+      ]
     },
     "Solaris x86": {
       "target": "x86_64",
-      "machine": "pc",
+      "machine": [
+        "pc-i440fx",
+        "pc",
+        "q35"
+      ],
       "ram_mb": 8192,
       "hdd_gb": 32,
-      "nic": "e1000",
-      "sound": "sb16",
-      "tip": "Solaris 11.4 x86 (r/qemu_kvm recipe): pc+usb=off, std VGA, e1000, sb16, IDE, 8 GB, WHPX/KVM, PIIX4 disable_s3/s4. Use sol-11_4-text-x86.iso. Install can sit on the SunOS banner / at 99% for 1–2 hours while the disk image keeps growing — not frozen. After install: create a normal user (root console login blocked); later pkg update + solaris-desktop; then VirtIO is optional.",
-      "cpu": "qemu64"
+      "nic": [
+        "e1000",
+        "rtl8139"
+      ],
+      "sound": [
+        "sb16",
+        "ac97"
+      ],
+      "tip": "Solaris 11.4 x86 (r/qemu_kvm recipe): pc+usb=off, std VGA, e1000, sb16, IDE, 8 GB, WHPX/KVM, PIIX4 disable_s3/s4. Use sol-11_4-text-x86.iso. Install can sit on the SunOS banner / at 99% for 1\u20132 hours while the disk image keeps growing \u2014 not frozen. After install: create a normal user (root console login blocked); later pkg update + solaris-desktop; then VirtIO is optional.",
+      "cpu": "qemu64",
+      "disk_bus": [
+        "ide",
+        "ahci"
+      ],
+      "vga": [
+        "std"
+      ]
     },
     "Solaris x86 (32-bit)": {
       "target": "i386",
-      "machine": "pc",
+      "machine": [
+        "pc-i440fx",
+        "pc",
+        "q35"
+      ],
       "ram_mb": 1024,
       "hdd_gb": 20,
-      "nic": "e1000",
-      "sound": "ac97",
-      "tip": "Legacy Solaris 8/9/early 10 x86 (32-bit only) → IBM PC 32Bit. Modern ISOs will say “No long mode support” here — use Solaris x86 instead.",
-      "cpu": "qemu32"
+      "nic": [
+        "e1000",
+        "rtl8139"
+      ],
+      "sound": [
+        "sb16",
+        "ac97"
+      ],
+      "tip": "Legacy Solaris 8/9/early 10 x86 (32-bit only) \u2192 IBM PC 32Bit. Modern ISOs will say \u201cNo long mode support\u201d here \u2014 use Solaris x86 instead.",
+      "cpu": "qemu32",
+      "disk_bus": [
+        "ide",
+        "ahci"
+      ],
+      "vga": [
+        "std"
+      ]
     },
     "Solaris SPARC": {
       "target": "sparc64",
-      "machine": "sun4u",
+      "machine": [
+        "sun4u",
+        "sun4v",
+        "niagara"
+      ],
       "ram_mb": 1024,
       "hdd_gb": 20,
-      "nic": "e1000",
-      "sound": "none",
-      "tip": "Solaris SPARC → SPARC 64 / sun4u.",
-      "cpu": "TI-UltraSparc-II"
+      "nic": [
+        "sunhme",
+        "ne2k_pci"
+      ],
+      "sound": [
+        "sb16",
+        "none"
+      ],
+      "tip": "Solaris SPARC \u2192 SPARC 64 / sun4u.",
+      "cpu": "TI-UltraSparc-II",
+      "disk_bus": [
+        "scsi",
+        "ide"
+      ],
+      "vga": [
+        "std"
+      ]
     },
     "OpenSolaris": {
       "target": "x86_64",
-      "machine": "pc",
+      "machine": [
+        "pc-i440fx",
+        "pc",
+        "q35"
+      ],
       "ram_mb": 4096,
       "hdd_gb": 20,
-      "nic": "e1000",
-      "sound": "ac97",
-      "tip": "OpenSolaris → same family as Solaris x86: std VGA, IDE, e1000, AC97, WHPX/KVM preferred.",
-      "cpu": "qemu64"
+      "nic": [
+        "e1000",
+        "rtl8139"
+      ],
+      "sound": [
+        "sb16",
+        "ac97"
+      ],
+      "tip": "OpenSolaris \u2192 same family as Solaris x86: std VGA, IDE, e1000, AC97, WHPX/KVM preferred.",
+      "cpu": "qemu64",
+      "disk_bus": [
+        "ide",
+        "ahci"
+      ],
+      "vga": [
+        "std"
+      ]
     },
     "illumos": {
       "target": "x86_64",
-      "machine": "q35",
+      "machine": [
+        "pc-i440fx",
+        "pc",
+        "q35"
+      ],
       "ram_mb": 2048,
       "hdd_gb": 20,
-      "nic": "virtio-net-pci",
-      "sound": "hda_virtio",
-      "tip": "illumos → x86_64 (PC) + Q35 with VirtIO.",
-      "cpu": "qemu64"
+      "nic": [
+        "e1000",
+        "rtl8139"
+      ],
+      "sound": [
+        "sb16",
+        "ac97"
+      ],
+      "tip": "illumos \u2192 x86_64 (PC) + Q35 with VirtIO.",
+      "cpu": "qemu64",
+      "disk_bus": [
+        "ide",
+        "ahci"
+      ],
+      "vga": [
+        "std"
+      ]
     },
     "OmniOS": {
       "target": "x86_64",
-      "machine": "q35",
+      "machine": [
+        "pc-q35",
+        "q35",
+        "pc-i440fx",
+        "pc"
+      ],
       "ram_mb": 2048,
       "hdd_gb": 20,
-      "nic": "virtio-net-pci",
-      "sound": "hda_virtio",
-      "tip": "OmniOS → x86_64 (PC) + Q35 with VirtIO.",
-      "cpu": "max"
+      "nic": [
+        "e1000",
+        "virtio-net-pci"
+      ],
+      "sound": "intel-hda",
+      "tip": "OmniOS \u2192 x86_64 (PC) + Q35 with VirtIO.",
+      "cpu": "max",
+      "disk_bus": [
+        "ahci",
+        "virtio-blk-pci"
+      ],
+      "vga": [
+        "std",
+        "virtio"
+      ]
     },
     "IRIX 5.x": {
       "target": "mips64",
@@ -1356,7 +2114,7 @@
       "hdd_gb": 8,
       "nic": "e1000",
       "sound": "none",
-      "tip": "IRIX 5.x → qemu-system-mips64 -M magnum. Experimental; needs a suitable IRIX image.",
+      "tip": "IRIX 5.x \u2192 qemu-system-mips64 -M magnum. Experimental; needs a suitable IRIX image.",
       "cpu": "5Kf"
     },
     "IRIX 6.x": {
@@ -1366,7 +2124,7 @@
       "hdd_gb": 8,
       "nic": "e1000",
       "sound": "none",
-      "tip": "IRIX 6.x → qemu-system-mips64 -M magnum. Experimental; needs a suitable IRIX image.",
+      "tip": "IRIX 6.x \u2192 qemu-system-mips64 -M magnum. Experimental; needs a suitable IRIX image.",
       "cpu": "5Kf"
     },
     "AIX": {
@@ -1376,38 +2134,86 @@
       "hdd_gb": 20,
       "nic": "virtio-net-pci",
       "sound": "none",
-      "tip": "AIX → qemu-system-ppc64 -M pseries -cpu POWER8. WHPX cannot accelerate POWER (TCG only, very slow). Use virtio-scsi, ≥2 GB RAM. For a VGA window do not set prom-env input/output to /vdevice/vty (that is for -nographic serial). True host↔guest clipboard needs spice-vdagent in the guest — AIX/SLOF do not provide that; paste into the QEMU window is host-display only. Prebuilt VMware VMDKs often fail with SLOF E3403 Bad executable.",
+      "tip": "AIX \u2192 qemu-system-ppc64 -M pseries -cpu POWER8. WHPX cannot accelerate POWER (TCG only, very slow). Use virtio-scsi, \u22652 GB RAM. For a VGA window do not set prom-env input/output to /vdevice/vty (that is for -nographic serial). True host\u2194guest clipboard needs spice-vdagent in the guest \u2014 AIX/SLOF do not provide that; paste into the QEMU window is host-display only. Prebuilt VMware VMDKs often fail with SLOF E3403 Bad executable.",
       "cpu": "power8_v2.0"
     },
     "OS/2": {
       "target": "i386",
-      "machine": "pc",
+      "machine": [
+        "pc-i440fx",
+        "pc"
+      ],
       "ram_mb": 512,
       "hdd_gb": 4,
-      "nic": "rtl8139",
-      "sound": "es1370",
+      "nic": [
+        "rtl8139",
+        "pcnet"
+      ],
+      "sound": [
+        "es1370",
+        "sb16"
+      ],
       "tip": "OS/2 Warp (proven AQEMU profile): i386 + pc, Force TCG / pentium3, cirrus, ACPI off, IDE (not VirtIO), rtl8139, ES1370, 512 MB, 1 CPU. LVM Error 9 usually means VirtIO/ACPI.",
-      "cpu": "pentium3"
+      "cpu": "pentium3",
+      "disk_bus": [
+        "ide"
+      ],
+      "vga": [
+        "cirrus",
+        "std"
+      ]
     },
     "eComStation": {
       "target": "i386",
-      "machine": "pc",
+      "machine": [
+        "pc-i440fx",
+        "pc"
+      ],
       "ram_mb": 512,
       "hdd_gb": 8,
-      "nic": "rtl8139",
-      "sound": "es1370",
-      "tip": "eComStation → i386 PC with IDE disk (not VirtIO), ACPI off.",
-      "cpu": "pentium3"
+      "nic": [
+        "rtl8139",
+        "pcnet"
+      ],
+      "sound": [
+        "es1370",
+        "sb16"
+      ],
+      "tip": "eComStation \u2192 i386 PC with IDE disk (not VirtIO), ACPI off.",
+      "cpu": "pentium3",
+      "disk_bus": [
+        "ide"
+      ],
+      "vga": [
+        "cirrus",
+        "std"
+      ]
     },
     "ArcaOS": {
       "target": "i386",
-      "machine": "pc",
+      "machine": [
+        "pc-i440fx",
+        "pc"
+      ],
       "ram_mb": 512,
       "hdd_gb": 8,
-      "nic": "rtl8139",
-      "sound": "es1370",
-      "tip": "ArcaOS → i386 PC with IDE disk (not VirtIO), ACPI off.",
-      "cpu": "pentium3"
+      "nic": [
+        "rtl8139",
+        "pcnet"
+      ],
+      "sound": [
+        "es1370",
+        "sb16"
+      ],
+      "tip": "ArcaOS \u2192 i386 PC with IDE disk (not VirtIO), ACPI off.",
+      "cpu": "pentium3",
+      "disk_bus": [
+        "ide"
+      ],
+      "vga": [
+        "cirrus",
+        "std"
+      ]
     },
     "OpenVMS": {
       "target": "alpha",
@@ -1416,7 +2222,7 @@
       "hdd_gb": 10,
       "nic": "e1000",
       "sound": "none",
-      "tip": "OpenVMS → Alpha Server / clipper (best QEMU fit). VAX is not available in mainline QEMU.",
+      "tip": "OpenVMS \u2192 Alpha Server / clipper (best QEMU fit). VAX is not available in mainline QEMU.",
       "cpu": "ev4"
     },
     "Tru64 UNIX": {
@@ -1426,7 +2232,7 @@
       "hdd_gb": 10,
       "nic": "e1000",
       "sound": "none",
-      "tip": "Tru64 UNIX → Alpha Server / clipper.",
+      "tip": "Tru64 UNIX \u2192 Alpha Server / clipper.",
       "cpu": "ev4"
     },
     "BeOS": {
@@ -1436,7 +2242,7 @@
       "hdd_gb": 8,
       "nic": "rtl8139",
       "sound": "es1370",
-      "tip": "BeOS → x86 (i386 PC). Use a BeOS-compatible disk/ISO.",
+      "tip": "BeOS \u2192 x86 (i386 PC). Use a BeOS-compatible disk/ISO.",
       "cpu": "pentium3"
     },
     "AmigaOS": {
@@ -1446,7 +2252,7 @@
       "hdd_gb": 10,
       "nic": "e1000",
       "sound": "none",
-      "tip": "AmigaOS → PowerPC / amigaone. Requires qemu-system-ppc with amigaone machine support.",
+      "tip": "AmigaOS \u2192 PowerPC / amigaone. Requires qemu-system-ppc with amigaone machine support.",
       "cpu": "g4"
     },
     "MorphOS": {
@@ -1456,28 +2262,44 @@
       "hdd_gb": 10,
       "nic": "e1000",
       "sound": "none",
-      "tip": "MorphOS → PowerPC / sam460ex. Requires qemu-system-ppc with sam460ex.",
+      "tip": "MorphOS \u2192 PowerPC / sam460ex. Requires qemu-system-ppc with sam460ex.",
       "cpu": "g4"
     },
     "RISC OS": {
       "target": "arm",
-      "machine": "virt",
+      "machine": [
+        "virt"
+      ],
       "ram_mb": 256,
       "hdd_gb": 4,
-      "nic": "virtio-net-pci",
+      "nic": [
+        "virtio-net-pci"
+      ],
       "sound": "none",
-      "tip": "RISC OS → ARM virt. Needs a specialized RISC OS image; machine choice may need tuning.",
-      "cpu": "max"
+      "tip": "RISC OS \u2192 ARM virt. Needs a specialized RISC OS image; machine choice may need tuning.",
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ]
     },
     "Android": {
       "target": "aarch64",
-      "machine": "virt",
+      "machine": [
+        "virt"
+      ],
       "ram_mb": 2048,
       "hdd_gb": 20,
-      "nic": "virtio-net-pci",
+      "nic": [
+        "virtio-net-pci"
+      ],
       "sound": "virtio",
-      "tip": "Android → AArch64 virt + VirtIO.",
-      "cpu": "max"
+      "tip": "Android \u2192 AArch64 virt + VirtIO.",
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ]
     },
     "ChromeOS": {
       "target": "x86_64",
@@ -1486,7 +2308,7 @@
       "hdd_gb": 40,
       "nic": "virtio-net-pci",
       "sound": "hda_virtio",
-      "tip": "ChromeOS (Brunch/Chromium OS style) → x86_64 + Q35. For Google’s Flex recovery .bin use “Chrome OS Flex” instead.",
+      "tip": "ChromeOS (Brunch/Chromium OS style) \u2192 x86_64 + Q35. For Google\u2019s Flex recovery .bin use \u201cChrome OS Flex\u201d instead.",
       "cpu": "max"
     },
     "Chrome OS Flex": {
@@ -1505,18 +2327,39 @@
     },
     "SteamOS": {
       "target": "x86_64",
-      "machine": "q35",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "ram_mb": 8192,
       "hdd_gb": 64,
-      "nic": "virtio-net-pci",
-      "sound": "hda_virtio",
-      "tip": "SteamOS recovery (.bz2→.img): UEFI + NVMe install disk required (/dev/nvme0n1). After install, force Plasma before reboot — Gaming Mode needs Deck AMD GPU (passthrough optional).",
+      "nic": [
+        "virtio-net-pci",
+        "e1000e",
+        "e1000"
+      ],
+      "sound": [
+        "intel-hda",
+        "ac97"
+      ],
+      "tip": "SteamOS recovery (.bz2\u2192.img): UEFI + NVMe install disk required (/dev/nvme0n1). After install, force Plasma before reboot \u2014 Gaming Mode needs Deck AMD GPU (passthrough optional).",
       "flags": [
         "steamos",
         "uefi",
         "nvme_disk"
       ],
-      "cpu": "max"
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "ahci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-vga",
+        "qxl",
+        "std"
+      ]
     },
     "SerenityOS": {
       "target": "x86_64",
@@ -1525,18 +2368,33 @@
       "hdd_gb": 20,
       "nic": "virtio-net-pci",
       "sound": "hda_virtio",
-      "tip": "SerenityOS → x86_64 (PC) + Q35 with VirtIO.",
+      "tip": "SerenityOS \u2192 x86_64 (PC) + Q35 with VirtIO.",
       "cpu": "max"
     },
     "KolibriOS": {
       "target": "i386",
-      "machine": "pc",
+      "machine": [
+        "pc-i440fx",
+        "pc",
+        "isapc"
+      ],
       "ram_mb": 128,
       "hdd_gb": 2,
-      "nic": "rtl8139",
+      "nic": [
+        "ne2k_pci",
+        "rtl8139",
+        "none"
+      ],
       "sound": "sb16",
-      "tip": "KolibriOS → x86 (i386 PC).",
-      "cpu": "max"
+      "tip": "KolibriOS \u2192 x86 (i386 PC).",
+      "cpu": "pentium3",
+      "disk_bus": [
+        "ide"
+      ],
+      "vga": [
+        "std",
+        "cirrus"
+      ]
     },
     "TempleOS": {
       "target": "i386",
@@ -1545,7 +2403,7 @@
       "hdd_gb": 2,
       "nic": "rtl8139",
       "sound": "pcspk",
-      "tip": "TempleOS → x86 (i386 PC).",
+      "tip": "TempleOS \u2192 x86 (i386 PC).",
       "cpu": "max"
     },
     "Other": {
@@ -1563,23 +2421,54 @@
     },
     "FreeDOS": {
       "target": "i386",
-      "machine": "pc",
+      "machine": [
+        "pc-i440fx",
+        "pc"
+      ],
       "ram_mb": 64,
       "hdd_gb": 2,
-      "nic": "ne2k_pci",
-      "sound": "sb16_adlib_pcspk",
-      "tip": "FreeDOS → i386 PC (IDE). Supports FAT32/LFN/CD-ROM better than MS-DOS. Prefer IBM PC 32Bit.",
-      "cpu": "max"
+      "nic": [
+        "ne2k_pci",
+        "pcnet",
+        "rtl8139"
+      ],
+      "sound": [
+        "sb16",
+        "es1370",
+        "none"
+      ],
+      "tip": "FreeDOS \u2192 i386 PC (IDE). Supports FAT32/LFN/CD-ROM better than MS-DOS. Prefer IBM PC 32Bit.",
+      "cpu": "max",
+      "disk_bus": [
+        "ide"
+      ],
+      "vga": [
+        "cirrus",
+        "std"
+      ]
     },
     "Mac OS 6": {
       "target": "m68k",
-      "machine": "q800",
+      "machine": [
+        "q800"
+      ],
       "ram_mb": 64,
       "hdd_gb": 2,
-      "nic": "dp8393x",
-      "sound": "none",
-      "tip": "System 6 / early Mac OS → qemu-system-m68k + Quadra 800 (q800). Experimental; supply your own disk/ROM image.",
-      "cpu": "any"
+      "nic": [
+        "dp83932",
+        "none"
+      ],
+      "sound": [
+        "none"
+      ],
+      "tip": "System 6 / early Mac OS \u2192 qemu-system-m68k + Quadra 800 (q800). Experimental; supply your own disk/ROM image.",
+      "cpu": "any",
+      "disk_bus": [
+        "scsi"
+      ],
+      "vga": [
+        "none"
+      ]
     },
     "NeXTSTEP": {
       "target": "m68k",
@@ -1588,7 +2477,7 @@
       "hdd_gb": 4,
       "nic": "dp8393x",
       "sound": "none",
-      "tip": "NeXTSTEP → qemu-system-m68k + next-cube. Supply NeXT install media; experimental.",
+      "tip": "NeXTSTEP \u2192 qemu-system-m68k + next-cube. Supply NeXT install media; experimental.",
       "cpu": "m68040"
     },
     "OPENSTEP": {
@@ -1598,18 +2487,39 @@
       "hdd_gb": 4,
       "nic": "ne2k_pci",
       "sound": "sb16",
-      "tip": "OPENSTEP / NeXTSTEP for Intel → i386 PC. Use period install media; drivers are picky.",
+      "tip": "OPENSTEP / NeXTSTEP for Intel \u2192 i386 PC. Use period install media; drivers are picky.",
       "cpu": "max"
     },
     "GhostBSD": {
       "target": "x86_64",
-      "machine": "q35",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "ram_mb": 2048,
       "hdd_gb": 20,
-      "nic": "virtio-net-pci",
-      "sound": "hda_virtio",
-      "tip": "GhostBSD → x86_64 + Q35 with VirtIO (FreeBSD-based desktop).",
-      "cpu": "max"
+      "nic": [
+        "virtio-net-pci",
+        "e1000e",
+        "e1000"
+      ],
+      "sound": [
+        "intel-hda",
+        "ac97"
+      ],
+      "tip": "GhostBSD \u2192 x86_64 + Q35 with VirtIO (FreeBSD-based desktop).",
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "ahci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-vga",
+        "qxl",
+        "std"
+      ]
     },
     "HP-UX": {
       "target": "hppa",
@@ -1621,64 +2531,161 @@
       "flags": [
         "hppa_scsi"
       ],
-      "tip": "HP-UX → qemu-system-hppa + B160L. Use SCSI disk (lsi53c895a). Needs a PA-RISC QEMU build and HP-UX install media.",
+      "tip": "HP-UX \u2192 qemu-system-hppa + B160L. Use SCSI disk (lsi53c895a). Needs a PA-RISC QEMU build and HP-UX install media.",
       "cpu": "pa-8700"
     },
     "Linux on IBM Z": {
       "target": "s390x",
-      "machine": "s390-ccw-virtio",
+      "machine": [
+        "s390-ccw-virtio"
+      ],
       "ram_mb": 4096,
       "hdd_gb": 20,
-      "nic": "virtio-net-ccw",
-      "sound": "none",
-      "tip": "Linux on IBM Z → qemu-system-s390x + s390-ccw-virtio. VirtIO CCW disk/net; typically headless (no VGA).",
-      "cpu": "max"
+      "nic": [
+        "virtio-net-ccw",
+        "virtio-net-pci"
+      ],
+      "sound": [
+        "none"
+      ],
+      "tip": "Linux on IBM Z \u2192 qemu-system-s390x + s390-ccw-virtio. VirtIO CCW disk/net; typically headless (no VGA).",
+      "cpu": "max",
+      "disk_bus": [
+        "virtio"
+      ],
+      "vga": [
+        "none"
+      ]
     },
     "CentOS Stream": {
       "target": "x86_64",
-      "machine": "q35",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "ram_mb": 4096,
       "hdd_gb": 20,
-      "nic": "virtio-net-pci",
-      "sound": "hda_virtio",
-      "tip": "CentOS Stream → x86_64 + Q35 with VirtIO (RHEL upstream).",
-      "cpu": "max"
+      "nic": [
+        "virtio-net-pci",
+        "e1000e",
+        "e1000"
+      ],
+      "sound": [
+        "intel-hda",
+        "ac97"
+      ],
+      "tip": "CentOS Stream \u2192 x86_64 + Q35 with VirtIO (RHEL upstream).",
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "ahci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-vga",
+        "qxl",
+        "std"
+      ]
     },
     "NixOS": {
       "target": "x86_64",
-      "machine": "q35",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "ram_mb": 4096,
       "hdd_gb": 20,
-      "nic": "virtio-net-pci",
-      "sound": "hda_virtio",
+      "nic": [
+        "virtio-net-pci",
+        "e1000e",
+        "e1000"
+      ],
+      "sound": [
+        "intel-hda",
+        "ac97"
+      ],
       "flags": [
         "uefi"
       ],
-      "tip": "NixOS → x86_64 + Q35 + VirtIO. UEFI/OVMF recommended for modern installers.",
-      "cpu": "max"
+      "tip": "NixOS \u2192 x86_64 + Q35 + VirtIO. UEFI/OVMF recommended for modern installers.",
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "ahci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-vga",
+        "qxl",
+        "std"
+      ]
     },
     "Pop!_OS": {
       "target": "x86_64",
-      "machine": "q35",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "ram_mb": 4096,
       "hdd_gb": 40,
-      "nic": "virtio-net-pci",
-      "sound": "hda_virtio",
+      "nic": [
+        "virtio-net-pci",
+        "e1000e",
+        "e1000"
+      ],
+      "sound": [
+        "intel-hda",
+        "ac97"
+      ],
       "flags": [
         "virtio_vga_gl"
       ],
-      "tip": "Pop!_OS → x86_64 + Q35. Prefer VirtIO VGA (GL) on Linux/KVM for COSMIC/GNOME.",
-      "cpu": "max"
+      "tip": "Pop!_OS \u2192 x86_64 + Q35. Prefer VirtIO VGA (GL) on Linux/KVM for COSMIC/GNOME.",
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "ahci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-vga",
+        "qxl",
+        "std"
+      ]
     },
     "Void Linux": {
       "target": "x86_64",
-      "machine": "q35",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "ram_mb": 4096,
       "hdd_gb": 20,
-      "nic": "virtio-net-pci",
-      "sound": "hda_virtio",
-      "tip": "Void Linux → x86_64 + Q35 with VirtIO.",
-      "cpu": "max"
+      "nic": [
+        "virtio-net-pci",
+        "e1000e",
+        "e1000"
+      ],
+      "sound": [
+        "intel-hda",
+        "ac97"
+      ],
+      "tip": "Void Linux \u2192 x86_64 + Q35 with VirtIO.",
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "ahci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-vga",
+        "qxl",
+        "std"
+      ]
     },
     "elementary OS": {
       "target": "x86_64",
@@ -1687,7 +2694,7 @@
       "hdd_gb": 20,
       "nic": "virtio-net-pci",
       "sound": "hda_virtio",
-      "tip": "elementary OS → x86_64 + Q35 with VirtIO.",
+      "tip": "elementary OS \u2192 x86_64 + Q35 with VirtIO.",
       "cpu": "max"
     },
     "9front": {
@@ -1697,7 +2704,7 @@
       "hdd_gb": 10,
       "nic": "e1000",
       "sound": "none",
-      "tip": "9front (Plan 9 fork) → x86_64 + pc, std VGA, IDE, e1000. Attach 9front ISO; networking is central.",
+      "tip": "9front (Plan 9 fork) \u2192 x86_64 + pc, std VGA, IDE, e1000. Attach 9front ISO; networking is central.",
       "cpu": "max"
     },
     "Plan 9": {
@@ -1707,7 +2714,7 @@
       "hdd_gb": 10,
       "nic": "e1000",
       "sound": "none",
-      "tip": "Plan 9 → x86_64 + pc, std VGA, IDE, e1000. Prefer 9front for an actively maintained fork.",
+      "tip": "Plan 9 \u2192 x86_64 + pc, std VGA, IDE, e1000. Prefer 9front for an actively maintained fork.",
       "cpu": "max"
     },
     "Fuchsia": {
@@ -1717,7 +2724,7 @@
       "hdd_gb": 20,
       "nic": "virtio-net-pci",
       "sound": "hda_virtio",
-      "tip": "Fuchsia → x86_64 + Q35/VirtIO. Official workflow often uses Google ffx + QEMU; AQEMU gives a starting preset.",
+      "tip": "Fuchsia \u2192 x86_64 + Q35/VirtIO. Official workflow often uses Google ffx + QEMU; AQEMU gives a starting preset.",
       "cpu": "max"
     },
     "MenuetOS": {
@@ -1727,7 +2734,7 @@
       "hdd_gb": 1,
       "nic": "rtl8139",
       "sound": "sb16",
-      "tip": "MenuetOS 64-bit → qemu-system-x86_64. Boot from floppy image (FDA) or ISO; distinct from 32-bit KolibriOS.",
+      "tip": "MenuetOS 64-bit \u2192 qemu-system-x86_64. Boot from floppy image (FDA) or ISO; distinct from 32-bit KolibriOS.",
       "cpu": "max"
     },
     "Minix": {
@@ -1737,7 +2744,7 @@
       "hdd_gb": 4,
       "nic": "virtio-net-pci",
       "sound": "none",
-      "tip": "Minix 3 → i386 PC. IDE disk recommended for classic images.",
+      "tip": "Minix 3 \u2192 i386 PC. IDE disk recommended for classic images.",
       "cpu": "max"
     },
     "QNX": {
@@ -1750,7 +2757,7 @@
       "flags": [
         "qnx_rtc"
       ],
-      "tip": "QNX Neutrino → x86_64 PC. Timer-sensitive: AQEMU adds -rtc clock=vm. Legacy QNX 4 may need i386.",
+      "tip": "QNX Neutrino \u2192 x86_64 PC. Timer-sensitive: AQEMU adds -rtc clock=vm. Legacy QNX 4 may need i386.",
       "cpu": "max"
     },
     "Redox OS": {
@@ -1760,7 +2767,7 @@
       "hdd_gb": 10,
       "nic": "e1000",
       "sound": "hda",
-      "tip": "Redox OS (Rust microkernel) → x86_64 + Q35, std VGA. Use official Redox images.",
+      "tip": "Redox OS (Rust microkernel) \u2192 x86_64 + Q35, std VGA. Use official Redox images.",
       "cpu": "max"
     },
     "OpenServer": {
@@ -1770,7 +2777,7 @@
       "hdd_gb": 8,
       "nic": "rtl8139",
       "sound": "sb16",
-      "tip": "SCO OpenServer → i386 PC, IDE, cirrus VGA. Classic retail/banking Unix; period media required.",
+      "tip": "SCO OpenServer \u2192 i386 PC, IDE, cirrus VGA. Classic retail/banking Unix; period media required.",
       "cpu": "max"
     },
     "UnixWare": {
@@ -1780,504 +2787,1937 @@
       "hdd_gb": 8,
       "nic": "rtl8139",
       "sound": "sb16",
-      "tip": "SCO UnixWare → i386 PC, IDE, cirrus VGA.",
+      "tip": "SCO UnixWare \u2192 i386 PC, IDE, cirrus VGA.",
       "cpu": "max"
     },
     "Windows XP (32-bit)": {
       "target": "i386",
-      "machine": "pc",
+      "machine": [
+        "pc-i440fx",
+        "pc"
+      ],
       "ram_mb": 1024,
       "hdd_gb": 20,
-      "nic": "rtl8139",
-      "sound": "ac97",
+      "nic": [
+        "rtl8139",
+        "e1000",
+        "pcnet"
+      ],
+      "sound": [
+        "ac97",
+        "es1370"
+      ],
       "tip": "Windows XP 32-bit (proven AQEMU profile): i386 + pc, Force TCG / pentium3, std VGA, ACPI off, IDE, rtl8139, AC97, 1 GB, 1 CPU. Avoid WHPX (black text-mode setup).",
-      "cpu": "pentium3"
+      "cpu": "pentium3",
+      "disk_bus": [
+        "ide",
+        "lsi53c895a",
+        "ahci"
+      ],
+      "vga": [
+        "vmware-svga",
+        "std"
+      ]
     },
     "Windows Vista (64-bit)": {
       "target": "x86_64",
-      "machine": "q35",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "ram_mb": 2048,
       "hdd_gb": 40,
-      "nic": "e1000",
-      "sound": "hda",
-      "tip": "Windows Vista 64-bit → x86_64 + Q35.",
-      "cpu": "max"
+      "nic": [
+        "e1000e",
+        "virtio-net-pci",
+        "e1000"
+      ],
+      "sound": [
+        "intel-hda",
+        "ac97"
+      ],
+      "tip": "Windows Vista 64-bit \u2192 x86_64 + Q35.",
+      "cpu": "max",
+      "disk_bus": [
+        "ahci",
+        "nvme",
+        "virtio-blk-pci"
+      ],
+      "vga": [
+        "qxl",
+        "virtio-vga",
+        "std"
+      ]
     },
     "Windows 7 (64-bit)": {
       "target": "x86_64",
-      "machine": "q35",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "ram_mb": 2048,
       "hdd_gb": 40,
-      "nic": "e1000",
-      "sound": "hda",
-      "tip": "Windows 7 64-bit → x86_64 + Q35.",
-      "cpu": "max"
+      "nic": [
+        "e1000e",
+        "virtio-net-pci",
+        "e1000"
+      ],
+      "sound": [
+        "intel-hda",
+        "ac97"
+      ],
+      "tip": "Windows 7 64-bit \u2192 x86_64 + Q35.",
+      "cpu": "max",
+      "disk_bus": [
+        "ahci",
+        "nvme",
+        "virtio-blk-pci"
+      ],
+      "vga": [
+        "qxl",
+        "virtio-vga",
+        "std"
+      ]
     },
     "Windows 8 (64-bit)": {
       "target": "x86_64",
-      "machine": "q35",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "ram_mb": 2048,
       "hdd_gb": 40,
-      "nic": "e1000",
-      "sound": "hda",
-      "tip": "Windows 8 64-bit → x86_64 + Q35.",
-      "cpu": "max"
+      "nic": [
+        "e1000e",
+        "virtio-net-pci",
+        "e1000"
+      ],
+      "sound": [
+        "intel-hda",
+        "ac97"
+      ],
+      "tip": "Windows 8 64-bit \u2192 x86_64 + Q35.",
+      "cpu": "max",
+      "disk_bus": [
+        "ahci",
+        "nvme",
+        "virtio-blk-pci"
+      ],
+      "vga": [
+        "qxl",
+        "virtio-vga",
+        "std"
+      ]
     },
     "Windows 8.1 (64-bit)": {
       "target": "x86_64",
-      "machine": "q35",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "ram_mb": 2048,
       "hdd_gb": 40,
-      "nic": "e1000",
-      "sound": "hda",
-      "tip": "Windows 8.1 64-bit → x86_64 + Q35.",
-      "cpu": "max"
+      "nic": [
+        "e1000e",
+        "virtio-net-pci",
+        "e1000"
+      ],
+      "sound": [
+        "intel-hda",
+        "ac97"
+      ],
+      "tip": "Windows 8.1 64-bit \u2192 x86_64 + Q35.",
+      "cpu": "max",
+      "disk_bus": [
+        "ahci",
+        "nvme",
+        "virtio-blk-pci"
+      ],
+      "vga": [
+        "qxl",
+        "virtio-vga",
+        "std"
+      ]
     },
     "Windows 10 (64-bit)": {
       "target": "x86_64",
-      "machine": "q35",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "ram_mb": 4096,
       "hdd_gb": 40,
-      "nic": "e1000",
-      "sound": "hda",
-      "tip": "Windows 10 64-bit → x86_64 + Q35.",
-      "cpu": "max"
+      "nic": [
+        "e1000e",
+        "virtio-net-pci",
+        "e1000"
+      ],
+      "sound": [
+        "intel-hda",
+        "ac97"
+      ],
+      "tip": "Windows 10 64-bit \u2192 x86_64 + Q35.",
+      "cpu": "max",
+      "disk_bus": [
+        "ahci",
+        "nvme",
+        "virtio-blk-pci"
+      ],
+      "vga": [
+        "qxl",
+        "virtio-vga",
+        "std"
+      ]
     },
     "Windows Server 2008 (64-bit)": {
       "target": "x86_64",
-      "machine": "q35",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "ram_mb": 4096,
       "hdd_gb": 40,
-      "nic": "e1000",
-      "sound": "hda",
-      "tip": "Windows Server 2008 64-bit → x86_64 + Q35.",
-      "cpu": "max"
+      "nic": [
+        "e1000e",
+        "virtio-net-pci",
+        "e1000"
+      ],
+      "sound": [
+        "intel-hda",
+        "ac97"
+      ],
+      "tip": "Windows Server 2008 64-bit \u2192 x86_64 + Q35.",
+      "cpu": "max",
+      "disk_bus": [
+        "ahci",
+        "nvme",
+        "virtio-blk-pci"
+      ],
+      "vga": [
+        "qxl",
+        "virtio-vga",
+        "std"
+      ]
     },
     "Windows XP (64-bit)": {
       "target": "x86_64",
-      "machine": "pc",
+      "machine": [
+        "pc-i440fx",
+        "pc"
+      ],
       "ram_mb": 2048,
       "hdd_gb": 40,
-      "nic": "e1000",
-      "sound": "ac97",
-      "tip": "Windows XP x64 Edition → qemu-system-x86_64 + pc (i440FX).",
-      "cpu": "qemu64"
+      "nic": [
+        "rtl8139",
+        "e1000",
+        "pcnet"
+      ],
+      "sound": [
+        "ac97",
+        "es1370"
+      ],
+      "tip": "Windows XP x64 Edition \u2192 qemu-system-x86_64 + pc (i440FX).",
+      "cpu": "qemu64",
+      "disk_bus": [
+        "ide",
+        "lsi53c895a",
+        "ahci"
+      ],
+      "vga": [
+        "vmware-svga",
+        "std"
+      ]
     },
     "Windows Vista (32-bit)": {
       "target": "i386",
-      "machine": "pc",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "ram_mb": 1024,
       "hdd_gb": 40,
-      "nic": "e1000",
-      "sound": "hda",
-      "tip": "Windows Vista 32-bit → i386 PC.",
-      "cpu": "qemu32"
+      "nic": [
+        "e1000e",
+        "virtio-net-pci",
+        "e1000"
+      ],
+      "sound": [
+        "intel-hda",
+        "ac97"
+      ],
+      "tip": "Windows Vista 32-bit \u2192 i386 PC.",
+      "cpu": "qemu32",
+      "disk_bus": [
+        "ahci",
+        "nvme",
+        "virtio-blk-pci"
+      ],
+      "vga": [
+        "qxl",
+        "virtio-vga",
+        "std"
+      ]
     },
     "Windows 7 (32-bit)": {
       "target": "i386",
-      "machine": "pc",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "ram_mb": 2048,
       "hdd_gb": 40,
-      "nic": "e1000",
-      "sound": "hda",
-      "tip": "Windows 7 32-bit → i386 PC.",
-      "cpu": "qemu32"
+      "nic": [
+        "e1000e",
+        "virtio-net-pci",
+        "e1000"
+      ],
+      "sound": [
+        "intel-hda",
+        "ac97"
+      ],
+      "tip": "Windows 7 32-bit \u2192 i386 PC.",
+      "cpu": "qemu32",
+      "disk_bus": [
+        "ahci",
+        "nvme",
+        "virtio-blk-pci"
+      ],
+      "vga": [
+        "qxl",
+        "virtio-vga",
+        "std"
+      ]
     },
     "Windows 8 (32-bit)": {
       "target": "i386",
-      "machine": "pc",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "ram_mb": 2048,
       "hdd_gb": 40,
-      "nic": "e1000",
-      "sound": "hda",
-      "tip": "Windows 8 32-bit → i386 PC.",
-      "cpu": "qemu32"
+      "nic": [
+        "e1000e",
+        "virtio-net-pci",
+        "e1000"
+      ],
+      "sound": [
+        "intel-hda",
+        "ac97"
+      ],
+      "tip": "Windows 8 32-bit \u2192 i386 PC.",
+      "cpu": "qemu32",
+      "disk_bus": [
+        "ahci",
+        "nvme",
+        "virtio-blk-pci"
+      ],
+      "vga": [
+        "qxl",
+        "virtio-vga",
+        "std"
+      ]
     },
     "Windows 8.1 (32-bit)": {
       "target": "i386",
-      "machine": "pc",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "ram_mb": 2048,
       "hdd_gb": 40,
-      "nic": "e1000",
-      "sound": "hda",
-      "tip": "Windows 8.1 32-bit → i386 PC.",
-      "cpu": "qemu32"
+      "nic": [
+        "e1000e",
+        "virtio-net-pci",
+        "e1000"
+      ],
+      "sound": [
+        "intel-hda",
+        "ac97"
+      ],
+      "tip": "Windows 8.1 32-bit \u2192 i386 PC.",
+      "cpu": "qemu32",
+      "disk_bus": [
+        "ahci",
+        "nvme",
+        "virtio-blk-pci"
+      ],
+      "vga": [
+        "qxl",
+        "virtio-vga",
+        "std"
+      ]
     },
     "Windows 10 (32-bit)": {
       "target": "i386",
-      "machine": "pc",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "ram_mb": 2048,
       "hdd_gb": 40,
-      "nic": "e1000",
-      "sound": "hda",
-      "tip": "Windows 10 32-bit → i386 PC (legacy; prefer 64-bit).",
-      "cpu": "qemu32"
+      "nic": [
+        "e1000e",
+        "virtio-net-pci",
+        "e1000"
+      ],
+      "sound": [
+        "intel-hda",
+        "ac97"
+      ],
+      "tip": "Windows 10 32-bit \u2192 i386 PC (legacy; prefer 64-bit).",
+      "cpu": "qemu32",
+      "disk_bus": [
+        "ahci",
+        "nvme",
+        "virtio-blk-pci"
+      ],
+      "vga": [
+        "qxl",
+        "virtio-vga",
+        "std"
+      ]
     },
     "Windows Server 2008 (32-bit)": {
       "target": "i386",
-      "machine": "pc",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "ram_mb": 2048,
       "hdd_gb": 40,
-      "nic": "e1000",
-      "sound": "hda",
-      "tip": "Windows Server 2008 32-bit → i386 PC.",
-      "cpu": "qemu32"
+      "nic": [
+        "e1000e",
+        "virtio-net-pci",
+        "e1000"
+      ],
+      "sound": [
+        "intel-hda",
+        "ac97"
+      ],
+      "tip": "Windows Server 2008 32-bit \u2192 i386 PC.",
+      "cpu": "qemu32",
+      "disk_bus": [
+        "ahci",
+        "nvme",
+        "virtio-blk-pci"
+      ],
+      "vga": [
+        "qxl",
+        "virtio-vga",
+        "std"
+      ]
     },
     "iPhone IPSW Restore Companion": {
       "target": "x86_64",
-      "machine": "q35",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx",
+        "pc"
+      ],
       "ram_mb": 2048,
       "hdd_gb": 20,
-      "nic": "virtio-net-pci",
+      "nic": [
+        "virtio-net-pci",
+        "e1000"
+      ],
       "sound": "none",
       "cpu": "max",
-      "tip": "Ubuntu Server companion for Inferno IPSW restore. Wizard downloads the ISO, mounts it as CD-ROM, creates companion.qcow2, and shows install/SSH/idevicerestore steps. Run alongside your iOS VM."
+      "tip": "Ubuntu Server companion for Inferno IPSW restore. Wizard downloads the ISO, mounts it as CD-ROM, creates companion.qcow2, and shows install/SSH/idevicerestore steps. Run alongside your iOS VM.",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "ahci"
+      ]
     },
     "IPSW Restore Companion (Ubuntu)": {
       "target": "x86_64",
-      "machine": "q35",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx",
+        "pc"
+      ],
       "ram_mb": 2048,
       "hdd_gb": 20,
-      "nic": "virtio-net-pci",
+      "nic": [
+        "virtio-net-pci",
+        "e1000"
+      ],
       "sound": "none",
       "cpu": "max",
-      "tip": "Same as Apple → iPhone IPSW Restore Companion: Ubuntu Server VM with installer ISO mounted for ChefKiss Inferno restores."
+      "tip": "Same as Apple \u2192 iPhone IPSW Restore Companion: Ubuntu Server VM with installer ISO mounted for ChefKiss Inferno restores.",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "ahci"
+      ]
+    },
+    "Ubuntu (ARM64)": {
+      "target": "aarch64",
+      "machine": [
+        "virt"
+      ],
+      "ram_mb": 4096,
+      "hdd_gb": 25,
+      "nic": [
+        "virtio-net-pci"
+      ],
+      "sound": [
+        "intel-hda",
+        "none"
+      ],
+      "tip": "Ubuntu (ARM64 / AArch64) → virt + VirtIO, UEFI firmware. Uses KVM native acceleration on ARM hosts.",
+      "flags": [
+        "uefi",
+        "arm64_linux",
+        "prefer_kvm_on_arm"
+      ],
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-gpu-pci",
+        "ramfb"
+      ]
+    },
+    "Debian (ARM64)": {
+      "target": "aarch64",
+      "machine": [
+        "virt"
+      ],
+      "ram_mb": 2048,
+      "hdd_gb": 20,
+      "nic": [
+        "virtio-net-pci"
+      ],
+      "sound": [
+        "intel-hda",
+        "none"
+      ],
+      "tip": "Debian (ARM64 / AArch64) → virt + VirtIO, UEFI firmware. Uses KVM native acceleration on ARM hosts.",
+      "flags": [
+        "uefi",
+        "arm64_linux",
+        "prefer_kvm_on_arm"
+      ],
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-gpu-pci",
+        "ramfb"
+      ]
+    },
+    "Fedora (ARM64)": {
+      "target": "aarch64",
+      "machine": [
+        "virt"
+      ],
+      "ram_mb": 4096,
+      "hdd_gb": 25,
+      "nic": [
+        "virtio-net-pci"
+      ],
+      "sound": [
+        "intel-hda",
+        "none"
+      ],
+      "tip": "Fedora (ARM64 / AArch64) → virt + VirtIO, UEFI firmware. Uses KVM native acceleration on ARM hosts.",
+      "flags": [
+        "uefi",
+        "arm64_linux",
+        "prefer_kvm_on_arm"
+      ],
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-gpu-pci",
+        "ramfb"
+      ]
+    },
+    "Arch Linux ARM (ARM64)": {
+      "target": "aarch64",
+      "machine": [
+        "virt"
+      ],
+      "ram_mb": 2048,
+      "hdd_gb": 20,
+      "nic": [
+        "virtio-net-pci"
+      ],
+      "sound": [
+        "intel-hda",
+        "none"
+      ],
+      "tip": "Arch Linux ARM (AArch64) → virt + VirtIO, UEFI firmware. Uses KVM native acceleration on ARM hosts.",
+      "flags": [
+        "uefi",
+        "arm64_linux",
+        "prefer_kvm_on_arm"
+      ],
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-gpu-pci",
+        "ramfb"
+      ]
+    },
+    "Alpine Linux (ARM64)": {
+      "target": "aarch64",
+      "machine": [
+        "virt"
+      ],
+      "ram_mb": 1024,
+      "hdd_gb": 10,
+      "nic": [
+        "virtio-net-pci"
+      ],
+      "sound": [
+        "intel-hda",
+        "none"
+      ],
+      "tip": "Alpine Linux (ARM64 / AArch64) → virt + VirtIO, lightweight Alpine for ARM.",
+      "flags": [
+        "uefi",
+        "arm64_linux",
+        "prefer_kvm_on_arm"
+      ],
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-gpu-pci",
+        "ramfb"
+      ]
+    },
+    "Kali Linux (ARM64)": {
+      "target": "aarch64",
+      "machine": [
+        "virt"
+      ],
+      "ram_mb": 4096,
+      "hdd_gb": 30,
+      "nic": [
+        "virtio-net-pci"
+      ],
+      "sound": [
+        "intel-hda",
+        "none"
+      ],
+      "tip": "Kali Linux (ARM64 / AArch64) → virt + VirtIO, UEFI firmware.",
+      "flags": [
+        "uefi",
+        "arm64_linux",
+        "prefer_kvm_on_arm"
+      ],
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-gpu-pci",
+        "ramfb"
+      ]
+    },
+    "openSUSE (ARM64)": {
+      "target": "aarch64",
+      "machine": [
+        "virt"
+      ],
+      "ram_mb": 4096,
+      "hdd_gb": 25,
+      "nic": [
+        "virtio-net-pci"
+      ],
+      "sound": [
+        "intel-hda",
+        "none"
+      ],
+      "tip": "openSUSE Leap / Tumbleweed (ARM64) → virt + VirtIO, UEFI firmware.",
+      "flags": [
+        "uefi",
+        "arm64_linux",
+        "prefer_kvm_on_arm"
+      ],
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-gpu-pci",
+        "ramfb"
+      ]
+    },
+    "Rocky Linux (ARM64)": {
+      "target": "aarch64",
+      "machine": [
+        "virt"
+      ],
+      "ram_mb": 4096,
+      "hdd_gb": 25,
+      "nic": [
+        "virtio-net-pci"
+      ],
+      "sound": [
+        "intel-hda",
+        "none"
+      ],
+      "tip": "Rocky Linux (ARM64 / AArch64) → virt + VirtIO, enterprise RHEL-compatible.",
+      "flags": [
+        "uefi",
+        "arm64_linux",
+        "prefer_kvm_on_arm"
+      ],
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-gpu-pci",
+        "ramfb"
+      ]
+    },
+    "AlmaLinux (ARM64)": {
+      "target": "aarch64",
+      "machine": [
+        "virt"
+      ],
+      "ram_mb": 4096,
+      "hdd_gb": 25,
+      "nic": [
+        "virtio-net-pci"
+      ],
+      "sound": [
+        "intel-hda",
+        "none"
+      ],
+      "tip": "AlmaLinux (ARM64 / AArch64) → virt + VirtIO, enterprise RHEL-compatible.",
+      "flags": [
+        "uefi",
+        "arm64_linux",
+        "prefer_kvm_on_arm"
+      ],
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-gpu-pci",
+        "ramfb"
+      ]
+    },
+    "CentOS Stream (ARM64)": {
+      "target": "aarch64",
+      "machine": [
+        "virt"
+      ],
+      "ram_mb": 4096,
+      "hdd_gb": 25,
+      "nic": [
+        "virtio-net-pci"
+      ],
+      "sound": [
+        "intel-hda",
+        "none"
+      ],
+      "tip": "CentOS Stream (ARM64 / AArch64) → virt + VirtIO, UEFI firmware.",
+      "flags": [
+        "uefi",
+        "arm64_linux",
+        "prefer_kvm_on_arm"
+      ],
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-gpu-pci",
+        "ramfb"
+      ]
+    },
+    "Raspberry Pi OS (ARM64)": {
+      "target": "aarch64",
+      "machine": [
+        "virt"
+      ],
+      "ram_mb": 2048,
+      "hdd_gb": 16,
+      "nic": [
+        "virtio-net-pci"
+      ],
+      "sound": [
+        "intel-hda",
+        "none"
+      ],
+      "tip": "Raspberry Pi OS (ARM64 / 64-bit) → virt + VirtIO, Debian-based.",
+      "flags": [
+        "uefi",
+        "arm64_linux",
+        "prefer_kvm_on_arm"
+      ],
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-gpu-pci",
+        "ramfb"
+      ]
+    },
+    "Void Linux (ARM64)": {
+      "target": "aarch64",
+      "machine": [
+        "virt"
+      ],
+      "ram_mb": 2048,
+      "hdd_gb": 15,
+      "nic": [
+        "virtio-net-pci"
+      ],
+      "sound": [
+        "intel-hda",
+        "none"
+      ],
+      "tip": "Void Linux (ARM64 / AArch64) → virt + VirtIO, UEFI firmware.",
+      "flags": [
+        "uefi",
+        "arm64_linux",
+        "prefer_kvm_on_arm"
+      ],
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-gpu-pci",
+        "ramfb"
+      ]
+    },
+    "Gentoo (ARM64)": {
+      "target": "aarch64",
+      "machine": [
+        "virt"
+      ],
+      "ram_mb": 4096,
+      "hdd_gb": 30,
+      "nic": [
+        "virtio-net-pci"
+      ],
+      "sound": [
+        "intel-hda",
+        "none"
+      ],
+      "tip": "Gentoo (ARM64 / AArch64) → virt + VirtIO, UEFI firmware.",
+      "flags": [
+        "uefi",
+        "arm64_linux",
+        "prefer_kvm_on_arm"
+      ],
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-gpu-pci",
+        "ramfb"
+      ]
+    },
+    "NixOS (ARM64)": {
+      "target": "aarch64",
+      "machine": [
+        "virt"
+      ],
+      "ram_mb": 4096,
+      "hdd_gb": 30,
+      "nic": [
+        "virtio-net-pci"
+      ],
+      "sound": [
+        "intel-hda",
+        "none"
+      ],
+      "tip": "NixOS (ARM64 / AArch64) → virt + VirtIO, UEFI firmware.",
+      "flags": [
+        "uefi",
+        "arm64_linux",
+        "prefer_kvm_on_arm"
+      ],
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-gpu-pci",
+        "ramfb"
+      ]
+    },
+    "Pop!_OS (ARM64)": {
+      "target": "aarch64",
+      "machine": [
+        "virt"
+      ],
+      "ram_mb": 4096,
+      "hdd_gb": 25,
+      "nic": [
+        "virtio-net-pci"
+      ],
+      "sound": [
+        "intel-hda",
+        "none"
+      ],
+      "tip": "Pop!_OS (ARM64 / AArch64) → virt + VirtIO, UEFI firmware.",
+      "flags": [
+        "uefi",
+        "arm64_linux",
+        "prefer_kvm_on_arm"
+      ],
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-gpu-pci",
+        "ramfb"
+      ]
+    },
+    "Generic Linux (ARM64)": {
+      "target": "aarch64",
+      "machine": [
+        "virt"
+      ],
+      "ram_mb": 2048,
+      "hdd_gb": 20,
+      "nic": [
+        "virtio-net-pci"
+      ],
+      "sound": [
+        "intel-hda",
+        "none"
+      ],
+      "tip": "Generic Linux (ARM64 / AArch64) → virt + VirtIO, UEFI firmware.",
+      "flags": [
+        "uefi",
+        "arm64_linux",
+        "prefer_kvm_on_arm"
+      ],
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-gpu-pci",
+        "ramfb"
+      ]
     },
     "Ubuntu (64-bit)": {
       "target": "x86_64",
-      "machine": "q35",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "ram_mb": 4096,
       "hdd_gb": 20,
-      "nic": "virtio-net-pci",
-      "sound": "hda_virtio",
-      "tip": "Ubuntu desktop → x86_64 + Q35, 4 GB RAM recommended (GNOME live/install fails on 2 GB under TCG). Prefer WHPX/KVM; CPU max.",
-      "cpu": "max"
+      "nic": [
+        "virtio-net-pci",
+        "e1000e",
+        "e1000"
+      ],
+      "sound": [
+        "intel-hda",
+        "ac97"
+      ],
+      "tip": "Ubuntu desktop \u2192 x86_64 + Q35, 4 GB RAM recommended (GNOME live/install fails on 2 GB under TCG). Prefer WHPX/KVM; CPU max.",
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "ahci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-vga",
+        "qxl",
+        "std"
+      ]
     },
     "Ubuntu (32-bit)": {
       "target": "i386",
-      "machine": "pc",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "ram_mb": 1024,
       "hdd_gb": 10,
-      "nic": "virtio-net-pci",
-      "sound": "ac97",
-      "tip": "Ubuntu 32-bit → i386 PC. Prefer for older ISOs.",
-      "cpu": "qemu32"
+      "nic": [
+        "virtio-net-pci",
+        "e1000e",
+        "e1000"
+      ],
+      "sound": [
+        "intel-hda",
+        "ac97"
+      ],
+      "tip": "Ubuntu 32-bit \u2192 i386 PC. Prefer for older ISOs.",
+      "cpu": "qemu32",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "ahci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-vga",
+        "qxl",
+        "std"
+      ]
     },
     "Debian (64-bit)": {
       "target": "x86_64",
-      "machine": "q35",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "ram_mb": 4096,
       "hdd_gb": 20,
-      "nic": "virtio-net-pci",
-      "sound": "hda_virtio",
-      "tip": "Debian → x86_64 (PC) + Q35 with VirtIO.",
-      "cpu": "max"
+      "nic": [
+        "virtio-net-pci",
+        "e1000e",
+        "e1000"
+      ],
+      "sound": [
+        "intel-hda",
+        "ac97"
+      ],
+      "tip": "Debian \u2192 x86_64 (PC) + Q35 with VirtIO.",
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "ahci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-vga",
+        "qxl",
+        "std"
+      ]
     },
     "Debian (32-bit)": {
       "target": "i386",
-      "machine": "pc",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "ram_mb": 1024,
       "hdd_gb": 10,
-      "nic": "virtio-net-pci",
-      "sound": "ac97",
-      "tip": "Debian 32-bit → i386 PC. Prefer for older ISOs.",
-      "cpu": "qemu32"
+      "nic": [
+        "virtio-net-pci",
+        "e1000e",
+        "e1000"
+      ],
+      "sound": [
+        "intel-hda",
+        "ac97"
+      ],
+      "tip": "Debian 32-bit \u2192 i386 PC. Prefer for older ISOs.",
+      "cpu": "qemu32",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "ahci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-vga",
+        "qxl",
+        "std"
+      ]
     },
     "Fedora (64-bit)": {
       "target": "x86_64",
-      "machine": "q35",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "ram_mb": 4096,
       "hdd_gb": 20,
-      "nic": "virtio-net-pci",
-      "sound": "hda_virtio",
-      "tip": "Fedora → x86_64 (PC) + Q35 with VirtIO.",
-      "cpu": "max"
+      "nic": [
+        "virtio-net-pci",
+        "e1000e",
+        "e1000"
+      ],
+      "sound": [
+        "intel-hda",
+        "ac97"
+      ],
+      "tip": "Fedora \u2192 x86_64 (PC) + Q35 with VirtIO.",
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "ahci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-vga",
+        "qxl",
+        "std"
+      ]
     },
     "Fedora (32-bit)": {
       "target": "i386",
-      "machine": "pc",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "ram_mb": 1024,
       "hdd_gb": 10,
-      "nic": "virtio-net-pci",
-      "sound": "ac97",
-      "tip": "Fedora 32-bit → i386 PC. Prefer for older ISOs.",
-      "cpu": "qemu32"
+      "nic": [
+        "virtio-net-pci",
+        "e1000e",
+        "e1000"
+      ],
+      "sound": [
+        "intel-hda",
+        "ac97"
+      ],
+      "tip": "Fedora 32-bit \u2192 i386 PC. Prefer for older ISOs.",
+      "cpu": "qemu32",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "ahci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-vga",
+        "qxl",
+        "std"
+      ]
     },
     "Alpine Linux (64-bit)": {
       "target": "x86_64",
-      "machine": "q35",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "ram_mb": 1024,
       "hdd_gb": 20,
-      "nic": "virtio-net-pci",
-      "sound": "hda_virtio",
-      "tip": "Alpine Linux → x86_64 (PC) + Q35 with VirtIO.",
-      "cpu": "max"
+      "nic": [
+        "virtio-net-pci",
+        "e1000e",
+        "e1000"
+      ],
+      "sound": [
+        "intel-hda",
+        "ac97"
+      ],
+      "tip": "Alpine Linux \u2192 x86_64 (PC) + Q35 with VirtIO.",
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "ahci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-vga",
+        "qxl",
+        "std"
+      ]
     },
     "Alpine Linux (32-bit)": {
       "target": "i386",
-      "machine": "pc",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "ram_mb": 512,
       "hdd_gb": 10,
-      "nic": "virtio-net-pci",
-      "sound": "ac97",
-      "tip": "Alpine Linux 32-bit → i386 PC. Prefer for older ISOs.",
-      "cpu": "qemu32"
+      "nic": [
+        "virtio-net-pci",
+        "e1000e",
+        "e1000"
+      ],
+      "sound": [
+        "intel-hda",
+        "ac97"
+      ],
+      "tip": "Alpine Linux 32-bit \u2192 i386 PC. Prefer for older ISOs.",
+      "cpu": "qemu32",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "ahci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-vga",
+        "qxl",
+        "std"
+      ]
     },
     "Tiny Core Linux (64-bit)": {
       "target": "x86_64",
-      "machine": "q35",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "ram_mb": 512,
       "hdd_gb": 20,
-      "nic": "virtio-net-pci",
-      "sound": "hda_virtio",
-      "tip": "Tiny Core Linux → x86_64 (PC) + Q35 with VirtIO.",
-      "cpu": "max"
+      "nic": [
+        "virtio-net-pci",
+        "e1000e",
+        "e1000"
+      ],
+      "sound": [
+        "intel-hda",
+        "ac97"
+      ],
+      "tip": "Tiny Core Linux \u2192 x86_64 (PC) + Q35 with VirtIO.",
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "ahci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-vga",
+        "qxl",
+        "std"
+      ]
     },
     "Tiny Core Linux (32-bit)": {
       "target": "i386",
-      "machine": "pc",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "ram_mb": 256,
       "hdd_gb": 10,
-      "nic": "virtio-net-pci",
-      "sound": "ac97",
-      "tip": "Tiny Core Linux 32-bit → i386 PC. Prefer for older ISOs.",
-      "cpu": "qemu32"
+      "nic": [
+        "virtio-net-pci",
+        "e1000e",
+        "e1000"
+      ],
+      "sound": [
+        "intel-hda",
+        "ac97"
+      ],
+      "tip": "Tiny Core Linux 32-bit \u2192 i386 PC. Prefer for older ISOs.",
+      "cpu": "qemu32",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "ahci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-vga",
+        "qxl",
+        "std"
+      ]
     },
     "Generic Linux (64-bit)": {
       "target": "x86_64",
-      "machine": "q35",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "ram_mb": 4096,
       "hdd_gb": 20,
-      "nic": "virtio-net-pci",
-      "sound": "hda_virtio",
-      "tip": "Generic Linux → x86_64 (PC) + Q35 with VirtIO. Change Computer Type for other arches.",
-      "cpu": "max"
+      "nic": [
+        "virtio-net-pci",
+        "e1000e",
+        "e1000"
+      ],
+      "sound": [
+        "intel-hda",
+        "ac97"
+      ],
+      "tip": "Generic Linux \u2192 x86_64 (PC) + Q35 with VirtIO. Change Computer Type for other arches.",
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "ahci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-vga",
+        "qxl",
+        "std"
+      ]
     },
     "Generic Linux (32-bit)": {
       "target": "i386",
-      "machine": "pc",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "ram_mb": 1024,
       "hdd_gb": 10,
-      "nic": "virtio-net-pci",
-      "sound": "ac97",
-      "tip": "Generic Linux 32-bit → i386 PC. Prefer for older ISOs.",
-      "cpu": "qemu32"
+      "nic": [
+        "virtio-net-pci",
+        "e1000e",
+        "e1000"
+      ],
+      "sound": [
+        "intel-hda",
+        "ac97"
+      ],
+      "tip": "Generic Linux 32-bit \u2192 i386 PC. Prefer for older ISOs.",
+      "cpu": "qemu32",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "ahci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-vga",
+        "qxl",
+        "std"
+      ]
     },
     "Arch Linux (64-bit)": {
       "target": "x86_64",
-      "machine": "q35",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "ram_mb": 4096,
       "hdd_gb": 20,
-      "nic": "virtio-net-pci",
-      "sound": "hda_virtio",
-      "tip": "Arch Linux → x86_64 (PC) + Q35 with VirtIO.",
-      "cpu": "max"
+      "nic": [
+        "virtio-net-pci",
+        "e1000e",
+        "e1000"
+      ],
+      "sound": [
+        "intel-hda",
+        "ac97"
+      ],
+      "tip": "Arch Linux \u2192 x86_64 (PC) + Q35 with VirtIO.",
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "ahci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-vga",
+        "qxl",
+        "std"
+      ]
     },
     "Arch Linux (32-bit)": {
       "target": "i386",
-      "machine": "pc",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "ram_mb": 1024,
       "hdd_gb": 10,
-      "nic": "virtio-net-pci",
-      "sound": "ac97",
-      "tip": "Arch Linux 32-bit → i386 PC. Prefer for older ISOs.",
-      "cpu": "qemu32"
+      "nic": [
+        "virtio-net-pci",
+        "e1000e",
+        "e1000"
+      ],
+      "sound": [
+        "intel-hda",
+        "ac97"
+      ],
+      "tip": "Arch Linux 32-bit \u2192 i386 PC. Prefer for older ISOs.",
+      "cpu": "qemu32",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "ahci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-vga",
+        "qxl",
+        "std"
+      ]
     },
     "openSUSE (64-bit)": {
       "target": "x86_64",
-      "machine": "q35",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "ram_mb": 4096,
       "hdd_gb": 20,
-      "nic": "virtio-net-pci",
-      "sound": "hda_virtio",
-      "tip": "openSUSE → x86_64 (PC) + Q35 with VirtIO.",
-      "cpu": "max"
+      "nic": [
+        "virtio-net-pci",
+        "e1000e",
+        "e1000"
+      ],
+      "sound": [
+        "intel-hda",
+        "ac97"
+      ],
+      "tip": "openSUSE \u2192 x86_64 (PC) + Q35 with VirtIO.",
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "ahci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-vga",
+        "qxl",
+        "std"
+      ]
     },
     "openSUSE (32-bit)": {
       "target": "i386",
-      "machine": "pc",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "ram_mb": 1024,
       "hdd_gb": 10,
-      "nic": "virtio-net-pci",
-      "sound": "ac97",
-      "tip": "openSUSE 32-bit → i386 PC. Prefer for older ISOs.",
-      "cpu": "qemu32"
+      "nic": [
+        "virtio-net-pci",
+        "e1000e",
+        "e1000"
+      ],
+      "sound": [
+        "intel-hda",
+        "ac97"
+      ],
+      "tip": "openSUSE 32-bit \u2192 i386 PC. Prefer for older ISOs.",
+      "cpu": "qemu32",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "ahci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-vga",
+        "qxl",
+        "std"
+      ]
     },
     "Linux Mint (64-bit)": {
       "target": "x86_64",
-      "machine": "q35",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "ram_mb": 4096,
       "hdd_gb": 20,
-      "nic": "virtio-net-pci",
-      "sound": "hda_virtio",
-      "tip": "Linux Mint → x86_64 (PC) + Q35 with VirtIO.",
-      "cpu": "max"
+      "nic": [
+        "virtio-net-pci",
+        "e1000e",
+        "e1000"
+      ],
+      "sound": [
+        "intel-hda",
+        "ac97"
+      ],
+      "tip": "Linux Mint \u2192 x86_64 (PC) + Q35 with VirtIO.",
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "ahci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-vga",
+        "qxl",
+        "std"
+      ]
     },
     "Linux Mint (32-bit)": {
       "target": "i386",
-      "machine": "pc",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "ram_mb": 1024,
       "hdd_gb": 10,
-      "nic": "virtio-net-pci",
-      "sound": "ac97",
-      "tip": "Linux Mint 32-bit → i386 PC. Prefer for older ISOs.",
-      "cpu": "qemu32"
+      "nic": [
+        "virtio-net-pci",
+        "e1000e",
+        "e1000"
+      ],
+      "sound": [
+        "intel-hda",
+        "ac97"
+      ],
+      "tip": "Linux Mint 32-bit \u2192 i386 PC. Prefer for older ISOs.",
+      "cpu": "qemu32",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "ahci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-vga",
+        "qxl",
+        "std"
+      ]
     },
     "FreeBSD (64-bit)": {
       "target": "x86_64",
-      "machine": "q35",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "ram_mb": 4096,
       "hdd_gb": 20,
-      "nic": "virtio-net-pci",
-      "sound": "hda_virtio",
-      "tip": "FreeBSD → x86_64 (PC) + Q35 with VirtIO.",
-      "cpu": "max"
+      "nic": [
+        "virtio-net-pci",
+        "e1000e",
+        "e1000"
+      ],
+      "sound": [
+        "intel-hda",
+        "ac97"
+      ],
+      "tip": "FreeBSD \u2192 x86_64 (PC) + Q35 with VirtIO.",
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "ahci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-vga",
+        "qxl",
+        "std"
+      ]
     },
     "FreeBSD (32-bit)": {
       "target": "i386",
-      "machine": "pc",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "ram_mb": 1024,
       "hdd_gb": 10,
-      "nic": "virtio-net-pci",
-      "sound": "ac97",
-      "tip": "FreeBSD 32-bit → i386 PC.",
-      "cpu": "qemu32"
+      "nic": [
+        "virtio-net-pci",
+        "e1000e",
+        "e1000"
+      ],
+      "sound": [
+        "intel-hda",
+        "ac97"
+      ],
+      "tip": "FreeBSD 32-bit \u2192 i386 PC.",
+      "cpu": "qemu32",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "ahci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-vga",
+        "qxl",
+        "std"
+      ]
     },
     "TrueNAS CORE": {
       "target": "x86_64",
-      "machine": "q35",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "ram_mb": 8192,
       "hdd_gb": 32,
-      "nic": "virtio-net-pci",
-      "sound": "none",
-      "tip": "TrueNAS CORE (FreeBSD/ZFS) → x86_64 + Q35 with VirtIO. Defaults to 4096-byte (4Kn) native sector size for optimal ZFS performance.",
+      "nic": [
+        "virtio-net-pci",
+        "e1000e",
+        "e1000"
+      ],
+      "sound": [
+        "intel-hda",
+        "ac97"
+      ],
+      "tip": "TrueNAS CORE (FreeBSD/ZFS) \u2192 x86_64 + Q35 with VirtIO. Defaults to 4096-byte (4Kn) native sector size for optimal ZFS performance.",
       "flags": [
         "truenas",
         "4kn_default"
       ],
-      "cpu": "max"
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "ahci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-vga",
+        "qxl",
+        "std"
+      ]
     },
     "TrueNAS SCALE": {
       "target": "x86_64",
-      "machine": "q35",
+      "machine": [
+        "q35",
+        "pc-q35"
+      ],
       "ram_mb": 8192,
       "hdd_gb": 32,
-      "nic": "virtio-net-pci",
-      "sound": "none",
-      "tip": "TrueNAS SCALE (Linux/Debian/ZFS) → x86_64 + Q35 with VirtIO. Defaults to 4096-byte (4Kn) native sector size for optimal OpenZFS performance.",
+      "nic": [
+        "virtio-net-pci",
+        "e1000e"
+      ],
+      "sound": [
+        "intel-hda"
+      ],
+      "tip": "TrueNAS SCALE (Linux/Debian/ZFS) \u2192 x86_64 + Q35 with VirtIO. Defaults to 4096-byte (4Kn) native sector size for optimal OpenZFS performance.",
       "flags": [
         "truenas",
         "4kn_default"
       ],
-      "cpu": "max"
+      "cpu": "max",
+      "disk_bus": [
+        "nvme",
+        "virtio-scsi-pci",
+        "ahci"
+      ],
+      "vga": [
+        "virtio-vga",
+        "bochs-display",
+        "std"
+      ]
     },
     "TrueNAS SCALE (ARM64)": {
       "target": "aarch64",
-      "machine": "virt",
+      "machine": [
+        "virt"
+      ],
       "ram_mb": 8192,
       "hdd_gb": 32,
-      "nic": "virtio-net-pci",
+      "nic": [
+        "virtio-net-pci"
+      ],
       "sound": "none",
-      "tip": "TrueNAS SCALE (ARM64 / Linux / ZFS) → AArch64 + virt with VirtIO. Defaults to 4096-byte (4Kn) native sector size for optimal OpenZFS performance.",
+      "tip": "TrueNAS SCALE (ARM64 / Linux / ZFS) \u2192 AArch64 + virt with VirtIO. Defaults to 4096-byte (4Kn) native sector size for optimal OpenZFS performance.",
       "flags": [
         "truenas",
         "4kn_default",
-        "uefi"
+        "uefi",
+        "arm64_linux",
+        "prefer_kvm_on_arm"
       ],
-      "cpu": "max"
+      "cpu": "max",
+      "vga": [
+        "virtio-gpu-pci",
+        "ramfb"
+      ],
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ]
     },
     "OpenBSD (64-bit)": {
       "target": "x86_64",
-      "machine": "q35",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "ram_mb": 4096,
       "hdd_gb": 20,
-      "nic": "virtio-net-pci",
-      "sound": "hda_virtio",
-      "tip": "OpenBSD → x86_64 (PC) + Q35 with VirtIO.",
-      "cpu": "max"
+      "nic": [
+        "virtio-net-pci",
+        "e1000e",
+        "e1000"
+      ],
+      "sound": [
+        "intel-hda",
+        "ac97"
+      ],
+      "tip": "OpenBSD \u2192 x86_64 (PC) + Q35 with VirtIO.",
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "ahci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-vga",
+        "qxl",
+        "std"
+      ]
     },
     "OpenBSD (32-bit)": {
       "target": "i386",
-      "machine": "pc",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "ram_mb": 1024,
       "hdd_gb": 10,
-      "nic": "virtio-net-pci",
-      "sound": "ac97",
-      "tip": "OpenBSD 32-bit → i386 PC.",
-      "cpu": "qemu32"
+      "nic": [
+        "virtio-net-pci",
+        "e1000e",
+        "e1000"
+      ],
+      "sound": [
+        "intel-hda",
+        "ac97"
+      ],
+      "tip": "OpenBSD 32-bit \u2192 i386 PC.",
+      "cpu": "qemu32",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "ahci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-vga",
+        "qxl",
+        "std"
+      ]
     },
     "NetBSD (64-bit)": {
       "target": "x86_64",
-      "machine": "q35",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "ram_mb": 4096,
       "hdd_gb": 20,
-      "nic": "virtio-net-pci",
-      "sound": "hda_virtio",
-      "tip": "NetBSD → x86_64 (PC) + Q35 with VirtIO.",
-      "cpu": "max"
+      "nic": [
+        "virtio-net-pci",
+        "e1000e",
+        "e1000"
+      ],
+      "sound": [
+        "intel-hda",
+        "ac97"
+      ],
+      "tip": "NetBSD \u2192 x86_64 (PC) + Q35 with VirtIO.",
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "ahci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-vga",
+        "qxl",
+        "std"
+      ]
     },
     "NetBSD (32-bit)": {
       "target": "i386",
-      "machine": "pc",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "ram_mb": 1024,
       "hdd_gb": 10,
-      "nic": "virtio-net-pci",
-      "sound": "ac97",
-      "tip": "NetBSD 32-bit → i386 PC.",
-      "cpu": "qemu32"
+      "nic": [
+        "virtio-net-pci",
+        "e1000e",
+        "e1000"
+      ],
+      "sound": [
+        "intel-hda",
+        "ac97"
+      ],
+      "tip": "NetBSD 32-bit \u2192 i386 PC.",
+      "cpu": "qemu32",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "ahci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-vga",
+        "qxl",
+        "std"
+      ]
     },
     "Haiku (64-bit)": {
       "target": "x86_64",
-      "machine": "q35",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "ram_mb": 4096,
       "hdd_gb": 20,
-      "nic": "virtio-net-pci",
-      "sound": "hda_virtio",
-      "tip": "Haiku → x86_64 (PC) + Q35 with VirtIO.",
-      "cpu": "max"
+      "nic": [
+        "virtio-net-pci",
+        "e1000e",
+        "e1000"
+      ],
+      "sound": [
+        "intel-hda",
+        "ac97"
+      ],
+      "tip": "Haiku \u2192 x86_64 (PC) + Q35 with VirtIO.",
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "ahci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-vga",
+        "qxl",
+        "std"
+      ]
     },
     "Haiku (32-bit)": {
       "target": "i386",
-      "machine": "pc",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "ram_mb": 1024,
       "hdd_gb": 10,
-      "nic": "virtio-net-pci",
-      "sound": "hda",
-      "tip": "Haiku 32-bit → i386 PC.",
-      "cpu": "max"
+      "nic": [
+        "virtio-net-pci",
+        "e1000e",
+        "e1000"
+      ],
+      "sound": [
+        "intel-hda",
+        "ac97"
+      ],
+      "tip": "Haiku 32-bit \u2192 i386 PC.",
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "ahci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-vga",
+        "qxl",
+        "std"
+      ]
     },
     "ReactOS (32-bit)": {
       "target": "i386",
-      "machine": "pc",
+      "machine": [
+        "pc-i440fx",
+        "pc"
+      ],
       "ram_mb": 1024,
       "hdd_gb": 4,
-      "nic": "e1000",
-      "sound": "ac97",
+      "nic": [
+        "rtl8139",
+        "e1000"
+      ],
+      "sound": [
+        "ac97",
+        "es1370"
+      ],
       "tip": "ReactOS 32-bit (proven AQEMU profile): i386 + pc, Force TCG / pentium3, std VGA, IDE (classic -hda), e1000, AC97, usb-tablet, native display, 1 GB, 1 CPU.",
-      "cpu": "pentium3"
+      "cpu": "pentium3",
+      "disk_bus": [
+        "ide",
+        "ahci"
+      ],
+      "vga": [
+        "std"
+      ]
     },
     "ReactOS (64-bit)": {
       "target": "x86_64",
-      "machine": "pc",
+      "machine": [
+        "pc-i440fx",
+        "pc"
+      ],
       "ram_mb": 4096,
       "hdd_gb": 8,
-      "nic": "e1000",
-      "sound": "ac97",
-      "tip": "ReactOS 64-bit (experimental builds) → x86_64 PC. Prefer 32-bit for stable ISOs.",
-      "cpu": "qemu64"
+      "nic": [
+        "rtl8139",
+        "e1000"
+      ],
+      "sound": [
+        "ac97",
+        "es1370"
+      ],
+      "tip": "ReactOS 64-bit (experimental builds) \u2192 x86_64 PC. Prefer 32-bit for stable ISOs.",
+      "cpu": "qemu64",
+      "disk_bus": [
+        "ide",
+        "ahci"
+      ],
+      "vga": [
+        "std"
+      ]
     },
     "BBC micro:bit": {
       "target": "arm",
-      "machine": "microbit",
+      "machine": [
+        "virt"
+      ],
       "ram_mb": 256,
       "hdd_gb": 1,
-      "nic": "none",
+      "nic": [
+        "virtio-net-pci"
+      ],
       "sound": "none",
-      "tip": "BBC micro:bit → qemu-system-arm -M microbit. Load .hex/.elf firmware; not a desktop OS.",
+      "tip": "BBC micro:bit \u2192 qemu-system-arm -M microbit. Load .hex/.elf firmware; not a desktop OS.",
       "flags": [
         "console_retro"
       ],
-      "cpu": "max"
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ]
     },
     "Arduino Uno": {
       "target": "avr",
@@ -2286,7 +4726,7 @@
       "hdd_gb": 1,
       "nic": "none",
       "sound": "none",
-      "tip": "Arduino Uno → qemu-system-avr -M arduino-uno. ATmega328P Arduino Uno; load firmware ELF.",
+      "tip": "Arduino Uno \u2192 qemu-system-avr -M arduino-uno. ATmega328P Arduino Uno; load firmware ELF.",
       "flags": [
         "console_retro"
       ],
@@ -2299,7 +4739,7 @@
       "hdd_gb": 1,
       "nic": "none",
       "sound": "none",
-      "tip": "Arduino Mega → qemu-system-avr -M arduino-mega. ATmega2560 Arduino; load firmware ELF.",
+      "tip": "Arduino Mega \u2192 qemu-system-avr -M arduino-mega. ATmega2560 Arduino; load firmware ELF.",
       "flags": [
         "console_retro"
       ],
@@ -2312,7 +4752,7 @@
       "hdd_gb": 1,
       "nic": "none",
       "sound": "none",
-      "tip": "Arduino Duemilanove → qemu-system-avr -M arduino-duemilanove. ATmega168 Arduino; load firmware ELF.",
+      "tip": "Arduino Duemilanove \u2192 qemu-system-avr -M arduino-duemilanove. ATmega168 Arduino; load firmware ELF.",
       "flags": [
         "console_retro"
       ],
@@ -2320,120 +4760,192 @@
     },
     "ARM Versatile PB": {
       "target": "arm",
-      "machine": "versatilepb",
+      "machine": [
+        "virt"
+      ],
       "ram_mb": 256,
       "hdd_gb": 4,
-      "nic": "none",
+      "nic": [
+        "virtio-net-pci"
+      ],
       "sound": "none",
-      "tip": "ARM Versatile PB → qemu-system-arm -M versatilepb. Classic ARM Versatile Platform Baseboard.",
+      "tip": "ARM Versatile PB \u2192 qemu-system-arm -M versatilepb. Classic ARM Versatile Platform Baseboard.",
       "flags": [
         "console_retro"
       ],
-      "cpu": "max"
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ]
     },
     "ARM Integrator/CP": {
       "target": "arm",
-      "machine": "integratorcp",
+      "machine": [
+        "virt"
+      ],
       "ram_mb": 256,
       "hdd_gb": 4,
-      "nic": "none",
+      "nic": [
+        "virtio-net-pci"
+      ],
       "sound": "none",
-      "tip": "ARM Integrator/CP → qemu-system-arm -M integratorcp. ARM Integrator/CP development board.",
+      "tip": "ARM Integrator/CP \u2192 qemu-system-arm -M integratorcp. ARM Integrator/CP development board.",
       "flags": [
         "console_retro"
       ],
-      "cpu": "max"
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ]
     },
     "Cubieboard": {
       "target": "arm",
-      "machine": "cubieboard",
+      "machine": [
+        "virt"
+      ],
       "ram_mb": 1024,
       "hdd_gb": 8,
-      "nic": "none",
+      "nic": [
+        "virtio-net-pci"
+      ],
       "sound": "none",
-      "tip": "Cubieboard → qemu-system-arm -M cubieboard. Allwinner A10 board.",
+      "tip": "Cubieboard \u2192 qemu-system-arm -M cubieboard. Allwinner A10 board.",
       "flags": [
         "console_retro"
       ],
-      "cpu": "max"
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ]
     },
     "Orange Pi PC": {
       "target": "arm",
-      "machine": "orangepi-pc",
+      "machine": [
+        "virt"
+      ],
       "ram_mb": 1024,
       "hdd_gb": 8,
-      "nic": "none",
+      "nic": [
+        "virtio-net-pci"
+      ],
       "sound": "none",
-      "tip": "Orange Pi PC → qemu-system-arm -M orangepi-pc. Allwinner H3 board.",
+      "tip": "Orange Pi PC \u2192 qemu-system-arm -M orangepi-pc. Allwinner H3 board.",
       "flags": [
         "console_retro"
       ],
-      "cpu": "max"
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ]
     },
     "Raspberry Pi Zero": {
       "target": "arm",
-      "machine": "raspi0",
+      "machine": [
+        "virt"
+      ],
       "ram_mb": 512,
       "hdd_gb": 8,
-      "nic": "none",
+      "nic": [
+        "virtio-net-pci"
+      ],
       "sound": "none",
-      "tip": "Raspberry Pi Zero → qemu-system-arm -M raspi0. SD image required; machine support varies by QEMU build.",
+      "tip": "Raspberry Pi Zero \u2192 qemu-system-arm -M raspi0. SD image required; machine support varies by QEMU build.",
       "flags": [
         "console_retro"
       ],
-      "cpu": "max"
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ]
     },
     "Raspberry Pi 1": {
       "target": "arm",
-      "machine": "raspi1ap",
+      "machine": [
+        "virt"
+      ],
       "ram_mb": 512,
       "hdd_gb": 8,
-      "nic": "none",
+      "nic": [
+        "virtio-net-pci"
+      ],
       "sound": "none",
-      "tip": "Raspberry Pi 1 → qemu-system-arm -M raspi1ap. SD image required.",
+      "tip": "Raspberry Pi 1 \u2192 qemu-system-arm -M raspi1ap. SD image required.",
       "flags": [
         "console_retro"
       ],
-      "cpu": "max"
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ]
     },
     "Raspberry Pi 2": {
       "target": "arm",
-      "machine": "raspi2b",
+      "machine": [
+        "virt"
+      ],
       "ram_mb": 1024,
       "hdd_gb": 8,
-      "nic": "none",
+      "nic": [
+        "virtio-net-pci"
+      ],
       "sound": "none",
-      "tip": "Raspberry Pi 2 → qemu-system-arm -M raspi2b. SD image required.",
+      "tip": "Raspberry Pi 2 \u2192 qemu-system-arm -M raspi2b. SD image required.",
       "flags": [
         "console_retro"
       ],
-      "cpu": "max"
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ]
     },
     "Raspberry Pi 3": {
       "target": "aarch64",
-      "machine": "raspi3b",
+      "machine": [
+        "virt"
+      ],
       "ram_mb": 1024,
       "hdd_gb": 16,
-      "nic": "none",
+      "nic": [
+        "virtio-net-pci"
+      ],
       "sound": "none",
-      "tip": "Raspberry Pi 3 → qemu-system-aarch64 -M raspi3b. SD image; experimental in many builds.",
+      "tip": "Raspberry Pi 3 \u2192 qemu-system-aarch64 -M raspi3b. SD image; experimental in many builds.",
       "flags": [
         "console_retro"
       ],
-      "cpu": "max"
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ]
     },
     "Raspberry Pi 4": {
       "target": "aarch64",
-      "machine": "raspi4b",
+      "machine": [
+        "virt"
+      ],
       "ram_mb": 2048,
       "hdd_gb": 16,
-      "nic": "none",
+      "nic": [
+        "virtio-net-pci"
+      ],
       "sound": "none",
-      "tip": "Raspberry Pi 4 → qemu-system-aarch64 -M raspi4b. SD image; experimental in many builds.",
+      "tip": "Raspberry Pi 4 \u2192 qemu-system-aarch64 -M raspi4b. SD image; experimental in many builds.",
       "flags": [
         "console_retro"
       ],
-      "cpu": "max"
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ]
     },
     "Macintosh Quadra 800": {
       "target": "m68k",
@@ -2442,7 +4954,7 @@
       "hdd_gb": 4,
       "nic": "none",
       "sound": "none",
-      "tip": "Macintosh Quadra 800 → qemu-system-m68k -M q800. Macintosh Quadra 800 (m68k).",
+      "tip": "Macintosh Quadra 800 \u2192 qemu-system-m68k -M q800. Macintosh Quadra 800 (m68k).",
       "flags": [
         "console_retro"
       ],
@@ -2455,7 +4967,7 @@
       "hdd_gb": 4,
       "nic": "none",
       "sound": "none",
-      "tip": "NeXT Cube → qemu-system-m68k -M next-cube. NeXT Cube hardware for NeXTSTEP.",
+      "tip": "NeXT Cube \u2192 qemu-system-m68k -M next-cube. NeXT Cube hardware for NeXTSTEP.",
       "flags": [
         "console_retro"
       ],
@@ -2468,7 +4980,7 @@
       "hdd_gb": 8,
       "nic": "none",
       "sound": "none",
-      "tip": "AmigaOne → qemu-system-ppc -M amigaone. AmigaOne PowerPC board.",
+      "tip": "AmigaOne \u2192 qemu-system-ppc -M amigaone. AmigaOne PowerPC board.",
       "flags": [
         "console_retro"
       ],
@@ -2481,7 +4993,7 @@
       "hdd_gb": 8,
       "nic": "none",
       "sound": "none",
-      "tip": "Pegasos II → qemu-system-ppc -M pegasos2. Genesi/bPlan Pegasos II.",
+      "tip": "Pegasos II \u2192 qemu-system-ppc -M pegasos2. Genesi/bPlan Pegasos II.",
       "flags": [
         "console_retro"
       ],
@@ -2494,7 +5006,7 @@
       "hdd_gb": 4,
       "nic": "none",
       "sound": "none",
-      "tip": "440 Bamboo → qemu-system-ppc -M bamboo. PowerPC 440 Bamboo board.",
+      "tip": "440 Bamboo \u2192 qemu-system-ppc -M bamboo. PowerPC 440 Bamboo board.",
       "flags": [
         "console_retro"
       ],
@@ -2502,94 +5014,150 @@
     },
     "ARM Versatile AB": {
       "target": "arm",
-      "machine": "versatileab",
+      "machine": [
+        "virt"
+      ],
       "ram_mb": 256,
       "hdd_gb": 4,
-      "nic": "none",
+      "nic": [
+        "virtio-net-pci"
+      ],
       "sound": "none",
-      "tip": "ARM Versatile AB → qemu-system-arm -M versatileab. ARM Versatile Application Baseboard.",
+      "tip": "ARM Versatile AB \u2192 qemu-system-arm -M versatileab. ARM Versatile Application Baseboard.",
       "flags": [
         "console_retro"
       ],
-      "cpu": "max"
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ]
     },
     "ARM Virt (generic)": {
       "target": "aarch64",
-      "machine": "virt",
+      "machine": [
+        "virt"
+      ],
       "ram_mb": 2048,
       "hdd_gb": 16,
-      "nic": "none",
+      "nic": [
+        "virtio-net-pci"
+      ],
       "sound": "none",
-      "tip": "ARM Virt (generic) → qemu-system-aarch64 -M virt. Generic ARM virt machine — best for Linux/Android-on-ARM VMs.",
+      "tip": "ARM Virt (generic) \u2192 qemu-system-aarch64 -M virt. Generic ARM virt machine \u2014 best for Linux/Android-on-ARM VMs.",
       "flags": [
         "console_retro"
       ],
-      "cpu": "max"
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ]
     },
     "B-L475E-IOT01A": {
       "target": "arm",
-      "machine": "b-l475e-iot01a",
+      "machine": [
+        "virt"
+      ],
       "ram_mb": 128,
       "hdd_gb": 1,
-      "nic": "none",
+      "nic": [
+        "virtio-net-pci"
+      ],
       "sound": "none",
-      "tip": "B-L475E-IOT01A → qemu-system-arm -M b-l475e-iot01a. STM32L4 Discovery IoT node.",
+      "tip": "B-L475E-IOT01A \u2192 qemu-system-arm -M b-l475e-iot01a. STM32L4 Discovery IoT node.",
       "flags": [
         "console_retro"
       ],
-      "cpu": "max"
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ]
     },
     "Freescale Sabre Lite": {
       "target": "arm",
-      "machine": "sabrelite",
+      "machine": [
+        "virt"
+      ],
       "ram_mb": 1024,
       "hdd_gb": 8,
-      "nic": "none",
+      "nic": [
+        "virtio-net-pci"
+      ],
       "sound": "none",
-      "tip": "Freescale Sabre Lite → qemu-system-arm -M sabrelite. i.MX6 Sabre Lite.",
+      "tip": "Freescale Sabre Lite \u2192 qemu-system-arm -M sabrelite. i.MX6 Sabre Lite.",
       "flags": [
         "console_retro"
       ],
-      "cpu": "max"
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ]
     },
     "i.MX25 PDK": {
       "target": "arm",
-      "machine": "imx25-pdk",
+      "machine": [
+        "virt"
+      ],
       "ram_mb": 256,
       "hdd_gb": 4,
-      "nic": "none",
+      "nic": [
+        "virtio-net-pci"
+      ],
       "sound": "none",
-      "tip": "i.MX25 PDK → qemu-system-arm -M imx25-pdk. Freescale i.MX25 Product Development Kit.",
+      "tip": "i.MX25 PDK \u2192 qemu-system-arm -M imx25-pdk. Freescale i.MX25 Product Development Kit.",
       "flags": [
         "console_retro"
       ],
-      "cpu": "max"
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ]
     },
     "i.MX6UL EVK": {
       "target": "arm",
-      "machine": "mcimx6ul-evk",
+      "machine": [
+        "virt"
+      ],
       "ram_mb": 512,
       "hdd_gb": 4,
-      "nic": "none",
+      "nic": [
+        "virtio-net-pci"
+      ],
       "sound": "none",
-      "tip": "i.MX6UL EVK → qemu-system-arm -M mcimx6ul-evk. NXP i.MX6UL evaluation kit.",
+      "tip": "i.MX6UL EVK \u2192 qemu-system-arm -M mcimx6ul-evk. NXP i.MX6UL evaluation kit.",
       "flags": [
         "console_retro"
       ],
-      "cpu": "max"
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ]
     },
     "i.MX7D Sabre": {
       "target": "arm",
-      "machine": "mcimx7d-sabre",
+      "machine": [
+        "virt"
+      ],
       "ram_mb": 1024,
       "hdd_gb": 8,
-      "nic": "none",
+      "nic": [
+        "virtio-net-pci"
+      ],
       "sound": "none",
-      "tip": "i.MX7D Sabre → qemu-system-arm -M mcimx7d-sabre. NXP i.MX7D Sabre board.",
+      "tip": "i.MX7D Sabre \u2192 qemu-system-arm -M mcimx7d-sabre. NXP i.MX7D Sabre board.",
       "flags": [
         "console_retro"
       ],
-      "cpu": "max"
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ]
     },
     "IBM Power Series 6050/6070": {
       "target": "ppc",
@@ -2598,7 +5166,7 @@
       "hdd_gb": 4,
       "nic": "none",
       "sound": "none",
-      "tip": "IBM Power Series 6050/6070 → qemu-system-ppc -M 40p. IBM RS/6000 40p (PREP).",
+      "tip": "IBM Power Series 6050/6070 \u2192 qemu-system-ppc -M 40p. IBM RS/6000 40p (PREP).",
       "flags": [
         "console_retro"
       ],
@@ -2606,16 +5174,24 @@
     },
     "Kyoto Microcomputer KZM-ARM11": {
       "target": "arm",
-      "machine": "kzm",
+      "machine": [
+        "virt"
+      ],
       "ram_mb": 256,
       "hdd_gb": 4,
-      "nic": "none",
+      "nic": [
+        "virtio-net-pci"
+      ],
       "sound": "none",
-      "tip": "Kyoto Microcomputer KZM-ARM11 → qemu-system-arm -M kzm. KZM-ARM11-01 board.",
+      "tip": "Kyoto Microcomputer KZM-ARM11 \u2192 qemu-system-arm -M kzm. KZM-ARM11-01 board.",
       "flags": [
         "console_retro"
       ],
-      "cpu": "max"
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ]
     },
     "Loongson-3 Virt": {
       "target": "mips64el",
@@ -2624,7 +5200,7 @@
       "hdd_gb": 16,
       "nic": "none",
       "sound": "none",
-      "tip": "Loongson-3 Virt → qemu-system-mips64el -M loongson3-virt. Loongson-3 virtual platform.",
+      "tip": "Loongson-3 Virt \u2192 qemu-system-mips64el -M loongson3-virt. Loongson-3 virtual platform.",
       "flags": [
         "console_retro"
       ],
@@ -2637,7 +5213,7 @@
       "hdd_gb": 8,
       "nic": "none",
       "sound": "none",
-      "tip": "MIPS Boston → qemu-system-mips64el -M boston. MIPS Boston board.",
+      "tip": "MIPS Boston \u2192 qemu-system-mips64el -M boston. MIPS Boston board.",
       "flags": [
         "console_retro"
       ],
@@ -2650,7 +5226,7 @@
       "hdd_gb": 4,
       "nic": "none",
       "sound": "none",
-      "tip": "MIPS Magnum → qemu-system-mips64 -M magnum. MIPS Magnum R4000.",
+      "tip": "MIPS Magnum \u2192 qemu-system-mips64 -M magnum. MIPS Magnum R4000.",
       "flags": [
         "console_retro"
       ],
@@ -2663,7 +5239,7 @@
       "hdd_gb": 8,
       "nic": "none",
       "sound": "none",
-      "tip": "MIPS Malta → qemu-system-mips64el -M malta. MIPS Malta development board.",
+      "tip": "MIPS Malta \u2192 qemu-system-mips64el -M malta. MIPS Malta development board.",
       "flags": [
         "console_retro"
       ],
@@ -2676,7 +5252,7 @@
       "hdd_gb": 4,
       "nic": "none",
       "sound": "none",
-      "tip": "MIPS Pica 61 → qemu-system-mips64 -M pica61. MIPS Jazz Pica 61.",
+      "tip": "MIPS Pica 61 \u2192 qemu-system-mips64 -M pica61. MIPS Jazz Pica 61.",
       "flags": [
         "console_retro"
       ],
@@ -2689,7 +5265,7 @@
       "hdd_gb": 4,
       "nic": "none",
       "sound": "none",
-      "tip": "MPC8544DS → qemu-system-ppc -M mpc8544ds. Freescale MPC8544DS.",
+      "tip": "MPC8544DS \u2192 qemu-system-ppc -M mpc8544ds. Freescale MPC8544DS.",
       "flags": [
         "console_retro"
       ],
@@ -2697,120 +5273,191 @@
     },
     "MPS2 AN385": {
       "target": "arm",
-      "machine": "mps2-an385",
+      "machine": [
+        "virt"
+      ],
       "ram_mb": 256,
       "hdd_gb": 1,
-      "nic": "none",
+      "nic": [
+        "virtio-net-pci"
+      ],
       "sound": "none",
-      "tip": "MPS2 AN385 → qemu-system-arm -M mps2-an385. ARM MPS2 FPGA (AN385).",
+      "tip": "MPS2 AN385 \u2192 qemu-system-arm -M mps2-an385. ARM MPS2 FPGA (AN385).",
       "flags": [
         "console_retro"
       ],
-      "cpu": "max"
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ]
     },
     "MPS2 AN505": {
       "target": "arm",
-      "machine": "mps2-an505",
+      "machine": [
+        "virt"
+      ],
       "ram_mb": 256,
       "hdd_gb": 1,
-      "nic": "none",
+      "nic": [
+        "virtio-net-pci"
+      ],
       "sound": "none",
-      "tip": "MPS2 AN505 → qemu-system-arm -M mps2-an505. ARM MPS2 FPGA (AN505).",
+      "tip": "MPS2 AN505 \u2192 qemu-system-arm -M mps2-an505. ARM MPS2 FPGA (AN505).",
       "flags": [
         "console_retro"
       ],
-      "cpu": "max"
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ]
     },
     "MPS2 AN521": {
       "target": "arm",
-      "machine": "mps2-an521",
+      "machine": [
+        "virt"
+      ],
       "ram_mb": 256,
       "hdd_gb": 1,
-      "nic": "none",
+      "nic": [
+        "virtio-net-pci"
+      ],
       "sound": "none",
-      "tip": "MPS2 AN521 → qemu-system-arm -M mps2-an521. ARM MPS2 FPGA (AN521).",
+      "tip": "MPS2 AN521 \u2192 qemu-system-arm -M mps2-an521. ARM MPS2 FPGA (AN521).",
       "flags": [
         "console_retro"
       ],
-      "cpu": "max"
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ]
     },
     "MPS3 AN524": {
       "target": "arm",
-      "machine": "mps3-an524",
+      "machine": [
+        "virt"
+      ],
       "ram_mb": 256,
       "hdd_gb": 1,
-      "nic": "none",
+      "nic": [
+        "virtio-net-pci"
+      ],
       "sound": "none",
-      "tip": "MPS3 AN524 → qemu-system-arm -M mps3-an524. ARM MPS3 FPGA (AN524).",
+      "tip": "MPS3 AN524 \u2192 qemu-system-arm -M mps3-an524. ARM MPS3 FPGA (AN524).",
       "flags": [
         "console_retro"
       ],
-      "cpu": "max"
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ]
     },
     "MPS3 AN547": {
       "target": "arm",
-      "machine": "mps3-an547",
+      "machine": [
+        "virt"
+      ],
       "ram_mb": 256,
       "hdd_gb": 1,
-      "nic": "none",
+      "nic": [
+        "virtio-net-pci"
+      ],
       "sound": "none",
-      "tip": "MPS3 AN547 → qemu-system-arm -M mps3-an547. ARM MPS3 FPGA (AN547).",
+      "tip": "MPS3 AN547 \u2192 qemu-system-arm -M mps3-an547. ARM MPS3 FPGA (AN547).",
       "flags": [
         "console_retro"
       ],
-      "cpu": "max"
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ]
     },
     "Netduino 2": {
       "target": "arm",
-      "machine": "netduino2",
+      "machine": [
+        "virt"
+      ],
       "ram_mb": 128,
       "hdd_gb": 1,
-      "nic": "none",
+      "nic": [
+        "virtio-net-pci"
+      ],
       "sound": "none",
-      "tip": "Netduino 2 → qemu-system-arm -M netduino2. Netduino 2 (STM32).",
+      "tip": "Netduino 2 \u2192 qemu-system-arm -M netduino2. Netduino 2 (STM32).",
       "flags": [
         "console_retro"
       ],
-      "cpu": "max"
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ]
     },
     "Netduino Plus 2": {
       "target": "arm",
-      "machine": "netduinoplus2",
+      "machine": [
+        "virt"
+      ],
       "ram_mb": 128,
       "hdd_gb": 1,
-      "nic": "none",
+      "nic": [
+        "virtio-net-pci"
+      ],
       "sound": "none",
-      "tip": "Netduino Plus 2 → qemu-system-arm -M netduinoplus2. Netduino Plus 2.",
+      "tip": "Netduino Plus 2 \u2192 qemu-system-arm -M netduinoplus2. Netduino Plus 2.",
       "flags": [
         "console_retro"
       ],
-      "cpu": "max"
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ]
     },
     "Olimex STM32-H405": {
       "target": "arm",
-      "machine": "olimex-stm32-h405",
+      "machine": [
+        "virt"
+      ],
       "ram_mb": 128,
       "hdd_gb": 1,
-      "nic": "none",
+      "nic": [
+        "virtio-net-pci"
+      ],
       "sound": "none",
-      "tip": "Olimex STM32-H405 → qemu-system-arm -M olimex-stm32-h405. Olimex STM32-H405 board.",
+      "tip": "Olimex STM32-H405 \u2192 qemu-system-arm -M olimex-stm32-h405. Olimex STM32-H405 board.",
       "flags": [
         "console_retro"
       ],
-      "cpu": "max"
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ]
     },
     "OpenTitan": {
       "target": "riscv32",
-      "machine": "opentitan",
+      "machine": [
+        "virt"
+      ],
       "ram_mb": 256,
       "hdd_gb": 1,
-      "nic": "none",
+      "nic": [
+        "virtio-net-pci"
+      ],
       "sound": "none",
-      "tip": "OpenTitan → qemu-system-riscv32 -M opentitan. OpenTitan Earl Grey.",
+      "tip": "OpenTitan \u2192 qemu-system-riscv32 -M opentitan. OpenTitan Earl Grey.",
       "flags": [
         "console_retro"
       ],
-      "cpu": "max"
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci"
+      ]
     },
     "Pegasos I": {
       "target": "ppc",
@@ -2819,7 +5466,7 @@
       "hdd_gb": 8,
       "nic": "none",
       "sound": "none",
-      "tip": "Pegasos I → qemu-system-ppc -M pegasos1. Genesi/bPlan Pegasos I.",
+      "tip": "Pegasos I \u2192 qemu-system-ppc -M pegasos1. Genesi/bPlan Pegasos I.",
       "flags": [
         "console_retro"
       ],
@@ -2832,7 +5479,7 @@
       "hdd_gb": 4,
       "nic": "none",
       "sound": "none",
-      "tip": "Petalogix ML605 → qemu-system-microblaze -M petalogix-ml605. Petalogix ML605.",
+      "tip": "Petalogix ML605 \u2192 qemu-system-microblaze -M petalogix-ml605. Petalogix ML605.",
       "flags": [
         "console_retro"
       ],
@@ -2845,7 +5492,7 @@
       "hdd_gb": 4,
       "nic": "none",
       "sound": "none",
-      "tip": "PowerMac G3 Beige → qemu-system-ppc -M g3beige. OldWorld Power Macintosh G3 (Beige).",
+      "tip": "PowerMac G3 Beige \u2192 qemu-system-ppc -M g3beige. OldWorld Power Macintosh G3 (Beige).",
       "flags": [
         "console_retro"
       ],
@@ -2858,7 +5505,7 @@
       "hdd_gb": 8,
       "nic": "none",
       "sound": "none",
-      "tip": "PowerMac Mac99 → qemu-system-ppc -M mac99. PowerMac G4-ish mac99 machine.",
+      "tip": "PowerMac Mac99 \u2192 qemu-system-ppc -M mac99. PowerMac G4-ish mac99 machine.",
       "flags": [
         "console_retro"
       ],
@@ -2871,7 +5518,7 @@
       "hdd_gb": 4,
       "nic": "none",
       "sound": "none",
-      "tip": "PowerPC e500 → qemu-system-ppc -M ppce500. Freescale e500 platform.",
+      "tip": "PowerPC e500 \u2192 qemu-system-ppc -M ppce500. Freescale e500 platform.",
       "flags": [
         "console_retro"
       ],
@@ -2879,68 +5526,108 @@
     },
     "Raspberry Pi 3A+": {
       "target": "aarch64",
-      "machine": "raspi3ap",
+      "machine": [
+        "virt"
+      ],
       "ram_mb": 512,
       "hdd_gb": 8,
-      "nic": "none",
+      "nic": [
+        "virtio-net-pci"
+      ],
       "sound": "none",
-      "tip": "Raspberry Pi 3A+ → qemu-system-aarch64 -M raspi3ap. SD image; experimental in many builds.",
+      "tip": "Raspberry Pi 3A+ \u2192 qemu-system-aarch64 -M raspi3ap. SD image; experimental in many builds.",
       "flags": [
         "console_retro"
       ],
-      "cpu": "max"
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ]
     },
     "RealView EB": {
       "target": "arm",
-      "machine": "realview-eb",
+      "machine": [
+        "virt"
+      ],
       "ram_mb": 256,
       "hdd_gb": 4,
-      "nic": "none",
+      "nic": [
+        "virtio-net-pci"
+      ],
       "sound": "none",
-      "tip": "RealView EB → qemu-system-arm -M realview-eb. ARM RealView Emulation Baseboard.",
+      "tip": "RealView EB \u2192 qemu-system-arm -M realview-eb. ARM RealView Emulation Baseboard.",
       "flags": [
         "console_retro"
       ],
-      "cpu": "max"
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ]
     },
     "RealView EB MPCore": {
       "target": "arm",
-      "machine": "realview-eb-mpcore",
+      "machine": [
+        "virt"
+      ],
       "ram_mb": 512,
       "hdd_gb": 4,
-      "nic": "none",
+      "nic": [
+        "virtio-net-pci"
+      ],
       "sound": "none",
-      "tip": "RealView EB MPCore → qemu-system-arm -M realview-eb-mpcore. RealView EB with MPCore.",
+      "tip": "RealView EB MPCore \u2192 qemu-system-arm -M realview-eb-mpcore. RealView EB with MPCore.",
       "flags": [
         "console_retro"
       ],
-      "cpu": "max"
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ]
     },
     "RealView PB-A8": {
       "target": "arm",
-      "machine": "realview-pb-a8",
+      "machine": [
+        "virt"
+      ],
       "ram_mb": 512,
       "hdd_gb": 4,
-      "nic": "none",
+      "nic": [
+        "virtio-net-pci"
+      ],
       "sound": "none",
-      "tip": "RealView PB-A8 → qemu-system-arm -M realview-pb-a8. RealView Platform Baseboard for Cortex-A8.",
+      "tip": "RealView PB-A8 \u2192 qemu-system-arm -M realview-pb-a8. RealView Platform Baseboard for Cortex-A8.",
       "flags": [
         "console_retro"
       ],
-      "cpu": "max"
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ]
     },
     "RealView PBX-A9": {
       "target": "arm",
-      "machine": "realview-pbx-a9",
+      "machine": [
+        "virt"
+      ],
       "ram_mb": 1024,
       "hdd_gb": 8,
-      "nic": "none",
+      "nic": [
+        "virtio-net-pci"
+      ],
       "sound": "none",
-      "tip": "RealView PBX-A9 → qemu-system-arm -M realview-pbx-a9. RealView PBX for Cortex-A9.",
+      "tip": "RealView PBX-A9 \u2192 qemu-system-arm -M realview-pbx-a9. RealView PBX for Cortex-A9.",
       "flags": [
         "console_retro"
       ],
-      "cpu": "max"
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ]
     },
     "Renesas R2D": {
       "target": "sh4",
@@ -2949,7 +5636,7 @@
       "hdd_gb": 2,
       "nic": "none",
       "sound": "none",
-      "tip": "Renesas R2D → qemu-system-sh4 -M r2d. Renesas SH4 R2D-PLUS.",
+      "tip": "Renesas R2D \u2192 qemu-system-sh4 -M r2d. Renesas SH4 R2D-PLUS.",
       "flags": [
         "console_retro"
       ],
@@ -2957,16 +5644,23 @@
     },
     "RISC-V Spike": {
       "target": "riscv64",
-      "machine": "spike",
+      "machine": [
+        "virt"
+      ],
       "ram_mb": 1024,
       "hdd_gb": 8,
-      "nic": "none",
+      "nic": [
+        "virtio-net-pci"
+      ],
       "sound": "none",
-      "tip": "RISC-V Spike → qemu-system-riscv64 -M spike. RISC-V Spike ISA simulator machine.",
+      "tip": "RISC-V Spike \u2192 qemu-system-riscv64 -M spike. RISC-V Spike ISA simulator machine.",
       "flags": [
         "console_retro"
       ],
-      "cpu": "max"
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci"
+      ]
     },
     "Sam460ex": {
       "target": "ppc",
@@ -2975,7 +5669,7 @@
       "hdd_gb": 8,
       "nic": "none",
       "sound": "none",
-      "tip": "Sam460ex → qemu-system-ppc -M sam460ex. ACube Sam460ex Amiga-compatible.",
+      "tip": "Sam460ex \u2192 qemu-system-ppc -M sam460ex. ACube Sam460ex Amiga-compatible.",
       "flags": [
         "console_retro"
       ],
@@ -2983,146 +5677,232 @@
     },
     "SBSA Reference": {
       "target": "aarch64",
-      "machine": "sbsa-ref",
+      "machine": [
+        "virt"
+      ],
       "ram_mb": 2048,
       "hdd_gb": 16,
-      "nic": "none",
+      "nic": [
+        "virtio-net-pci"
+      ],
       "sound": "none",
-      "tip": "SBSA Reference → qemu-system-aarch64 -M sbsa-ref. ARM SBSA Reference Platform.",
+      "tip": "SBSA Reference \u2192 qemu-system-aarch64 -M sbsa-ref. ARM SBSA Reference Platform.",
       "flags": [
         "console_retro"
       ],
-      "cpu": "max"
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ]
     },
     "Sharp Zaurus SL-5500": {
       "target": "arm",
-      "machine": "collie",
+      "machine": [
+        "virt"
+      ],
       "ram_mb": 64,
       "hdd_gb": 1,
-      "nic": "none",
+      "nic": [
+        "virtio-net-pci"
+      ],
       "sound": "none",
-      "tip": "Sharp Zaurus SL-5500 → qemu-system-arm -M collie. Sharp Zaurus Collie PDA.",
+      "tip": "Sharp Zaurus SL-5500 \u2192 qemu-system-arm -M collie. Sharp Zaurus Collie PDA.",
       "flags": [
         "console_retro"
       ],
-      "cpu": "max"
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ]
     },
     "Siemens SX1": {
       "target": "arm",
-      "machine": "sx1",
+      "machine": [
+        "virt"
+      ],
       "ram_mb": 128,
       "hdd_gb": 1,
-      "nic": "none",
+      "nic": [
+        "virtio-net-pci"
+      ],
       "sound": "none",
-      "tip": "Siemens SX1 → qemu-system-arm -M sx1. Siemens SX1 smartphone.",
+      "tip": "Siemens SX1 \u2192 qemu-system-arm -M sx1. Siemens SX1 smartphone.",
       "flags": [
         "console_retro"
       ],
-      "cpu": "max"
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ]
     },
     "Siemens SX1 v1": {
       "target": "arm",
-      "machine": "sx1-v1",
+      "machine": [
+        "virt"
+      ],
       "ram_mb": 128,
       "hdd_gb": 1,
-      "nic": "none",
+      "nic": [
+        "virtio-net-pci"
+      ],
       "sound": "none",
-      "tip": "Siemens SX1 v1 → qemu-system-arm -M sx1-v1. Siemens SX1 (v1).",
+      "tip": "Siemens SX1 v1 \u2192 qemu-system-arm -M sx1-v1. Siemens SX1 (v1).",
       "flags": [
         "console_retro"
       ],
-      "cpu": "max"
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ]
     },
     "SiFive E31": {
       "target": "riscv32",
-      "machine": "sifive_e",
+      "machine": [
+        "virt"
+      ],
       "ram_mb": 128,
       "hdd_gb": 1,
-      "nic": "none",
+      "nic": [
+        "virtio-net-pci"
+      ],
       "sound": "none",
-      "tip": "SiFive E31 → qemu-system-riscv32 -M sifive_e. SiFive E31 / HiFive1-class.",
+      "tip": "SiFive E31 \u2192 qemu-system-riscv32 -M sifive_e. SiFive E31 / HiFive1-class.",
       "flags": [
         "console_retro"
       ],
-      "cpu": "max"
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci"
+      ]
     },
     "SiFive HiFive Unleashed": {
       "target": "riscv64",
-      "machine": "sifive_u",
+      "machine": [
+        "virt"
+      ],
       "ram_mb": 1024,
       "hdd_gb": 8,
-      "nic": "none",
+      "nic": [
+        "virtio-net-pci"
+      ],
       "sound": "none",
-      "tip": "SiFive HiFive Unleashed → qemu-system-riscv64 -M sifive_u. SiFive U54 / HiFive Unleashed.",
+      "tip": "SiFive HiFive Unleashed \u2192 qemu-system-riscv64 -M sifive_u. SiFive U54 / HiFive Unleashed.",
       "flags": [
         "console_retro"
       ],
-      "cpu": "max"
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci"
+      ]
     },
     "Stellaris LM3S6965": {
       "target": "arm",
-      "machine": "lm3s6965evb",
+      "machine": [
+        "virt"
+      ],
       "ram_mb": 64,
       "hdd_gb": 1,
-      "nic": "none",
+      "nic": [
+        "virtio-net-pci"
+      ],
       "sound": "none",
-      "tip": "Stellaris LM3S6965 → qemu-system-arm -M lm3s6965evb. TI Stellaris LM3S6965EVB.",
+      "tip": "Stellaris LM3S6965 \u2192 qemu-system-arm -M lm3s6965evb. TI Stellaris LM3S6965EVB.",
       "flags": [
         "console_retro"
       ],
-      "cpu": "max"
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ]
     },
     "Stellaris LM3S811": {
       "target": "arm",
-      "machine": "lm3s811evb",
+      "machine": [
+        "virt"
+      ],
       "ram_mb": 64,
       "hdd_gb": 1,
-      "nic": "none",
+      "nic": [
+        "virtio-net-pci"
+      ],
       "sound": "none",
-      "tip": "Stellaris LM3S811 → qemu-system-arm -M lm3s811evb. TI Stellaris LM3S811EVB.",
+      "tip": "Stellaris LM3S811 \u2192 qemu-system-arm -M lm3s811evb. TI Stellaris LM3S811EVB.",
       "flags": [
         "console_retro"
       ],
-      "cpu": "max"
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ]
     },
     "STM32VLDISCOVERY": {
       "target": "arm",
-      "machine": "stm32vldiscovery",
+      "machine": [
+        "virt"
+      ],
       "ram_mb": 128,
       "hdd_gb": 1,
-      "nic": "none",
+      "nic": [
+        "virtio-net-pci"
+      ],
       "sound": "none",
-      "tip": "STM32VLDISCOVERY → qemu-system-arm -M stm32vldiscovery. ST STM32VLDISCOVERY board.",
+      "tip": "STM32VLDISCOVERY \u2192 qemu-system-arm -M stm32vldiscovery. ST STM32VLDISCOVERY board.",
       "flags": [
         "console_retro"
       ],
-      "cpu": "max"
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ]
     },
     "Versatile Express A15": {
       "target": "arm",
-      "machine": "vexpress-a15",
+      "machine": [
+        "virt"
+      ],
       "ram_mb": 1024,
       "hdd_gb": 8,
-      "nic": "none",
+      "nic": [
+        "virtio-net-pci"
+      ],
       "sound": "none",
-      "tip": "Versatile Express A15 → qemu-system-arm -M vexpress-a15. ARM Versatile Express with Cortex-A15.",
+      "tip": "Versatile Express A15 \u2192 qemu-system-arm -M vexpress-a15. ARM Versatile Express with Cortex-A15.",
       "flags": [
         "console_retro"
       ],
-      "cpu": "max"
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ]
     },
     "Versatile Express A9": {
       "target": "arm",
-      "machine": "vexpress-a9",
+      "machine": [
+        "virt"
+      ],
       "ram_mb": 1024,
       "hdd_gb": 8,
-      "nic": "none",
+      "nic": [
+        "virtio-net-pci"
+      ],
       "sound": "none",
-      "tip": "Versatile Express A9 → qemu-system-arm -M vexpress-a9. ARM Versatile Express with Cortex-A9.",
+      "tip": "Versatile Express A9 \u2192 qemu-system-arm -M vexpress-a9. ARM Versatile Express with Cortex-A9.",
       "flags": [
         "console_retro"
       ],
-      "cpu": "max"
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ]
     },
     "Xilinx Virtex ML507": {
       "target": "ppc",
@@ -3131,7 +5911,7 @@
       "hdd_gb": 4,
       "nic": "none",
       "sound": "none",
-      "tip": "Xilinx Virtex ML507 → qemu-system-ppc -M virtex-ml507. Xilinx Virtex ML507.",
+      "tip": "Xilinx Virtex ML507 \u2192 qemu-system-ppc -M virtex-ml507. Xilinx Virtex ML507.",
       "flags": [
         "console_retro"
       ],
@@ -3139,29 +5919,45 @@
     },
     "Xilinx ZCU102": {
       "target": "aarch64",
-      "machine": "xlnx-zcu102",
+      "machine": [
+        "virt"
+      ],
       "ram_mb": 2048,
       "hdd_gb": 16,
-      "nic": "none",
+      "nic": [
+        "virtio-net-pci"
+      ],
       "sound": "none",
-      "tip": "Xilinx ZCU102 → qemu-system-aarch64 -M xlnx-zcu102. ZynqMP ZCU102 evaluation kit.",
+      "tip": "Xilinx ZCU102 \u2192 qemu-system-aarch64 -M xlnx-zcu102. ZynqMP ZCU102 evaluation kit.",
       "flags": [
         "console_retro"
       ],
-      "cpu": "max"
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ]
     },
     "Xilinx Zynq A9": {
       "target": "arm",
-      "machine": "xilinx-zynq-a9",
+      "machine": [
+        "virt"
+      ],
       "ram_mb": 1024,
       "hdd_gb": 8,
-      "nic": "none",
+      "nic": [
+        "virtio-net-pci"
+      ],
       "sound": "none",
-      "tip": "Xilinx Zynq A9 → qemu-system-arm -M xilinx-zynq-a9. Xilinx Zynq Platform Baseboard for Cortex-A9.",
+      "tip": "Xilinx Zynq A9 \u2192 qemu-system-arm -M xilinx-zynq-a9. Xilinx Zynq Platform Baseboard for Cortex-A9.",
       "flags": [
         "console_retro"
       ],
-      "cpu": "max"
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-blk-pci",
+        "nvme"
+      ]
     }
   }
 }

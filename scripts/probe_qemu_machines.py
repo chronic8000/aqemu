@@ -96,6 +96,9 @@ CURATED_ARCHITECTURES = {
     "Embedded": [
         "AVR", "MicroBlaze", "OpenRISC", "Xtensa", "RX", "TriCore", "SH4", "LoongArch",
     ],
+    "Specialized": [
+        "Apple Silicon", "Reims vGPU",
+    ],
 }
 
 ARCH_BINARY_MAP = {
@@ -119,6 +122,7 @@ ARCH_BINARY_MAP = {
     "m68k": "m68k",
     "avr": "AVR",
     "microblaze": "MicroBlaze",
+    "microblazeel": "MicroBlaze",
     "or1k": "OpenRISC",
     "xtensa": "Xtensa",
     "xtensaeb": "Xtensa",
@@ -127,6 +131,15 @@ ARCH_BINARY_MAP = {
     "sh4": "SH4",
     "sh4eb": "SH4",
     "loongarch64": "LoongArch",
+    "applesoc": "Apple Silicon",
+    "applesoc32": "Apple Silicon (32-bit)",
+    "inferno": "Apple Silicon",
+    "aarch64-inferno": "Apple Silicon (ARM64)",
+    "arm-inferno": "Apple Silicon (ARM32)",
+    "reims": "Reims vGPU",
+    "reims3d": "Reims vGPU",
+    "reimsvgpu": "Reims vGPU",
+    "x86_64-reims": "Reims vGPU (x86_64)",
 }
 
 # Explicit QEMU id → friendly display name (overrides description when set).
@@ -243,6 +256,8 @@ WIZARD_PLATFORMS: List[Dict] = [
     {"group": "Embedded", "display": "Arduino Duemilanove", "match": [("avr", r"^arduino-duemilanove$")]},
     {"group": "Embedded", "display": "STM32 VL Discovery", "match": [("arm", r"^stm32vldiscovery$")]},
     {"group": "Embedded", "display": "Netduino 2", "match": [("arm", r"^netduino2$")]},
+    {"group": "Specialized", "display": "Apple Silicon (iOS / macOS)", "match": [("applesoc.*|inferno.*", r"^t8030$|^s8000$|^virt$")]},
+    {"group": "Specialized", "display": "Reims vGPU Acceleration", "match": [("reims.*", r"^pc(-q35.*)?$|^q35$")]},
     {"group": "Generic", "display": "Generic Virtual Machine", "match": [(".*", r"^virt$")], "notes": "Prefer aarch64/riscv virt when multiple"},
     {"group": "Generic", "display": "Empty Machine", "match": [(".*", r"^none$")]},
     {"group": "Generic", "display": "Custom Machine", "match": [], "notes": "User picks any probed machine"},
@@ -259,6 +274,7 @@ def find_qemu_binaries(qemu_dir: Optional[Path]) -> List[Path]:
         if env:
             search_dirs.append(Path(env))
         search_dirs.extend([
+            Path.home() / ".local" / "bin",
             Path(r"C:\Program Files\qemu"),
             Path(r"C:\Program Files (x86)\qemu"),
             Path("/usr/bin"),
@@ -431,6 +447,10 @@ def platform_group(qemu_name: str, target: str, display: str) -> str:
         return "ARM Virtual Platforms"
     if n.startswith("arduino") or "stm32" in n or n.startswith("netduino"):
         return "Embedded"
+    if target in {"applesoc", "applesoc32", "inferno", "aarch64-inferno", "arm-inferno"} or n.startswith("s8000") or n.startswith("t80"):
+        return "Apple Silicon / iOS"
+    if "reims" in target:
+        return "Reims vGPU Acceleration"
     if "xbox" in n or "ps2" in n or "dreamcast" in n or "dc" == n:
         return "Game Consoles"
     return "Other Platforms"

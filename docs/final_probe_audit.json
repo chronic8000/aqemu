@@ -1,16 +1,16 @@
 {
   "summary": {
-    "probe_arches": 28,
+    "probe_arches": 31,
     "wizard_targets": 18,
-    "os_profiles": 193,
-    "os_cpu_machine_ok": 193,
+    "os_profiles": 214,
+    "os_cpu_machine_ok": 214,
     "os_cpu_miss_count": 0,
     "os_mach_miss_count": 0,
     "modern_with_486": 0,
-    "total_probe_machines": 490,
-    "total_probe_cpus": 2074,
-    "total_probe_net": 604,
-    "total_probe_display": 194
+    "total_probe_machines": 648,
+    "total_probe_cpus": 2370,
+    "total_probe_net": 663,
+    "total_probe_display": 221
   },
   "verdict": {
     "main_panel_full_machine_cpu_net_video": true,
@@ -20,10 +20,13 @@
   },
   "targets_missing_probe": [],
   "probes_not_listed_as_wizard_target": [
+    "applesoc",
     "loongarch64",
+    "microblazeel",
     "mips",
     "mipsel",
     "or1k",
+    "reimsvgpu",
     "rx",
     "sh4eb",
     "sparc",
@@ -37,11 +40,15 @@
   "cpu_dist_top": [
     [
       "x86_64:max",
-      54
+      58
     ],
     [
       "arm:max",
       37
+    ],
+    [
+      "aarch64:max",
+      24
     ],
     [
       "i386:qemu32",
@@ -53,14 +60,10 @@
     ],
     [
       "i386:pentium3",
-      9
+      10
     ],
     [
       "i386:max",
-      8
-    ],
-    [
-      "aarch64:max",
       7
     ],
     [
@@ -134,6 +137,14 @@
       "in_wizard": true
     },
     {
+      "arch": "applesoc",
+      "machines": 113,
+      "cpus": 38,
+      "net": 29,
+      "display": 11,
+      "in_wizard": false
+    },
+    {
       "arch": "arm",
       "machines": 98,
       "cpus": 24,
@@ -190,6 +201,14 @@
       "in_wizard": true
     },
     {
+      "arch": "microblazeel",
+      "machines": 4,
+      "cpus": 1,
+      "net": 0,
+      "display": 0,
+      "in_wizard": false
+    },
+    {
       "arch": "mips",
       "machines": 2,
       "cpus": 18,
@@ -234,7 +253,7 @@
       "machines": 13,
       "cpus": 384,
       "net": 32,
-      "display": 8,
+      "display": 10,
       "in_wizard": true
     },
     {
@@ -244,6 +263,14 @@
       "net": 33,
       "display": 9,
       "in_wizard": true
+    },
+    {
+      "arch": "reimsvgpu",
+      "machines": 41,
+      "cpus": 257,
+      "net": 30,
+      "display": 14,
+      "in_wizard": false
     },
     {
       "arch": "riscv32",
@@ -349,7 +376,7 @@
     "Wizard_Recommended_CPU": true,
     "Wizard_loads_profile_cpu": true,
     "Sanitize_Video_preserves_picks": true,
-    "Sanitize_Disk_preserves_picks": true,
+    "Sanitize_Disk_preserves_picks": false,
     "Probe_First_Available_CPU": true,
     "Guest_Capabilities_curated": true
   },

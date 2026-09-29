@@ -6306,10 +6306,30 @@ void Main_Window::Computer_Type_Changed()
 			want_machine.isEmpty() ? cur_vm->Get_Machine_Type() : want_machine );
 	}
 
+	const Architecture_Hardware_Capabilities arch_caps =
+		QEMU_Probe_Catalog::Get_Hardware_Capabilities( arch_bin );
+
 	for( int vx = 0; vx < curComp.Video_Card_List.count(); ++vx )
 	{
 		const Device_Map &vc = curComp.Video_Card_List[vx];
 		ui.CB_Video_Card->addItem( vc.Caption, vc.QEMU_Name );
+	}
+
+	if( QStandardItemModel *vid_model = qobject_cast<QStandardItemModel*>( ui.CB_Video_Card->model() ) )
+	{
+		for( int i = 0; i < ui.CB_Video_Card->count(); ++i )
+		{
+			const QString vid_id = ui.CB_Video_Card->itemData( i ).toString();
+			const bool supported = arch_caps.Is_Video_Supported( vid_id );
+			if( QStandardItem *item = vid_model->item( i ) )
+			{
+				item->setEnabled( supported );
+				if( ! supported )
+					item->setFlags( item->flags() & ~( Qt::ItemIsEnabled | Qt::ItemIsSelectable ) );
+				else
+					item->setFlags( Qt::ItemIsEnabled | Qt::ItemIsSelectable );
+			}
+		}
 	}
 
 	const int video_sel = ui.CB_Video_Card->findData( want_video );
@@ -6318,36 +6338,93 @@ void Main_Window::Computer_Type_Changed()
 	else if( ui.CB_Video_Card->count() > 0 )
 		ui.CB_Video_Card->setCurrentIndex( 0 );
 
-	ui.CB_Video_Card->setEnabled(
-		! arch_bin.contains( QLatin1String( "reimsvgpu" ), Qt::CaseInsensitive ) &&
-		ui.CB_Video_Card->count() > 1 );
+	if( QStandardItemModel *vid_model = qobject_cast<QStandardItemModel*>( ui.CB_Video_Card->model() ) )
+	{
+		if( QStandardItem *cur = vid_model->item( ui.CB_Video_Card->currentIndex() ) )
+		{
+			if( ! cur->isEnabled() )
+			{
+				for( int i = 0; i < ui.CB_Video_Card->count(); ++i )
+				{
+					if( vid_model->item( i ) && vid_model->item( i )->isEnabled() )
+					{
+						ui.CB_Video_Card->setCurrentIndex( i );
+						break;
+					}
+				}
+			}
+		}
+	}
 
-	// Use Nativ Network Cards FIXME set emulator PSO to net card widget
-	if( ui.RB_Network_Mode_New->isChecked() )
-		New_Network_Settings_Widget->Set_Network_Card_Models( curComp.Network_Card_List );
+	if( arch_caps.valid && arch_caps.supported_video_cards.isEmpty() )
+	{
+		ui.CB_Video_Card->setEnabled( false );
+		ui.CB_Video_Card->setToolTip( tr( "Video/display cards are not supported on this architecture (%1)." ).arg( arch_bin ) );
+	}
 	else
+	{
+		ui.CB_Video_Card->setEnabled(
+			! arch_bin.contains( QLatin1String( "reimsvgpu" ), Qt::CaseInsensitive ) &&
+			ui.CB_Video_Card->count() > 1 );
+		ui.CB_Video_Card->setToolTip( QString() );
+	}
+
+	// Use Nativ Network Cards
+	const bool arch_has_net = arch_caps.valid ? ( ! arch_caps.supported_network_cards.isEmpty() ) : true;
+	if( ui.RB_Network_Mode_New->isChecked() )
+	{
+		New_Network_Settings_Widget->Set_Network_Card_Models( curComp.Network_Card_List );
+		New_Network_Settings_Widget->Set_Enabled( arch_has_net );
+	}
+	else
+	{
 		Old_Network_Settings_Widget->Set_Network_Card_Models( curComp.Network_Card_List );
+	}
 
 	// Audio — enable every device this arch supports (user can pick)
-	ui.CH_sb16->setEnabled( curComp.Audio_Card_List.Audio_sb16 );
-	ui.CH_es1370->setEnabled( curComp.Audio_Card_List.Audio_es1370 );
-	ui.CH_Adlib->setEnabled( curComp.Audio_Card_List.Audio_Adlib );
-	ui.CH_AC97->setEnabled( curComp.Audio_Card_List.Audio_AC97 );
-	ui.CH_GUS->setEnabled( curComp.Audio_Card_List.Audio_GUS );
-	ui.CH_PCSPK->setEnabled( curComp.Audio_Card_List.Audio_PC_Speaker );
-	ui.CH_HDA->setEnabled( curComp.Audio_Card_List.Audio_HDA );
-	ui.CH_cs4231a->setEnabled( curComp.Audio_Card_List.Audio_cs4231a );
-	ui.CH_VirtIO_Sound->setEnabled( curComp.Audio_Card_List.Audio_VirtIO );
-	ui.CH_USB_Audio->setEnabled( curComp.Audio_Card_List.Audio_USB );
+	const bool arch_has_sound = arch_caps.valid ? arch_caps.has_sound : true;
 
-	// Default to Intel HDA when nothing is selected yet
-	const bool any_sound =
-		ui.CH_sb16->isChecked() || ui.CH_es1370->isChecked() || ui.CH_Adlib->isChecked() ||
-		ui.CH_AC97->isChecked() || ui.CH_GUS->isChecked() || ui.CH_PCSPK->isChecked() ||
-		ui.CH_HDA->isChecked() || ui.CH_cs4231a->isChecked() ||
-		ui.CH_VirtIO_Sound->isChecked() || ui.CH_USB_Audio->isChecked();
-	if( ! any_sound && curComp.Audio_Card_List.Audio_HDA && ui.CH_HDA->isEnabled() )
-		ui.CH_HDA->setChecked( true );
+	if( ui.GB_Audio )
+		ui.GB_Audio->setEnabled( arch_has_sound );
+
+	if( ui.CB_Audiodev_Backend )
+		ui.CB_Audiodev_Backend->setEnabled( arch_has_sound );
+
+	ui.CH_sb16->setEnabled( arch_has_sound && curComp.Audio_Card_List.Audio_sb16 );
+	ui.CH_es1370->setEnabled( arch_has_sound && curComp.Audio_Card_List.Audio_es1370 );
+	ui.CH_Adlib->setEnabled( arch_has_sound && curComp.Audio_Card_List.Audio_Adlib );
+	ui.CH_AC97->setEnabled( arch_has_sound && curComp.Audio_Card_List.Audio_AC97 );
+	ui.CH_GUS->setEnabled( arch_has_sound && curComp.Audio_Card_List.Audio_GUS );
+	ui.CH_PCSPK->setEnabled( arch_has_sound && curComp.Audio_Card_List.Audio_PC_Speaker );
+	ui.CH_HDA->setEnabled( arch_has_sound && curComp.Audio_Card_List.Audio_HDA );
+	ui.CH_cs4231a->setEnabled( arch_has_sound && curComp.Audio_Card_List.Audio_cs4231a );
+	ui.CH_VirtIO_Sound->setEnabled( arch_has_sound && curComp.Audio_Card_List.Audio_VirtIO );
+	ui.CH_USB_Audio->setEnabled( arch_has_sound && curComp.Audio_Card_List.Audio_USB );
+
+	if( ! arch_has_sound )
+	{
+		ui.CH_sb16->setChecked( false );
+		ui.CH_es1370->setChecked( false );
+		ui.CH_Adlib->setChecked( false );
+		ui.CH_AC97->setChecked( false );
+		ui.CH_GUS->setChecked( false );
+		ui.CH_PCSPK->setChecked( false );
+		ui.CH_HDA->setChecked( false );
+		ui.CH_cs4231a->setChecked( false );
+		ui.CH_VirtIO_Sound->setChecked( false );
+		ui.CH_USB_Audio->setChecked( false );
+	}
+	else
+	{
+		// Default to Intel HDA when nothing is selected yet
+		const bool any_sound =
+			ui.CH_sb16->isChecked() || ui.CH_es1370->isChecked() || ui.CH_Adlib->isChecked() ||
+			ui.CH_AC97->isChecked() || ui.CH_GUS->isChecked() || ui.CH_PCSPK->isChecked() ||
+			ui.CH_HDA->isChecked() || ui.CH_cs4231a->isChecked() ||
+			ui.CH_VirtIO_Sound->isChecked() || ui.CH_USB_Audio->isChecked();
+		if( ! any_sound && curComp.Audio_Card_List.Audio_HDA && ui.CH_HDA->isEnabled() )
+			ui.CH_HDA->setChecked( true );
+	}
 
     ui_arch.CB_CPU_Type->blockSignals(false);
     ui_arch.CB_Machine_Type->blockSignals(false);
@@ -6976,6 +7053,9 @@ void Main_Window::Enforce_Accel_Honesty()
 	const bool is_wsl = ui.CH_Intel_Mac_WSL_Main->isChecked() || ui_ao.CH_Launch_Via_WSL->isChecked();
 	const bool is_native = AQ_Guest_Matches_Host_Architecture( guest ) || is_wsl;
 
+	const Architecture_Hardware_Capabilities guest_caps =
+		QEMU_Probe_Catalog::Get_Hardware_Capabilities( guest_bin );
+
 	int tcg_index = -1;
 	int kvm_index = -1;
 	for( int i = 0; i < ui.CB_Machine_Accelerator->count(); ++i )
@@ -6989,12 +7069,20 @@ void Main_Window::Enforce_Accel_Honesty()
 		const bool native_only =
 			( id == QLatin1String( "kvm" ) || id == QLatin1String( "xen" ) );
 
+		bool allowed = true;
+		if( ! is_native && native_only )
+			allowed = false;
+		if( id == QLatin1String( "kvm" ) && guest_caps.valid && ! guest_caps.has_kvm )
+			allowed = false;
+		if( id == QLatin1String( "tcg" ) && guest_caps.valid && ! guest_caps.has_tcg )
+			allowed = false;
+
 		if( model )
 		{
 			QStandardItem *item = model->item( i );
 			if( ! item )
 				continue;
-			if( ! is_native && native_only )
+			if( ! allowed )
 				item->setFlags( item->flags() & ~( Qt::ItemIsEnabled | Qt::ItemIsSelectable ) );
 			else
 				item->setFlags( Qt::ItemIsEnabled | Qt::ItemIsSelectable );
@@ -7083,24 +7171,59 @@ void Main_Window::Enforce_Disk_Bus_Honesty()
 	auto *model = qobject_cast<QStandardItemModel *>( ui.CB_Disk_Interface->model() );
 	ui.CB_Disk_Interface->blockSignals( true );
 
-	// Main Window power-user path: expose every drive interface. QEMU may still
-	// reject a bad combo at launch — that is intentional (unlike the wizard).
+	const Architecture_Hardware_Capabilities arch_caps =
+		QEMU_Probe_Catalog::Get_Hardware_Capabilities( computer );
+
 	for( int i = 0; i < ui.CB_Disk_Interface->count(); ++i )
 	{
 		if( model )
 		{
 			QStandardItem *item = model->item( i );
 			if( item )
-				item->setFlags( Qt::ItemIsEnabled | Qt::ItemIsSelectable );
+			{
+				const VM::Device_Interface iface = Combo_Index_To_Disk_Interface( i );
+				bool supported = true;
+				if( arch_caps.valid )
+				{
+					if( iface == VM::DI_IDE ) supported = arch_caps.has_ide;
+					else if( iface == VM::DI_AHCI ) supported = arch_caps.has_ahci;
+					else if( iface == VM::DI_NVMe ) supported = arch_caps.has_nvme;
+					else if( iface == VM::DI_Virtio ) supported = arch_caps.has_virtio_disk;
+					else if( iface == VM::DI_Virtio_SCSI ) supported = arch_caps.has_virtio_disk || arch_caps.has_scsi;
+					else if( iface == VM::DI_SCSI ) supported = arch_caps.has_scsi;
+					else if( iface == VM::DI_SD ) supported = arch_caps.has_pci || computer.contains( "arm", Qt::CaseInsensitive );
+				}
+				item->setEnabled( supported );
+				if( ! supported )
+					item->setFlags( item->flags() & ~( Qt::ItemIsEnabled | Qt::ItemIsSelectable ) );
+				else
+					item->setFlags( Qt::ItemIsEnabled | Qt::ItemIsSelectable );
+			}
+		}
+	}
+
+	// If currently selected index is disabled, pick first enabled
+	if( model && model->item( ui.CB_Disk_Interface->currentIndex() ) )
+	{
+		if( ! model->item( ui.CB_Disk_Interface->currentIndex() )->isEnabled() )
+		{
+			for( int i = 0; i < ui.CB_Disk_Interface->count(); ++i )
+			{
+				if( model->item( i ) && model->item( i )->isEnabled() )
+				{
+					ui.CB_Disk_Interface->setCurrentIndex( i );
+					break;
+				}
+			}
 		}
 	}
 
 	if( ! computer.isEmpty() )
 	{
 		ui.CB_Disk_Interface->setToolTip( tr(
-			"Drive interface for the primary hard disk. All QEMU interfaces are "
-			"selectable here; pick one that matches the guest machine.\n"
-			"Computer: %1  Machine: %2" )
+			"Drive interface for the primary hard disk. Interfaces unsupported by "
+			"this architecture (%1) are greyed out.\n"
+			"Machine: %2" )
 			.arg( computer, machine.isEmpty() ? tr( "(default)" ) : machine ) );
 	}
 

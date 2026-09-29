@@ -6,7 +6,7 @@ import json
 import re
 from pathlib import Path
 
-ROOT = Path(r"C:\Users\chron\CURSOR-PROJECTS\aqemu")
+ROOT = Path(__file__).resolve().parents[1]
 PROBE = ROOT / "qemu_probe_full_v3"
 WT = json.loads((ROOT / "resources" / "wizard_trees.json").read_text(encoding="utf-8"))
 SRC = {
@@ -50,9 +50,11 @@ def section_devices(lines, section):
     return items
 
 
-def machine_ok(mach: str, mset: set[str]) -> bool:
+def machine_ok(mach: str | list[str], mset: set[str]) -> bool:
     if not mach:
         return True
+    if isinstance(mach, list):
+        return any(machine_ok(m, mset) for m in mach)
     if mach in mset:
         return True
     if mach == "q35" and any("q35" in m for m in mset):

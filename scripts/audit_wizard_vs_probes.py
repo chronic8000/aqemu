@@ -7,10 +7,11 @@ import re
 from collections import defaultdict
 from pathlib import Path
 
-ROOT = Path(r"C:\Users\chron\CURSOR-PROJECTS\aqemu")
+ROOT = Path(__file__).resolve().parents[1]
 PROBE = ROOT / "qemu_probe_full_v3"
 WIZARD = ROOT / "resources" / "wizard_trees.json"
 OUT = ROOT / "docs" / "wizard_probe_audit.json"
+TXT_OUT = ROOT / "docs" / "wizard_probe_audit_arch.txt"
 GUEST_CAP = ROOT / "src" / "Guest_Capabilities.cpp"
 WIZARD_CPP = ROOT / "src" / "VM_Wizard_Window.cpp"
 SYSINFO = ROOT / "src" / "System_Info.cpp"
@@ -90,9 +91,14 @@ def load_probes() -> dict[str, dict]:
     return probes
 
 
-def machine_exists(probes: dict, target: str, machine: str) -> bool | None:
+def machine_exists(probes: dict, target: str, machine: str | list[str]) -> bool | None:
     if not machine:
         return None
+    if isinstance(machine, list):
+        for m in machine:
+            if machine_exists(probes, target, m):
+                return True
+        return False
     if target not in probes:
         return False
     mset = probes[target]["machines"]
@@ -221,13 +227,24 @@ def main() -> None:
         )
     )
 
+    def collect_machines(rows):
+        res = set()
+        for r in rows:
+            m = r.get("machine")
+            if not m or m == "(default)":
+                continue
+            if isinstance(m, list):
+                res.update(x for x in m if x and x != "(default)")
+            elif isinstance(m, str):
+                res.add(m)
+        return res
+
     # Coverage stats per arch
     arch_coverage = []
     for arch in probe_arches:
         bindings_for = [p for p in platform_ok + platform_bad if p["target"] == arch]
         os_for = [o for o in os_ok + os_bad_machine if o["target"] == arch]
-        machines_used = {p["machine"] for p in bindings_for}
-        machines_used |= {o["machine"] for o in os_for if o["machine"] != "(default)"}
+        machines_used = collect_machines(bindings_for) | collect_machines(os_for)
         probe_m = probes[arch]["machines"]
         # Count how many probe machines appear in wizard (exact or prefix)
         covered = 0
@@ -543,6 +560,15 @@ def main() -> None:
     # Make JSON serializable (sets already converted)
     OUT.write_text(json.dumps(report, indent=2), encoding="utf-8")
     print(f"Wrote {OUT}")
+
+    lines = []
+    for row in report.get("arch_coverage", []):
+        lines.append(
+            f"{row['arch']:<12} mach={row['probe_machines']:3d} cpu={row['probe_cpus']:4d} dev={row['probe_devices']:3d} plats={row['wizard_platforms']:2d} os={row['wizard_os_profiles']:2d} refs={row['referenced_count']:d}"
+        )
+    TXT_OUT.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    print(f"Wrote {TXT_OUT}")
+
     print("verdict", report["verdict"])
     print("platform bad", len(platform_bad))
     print("os bad", len(os_bad_machine))

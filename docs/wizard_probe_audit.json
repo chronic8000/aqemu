@@ -1,28 +1,31 @@
 {
   "meta": {
-    "probe_dir": "C:\\Users\\chron\\CURSOR-PROJECTS\\aqemu\\qemu_probe_full_v3",
-    "wizard_trees": "C:\\Users\\chron\\CURSOR-PROJECTS\\aqemu\\resources\\wizard_trees.json",
-    "probe_architectures": 28,
-    "wizard_architecture_targets": 28,
-    "os_names_in_tree": 193,
-    "os_profiles": 193,
-    "platform_bindings": 105,
+    "probe_dir": "/home/chronic/aqemu/aqemu/qemu_probe_full_v3",
+    "wizard_trees": "/home/chronic/aqemu/aqemu/resources/wizard_trees.json",
+    "probe_architectures": 31,
+    "wizard_architecture_targets": 30,
+    "os_names_in_tree": 174,
+    "os_profiles": 214,
+    "platform_bindings": 111,
     "unbound_platform_labels": 2
   },
   "verdict": {
-    "supports_all_qemu_binaries": true,
-    "os_machine_compatibility_pct": 97.9,
-    "platform_binding_ok_pct": 93.3,
+    "supports_all_qemu_binaries": false,
+    "os_machine_compatibility_pct": 99.4,
+    "platform_binding_ok_pct": 97.3,
     "exposes_full_device_help": false,
     "custom_allows_full_manual": false,
     "headline": "Wizard covers all probed qemu-system-* arches and most OS\u2192machine bindings, but does NOT expose the full probe device inventory. Custom is curated-manual, not raw QEMU. Several honesty bugs (disk/video/accel) were found historically; classic Mac path is specially forced."
   },
   "architecture_gaps": {
-    "in_probes_not_wizard": [],
+    "in_probes_not_wizard": [
+      "microblazeel"
+    ],
     "in_wizard_not_probes": [],
     "wizard_targets": [
       "aarch64",
       "alpha",
+      "applesoc",
       "arm",
       "avr",
       "hppa",
@@ -37,6 +40,7 @@
       "or1k",
       "ppc",
       "ppc64",
+      "reimsvgpu",
       "riscv32",
       "riscv64",
       "rx",
@@ -53,6 +57,7 @@
     "probe_targets": [
       "aarch64",
       "alpha",
+      "applesoc",
       "arm",
       "avr",
       "hppa",
@@ -60,6 +65,7 @@
       "loongarch64",
       "m68k",
       "microblaze",
+      "microblazeel",
       "mips",
       "mips64",
       "mips64el",
@@ -67,6 +73,7 @@
       "or1k",
       "ppc",
       "ppc64",
+      "reimsvgpu",
       "riscv32",
       "riscv64",
       "rx",
@@ -82,7 +89,7 @@
     ]
   },
   "platform_bindings": {
-    "ok": 98,
+    "ok": 108,
     "bad": [
       {
         "platform": "Acer Pica 61",
@@ -93,26 +100,6 @@
         "platform": "Fuloong 2E",
         "target": "mipsel",
         "machine": "fuloong2e"
-      },
-      {
-        "platform": "HP 715/64",
-        "target": "hppa",
-        "machine": "b160l"
-      },
-      {
-        "platform": "HP A400-44",
-        "target": "hppa",
-        "machine": "b160l"
-      },
-      {
-        "platform": "HP B160L",
-        "target": "hppa",
-        "machine": "b160l"
-      },
-      {
-        "platform": "HP C3700",
-        "target": "hppa",
-        "machine": "c3700"
       },
       {
         "platform": "SGI Magnum",
@@ -134,87 +121,117 @@
     "unbound_total": 2
   },
   "os_profiles": {
-    "ok": 189,
-    "bad_machine": [
-      {
-        "os": "HP-UX",
-        "family": "HP",
-        "target": "hppa",
-        "machine": "b160l",
-        "flags": [
-          "hppa_scsi"
-        ]
-      },
-      {
-        "os": "IRIX 5.x",
-        "family": "SGI",
-        "target": "mips",
-        "machine": "magnum",
-        "flags": []
-      },
-      {
-        "os": "IRIX 6.x",
-        "family": "SGI",
-        "target": "mips",
-        "machine": "magnum",
-        "flags": []
-      }
-    ],
+    "ok": 167,
+    "bad_machine": [],
     "missing_target_probe": [
       {
         "os": "Other",
         "family": "Other",
         "target": "host",
-        "machine": "host",
+        "machine": "q35",
         "flags": [
           "host_default"
         ]
       }
     ],
-    "missing_profile": [],
+    "missing_profile": [
+      {
+        "family": "Apple",
+        "os": "iOS (ARM64)"
+      },
+      {
+        "family": "Apple",
+        "os": "macOS Apple Silicon (ARM64)"
+      },
+      {
+        "family": "Apple",
+        "os": "macOS x86_64 vGPU (Reims)"
+      },
+      {
+        "family": "Linux",
+        "os": "ARM64 / AArch64 (Modern ARM)"
+      },
+      {
+        "family": "Linux",
+        "os": "x86_64 (64-bit PC)"
+      },
+      {
+        "family": "Linux",
+        "os": "x86 32-bit (Legacy PC)"
+      }
+    ],
     "sample_ok": [
       {
         "os": "Darwin",
         "family": "Apple",
         "target": "x86_64",
-        "machine": "q35",
+        "machine": [
+          "q35",
+          "pc-q35"
+        ],
         "flags": [
           "intel_macos"
         ]
       },
       {
+        "os": "iPhone IPSW Restore Companion",
+        "family": "Apple",
+        "target": "x86_64",
+        "machine": [
+          "q35",
+          "pc-q35",
+          "pc-i440fx",
+          "pc"
+        ],
+        "flags": []
+      },
+      {
         "os": "Mac OS 6",
         "family": "Apple",
         "target": "m68k",
-        "machine": "q800",
+        "machine": [
+          "q800"
+        ],
         "flags": []
       },
       {
         "os": "Mac OS 7",
         "family": "Apple",
         "target": "ppc",
-        "machine": "mac99",
+        "machine": [
+          "mac99",
+          "g3beige"
+        ],
         "flags": []
       },
       {
         "os": "Mac OS 8",
         "family": "Apple",
         "target": "ppc",
-        "machine": "mac99",
+        "machine": [
+          "mac99",
+          "g3beige"
+        ],
         "flags": []
       },
       {
         "os": "Mac OS 9",
         "family": "Apple",
         "target": "ppc",
-        "machine": "mac99",
+        "machine": [
+          "mac99",
+          "g3beige"
+        ],
         "flags": []
       },
       {
         "os": "Mac OS X Intel",
         "family": "Apple",
         "target": "x86_64",
-        "machine": "q35",
+        "machine": [
+          "q35",
+          "pc-q35"
+        ],
         "flags": [
           "intel_macos"
         ]
@@ -223,14 +240,20 @@
         "os": "Mac OS X PPC",
         "family": "Apple",
         "target": "ppc",
-        "machine": "mac99",
+        "machine": [
+          "mac99",
+          "g3beige"
+        ],
         "flags": []
       },
       {
         "os": "macOS",
         "family": "Apple",
         "target": "x86_64",
-        "machine": "q35",
+        "machine": [
+          "q35",
+          "pc-q35"
+        ],
         "flags": [
           "intel_macos"
         ]
@@ -253,35 +276,44 @@
         "os": "DragonFly BSD",
         "family": "BSD",
         "target": "x86_64",
-        "machine": "q35",
+        "machine": [
+          "q35",
+          "pc-q35",
+          "pc-i440fx"
+        ],
         "flags": []
       },
       {
         "os": "FreeBSD (32-bit)",
         "family": "BSD",
         "target": "i386",
-        "machine": "pc",
+        "machine": [
+          "q35",
+          "pc-q35",
+          "pc-i440fx"
+        ],
         "flags": []
       },
       {
         "os": "FreeBSD (64-bit)",
         "family": "BSD",
         "target": "x86_64",
-        "machine": "q35",
+        "machine": [
+          "q35",
+          "pc-q35",
+          "pc-i440fx"
+        ],
         "flags": []
       },
       {
         "os": "GhostBSD",
         "family": "BSD",
         "target": "x86_64",
-        "machine": "q35",
-        "flags": []
-      },
-      {
-        "os": "NetBSD (32-bit)",
-        "family": "BSD",
-        "target": "i386",
-        "machine": "pc",
+        "machine": [
+          "q35",
+          "pc-q35",
+          "pc-i440fx"
+        ],
         "flags": []
       }
     ]
@@ -303,34 +335,6 @@
     },
     {
       "os": null,
-      "target": "hppa",
-      "machine": "b160l",
-      "issue": "Platform 'HP 715/64' machine not in probe for target",
-      "flags": []
-    },
-    {
-      "os": null,
-      "target": "hppa",
-      "machine": "b160l",
-      "issue": "Platform 'HP A400-44' machine not in probe for target",
-      "flags": []
-    },
-    {
-      "os": null,
-      "target": "hppa",
-      "machine": "b160l",
-      "issue": "Platform 'HP B160L' machine not in probe for target",
-      "flags": []
-    },
-    {
-      "os": null,
-      "target": "hppa",
-      "machine": "c3700",
-      "issue": "Platform 'HP C3700' machine not in probe for target",
-      "flags": []
-    },
-    {
-      "os": null,
       "target": "mips",
       "machine": "magnum",
       "issue": "Platform 'SGI Magnum' machine not in probe for target",
@@ -344,7 +348,7 @@
       "probe_cpus": 36,
       "probe_devices": 353,
       "wizard_platforms": 10,
-      "wizard_os_profiles": 7,
+      "wizard_os_profiles": 8,
       "machines_referenced": [
         "none",
         "raspi3ap",
@@ -372,6 +376,23 @@
       ],
       "referenced_count": 1,
       "fallback": "clipper",
+      "accels": [
+        "tcg"
+      ]
+    },
+    {
+      "arch": "applesoc",
+      "probe_machines": 112,
+      "probe_cpus": 38,
+      "probe_devices": 352,
+      "wizard_platforms": 4,
+      "wizard_os_profiles": 0,
+      "machines_referenced": [
+        "s8000",
+        "t8030"
+      ],
+      "referenced_count": 2,
+      "fallback": "t8030",
       "accels": [
         "tcg"
       ]
@@ -455,8 +476,8 @@
       "wizard_platforms": 4,
       "wizard_os_profiles": 1,
       "machines_referenced": [
-        "b160l",
-        "c3700"
+        "B160L",
+        "C3700"
       ],
       "referenced_count": 2,
       "fallback": "B160L",
@@ -470,12 +491,15 @@
       "probe_cpus": 240,
       "probe_devices": 387,
       "wizard_platforms": 2,
-      "wizard_os_profiles": 47,
+      "wizard_os_profiles": 38,
       "machines_referenced": [
         "isapc",
-        "pc"
+        "pc",
+        "pc-i440fx",
+        "pc-q35",
+        "q35"
       ],
-      "referenced_count": 2,
+      "referenced_count": 5,
       "fallback": "pc",
       "accels": [
         "tcg"
@@ -529,12 +553,26 @@
       ]
     },
     {
+      "arch": "microblazeel",
+      "probe_machines": 4,
+      "probe_cpus": 1,
+      "probe_devices": 141,
+      "wizard_platforms": 0,
+      "wizard_os_profiles": 0,
+      "machines_referenced": [],
+      "referenced_count": 0,
+      "fallback": "none",
+      "accels": [
+        "tcg"
+      ]
+    },
+    {
       "arch": "mips",
       "probe_machines": 2,
       "probe_cpus": 18,
       "probe_devices": 166,
       "wizard_platforms": 2,
-      "wizard_os_profiles": 2,
+      "wizard_os_profiles": 0,
       "machines_referenced": [
         "magnum",
         "pica61"
@@ -551,7 +589,7 @@
       "probe_cpus": 34,
       "probe_devices": 166,
       "wizard_platforms": 2,
-      "wizard_os_profiles": 2,
+      "wizard_os_profiles": 4,
       "machines_referenced": [
         "magnum",
         "pica61"
@@ -614,7 +652,7 @@
       "arch": "ppc",
       "probe_machines": 13,
       "probe_cpus": 384,
-      "probe_devices": 191,
+      "probe_devices": 194,
       "wizard_platforms": 13,
       "wizard_os_profiles": 17,
       "machines_referenced": [
@@ -657,6 +695,23 @@
       ]
     },
     {
+      "arch": "reimsvgpu",
+      "probe_machines": 41,
+      "probe_cpus": 256,
+      "probe_devices": 406,
+      "wizard_platforms": 1,
+      "wizard_os_profiles": 0,
+      "machines_referenced": [
+        "q35"
+      ],
+      "referenced_count": 1,
+      "fallback": "none",
+      "accels": [
+        "tcg",
+        "whpx"
+      ]
+    },
+    {
       "arch": "riscv32",
       "probe_machines": 7,
       "probe_cpus": 8,
@@ -665,9 +720,10 @@
       "wizard_os_profiles": 2,
       "machines_referenced": [
         "opentitan",
-        "sifive_e"
+        "sifive_e",
+        "virt"
       ],
-      "referenced_count": 2,
+      "referenced_count": 3,
       "fallback": "virt",
       "accels": [
         "tcg"
@@ -774,9 +830,10 @@
       "wizard_os_profiles": 1,
       "machines_referenced": [
         "niagara",
-        "sun4u"
+        "sun4u",
+        "sun4v"
       ],
-      "referenced_count": 2,
+      "referenced_count": 3,
       "fallback": "sun4u",
       "accels": [
         "tcg"
@@ -801,14 +858,16 @@
       "probe_machines": 41,
       "probe_cpus": 241,
       "probe_devices": 388,
-      "wizard_platforms": 4,
-      "wizard_os_profiles": 58,
+      "wizard_platforms": 5,
+      "wizard_os_profiles": 41,
       "machines_referenced": [
         "microvm",
         "pc",
+        "pc-i440fx",
+        "pc-q35",
         "q35"
       ],
-      "referenced_count": 3,
+      "referenced_count": 5,
       "fallback": "q35",
       "accels": [
         "tcg",
@@ -894,11 +953,11 @@
       "Storage devices": 37,
       "Network devices": 32,
       "Input devices": 33,
-      "Display devices": 8,
+      "Display devices": 10,
       "Sound devices": 14,
       "Misc devices": 34,
       "Watchdog devices": 2,
-      "Uncategorized devices": 4
+      "Uncategorized devices": 5
     },
     "m68k_device_categories": {
       "Storage devices": 5,
@@ -923,13 +982,18 @@
   "findings": [
     {
       "severity": "high",
-      "title": "7 platform bindings reference machines not in probe",
-      "detail": "Acer Pica 61 \u2192 mips/pica61; Fuloong 2E \u2192 mipsel/fuloong2e; HP 715/64 \u2192 hppa/b160l; HP A400-44 \u2192 hppa/b160l; HP B160L \u2192 hppa/b160l; HP C3700 \u2192 hppa/c3700; SGI Magnum \u2192 mips/magnum"
+      "title": "Probe arches missing from wizard architecture_targets",
+      "detail": "microblazeel"
     },
     {
       "severity": "high",
-      "title": "3 OS profiles have invalid machines",
-      "detail": "HP-UX \u2192 hppa/b160l; IRIX 5.x \u2192 mips/magnum; IRIX 6.x \u2192 mips/magnum"
+      "title": "3 platform bindings reference machines not in probe",
+      "detail": "Acer Pica 61 \u2192 mips/pica61; Fuloong 2E \u2192 mipsel/fuloong2e; SGI Magnum \u2192 mips/magnum"
+    },
+    {
+      "severity": "medium",
+      "title": "6 OS tree entries lack os_profiles",
+      "detail": "iOS (ARM64), macOS Apple Silicon (ARM64), macOS x86_64 vGPU (Reims), ARM64 / AArch64 (Modern ARM), x86_64 (64-bit PC), x86 32-bit (Legacy PC)"
     },
     {
       "severity": "medium",
@@ -957,14 +1021,20 @@
       "os": "Mac OS X PPC",
       "status": "OK",
       "target": "ppc",
-      "machine": "mac99",
+      "machine": [
+        "mac99",
+        "g3beige"
+      ],
       "flags": []
     },
     {
       "os": "macOS",
       "status": "OK",
       "target": "x86_64",
-      "machine": "q35",
+      "machine": [
+        "q35",
+        "pc-q35"
+      ],
       "flags": [
         "intel_macos"
       ]
@@ -973,7 +1043,10 @@
       "os": "Mac OS X Intel",
       "status": "OK",
       "target": "x86_64",
-      "machine": "q35",
+      "machine": [
+        "q35",
+        "pc-q35"
+      ],
       "flags": [
         "intel_macos"
       ]
@@ -996,7 +1069,10 @@
       "os": "Windows 98",
       "status": "OK",
       "target": "i386",
-      "machine": "pc",
+      "machine": [
+        "pc-i440fx",
+        "pc"
+      ],
       "flags": [
         "win95_98"
       ]
@@ -1005,14 +1081,20 @@
       "os": "Windows XP (32-bit)",
       "status": "OK",
       "target": "i386",
-      "machine": "pc",
+      "machine": [
+        "pc-i440fx",
+        "pc"
+      ],
       "flags": []
     },
     {
       "os": "Windows 11",
       "status": "OK",
       "target": "x86_64",
-      "machine": "q35",
+      "machine": [
+        "q35",
+        "pc-q35"
+      ],
       "flags": [
         "win11_host_arm"
       ]
@@ -1021,7 +1103,11 @@
       "os": "Ubuntu (64-bit)",
       "status": "OK",
       "target": "x86_64",
-      "machine": "q35",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "flags": []
     },
     {
@@ -1034,21 +1120,32 @@
       "os": "OS/2",
       "status": "OK",
       "target": "i386",
-      "machine": "pc",
+      "machine": [
+        "pc-i440fx",
+        "pc"
+      ],
       "flags": []
     },
     {
       "os": "Haiku (64-bit)",
       "status": "OK",
       "target": "x86_64",
-      "machine": "q35",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "flags": []
     },
     {
       "os": "FreeBSD (64-bit)",
       "status": "OK",
       "target": "x86_64",
-      "machine": "q35",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "flags": []
     },
     {
@@ -1061,21 +1158,27 @@
       "os": "OpenBSD (64-bit)",
       "status": "OK",
       "target": "x86_64",
-      "machine": "q35",
+      "machine": [
+        "q35",
+        "pc-q35",
+        "pc-i440fx"
+      ],
       "flags": []
     },
     {
       "os": "Linux on IBM Z",
       "status": "OK",
       "target": "s390x",
-      "machine": "s390-ccw-virtio",
+      "machine": [
+        "s390-ccw-virtio"
+      ],
       "flags": []
     },
     {
       "os": "HP-UX",
-      "status": "BAD",
+      "status": "OK",
       "target": "hppa",
-      "machine": "b160l",
+      "machine": "B160L",
       "flags": [
         "hppa_scsi"
       ]
@@ -1084,7 +1187,9 @@
       "os": "Android",
       "status": "OK",
       "target": "aarch64",
-      "machine": "virt",
+      "machine": [
+        "virt"
+      ],
       "flags": []
     },
     {

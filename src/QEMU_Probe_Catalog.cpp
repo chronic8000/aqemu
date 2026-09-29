@@ -163,12 +163,107 @@ QString QEMU_Probe_Catalog::Architecture_Key( const QString &computer_type_or_bi
 	else if( s.startsWith( "qemu-" ) )
 		s = s.mid( QString( "qemu-" ).size() );
 
+	if( s == "applesoc32" || s == "inferno" || s == "aarch64-inferno" || s == "arm-inferno" )
+		s = "applesoc";
+	else if( s == "reims" || s == "reims3d" || s == "x86_64-reims" )
+		s = "reimsvgpu";
+
 	// Strip trailing noise from captions like "aarch64 (softmmu)"
 	const int sp = s.indexOf( ' ' );
 	if( sp > 0 )
 		s = s.left( sp );
 	s.remove( '(' ).remove( ')' );
 	return s;
+}
+
+Architecture_Hardware_Capabilities QEMU_Probe_Catalog::Get_Hardware_Capabilities( const QString &computer_type_or_binary )
+{
+	static QMap<QString, Architecture_Hardware_Capabilities> s_cache;
+	const QString key = Architecture_Key( computer_type_or_binary );
+	if( key.isEmpty() )
+		return Architecture_Hardware_Capabilities();
+
+	if( s_cache.contains( key ) )
+		return s_cache.value( key );
+
+	const QString dir = Probe_Directory();
+	if( dir.isEmpty() )
+		return Architecture_Hardware_Capabilities();
+
+	const QString path = QDir( dir ).filePath( key + ".json" );
+	QFile f( path );
+	if( ! f.open( QIODevice::ReadOnly ) )
+		return Architecture_Hardware_Capabilities();
+
+	const QJsonDocument doc = QJsonDocument::fromJson( f.readAll() );
+	if( ! doc.isObject() )
+		return Architecture_Hardware_Capabilities();
+
+	const QJsonObject root = doc.object();
+	Architecture_Hardware_Capabilities caps;
+	caps.valid = true;
+
+	const QStringList devs = Json_String_List( root, "devices" );
+	const QString all_devs = devs.join( QLatin1Char( ' ' ) );
+
+	caps.has_ide = all_devs.contains( "ide-hd" ) || all_devs.contains( "ide-drive" ) ||
+	               all_devs.contains( "piix3-ide" ) || all_devs.contains( "piix4-ide" ) ||
+	               all_devs.contains( "cmd646-ide" );
+	caps.has_ahci = all_devs.contains( "ahci" ) || all_devs.contains( "ich9-ahci" );
+	caps.has_nvme = all_devs.contains( "nvme" );
+	caps.has_virtio_disk = all_devs.contains( "virtio-blk-pci" ) ||
+	                       all_devs.contains( "virtio-blk-device" ) ||
+	                       all_devs.contains( "virtio-blk-ccw" );
+	caps.has_virtio_net = all_devs.contains( "virtio-net-pci" ) ||
+	                      all_devs.contains( "virtio-net-device" ) ||
+	                      all_devs.contains( "virtio-net-ccw" );
+	caps.has_virtio_gpu = all_devs.contains( "virtio-gpu-pci" ) ||
+	                      all_devs.contains( "virtio-gpu-device" ) ||
+	                      all_devs.contains( "virtio-vga" );
+	caps.has_virtio_sound = all_devs.contains( "virtio-sound-pci" ) ||
+	                        all_devs.contains( "virtio-sound-device" ) ||
+	                        all_devs.contains( "virtio-snd" );
+	caps.has_scsi = all_devs.contains( "scsi-hd" ) || all_devs.contains( "lsi53c895a" ) ||
+	                all_devs.contains( "virtio-scsi-pci" ) || all_devs.contains( "virtio-scsi-device" ) ||
+	                all_devs.contains( "esp" );
+	caps.has_pci = all_devs.contains( "bus PCI" ) || all_devs.contains( "pci-host" ) ||
+	               all_devs.contains( "pci-bridge" );
+
+	QList<Device_Map> net_list, vid_list;
+	VM::Sound_Cards audio_cards;
+	Parse_Device_Help_Lines( devs, net_list, vid_list, &audio_cards );
+
+	for( const auto &dm : net_list )
+		caps.supported_network_cards.append( dm.QEMU_Name );
+	for( const auto &dm : vid_list )
+		caps.supported_video_cards.append( dm.QEMU_Name );
+
+	caps.has_sound = audio_cards.isEnabled() || all_devs.contains( "intel-hda", Qt::CaseInsensitive ) ||
+	                 all_devs.contains( "ac97", Qt::CaseInsensitive ) || all_devs.contains( "sb16", Qt::CaseInsensitive ) ||
+	                 all_devs.contains( "es1370", Qt::CaseInsensitive ) || all_devs.contains( "cs4231a", Qt::CaseInsensitive ) ||
+	                 all_devs.contains( "usb-audio", Qt::CaseInsensitive ) || all_devs.contains( "virtio-sound", Qt::CaseInsensitive );
+
+	if( caps.has_pci && caps.has_sound )
+	{
+		if( all_devs.contains( "virtio-sound" ) )
+			audio_cards.Audio_VirtIO = true;
+		if( all_devs.contains( "usb-audio" ) )
+			audio_cards.Audio_USB = true;
+		if( all_devs.contains( "intel-hda" ) || all_devs.contains( "hda-duplex" ) )
+			audio_cards.Audio_HDA = true;
+	}
+	else if( ! caps.has_sound )
+	{
+		audio_cards = VM::Sound_Cards();
+	}
+	caps.supported_sound_cards = audio_cards;
+
+	const QStringList accels = Json_String_List( root, "accelerators" );
+	caps.has_tcg = accels.contains( "tcg", Qt::CaseInsensitive );
+	caps.has_kvm = accels.contains( "kvm", Qt::CaseInsensitive ) || accels.contains( "whpx", Qt::CaseInsensitive );
+
+	s_cache.insert( key, caps );
+	return caps;
 }
 
 void QEMU_Probe_Catalog::Parse_Machine_Help_Lines( const QStringList &lines,
@@ -351,11 +446,24 @@ bool QEMU_Probe_Catalog::Load_Architecture( const QString &computer_type_or_bina
 	                         ad.Network_Card_List, ad.Video_Card_List, &audio );
 	ad.Audio_Card_List = audio;
 
-	// Modern PCI guests can take these even when -soundhw is gone
-	ad.Audio_Card_List.Audio_VirtIO = true;
-	ad.Audio_Card_List.Audio_USB = true;
-	if( ! ad.Audio_Card_List.Audio_HDA )
-		ad.Audio_Card_List.Audio_HDA = true;
+	const QString all_devs_str = Json_String_List( root, "devices" ).join( QLatin1Char( ' ' ) );
+	const bool arch_has_pci = all_devs_str.contains( "bus PCI" ) || all_devs_str.contains( "pci-host" );
+	const bool arch_has_sound = ad.Audio_Card_List.isEnabled() || all_devs_str.contains( "intel-hda", Qt::CaseInsensitive ) ||
+	                            all_devs_str.contains( "ac97", Qt::CaseInsensitive ) || all_devs_str.contains( "sb16", Qt::CaseInsensitive );
+
+	if( arch_has_pci && arch_has_sound )
+	{
+		if( all_devs_str.contains( "virtio-sound" ) )
+			ad.Audio_Card_List.Audio_VirtIO = true;
+		if( all_devs_str.contains( "usb-audio" ) )
+			ad.Audio_Card_List.Audio_USB = true;
+		if( all_devs_str.contains( "intel-hda" ) || all_devs_str.contains( "hda-duplex" ) )
+			ad.Audio_Card_List.Audio_HDA = true;
+	}
+	else if( ! arch_has_sound )
+	{
+		ad.Audio_Card_List = VM::Sound_Cards();
+	}
 
 	if( ad.Machine_List.isEmpty() && ad.CPU_List.isEmpty() )
 		return false;

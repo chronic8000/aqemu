@@ -367,13 +367,22 @@ Guest_Capabilities AQ_Compute_Guest_Capabilities(
 		c.allow_virtio_extras = true;
 		c.prefer_virtio = false; // safer install path
 		c.allow_gpu_passthrough = true;
-		c.default_disk = QStringLiteral( "ide" );
+		if( os == QLatin1String( "Windows 11" ) || os.contains( QLatin1String( "2025" ) ) )
+			c.default_disk = QStringLiteral( "nvme" );
+		else if( os.contains( QLatin1String( "Vista" ) ) || os.startsWith( QLatin1String( "Windows 7" ) ) ||
+		         os.startsWith( QLatin1String( "Windows 8" ) ) || os.startsWith( QLatin1String( "Windows 10" ) ) ||
+		         os.contains( QLatin1String( "Server" ) ) )
+			c.default_disk = QStringLiteral( "sata" );
+		else
+			c.default_disk = QStringLiteral( "ide" );
+
 		c.default_nic = QStringLiteral( "e1000" );
 		c.default_sound = QStringLiteral( "hda" );
 		c.default_video = QStringLiteral( "std" );
-		c.disk_options << D( "ide", "IDE / AHCI-friendly (easy install)" )
-		               << D( "virtio", "VirtIO disk (needs drivers)" )
-		               << D( "sata", "AHCI / SATA" );
+		c.disk_options << D( "nvme", "NVMe (Windows 11 / high performance)" )
+		               << D( "sata", "AHCI / SATA (standard install)" )
+		               << D( "ide", "IDE (maximum compatibility)" )
+		               << D( "virtio", "VirtIO disk (needs virtio-win drivers)" );
 		c.nic_options << N( "e1000", "Intel e1000 (inbox drivers)" )
 		              << N( "virtio-net-pci", "VirtIO network (needs drivers)" )
 		              << N( "rtl8139", "RTL8139" );
@@ -388,6 +397,7 @@ Guest_Capabilities AQ_Compute_Guest_Capabilities(
 
 	case Guest_Capabilities::Modern_Unix:
 	case Guest_Capabilities::Embedded_ARM:
+	{
 		c.summary = QObject::tr(
 			"Modern Linux/BSD/ARM: VirtIO disk/net/GPU preferred. KVM/WHPX when guest matches host. "
 			"GPU passthrough available if you want a real NVIDIA/AMD card in the guest." );
@@ -398,29 +408,56 @@ Guest_Capabilities AQ_Compute_Guest_Capabilities(
 		c.allow_virtio_extras = true;
 		c.prefer_virtio = true;
 		c.allow_gpu_passthrough = true;
-		c.default_disk = QStringLiteral( "virtio" );
-		c.default_nic = QStringLiteral( "virtio-net-pci" );
-		c.default_sound = QStringLiteral( "hda_virtio" );
-		c.default_video = QStringLiteral( "virtio" );
-		c.disk_options << D( "virtio", "VirtIO disk (recommended)" )
-		               << D( "virtio-scsi", "VirtIO-SCSI" )
-		               << D( "ide", "IDE" ) << D( "sata", "AHCI / SATA" );
-		c.nic_options << N( "virtio-net-pci", "VirtIO network (recommended)" )
-		              << N( "e1000", "Intel e1000" )
-		              << N( "rtl8139", "RTL8139" );
-		c.sound_options << N( "hda_virtio", "HDA + VirtIO" )
-		                << N( "hda", "Intel HDA" )
-		                << N( "virtio", "VirtIO sound" )
-		                << N( "none", "No sound" );
-		c.video_options << N( "virtio", "VirtIO-GPU" )
+		const bool is_arm_virt =
+			tgt == QLatin1String( "aarch64" ) || tgt == QLatin1String( "arm" ) ||
+			mach.contains( QLatin1String( "virt" ) );
+
+		if( is_arm_virt )
+		{
+			c.default_disk = QStringLiteral( "virtio" );
+			c.default_nic = QStringLiteral( "virtio-net-pci" );
+			c.default_sound = QStringLiteral( "hda" );
+			c.default_video = QStringLiteral( "virtio-gpu-pci" );
+			c.disk_options << D( "virtio", "VirtIO disk (recommended)" )
+			               << D( "nvme", "NVMe disk" )
+			               << D( "virtio-scsi", "VirtIO-SCSI" )
+			               << D( "scsi", "SCSI" );
+			c.nic_options << N( "virtio-net-pci", "VirtIO network (recommended)" )
+			              << N( "e1000", "Intel e1000" );
+			c.sound_options << N( "hda", "Intel HDA" )
+			                << N( "none", "No sound" );
+			c.video_options << N( "virtio-gpu-pci", "VirtIO-GPU (KMS modesetting)" )
+			                << N( "ramfb", "Simple Framebuffer (ramfb)" )
+			                << N( "bochs-display", "Bochs Display" );
+		}
+		else
+		{
+			c.default_disk = QStringLiteral( "virtio" );
+			c.default_nic = QStringLiteral( "virtio-net-pci" );
+			c.default_sound = QStringLiteral( "hda_virtio" );
+			c.default_video = QStringLiteral( "virtio" );
+			c.disk_options << D( "virtio", "VirtIO disk (recommended)" )
+			               << D( "nvme", "NVMe disk" )
+			               << D( "virtio-scsi", "VirtIO-SCSI" )
+			               << D( "ide", "IDE" ) << D( "sata", "AHCI / SATA" );
+			c.nic_options << N( "virtio-net-pci", "VirtIO network (recommended)" )
+			              << N( "e1000", "Intel e1000" )
+			              << N( "rtl8139", "RTL8139" );
+			c.sound_options << N( "hda_virtio", "HDA + VirtIO" )
+			                << N( "hda", "Intel HDA" )
+			                << N( "virtio", "VirtIO sound" )
+			                << N( "none", "No sound" );
+			c.video_options << N( "virtio", "VirtIO-GPU" )
 #ifdef Q_OS_WIN32
-		                << N( "std", "Standard VGA" )
+			                << N( "std", "Standard VGA" )
 #else
-		                << N( "virtio-vga-gl", "VirtIO-GPU + OpenGL" )
-		                << N( "std", "Standard VGA" )
+			                << N( "virtio-vga-gl", "VirtIO-GPU + OpenGL" )
+			                << N( "std", "Standard VGA" )
 #endif
-		                << N( "qxl", "QXL (SPICE)" );
+			                << N( "qxl", "QXL (SPICE)" );
+		}
 		break;
+	}
 
 	case Guest_Capabilities::Generic:
 	default:
@@ -641,4 +678,133 @@ Guest_Capabilities AQ_Compute_Guest_Capabilities(
 	}
 
 	return c;
+}
+
+QString Guest_Capabilities::Resolve_Optimal_Device(
+	const QStringList &priority_candidates,
+	const QStringList &probed_available,
+	const QString &fallback )
+{
+	if( probed_available.isEmpty() )
+	{
+		return priority_candidates.isEmpty() ? fallback : priority_candidates.first();
+	}
+
+	// Tier 1: Case-insensitive Exact Match in candidate priority order
+	for( const QString &cand : priority_candidates )
+	{
+		const QString c = cand.trimmed();
+		if( c.isEmpty() )
+			continue;
+
+		for( const QString &probed : probed_available )
+		{
+			if( probed.compare( c, Qt::CaseInsensitive ) == 0 )
+				return probed;
+		}
+	}
+
+	// Tier 2: Prefix / Version Alias Match
+	// e.g. "pc-q35" -> "pc-q35-11.0", "pc-i440fx" -> "pc-i440fx-11.0", "virtio-net" -> "virtio-net-pci"
+	for( const QString &cand : priority_candidates )
+	{
+		const QString c = cand.trimmed().toLower();
+		if( c.isEmpty() )
+			continue;
+
+		QString best_match;
+		double best_ver = -1.0;
+
+		for( const QString &probed : probed_available )
+		{
+			const QString p = probed.trimmed().toLower();
+			if( p.isEmpty() )
+				continue;
+
+			bool matches = false;
+			if( p.startsWith( c + QLatin1Char( '-' ) ) || p.startsWith( c + QLatin1Char( '_' ) ) )
+				matches = true;
+			else if( c.startsWith( p + QLatin1Char( '-' ) ) || c.startsWith( p + QLatin1Char( '_' ) ) )
+				matches = true;
+			else if( ( c == QLatin1String( "q35" ) || c == QLatin1String( "pc-q35" ) ) && p.contains( QLatin1String( "q35" ) ) )
+				matches = true;
+			else if( ( c == QLatin1String( "pc" ) || c == QLatin1String( "i440fx" ) || c == QLatin1String( "pc-i440fx" ) ) &&
+			         ( p.contains( QLatin1String( "i440fx" ) ) || p == QLatin1String( "pc" ) ) )
+				matches = true;
+			else if( c == QLatin1String( "virtio" ) && p.contains( QLatin1String( "virtio" ) ) )
+				matches = true;
+			else if( ( c == QLatin1String( "ahci" ) || c == QLatin1String( "sata" ) ) &&
+			         ( p == QLatin1String( "ahci" ) || p == QLatin1String( "sata" ) ) )
+				matches = true;
+			else if( ( c == QLatin1String( "hda" ) || c == QLatin1String( "intel-hda" ) ) &&
+			         ( p == QLatin1String( "hda" ) || p == QLatin1String( "intel-hda" ) ) )
+				matches = true;
+
+			if( matches )
+			{
+				int dash = p.lastIndexOf( QLatin1Char( '-' ) );
+				double ver = 0.0;
+				if( dash >= 0 )
+				{
+					bool ok = false;
+					double parsed = p.mid( dash + 1 ).toDouble( &ok );
+					if( ok ) ver = parsed;
+				}
+				if( ver > best_ver )
+				{
+					best_ver = ver;
+					best_match = probed;
+				}
+				else if( best_match.isEmpty() )
+				{
+					best_match = probed;
+				}
+			}
+		}
+
+		if( ! best_match.isEmpty() )
+			return best_match;
+	}
+
+	// Tier 3: Sanitized Fallback
+	// If fallback is provided and in probed_available, return it
+	if( ! fallback.isEmpty() )
+	{
+		for( const QString &probed : probed_available )
+		{
+			if( probed.compare( fallback, Qt::CaseInsensitive ) == 0 )
+				return probed;
+		}
+	}
+
+	// Avoid unbootable or non-general host boards (e.g. none, microvm)
+	const QStringList blacklist = {
+		QStringLiteral( "none" ),
+		QStringLiteral( "microvm" ),
+		QStringLiteral( "null" ),
+		QStringLiteral( "isapc" ),
+		QStringLiteral( "xenpv" ),
+		QStringLiteral( "xenfv" )
+	};
+
+	for( const QString &probed : probed_available )
+	{
+		const QString p = probed.trimmed().toLower();
+		if( p.isEmpty() )
+			continue;
+
+		bool blacklisted = false;
+		for( const QString &b : blacklist )
+		{
+			if( p == b || p.startsWith( b + QLatin1Char( '-' ) ) )
+			{
+				blacklisted = true;
+				break;
+			}
+		}
+		if( ! blacklisted )
+			return probed;
+	}
+
+	return fallback.isEmpty() ? probed_available.first() : fallback;
 }

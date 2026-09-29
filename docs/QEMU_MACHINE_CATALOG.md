@@ -1,9 +1,9 @@
 # AQEMU New VM Wizard — Human-Readable Catalog
 
-Generated: `2026-07-19T14:05:17Z`  
-QEMU: `C:\Program Files\qemu`  
-System binaries found: **28**  
-Machine definitions probed: **480** (internal)
+Generated: `2026-09-28T18:03:03Z`  
+QEMU: `/home/chronic/.local/bin`  
+System binaries found: **37**  
+Machine definitions probed: **1175** (internal)
 
 UI lists use **friendly names only**. QEMU IDs are backend mappings.
 
@@ -24,11 +24,74 @@ Regenerate: `python scripts/probe_qemu_machines.py --qemu-dir "C:/Program Files/
 
 ## List 1 — Guest Operating Systems
 
+### Apple
+
+- Darwin
+- Mac OS 6
+- Mac OS 7
+- Mac OS 8
+- Mac OS 9
+- Mac OS X Intel
+- Mac OS X PPC
+- macOS
+- NeXTSTEP
+- OPENSTEP
+
+### BSD
+
+- DragonFly BSD
+- FreeBSD
+- GhostBSD
+- NetBSD
+- OpenBSD
+
+### DEC
+
+- OpenVMS
+- Tru64 UNIX
+
+### HP
+
+- HP-UX
+
+### IBM
+
+- AIX
+- ArcaOS
+- eComStation
+- Linux on IBM Z
+- OS/2
+
+### Linux
+
+- AlmaLinux
+- Alpine Linux
+- Arch Linux
+- CentOS Stream
+- Debian
+- elementary OS
+- Fedora
+- Generic Linux
+- Gentoo
+- Kali Linux
+- Linux Mint
+- NixOS
+- openSUSE
+- Pop!_OS
+- RHEL
+- Rocky Linux
+- Slackware
+- SUSE Linux
+- Tiny Core Linux
+- Ubuntu
+- Void Linux
+
 ### Microsoft
 
+- DR-DOS
+- FreeDOS
 - MS-DOS
 - PC DOS
-- DR-DOS
 - Windows 1.x
 - Windows 2.x
 - Windows 3.x
@@ -54,86 +117,48 @@ Regenerate: `python scripts/probe_qemu_machines.py --qemu-dir "C:/Program Files/
 - Windows Server 2022
 - Windows Server 2025
 
-### Linux
+### Other
 
-- Generic Linux
-- Ubuntu
-- Debian
-- Fedora
-- Red Hat Enterprise Linux
-- Rocky Linux
-- AlmaLinux
-- SUSE Linux
-- openSUSE
-- Arch Linux
-- Gentoo
-- Slackware
-- Kali Linux
-- Linux Mint
-- Alpine Linux
-- Tiny Core Linux
+- 9front
+- AmigaOS
+- Android
+- BeOS
+- Chrome OS Flex
+- ChromeOS
+- Fuchsia
+- Haiku
+- KolibriOS
+- MenuetOS
+- Minix
+- MorphOS
+- Other
+- Plan 9
+- QNX
+- ReactOS
+- Redox OS
+- RISC OS
+- SerenityOS
+- SteamOS
+- TempleOS
 
-### BSD
+### SCO
 
-- FreeBSD
-- OpenBSD
-- NetBSD
-- DragonFly BSD
-
-### Apple
-
-- Mac OS 7
-- Mac OS 8
-- Mac OS 9
-- Mac OS X 10.0–10.4 (PPC)
-- Mac OS X 10.5–10.6
-- macOS 10.12+
-- Darwin
-
-### Sun
-
-- Solaris x86
-- Solaris SPARC
-- OpenSolaris
-- illumos
-- OmniOS
+- OpenServer
+- UnixWare
 
 ### SGI
 
 - IRIX 5.x
 - IRIX 6.x
 
-### IBM
+### Sun
 
-- AIX
-- OS/2
-- eComStation
-- ArcaOS
-
-### HP
-
-- HP-UX
-
-### DEC
-
-- Tru64 UNIX
-- OpenVMS
-
-### Other
-
-- ReactOS
-- Haiku
-- BeOS
-- KolibriOS
-- SerenityOS
-- TempleOS
-- MenuetOS
-- MorphOS
-- AmigaOS
-- RISC OS
-- Android
-- ChromeOS
-- Other
+- illumos
+- OmniOS
+- OpenSolaris
+- Solaris SPARC
+- Solaris x86
+- Solaris x86 (32-bit)
 
 ---
 
@@ -192,6 +217,11 @@ Regenerate: `python scripts/probe_qemu_machines.py --qemu-dir "C:/Program Files/
 - **TriCore** — ✓ installed
 - **SH4** — ✓ installed
 - **LoongArch** — ✓ installed
+
+### Specialized
+
+- **Apple Silicon** — ✓ installed
+- **Reims vGPU** — ✓ installed
 
 ---
 
@@ -282,6 +312,11 @@ Friendly names for the UI. Rows marked **available** match your installed QEMU.
 - **STM32 VL Discovery** — available (`qemu-system-arm` → `stm32vldiscovery`)
 - **Netduino 2** — available (`qemu-system-arm` → `netduino2`)
 
+### Specialized
+
+- **Apple Silicon (iOS / macOS)** — available (`qemu-system-aarch64-inferno` → `s8000`)
+- **Reims vGPU Acceleration** — available (`qemu-system-reims` → `pc`)
+
 ### Generic
 
 - **Generic Virtual Machine** — available (`qemu-system-aarch64` → `virt`)
@@ -309,6 +344,321 @@ Every non-versioned machine, shown by friendly name. Obscure `virt-9.2` aliases 
 - **Power Macintosh G3 (Beige)** (PowerPC 32)
 - **Power Macintosh G3 (Beige)** (PowerPC 64)
 
+### Apple Silicon / iOS
+
+- **Apple S8000 SoC (iPhone 6s Plus)** (Apple Silicon)
+- **Apple S8000 SoC (iPhone 6s Plus)** (Apple Silicon (ARM64))
+- **Apple Silicon (32-bit) Virtual Machine** (Apple Silicon (32-bit))
+- **Apple Silicon (ARM32) Virtual Machine** (Apple Silicon (ARM32))
+- **Apple Silicon (ARM64) Virtual Machine** (Apple Silicon (ARM64))
+- **Apple Silicon Virtual Machine** (Apple Silicon)
+- **Apple T8030 SoC (iPhone 11)** (Apple Silicon)
+- **Apple T8030 SoC (iPhone 11)** (Apple Silicon (ARM64))
+- **ARM i.MX25 PDK board (ARM926)** (Apple Silicon)
+- **ARM i.MX25 PDK board (ARM926)** (Apple Silicon (32-bit))
+- **ARM i.MX25 PDK board (ARM926)** (Apple Silicon (ARM32))
+- **ARM i.MX25 PDK board (ARM926)** (Apple Silicon (ARM64))
+- **ARM Integrator/CP (ARM926EJ-S)** (Apple Silicon)
+- **ARM Integrator/CP (ARM926EJ-S)** (Apple Silicon (32-bit))
+- **ARM Integrator/CP (ARM926EJ-S)** (Apple Silicon (ARM32))
+- **ARM Integrator/CP (ARM926EJ-S)** (Apple Silicon (ARM64))
+- **ARM KZM Emulation Baseboard (ARM1136)** (Apple Silicon)
+- **ARM KZM Emulation Baseboard (ARM1136)** (Apple Silicon (32-bit))
+- **ARM KZM Emulation Baseboard (ARM1136)** (Apple Silicon (ARM32))
+- **ARM KZM Emulation Baseboard (ARM1136)** (Apple Silicon (ARM64))
+- **ARM MPS2 with AN385 FPGA image for Cortex-M3** (Apple Silicon)
+- **ARM MPS2 with AN385 FPGA image for Cortex-M3** (Apple Silicon (32-bit))
+- **ARM MPS2 with AN385 FPGA image for Cortex-M3** (Apple Silicon (ARM32))
+- **ARM MPS2 with AN385 FPGA image for Cortex-M3** (Apple Silicon (ARM64))
+- **ARM MPS2 with AN386 FPGA image for Cortex-M4** (Apple Silicon)
+- **ARM MPS2 with AN386 FPGA image for Cortex-M4** (Apple Silicon (32-bit))
+- **ARM MPS2 with AN386 FPGA image for Cortex-M4** (Apple Silicon (ARM32))
+- **ARM MPS2 with AN386 FPGA image for Cortex-M4** (Apple Silicon (ARM64))
+- **ARM MPS2 with AN500 FPGA image for Cortex-M7** (Apple Silicon)
+- **ARM MPS2 with AN500 FPGA image for Cortex-M7** (Apple Silicon (32-bit))
+- **ARM MPS2 with AN500 FPGA image for Cortex-M7** (Apple Silicon (ARM32))
+- **ARM MPS2 with AN500 FPGA image for Cortex-M7** (Apple Silicon (ARM64))
+- **ARM MPS2 with AN505 FPGA image for Cortex-M33** (Apple Silicon)
+- **ARM MPS2 with AN505 FPGA image for Cortex-M33** (Apple Silicon (32-bit))
+- **ARM MPS2 with AN505 FPGA image for Cortex-M33** (Apple Silicon (ARM32))
+- **ARM MPS2 with AN505 FPGA image for Cortex-M33** (Apple Silicon (ARM64))
+- **ARM MPS2 with AN511 DesignStart FPGA image for Cortex-M3** (Apple Silicon)
+- **ARM MPS2 with AN511 DesignStart FPGA image for Cortex-M3** (Apple Silicon (32-bit))
+- **ARM MPS2 with AN511 DesignStart FPGA image for Cortex-M3** (Apple Silicon (ARM32))
+- **ARM MPS2 with AN511 DesignStart FPGA image for Cortex-M3** (Apple Silicon (ARM64))
+- **ARM MPS2 with AN521 FPGA image for dual Cortex-M33** (Apple Silicon)
+- **ARM MPS2 with AN521 FPGA image for dual Cortex-M33** (Apple Silicon (32-bit))
+- **ARM MPS2 with AN521 FPGA image for dual Cortex-M33** (Apple Silicon (ARM32))
+- **ARM MPS2 with AN521 FPGA image for dual Cortex-M33** (Apple Silicon (ARM64))
+- **ARM MPS3 with AN524 FPGA image for dual Cortex-M33** (Apple Silicon)
+- **ARM MPS3 with AN524 FPGA image for dual Cortex-M33** (Apple Silicon (32-bit))
+- **ARM MPS3 with AN524 FPGA image for dual Cortex-M33** (Apple Silicon (ARM32))
+- **ARM MPS3 with AN524 FPGA image for dual Cortex-M33** (Apple Silicon (ARM64))
+- **ARM MPS3 with AN536 FPGA image for Cortex-R52** (Apple Silicon)
+- **ARM MPS3 with AN536 FPGA image for Cortex-R52** (Apple Silicon (32-bit))
+- **ARM MPS3 with AN536 FPGA image for Cortex-R52** (Apple Silicon (ARM32))
+- **ARM MPS3 with AN536 FPGA image for Cortex-R52** (Apple Silicon (ARM64))
+- **ARM MPS3 with AN547 FPGA image for Cortex-M55** (Apple Silicon)
+- **ARM MPS3 with AN547 FPGA image for Cortex-M55** (Apple Silicon (32-bit))
+- **ARM MPS3 with AN547 FPGA image for Cortex-M55** (Apple Silicon (ARM32))
+- **ARM MPS3 with AN547 FPGA image for Cortex-M55** (Apple Silicon (ARM64))
+- **ARM Musca-A board (dual Cortex-M33)** (Apple Silicon)
+- **ARM Musca-A board (dual Cortex-M33)** (Apple Silicon (32-bit))
+- **ARM Musca-A board (dual Cortex-M33)** (Apple Silicon (ARM32))
+- **ARM Musca-A board (dual Cortex-M33)** (Apple Silicon (ARM64))
+- **ARM Musca-B1 board (dual Cortex-M33)** (Apple Silicon)
+- **ARM Musca-B1 board (dual Cortex-M33)** (Apple Silicon (32-bit))
+- **ARM Musca-B1 board (dual Cortex-M33)** (Apple Silicon (ARM32))
+- **ARM Musca-B1 board (dual Cortex-M33)** (Apple Silicon (ARM64))
+- **ARM RealView Emulation Baseboard (ARM11MPCore)** (Apple Silicon)
+- **ARM RealView Emulation Baseboard (ARM11MPCore)** (Apple Silicon (32-bit))
+- **ARM RealView Emulation Baseboard (ARM11MPCore)** (Apple Silicon (ARM32))
+- **ARM RealView Emulation Baseboard (ARM11MPCore)** (Apple Silicon (ARM64))
+- **ARM RealView Emulation Baseboard (ARM926EJ-S)** (Apple Silicon)
+- **ARM RealView Emulation Baseboard (ARM926EJ-S)** (Apple Silicon (32-bit))
+- **ARM RealView Emulation Baseboard (ARM926EJ-S)** (Apple Silicon (ARM32))
+- **ARM RealView Emulation Baseboard (ARM926EJ-S)** (Apple Silicon (ARM64))
+- **ARM RealView Platform Baseboard Explore for Cortex-A9** (Apple Silicon)
+- **ARM RealView Platform Baseboard Explore for Cortex-A9** (Apple Silicon (32-bit))
+- **ARM RealView Platform Baseboard Explore for Cortex-A9** (Apple Silicon (ARM32))
+- **ARM RealView Platform Baseboard Explore for Cortex-A9** (Apple Silicon (ARM64))
+- **ARM RealView Platform Baseboard for Cortex-A8** (Apple Silicon)
+- **ARM RealView Platform Baseboard for Cortex-A8** (Apple Silicon (32-bit))
+- **ARM RealView Platform Baseboard for Cortex-A8** (Apple Silicon (ARM32))
+- **ARM RealView Platform Baseboard for Cortex-A8** (Apple Silicon (ARM64))
+- **ARM Versatile Express for Cortex-A15** (Apple Silicon)
+- **ARM Versatile Express for Cortex-A15** (Apple Silicon (32-bit))
+- **ARM Versatile Express for Cortex-A15** (Apple Silicon (ARM32))
+- **ARM Versatile Express for Cortex-A15** (Apple Silicon (ARM64))
+- **ARM Versatile Express for Cortex-A9** (Apple Silicon)
+- **ARM Versatile Express for Cortex-A9** (Apple Silicon (32-bit))
+- **ARM Versatile Express for Cortex-A9** (Apple Silicon (ARM32))
+- **ARM Versatile Express for Cortex-A9** (Apple Silicon (ARM64))
+- **ARM Versatile/AB (ARM926EJ-S)** (Apple Silicon)
+- **ARM Versatile/AB (ARM926EJ-S)** (Apple Silicon (32-bit))
+- **ARM Versatile/AB (ARM926EJ-S)** (Apple Silicon (ARM32))
+- **ARM Versatile/AB (ARM926EJ-S)** (Apple Silicon (ARM64))
+- **ARM Versatile/PB (ARM926EJ-S)** (Apple Silicon)
+- **ARM Versatile/PB (ARM926EJ-S)** (Apple Silicon (32-bit))
+- **ARM Versatile/PB (ARM926EJ-S)** (Apple Silicon (ARM32))
+- **ARM Versatile/PB (ARM926EJ-S)** (Apple Silicon (ARM64))
+- **Aspeed AST1030 MiniBMC (Cortex-M4)** (Apple Silicon)
+- **Aspeed AST1030 MiniBMC (Cortex-M4)** (Apple Silicon (32-bit))
+- **Aspeed AST1030 MiniBMC (Cortex-M4)** (Apple Silicon (ARM32))
+- **Aspeed AST1030 MiniBMC (Cortex-M4)** (Apple Silicon (ARM64))
+- **Aspeed AST2500 EVB (ARM1176)** (Apple Silicon)
+- **Aspeed AST2500 EVB (ARM1176)** (Apple Silicon (32-bit))
+- **Aspeed AST2500 EVB (ARM1176)** (Apple Silicon (ARM32))
+- **Aspeed AST2500 EVB (ARM1176)** (Apple Silicon (ARM64))
+- **Aspeed AST2600 EVB (Cortex-A7)** (Apple Silicon)
+- **Aspeed AST2600 EVB (Cortex-A7)** (Apple Silicon (32-bit))
+- **Aspeed AST2600 EVB (Cortex-A7)** (Apple Silicon (ARM32))
+- **Aspeed AST2600 EVB (Cortex-A7)** (Apple Silicon (ARM64))
+- **Aspeed AST2700 A0 EVB (Cortex-A35)** (Apple Silicon)
+- **Aspeed AST2700 A0 EVB (Cortex-A35)** (Apple Silicon (ARM64))
+- **Aspeed AST2700 A1 EVB (Cortex-A35)** (Apple Silicon)
+- **Aspeed AST2700 A1 EVB (Cortex-A35)** (Apple Silicon (ARM64))
+- **ast2700 full core support** (Apple Silicon)
+- **ast2700 full core support** (Apple Silicon (ARM64))
+- **B-L475E-IOT01A Discovery Kit (Cortex-M4)** (Apple Silicon)
+- **B-L475E-IOT01A Discovery Kit (Cortex-M4)** (Apple Silicon (32-bit))
+- **B-L475E-IOT01A Discovery Kit (Cortex-M4)** (Apple Silicon (ARM32))
+- **B-L475E-IOT01A Discovery Kit (Cortex-M4)** (Apple Silicon (ARM64))
+- **Bananapi M2U (Cortex-A7)** (Apple Silicon)
+- **Bananapi M2U (Cortex-A7)** (Apple Silicon (32-bit))
+- **Bananapi M2U (Cortex-A7)** (Apple Silicon (ARM32))
+- **Bananapi M2U (Cortex-A7)** (Apple Silicon (ARM64))
+- **BBC micro:bit (Cortex-M0)** (Apple Silicon)
+- **BBC micro:bit (Cortex-M0)** (Apple Silicon (32-bit))
+- **BBC micro:bit (Cortex-M0)** (Apple Silicon (ARM32))
+- **BBC micro:bit (Cortex-M0)** (Apple Silicon (ARM64))
+- **Bytedance G220A BMC (ARM1176)** (Apple Silicon)
+- **Bytedance G220A BMC (ARM1176)** (Apple Silicon (32-bit))
+- **Bytedance G220A BMC (ARM1176)** (Apple Silicon (ARM32))
+- **Bytedance G220A BMC (ARM1176)** (Apple Silicon (ARM64))
+- **Calxeda Highbank (ECX-1000) (deprecated)** (Apple Silicon)
+- **Calxeda Highbank (ECX-1000) (deprecated)** (Apple Silicon (32-bit))
+- **Calxeda Highbank (ECX-1000) (deprecated)** (Apple Silicon (ARM32))
+- **Calxeda Highbank (ECX-1000) (deprecated)** (Apple Silicon (ARM64))
+- **Calxeda Midway (ECX-2000) (deprecated)** (Apple Silicon)
+- **Calxeda Midway (ECX-2000) (deprecated)** (Apple Silicon (32-bit))
+- **Calxeda Midway (ECX-2000) (deprecated)** (Apple Silicon (ARM32))
+- **Calxeda Midway (ECX-2000) (deprecated)** (Apple Silicon (ARM64))
+- **Canon PowerShot A1100 IS (ARM946)** (Apple Silicon)
+- **Canon PowerShot A1100 IS (ARM946)** (Apple Silicon (32-bit))
+- **Canon PowerShot A1100 IS (ARM946)** (Apple Silicon (ARM32))
+- **Canon PowerShot A1100 IS (ARM946)** (Apple Silicon (ARM64))
+- **cubietech cubieboard (Cortex-A8)** (Apple Silicon)
+- **cubietech cubieboard (Cortex-A8)** (Apple Silicon (32-bit))
+- **cubietech cubieboard (Cortex-A8)** (Apple Silicon (ARM32))
+- **cubietech cubieboard (Cortex-A8)** (Apple Silicon (ARM64))
+- **Empty Machine (none)** (Apple Silicon)
+- **Empty Machine (none)** (Apple Silicon (32-bit))
+- **Empty Machine (none)** (Apple Silicon (ARM32))
+- **Empty Machine (none)** (Apple Silicon (ARM64))
+- **Facebook Bletchley BMC (Cortex-A7)** (Apple Silicon)
+- **Facebook Bletchley BMC (Cortex-A7)** (Apple Silicon (32-bit))
+- **Facebook Bletchley BMC (Cortex-A7)** (Apple Silicon (ARM32))
+- **Facebook Bletchley BMC (Cortex-A7)** (Apple Silicon (ARM64))
+- **Facebook Catalina BMC (Cortex-A7)** (Apple Silicon)
+- **Facebook Catalina BMC (Cortex-A7)** (Apple Silicon (32-bit))
+- **Facebook Catalina BMC (Cortex-A7)** (Apple Silicon (ARM32))
+- **Facebook Catalina BMC (Cortex-A7)** (Apple Silicon (ARM64))
+- **Facebook fby35 BMC (Cortex-A7)** (Apple Silicon)
+- **Facebook fby35 BMC (Cortex-A7)** (Apple Silicon (32-bit))
+- **Facebook fby35 BMC (Cortex-A7)** (Apple Silicon (ARM32))
+- **Facebook fby35 BMC (Cortex-A7)** (Apple Silicon (ARM64))
+- **Facebook Fuji BMC (Cortex-A7)** (Apple Silicon)
+- **Facebook Fuji BMC (Cortex-A7)** (Apple Silicon (32-bit))
+- **Facebook Fuji BMC (Cortex-A7)** (Apple Silicon (ARM32))
+- **Facebook Fuji BMC (Cortex-A7)** (Apple Silicon (ARM64))
+- **Facebook Tiogapass BMC (ARM1176)** (Apple Silicon)
+- **Facebook Tiogapass BMC (ARM1176)** (Apple Silicon (32-bit))
+- **Facebook Tiogapass BMC (ARM1176)** (Apple Silicon (ARM32))
+- **Facebook Tiogapass BMC (ARM1176)** (Apple Silicon (ARM64))
+- **Facebook YosemiteV2 BMC (ARM1176)** (Apple Silicon)
+- **Facebook YosemiteV2 BMC (ARM1176)** (Apple Silicon (32-bit))
+- **Facebook YosemiteV2 BMC (ARM1176)** (Apple Silicon (ARM32))
+- **Facebook YosemiteV2 BMC (ARM1176)** (Apple Silicon (ARM64))
+- **Freescale i.MX6 Quad SABRE Lite Board (Cortex-A9)** (Apple Silicon)
+- **Freescale i.MX6 Quad SABRE Lite Board (Cortex-A9)** (Apple Silicon (32-bit))
+- **Freescale i.MX6 Quad SABRE Lite Board (Cortex-A9)** (Apple Silicon (ARM32))
+- **Freescale i.MX6 Quad SABRE Lite Board (Cortex-A9)** (Apple Silicon (ARM64))
+- **Freescale i.MX6UL Evaluation Kit (Cortex-A7)** (Apple Silicon)
+- **Freescale i.MX6UL Evaluation Kit (Cortex-A7)** (Apple Silicon (32-bit))
+- **Freescale i.MX6UL Evaluation Kit (Cortex-A7)** (Apple Silicon (ARM32))
+- **Freescale i.MX6UL Evaluation Kit (Cortex-A7)** (Apple Silicon (ARM64))
+- **Freescale i.MX7 DUAL SABRE (Cortex-A7)** (Apple Silicon)
+- **Freescale i.MX7 DUAL SABRE (Cortex-A7)** (Apple Silicon (32-bit))
+- **Freescale i.MX7 DUAL SABRE (Cortex-A7)** (Apple Silicon (ARM32))
+- **Freescale i.MX7 DUAL SABRE (Cortex-A7)** (Apple Silicon (ARM64))
+- **IBM Rainier BMC (Cortex-A7)** (Apple Silicon)
+- **IBM Rainier BMC (Cortex-A7)** (Apple Silicon (32-bit))
+- **IBM Rainier BMC (Cortex-A7)** (Apple Silicon (ARM32))
+- **IBM Rainier BMC (Cortex-A7)** (Apple Silicon (ARM64))
+- **Inspur FP5280G2 BMC (ARM1176)** (Apple Silicon)
+- **Inspur FP5280G2 BMC (ARM1176)** (Apple Silicon (32-bit))
+- **Inspur FP5280G2 BMC (ARM1176)** (Apple Silicon (ARM32))
+- **Inspur FP5280G2 BMC (ARM1176)** (Apple Silicon (ARM64))
+- **Kudo BMC (Cortex-A9)** (Apple Silicon)
+- **Kudo BMC (Cortex-A9)** (Apple Silicon (32-bit))
+- **Kudo BMC (Cortex-A9)** (Apple Silicon (ARM32))
+- **Kudo BMC (Cortex-A9)** (Apple Silicon (ARM64))
+- **Marvell 88w8618 / MusicPal (ARM926EJ-S)** (Apple Silicon)
+- **Marvell 88w8618 / MusicPal (ARM926EJ-S)** (Apple Silicon (32-bit))
+- **Marvell 88w8618 / MusicPal (ARM926EJ-S)** (Apple Silicon (ARM32))
+- **Marvell 88w8618 / MusicPal (ARM926EJ-S)** (Apple Silicon (ARM64))
+- **MAX78000FTHR Board (Cortex-M4 / (Unimplemented) RISC-V)** (Apple Silicon)
+- **MAX78000FTHR Board (Cortex-M4 / (Unimplemented) RISC-V)** (Apple Silicon (32-bit))
+- **MAX78000FTHR Board (Cortex-M4 / (Unimplemented) RISC-V)** (Apple Silicon (ARM32))
+- **MAX78000FTHR Board (Cortex-M4 / (Unimplemented) RISC-V)** (Apple Silicon (ARM64))
+- **Meta Platforms fby35** (Apple Silicon)
+- **Meta Platforms fby35** (Apple Silicon (32-bit))
+- **Meta Platforms fby35** (Apple Silicon (ARM32))
+- **Meta Platforms fby35** (Apple Silicon (ARM64))
+- **Mori BMC (Cortex-A9)** (Apple Silicon)
+- **Mori BMC (Cortex-A9)** (Apple Silicon (32-bit))
+- **Mori BMC (Cortex-A9)** (Apple Silicon (ARM32))
+- **Mori BMC (Cortex-A9)** (Apple Silicon (ARM64))
+- **Nuvoton NPCM750 Evaluation Board (Cortex-A9)** (Apple Silicon)
+- **Nuvoton NPCM750 Evaluation Board (Cortex-A9)** (Apple Silicon (32-bit))
+- **Nuvoton NPCM750 Evaluation Board (Cortex-A9)** (Apple Silicon (ARM32))
+- **Nuvoton NPCM750 Evaluation Board (Cortex-A9)** (Apple Silicon (ARM64))
+- **Nuvoton NPCM845 Evaluation Board (Cortex-A35)** (Apple Silicon)
+- **Nuvoton NPCM845 Evaluation Board (Cortex-A35)** (Apple Silicon (ARM64))
+- **Nvidia GB200NVL BMC (Cortex-A7)** (Apple Silicon)
+- **Nvidia GB200NVL BMC (Cortex-A7)** (Apple Silicon (32-bit))
+- **Nvidia GB200NVL BMC (Cortex-A7)** (Apple Silicon (ARM32))
+- **Nvidia GB200NVL BMC (Cortex-A7)** (Apple Silicon (ARM64))
+- **NXP i.MX 8M Plus EVK Board** (Apple Silicon)
+- **NXP i.MX 8M Plus EVK Board** (Apple Silicon (ARM64))
+- **OCP SonoraPass BMC (ARM1176)** (Apple Silicon)
+- **OCP SonoraPass BMC (ARM1176)** (Apple Silicon (32-bit))
+- **OCP SonoraPass BMC (ARM1176)** (Apple Silicon (ARM32))
+- **OCP SonoraPass BMC (ARM1176)** (Apple Silicon (ARM64))
+- **OpenPOWER Palmetto BMC (ARM926EJ-S)** (Apple Silicon)
+- **OpenPOWER Palmetto BMC (ARM926EJ-S)** (Apple Silicon (32-bit))
+- **OpenPOWER Palmetto BMC (ARM926EJ-S)** (Apple Silicon (ARM32))
+- **OpenPOWER Palmetto BMC (ARM926EJ-S)** (Apple Silicon (ARM64))
+- **OpenPOWER Romulus BMC (ARM1176)** (Apple Silicon)
+- **OpenPOWER Romulus BMC (ARM1176)** (Apple Silicon (32-bit))
+- **OpenPOWER Romulus BMC (ARM1176)** (Apple Silicon (ARM32))
+- **OpenPOWER Romulus BMC (ARM1176)** (Apple Silicon (ARM64))
+- **OpenPOWER Witherspoon BMC (ARM1176)** (Apple Silicon)
+- **OpenPOWER Witherspoon BMC (ARM1176)** (Apple Silicon (32-bit))
+- **OpenPOWER Witherspoon BMC (ARM1176)** (Apple Silicon (ARM32))
+- **OpenPOWER Witherspoon BMC (ARM1176)** (Apple Silicon (ARM64))
+- **Orange Pi PC (Cortex-A7)** (Apple Silicon)
+- **Orange Pi PC (Cortex-A7)** (Apple Silicon (32-bit))
+- **Orange Pi PC (Cortex-A7)** (Apple Silicon (ARM32))
+- **Orange Pi PC (Cortex-A7)** (Apple Silicon (ARM64))
+- **Qualcomm DC-SCM V1 BMC (Cortex A7)** (Apple Silicon)
+- **Qualcomm DC-SCM V1 BMC (Cortex A7)** (Apple Silicon (32-bit))
+- **Qualcomm DC-SCM V1 BMC (Cortex A7)** (Apple Silicon (ARM32))
+- **Qualcomm DC-SCM V1 BMC (Cortex A7)** (Apple Silicon (ARM64))
+- **Qualcomm DC-SCM V1/Firework BMC (Cortex A7)** (Apple Silicon)
+- **Qualcomm DC-SCM V1/Firework BMC (Cortex A7)** (Apple Silicon (32-bit))
+- **Qualcomm DC-SCM V1/Firework BMC (Cortex A7)** (Apple Silicon (ARM32))
+- **Qualcomm DC-SCM V1/Firework BMC (Cortex A7)** (Apple Silicon (ARM64))
+- **Quanta GBS (Cortex-A9)** (Apple Silicon)
+- **Quanta GBS (Cortex-A9)** (Apple Silicon (32-bit))
+- **Quanta GBS (Cortex-A9)** (Apple Silicon (ARM32))
+- **Quanta GBS (Cortex-A9)** (Apple Silicon (ARM64))
+- **Quanta GSJ (Cortex-A9)** (Apple Silicon)
+- **Quanta GSJ (Cortex-A9)** (Apple Silicon (32-bit))
+- **Quanta GSJ (Cortex-A9)** (Apple Silicon (ARM32))
+- **Quanta GSJ (Cortex-A9)** (Apple Silicon (ARM64))
+- **Quanta-Q71l BMC (ARM926EJ-S)** (Apple Silicon)
+- **Quanta-Q71l BMC (ARM926EJ-S)** (Apple Silicon (32-bit))
+- **Quanta-Q71l BMC (ARM926EJ-S)** (Apple Silicon (ARM32))
+- **Quanta-Q71l BMC (ARM926EJ-S)** (Apple Silicon (ARM64))
+- **Samsung NURI board (Exynos4210)** (Apple Silicon)
+- **Samsung NURI board (Exynos4210)** (Apple Silicon (32-bit))
+- **Samsung NURI board (Exynos4210)** (Apple Silicon (ARM32))
+- **Samsung NURI board (Exynos4210)** (Apple Silicon (ARM64))
+- **Samsung SMDKC210 board (Exynos4210)** (Apple Silicon)
+- **Samsung SMDKC210 board (Exynos4210)** (Apple Silicon (32-bit))
+- **Samsung SMDKC210 board (Exynos4210)** (Apple Silicon (ARM32))
+- **Samsung SMDKC210 board (Exynos4210)** (Apple Silicon (ARM64))
+- **SBSA Reference Platform** (Apple Silicon)
+- **SBSA Reference Platform** (Apple Silicon (ARM64))
+- **Sharp SL-5500 (Collie) PDA (SA-1110)** (Apple Silicon)
+- **Sharp SL-5500 (Collie) PDA (SA-1110)** (Apple Silicon (32-bit))
+- **Sharp SL-5500 (Collie) PDA (SA-1110)** (Apple Silicon (ARM32))
+- **Sharp SL-5500 (Collie) PDA (SA-1110)** (Apple Silicon (ARM64))
+- **Siemens SX1 (OMAP310) V1** (Apple Silicon)
+- **Siemens SX1 (OMAP310) V1** (Apple Silicon (32-bit))
+- **Siemens SX1 (OMAP310) V1** (Apple Silicon (ARM32))
+- **Siemens SX1 (OMAP310) V1** (Apple Silicon (ARM64))
+- **Siemens SX1 (OMAP310) V2** (Apple Silicon)
+- **Siemens SX1 (OMAP310) V2** (Apple Silicon (32-bit))
+- **Siemens SX1 (OMAP310) V2** (Apple Silicon (ARM32))
+- **Siemens SX1 (OMAP310) V2** (Apple Silicon (ARM64))
+- **SmartFusion2 SOM kit from Emcraft (M2S010)** (Apple Silicon)
+- **SmartFusion2 SOM kit from Emcraft (M2S010)** (Apple Silicon (32-bit))
+- **SmartFusion2 SOM kit from Emcraft (M2S010)** (Apple Silicon (ARM32))
+- **SmartFusion2 SOM kit from Emcraft (M2S010)** (Apple Silicon (ARM64))
+- **Stellaris LM3S6965EVB (Cortex-M3)** (Apple Silicon)
+- **Stellaris LM3S6965EVB (Cortex-M3)** (Apple Silicon (32-bit))
+- **Stellaris LM3S6965EVB (Cortex-M3)** (Apple Silicon (ARM32))
+- **Stellaris LM3S6965EVB (Cortex-M3)** (Apple Silicon (ARM64))
+- **Stellaris LM3S811EVB (Cortex-M3)** (Apple Silicon)
+- **Stellaris LM3S811EVB (Cortex-M3)** (Apple Silicon (32-bit))
+- **Stellaris LM3S811EVB (Cortex-M3)** (Apple Silicon (ARM32))
+- **Stellaris LM3S811EVB (Cortex-M3)** (Apple Silicon (ARM64))
+- **Supermicro X11 BMC (ARM926EJ-S)** (Apple Silicon)
+- **Supermicro X11 BMC (ARM926EJ-S)** (Apple Silicon (32-bit))
+- **Supermicro X11 BMC (ARM926EJ-S)** (Apple Silicon (ARM32))
+- **Supermicro X11 BMC (ARM926EJ-S)** (Apple Silicon (ARM64))
+- **Xilinx Versal Virtual development board** (Apple Silicon)
+- **Xilinx Versal Virtual development board** (Apple Silicon (ARM64))
+- **Xilinx Zynq 7000 Platform Baseboard for Cortex-A9** (Apple Silicon)
+- **Xilinx Zynq 7000 Platform Baseboard for Cortex-A9** (Apple Silicon (32-bit))
+- **Xilinx Zynq 7000 Platform Baseboard for Cortex-A9** (Apple Silicon (ARM32))
+- **Xilinx Zynq 7000 Platform Baseboard for Cortex-A9** (Apple Silicon (ARM64))
+- **Xilinx ZynqMP ZCU102 board with 4xA53s and 2xR5Fs based on the value of smp** (Apple Silicon)
+- **Xilinx ZynqMP ZCU102 board with 4xA53s and 2xR5Fs based on the value of smp** (Apple Silicon (ARM64))
+
 ### DEC
 
 - **Alpha Clipper** (Alpha)
@@ -321,12 +671,28 @@ Every non-versioned machine, shown by friendly name. Obscure `virt-9.2` aliases 
 - **Arduino UNO (ATmega328P)** (AVR)
 - **Netduino 2** (ARM)
 - **Netduino 2** (ARM64 / AArch64)
+- **Netduino 2** (Apple Silicon)
+- **Netduino 2** (Apple Silicon (32-bit))
+- **Netduino 2** (Apple Silicon (ARM32))
+- **Netduino 2** (Apple Silicon (ARM64))
 - **Netduino Plus 2** (ARM)
 - **Netduino Plus 2** (ARM64 / AArch64)
+- **Netduino Plus 2** (Apple Silicon)
+- **Netduino Plus 2** (Apple Silicon (32-bit))
+- **Netduino Plus 2** (Apple Silicon (ARM32))
+- **Netduino Plus 2** (Apple Silicon (ARM64))
 - **Olimex STM32-H405 (Cortex-M4)** (ARM)
 - **Olimex STM32-H405 (Cortex-M4)** (ARM64 / AArch64)
+- **Olimex STM32-H405 (Cortex-M4)** (Apple Silicon)
+- **Olimex STM32-H405 (Cortex-M4)** (Apple Silicon (32-bit))
+- **Olimex STM32-H405 (Cortex-M4)** (Apple Silicon (ARM32))
+- **Olimex STM32-H405 (Cortex-M4)** (Apple Silicon (ARM64))
 - **STM32 VL Discovery** (ARM)
 - **STM32 VL Discovery** (ARM64 / AArch64)
+- **STM32 VL Discovery** (Apple Silicon)
+- **STM32 VL Discovery** (Apple Silicon (32-bit))
+- **STM32 VL Discovery** (Apple Silicon (ARM32))
+- **STM32 VL Discovery** (Apple Silicon (ARM64))
 
 ### Game Consoles
 
@@ -357,12 +723,20 @@ Every non-versioned machine, shown by friendly name. Obscure `virt-9.2` aliases 
 
 ### IBM PC Compatible
 
+- **Legacy ISA PC** (Reims vGPU)
+- **Legacy ISA PC** (Reims vGPU (x86_64))
 - **Legacy ISA PC** (x86)
 - **Legacy ISA PC** (x86-64)
+- **MicroVM** (Reims vGPU)
+- **MicroVM** (Reims vGPU (x86_64))
 - **MicroVM** (x86)
 - **MicroVM** (x86-64)
+- **PC (i440FX)** (Reims vGPU)
+- **PC (i440FX)** (Reims vGPU (x86_64))
 - **PC (i440FX)** (x86)
 - **PC (i440FX)** (x86-64)
+- **PC (Q35)** (Reims vGPU)
+- **PC (Q35)** (Reims vGPU (x86_64))
 - **PC (Q35)** (x86)
 - **PC (Q35)** (x86-64)
 
@@ -480,6 +854,7 @@ Every non-versioned machine, shown by friendly name. Obscure `virt-9.2` aliases 
 - **Empty Machine (none)** (s390x)
 - **Empty Machine (none)** (x86)
 - **Empty Machine (none)** (x86-64)
+- **Experimental remote machine** (ARM64 / AArch64)
 - **Eyetech AmigaOne/Mai Logic Teron** (PowerPC 32)
 - **Eyetech AmigaOne/Mai Logic Teron** (PowerPC 64)
 - **Facebook Bletchley BMC (Cortex-A7)** (ARM)
@@ -550,13 +925,13 @@ Every non-versioned machine, shown by friendly name. Obscure `virt-9.2` aliases 
 - **mpc8544ds** (PowerPC 32)
 - **mpc8544ds** (PowerPC 64)
 - **NeXT Cube** (m68k)
+- **Nitro Enclave** (ARM64 / AArch64)
 - **Nuvoton NPCM750 Evaluation Board (Cortex-A9)** (ARM)
 - **Nuvoton NPCM750 Evaluation Board (Cortex-A9)** (ARM64 / AArch64)
 - **Nuvoton NPCM845 Evaluation Board (Cortex-A35)** (ARM64 / AArch64)
 - **Nvidia GB200NVL BMC (Cortex-A7)** (ARM)
 - **Nvidia GB200NVL BMC (Cortex-A7)** (ARM64 / AArch64)
 - **NXP i.MX 8M Plus EVK Board** (ARM64 / AArch64)
-- **NXP i.MX 8MM EVK Board** (ARM64 / AArch64)
 - **OCP SonoraPass BMC (ARM1176) (deprecated)** (ARM)
 - **OCP SonoraPass BMC (ARM1176) (deprecated)** (ARM64 / AArch64)
 - **OpenPOWER Palmetto BMC (ARM926EJ-S)** (ARM)
@@ -638,13 +1013,36 @@ Every non-versioned machine, shown by friendly name. Obscure `virt-9.2` aliases 
 
 - **Raspberry Pi 1** (ARM)
 - **Raspberry Pi 1** (ARM64 / AArch64)
+- **Raspberry Pi 1** (Apple Silicon)
+- **Raspberry Pi 1** (Apple Silicon (32-bit))
+- **Raspberry Pi 1** (Apple Silicon (ARM32))
+- **Raspberry Pi 1** (Apple Silicon (ARM64))
 - **Raspberry Pi 2** (ARM)
 - **Raspberry Pi 2** (ARM64 / AArch64)
+- **Raspberry Pi 2** (Apple Silicon)
+- **Raspberry Pi 2** (Apple Silicon (32-bit))
+- **Raspberry Pi 2** (Apple Silicon (ARM32))
+- **Raspberry Pi 2** (Apple Silicon (ARM64))
 - **Raspberry Pi 3** (ARM64 / AArch64)
+- **Raspberry Pi 3** (Apple Silicon)
+- **Raspberry Pi 3** (Apple Silicon (ARM64))
 - **Raspberry Pi 3A+** (ARM64 / AArch64)
+- **Raspberry Pi 3A+** (Apple Silicon)
+- **Raspberry Pi 3A+** (Apple Silicon (ARM64))
 - **Raspberry Pi 4** (ARM64 / AArch64)
+- **Raspberry Pi 4** (Apple Silicon)
+- **Raspberry Pi 4** (Apple Silicon (ARM64))
 - **Raspberry Pi Zero** (ARM)
 - **Raspberry Pi Zero** (ARM64 / AArch64)
+- **Raspberry Pi Zero** (Apple Silicon)
+- **Raspberry Pi Zero** (Apple Silicon (32-bit))
+- **Raspberry Pi Zero** (Apple Silicon (ARM32))
+- **Raspberry Pi Zero** (Apple Silicon (ARM64))
+
+### Reims vGPU Acceleration
+
+- **Empty Machine (none)** (Reims vGPU)
+- **Empty Machine (none)** (Reims vGPU (x86_64))
 
 ### Silicon Graphics
 
@@ -691,16 +1089,118 @@ Not for the wizard UI. Use only when debugging mappings.
 - `g220a-bmc` → Bytedance G220A BMC (ARM1176)
 - `gb200nvl-bmc` → Nvidia GB200NVL BMC (Cortex-A7)
 - `imx25-pdk` → ARM i.MX25 PDK board (ARM926)
-- `imx8mm-evk` → NXP i.MX 8MM EVK Board
 - `imx8mp-evk` → NXP i.MX 8M Plus EVK Board
 - `integratorcp` → ARM Integrator/CP (ARM926EJ-S)
 - `kudo-bmc` → Kudo BMC (Cortex-A9)
-- …and 64 more (see JSON)
+- `kzm` → ARM KZM Emulation Baseboard (ARM1136)
+- …and 65 more (see JSON)
+
+### qemu-system-aarch64-inferno
+
+- `ast1030-evb` → Aspeed AST1030 MiniBMC (Cortex-M4)
+- `ast2500-evb` → Aspeed AST2500 EVB (ARM1176)
+- `ast2600-evb` → Aspeed AST2600 EVB (Cortex-A7)
+- `ast2700-evb` → Aspeed AST2700 A0 EVB (Cortex-A35)
+- `ast2700a0-evb` → Aspeed AST2700 A0 EVB (Cortex-A35)
+- `ast2700a1-evb` → Aspeed AST2700 A1 EVB (Cortex-A35)
+- `ast2700fc` → ast2700 full core support
+- `ast2700fc` → ast2700 full core support
+- `b-l475e-iot01a` → B-L475E-IOT01A Discovery Kit (Cortex-M4)
+- `bletchley-bmc` → Facebook Bletchley BMC (Cortex-A7)
+- `bpim2u` → Bananapi M2U (Cortex-A7)
+- `canon-a1100` → Canon PowerShot A1100 IS (ARM946)
+- `catalina-bmc` → Facebook Catalina BMC (Cortex-A7)
+- `collie` → Sharp SL-5500 (Collie) PDA (SA-1110)
+- `cubieboard` → cubietech cubieboard (Cortex-A8)
+- `emcraft-sf2` → SmartFusion2 SOM kit from Emcraft (M2S010)
+- `fby35-bmc` → Facebook fby35 BMC (Cortex-A7)
+- `fby35` → Meta Platforms fby35
+- `fp5280g2-bmc` → Inspur FP5280G2 BMC (ARM1176)
+- `fuji-bmc` → Facebook Fuji BMC (Cortex-A7)
+- `g220a-bmc` → Bytedance G220A BMC (ARM1176)
+- `gb200nvl-bmc` → Nvidia GB200NVL BMC (Cortex-A7)
+- `highbank` → Calxeda Highbank (ECX-1000) (deprecated)
+- `imx25-pdk` → ARM i.MX25 PDK board (ARM926)
+- `imx8mp-evk` → NXP i.MX 8M Plus EVK Board
+- `integratorcp` → ARM Integrator/CP (ARM926EJ-S)
+- `kudo-bmc` → Kudo BMC (Cortex-A9)
+- `kzm` → ARM KZM Emulation Baseboard (ARM1136)
+- `lm3s6965evb` → Stellaris LM3S6965EVB (Cortex-M3)
+- `lm3s811evb` → Stellaris LM3S811EVB (Cortex-M3)
+- …and 65 more (see JSON)
 
 ### qemu-system-alpha
 
 - `clipper` → Alpha Clipper
 - `none` → Empty Machine (none)
+
+### qemu-system-applesoc
+
+- `ast1030-evb` → Aspeed AST1030 MiniBMC (Cortex-M4)
+- `ast2500-evb` → Aspeed AST2500 EVB (ARM1176)
+- `ast2600-evb` → Aspeed AST2600 EVB (Cortex-A7)
+- `ast2700-evb` → Aspeed AST2700 A0 EVB (Cortex-A35)
+- `ast2700a0-evb` → Aspeed AST2700 A0 EVB (Cortex-A35)
+- `ast2700a1-evb` → Aspeed AST2700 A1 EVB (Cortex-A35)
+- `ast2700fc` → ast2700 full core support
+- `ast2700fc` → ast2700 full core support
+- `b-l475e-iot01a` → B-L475E-IOT01A Discovery Kit (Cortex-M4)
+- `bletchley-bmc` → Facebook Bletchley BMC (Cortex-A7)
+- `bpim2u` → Bananapi M2U (Cortex-A7)
+- `canon-a1100` → Canon PowerShot A1100 IS (ARM946)
+- `catalina-bmc` → Facebook Catalina BMC (Cortex-A7)
+- `collie` → Sharp SL-5500 (Collie) PDA (SA-1110)
+- `cubieboard` → cubietech cubieboard (Cortex-A8)
+- `emcraft-sf2` → SmartFusion2 SOM kit from Emcraft (M2S010)
+- `fby35-bmc` → Facebook fby35 BMC (Cortex-A7)
+- `fby35` → Meta Platforms fby35
+- `fp5280g2-bmc` → Inspur FP5280G2 BMC (ARM1176)
+- `fuji-bmc` → Facebook Fuji BMC (Cortex-A7)
+- `g220a-bmc` → Bytedance G220A BMC (ARM1176)
+- `gb200nvl-bmc` → Nvidia GB200NVL BMC (Cortex-A7)
+- `highbank` → Calxeda Highbank (ECX-1000) (deprecated)
+- `imx25-pdk` → ARM i.MX25 PDK board (ARM926)
+- `imx8mp-evk` → NXP i.MX 8M Plus EVK Board
+- `integratorcp` → ARM Integrator/CP (ARM926EJ-S)
+- `kudo-bmc` → Kudo BMC (Cortex-A9)
+- `kzm` → ARM KZM Emulation Baseboard (ARM1136)
+- `lm3s6965evb` → Stellaris LM3S6965EVB (Cortex-M3)
+- `lm3s811evb` → Stellaris LM3S811EVB (Cortex-M3)
+- …and 65 more (see JSON)
+
+### qemu-system-applesoc32
+
+- `ast1030-evb` → Aspeed AST1030 MiniBMC (Cortex-M4)
+- `ast2500-evb` → Aspeed AST2500 EVB (ARM1176)
+- `ast2600-evb` → Aspeed AST2600 EVB (Cortex-A7)
+- `b-l475e-iot01a` → B-L475E-IOT01A Discovery Kit (Cortex-M4)
+- `bletchley-bmc` → Facebook Bletchley BMC (Cortex-A7)
+- `bpim2u` → Bananapi M2U (Cortex-A7)
+- `canon-a1100` → Canon PowerShot A1100 IS (ARM946)
+- `catalina-bmc` → Facebook Catalina BMC (Cortex-A7)
+- `collie` → Sharp SL-5500 (Collie) PDA (SA-1110)
+- `cubieboard` → cubietech cubieboard (Cortex-A8)
+- `emcraft-sf2` → SmartFusion2 SOM kit from Emcraft (M2S010)
+- `fby35-bmc` → Facebook fby35 BMC (Cortex-A7)
+- `fby35` → Meta Platforms fby35
+- `fp5280g2-bmc` → Inspur FP5280G2 BMC (ARM1176)
+- `fuji-bmc` → Facebook Fuji BMC (Cortex-A7)
+- `g220a-bmc` → Bytedance G220A BMC (ARM1176)
+- `gb200nvl-bmc` → Nvidia GB200NVL BMC (Cortex-A7)
+- `highbank` → Calxeda Highbank (ECX-1000) (deprecated)
+- `imx25-pdk` → ARM i.MX25 PDK board (ARM926)
+- `integratorcp` → ARM Integrator/CP (ARM926EJ-S)
+- `kudo-bmc` → Kudo BMC (Cortex-A9)
+- `kzm` → ARM KZM Emulation Baseboard (ARM1136)
+- `lm3s6965evb` → Stellaris LM3S6965EVB (Cortex-M3)
+- `lm3s811evb` → Stellaris LM3S811EVB (Cortex-M3)
+- `max78000fthr` → MAX78000FTHR Board (Cortex-M4 / (Unimplemented) RISC-V)
+- `mcimx6ul-evk` → Freescale i.MX6UL Evaluation Kit (Cortex-A7)
+- `mcimx7d-sabre` → Freescale i.MX7 DUAL SABRE (Cortex-A7)
+- `microbit` → BBC micro:bit (Cortex-M0)
+- `midway` → Calxeda Midway (ECX-2000) (deprecated)
+- `mori-bmc` → Mori BMC (Cortex-A9)
+- …and 50 more (see JSON)
 
 ### qemu-system-arm
 
@@ -736,6 +1236,40 @@ Not for the wizard UI. Use only when debugging mappings.
 - `mps2-an385` → ARM MPS2 with AN385 FPGA image for Cortex-M3
 - …and 49 more (see JSON)
 
+### qemu-system-arm-inferno
+
+- `ast1030-evb` → Aspeed AST1030 MiniBMC (Cortex-M4)
+- `ast2500-evb` → Aspeed AST2500 EVB (ARM1176)
+- `ast2600-evb` → Aspeed AST2600 EVB (Cortex-A7)
+- `b-l475e-iot01a` → B-L475E-IOT01A Discovery Kit (Cortex-M4)
+- `bletchley-bmc` → Facebook Bletchley BMC (Cortex-A7)
+- `bpim2u` → Bananapi M2U (Cortex-A7)
+- `canon-a1100` → Canon PowerShot A1100 IS (ARM946)
+- `catalina-bmc` → Facebook Catalina BMC (Cortex-A7)
+- `collie` → Sharp SL-5500 (Collie) PDA (SA-1110)
+- `cubieboard` → cubietech cubieboard (Cortex-A8)
+- `emcraft-sf2` → SmartFusion2 SOM kit from Emcraft (M2S010)
+- `fby35-bmc` → Facebook fby35 BMC (Cortex-A7)
+- `fby35` → Meta Platforms fby35
+- `fp5280g2-bmc` → Inspur FP5280G2 BMC (ARM1176)
+- `fuji-bmc` → Facebook Fuji BMC (Cortex-A7)
+- `g220a-bmc` → Bytedance G220A BMC (ARM1176)
+- `gb200nvl-bmc` → Nvidia GB200NVL BMC (Cortex-A7)
+- `highbank` → Calxeda Highbank (ECX-1000) (deprecated)
+- `imx25-pdk` → ARM i.MX25 PDK board (ARM926)
+- `integratorcp` → ARM Integrator/CP (ARM926EJ-S)
+- `kudo-bmc` → Kudo BMC (Cortex-A9)
+- `kzm` → ARM KZM Emulation Baseboard (ARM1136)
+- `lm3s6965evb` → Stellaris LM3S6965EVB (Cortex-M3)
+- `lm3s811evb` → Stellaris LM3S811EVB (Cortex-M3)
+- `max78000fthr` → MAX78000FTHR Board (Cortex-M4 / (Unimplemented) RISC-V)
+- `mcimx6ul-evk` → Freescale i.MX6UL Evaluation Kit (Cortex-A7)
+- `mcimx7d-sabre` → Freescale i.MX7 DUAL SABRE (Cortex-A7)
+- `microbit` → BBC micro:bit (Cortex-M0)
+- `midway` → Calxeda Midway (ECX-2000) (deprecated)
+- `mori-bmc` → Mori BMC (Cortex-A9)
+- …and 50 more (see JSON)
+
 ### qemu-system-avr
 
 - `2009` → Arduino Duemilanove (ATmega168)
@@ -762,6 +1296,40 @@ Not for the wizard UI. Use only when debugging mappings.
 - `q35` → PC (Q35)
 - `isapc` → Legacy ISA PC
 - `none` → Empty Machine (none)
+
+### qemu-system-inferno
+
+- `ast1030-evb` → Aspeed AST1030 MiniBMC (Cortex-M4)
+- `ast2500-evb` → Aspeed AST2500 EVB (ARM1176)
+- `ast2600-evb` → Aspeed AST2600 EVB (Cortex-A7)
+- `ast2700-evb` → Aspeed AST2700 A0 EVB (Cortex-A35)
+- `ast2700a0-evb` → Aspeed AST2700 A0 EVB (Cortex-A35)
+- `ast2700a1-evb` → Aspeed AST2700 A1 EVB (Cortex-A35)
+- `ast2700fc` → ast2700 full core support
+- `ast2700fc` → ast2700 full core support
+- `b-l475e-iot01a` → B-L475E-IOT01A Discovery Kit (Cortex-M4)
+- `bletchley-bmc` → Facebook Bletchley BMC (Cortex-A7)
+- `bpim2u` → Bananapi M2U (Cortex-A7)
+- `canon-a1100` → Canon PowerShot A1100 IS (ARM946)
+- `catalina-bmc` → Facebook Catalina BMC (Cortex-A7)
+- `collie` → Sharp SL-5500 (Collie) PDA (SA-1110)
+- `cubieboard` → cubietech cubieboard (Cortex-A8)
+- `emcraft-sf2` → SmartFusion2 SOM kit from Emcraft (M2S010)
+- `fby35-bmc` → Facebook fby35 BMC (Cortex-A7)
+- `fby35` → Meta Platforms fby35
+- `fp5280g2-bmc` → Inspur FP5280G2 BMC (ARM1176)
+- `fuji-bmc` → Facebook Fuji BMC (Cortex-A7)
+- `g220a-bmc` → Bytedance G220A BMC (ARM1176)
+- `gb200nvl-bmc` → Nvidia GB200NVL BMC (Cortex-A7)
+- `highbank` → Calxeda Highbank (ECX-1000) (deprecated)
+- `imx25-pdk` → ARM i.MX25 PDK board (ARM926)
+- `imx8mp-evk` → NXP i.MX 8M Plus EVK Board
+- `integratorcp` → ARM Integrator/CP (ARM926EJ-S)
+- `kudo-bmc` → Kudo BMC (Cortex-A9)
+- `kzm` → ARM KZM Emulation Baseboard (ARM1136)
+- `lm3s6965evb` → Stellaris LM3S6965EVB (Cortex-M3)
+- `lm3s811evb` → Stellaris LM3S811EVB (Cortex-M3)
+- …and 65 more (see JSON)
 
 ### qemu-system-loongarch64
 
@@ -856,6 +1424,30 @@ Not for the wizard UI. Use only when debugging mappings.
 - `sam460ex` → aCube Sam460ex
 - `virtex-ml507` → Xilinx Virtex ML507 reference design
 
+### qemu-system-reims
+
+- `microvm` → MicroVM
+- `pc` → PC (i440FX)
+- `q35` → PC (Q35)
+- `isapc` → Legacy ISA PC
+- `none` → Empty Machine (none)
+
+### qemu-system-reims3d
+
+- `microvm` → MicroVM
+- `pc` → PC (i440FX)
+- `q35` → PC (Q35)
+- `isapc` → Legacy ISA PC
+- `none` → Empty Machine (none)
+
+### qemu-system-reimsvgpu
+
+- `microvm` → MicroVM
+- `pc` → PC (i440FX)
+- `q35` → PC (Q35)
+- `isapc` → Legacy ISA PC
+- `none` → Empty Machine (none)
+
 ### qemu-system-riscv32
 
 - `none` → Empty Machine (none)
@@ -925,6 +1517,14 @@ Not for the wizard UI. Use only when debugging mappings.
 - `tricore_testboard` → a minimal TriCore board
 
 ### qemu-system-x86_64
+
+- `microvm` → MicroVM
+- `pc` → PC (i440FX)
+- `q35` → PC (Q35)
+- `isapc` → Legacy ISA PC
+- `none` → Empty Machine (none)
+
+### qemu-system-x86_64-reims
 
 - `microvm` → MicroVM
 - `pc` → PC (i440FX)
