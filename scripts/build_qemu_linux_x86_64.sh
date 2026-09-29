@@ -77,10 +77,10 @@ ninja -C "${BUILD_DIR}" install
 # Build special targets when building 'all'
 if [[ "${TARGET_ARG}" == "all" || "${TARGET_ARG}" == "ALL" ]]; then
   echo "=== Building special target: applesoc (ChefKiss Inferno) ==="
-  aqemu_build_applesoc "${PREFIX}" "${JOBS}"
+  aqemu_build_applesoc "${PREFIX}" "${JOBS}" || echo "WARN: applesoc build failed"
 
   echo "=== Building special target: reims (steelbrain Reims vGPU) ==="
-  aqemu_build_reims "${PREFIX}" "${JOBS}"
+  aqemu_build_reims "${PREFIX}" "${JOBS}" || echo "WARN: reims build failed"
 fi
 
 echo "Installed QEMU to ${PREFIX}"

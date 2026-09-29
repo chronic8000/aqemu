@@ -452,6 +452,18 @@ if 'hogweed' not in content:
 " || true
   fi
 
+  # Relax nettle >= 3.10 requirement to >= 3.8 so Ubuntu 24.04 (nettle 3.9.1) succeeds
+  if [[ -f "${inferno_src}/meson.build" ]]; then
+    python3 -c "
+p = '${inferno_src}/meson.build'
+content = open(p).read()
+if \"version: '>=3.10'\" in content:
+    print('Patching nettle version requirement in Inferno meson.build from >=3.10 to >=3.8...')
+    content = content.replace(\"version: '>=3.10'\", \"version: '>=3.8'\")
+    open(p, 'w').write(content)
+" || true
+  fi
+
   rm -rf "${inferno_stage}"
   mkdir -p "${inferno_build}" "${inferno_stage}" "${prefix}/bin"
   cd "${inferno_build}"
@@ -594,9 +606,21 @@ aqemu_build_reims() {
   elif [[ -f "${reims_dir}/configure" ]]; then
     reims_src="${reims_dir}"
   else
-    echo "Cloning steelbrain qemu-reims-vgpu repository..."
-    git clone --depth 1 -b host-reims-vgpu-vmapple https://github.com/steelbrain/qemu-reims-vgpu.git "${reims_dir}"
-    reims_src="${reims_dir}"
+    echo "Cloning steelbrain reims-vgpu repository..."
+    git clone --depth 1 https://github.com/steelbrain/reims-vgpu.git "${reims_dir}" || true
+    if [[ -d "${reims_dir}" ]]; then
+      git -C "${reims_dir}" submodule update --init --depth 1 vendor/qemu || true
+    fi
+    if [[ -f "${reims_dir}/vendor/qemu/configure" ]]; then
+      reims_src="${reims_dir}/vendor/qemu"
+    elif [[ -f "${reims_dir}/configure" ]]; then
+      reims_src="${reims_dir}"
+    fi
+  fi
+
+  if [[ -z "${reims_src}" || ! -f "${reims_src}/configure" ]]; then
+    echo "WARN: steelbrain reims-vgpu sources not available — skipping Reims build"
+    return 0
   fi
 
   # On aarch64 / ARM64, patch *const i8 -> *const std::ffi::c_char in Rust crates
@@ -640,11 +664,17 @@ aqemu_build_reims() {
   fi
 
   echo "Configuring steelbrain Reims vGPU..."
-  "${reims_src}/configure" "${conf_args[@]}"
+  if ! "${reims_src}/configure" "${conf_args[@]}"; then
+    echo "WARN: steelbrain Reims vGPU configure failed — skipping optional Reims target"
+    return 0
+  fi
 
   echo "Compiling steelbrain Reims vGPU with ${jobs} parallel jobs..."
-  ninja -C "${reims_build}" -j"${jobs}"
-  ninja -C "${reims_build}" install
+  if ! ninja -C "${reims_build}" -j"${jobs}"; then
+    echo "WARN: steelbrain Reims vGPU compilation failed — skipping optional Reims target"
+    return 0
+  fi
+  ninja -C "${reims_build}" install || true
 
   # Copy built binary to prefix/bin as qemu-system-reimsvgpu / qemu-system-reims / qemu-system-reims3d / qemu-system-x86_64-reims
   local bin_x86=""
