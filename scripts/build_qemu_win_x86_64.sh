@@ -50,26 +50,35 @@ deploy_qemu_dlls() {
   [[ -d "${bin_dir}" ]] || bin_dir="${prefix}"
   echo "=== Deploying QEMU runtime DLLs into ${bin_dir} ==="
 
-  local -A inspected=()
-  for pass in 1 2 3; do
-    local new_copied=0
-    for bin in "${bin_dir}"/*.exe "${bin_dir}"/*.dll; do
-      [[ -f "$bin" ]] || continue
-      [[ -n "${inspected["$bin"]:-}" ]] && continue
-      inspected["$bin"]=1
+  local sys_bin="/ucrt64/bin"
+  [[ -d "$sys_bin" ]] || sys_bin="/mingw64/bin"
 
-      while read -r dep; do
-        if [[ -f "$dep" && ! -f "${bin_dir}/$(basename "$dep")" ]]; then
-          cp -f "$dep" "${bin_dir}/"
-          new_copied=$((new_copied + 1))
-        fi
-      done < <(ldd "$bin" 2>/dev/null | grep -iE '/(ucrt64|mingw64)/bin/' | awk '{print $3}' | sort -u)
-    done
-    if [[ $new_copied -eq 0 ]]; then
-      break
-    fi
-    echo "Pass $pass: deployed $new_copied runtime DLLs to ${bin_dir}"
+  local new_copied=0
+  for bin in "${bin_dir}"/*.exe; do
+    [[ -f "$bin" ]] || continue
+    while read -r dep; do
+      if [[ -f "$dep" && ! -f "${bin_dir}/$(basename "$dep")" ]]; then
+        cp -f "$dep" "${bin_dir}/"
+        new_copied=$((new_copied + 1))
+      fi
+    done < <(ldd "$bin" 2>/dev/null | grep -iE '/(ucrt64|mingw64)/bin/' | awk '{print $3}' | sort -u)
   done
+  echo "Deployed $new_copied primary runtime DLLs to ${bin_dir}"
+
+  # Secondary pass: inspect copied DLLs using static objdump headers (avoids Windows loader lock / ldd hang on DLLs)
+  local secondary_copied=0
+  for dll in "${bin_dir}"/*.dll; do
+    [[ -f "$dll" ]] || continue
+    for dep_name in $(objdump -p "$dll" 2>/dev/null | grep -i 'DLL Name:' | awk '{print $3}'); do
+      if [[ -f "${sys_bin}/${dep_name}" && ! -f "${bin_dir}/${dep_name}" ]]; then
+        cp -f "${sys_bin}/${dep_name}" "${bin_dir}/"
+        secondary_copied=$((secondary_copied + 1))
+      fi
+    done
+  done
+  if [[ $secondary_copied -gt 0 ]]; then
+    echo "Deployed $secondary_copied secondary runtime DLLs to ${bin_dir}"
+  fi
 
   # If AQEMU build_win directory exists, synchronize QEMU executables and runtime DLLs into it
   if [[ -d "${ROOT}/build_win" ]]; then
