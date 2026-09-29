@@ -80,6 +80,7 @@ echo "Using PKG_CONFIG: ${PKG_CONFIG}"
 # Ensure required QEMU build dependencies are installed
 QEMU_BUILD_DEPS=(
   diffutils
+  git
   mingw-w64-clang-aarch64-glib2
   mingw-w64-clang-aarch64-pixman
   mingw-w64-clang-aarch64-libslirp
@@ -87,6 +88,7 @@ QEMU_BUILD_DEPS=(
   mingw-w64-clang-aarch64-zlib
   mingw-w64-clang-aarch64-meson
   mingw-w64-clang-aarch64-python
+  mingw-w64-clang-aarch64-dtc
 )
 for dep in "${QEMU_BUILD_DEPS[@]}"; do
   if ! pacman -Q "$dep" >/dev/null 2>&1; then

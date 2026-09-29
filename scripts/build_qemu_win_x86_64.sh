@@ -87,17 +87,17 @@ echo "Using PKG_CONFIG: ${PKG_CONFIG}"
 
 if ! which diff >/dev/null 2>&1; then
   echo "Installing missing dependency: diffutils"
-  pacman -S --needed --noconfirm diffutils
+  pacman -S --needed --noconfirm diffutils git
 fi
 
 if [[ "${MSYSTEM:-}" == "UCRT64" ]]; then
-  for dep in mingw-w64-ucrt-x86_64-meson mingw-w64-ucrt-x86_64-ninja mingw-w64-ucrt-x86_64-python; do
+  for dep in mingw-w64-ucrt-x86_64-meson mingw-w64-ucrt-x86_64-ninja mingw-w64-ucrt-x86_64-python mingw-w64-ucrt-x86_64-dtc git; do
     if ! pacman -Q "$dep" >/dev/null 2>&1; then
       pacman -S --needed --noconfirm "$dep" || true
     fi
   done
 else
-  for dep in mingw-w64-x86_64-meson mingw-w64-x86_64-ninja mingw-w64-x86_64-python; do
+  for dep in mingw-w64-x86_64-meson mingw-w64-x86_64-ninja mingw-w64-x86_64-python mingw-w64-x86_64-dtc git; do
     if ! pacman -Q "$dep" >/dev/null 2>&1; then
       pacman -S --needed --noconfirm "$dep" || true
     fi

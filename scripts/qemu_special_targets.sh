@@ -43,8 +43,22 @@ aqemu_ensure_meson() {
   fi
 
   if command -v meson >/dev/null 2>&1; then
-    echo "Found meson: $(command -v meson)"
-    return 0
+    local cur_ver
+    cur_ver="$(meson --version 2>/dev/null || echo 0.0.0)"
+    if python3 -c "
+import sys
+v = '${cur_ver}'.split('.')
+try:
+    maj, min = int(v[0]), int(v[1])
+    sys.exit(0 if (maj > 1 or (maj == 1 and min >= 5)) else 1)
+except Exception:
+    sys.exit(1)
+" 2>/dev/null; then
+      echo "Found suitable meson ${cur_ver}: $(command -v meson)"
+      return 0
+    else
+      echo "Found meson ${cur_ver}, but >= 1.5.0 required for Inferno. Upgrading..."
+    fi
   fi
 
   # Attempt pacman installation
@@ -68,8 +82,18 @@ aqemu_ensure_meson() {
     esac
   fi
 
+  # Upgrade or install via pip if meson is missing or outdated
+  if command -v pip3 >/dev/null 2>&1; then
+    echo "Installing/upgrading meson via pip3..."
+    pip3 install --break-system-packages --upgrade "meson>=1.5.0" 2>/dev/null || \
+    sudo pip3 install --break-system-packages --upgrade "meson>=1.5.0" 2>/dev/null || true
+  elif command -v pip >/dev/null 2>&1; then
+    echo "Installing/upgrading meson via pip..."
+    pip install --break-system-packages --upgrade "meson>=1.5.0" 2>/dev/null || true
+  fi
+
   if command -v meson >/dev/null 2>&1; then
-    echo "Installed meson: $(command -v meson)"
+    echo "Installed meson: $(command -v meson) ($(meson --version))"
     return 0
   fi
 
@@ -103,7 +127,8 @@ EOF
   # Fallback for Debian/Ubuntu
   if command -v apt-get >/dev/null 2>&1; then
     echo "Installing meson via apt..."
-    sudo apt-get update && sudo apt-get install -y meson || true
+    sudo apt-get update && sudo apt-get install -y meson python3-pip || true
+    sudo pip3 install --break-system-packages --upgrade "meson>=1.5.0" 2>/dev/null || true
   fi
 
   if ! command -v meson >/dev/null 2>&1; then

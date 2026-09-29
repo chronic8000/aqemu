@@ -52,6 +52,8 @@ jobs:
               mingw-w64-ucrt-x86_64-gnutls
               mingw-w64-ucrt-x86_64-nettle
               mingw-w64-ucrt-x86_64-gmp
+              mingw-w64-ucrt-x86_64-dtc
+              git
               diffutils
 
           - arch: arm64
@@ -82,6 +84,8 @@ jobs:
               mingw-w64-clang-aarch64-gnutls
               mingw-w64-clang-aarch64-nettle
               mingw-w64-clang-aarch64-gmp
+              mingw-w64-clang-aarch64-dtc
+              git
               diffutils
 
     steps:
