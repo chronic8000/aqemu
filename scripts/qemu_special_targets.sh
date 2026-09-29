@@ -504,11 +504,15 @@ if \"version: '>=3.10'\" in content:
       conf_args+=("$flag")
     done
   fi
+  local inferno_cflags="${lzfse_inc_flag}"
+  if [[ "${MSYSTEM:-}" == "CLANGARM64" ]]; then
+    inferno_cflags="${inferno_cflags} -fno-vectorize -fno-slp-vectorize"
+  fi
   conf_args+=(
     --disable-whpx
     --enable-lzfse
     --enable-nettle
-    --extra-cflags="${lzfse_inc_flag}"
+    --extra-cflags="${inferno_cflags}"
     --extra-ldflags="${lzfse_lib_flag} -lhogweed -lnettle -lgmp"
   )
 

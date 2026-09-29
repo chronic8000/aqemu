@@ -154,6 +154,8 @@ echo "Configuring targets: ${TARGETS}"
   --bindir="${PREFIX}/bin" \
   --cc=clang \
   --cxx=clang++ \
+  --extra-cflags="-fno-vectorize -fno-slp-vectorize" \
+  --extra-cxxflags="-fno-vectorize -fno-slp-vectorize" \
   --target-list="${TARGETS}" \
   "${AQEMU_QEMU_EXTRA_CONFIGURE[@]}"
 
