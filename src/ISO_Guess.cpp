@@ -38,6 +38,7 @@ static ISO_Guess_Result guess_from_text( const QString &text, const char *source
 {
 	ISO_Guess_Result r;
 	const QString t = text.toLower();
+	const bool is_arm64 = t.contains( "arm64" ) || t.contains( "aarch64" ) || t.contains( "armv8" );
 	auto hit = [&]( const QString &os, const char *level, const QString &tip ) {
 		r.os_name = os;
 		r.confidence = QString::fromUtf8( level );
@@ -55,23 +56,36 @@ static ISO_Guess_Result guess_from_text( const QString &text, const char *source
 	else if( t.contains( "win98" ) || t.contains( "windows 98" ) )
 		hit( QStringLiteral( "Windows 98" ), "high", QObject::tr( "Detected Windows 98." ) );
 	else if( t.contains( "ubuntu" ) )
-		hit( QStringLiteral( "Ubuntu (64-bit)" ), "high", QObject::tr( "Detected Ubuntu." ) );
+		hit( is_arm64 ? QStringLiteral( "Ubuntu (ARM64)" ) : QStringLiteral( "Ubuntu (64-bit)" ), "high", QObject::tr( "Detected Ubuntu." ) );
 	else if( t.contains( "debian" ) )
-		hit( QStringLiteral( "Debian (64-bit)" ), "high", QObject::tr( "Detected Debian." ) );
+		hit( is_arm64 ? QStringLiteral( "Debian (ARM64)" ) : QStringLiteral( "Debian (64-bit)" ), "high", QObject::tr( "Detected Debian." ) );
 	else if( t.contains( "fedora" ) )
-		hit( QStringLiteral( "Fedora (64-bit)" ), "high", QObject::tr( "Detected Fedora." ) );
-	else if( t.contains( "arch" ) && t.contains( "linux" ) )
-		hit( QStringLiteral( "Arch Linux (64-bit)" ), "medium", QObject::tr( "Detected Arch Linux." ) );
+		hit( is_arm64 ? QStringLiteral( "Fedora (ARM64)" ) : QStringLiteral( "Fedora (64-bit)" ), "high", QObject::tr( "Detected Fedora." ) );
+	else if( t.contains( "archlinux" ) || t.contains( "arch-linux" ) || t.contains( "arch_linux" ) ||
+	         ( t.contains( "arch" ) && ! t.contains( "aarch" ) && ( t.contains( "linux" ) || t.contains( "arm" ) ) ) )
+		hit( is_arm64 ? QStringLiteral( "Arch Linux ARM (ARM64)" ) : QStringLiteral( "Arch Linux (64-bit)" ), "medium", QObject::tr( "Detected Arch Linux." ) );
+	else if( t.contains( "alpine" ) )
+		hit( is_arm64 ? QStringLiteral( "Alpine Linux (ARM64)" ) : QStringLiteral( "Alpine Linux (64-bit)" ), "high", QObject::tr( "Detected Alpine Linux." ) );
 	else if( t.contains( "kali" ) )
-		hit( QStringLiteral( "Kali Linux" ), "high", QObject::tr( "Detected Kali." ) );
+		hit( is_arm64 ? QStringLiteral( "Kali Linux (ARM64)" ) : QStringLiteral( "Kali Linux" ), "high", QObject::tr( "Detected Kali." ) );
 	else if( t.contains( "opensuse" ) || t.contains( "suse" ) )
-		hit( QStringLiteral( "openSUSE (64-bit)" ), "medium", QObject::tr( "Detected openSUSE." ) );
+		hit( is_arm64 ? QStringLiteral( "openSUSE (ARM64)" ) : QStringLiteral( "openSUSE (64-bit)" ), "medium", QObject::tr( "Detected openSUSE." ) );
 	else if( t.contains( "rocky" ) )
-		hit( QStringLiteral( "Rocky Linux" ), "high", QObject::tr( "Detected Rocky." ) );
+		hit( is_arm64 ? QStringLiteral( "Rocky Linux (ARM64)" ) : QStringLiteral( "Rocky Linux" ), "high", QObject::tr( "Detected Rocky." ) );
 	else if( t.contains( "alma" ) )
-		hit( QStringLiteral( "AlmaLinux" ), "high", QObject::tr( "Detected AlmaLinux." ) );
+		hit( is_arm64 ? QStringLiteral( "AlmaLinux (ARM64)" ) : QStringLiteral( "AlmaLinux" ), "high", QObject::tr( "Detected AlmaLinux." ) );
 	else if( t.contains( "centos" ) )
-		hit( QStringLiteral( "CentOS Stream" ), "medium", QObject::tr( "Detected CentOS." ) );
+		hit( is_arm64 ? QStringLiteral( "CentOS Stream (ARM64)" ) : QStringLiteral( "CentOS Stream" ), "medium", QObject::tr( "Detected CentOS." ) );
+	else if( t.contains( "pop" ) && ( t.contains( "os" ) || t.contains( "_os" ) || t.contains( "-os" ) ) )
+		hit( is_arm64 ? QStringLiteral( "Pop!_OS (ARM64)" ) : QStringLiteral( "Pop!_OS" ), "high", QObject::tr( "Detected Pop!_OS." ) );
+	else if( t.contains( "raspi" ) || t.contains( "raspberry" ) )
+		hit( QStringLiteral( "Raspberry Pi OS (ARM64)" ), "high", QObject::tr( "Detected Raspberry Pi OS." ) );
+	else if( t.contains( "nixos" ) )
+		hit( is_arm64 ? QStringLiteral( "NixOS (ARM64)" ) : QStringLiteral( "NixOS" ), "high", QObject::tr( "Detected NixOS." ) );
+	else if( t.contains( "gentoo" ) )
+		hit( is_arm64 ? QStringLiteral( "Gentoo (ARM64)" ) : QStringLiteral( "Gentoo" ), "high", QObject::tr( "Detected Gentoo." ) );
+	else if( t.contains( "void" ) )
+		hit( is_arm64 ? QStringLiteral( "Void Linux (ARM64)" ) : QStringLiteral( "Void Linux" ), "high", QObject::tr( "Detected Void Linux." ) );
 	else if( t.contains( "mint" ) )
 		hit( QStringLiteral( "Linux Mint (64-bit)" ), "high", QObject::tr( "Detected Linux Mint." ) );
 	else if( t.contains( "freebsd" ) )
@@ -86,7 +100,7 @@ static ISO_Guess_Result guess_from_text( const QString &text, const char *source
 	{
 		if( t.contains( "scale" ) )
 		{
-			if( t.contains( "aarch64" ) || t.contains( "arm64" ) )
+			if( is_arm64 )
 				hit( QStringLiteral( "TrueNAS SCALE (ARM64)" ), "high", QObject::tr( "Detected TrueNAS SCALE (ARM64)." ) );
 			else
 				hit( QStringLiteral( "TrueNAS SCALE" ), "high", QObject::tr( "Detected TrueNAS SCALE." ) );
@@ -97,7 +111,7 @@ static ISO_Guess_Result guess_from_text( const QString &text, const char *source
 	else if( t.contains( "msdos" ) || t.contains( "ms-dos" ) )
 		hit( QStringLiteral( "MS-DOS" ), "medium", QObject::tr( "Detected MS-DOS." ) );
 	else if( t.contains( "linux" ) )
-		hit( QStringLiteral( "Generic Linux (64-bit)" ), "low", QObject::tr( "Generic Linux hint." ) );
+		hit( is_arm64 ? QStringLiteral( "Generic Linux (ARM64)" ) : QStringLiteral( "Generic Linux (64-bit)" ), "low", QObject::tr( "Generic Linux hint." ) );
 	return r;
 }
 
@@ -169,6 +183,8 @@ ISO_Guess_Result AQ_Guess_OS_From_Media( const QString &path )
 		r.tip = tip;
 	};
 
+	const bool is_arm64 = name.contains( "arm64" ) || name.contains( "aarch64" ) || name.contains( "armv8" );
+
 	if( name.contains( "win11" ) || name.contains( "windows11" ) || name.contains( "windows_11" ) )
 		hit( QStringLiteral( "Windows 11" ), "high", QObject::tr( "Filename looks like Windows 11." ) );
 	else if( name.contains( "win10" ) || name.contains( "windows10" ) )
@@ -194,33 +210,57 @@ ISO_Guess_Result AQ_Guess_OS_From_Media( const QString &path )
 		hit( name.contains( "freedos" ) ? QStringLiteral( "FreeDOS" ) : QStringLiteral( "MS-DOS" ),
 		     "medium", QObject::tr( "Filename looks like DOS." ) );
 	else if( name.contains( "ubuntu" ) )
-		hit( name.contains( "i386" ) || name.contains( "32" )
+		hit( is_arm64 ? QStringLiteral( "Ubuntu (ARM64)" )
+		     : ( name.contains( "i386" ) || name.contains( "32" )
 			? QStringLiteral( "Ubuntu (32-bit)" )
-			: QStringLiteral( "Ubuntu (64-bit)" ),
+			: QStringLiteral( "Ubuntu (64-bit)" ) ),
 		     "high", QObject::tr( "Filename looks like Ubuntu." ) );
 	else if( name.contains( "debian" ) )
-		hit( name.contains( "i386" ) || name.contains( "32" )
+		hit( is_arm64 ? QStringLiteral( "Debian (ARM64)" )
+		     : ( name.contains( "i386" ) || name.contains( "32" )
 			? QStringLiteral( "Debian (32-bit)" )
-			: QStringLiteral( "Debian (64-bit)" ),
+			: QStringLiteral( "Debian (64-bit)" ) ),
 		     "high", QObject::tr( "Filename looks like Debian." ) );
 	else if( name.contains( "fedora" ) )
-		hit( QStringLiteral( "Fedora (64-bit)" ), "high",
+		hit( is_arm64 ? QStringLiteral( "Fedora (ARM64)" ) : QStringLiteral( "Fedora (64-bit)" ), "high",
 		     QObject::tr( "Filename looks like Fedora." ) );
 	else if( name.contains( "archlinux" ) || name.contains( "arch-linux" ) ||
 	         ( name.startsWith( "arch" ) && name.contains( "iso" ) ) )
-		hit( QStringLiteral( "Arch Linux (64-bit)" ), "medium",
+		hit( is_arm64 ? QStringLiteral( "Arch Linux ARM (ARM64)" ) : QStringLiteral( "Arch Linux (64-bit)" ), "medium",
 		     QObject::tr( "Filename looks like Arch Linux." ) );
+	else if( name.contains( "alpine" ) )
+		hit( is_arm64 ? QStringLiteral( "Alpine Linux (ARM64)" ) : QStringLiteral( "Alpine Linux (64-bit)" ), "high",
+		     QObject::tr( "Filename looks like Alpine Linux." ) );
 	else if( name.contains( "kali" ) )
-		hit( QStringLiteral( "Kali Linux" ), "high",
+		hit( is_arm64 ? QStringLiteral( "Kali Linux (ARM64)" ) : QStringLiteral( "Kali Linux" ), "high",
 		     QObject::tr( "Filename looks like Kali Linux." ) );
 	else if( name.contains( "opensuse" ) || name.contains( "leap" ) || name.contains( "tumbleweed" ) )
-		hit( QStringLiteral( "openSUSE (64-bit)" ), "medium",
+		hit( is_arm64 ? QStringLiteral( "openSUSE (ARM64)" ) : QStringLiteral( "openSUSE (64-bit)" ), "medium",
 		     QObject::tr( "Filename looks like openSUSE." ) );
 	else if( name.contains( "centos" ) || name.contains( "rocky" ) || name.contains( "alma" ) )
-		hit( name.contains( "rocky" ) ? QStringLiteral( "Rocky Linux" )
-		     : name.contains( "alma" ) ? QStringLiteral( "AlmaLinux" )
-		                               : QStringLiteral( "CentOS Stream" ),
+		hit( is_arm64
+		     ? ( name.contains( "rocky" ) ? QStringLiteral( "Rocky Linux (ARM64)" )
+		         : name.contains( "alma" ) ? QStringLiteral( "AlmaLinux (ARM64)" )
+		                                   : QStringLiteral( "CentOS Stream (ARM64)" ) )
+		     : ( name.contains( "rocky" ) ? QStringLiteral( "Rocky Linux" )
+		         : name.contains( "alma" ) ? QStringLiteral( "AlmaLinux" )
+		                                   : QStringLiteral( "CentOS Stream" ) ),
 		     "medium", QObject::tr( "Filename looks like an RHEL-family ISO." ) );
+	else if( name.contains( "pop" ) && ( name.contains( "os" ) || name.contains( "_os" ) || name.contains( "-os" ) ) )
+		hit( is_arm64 ? QStringLiteral( "Pop!_OS (ARM64)" ) : QStringLiteral( "Pop!_OS" ), "high",
+		     QObject::tr( "Filename looks like Pop!_OS." ) );
+	else if( name.contains( "raspi" ) || name.contains( "raspberry" ) )
+		hit( QStringLiteral( "Raspberry Pi OS (ARM64)" ), "high",
+		     QObject::tr( "Filename looks like Raspberry Pi OS." ) );
+	else if( name.contains( "nixos" ) )
+		hit( is_arm64 ? QStringLiteral( "NixOS (ARM64)" ) : QStringLiteral( "NixOS" ), "high",
+		     QObject::tr( "Filename looks like NixOS." ) );
+	else if( name.contains( "gentoo" ) )
+		hit( is_arm64 ? QStringLiteral( "Gentoo (ARM64)" ) : QStringLiteral( "Gentoo" ), "high",
+		     QObject::tr( "Filename looks like Gentoo." ) );
+	else if( name.contains( "void" ) )
+		hit( is_arm64 ? QStringLiteral( "Void Linux (ARM64)" ) : QStringLiteral( "Void Linux" ), "high",
+		     QObject::tr( "Filename looks like Void Linux." ) );
 	else if( name.contains( "mint" ) )
 		hit( QStringLiteral( "Linux Mint (64-bit)" ), "high",
 		     QObject::tr( "Filename looks like Linux Mint." ) );
@@ -245,7 +285,7 @@ ISO_Guess_Result AQ_Guess_OS_From_Media( const QString &path )
 	{
 		if( name.contains( "scale" ) )
 		{
-			if( name.contains( "aarch64" ) || name.contains( "arm64" ) )
+			if( is_arm64 )
 				hit( QStringLiteral( "TrueNAS SCALE (ARM64)" ), "high",
 				     QObject::tr( "Filename looks like TrueNAS SCALE (ARM64)." ) );
 			else
@@ -264,7 +304,7 @@ ISO_Guess_Result AQ_Guess_OS_From_Media( const QString &path )
 		hit( QStringLiteral( "macOS" ), "low",
 		     QObject::tr( "Filename hints at macOS — confirm Intel vs PPC carefully." ) );
 	else if( base.contains( "linux" ) || name.contains( "linux" ) )
-		hit( QStringLiteral( "Generic Linux (64-bit)" ), "low",
+		hit( is_arm64 ? QStringLiteral( "Generic Linux (ARM64)" ) : QStringLiteral( "Generic Linux (64-bit)" ), "low",
 		     QObject::tr( "Generic Linux hint from filename." ) );
 	else
 	{

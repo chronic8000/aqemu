@@ -282,6 +282,11 @@ class VM_Wizard_Window: public QDialog
 		QString Selected_Arch_Name;
 		QString Selected_Target;
 		QString Selected_Machine_Id;
+		QStringList Guest_Machine_Candidates;
+		QStringList Guest_Disk_Bus_Candidates;
+		QStringList Guest_NIC_Candidates;
+		QStringList Guest_Sound_Candidates;
+		QStringList Guest_VGA_Candidates;
 		int Guest_RAM_MB;
 		double Guest_HDD_GB;
 		QString Guest_NIC_Model;

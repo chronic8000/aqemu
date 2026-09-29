@@ -70,6 +70,20 @@ struct Guest_Capabilities
 	QList<Guest_Named_Option> nic_options;
 	QList<Guest_Named_Option> sound_options;
 	QList<Guest_Named_Option> video_options;
+
+	/**
+	 * Three-tier Ordered Probe Intersector for QEMU 11.0.2:
+	 * Resolves the optimal device model/machine by testing priority candidates
+	 * against the host QEMU probed catalog.
+	 *
+	 * Tier 1: Case-insensitive exact match
+	 * Tier 2: Prefix / version alias match (e.g. "pc-q35" -> "pc-q35-11.0", "q35", etc.)
+	 * Tier 3: Sanitized fallback (filters out blacklisted "none", "microvm", "isapc", or returns fallback)
+	 */
+	static QString Resolve_Optimal_Device(
+		const QStringList &priority_candidates,
+		const QStringList &probed_available,
+		const QString &fallback = QString() );
 };
 
 /**

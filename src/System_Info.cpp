@@ -1546,8 +1546,7 @@ QList<Device_Map> Default_Video_List_For_Family( Video_Arch_Family fam )
 			add( QObject::tr("VirtIO GPU (PCI)"), "virtio-gpu-pci" );
 			add( QObject::tr("VirtIO GPU GL (PCI)"), "virtio-gpu-gl-pci" );
 			add( QObject::tr("ramfb (simple framebuffer)"), "ramfb" );
-			add( QObject::tr("Standard VGA"), "std" );
-			add( QObject::tr("Cirrus CLGD 5446"), "cirrus" );
+			add( QObject::tr("Bochs Display (PCI)"), "bochs-display" );
 			break;
 		case VAF_SPARC:
 			add( QObject::tr("CG3 Framebuffer"), "cg3" );
@@ -1635,6 +1634,19 @@ bool System_Info::Is_Disk_Bus_Allowed( const QString &computer_type, const QStri
 	if( for_optical_or_floppy &&
 	    ( iface == VM::DI_NVMe || iface == VM::DI_SD || iface == VM::DI_MTD || iface == VM::DI_PFlash ) )
 		return false;
+
+	const Architecture_Hardware_Capabilities arch_caps =
+		QEMU_Probe_Catalog::Get_Hardware_Capabilities( computer_type );
+	if( arch_caps.valid )
+	{
+		if( iface == VM::DI_IDE && ! arch_caps.has_ide ) return false;
+		if( iface == VM::DI_AHCI && ! arch_caps.has_ahci ) return false;
+		if( iface == VM::DI_NVMe && ! arch_caps.has_nvme ) return false;
+		if( iface == VM::DI_Virtio && ! arch_caps.has_virtio_disk ) return false;
+		if( iface == VM::DI_Virtio_SCSI && ! ( arch_caps.has_virtio_disk || arch_caps.has_scsi ) ) return false;
+		if( iface == VM::DI_SCSI && ! arch_caps.has_scsi ) return false;
+		if( iface == VM::DI_Floppy && ! ( arch_caps.has_ide || arch_caps.has_pci ) ) return false;
+	}
 
 	const Video_Arch_Family fam = Get_Video_Arch_Family( computer_type );
 	const QString m = machine_type.toLower().trimmed();
@@ -1735,6 +1747,18 @@ VM::Device_Interface System_Info::Default_Disk_Bus( const QString &computer_type
 		return VM::DI_Virtio_SCSI;
 	if( is_virt || is_q35 )
 		return is_q35 ? VM::DI_AHCI : VM::DI_Virtio;
+
+	const Architecture_Hardware_Capabilities arch_caps =
+		QEMU_Probe_Catalog::Get_Hardware_Capabilities( computer_type );
+	if( arch_caps.valid )
+	{
+		if( arch_caps.has_ide && ! is_virt && ! is_pseries ) return VM::DI_IDE;
+		if( arch_caps.has_ahci && ! is_virt && ! is_pseries && ! is_classic_mac ) return VM::DI_AHCI;
+		if( arch_caps.has_virtio_disk ) return VM::DI_Virtio;
+		if( arch_caps.has_scsi ) return VM::DI_SCSI;
+		if( arch_caps.has_nvme ) return VM::DI_NVMe;
+	}
+
 	return VM::DI_IDE;
 }
 
@@ -1746,9 +1770,9 @@ VM::Device_Interface System_Info::Sanitize_Disk_Bus( const QString &computer_typ
 	    ( iface == VM::DI_NVMe || iface == VM::DI_SD || iface == VM::DI_MTD || iface == VM::DI_PFlash ) )
 		return Default_Disk_Bus( computer_type, machine_type );
 
-	// Otherwise keep the user's choice. Main Window exposes every QEMU interface;
-	// the New VM wizard still applies Guest_Capabilities curated defaults.
-	Q_UNUSED( machine_type );
+	if( ! Is_Disk_Bus_Allowed( computer_type, machine_type, iface, for_optical_or_floppy ) )
+		return Default_Disk_Bus( computer_type, machine_type );
+
 	return iface;
 }
 
@@ -1879,6 +1903,18 @@ QString System_Info::Sanitize_Video_Card( const QString &computer_type, const QS
 	if( name.isEmpty() )
 		return Default_Video_For_Family( fam );
 
+	// ARM/virt machines strictly reject legacy ISA/PCI VGA framebuffers (-vga std/cirrus/qxl)
+	if( fam == VAF_VIRT || m.contains( QLatin1String( "virt" ) ) )
+	{
+		if( name == QLatin1String( "std" ) || name == QLatin1String( "cirrus" ) ||
+		    name == QLatin1String( "qxl" ) || name == QLatin1String( "vmware" ) ||
+		    name == QLatin1String( "vmware-svga" ) || name == QLatin1String( "virtio" ) ||
+		    name == QLatin1String( "virtio-vga" ) )
+		{
+			return QStringLiteral( "virtio-gpu-pci" );
+		}
+	}
+
 	// Main Window / power-user path: keep whatever QEMU exposes for this arch.
 	// Do not rewrite to a family whitelist (wizard uses Guest_Capabilities instead).
 	return name;
@@ -1897,39 +1933,57 @@ void System_Info::Normalize_Virt_Arch_Devices( Available_Devices &dev )
 	const bool is_sparc = bin_l.contains( "sparc" );
 	const bool is_mips = bin_l.contains( "mips" );
 
-	// Always offer modern audio backends that QEMU ships for PCI guests
-	audio.Audio_VirtIO = true;
-	audio.Audio_USB = true;
-	audio.Audio_HDA = true;
+	const Architecture_Hardware_Capabilities arch_caps =
+		QEMU_Probe_Catalog::Get_Hardware_Capabilities( bin );
 
-	if( is_x86 )
+	if( arch_caps.valid && ! arch_caps.has_sound )
 	{
-		audio.Audio_PC_Speaker = true;
-		audio.Audio_sb16 = true;
-		audio.Audio_Adlib = true;
-		audio.Audio_es1370 = true;
-		audio.Audio_GUS = true;
-		audio.Audio_AC97 = true;
-		audio.Audio_cs4231a = true;
+		audio.Audio_sb16 = false;
+		audio.Audio_es1370 = false;
+		audio.Audio_Adlib = false;
+		audio.Audio_PC_Speaker = false;
+		audio.Audio_GUS = false;
+		audio.Audio_AC97 = false;
+		audio.Audio_HDA = false;
+		audio.Audio_cs4231a = false;
+		audio.Audio_VirtIO = false;
+		audio.Audio_USB = false;
 	}
-	else if( is_virtish )
+	else
 	{
-		audio.Audio_AC97 = true;
-		audio.Audio_es1370 = true;
+		const bool has_pci = arch_caps.valid ? arch_caps.has_pci : true;
+		audio.Audio_VirtIO = has_pci;
+		audio.Audio_USB = has_pci;
+		audio.Audio_HDA = has_pci;
+
+		if( is_x86 )
+		{
+			audio.Audio_PC_Speaker = true;
+			audio.Audio_sb16 = true;
+			audio.Audio_Adlib = true;
+			audio.Audio_es1370 = true;
+			audio.Audio_GUS = true;
+			audio.Audio_AC97 = true;
+			audio.Audio_cs4231a = true;
+		}
+		else if( is_virtish )
+		{
+			audio.Audio_AC97 = has_pci;
+			audio.Audio_es1370 = has_pci;
+		}
+		else if( is_ppc )
+		{
+			audio.Audio_sb16 = true;
+			audio.Audio_Adlib = true;
+			audio.Audio_es1370 = has_pci;
+			audio.Audio_AC97 = has_pci;
+		}
+		else if( is_sparc || is_mips )
+		{
+			audio.Audio_AC97 = has_pci;
+			audio.Audio_es1370 = has_pci;
+		}
 	}
-	else if( is_ppc )
-	{
-		audio.Audio_sb16 = true;
-		audio.Audio_Adlib = true;
-		audio.Audio_es1370 = true;
-		audio.Audio_AC97 = true;
-	}
-	else if( is_sparc || is_mips )
-	{
-		audio.Audio_AC97 = true;
-		audio.Audio_es1370 = true;
-	}
-	// other obscure targets: keep modern VirtIO/USB/HDA from above; ISA/PCI extras only if probe set them
 
 	// Do NOT call Filter_Video_Card_List here — Main Window must expose every
 	// display device QEMU reports for the architecture (see qemu_probe_full_v3).

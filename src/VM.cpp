@@ -7107,6 +7107,19 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 
 	if( effective_video == QLatin1String( "virtio" ) )
 		effective_video = is_x86_pc ? QStringLiteral( "virtio-vga" ) : QStringLiteral( "virtio-gpu-pci" );
+
+	if( is_virt_arch )
+	{
+		// virt machine rejects legacy ISA/PCI VGA framebuffers (-vga std/cirrus/qxl/vmware)
+		if( effective_video == "std" || effective_video == "cirrus" ||
+		    effective_video == "qxl" || effective_video == "vmware" ||
+		    effective_video == "vmware-svga" || effective_video == "virtio-vga" ||
+		    effective_video == "virtio" )
+		{
+			effective_video = QStringLiteral( "virtio-gpu-pci" );
+		}
+	}
+
 	const bool win11_early_display =
 		is_virt_arch && Win11_Lifecycle_Mode == VM::Win11_Install;
 	if( win11_early_display )
@@ -9470,12 +9483,49 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			Args << "-pflash" << PFlash_File;
 	}
 	
-	// UEFI dual pflash (AAVMF / EDK2)  for Windows 11 ARM / aarch64 virt.
+	// UEFI dual pflash (AAVMF / EDK2) — for Windows 11 ARM / aarch64 virt / x86 OVMF.
 	// Inferno Apple SoC already uses SEP pflash (sep_nvram / sep_ssc) on unit 0/1;
 	// stacking edk2-aarch64-code.fd causes: "drive with bus=0, unit=0 exists".
-	if( UEFI && ! UEFI_CODE_File.isEmpty() && ! AQ_Is_Apple_SoC_VM( this ) )
+	if( UEFI && ! AQ_Is_Apple_SoC_VM( this ) )
 	{
 		QString code_path = UEFI_CODE_File;
+		QString qemu_bin = Get_Current_Emulator_Binary_Path( Computer_Type );
+		if( code_path.isEmpty() )
+		{
+			QString arch;
+			if( Computer_Type.contains( "aarch64", Qt::CaseInsensitive ) )
+				arch = QStringLiteral( "aarch64" );
+			else if( Computer_Type.contains( "x86_64", Qt::CaseInsensitive ) )
+				arch = QStringLiteral( "x86_64" );
+			code_path = Find_UEFI_Firmware_CODE( qemu_bin, arch );
+			if( ! code_path.isEmpty() )
+				UEFI_CODE_File = code_path;
+		}
+
+		if( ! code_path.isEmpty() )
+		{
+			if( UEFI_VARS_File.isEmpty() )
+			{
+				QString vm_dir = QFileInfo( VM_XML_File_Path ).absolutePath();
+				if( vm_dir.isEmpty() || vm_dir == "." )
+					vm_dir = Settings.value( "VM_Directory", "~" ).toString();
+				QString vm_base = Machine_Name.trimmed();
+				if( vm_base.isEmpty() ) vm_base = "VM";
+				UEFI_VARS_File = QDir( vm_dir ).filePath( vm_base + "_VARS.fd" );
+			}
+
+			// Dual pflash pairing: ensure writable per-VM vars file is staged on disk
+			if( ! UEFI_VARS_File.isEmpty() && ! QFile::exists( UEFI_VARS_File ) )
+			{
+				QString arch;
+				if( Computer_Type.contains( "aarch64", Qt::CaseInsensitive ) )
+					arch = QStringLiteral( "aarch64" );
+				else if( Computer_Type.contains( "x86_64", Qt::CaseInsensitive ) )
+					arch = QStringLiteral( "x86_64" );
+				Prepare_UEFI_VARS_File( UEFI_VARS_File, qemu_bin, arch );
+			}
+		}
+
 		const bool mac_uefi =
 			Intel_MacOS_Profile ||
 			Computer_Type.contains( QLatin1String( "reimsvgpu" ), Qt::CaseInsensitive );
@@ -9503,22 +9553,25 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			}
 		}
 
-		// Use file.filename= form so spaces (e.g. Program Files) survive WSL rewrite
-		QString code_arg = AQ_Qemu_Drive_File_Key( code_path );
-		code_arg += QStringLiteral( ",if=pflash,format=raw,unit=0,readonly=on" );
-		if( Build_QEMU_Args_for_Script_Mode )
-			Args << "-drive" << "\"" + code_arg + "\"";
-		else
-			Args << "-drive" << code_arg;
-		
-		if( ! UEFI_VARS_File.isEmpty() )
+		if( ! code_path.isEmpty() )
 		{
-			QString vars_arg = AQ_Qemu_Drive_File_Key( UEFI_VARS_File );
-			vars_arg += QStringLiteral( ",if=pflash,format=raw,unit=1" );
+			// Use file.filename= form so spaces (e.g. Program Files) survive WSL rewrite
+			QString code_arg = AQ_Qemu_Drive_File_Key( code_path );
+			code_arg += QStringLiteral( ",if=pflash,format=raw,unit=0,readonly=on" );
 			if( Build_QEMU_Args_for_Script_Mode )
-				Args << "-drive" << "\"" + vars_arg + "\"";
+				Args << "-drive" << "\"" + code_arg + "\"";
 			else
-				Args << "-drive" << vars_arg;
+				Args << "-drive" << code_arg;
+			
+			if( ! UEFI_VARS_File.isEmpty() )
+			{
+				QString vars_arg = AQ_Qemu_Drive_File_Key( UEFI_VARS_File );
+				vars_arg += QStringLiteral( ",if=pflash,format=raw,unit=1" );
+				if( Build_QEMU_Args_for_Script_Mode )
+					Args << "-drive" << "\"" + vars_arg + "\"";
+				else
+					Args << "-drive" << vars_arg;
+			}
 		}
 	}
 
@@ -9587,12 +9640,25 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	if( ! AQ_Is_Apple_SoC_VM( this ) )
 	{
 		const QString mt = Mouse_Type.trimmed().toLower();
+		QString effective_mt = mt;
+		const bool is_virt_target =
+			Computer_Type.contains( "aarch64", Qt::CaseInsensitive ) ||
+			Computer_Type.contains( "qemu-system-arm", Qt::CaseInsensitive ) ||
+			Machine_Type.contains( "virt", Qt::CaseInsensitive );
+
+		// Zero-PS/2 trap prevention: virt machine has zero legacy PS/2 hardware.
+		// If pointer is unset or legacy ps2, promote to modern usb-tablet so input functions.
+		if( is_virt_target && ( effective_mt.isEmpty() || effective_mt == "ps2" || effective_mt == "none" ) )
+		{
+			effective_mt = QStringLiteral( "usb-tablet" );
+		}
+
 		const bool want_usb_ptr =
-			mt == "usb-tablet" || mt == "usb-mouse" || mt == "usb-wacom-tablet";
+			effective_mt == "usb-tablet" || effective_mt == "usb-mouse" || effective_mt == "usb-wacom-tablet";
 		const bool want_virtio_ptr =
-			mt == "virtio-tablet-pci" || mt == "virtio-mouse-pci" ||
-			mt == "virtio-tablet" || mt == "virtio-mouse";
-		const bool want_vmmouse = ( mt == "vmmouse" );
+			effective_mt == "virtio-tablet-pci" || effective_mt == "virtio-mouse-pci" ||
+			effective_mt == "virtio-tablet" || effective_mt == "virtio-mouse";
+		const bool want_vmmouse = ( effective_mt == "vmmouse" );
 
 		bool added_xhci = usb_xhci_arg_added;
 		bool added_uhci = false;
@@ -9632,15 +9698,15 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		{
 			ensure_usb_controller();
 
-			QString dev = mt;
-			if( mt == "usb-wacom-tablet" )
+			QString dev = effective_mt;
+			if( effective_mt == "usb-wacom-tablet" )
 				dev = QStringLiteral( "usb-wacom-tablet" );
 
 			QStringList props;
 			props << "id=aqemu_mouse";
 			if( added_xhci )
 				props << "bus=" + usb_bus;
-			if( ( mt == "usb-tablet" || mt == "usb-mouse" ) &&
+			if( ( effective_mt == "usb-tablet" || effective_mt == "usb-mouse" ) &&
 			    ( Mouse_USB_Version == 1 || Mouse_USB_Version == 2 ) )
 			{
 				props << QString( "usb_version=%1" ).arg( Mouse_USB_Version );
