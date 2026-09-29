@@ -1,0 +1,3 @@
+# Pinned QEMU submodule version and commit for AQEMU bundle caching
+QEMU_VERSION=11.0.2
+QEMU_COMMIT=e545d8bb9d63e9dd61542b88463183314cff9482

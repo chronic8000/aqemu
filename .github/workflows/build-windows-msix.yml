@@ -85,11 +85,19 @@ jobs:
               diffutils
 
     steps:
-      - name: Check out repository and submodules
+      - name: Configure Git for long paths
+        run: git config --system core.longpaths true
+        shell: bash
+
+      - name: Check out repository
         uses: actions/checkout@v4
         with:
-          submodules: recursive
+          submodules: false
           fetch-depth: 1
+
+      - name: Check out QEMU submodule (shallow)
+        run: git submodule update --init --depth 1 third_party/qemu
+        shell: bash
 
       - name: Setup MSYS2 (${{ matrix.msystem }})
         id: msys2
@@ -105,7 +113,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: third_party/qemu-install
-          key: qemu-win-${{ matrix.arch }}-${{ hashFiles('third_party/qemu/**', 'scripts/qemu_*.sh', 'scripts/build_qemu_*.sh') }}
+          key: qemu-win-${{ matrix.arch }}-${{ hashFiles('third_party/qemu_version.txt', '.gitmodules', 'scripts/qemu_*.sh', 'scripts/build_qemu_*.sh') }}
           restore-keys: |
             qemu-win-${{ matrix.arch }}-
 

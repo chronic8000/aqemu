@@ -374,7 +374,7 @@ aqemu_ensure_nettle() {
   if command -v apt-get >/dev/null 2>&1; then
     if ! "$pkg_tool" --exists nettle hogweed 2>/dev/null; then
       echo "Installing nettle/gmp via apt..."
-      sudo apt-get update && sudo apt-get install -y libnettle-dev libhogweed-dev libgmp-dev || true
+      sudo apt-get update && sudo apt-get install -y nettle-dev libnettle-dev libhogweed-dev libgmp-dev || true
     fi
   fi
 

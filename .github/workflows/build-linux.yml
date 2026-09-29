@@ -39,20 +39,24 @@ jobs:
             cmake_flags: "-DPI5_OPTIMIZATIONS=ON"
 
     steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          submodules: false
+          fetch-depth: 1
+
+      - name: Check out QEMU submodule (shallow)
+        run: git submodule update --init --depth 1 third_party/qemu
+
       - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential cmake ninja-build pkg-config \
             qtbase5-dev libqt5widgets5 libqt5network5 libqt5dbus5 libvncserver-dev \
-            libspice-client-glib-2.0-dev libslirp-dev libusb-1.0-0-dev libusbredirparser-dev \
-            libcurl4-openssl-dev libzstd-dev libglib2.0-dev libpixman-1-dev bison flex \
-            libfdt-dev meson python3 python3-pip
-
-      - name: Check out repository and submodules
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-          fetch-depth: 1
+            libspice-client-glib-2.0-dev libspice-server-dev libslirp-dev libusb-1.0-0-dev \
+            libusbredirparser-dev libcurl4-openssl-dev libzstd-dev libglib2.0-dev \
+            libpixman-1-dev bison flex libfdt-dev meson python3 python3-pip \
+            nettle-dev libgmp-dev liblzfse-dev
 
       - name: Cache QEMU bundle
         id: cache-qemu
@@ -60,7 +64,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: third_party/qemu-install
-          key: qemu-linux-${{ matrix.target_name }}-${{ hashFiles('third_party/qemu/**', 'scripts/qemu_*.sh', 'scripts/build_qemu_*.sh') }}
+          key: qemu-linux-${{ matrix.target_name }}-${{ hashFiles('third_party/qemu_version.txt', '.gitmodules', 'scripts/qemu_*.sh', 'scripts/build_qemu_*.sh') }}
           restore-keys: |
             qemu-linux-${{ matrix.target_name }}-
 
