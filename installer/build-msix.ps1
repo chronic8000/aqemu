@@ -79,17 +79,16 @@ if ([string]::IsNullOrWhiteSpace($PfxPassword)) {
     $PfxPassword = "aqemu-msix-dev"
 }
 
-function Find-SdkTool([string] $name) {
-    $cmd = Get-Command $name -ErrorAction SilentlyContinue
-    if ($cmd -and (Test-Path $cmd.Source)) { return $cmd.Source }
-
+function Find-SdkTool([string] $name, [string] $targetArch = "x64") {
     $searchRoots = @(
         $env:ProgramFiles,
         ${env:ProgramFiles(x86)},
         ${env:ProgramW6432}
     ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -Unique
 
-    $subdirs = @("arm64", "x64", "x86")
+    $preferred = if ($targetArch -match 'arm') { "arm64" } else { "x64" }
+    $subdirs = @($preferred, "x64", "x86", "arm64") | Select-Object -Unique
+
     foreach ($root in $searchRoots) {
         foreach ($sub in $subdirs) {
             $pattern = Join-Path $root ("Windows Kits\*\bin\*\" + $sub + "\" + $name)
@@ -97,11 +96,15 @@ function Find-SdkTool([string] $name) {
             if ($hit) { return $hit.FullName }
         }
     }
+
+    $cmd = Get-Command $name -ErrorAction SilentlyContinue
+    if ($cmd -and (Test-Path $cmd.Source)) { return $cmd.Source }
+
     return $null
 }
 
-$makeappx = Find-SdkTool "makeappx.exe"
-$signtool = Find-SdkTool "signtool.exe"
+$makeappx = Find-SdkTool "makeappx.exe" $arch
+$signtool = Find-SdkTool "signtool.exe" $arch
 if (-not $makeappx) {
     Write-Error "makeappx.exe not found. Install Windows 10/11 SDK."
 }
@@ -256,7 +259,15 @@ foreach ($d in $binSearchDirs) {
 }
 if ($windeployqt) {
     Write-Host "Running windeployqt: $windeployqt ..."
-    & $windeployqt --no-translations --compiler-runtime (Join-Path $layoutDir "aqemu.exe") 2>&1 | Out-Null
+    $prevEAP = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        & $windeployqt --no-translations --no-compiler-runtime --no-angle --no-opengl-sw (Join-Path $layoutDir "aqemu.exe") 2>$null
+    } catch {
+        Write-Warning "windeployqt notice: $_"
+    } finally {
+        $ErrorActionPreference = $prevEAP
+    }
 }
 
 # Explicit list of standard MinGW / GCC / LLVM / QEMU runtime DLLs
@@ -366,9 +377,13 @@ New-Item -ItemType Directory -Path $OutDir -Force | Out-Null
 if (Test-Path $msixPath) { Remove-Item $msixPath -Force }
 
 Write-Host "Packing MSIX (this can take a few minutes)..."
+$prevEAP = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
 & $makeappx pack /d $layoutDir /p $msixPath /o
-if ($LASTEXITCODE -ne 0) {
-    Write-Error "makeappx failed with exit code $LASTEXITCODE"
+$packExit = $LASTEXITCODE
+$ErrorActionPreference = $prevEAP
+if ($packExit -ne 0) {
+    Write-Error "makeappx failed with exit code $packExit"
 }
 
 if (-not $SkipSign) {
@@ -397,9 +412,13 @@ if (-not $SkipSign) {
         }
 
         Write-Host "Signing..."
+        $prevEAP = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
         & $signtool sign /fd SHA256 /a /f $pfxPath /p $PfxPassword $msixPath
-        if ($LASTEXITCODE -ne 0) {
-            Write-Error "signtool failed with exit code $LASTEXITCODE"
+        $signExit = $LASTEXITCODE
+        $ErrorActionPreference = $prevEAP
+        if ($signExit -ne 0) {
+            Write-Error "signtool failed with exit code $signExit"
         }
     }
 }
