@@ -14,6 +14,7 @@ param(
     [string] $Version = "1.3.1.0",
     [string] $Architecture = "x64",
     [string] $OutDir = "",
+    [string] $MsysLocation = "",
     # Must match Partner Center Product identity Publisher (CN=...)
     [string] $Publisher = "CN=16318CB3-C262-4B44-BCCF-310B0DDA3950",
     # Must match Partner Center Product identity Package/Identity name
@@ -79,15 +80,22 @@ if ([string]::IsNullOrWhiteSpace($PfxPassword)) {
 }
 
 function Find-SdkTool([string] $name) {
-    $patterns = @(
-        "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\arm64\$name",
-        "${env:ProgramFiles}\Windows Kits\10\bin\*\arm64\$name",
-        "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\$name",
-        "${env:ProgramFiles}\Windows Kits\10\bin\*\x64\$name"
-    )
-    foreach ($p in $patterns) {
-        $hit = Get-Item $p -ErrorAction SilentlyContinue | Sort-Object FullName -Descending | Select-Object -First 1
-        if ($hit) { return $hit.FullName }
+    $cmd = Get-Command $name -ErrorAction SilentlyContinue
+    if ($cmd -and (Test-Path $cmd.Source)) { return $cmd.Source }
+
+    $searchRoots = @(
+        $env:ProgramFiles,
+        ${env:ProgramFiles(x86)},
+        ${env:ProgramW6432}
+    ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -Unique
+
+    $subdirs = @("arm64", "x64", "x86")
+    foreach ($root in $searchRoots) {
+        foreach ($sub in $subdirs) {
+            $pattern = Join-Path $root ("Windows Kits\*\bin\*\" + $sub + "\" + $name)
+            $hit = Get-Item $pattern -ErrorAction SilentlyContinue | Sort-Object FullName -Descending | Select-Object -First 1
+            if ($hit) { return $hit.FullName }
+        }
     }
     return $null
 }
@@ -153,7 +161,21 @@ if (-not (Test-Path $shareBios)) {
     $shareCandidates = @(
         (Join-Path $qemuPrefix "share"),
         (Join-Path $qemuPrefix "share\qemu"),
-        (Join-Path $BuildDir "share"),
+        (Join-Path $BuildDir "share")
+    )
+    if ($MsysLocation -and (Test-Path $MsysLocation)) {
+        $shareCandidates += (Join-Path $MsysLocation "ucrt64\share\qemu")
+        $shareCandidates += (Join-Path $MsysLocation "clangarm64\share\qemu")
+        $shareCandidates += (Join-Path $MsysLocation "mingw64\share\qemu")
+        $shareCandidates += (Join-Path $MsysLocation "share\qemu")
+        $shareCandidates += (Join-Path $MsysLocation "share")
+    }
+    if ($env:RUNNER_TEMP) {
+        $shareCandidates += (Join-Path $env:RUNNER_TEMP "msys64\ucrt64\share\qemu")
+        $shareCandidates += (Join-Path $env:RUNNER_TEMP "msys64\clangarm64\share\qemu")
+        $shareCandidates += (Join-Path $env:RUNNER_TEMP "msys64\mingw64\share\qemu")
+    }
+    $shareCandidates += @(
         "C:\msys64\ucrt64\share\qemu",
         "C:\msys64\clangarm64\share\qemu",
         "C:\msys64\mingw64\share\qemu"
@@ -183,8 +205,24 @@ if (-not (Test-Path $shareBios)) {
 # Ensure runtime DLL dependencies are fully bundled (GCC, Qt, GLib, QEMU deps)
 Write-Host "Checking runtime DLL dependencies for MS Store / MSIX sandbox..."
 $binSearchDirs = @()
+if ($MsysLocation -and (Test-Path $MsysLocation)) {
+    foreach ($sub in @("clangarm64\bin", "ucrt64\bin", "mingw64\bin", "clang64\bin", "bin")) {
+        $cand = Join-Path $MsysLocation $sub
+        if ((Test-Path $cand) -and ($binSearchDirs -notcontains $cand)) {
+            $binSearchDirs += $cand
+        }
+    }
+}
 if ($env:MSYSTEM_PREFIX -and (Test-Path (Join-Path $env:MSYSTEM_PREFIX "bin"))) {
     $binSearchDirs += (Join-Path $env:MSYSTEM_PREFIX "bin")
+}
+if ($env:RUNNER_TEMP) {
+    foreach ($sub in @("msys64\clangarm64\bin", "msys64\ucrt64\bin", "msys64\mingw64\bin", "msys64\clang64\bin")) {
+        $cand = Join-Path $env:RUNNER_TEMP $sub
+        if ((Test-Path $cand) -and ($binSearchDirs -notcontains $cand)) {
+            $binSearchDirs += $cand
+        }
+    }
 }
 foreach ($cand in @(
     "C:\msys64\clangarm64\bin",
@@ -207,11 +245,14 @@ foreach ($p in ($env:PATH -split ";")) {
 # Run windeployqt if available to collect Qt plugins (platforms, styles) and Qt DLLs
 $windeployqt = $null
 foreach ($d in $binSearchDirs) {
-    $wdq = Join-Path $d "windeployqt.exe"
-    if (Test-Path $wdq) {
-        $windeployqt = $wdq
-        break
+    foreach ($exe in @("windeployqt.exe", "windeployqt-qt5.exe")) {
+        $wdq = Join-Path $d $exe
+        if (Test-Path $wdq) {
+            $windeployqt = $wdq
+            break
+        }
     }
+    if ($windeployqt) { break }
 }
 if ($windeployqt) {
     Write-Host "Running windeployqt: $windeployqt ..."
@@ -227,6 +268,7 @@ $essentialDlls = @(
     "zlib1.dll", "libpng16-16.dll", "libjpeg-8.dll",
     "libslirp-0.dll", "libusb-1.0.0.dll", "libusbredirparser-1.dll",
     "libepoxy-0.dll", "libffi-8.dll", "libbrotlidec.dll", "libbrotlicommon.dll",
+    "libvncclient.dll", "libvncclient-1.dll",
     "libspice-client-glib-2.0-8.dll", "libspice-client-gtk-3.0-5.dll", "libspice-server-1.dll"
 )
 

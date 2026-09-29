@@ -13,12 +13,13 @@ on:
 jobs:
   build-msix:
     name: Build MSIX (${{ matrix.arch }})
-    runs-on: windows-latest
+    runs-on: ${{ matrix.runs_on }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - arch: x64
+            runs_on: windows-latest
             target_name: win64
             msystem: UCRT64
             build_dir: build_win
@@ -29,8 +30,11 @@ jobs:
               mingw-w64-ucrt-x86_64-ninja
               mingw-w64-ucrt-x86_64-pkgconf
               mingw-w64-ucrt-x86_64-qt5-base
+              mingw-w64-ucrt-x86_64-qt5-tools
+              mingw-w64-ucrt-x86_64-libvncserver
 
           - arch: arm64
+            runs_on: windows-11-arm
             target_name: win-arm64
             msystem: CLANGARM64
             build_dir: build_woa
@@ -41,12 +45,15 @@ jobs:
               mingw-w64-clang-aarch64-ninja
               mingw-w64-clang-aarch64-pkgconf
               mingw-w64-clang-aarch64-qt5-base
+              mingw-w64-clang-aarch64-qt5-tools
+              mingw-w64-clang-aarch64-libvncserver
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
       - name: Setup MSYS2 (${{ matrix.msystem }})
+        id: msys2
         uses: msys2/setup-msys2@v2
         with:
           msystem: ${{ matrix.msystem }}
@@ -66,7 +73,8 @@ jobs:
         run: |
           powershell -NoProfile -ExecutionPolicy Bypass -File installer/build-msix.ps1 `
             -Architecture "${{ matrix.arch }}" `
-            -BuildDir "${{ matrix.build_dir }}"
+            -BuildDir "${{ matrix.build_dir }}" `
+            -MsysLocation "${{ steps.msys2.outputs.msys2-location }}"
 
       - name: Upload MSIX Artifact (${{ matrix.arch }})
         uses: actions/upload-artifact@v4
