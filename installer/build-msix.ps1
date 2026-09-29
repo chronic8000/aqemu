@@ -11,7 +11,7 @@
 param(
     [string] $RepoRoot = "",
     [string] $BuildDir = "",
-    [string] $Version = "1.3.1.0",
+    [string] $Version = "1.4.0.0",
     [string] $Architecture = "x64",
     [string] $OutDir = "",
     [string] $MsysLocation = "",

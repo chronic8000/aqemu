@@ -6702,7 +6702,7 @@ void Main_Window::Maybe_Prompt_WSL_Config_On_Boot()
 		return;
 
 	const auto ans = QMessageBox::question( this, tr( "WSL configuration" ),
-		tr( "AQEMU 1.3.0 uses WSL for Apple SoC (Inferno) and hardware-accelerated "
+		tr( "AQEMU 1.4.0 uses WSL for Apple SoC (Inferno) and hardware-accelerated "
 		    "macOS (Reims) on Windows.\n\n"
 		    "WSL distro / username are not configured yet. Set them now?\n\n"
 		    "(Optional password can be saved securely in Windows Credential Manager.)" ),

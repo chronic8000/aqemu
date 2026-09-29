@@ -202,7 +202,7 @@ We keep the original authors’ names. We do **not** inherit their old donation 
 
 ## What’s new vs the old AQEMU (tobimensch / ~0.9.x)
 
-The last widely known community tree — [tobimensch/aqemu](https://github.com/tobimensch/aqemu) — went quiet in 2020 (Qt5 port, VNC-era display, you brought your own QEMU). **Calling this revival a reskin misses nearly all of the engineering.** AQEMU 1.3.0 adds working Apple SoC (Inferno/iOS) and hardware-accelerated Reims macOS on Windows via WSL, on top of the capability model, runtime architecture, VM creation flow, platform support and distribution pipeline from earlier 1.x releases.
+The last widely known community tree — [tobimensch/aqemu](https://github.com/tobimensch/aqemu) — went quiet in 2020 (Qt5 port, VNC-era display, you brought your own QEMU). **Calling this revival a reskin misses nearly all of the engineering.** AQEMU 1.4.0 adds working Apple SoC (Inferno/iOS) and hardware-accelerated Reims macOS on Windows via WSL, on top of the capability model, runtime architecture, VM creation flow, platform support and distribution pipeline from earlier 1.x releases.
 
 ### 1. Ground-truth capability engine
 
@@ -590,7 +590,7 @@ Get the official **AQEMU VM Manager** package on the Microsoft Store:
 </p>
 
 The Microsoft Store version includes:
-- **AQEMU 1.3.0** with Apple SoC (Inferno/iOS) and Reims hardware-accelerated macOS via WSL
+- **AQEMU 1.4.0** with Apple SoC (Inferno/iOS) and Reims hardware-accelerated macOS via WSL
 - **Bundled QEMU 11.0.2** binaries (no separate QEMU setup required)
 - **Automatic background updates** via the Microsoft Store
 - Dedicated Windows app installation & single-click launcher

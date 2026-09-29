@@ -42,7 +42,7 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           submodules: false
           fetch-depth: 1
@@ -64,7 +64,7 @@ jobs:
       - name: Cache QEMU bundle
         id: cache-qemu
         if: github.event.inputs.rebuild_qemu != 'true'
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: third_party/qemu-install
           key: qemu-linux-${{ matrix.target_name }}-${{ hashFiles('third_party/qemu_version.txt', '.gitmodules', 'scripts/qemu_*.sh', 'scripts/build_qemu_*.sh') }}
@@ -120,13 +120,14 @@ jobs:
           EOF
           chmod +x "${DIST_DIR}/aqemu.sh"
 
-          # Tarball archive
+          # Tarball archives (versioned 1.4.0 and target-named)
           cd dist
-          tar -czvf "AQEMU-${{ matrix.target_name }}.tar.gz" "AQEMU-${{ matrix.target_name }}"
+          tar -czvf "AQEMU-1.4.0-${{ matrix.target_name }}.tar.gz" "AQEMU-${{ matrix.target_name }}"
+          cp -f "AQEMU-1.4.0-${{ matrix.target_name }}.tar.gz" "AQEMU-${{ matrix.target_name }}.tar.gz"
 
       - name: Upload Linux Package Artifact (${{ matrix.target_name }})
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: AQEMU-${{ matrix.target_name }}
-          path: dist/AQEMU-${{ matrix.target_name }}.tar.gz
+          path: dist/AQEMU-*.tar.gz
           if-no-files-found: error

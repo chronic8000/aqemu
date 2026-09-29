@@ -1,3 +1,19 @@
+2026-09-29 Chronic Engineering — AQEMU 1.4.0 (Full QEMU 11.0.2 Multi-Architecture Integration & CI/CD Pipeline)
+
+	* Complete QEMU 11.0.2 Multi-Architecture Integration:
+	  - Full end-to-end automated compilation and baking of QEMU 11.0.2 across all 28
+	    standard softmmu architectures and Apple SoC (ChefKiss Inferno) directly into
+	    deployment packages.
+	  - Windows MSIX (x86_64 & ARM64): Staging layout embeds all 29 qemu-system-*
+	    binaries, qemu-img, full firmware/BIOS ROMs, and runtime DLLs with fail-fast
+	    binary count enforcement.
+	  - Linux Standalone Packages (x86_64 & ARM64 / Pi 5): Automated tarball packaging
+	    with portable launcher script (aqemu.sh), desktop integration, and icons.
+	  - Upgraded GitHub Actions CI/CD workflows to Node.js 24 runtime (checkout@v7,
+	    cache@v6, upload-artifact@v7).
+	  - Bumped project version globally to 1.4.0 across core engine, UI dialogs,
+	    MSIX manifest, WiX MSI installer, and packaging documentation.
+
 2026-09-28 Chronic Engineering — AQEMU 1.3.5 (TrueNAS ARM64 Support, Unique Disk Serials & Sponsorship Methods)
 
 	* TrueNAS SCALE (ARM64) & Multi-Architecture Storage:

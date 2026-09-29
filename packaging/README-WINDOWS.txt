@@ -1,7 +1,7 @@
-AQEMU 1.3.0 — Windows portable (x64)
+AQEMU 1.4.0 — Windows portable (x64)
 ====================================
 
-Updated build: 2026-08-08 (Apple SoC Inferno + Reims WSL acceleration).
+Updated build: 2026-09-29 (QEMU 11.0.2 multi-architecture integration & multi-platform packages).
 
 Please file bugs:
   https://github.com/chronic8000/aqemu/issues
@@ -9,7 +9,7 @@ Please file bugs:
 Run:  aqemu.exe
 
 This zip includes:
-  - AQEMU 1.3.0 (Qt5 + embedded SPICE)
+  - AQEMU 1.4.0 (Qt5 + embedded SPICE)
   - QEMU 11.0.2 (full softmmu set + qemu-img)
   - UEFI/BIOS firmware under share/
   - OpenPartitionDxe.efi (Intel macOS OpenCore prep)

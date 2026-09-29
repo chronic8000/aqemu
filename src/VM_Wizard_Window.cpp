@@ -6042,7 +6042,7 @@ void VM_Wizard_Window::Update_Finish_Page_Guidance()
 	}
 	else if( Is_Apple_Silicon_Or_iOS_Template() )
 	{
-		help = tr( "<p><b>Apple SoC / iOS (Inferno) — AQEMU 1.3.0</b></p><ul>"
+		help = tr( "<p><b>Apple SoC / iOS (Inferno) — AQEMU 1.4.0</b></p><ul>"
 			"<li>Uses Linux <code>qemu-system-applesoc</code> (ChefKiss Inferno). "
 			"On Windows this is forced through <b>WSL</b> (UNIX sockets / companion restore).</li>"
 			"<li>The wizard <b>NAND (root) size</b> page: 16 / 32 / 64 / 128 / 256 GiB "
@@ -6059,7 +6059,7 @@ void VM_Wizard_Window::Update_Finish_Page_Guidance()
 	         Selected_OS_Name.compare( QLatin1String( "macOS" ), Qt::CaseInsensitive ) == 0 ||
 	         Selected_OS_Name.compare( QLatin1String( "Darwin" ), Qt::CaseInsensitive ) == 0 )
 	{
-		help = tr( "<p><b>Intel macOS / Reims — AQEMU 1.3.0</b></p><ul>"
+		help = tr( "<p><b>Intel macOS / Reims — AQEMU 1.4.0</b></p><ul>"
 			"<li>You must supply OpenCore boot disk, OVMF firmware, OSK, and install/system disks.</li>"
 			"<li><b>Reims vGPU</b> (hardware-accelerated Metal path) uses Linux "
 			"<code>qemu-system-reims3d</code> under <b>WSL</b> with host Vulkan — "
