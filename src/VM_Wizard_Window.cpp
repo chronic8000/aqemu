@@ -3499,35 +3499,69 @@ void VM_Wizard_Window::Enhance_Typical_HDD_Page()
 		delete old;
 	}
 
-	QVBoxLayout *lay = new QVBoxLayout( ui.Typical_HDD_Page );
-	lay->setContentsMargins( 9, 9, 9, 9 );
+	QVBoxLayout *pageLay = new QVBoxLayout( ui.Typical_HDD_Page );
+	pageLay->setContentsMargins( 0, 0, 0, 0 );
+
+	QScrollArea *scroll = new QScrollArea( ui.Typical_HDD_Page );
+	scroll->setWidgetResizable( true );
+	scroll->setFrameShape( QFrame::NoFrame );
+	scroll->setHorizontalScrollBarPolicy( Qt::ScrollBarAlwaysOff );
+	pageLay->addWidget( scroll );
+
+	QWidget *content = new QWidget();
+	scroll->setWidget( content );
+
+	QVBoxLayout *lay = new QVBoxLayout( content );
+	lay->setContentsMargins( 12, 10, 12, 10 );
 	lay->setSpacing( 8 );
 
+	auto ensure_min_height = []( QWidget *w, int min_h = 28 ) {
+		if( w )
+		{
+			w->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Fixed );
+			w->setMinimumHeight( qMax( min_h, w->fontMetrics().height() + 8 ) );
+		}
+	};
+	auto ensure_btn_size = []( QToolButton *btn, int min_w = 38, int min_h = 28 ) {
+		if( btn )
+		{
+			btn->setSizePolicy( QSizePolicy::Preferred, QSizePolicy::Fixed );
+			btn->setMinimumHeight( qMax( min_h, btn->fontMetrics().height() + 8 ) );
+			btn->setMinimumWidth( qMax( min_w, btn->fontMetrics().horizontalAdvance( btn->text() ) + 18 ) );
+		}
+	};
+
+	ui.Label_Typical_HDD->setParent( content );
 	ui.Label_Typical_HDD->setText( tr(
 		"Create a new hard disk image, or connect an existing one. "
 		"Size is used only when creating a new image." ) );
 	ui.Label_Typical_HDD->setWordWrap( true );
 	lay->addWidget( ui.Label_Typical_HDD );
 
-	Group_Typical_Disk_Mode = new QButtonGroup( ui.Typical_HDD_Page );
-	RB_Typical_New_Disk = new QRadioButton( tr( "Create a new disk image" ), ui.Typical_HDD_Page );
-	RB_Typical_Existing_Disk = new QRadioButton( tr( "Use an existing disk image" ), ui.Typical_HDD_Page );
+	Group_Typical_Disk_Mode = new QButtonGroup( content );
+	RB_Typical_New_Disk = new QRadioButton( tr( "Create a new disk image" ), content );
+	RB_Typical_Existing_Disk = new QRadioButton( tr( "Use an existing disk image" ), content );
 	Group_Typical_Disk_Mode->addButton( RB_Typical_New_Disk );
 	Group_Typical_Disk_Mode->addButton( RB_Typical_Existing_Disk );
 	RB_Typical_New_Disk->setChecked( true );
 	lay->addWidget( RB_Typical_New_Disk );
 
-	Widget_Typical_Size_Row = new QWidget( ui.Typical_HDD_Page );
+	Widget_Typical_Size_Row = new QWidget( content );
 	QHBoxLayout *sizeLay = new QHBoxLayout( Widget_Typical_Size_Row );
-	sizeLay->setContentsMargins( 20, 0, 0, 0 );
+	sizeLay->setContentsMargins( 22, 0, 0, 0 );
+	ui.Label_HDD_Size->setParent( Widget_Typical_Size_Row );
 	sizeLay->addWidget( ui.Label_HDD_Size );
 	CB_Wizard_Nand = new QComboBox( Widget_Typical_Size_Row );
 	SB_Wizard_Nand = new QSpinBox( Widget_Typical_Size_Row );
 	AQ_Apply_Apple_SoC_Nand_Controls( CB_Wizard_Nand, SB_Wizard_Nand, AQ_Default_Apple_SoC_Nand_GiB() );
 	CB_Wizard_Nand->setVisible( false );
 	SB_Wizard_Nand->setVisible( false );
+	ensure_min_height( CB_Wizard_Nand );
+	ensure_min_height( SB_Wizard_Nand );
 	sizeLay->addWidget( CB_Wizard_Nand );
 	sizeLay->addWidget( SB_Wizard_Nand );
+	ui.SB_HDD_Size->setParent( Widget_Typical_Size_Row );
+	ensure_min_height( ui.SB_HDD_Size );
 	sizeLay->addWidget( ui.SB_HDD_Size );
 	connect( CB_Wizard_Nand, QOverload<int>::of( &QComboBox::currentIndexChanged ),
 	         this, [this]( int ) {
@@ -3542,30 +3576,38 @@ void VM_Wizard_Window::Enhance_Typical_HDD_Page()
 
 	lay->addWidget( RB_Typical_Existing_Disk );
 
-	QHBoxLayout *pathLay = new QHBoxLayout();
-	pathLay->setContentsMargins( 0, 0, 0, 0 );
-	pathLay->addWidget( new QLabel( tr( "Disk image:" ), ui.Typical_HDD_Page ) );
-	Edit_Typical_Disk_Path = new QLineEdit( ui.Typical_HDD_Page );
-	TB_Typical_Disk_Browse = new QToolButton( ui.Typical_HDD_Page );
+	QWidget *Widget_Typical_Path_Row = new QWidget( content );
+	QHBoxLayout *pathLay = new QHBoxLayout( Widget_Typical_Path_Row );
+	pathLay->setContentsMargins( 22, 0, 0, 0 );
+	pathLay->setSpacing( 6 );
+	QLabel *lblDisk = new QLabel( tr( "Disk image:" ), Widget_Typical_Path_Row );
+	Edit_Typical_Disk_Path = new QLineEdit( Widget_Typical_Path_Row );
+	ensure_min_height( Edit_Typical_Disk_Path );
+	TB_Typical_Disk_Browse = new QToolButton( Widget_Typical_Path_Row );
 	TB_Typical_Disk_Browse->setText( QStringLiteral( "..." ) );
 	TB_Typical_Disk_Browse->setToolTip( tr( "Browse for disk image" ) );
-	pathLay->addWidget( Edit_Typical_Disk_Path, 1 );
-	pathLay->addWidget( TB_Typical_Disk_Browse );
-	QToolButton *tb_disk_pool = new QToolButton( ui.Typical_HDD_Page );
+	ensure_btn_size( TB_Typical_Disk_Browse, 36 );
+	QToolButton *tb_disk_pool = new QToolButton( Widget_Typical_Path_Row );
 	tb_disk_pool->setText( tr( "Pool" ) );
 	tb_disk_pool->setToolTip( tr( "Browse VM storage folder" ) );
+	ensure_btn_size( tb_disk_pool, 52 );
+	pathLay->addWidget( lblDisk );
+	pathLay->addWidget( Edit_Typical_Disk_Path, 1 );
+	pathLay->addWidget( TB_Typical_Disk_Browse );
 	pathLay->addWidget( tb_disk_pool );
-	lay->addLayout( pathLay );
+	lay->addWidget( Widget_Typical_Path_Row );
 
-	QWidget *Widget_Typical_Sector_Row = new QWidget( ui.Typical_HDD_Page );
+	QWidget *Widget_Typical_Sector_Row = new QWidget( content );
 	QHBoxLayout *secLay = new QHBoxLayout( Widget_Typical_Sector_Row );
-	secLay->setContentsMargins( 0, 0, 0, 0 );
+	secLay->setContentsMargins( 22, 0, 0, 0 );
+	secLay->setSpacing( 6 );
 	QLabel *lblSec = new QLabel( tr( "Sector size:" ), Widget_Typical_Sector_Row );
 	CB_Typical_Sector_Size = new QComboBox( Widget_Typical_Sector_Row );
 	CB_Typical_Sector_Size->addItem( tr( "Default (512 Bytes / 512n)" ), QStringLiteral( "512" ) );
 	CB_Typical_Sector_Size->addItem( tr( "4096 Bytes Native (4Kn - Advanced Format / TrueNAS / ZFS)" ), QStringLiteral( "4096" ) );
 	CB_Typical_Sector_Size->addItem( tr( "512e (512B Logical / 4096B Physical)" ), QStringLiteral( "512e" ) );
 	CB_Typical_Sector_Size->setToolTip( tr( "Native 4096-byte (4Kn) sector size emulation allows running disks from TrueNAS ZFS pools natively without translation." ) );
+	ensure_min_height( CB_Typical_Sector_Size );
 	secLay->addWidget( lblSec );
 	secLay->addWidget( CB_Typical_Sector_Size, 1 );
 	lay->addWidget( Widget_Typical_Sector_Row );
@@ -3575,91 +3617,114 @@ void VM_Wizard_Window::Enhance_Typical_HDD_Page()
 			Guest_Sector_Size = CB_Typical_Sector_Size->currentData().toString();
 	} );
 
-	lay->addWidget( new QLabel( tr( "Install media:" ), ui.Typical_HDD_Page ) );
-	Group_Typical_Install_Media = new QButtonGroup( ui.Typical_HDD_Page );
-	RB_Install_Local = new QRadioButton( tr( "Local ISO / image file" ), ui.Typical_HDD_Page );
-	RB_Install_URL_ISO = new QRadioButton( tr( "Download ISO from URL" ), ui.Typical_HDD_Page );
-	RB_Install_Network_Kernel = new QRadioButton( tr( "Network install (kernel + initrd URLs)" ), ui.Typical_HDD_Page );
+	QLabel *lblInstallMedia = new QLabel( tr( "Install media:" ), content );
+	lblInstallMedia->setStyleSheet( QStringLiteral( "font-weight: 600; margin-top: 4px;" ) );
+	lay->addWidget( lblInstallMedia );
+
+	Group_Typical_Install_Media = new QButtonGroup( content );
+	RB_Install_Local = new QRadioButton( tr( "Local ISO / image file" ), content );
+	RB_Install_URL_ISO = new QRadioButton( tr( "Download ISO from URL" ), content );
+	RB_Install_Network_Kernel = new QRadioButton( tr( "Network install (kernel + initrd URLs)" ), content );
 	Group_Typical_Install_Media->addButton( RB_Install_Local );
 	Group_Typical_Install_Media->addButton( RB_Install_URL_ISO );
 	Group_Typical_Install_Media->addButton( RB_Install_Network_Kernel );
 	RB_Install_Local->setChecked( true );
 	lay->addWidget( RB_Install_Local );
 
-	Widget_Install_Local_Row = new QWidget( ui.Typical_HDD_Page );
+	Widget_Install_Local_Row = new QWidget( content );
 	QHBoxLayout *isoLay = new QHBoxLayout( Widget_Install_Local_Row );
-	isoLay->setContentsMargins( 20, 0, 0, 0 );
+	isoLay->setContentsMargins( 22, 0, 0, 0 );
+	isoLay->setSpacing( 6 );
 	Edit_Install_ISO = new QLineEdit( Widget_Install_Local_Row );
 	Edit_Install_ISO->setPlaceholderText( tr( "Path to installer ISO — OS is guessed from volume ID / filename" ) );
+	ensure_min_height( Edit_Install_ISO );
 	TB_Install_ISO_Browse = new QToolButton( Widget_Install_Local_Row );
 	TB_Install_ISO_Browse->setText( QStringLiteral( "..." ) );
+	ensure_btn_size( TB_Install_ISO_Browse, 36 );
 	TB_Install_ISO_Storage = new QToolButton( Widget_Install_Local_Row );
 	TB_Install_ISO_Storage->setText( tr( "Pool" ) );
 	TB_Install_ISO_Storage->setToolTip( tr( "Browse VM storage folder for ISOs" ) );
+	ensure_btn_size( TB_Install_ISO_Storage, 52 );
 	isoLay->addWidget( Edit_Install_ISO, 1 );
 	isoLay->addWidget( TB_Install_ISO_Browse );
 	isoLay->addWidget( TB_Install_ISO_Storage );
 	lay->addWidget( Widget_Install_Local_Row );
 
 	lay->addWidget( RB_Install_URL_ISO );
-	Widget_Install_URL_Row = new QWidget( ui.Typical_HDD_Page );
+	Widget_Install_URL_Row = new QWidget( content );
 	QHBoxLayout *urlLay = new QHBoxLayout( Widget_Install_URL_Row );
-	urlLay->setContentsMargins( 20, 0, 0, 0 );
+	urlLay->setContentsMargins( 22, 0, 0, 0 );
+	urlLay->setSpacing( 6 );
 	Edit_Install_ISO_URL = new QLineEdit( Widget_Install_URL_Row );
 	Edit_Install_ISO_URL->setPlaceholderText( tr( "https://…/install.iso" ) );
+	ensure_min_height( Edit_Install_ISO_URL );
 	TB_Download_ISO_URL = new QToolButton( Widget_Install_URL_Row );
 	TB_Download_ISO_URL->setText( tr( "Download" ) );
 	TB_Download_ISO_URL->setToolTip( tr( "Download into your VM folder and use as CD-ROM" ) );
+	ensure_btn_size( TB_Download_ISO_URL, 84 );
 	urlLay->addWidget( Edit_Install_ISO_URL, 1 );
 	urlLay->addWidget( TB_Download_ISO_URL );
 	lay->addWidget( Widget_Install_URL_Row );
 
 	lay->addWidget( RB_Install_Network_Kernel );
-	Widget_Install_Kernel_Row = new QWidget( ui.Typical_HDD_Page );
+	Widget_Install_Kernel_Row = new QWidget( content );
 	QVBoxLayout *kernLay = new QVBoxLayout( Widget_Install_Kernel_Row );
-	kernLay->setContentsMargins( 20, 0, 0, 0 );
-	kernLay->setSpacing( 4 );
+	kernLay->setContentsMargins( 22, 0, 0, 0 );
+	kernLay->setSpacing( 6 );
 	QHBoxLayout *kurl = new QHBoxLayout();
+	kurl->setSpacing( 6 );
 	Edit_Kernel_URL = new QLineEdit( Widget_Install_Kernel_Row );
 	Edit_Kernel_URL->setPlaceholderText( tr( "Kernel URL (vmlinuz / bzImage)" ) );
+	ensure_min_height( Edit_Kernel_URL );
 	TB_Download_Kernel = new QToolButton( Widget_Install_Kernel_Row );
 	TB_Download_Kernel->setText( tr( "Get" ) );
+	ensure_btn_size( TB_Download_Kernel, 48 );
 	kurl->addWidget( Edit_Kernel_URL, 1 );
 	kurl->addWidget( TB_Download_Kernel );
 	kernLay->addLayout( kurl );
+
 	QHBoxLayout *iurl = new QHBoxLayout();
+	iurl->setSpacing( 6 );
 	Edit_Initrd_URL = new QLineEdit( Widget_Install_Kernel_Row );
 	Edit_Initrd_URL->setPlaceholderText( tr( "Initrd URL (optional)" ) );
+	ensure_min_height( Edit_Initrd_URL );
 	TB_Download_Initrd = new QToolButton( Widget_Install_Kernel_Row );
 	TB_Download_Initrd->setText( tr( "Get" ) );
+	ensure_btn_size( TB_Download_Initrd, 48 );
 	iurl->addWidget( Edit_Initrd_URL, 1 );
 	iurl->addWidget( TB_Download_Initrd );
 	kernLay->addLayout( iurl );
+
 	Edit_Kernel_Append = new QLineEdit( Widget_Install_Kernel_Row );
 	Edit_Kernel_Append->setPlaceholderText( tr( "Kernel cmdline (-append), e.g. inst.repo=http://…" ) );
+	ensure_min_height( Edit_Kernel_Append );
 	kernLay->addWidget( Edit_Kernel_Append );
+
 	QHBoxLayout *kloc = new QHBoxLayout();
+	kloc->setSpacing( 6 );
 	Edit_Kernel_Local = new QLineEdit( Widget_Install_Kernel_Row );
 	Edit_Kernel_Local->setPlaceholderText( tr( "Local kernel path (after download or browse)" ) );
+	ensure_min_height( Edit_Kernel_Local );
 	Edit_Initrd_Local = new QLineEdit( Widget_Install_Kernel_Row );
 	Edit_Initrd_Local->setPlaceholderText( tr( "Local initrd path" ) );
+	ensure_min_height( Edit_Initrd_Local );
 	kloc->addWidget( Edit_Kernel_Local, 1 );
 	kloc->addWidget( Edit_Initrd_Local, 1 );
 	kernLay->addLayout( kloc );
 	lay->addWidget( Widget_Install_Kernel_Row );
 
-	Label_Install_ISO_Guess = new QLabel( ui.Typical_HDD_Page );
+	Label_Install_ISO_Guess = new QLabel( content );
 	Label_Install_ISO_Guess->setWordWrap( true );
-	Label_Install_ISO_Guess->setStyleSheet( QStringLiteral( "color: #335;" ) );
+	Label_Install_ISO_Guess->setStyleSheet( QStringLiteral( "color: #335; font-weight: 500; padding: 4px 0;" ) );
 	lay->addWidget( Label_Install_ISO_Guess );
 
 	QLabel *hint = new QLabel( tr(
 		"New images default to your VM folder. Change the path to store the disk elsewhere. "
 		"Attach an ISO, download one from a URL, or use kernel+initrd network install "
 		"(like virt-manager URL install)." ),
-		ui.Typical_HDD_Page );
+		content );
 	hint->setWordWrap( true );
-	hint->setStyleSheet( QStringLiteral( "color: palette(mid);" ) );
+	hint->setStyleSheet( QStringLiteral( "color: palette(mid); padding-top: 4px;" ) );
 	lay->addWidget( hint );
 	lay->addStretch( 1 );
 
@@ -3902,7 +3967,7 @@ void VM_Wizard_Window::Apply_Install_ISO_Guess()
 		{
 			QString msg = tr( "Guessed OS: %1 (%2) — %3" )
 				.arg( g.os_name, g.confidence, g.tip );
-			if( ! g.volume_id.isEmpty() && g.tip.indexOf( g.volume_id ) < 0 )
+			if( ! g.volume_id.isEmpty() && ! g.tip.contains( g.volume_id, Qt::CaseInsensitive ) )
 				msg += tr( " Volume ID: %1." ).arg( g.volume_id );
 			Label_Install_ISO_Guess->setText( msg );
 		}
@@ -3926,11 +3991,20 @@ void VM_Wizard_Window::Install_Source_Mode_Changed()
 	const bool url = RB_Install_URL_ISO && RB_Install_URL_ISO->isChecked();
 	const bool kern = RB_Install_Network_Kernel && RB_Install_Network_Kernel->isChecked();
 	if( Widget_Install_Local_Row )
+	{
+		Widget_Install_Local_Row->setVisible( local );
 		Widget_Install_Local_Row->setEnabled( local );
+	}
 	if( Widget_Install_URL_Row )
+	{
+		Widget_Install_URL_Row->setVisible( url );
 		Widget_Install_URL_Row->setEnabled( url );
+	}
 	if( Widget_Install_Kernel_Row )
+	{
+		Widget_Install_Kernel_Row->setVisible( kern );
 		Widget_Install_Kernel_Row->setEnabled( kern );
+	}
 	if( ! local && Label_Install_ISO_Guess && ! kern )
 		Label_Install_ISO_Guess->clear();
 }
@@ -4096,7 +4170,36 @@ bool VM_Wizard_Window::Validate_Typical_HDD_Page()
 void VM_Wizard_Window::Build_Windows11_ARM_Page()
 {
 	Win11_ARM_Page = new QWidget();
-	QVBoxLayout *mainLay = new QVBoxLayout( Win11_ARM_Page );
+	QVBoxLayout *pageLay = new QVBoxLayout( Win11_ARM_Page );
+	pageLay->setContentsMargins( 0, 0, 0, 0 );
+
+	QScrollArea *scroll = new QScrollArea( Win11_ARM_Page );
+	scroll->setWidgetResizable( true );
+	scroll->setFrameShape( QFrame::NoFrame );
+	scroll->setHorizontalScrollBarPolicy( Qt::ScrollBarAlwaysOff );
+	pageLay->addWidget( scroll );
+
+	QWidget *content = new QWidget();
+	scroll->setWidget( content );
+	QVBoxLayout *mainLay = new QVBoxLayout( content );
+	mainLay->setContentsMargins( 12, 10, 12, 10 );
+	mainLay->setSpacing( 8 );
+
+	auto lock_h = []( QWidget *w, int min_h = 28 ) {
+		if( w )
+		{
+			w->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Fixed );
+			w->setMinimumHeight( qMax( min_h, w->fontMetrics().height() + 8 ) );
+		}
+	};
+	auto lock_btn = []( QToolButton *btn, int min_w = 38, int min_h = 28 ) {
+		if( btn )
+		{
+			btn->setSizePolicy( QSizePolicy::Preferred, QSizePolicy::Fixed );
+			btn->setMinimumHeight( qMax( min_h, btn->fontMetrics().height() + 8 ) );
+			btn->setMinimumWidth( qMax( min_w, btn->fontMetrics().horizontalAdvance( btn->text() ) + 18 ) );
+		}
+	};
 	
 	QLabel *intro = new QLabel( tr(
 		"<b>Windows 11 ARM setup</b><br>"
@@ -4114,10 +4217,13 @@ void VM_Wizard_Window::Build_Windows11_ARM_Page()
 	diskLay->addWidget( RB_Win11_Existing_Disk );
 	
 	QHBoxLayout *existLay = new QHBoxLayout();
+	existLay->setSpacing( 6 );
 	Edit_Win11_Existing_Disk = new QLineEdit();
+	lock_h( Edit_Win11_Existing_Disk );
 	Edit_Win11_Existing_Disk->setEnabled( false );
 	TB_Win11_Existing_Disk_Browse = new QToolButton();
 	TB_Win11_Existing_Disk_Browse->setText( "..." );
+	lock_btn( TB_Win11_Existing_Disk_Browse, 36 );
 	TB_Win11_Existing_Disk_Browse->setEnabled( false );
 	existLay->addWidget( Edit_Win11_Existing_Disk );
 	existLay->addWidget( TB_Win11_Existing_Disk_Browse );
@@ -4130,9 +4236,12 @@ void VM_Wizard_Window::Build_Windows11_ARM_Page()
 	QGroupBox *isoBox = new QGroupBox( tr("Install media") );
 	QVBoxLayout *isoLay = new QVBoxLayout( isoBox );
 	QHBoxLayout *isoPathLay = new QHBoxLayout();
+	isoPathLay->setSpacing( 6 );
 	Edit_Win11_ISO = new QLineEdit();
+	lock_h( Edit_Win11_ISO );
 	TB_Win11_ISO_Browse = new QToolButton();
 	TB_Win11_ISO_Browse->setText( "..." );
+	lock_btn( TB_Win11_ISO_Browse, 36 );
 	isoPathLay->addWidget( new QLabel( tr("Windows 11 ARM ISO:") ) );
 	isoPathLay->addWidget( Edit_Win11_ISO );
 	isoPathLay->addWidget( TB_Win11_ISO_Browse );
@@ -4141,10 +4250,13 @@ void VM_Wizard_Window::Build_Windows11_ARM_Page()
 	CH_Win11_VirtIO_ISO = new QCheckBox( tr("Also attach virtio-win.iso (only if drivers were not slipstreamed)") );
 	isoLay->addWidget( CH_Win11_VirtIO_ISO );
 	QHBoxLayout *virtioLay = new QHBoxLayout();
+	virtioLay->setSpacing( 6 );
 	Edit_Win11_VirtIO_ISO = new QLineEdit();
+	lock_h( Edit_Win11_VirtIO_ISO );
 	Edit_Win11_VirtIO_ISO->setEnabled( false );
 	TB_Win11_VirtIO_ISO_Browse = new QToolButton();
 	TB_Win11_VirtIO_ISO_Browse->setText( "..." );
+	lock_btn( TB_Win11_VirtIO_ISO_Browse, 36 );
 	TB_Win11_VirtIO_ISO_Browse->setEnabled( false );
 	virtioLay->addWidget( Edit_Win11_VirtIO_ISO );
 	virtioLay->addWidget( TB_Win11_VirtIO_ISO_Browse );
