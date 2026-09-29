@@ -2,6 +2,12 @@ name: Build Windows MSIX (x86_64 & ARM64)
 
 on:
   workflow_dispatch:
+    inputs:
+      rebuild_qemu:
+        description: 'Force clean rebuild of QEMU from source'
+        required: false
+        type: boolean
+        default: false
   push:
     branches:
       - master
@@ -23,6 +29,7 @@ jobs:
             target_name: win64
             msystem: UCRT64
             build_dir: build_win
+            qemu_script: win_x86_64
             cmake_flags: ""
             packages: >-
               mingw-w64-ucrt-x86_64-toolchain
@@ -32,12 +39,27 @@ jobs:
               mingw-w64-ucrt-x86_64-qt5-base
               mingw-w64-ucrt-x86_64-qt5-tools
               mingw-w64-ucrt-x86_64-libvncserver
+              mingw-w64-ucrt-x86_64-meson
+              mingw-w64-ucrt-x86_64-python
+              mingw-w64-ucrt-x86_64-glib2
+              mingw-w64-ucrt-x86_64-pixman
+              mingw-w64-ucrt-x86_64-libslirp
+              mingw-w64-ucrt-x86_64-libusb
+              mingw-w64-ucrt-x86_64-usbredir
+              mingw-w64-ucrt-x86_64-curl
+              mingw-w64-ucrt-x86_64-zstd
+              mingw-w64-ucrt-x86_64-brotli
+              mingw-w64-ucrt-x86_64-gnutls
+              mingw-w64-ucrt-x86_64-nettle
+              mingw-w64-ucrt-x86_64-gmp
+              diffutils
 
           - arch: arm64
             runs_on: windows-11-arm
             target_name: win-arm64
             msystem: CLANGARM64
             build_dir: build_woa
+            qemu_script: win_arm64
             cmake_flags: "-DWIN_ARM64_OPTIMIZATIONS=ON"
             packages: >-
               mingw-w64-clang-aarch64-toolchain
@@ -47,10 +69,27 @@ jobs:
               mingw-w64-clang-aarch64-qt5-base
               mingw-w64-clang-aarch64-qt5-tools
               mingw-w64-clang-aarch64-libvncserver
+              mingw-w64-clang-aarch64-meson
+              mingw-w64-clang-aarch64-python
+              mingw-w64-clang-aarch64-glib2
+              mingw-w64-clang-aarch64-pixman
+              mingw-w64-clang-aarch64-libslirp
+              mingw-w64-clang-aarch64-libusb
+              mingw-w64-clang-aarch64-usbredir
+              mingw-w64-clang-aarch64-curl
+              mingw-w64-clang-aarch64-zstd
+              mingw-w64-clang-aarch64-brotli
+              mingw-w64-clang-aarch64-gnutls
+              mingw-w64-clang-aarch64-nettle
+              mingw-w64-clang-aarch64-gmp
+              diffutils
 
     steps:
-      - name: Check out repository
+      - name: Check out repository and submodules
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 1
 
       - name: Setup MSYS2 (${{ matrix.msystem }})
         id: msys2
@@ -60,11 +99,29 @@ jobs:
           update: true
           install: ${{ matrix.packages }}
 
+      - name: Cache QEMU bundle
+        id: cache-qemu
+        if: github.event.inputs.rebuild_qemu != 'true'
+        uses: actions/cache@v4
+        with:
+          path: third_party/qemu-install
+          key: qemu-win-${{ matrix.arch }}-${{ hashFiles('third_party/qemu/**', 'scripts/qemu_*.sh', 'scripts/build_qemu_*.sh') }}
+          restore-keys: |
+            qemu-win-${{ matrix.arch }}-
+
+      - name: Build QEMU from source (${{ matrix.arch }})
+        if: steps.cache-qemu.outputs.cache-hit != 'true' || github.event.inputs.rebuild_qemu == 'true'
+        shell: msys2 {0}
+        run: |
+          bash scripts/build_qemu_${{ matrix.qemu_script }}.sh
+
       - name: Configure and build AQEMU (${{ matrix.arch }})
         shell: msys2 {0}
         run: |
           cmake -G Ninja -B ${{ matrix.build_dir }} -S . \
             -DCMAKE_BUILD_TYPE=Release \
+            -DAQEMU_BUNDLE_QEMU=ON \
+            -DAQEMU_QEMU_PREFIX="third_party/qemu-install" \
             ${{ matrix.cmake_flags }}
           ninja -C ${{ matrix.build_dir }}
 

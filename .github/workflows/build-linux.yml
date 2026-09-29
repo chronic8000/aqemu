@@ -1,0 +1,125 @@
+name: Build Linux Packages (x86_64 & ARM64 / Pi 5)
+
+on:
+  workflow_dispatch:
+    inputs:
+      rebuild_qemu:
+        description: 'Force clean rebuild of QEMU from source'
+        required: false
+        type: boolean
+        default: false
+  push:
+    branches:
+      - master
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+      - '.gitignore'
+
+jobs:
+  build-linux:
+    name: Build Linux (${{ matrix.target_name }})
+    runs-on: ${{ matrix.runs_on }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            runs_on: ubuntu-latest
+            target_name: linux-x86_64
+            qemu_script: linux_x86_64
+            build_dir: build_linux_x86_64
+            cmake_flags: ""
+
+          - arch: arm64
+            runs_on: ubuntu-24.04-arm
+            target_name: linux-arm64-pi5
+            qemu_script: pi5
+            build_dir: build_pi5
+            cmake_flags: "-DPI5_OPTIMIZATIONS=ON"
+
+    steps:
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake ninja-build pkg-config \
+            qtbase5-dev libqt5widgets5 libqt5network5 libqt5dbus5 libvncserver-dev \
+            libspice-client-glib-2.0-dev libslirp-dev libusb-1.0-0-dev libusbredirparser-dev \
+            libcurl4-openssl-dev libzstd-dev libglib2.0-dev libpixman-1-dev bison flex \
+            libfdt-dev meson python3 python3-pip
+
+      - name: Check out repository and submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Cache QEMU bundle
+        id: cache-qemu
+        if: github.event.inputs.rebuild_qemu != 'true'
+        uses: actions/cache@v4
+        with:
+          path: third_party/qemu-install
+          key: qemu-linux-${{ matrix.target_name }}-${{ hashFiles('third_party/qemu/**', 'scripts/qemu_*.sh', 'scripts/build_qemu_*.sh') }}
+          restore-keys: |
+            qemu-linux-${{ matrix.target_name }}-
+
+      - name: Build QEMU from source (${{ matrix.target_name }})
+        if: steps.cache-qemu.outputs.cache-hit != 'true' || github.event.inputs.rebuild_qemu == 'true'
+        run: |
+          bash scripts/build_qemu_${{ matrix.qemu_script }}.sh
+
+      - name: Configure and build AQEMU (${{ matrix.target_name }})
+        run: |
+          cmake -G Ninja -B ${{ matrix.build_dir }} -S . \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DAQEMU_BUNDLE_QEMU=ON \
+            -DAQEMU_QEMU_PREFIX="${PWD}/third_party/qemu-install" \
+            -DAQEMU_WITH_SPICE_GTK=ON \
+            ${{ matrix.cmake_flags }}
+          ninja -C ${{ matrix.build_dir }}
+
+      - name: Package Standalone Tarball (${{ matrix.target_name }})
+        run: |
+          DIST_DIR="dist/AQEMU-${{ matrix.target_name }}"
+          mkdir -p "${DIST_DIR}/bin" "${DIST_DIR}/share"
+
+          # Copy main AQEMU binary
+          cp -f "${{ matrix.build_dir }}/aqemu" "${DIST_DIR}/bin/"
+
+          # Copy QEMU binaries and tools
+          if [ -d "third_party/qemu-install/bin" ]; then
+            cp -f third_party/qemu-install/bin/qemu-system-* "${DIST_DIR}/bin/" 2>/dev/null || true
+            cp -f third_party/qemu-install/bin/qemu-img* "${DIST_DIR}/bin/" 2>/dev/null || true
+          fi
+
+          # Copy firmware share
+          if [ -d "third_party/qemu-install/share" ]; then
+            cp -rn third_party/qemu-install/share/* "${DIST_DIR}/share/" 2>/dev/null || true
+          fi
+
+          # Copy icons and desktop entry
+          mkdir -p "${DIST_DIR}/share/icons" "${DIST_DIR}/share/applications"
+          cp -f resources/icons/aqemu_logo.png "${DIST_DIR}/share/icons/aqemu.png" 2>/dev/null || true
+          cp -f resources/menu_data/aqemu.desktop "${DIST_DIR}/share/applications/" 2>/dev/null || true
+
+          # Create launch script
+          cat <<'EOF' > "${DIST_DIR}/aqemu.sh"
+          #!/usr/bin/env bash
+          HERE="$(cd "$(dirname "$0")" && pwd)"
+          export PATH="${HERE}/bin:${PATH}"
+          export AQEMU_SHARE_DIR="${HERE}/share"
+          exec "${HERE}/bin/aqemu" "$@"
+          EOF
+          chmod +x "${DIST_DIR}/aqemu.sh"
+
+          # Tarball archive
+          cd dist
+          tar -czvf "AQEMU-${{ matrix.target_name }}.tar.gz" "AQEMU-${{ matrix.target_name }}"
+
+      - name: Upload Linux Package Artifact (${{ matrix.target_name }})
+        uses: actions/upload-artifact@v4
+        with:
+          name: AQEMU-${{ matrix.target_name }}
+          path: dist/AQEMU-${{ matrix.target_name }}.tar.gz
+          if-no-files-found: error

@@ -157,6 +157,31 @@ if ($LASTEXITCODE -ge 8) {
     Write-Error "robocopy failed with exit code $LASTEXITCODE"
 }
 
+# Explicitly stage QEMU binaries and runtime DLLs from third_party/qemu-install if present
+$qemuPrefixCandidates = @(
+    (Join-Path $RepoRoot "third_party\qemu-install"),
+    (Join-Path $BuildDir "third_party\qemu-install")
+)
+foreach ($qp in $qemuPrefixCandidates) {
+    if (Test-Path $qp) {
+        $qpBin = if (Test-Path (Join-Path $qp "bin")) { Join-Path $qp "bin" } else { $qp }
+        Write-Host "Staging QEMU binaries from $qpBin into MSIX layout..."
+        Get-ChildItem $qpBin -Filter "qemu-*.exe" -ErrorAction SilentlyContinue | ForEach-Object {
+            $dest = Join-Path $layoutDir $_.Name
+            if (-not (Test-Path $dest)) {
+                Copy-Item $_.FullName $dest -Force
+                Write-Host "Staged QEMU binary: $($_.Name)"
+            }
+        }
+        Get-ChildItem $qpBin -Filter "*.dll" -ErrorAction SilentlyContinue | ForEach-Object {
+            $dest = Join-Path $layoutDir $_.Name
+            if (-not (Test-Path $dest)) {
+                Copy-Item $_.FullName $dest -Force
+            }
+        }
+    }
+}
+
 # Ensure QEMU firmware share/ is present (required for Store embedded sessions).
 $shareBios = Join-Path $layoutDir "share\bios-256k.bin"
 if (-not (Test-Path $shareBios)) {

@@ -28,7 +28,13 @@ aqemu_ensure_meson() {
   local root="$1"
 
   # Ensure common MSYS2 bin paths are on PATH
-  if [[ "${MSYSTEM:-}" == "CLANGARM64" ]]; then
+  if command -v cygpath >/dev/null 2>&1; then
+    case "${MSYSTEM:-}" in
+      CLANGARM64) export PATH="$(cygpath -m /clangarm64/bin):/clangarm64/bin:/usr/bin:${PATH}" ;;
+      UCRT64)     export PATH="$(cygpath -m /ucrt64/bin):/ucrt64/bin:/usr/bin:${PATH}" ;;
+      MINGW64)    export PATH="$(cygpath -m /mingw64/bin):/mingw64/bin:/usr/bin:${PATH}" ;;
+    esac
+  elif [[ "${MSYSTEM:-}" == "CLANGARM64" ]]; then
     export PATH="C:/msys64/clangarm64/bin:C:/msys64/usr/bin:/clangarm64/bin:/usr/bin:${PATH}"
   elif [[ "${MSYSTEM:-}" == "UCRT64" ]]; then
     export PATH="C:/msys64/ucrt64/bin:C:/msys64/usr/bin:/ucrt64/bin:/usr/bin:${PATH}"
@@ -322,7 +328,13 @@ aqemu_ensure_nettle() {
   local root="$1"
 
   # Ensure common MSYS2 bin paths are on PATH
-  if [[ "${MSYSTEM:-}" == "CLANGARM64" ]]; then
+  if command -v cygpath >/dev/null 2>&1; then
+    case "${MSYSTEM:-}" in
+      CLANGARM64) export PATH="$(cygpath -m /clangarm64/bin):/clangarm64/bin:/usr/bin:${PATH}" ;;
+      UCRT64)     export PATH="$(cygpath -m /ucrt64/bin):/ucrt64/bin:/usr/bin:${PATH}" ;;
+      MINGW64)    export PATH="$(cygpath -m /mingw64/bin):/mingw64/bin:/usr/bin:${PATH}" ;;
+    esac
+  elif [[ "${MSYSTEM:-}" == "CLANGARM64" ]]; then
     export PATH="C:/msys64/clangarm64/bin:C:/msys64/usr/bin:/clangarm64/bin:/usr/bin:${PATH}"
   elif [[ "${MSYSTEM:-}" == "UCRT64" ]]; then
     export PATH="C:/msys64/ucrt64/bin:C:/msys64/usr/bin:/ucrt64/bin:/usr/bin:${PATH}"

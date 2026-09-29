@@ -22,12 +22,18 @@ BUILD_DIR="${ROOT}/third_party/qemu-build-win-arm64"
 
 export MSYSTEM=CLANGARM64
 export PATH="/clangarm64/bin:/usr/bin:${PATH}"
+local_msys_bin="/clangarm64/bin"
+if command -v cygpath >/dev/null 2>&1; then
+  WIN_BIN="$(cygpath -m /clangarm64/bin)"
+else
+  WIN_BIN="C:/msys64/clangarm64/bin"
+fi
 
 # Meson runs under Win32 Python — tool paths must be Windows-style (C:/...)
 export CC="clang"
 export CXX="clang++"
-export PKG_CONFIG="C:/msys64/clangarm64/bin/pkg-config.exe"
-export PKG_CONFIG_PATH="C:/msys64/clangarm64/lib/pkgconfig"
+export PKG_CONFIG="${WIN_BIN}/pkg-config.exe"
+export PKG_CONFIG_PATH="${WIN_BIN}/../lib/pkgconfig"
 unset PKG_CONFIG_LIBDIR || true
 
 deploy_qemu_dlls() {
@@ -95,9 +101,9 @@ if [[ ! -f "${QEMU_SRC}/configure" && ! -f "${QEMU_SRC}/meson.build" ]]; then
 fi
 
 # Ensure diff is on PATH for Meson
-export PATH="C:/msys64/clangarm64/bin:C:/msys64/usr/bin:/clangarm64/bin:/usr/bin:${PATH}"
-if [[ -x /usr/bin/diff.exe && ! -e /clangarm64/bin/diff.exe ]]; then
-  cp -f /usr/bin/diff.exe /clangarm64/bin/diff.exe 2>/dev/null || true
+export PATH="${local_msys_bin}:/usr/bin:${PATH}"
+if [[ -x /usr/bin/diff.exe && ! -e "${local_msys_bin}/diff.exe" ]]; then
+  cp -f /usr/bin/diff.exe "${local_msys_bin}/diff.exe" 2>/dev/null || true
 fi
 
 mkdir -p "${BUILD_DIR}" "${PREFIX}"

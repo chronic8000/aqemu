@@ -22,15 +22,25 @@ BUILD_DIR="${ROOT}/third_party/qemu-build-win-x86_64"
 if [[ -d "/ucrt64" ]]; then
   export MSYSTEM=UCRT64
   export PATH="/ucrt64/bin:/usr/bin:${PATH}"
-  export PKG_CONFIG="C:/msys64/ucrt64/bin/pkg-config.exe"
-  export PKG_CONFIG_PATH="C:/msys64/ucrt64/lib/pkgconfig"
-  WIN_BIN="C:/msys64/ucrt64/bin"
+  local_msys_bin="/ucrt64/bin"
+  if command -v cygpath >/dev/null 2>&1; then
+    WIN_BIN="$(cygpath -m /ucrt64/bin)"
+  else
+    WIN_BIN="C:/msys64/ucrt64/bin"
+  fi
+  export PKG_CONFIG="${WIN_BIN}/pkg-config.exe"
+  export PKG_CONFIG_PATH="${WIN_BIN}/../lib/pkgconfig"
 else
   export MSYSTEM=MINGW64
   export PATH="/mingw64/bin:/usr/bin:${PATH}"
-  export PKG_CONFIG="C:/msys64/mingw64/bin/pkg-config.exe"
-  export PKG_CONFIG_PATH="C:/msys64/mingw64/lib/pkgconfig"
-  WIN_BIN="C:/msys64/mingw64/bin"
+  local_msys_bin="/mingw64/bin"
+  if command -v cygpath >/dev/null 2>&1; then
+    WIN_BIN="$(cygpath -m /mingw64/bin)"
+  else
+    WIN_BIN="C:/msys64/mingw64/bin"
+  fi
+  export PKG_CONFIG="${WIN_BIN}/pkg-config.exe"
+  export PKG_CONFIG_PATH="${WIN_BIN}/../lib/pkgconfig"
 fi
 unset PKG_CONFIG_LIBDIR || true
 
@@ -100,9 +110,9 @@ if [[ ! -f "${QEMU_SRC}/configure" && ! -f "${QEMU_SRC}/meson.build" ]]; then
 fi
 
 # Ensure diff is on PATH for Meson
-export PATH="${WIN_BIN}:C:/msys64/usr/bin:${PATH}"
-if [[ -x /usr/bin/diff.exe && ! -e "${WIN_BIN}/diff.exe" ]]; then
-  cp -f /usr/bin/diff.exe "${WIN_BIN}/diff.exe" 2>/dev/null || true
+export PATH="${local_msys_bin}:/usr/bin:${PATH}"
+if [[ -x /usr/bin/diff.exe && ! -e "${local_msys_bin}/diff.exe" ]]; then
+  cp -f /usr/bin/diff.exe "${local_msys_bin}/diff.exe" 2>/dev/null || true
 fi
 
 mkdir -p "${BUILD_DIR}" "${PREFIX}"
