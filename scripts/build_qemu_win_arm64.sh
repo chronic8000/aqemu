@@ -38,36 +38,36 @@ unset PKG_CONFIG_LIBDIR || true
 
 deploy_qemu_dlls() {
   local prefix="$1"
-  mkdir -p "${prefix}/bin"
-  for bin_dir in "${prefix}" "${prefix}/bin"; do
-    [[ -d "${bin_dir}" ]] || continue
-    echo "=== Deploying QEMU runtime DLLs into ${bin_dir} ==="
+  local bin_dir="${prefix}/bin"
+  [[ -d "${bin_dir}" ]] || bin_dir="${prefix}"
+  echo "=== Deploying QEMU runtime DLLs into ${bin_dir} ==="
 
-    for pass in 1 2 3 4; do
-      local new_copied=0
-      for bin in "${bin_dir}"/*.exe "${bin_dir}"/*.dll; do
-        [[ -f "$bin" ]] || continue
-        while read -r dep; do
-          if [[ -f "$dep" && ! -f "${bin_dir}/$(basename "$dep")" ]]; then
-            cp -f "$dep" "${bin_dir}/"
-            new_copied=$((new_copied + 1))
-          fi
-        done < <(ldd "$bin" 2>/dev/null | grep -i '/clangarm64/bin/' | awk '{print $3}' | sort -u)
-      done
-      if [[ $new_copied -eq 0 ]]; then
-        break
-      fi
-      echo "Pass $pass: deployed $new_copied runtime DLLs to ${bin_dir}"
+  local -A inspected=()
+  for pass in 1 2 3; do
+    local new_copied=0
+    for bin in "${bin_dir}"/*.exe "${bin_dir}"/*.dll; do
+      [[ -f "$bin" ]] || continue
+      [[ -n "${inspected["$bin"]:-}" ]] && continue
+      inspected["$bin"]=1
+
+      while read -r dep; do
+        if [[ -f "$dep" && ! -f "${bin_dir}/$(basename "$dep")" ]]; then
+          cp -f "$dep" "${bin_dir}/"
+          new_copied=$((new_copied + 1))
+        fi
+      done < <(ldd "$bin" 2>/dev/null | grep -i '/clangarm64/bin/' | awk '{print $3}' | sort -u)
     done
+    if [[ $new_copied -eq 0 ]]; then
+      break
+    fi
+    echo "Pass $pass: deployed $new_copied runtime DLLs to ${bin_dir}"
   done
 
   # If AQEMU build_woa directory exists, synchronize QEMU executables and runtime DLLs into it
   if [[ -d "${ROOT}/build_woa" ]]; then
     echo "Synchronizing QEMU executables and runtime DLLs to ${ROOT}/build_woa/..."
-    cp -f "${prefix}/bin"/*.exe "${ROOT}/build_woa/" 2>/dev/null || true
-    cp -f "${prefix}/bin"/*.dll "${ROOT}/build_woa/" 2>/dev/null || true
-    cp -f "${prefix}"/*.exe "${ROOT}/build_woa/" 2>/dev/null || true
-    cp -f "${prefix}"/*.dll "${ROOT}/build_woa/" 2>/dev/null || true
+    cp -f "${bin_dir}"/*.exe "${ROOT}/build_woa/" 2>/dev/null || true
+    cp -f "${bin_dir}"/*.dll "${ROOT}/build_woa/" 2>/dev/null || true
   fi
 }
 
@@ -161,16 +161,11 @@ echo "Building with ${JOBS} parallel jobs..."
 ninja -C "${BUILD_DIR}" -j"${JOBS}"
 ninja -C "${BUILD_DIR}" install
 
-# Ensure all QEMU executables are present in both PREFIX and PREFIX/bin
+# Ensure all QEMU executables are consolidated strictly in PREFIX/bin
 mkdir -p "${PREFIX}/bin"
 for exe in "${PREFIX}"/*.exe; do
   if [[ -f "$exe" ]]; then
-    cp -f "$exe" "${PREFIX}/bin/" 2>/dev/null || true
-  fi
-done
-for exe in "${PREFIX}/bin"/*.exe; do
-  if [[ -f "$exe" ]]; then
-    cp -f "$exe" "${PREFIX}/" 2>/dev/null || true
+    mv -f "$exe" "${PREFIX}/bin/" 2>/dev/null || true
   fi
 done
 
@@ -180,8 +175,15 @@ if [[ "${TARGET_ARG}" == "all" || "${TARGET_ARG}" == "ALL" ]]; then
   aqemu_build_applesoc "${PREFIX}" "${JOBS}" || echo "WARN: applesoc build failed"
 fi
 
-echo "Installed QEMU bundle to ${PREFIX}"
-ls -la "${PREFIX}"/bin/qemu-system-* "${PREFIX}"/qemu-system-* "${PREFIX}"/bin/qemu-img* 2>/dev/null || true
+# Ensure applesoc executables in root (if any) are also in PREFIX/bin
+for exe in "${PREFIX}"/*.exe; do
+  if [[ -f "$exe" ]]; then
+    mv -f "$exe" "${PREFIX}/bin/" 2>/dev/null || true
+  fi
+done
+
+echo "Installed QEMU bundle to ${PREFIX}/bin"
+ls -la "${PREFIX}"/bin/qemu-system-* "${PREFIX}"/bin/qemu-img* 2>/dev/null || true
 
 aqemu_qemu_verify_install "${PREFIX}" "${VERIFY_TARGET}"
 deploy_qemu_dlls "${PREFIX}"
