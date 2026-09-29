@@ -38,32 +38,36 @@ unset PKG_CONFIG_LIBDIR || true
 
 deploy_qemu_dlls() {
   local prefix="$1"
-  local bin_dir="${prefix}/bin"
-  [[ -d "${bin_dir}" ]] || bin_dir="${prefix}"
-  echo "=== Deploying QEMU runtime DLLs into ${bin_dir} ==="
+  mkdir -p "${prefix}/bin"
+  for bin_dir in "${prefix}" "${prefix}/bin"; do
+    [[ -d "${bin_dir}" ]] || continue
+    echo "=== Deploying QEMU runtime DLLs into ${bin_dir} ==="
 
-  for pass in 1 2 3 4; do
-    local new_copied=0
-    for bin in "${bin_dir}"/*.exe "${bin_dir}"/*.dll; do
-      [[ -f "$bin" ]] || continue
-      while read -r dep; do
-        if [[ -f "$dep" && ! -f "${bin_dir}/$(basename "$dep")" ]]; then
-          cp -f "$dep" "${bin_dir}/"
-          new_copied=$((new_copied + 1))
-        fi
-      done < <(ldd "$bin" 2>/dev/null | grep -i '/clangarm64/bin/' | awk '{print $3}' | sort -u)
+    for pass in 1 2 3 4; do
+      local new_copied=0
+      for bin in "${bin_dir}"/*.exe "${bin_dir}"/*.dll; do
+        [[ -f "$bin" ]] || continue
+        while read -r dep; do
+          if [[ -f "$dep" && ! -f "${bin_dir}/$(basename "$dep")" ]]; then
+            cp -f "$dep" "${bin_dir}/"
+            new_copied=$((new_copied + 1))
+          fi
+        done < <(ldd "$bin" 2>/dev/null | grep -i '/clangarm64/bin/' | awk '{print $3}' | sort -u)
+      done
+      if [[ $new_copied -eq 0 ]]; then
+        break
+      fi
+      echo "Pass $pass: deployed $new_copied runtime DLLs to ${bin_dir}"
     done
-    if [[ $new_copied -eq 0 ]]; then
-      break
-    fi
-    echo "Pass $pass: deployed $new_copied runtime DLLs to ${bin_dir}"
   done
 
   # If AQEMU build_woa directory exists, synchronize QEMU executables and runtime DLLs into it
   if [[ -d "${ROOT}/build_woa" ]]; then
     echo "Synchronizing QEMU executables and runtime DLLs to ${ROOT}/build_woa/..."
-    cp -f "${bin_dir}"/*.exe "${ROOT}/build_woa/" 2>/dev/null || true
-    cp -f "${bin_dir}"/*.dll "${ROOT}/build_woa/" 2>/dev/null || true
+    cp -f "${prefix}/bin"/*.exe "${ROOT}/build_woa/" 2>/dev/null || true
+    cp -f "${prefix}/bin"/*.dll "${ROOT}/build_woa/" 2>/dev/null || true
+    cp -f "${prefix}"/*.exe "${ROOT}/build_woa/" 2>/dev/null || true
+    cp -f "${prefix}"/*.dll "${ROOT}/build_woa/" 2>/dev/null || true
   fi
 }
 
@@ -147,6 +151,7 @@ echo "Configuring targets: ${TARGETS}"
 
 "${QEMU_SRC}/configure" \
   --prefix="${PREFIX}" \
+  --bindir="${PREFIX}/bin" \
   --cc=clang \
   --cxx=clang++ \
   --target-list="${TARGETS}" \
@@ -155,6 +160,19 @@ echo "Configuring targets: ${TARGETS}"
 echo "Building with ${JOBS} parallel jobs..."
 ninja -C "${BUILD_DIR}" -j"${JOBS}"
 ninja -C "${BUILD_DIR}" install
+
+# Ensure all QEMU executables are present in both PREFIX and PREFIX/bin
+mkdir -p "${PREFIX}/bin"
+for exe in "${PREFIX}"/*.exe; do
+  if [[ -f "$exe" ]]; then
+    cp -f "$exe" "${PREFIX}/bin/" 2>/dev/null || true
+  fi
+done
+for exe in "${PREFIX}/bin"/*.exe; do
+  if [[ -f "$exe" ]]; then
+    cp -f "$exe" "${PREFIX}/" 2>/dev/null || true
+  fi
+done
 
 # Build special targets when building 'all'
 if [[ "${TARGET_ARG}" == "all" || "${TARGET_ARG}" == "ALL" ]]; then

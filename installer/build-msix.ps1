@@ -164,19 +164,25 @@ $qemuPrefixCandidates = @(
 )
 foreach ($qp in $qemuPrefixCandidates) {
     if (Test-Path $qp) {
-        $qpBin = if (Test-Path (Join-Path $qp "bin")) { Join-Path $qp "bin" } else { $qp }
-        Write-Host "Staging QEMU binaries from $qpBin into MSIX layout..."
-        Get-ChildItem $qpBin -Filter "qemu-*.exe" -ErrorAction SilentlyContinue | ForEach-Object {
-            $dest = Join-Path $layoutDir $_.Name
-            if (-not (Test-Path $dest)) {
-                Copy-Item $_.FullName $dest -Force
-                Write-Host "Staged QEMU binary: $($_.Name)"
-            }
+        $searchDirs = @($qp)
+        $subBin = Join-Path $qp "bin"
+        if (Test-Path $subBin) {
+            $searchDirs += $subBin
         }
-        Get-ChildItem $qpBin -Filter "*.dll" -ErrorAction SilentlyContinue | ForEach-Object {
-            $dest = Join-Path $layoutDir $_.Name
-            if (-not (Test-Path $dest)) {
-                Copy-Item $_.FullName $dest -Force
+        foreach ($sDir in $searchDirs) {
+            Write-Host "Staging QEMU binaries from $sDir into MSIX layout..."
+            Get-ChildItem $sDir -Filter "qemu-*.exe" -ErrorAction SilentlyContinue | ForEach-Object {
+                $dest = Join-Path $layoutDir $_.Name
+                if (-not (Test-Path $dest)) {
+                    Copy-Item $_.FullName $dest -Force
+                    Write-Host "Staged QEMU binary: $($_.Name)"
+                }
+            }
+            Get-ChildItem $sDir -Filter "*.dll" -ErrorAction SilentlyContinue | ForEach-Object {
+                $dest = Join-Path $layoutDir $_.Name
+                if (-not (Test-Path $dest)) {
+                    Copy-Item $_.FullName $dest -Force
+                }
             }
         }
     }
@@ -375,12 +381,12 @@ if ($missingDlls.Count -gt 0) {
 
 $qemuSystems = @(Get-ChildItem (Join-Path $layoutDir "qemu-system-*.exe") -ErrorAction SilentlyContinue)
 Write-Host ("Staged qemu-system-* count: {0}" -f $qemuSystems.Count)
-if ($qemuSystems.Count -lt 10) {
-    Write-Warning ("Only {0} qemu-system-* binaries staged. Store packages should include EVERY softmmu target - rebuild with scripts/build_qemu_windows_msys.sh (all targets)." -f $qemuSystems.Count)
+if ($qemuSystems.Count -lt 25) {
+    throw ("Expected at least 25 qemu-system-* binaries staged in MSIX layout, but only found {0}. Full store bundle packaging failed." -f $qemuSystems.Count)
 }
 
 if (-not (Test-Path (Join-Path $layoutDir "aqemu.exe"))) {
-    Write-Error "Staging failed - aqemu.exe not in layout."
+    throw "Staging failed - aqemu.exe not in layout."
 }
 $fileCount = (Get-ChildItem $layoutDir -Recurse -File -ErrorAction SilentlyContinue | Measure-Object).Count
 Write-Host "Staged $fileCount files."

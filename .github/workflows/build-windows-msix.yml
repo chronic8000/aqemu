@@ -15,6 +15,8 @@ on:
       - 'docs/**'
       - '**.md'
       - '.gitignore'
+      - 'scripts/build_qemu_linux_*.sh'
+      - 'scripts/build_qemu_pi5.sh'
 
 jobs:
   build-msix:
@@ -117,9 +119,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: third_party/qemu-install
-          key: qemu-win-${{ matrix.arch }}-${{ hashFiles('third_party/qemu_version.txt', '.gitmodules', 'scripts/qemu_*.sh', 'scripts/build_qemu_*.sh') }}
+          key: qemu-win-${{ matrix.arch }}-v2-${{ hashFiles('third_party/qemu_version.txt', '.gitmodules', 'scripts/qemu_*.sh', 'scripts/build_qemu_*.sh') }}
           restore-keys: |
-            qemu-win-${{ matrix.arch }}-
+            qemu-win-${{ matrix.arch }}-v2-
 
       - name: Build QEMU from source (${{ matrix.arch }})
         if: steps.cache-qemu.outputs.cache-hit != 'true' || github.event.inputs.rebuild_qemu == 'true'
