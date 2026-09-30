@@ -121,7 +121,7 @@ jobs:
           chmod +x "${DIST_DIR}/aqemu.sh"
 
           # Tarball archives (versioned from VERSION file and target-named)
-          AQEMU_VERSION="$(cat "${GITHUB_WORKSPACE}/VERSION" | tr -d '[:space:]')"
+          AQEMU_VERSION="$(cat "${GITHUB_WORKSPACE}/VERSION.txt" | tr -d '[:space:]')"
           cd dist
           tar -czvf "AQEMU-${AQEMU_VERSION}-${{ matrix.target_name }}.tar.gz" "AQEMU-${{ matrix.target_name }}"
           cp -f "AQEMU-${AQEMU_VERSION}-${{ matrix.target_name }}.tar.gz" "AQEMU-${{ matrix.target_name }}.tar.gz"

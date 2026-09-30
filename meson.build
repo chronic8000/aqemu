@@ -1,7 +1,7 @@
 # meson.build is a fast and furious build system
 # minimum meson version required for best results: 0.32.0
 
-aqemu_ver = run_command('cat', files('VERSION'), check : false).stdout().strip()
+aqemu_ver = run_command('cat', files('VERSION.txt'), check : false).stdout().strip()
 if aqemu_ver == ''
   aqemu_ver = '1.4.0'
 endif

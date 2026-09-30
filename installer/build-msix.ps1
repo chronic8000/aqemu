@@ -45,7 +45,7 @@ if (-not $OutDir) {
 
 # Auto-detect version from single-source-of-truth VERSION file if not passed
 if (-not $Version) {
-    $versionFile = Join-Path $RepoRoot "VERSION"
+    $versionFile = Join-Path $RepoRoot "VERSION.txt"
     if (Test-Path $versionFile) {
         $raw = (Get-Content $versionFile -Raw).Trim()
         if ($raw -match '^\d+\.\d+\.\d+$') {

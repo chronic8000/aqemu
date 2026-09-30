@@ -6,7 +6,7 @@
   -->
   <PropertyGroup>
     <OutputType>Package</OutputType>
-    <ProductVersion Condition="'$(ProductVersion)' == ''">$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)..\..\VERSION').Trim())</ProductVersion>
+    <ProductVersion Condition="'$(ProductVersion)' == ''">$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)..\..\VERSION.txt').Trim())</ProductVersion>
     <OutputName>AQEMU-$(ProductVersion)-win64</OutputName>
     <InstallerPlatform>x64</InstallerPlatform>
     <DefineConstants>ProductVersion=$(ProductVersion)</DefineConstants>
