@@ -407,7 +407,7 @@ bool Emulator::Load( const QString &path )
 			
 			if( tmpDev.Network_Card_List.isEmpty() )
 			{
-				AQError( "bool Emulator::Load( const QString &path )",
+				AQDebug( "bool Emulator::Load( const QString &path )",
 						 "No values on \"Network_Card_List\" element! Add default Network Card element." );
 				tmpDev.Network_Card_List << Device_Map( QObject::tr("Default"), "" );
 			}
