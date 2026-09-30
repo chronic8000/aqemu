@@ -6,9 +6,10 @@
   -->
   <PropertyGroup>
     <OutputType>Package</OutputType>
-    <OutputName>AQEMU-1.4.0-win64</OutputName>
+    <ProductVersion Condition="'$(ProductVersion)' == ''">$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)..\..\VERSION').Trim())</ProductVersion>
+    <OutputName>AQEMU-$(ProductVersion)-win64</OutputName>
     <InstallerPlatform>x64</InstallerPlatform>
-    <DefineConstants>ProductVersion=1.4.0</DefineConstants>
+    <DefineConstants>ProductVersion=$(ProductVersion)</DefineConstants>
     <AcceptEula>wix7</AcceptEula>
   </PropertyGroup>
   <ItemGroup>

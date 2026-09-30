@@ -6042,7 +6042,7 @@ void VM_Wizard_Window::Update_Finish_Page_Guidance()
 	}
 	else if( Is_Apple_Silicon_Or_iOS_Template() )
 	{
-		help = tr( "<p><b>Apple SoC / iOS (Inferno) — AQEMU 1.4.0</b></p><ul>"
+		help = tr( "<p><b>Apple SoC / iOS (Inferno) — AQEMU %1</b></p><ul>"
 			"<li>Uses Linux <code>qemu-system-applesoc</code> (ChefKiss Inferno). "
 			"On Windows this is forced through <b>WSL</b> (UNIX sockets / companion restore).</li>"
 			"<li>The wizard <b>NAND (root) size</b> page: 16 / 32 / 64 / 128 / 256 GiB "
@@ -6051,7 +6051,7 @@ void VM_Wizard_Window::Update_Finish_Page_Guidance()
 			"<b>iPhone IPSW Restore Companion</b>, then "
 			"<b>File → Apple SoC Restore</b>.</li>"
 			"<li>Use <b>File → iOS Firmware Tool</b> to unpack IPSW / IM4P when needed.</li>"
-			"</ul>" );
+			"</ul>" ).arg( QLatin1String( CURRENT_AQEMU_VERSION ) );
 	}
 	else if( Selected_OS_Name.contains( "Reims", Qt::CaseInsensitive ) ||
 	         Selected_OS_Name.contains( "macOS x86_64", Qt::CaseInsensitive ) ||
@@ -6059,7 +6059,7 @@ void VM_Wizard_Window::Update_Finish_Page_Guidance()
 	         Selected_OS_Name.compare( QLatin1String( "macOS" ), Qt::CaseInsensitive ) == 0 ||
 	         Selected_OS_Name.compare( QLatin1String( "Darwin" ), Qt::CaseInsensitive ) == 0 )
 	{
-		help = tr( "<p><b>Intel macOS / Reims — AQEMU 1.4.0</b></p><ul>"
+		help = tr( "<p><b>Intel macOS / Reims — AQEMU %1</b></p><ul>"
 			"<li>You must supply OpenCore boot disk, OVMF firmware, OSK, and install/system disks.</li>"
 			"<li><b>Reims vGPU</b> (hardware-accelerated Metal path) uses Linux "
 			"<code>qemu-system-reims3d</code> under <b>WSL</b> with host Vulkan — "
@@ -6067,7 +6067,7 @@ void VM_Wizard_Window::Update_Finish_Page_Guidance()
 			"<li>The Windows <code>qemu-system-reimsvgpu.exe</code> helper does not expose "
 			"<code>reims-vgpu-pci</code>.</li>"
 			"<li>AMD Metal <b>PCIe VFIO</b> remains bare-metal Linux only — not available on Windows.</li>"
-			"</ul>" );
+			"</ul>" ).arg( QLatin1String( CURRENT_AQEMU_VERSION ) );
 	}
 	else if( Selected_OS_Name == QLatin1String( "SteamOS" ) )
 	{

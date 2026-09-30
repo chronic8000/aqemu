@@ -10,7 +10,7 @@
 param(
     [string] $RepoRoot = "",
     [string] $BuildDir = "",
-    [string] $Version = "1.4.0",
+    [string] $Version = "",
     [string] $OutDir = ""
 )
 
@@ -32,6 +32,16 @@ if (-not $BuildDir) {
 }
 if (-not $OutDir) {
     $OutDir = Join-Path $RepoRoot "installer\out"
+}
+
+# Auto-detect version from single-source-of-truth VERSION file if not passed
+if (-not $Version) {
+    $versionFile = Join-Path $RepoRoot "VERSION"
+    if (Test-Path $versionFile) {
+        $Version = (Get-Content $versionFile -Raw).Trim()
+    } else {
+        $Version = "1.4.0"
+    }
 }
 
 $wixDir = Join-Path $RepoRoot "installer\wix"

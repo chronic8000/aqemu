@@ -1,7 +1,12 @@
 # meson.build is a fast and furious build system
 # minimum meson version required for best results: 0.32.0
 
-project('aqemu', 'cpp', default_options : ['cpp_std=c++11', 'warning_level=3'])
+aqemu_ver = run_command('cat', files('VERSION'), check : false).stdout().strip()
+if aqemu_ver == ''
+  aqemu_ver = '1.4.0'
+endif
+
+project('aqemu', 'cpp', version : aqemu_ver, default_options : ['cpp_std=c++11', 'warning_level=3'])
 
 qt5 = import('qt5')
 qt5dep = dependency('qt5', modules : ['Core', 'Gui', 'Widgets', 'Network', 'Test', 'PrintSupport', 'DBus'])
@@ -9,7 +14,7 @@ vncclient = dependency('libvncclient')
 
 incdir = include_directories('src')
 
-add_global_arguments( ['-DVNC_DISPLAY', '-DQTONLY'] , language : 'cpp')
+add_global_arguments( ['-DVNC_DISPLAY', '-DQTONLY', '-DCURRENT_AQEMU_VERSION="' + aqemu_ver + '"'] , language : 'cpp')
 
 # Raspberry Pi Optimizations (Pi 3, Pi 4, Pi 5)
 is_pi_build = get_option('raspberry_pi_build')

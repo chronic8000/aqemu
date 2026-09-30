@@ -11,7 +11,7 @@
 param(
     [string] $RepoRoot = "",
     [string] $BuildDir = "",
-    [string] $Version = "1.4.0.0",
+    [string] $Version = "",
     [string] $Architecture = "x64",
     [string] $OutDir = "",
     [string] $MsysLocation = "",
@@ -41,6 +41,21 @@ if (-not $BuildDir) {
 }
 if (-not $OutDir) {
     $OutDir = Join-Path $RepoRoot "installer\out"
+}
+
+# Auto-detect version from single-source-of-truth VERSION file if not passed
+if (-not $Version) {
+    $versionFile = Join-Path $RepoRoot "VERSION"
+    if (Test-Path $versionFile) {
+        $raw = (Get-Content $versionFile -Raw).Trim()
+        if ($raw -match '^\d+\.\d+\.\d+$') {
+            $Version = "$raw.0"
+        } else {
+            $Version = $raw
+        }
+    } else {
+        $Version = "1.4.0.0"
+    }
 }
 
 # MSIX version must be four-part

@@ -171,6 +171,7 @@ static void AQEMU_Qt_Message_Handler( QtMsgType type, const QMessageLogContext &
 
 int AQEMU_Main::main(int argc, char *argv[])
 {
+#if defined(AQEMU_ENABLE_CONSOLE) || defined(DEBUG)
 #ifdef Q_OS_WIN32
     if( _isatty( _fileno( stdout ) ) )
 #else
@@ -181,6 +182,7 @@ int AQEMU_Main::main(int argc, char *argv[])
                   << " - QEMU Virtual Machine Manager" << std::endl;
         std::cout.flush();
     }
+#endif
 
     QString version = QString("aqemu ") + CURRENT_AQEMU_VERSION;
     std::map<std::string, docopt::value> args
@@ -612,7 +614,12 @@ void AQEMU_Main::log_settings()
     qInstallMessageHandler( AQEMU_Qt_Message_Handler );
 
     // Log Filter
-    AQUse_Debug_Output( settings->value("Log/Print_In_STDOUT", "yes").toString() == "yes",
+#if defined(AQEMU_ENABLE_CONSOLE) || defined(DEBUG)
+    const char *default_stdout_log = "yes";
+#else
+    const char *default_stdout_log = "no";
+#endif
+    AQUse_Debug_Output( settings->value("Log/Print_In_STDOUT", default_stdout_log).toString() == "yes",
                         settings->value("Log/Save_Debug", "no").toString() == "yes",
                         settings->value("Log/Save_Warning", "yes").toString() == "yes",
                         settings->value("Log/Save_Error", "yes").toString() == "yes" );

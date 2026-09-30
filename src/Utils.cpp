@@ -96,11 +96,13 @@ void AQEMU_Startup_Log( const char *stage )
 {
 	if( ! stage )
 		return;
+#if defined(AQEMU_ENABLE_CONSOLE) || defined(DEBUG)
 	std::cout << "[AQEMU] " << stage << std::endl;
 	std::cout.flush();
 #ifdef Q_OS_WIN
 	if( Console_HANDLE != INVALID_HANDLE_VALUE )
 		SetConsoleTextAttribute( Console_HANDLE, 7 );
+#endif
 #endif
 	// Persist for GUI launches without a console (PR #7 / Qodo)
 	if( Save_Messages_To_Log )

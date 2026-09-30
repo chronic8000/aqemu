@@ -5240,7 +5240,12 @@ void Main_Window::on_actionShow_Advanced_Settings_Window_triggered()
 		AQLog_Path( Settings.value("Log/Log_Path", "").toString() );
 
 		// Log Filter
-		AQUse_Debug_Output( Settings.value("Log/Print_In_STDOUT", "yes").toString() == "yes",
+#if defined(AQEMU_ENABLE_CONSOLE) || defined(DEBUG)
+		const char *default_stdout_log = "yes";
+#else
+		const char *default_stdout_log = "no";
+#endif
+		AQUse_Debug_Output( Settings.value("Log/Print_In_STDOUT", default_stdout_log).toString() == "yes",
 							Settings.value("Log/Save_Debug","no").toString() == "yes",
 							Settings.value("Log/Save_Warning","yes").toString() == "yes",
 							Settings.value("Log/Save_Error","yes").toString() == "yes" );
@@ -6702,10 +6707,11 @@ void Main_Window::Maybe_Prompt_WSL_Config_On_Boot()
 		return;
 
 	const auto ans = QMessageBox::question( this, tr( "WSL configuration" ),
-		tr( "AQEMU 1.4.0 uses WSL for Apple SoC (Inferno) and hardware-accelerated "
+		tr( "AQEMU %1 uses WSL for Apple SoC (Inferno) and hardware-accelerated "
 		    "macOS (Reims) on Windows.\n\n"
 		    "WSL distro / username are not configured yet. Set them now?\n\n"
-		    "(Optional password can be saved securely in Windows Credential Manager.)" ),
+		    "(Optional password can be saved securely in Windows Credential Manager.)" )
+		    .arg( QLatin1String( CURRENT_AQEMU_VERSION ) ),
 		QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes );
 	if( ans == QMessageBox::Yes )
 	{

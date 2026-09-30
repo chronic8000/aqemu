@@ -479,7 +479,12 @@ Advanced_Settings_Window::Advanced_Settings_Window( QWidget *parent )
 	ui.CH_Log_Save_in_File->setChecked( Settings.value("Log/Save_In_File", "yes").toString() == "yes" );
 	
 	// Print In StdOut
-	ui.CH_Log_Print_in_STDIO->setChecked( Settings.value("Log/Print_In_STDOUT", "yes").toString() == "yes" );
+#if defined(AQEMU_ENABLE_CONSOLE) || defined(DEBUG)
+	const char *default_stdout_log = "yes";
+#else
+	const char *default_stdout_log = "no";
+#endif
+	ui.CH_Log_Print_in_STDIO->setChecked( Settings.value("Log/Print_In_STDOUT", default_stdout_log).toString() == "yes" );
 	
 	// Log File Path
 	ui.Edit_Log_Path->setText( Settings.value("Log/Log_Path", AQEMU_Default_Log_Path()).toString() );
