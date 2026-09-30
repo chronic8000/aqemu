@@ -119,9 +119,9 @@ jobs:
         uses: actions/cache@v6
         with:
           path: third_party/qemu-install
-          key: qemu-win-${{ matrix.arch }}-v2-${{ hashFiles('third_party/qemu_version.txt', '.gitmodules', 'scripts/qemu_*.sh', 'scripts/build_qemu_*.sh') }}
+          key: qemu-win-${{ matrix.arch }}-v3-${{ hashFiles('third_party/qemu_version.txt', '.gitmodules', 'third_party/patches/**', 'scripts/qemu_*.sh', 'scripts/build_qemu_*.sh') }}
           restore-keys: |
-            qemu-win-${{ matrix.arch }}-v2-
+            qemu-win-${{ matrix.arch }}-v3-
 
       - name: Build QEMU from source (${{ matrix.arch }})
         if: steps.cache-qemu.outputs.cache-hit != 'true' || github.event.inputs.rebuild_qemu == 'true'

@@ -67,7 +67,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: third_party/qemu-install
-          key: qemu-linux-${{ matrix.target_name }}-${{ hashFiles('third_party/qemu_version.txt', '.gitmodules', 'scripts/qemu_*.sh', 'scripts/build_qemu_*.sh') }}
+          key: qemu-linux-${{ matrix.target_name }}-${{ hashFiles('third_party/qemu_version.txt', '.gitmodules', 'third_party/patches/**', 'scripts/qemu_*.sh', 'scripts/build_qemu_*.sh') }}
           restore-keys: |
             qemu-linux-${{ matrix.target_name }}-
 

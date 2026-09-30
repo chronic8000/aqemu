@@ -2,6 +2,8 @@
 
 Pin (current): **v11.0.2** via submodule `third_party/qemu`.
 
+AQEMU changes to that tree live in `third_party/patches/` and are applied by `scripts/qemu_apply_patches.sh` before configure, locally and on GitHub Actions. A fresh submodule checkout does not contain them until that script runs.
+
 ```bash
 git submodule update --init --depth 1 third_party/qemu
 # bump: cd third_party/qemu && git fetch --tags && git checkout vX.Y.Z
