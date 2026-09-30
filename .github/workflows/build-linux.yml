@@ -120,10 +120,11 @@ jobs:
           EOF
           chmod +x "${DIST_DIR}/aqemu.sh"
 
-          # Tarball archives (versioned 1.4.0 and target-named)
+          # Tarball archives (versioned from VERSION file and target-named)
+          AQEMU_VERSION="$(cat "${GITHUB_WORKSPACE}/VERSION" | tr -d '[:space:]')"
           cd dist
-          tar -czvf "AQEMU-1.4.0-${{ matrix.target_name }}.tar.gz" "AQEMU-${{ matrix.target_name }}"
-          cp -f "AQEMU-1.4.0-${{ matrix.target_name }}.tar.gz" "AQEMU-${{ matrix.target_name }}.tar.gz"
+          tar -czvf "AQEMU-${AQEMU_VERSION}-${{ matrix.target_name }}.tar.gz" "AQEMU-${{ matrix.target_name }}"
+          cp -f "AQEMU-${AQEMU_VERSION}-${{ matrix.target_name }}.tar.gz" "AQEMU-${{ matrix.target_name }}.tar.gz"
 
       - name: Upload Linux Package Artifact (${{ matrix.target_name }})
         uses: actions/upload-artifact@v7
