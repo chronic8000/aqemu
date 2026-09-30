@@ -1,3 +1,60 @@
+diff --git a/audio/audio.c b/audio/audio.c
+index 6f10ee470e..ebc56e559e 100644
+--- a/audio/audio.c
++++ b/audio/audio.c
+@@ -286,7 +286,7 @@ static AudiodevPerDirectionOptions *audio_get_pdo_out(Audiodev *dev)
+ #endif
+ #ifdef CONFIG_AUDIO_DSOUND
+     case AUDIODEV_DRIVER_DSOUND:
+-        return dev->u.dsound.out;
++        return qapi_AudiodevDsoundPerDirectionOptions_base(dev->u.dsound.out);
+ #endif
+ #ifdef CONFIG_AUDIO_JACK
+     case AUDIODEV_DRIVER_JACK:
+@@ -345,7 +345,7 @@ static AudiodevPerDirectionOptions *audio_get_pdo_in(Audiodev *dev)
+ #endif
+ #ifdef CONFIG_AUDIO_DSOUND
+     case AUDIODEV_DRIVER_DSOUND:
+-        return dev->u.dsound.in;
++        return qapi_AudiodevDsoundPerDirectionOptions_base(dev->u.dsound.in);
+ #endif
+ #ifdef CONFIG_AUDIO_JACK
+     case AUDIODEV_DRIVER_JACK:
+diff --git a/audio/audio_template.h b/audio/audio_template.h
+index 398a727373..354ce5132b 100644
+--- a/audio/audio_template.h
++++ b/audio/audio_template.h
+@@ -356,7 +356,7 @@ AudiodevPerDirectionOptions *glue(audio_get_pdo_, TYPE)(Audiodev *dev)
+ #endif
+ #ifdef CONFIG_AUDIO_DSOUND
+     case AUDIODEV_DRIVER_DSOUND:
+-        return dev->u.dsound.TYPE;
++        return qapi_AudiodevDsoundPerDirectionOptions_base(dev->u.dsound.TYPE);
+ #endif
+ #ifdef CONFIG_AUDIO_JACK
+     case AUDIODEV_DRIVER_JACK:
+diff --git a/audio/dsound_template.h b/audio/dsound_template.h
+index f976112087..d8426d00a8 100644
+--- a/audio/dsound_template.h
++++ b/audio/dsound_template.h
+@@ -172,13 +172,15 @@ static int dsound_init_out(HWVoiceOut *hw, struct audsettings *as)
+     DSoundVoiceIn *ds = (DSoundVoiceIn *) hw;
+     DSCBUFFERDESC bd;
+     DSCBCAPS bc;
+-    AudiodevPerDirectionOptions *pdo = hw->s->dev->u.dsound.in;
++    AudiodevPerDirectionOptions *pdo =
++        qapi_AudiodevDsoundPerDirectionOptions_base(hw->s->dev->u.dsound.in);
+ #else
+     const char *typ = "DAC";
+     DSoundVoiceOut *ds = (DSoundVoiceOut *) hw;
+     DSBUFFERDESC bd;
+     DSBCAPS bc;
+-    AudiodevPerDirectionOptions *pdo = hw->s->dev->u.dsound.out;
++    AudiodevPerDirectionOptions *pdo =
++        qapi_AudiodevDsoundPerDirectionOptions_base(hw->s->dev->u.dsound.out);
+ #endif
+ 
+     if (!s->FIELD2) {
 diff --git a/audio/dsoundaudio.c b/audio/dsoundaudio.c
 index 338ee49c2f..e41e2c8463 100644
 --- a/audio/dsoundaudio.c
