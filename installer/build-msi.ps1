@@ -11,7 +11,8 @@ param(
     [string] $RepoRoot = "",
     [string] $BuildDir = "",
     [string] $Version = "",
-    [string] $OutDir = ""
+    [string] $OutDir = "",
+    [string] $MsysLocation = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -40,7 +41,7 @@ if (-not $Version) {
     if (Test-Path $versionFile) {
         $Version = (Get-Content $versionFile -Raw).Trim()
     } else {
-        $Version = "1.4.0"
+        $Version = "1.4.1"
     }
 }
 
@@ -108,6 +109,58 @@ Get-ChildItem $BuildDir -Force | ForEach-Object {
             if ($_.Name -like $pat) { return }
         }
         Copy-Item $_.FullName (Join-Path $stageDir $_.Name) -Force
+    }
+}
+
+# Resolve MSYS2 and runtime directories for transitive DLL bundling
+$binSearchDirs = @()
+if ($MsysLocation -and (Test-Path $MsysLocation)) {
+    foreach ($sub in @("ucrt64\bin", "clangarm64\bin", "mingw64\bin", "bin")) {
+        $cand = Join-Path $MsysLocation $sub
+        if ((Test-Path $cand) -and ($binSearchDirs -notcontains $cand)) { $binSearchDirs += $cand }
+    }
+}
+if ($env:MSYSTEM_PREFIX -and (Test-Path (Join-Path $env:MSYSTEM_PREFIX "bin"))) {
+    $binSearchDirs += (Join-Path $env:MSYSTEM_PREFIX "bin")
+}
+foreach ($cand in @("C:\msys64\ucrt64\bin", "C:\msys64\clangarm64\bin", "C:\msys64\mingw64\bin")) {
+    if ((Test-Path $cand) -and ($binSearchDirs -notcontains $cand)) { $binSearchDirs += $cand }
+}
+foreach ($p in ($env:PATH -split ";")) {
+    if ($p -and (Test-Path $p) -and ($binSearchDirs -notcontains $p)) {
+        if ((Test-Path (Join-Path $p "libwinpthread-1.dll")) -or (Test-Path (Join-Path $p "Qt5Core.dll"))) {
+            $binSearchDirs += $p
+        }
+    }
+}
+
+# Explicit list of standard MinGW / GCC / LLVM / Qt / QEMU runtime DLLs
+$essentialDlls = @(
+    "libwinpthread-1.dll", "libgcc_s_seh-1.dll", "libgcc_s_dw2-1.dll", "libgcc_s_sjlj-1.dll",
+    "libstdc++-6.dll", "libgomp-1.dll", "libunwind.dll", "libc++.dll",
+    "Qt5Core.dll", "Qt5Gui.dll", "Qt5Widgets.dll", "Qt5Network.dll", "Qt5PrintSupport.dll", "Qt5Test.dll", "Qt5DBus.dll",
+    "libdouble-conversion.dll", "libmd4c.dll", "libharfbuzz-0.dll",
+    "libfreetype-6.dll", "libgraphite2.dll", "libpng16-16.dll", "libjpeg-8.dll",
+    "zlib1.dll", "libzstd.dll", "libbz2-1.dll", "libpcre2-16-0.dll", "libpcre2-8-0.dll",
+    "libvncclient.dll", "libvncclient-1.dll", "libvncserver.dll", "libvncserver-1.dll",
+    "libgcrypt-20.dll", "libgpg-error-0.dll", "libgnutls-30.dll", "libnettle-8.dll", "libhogweed-6.dll", "libgmp-10.dll",
+    "libtasn1-6.dll", "libidn2-0.dll", "libunistring-5.dll", "libunistring-2.dll",
+    "libbrotlidec.dll", "libbrotlicommon.dll", "libbrotlienc.dll",
+    "libglib-2.0-0.dll", "libgthread-2.0-0.dll", "libgobject-2.0-0.dll", "libgio-2.0-0.dll", "libgmodule-2.0-0.dll",
+    "libintl-8.dll", "libiconv-2.dll", "libffi-8.dll", "libslirp-0.dll", "libusb-1.0.0.dll", "libusbredirparser-1.dll",
+    "libpixman-1-0.dll", "libepoxy-0.dll", "libcurl-4.dll", "libnghttp2-14.dll", "libssh2-1.dll", "libfdt-1.dll"
+)
+
+foreach ($dll in $essentialDlls) {
+    $dest = Join-Path $stageDir $dll
+    if (-not (Test-Path $dest)) {
+        foreach ($d in $binSearchDirs) {
+            $src = Join-Path $d $dll
+            if (Test-Path $src) {
+                Copy-Item $src $dest -Force
+                break
+            }
+        }
     }
 }
 

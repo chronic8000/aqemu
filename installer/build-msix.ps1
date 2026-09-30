@@ -316,16 +316,73 @@ if ($windeployqt) {
     }
 }
 
-# Explicit list of standard MinGW / GCC / LLVM / QEMU runtime DLLs
+# Ensure Qt platform plugins (required for GUI window display on Windows)
+$platDest = Join-Path $layoutDir "platforms\qwindows.dll"
+if (-not (Test-Path $platDest)) {
+    New-Item -ItemType Directory -Path (Join-Path $layoutDir "platforms") -Force | Out-Null
+    foreach ($d in $binSearchDirs) {
+        $candidates = @(
+            (Join-Path $d "..\share\qt5\plugins\platforms\qwindows.dll"),
+            (Join-Path $d "..\lib\qt5\plugins\platforms\qwindows.dll"),
+            (Join-Path $d "..\plugins\platforms\qwindows.dll"),
+            (Join-Path $d "platforms\qwindows.dll")
+        )
+        foreach ($c in $candidates) {
+            if (Test-Path $c) {
+                Copy-Item $c $platDest -Force
+                Write-Host "Deployed platforms/qwindows.dll from $c"
+                break
+            }
+        }
+        if (Test-Path $platDest) { break }
+    }
+}
+
+$styleDest = Join-Path $layoutDir "styles\qwindowsvistastyle.dll"
+if (-not (Test-Path $styleDest)) {
+    New-Item -ItemType Directory -Path (Join-Path $layoutDir "styles") -Force | Out-Null
+    foreach ($d in $binSearchDirs) {
+        $candidates = @(
+            (Join-Path $d "..\share\qt5\plugins\styles\qwindowsvistastyle.dll"),
+            (Join-Path $d "..\lib\qt5\plugins\styles\qwindowsvistastyle.dll"),
+            (Join-Path $d "..\plugins\styles\qwindowsvistastyle.dll"),
+            (Join-Path $d "styles\qwindowsvistastyle.dll")
+        )
+        foreach ($c in $candidates) {
+            if (Test-Path $c) {
+                Copy-Item $c $styleDest -Force
+                Write-Host "Deployed styles/qwindowsvistastyle.dll from $c"
+                break
+            }
+        }
+        if (Test-Path $styleDest) { break }
+    }
+}
+
+# Explicit list of standard MinGW / GCC / LLVM / Qt / QEMU runtime DLLs
 $essentialDlls = @(
-    "libwinpthread-1.dll", "libgcc_s_seh-1.dll", "libstdc++-6.dll", "libgomp-1.dll",
-    "libunwind.dll", "libc++.dll",
+    # MinGW / GCC / Clang C/C++ runtimes
+    "libwinpthread-1.dll", "libgcc_s_seh-1.dll", "libgcc_s_dw2-1.dll", "libgcc_s_sjlj-1.dll",
+    "libstdc++-6.dll", "libgomp-1.dll", "libunwind.dll", "libc++.dll",
+    # Qt5 Core / Gui / Widgets and their transitive dependencies
+    "Qt5Core.dll", "Qt5Gui.dll", "Qt5Widgets.dll", "Qt5Network.dll", "Qt5PrintSupport.dll", "Qt5Test.dll", "Qt5DBus.dll",
+    "libdouble-conversion.dll", "libmd4c.dll", "libharfbuzz-0.dll",
+    "libfreetype-6.dll", "libgraphite2.dll", "libpng16-16.dll", "libjpeg-8.dll",
+    "zlib1.dll", "libzstd.dll", "libbz2-1.dll",
+    "libpcre2-16-0.dll", "libpcre2-8-0.dll",
+    # LibVNCServer / GnuTLS / Crypto
+    "libvncclient.dll", "libvncclient-1.dll", "libvncserver.dll", "libvncserver-1.dll",
+    "libgcrypt-20.dll", "libgpg-error-0.dll",
+    "libgnutls-30.dll", "libnettle-8.dll", "libhogweed-6.dll", "libgmp-10.dll",
+    "libtasn1-6.dll", "libidn2-0.dll", "libunistring-5.dll", "libunistring-2.dll",
+    "libbrotlidec.dll", "libbrotlicommon.dll", "libbrotlienc.dll",
+    # GLib & Networking
     "libglib-2.0-0.dll", "libgthread-2.0-0.dll", "libgobject-2.0-0.dll", "libgio-2.0-0.dll", "libgmodule-2.0-0.dll",
-    "libintl-8.dll", "libiconv-2.dll", "libpcre2-8-0.dll", "libpixman-1-0.dll",
-    "zlib1.dll", "libpng16-16.dll", "libjpeg-8.dll",
+    "libintl-8.dll", "libiconv-2.dll", "libffi-8.dll",
     "libslirp-0.dll", "libusb-1.0.0.dll", "libusbredirparser-1.dll",
-    "libepoxy-0.dll", "libffi-8.dll", "libbrotlidec.dll", "libbrotlicommon.dll",
-    "libvncclient.dll", "libvncclient-1.dll",
+    "libpixman-1-0.dll", "libepoxy-0.dll",
+    "libcurl-4.dll", "libnghttp2-14.dll", "libssh2-1.dll", "libfdt-1.dll",
+    # SPICE (if present)
     "libspice-client-glib-2.0-8.dll", "libspice-client-gtk-3.0-5.dll", "libspice-server-1.dll"
 )
 
@@ -336,37 +393,158 @@ foreach ($dll in $essentialDlls) {
             $src = Join-Path $d $dll
             if (Test-Path $src) {
                 Copy-Item $src $dest -Force
-                Write-Host "Bundled runtime DLL: $dll"
+                Write-Host "Bundled essential runtime DLL: $dll"
                 break
             }
         }
     }
 }
 
-# Recursive PE import scan: ensure every imported DLL is present or in System32
+# Define high-speed native PE Import Parser in C#
+try {
+    Add-Type -TypeDefinition @"
+using System;
+using System.IO;
+using System.Collections.Generic;
+
+public static class PEImportParser {
+    public static List<string> GetImports(string filePath) {
+        var dlls = new List<string>();
+        try {
+            using (var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read))
+            using (var br = new BinaryReader(fs)) {
+                if (fs.Length < 64) return dlls;
+                if (br.ReadUInt16() != 0x5A4D) return dlls; // 'MZ'
+                fs.Seek(0x3C, SeekOrigin.Begin);
+                uint peOffset = br.ReadUInt32();
+                if (peOffset + 24 > fs.Length) return dlls;
+                fs.Seek(peOffset, SeekOrigin.Begin);
+                if (br.ReadUInt32() != 0x00004550) return dlls; // 'PE\0\0'
+                
+                fs.Seek(peOffset + 6, SeekOrigin.Begin);
+                ushort numSections = br.ReadUInt16();
+                fs.Seek(peOffset + 20, SeekOrigin.Begin);
+                ushort optSize = br.ReadUInt16();
+                fs.Seek(peOffset + 24, SeekOrigin.Begin);
+                ushort magic = br.ReadUInt16();
+                
+                uint importRva = 0;
+                if (magic == 0x20B) { // PE32+ (64-bit)
+                    fs.Seek(peOffset + 24 + 112 + 8, SeekOrigin.Begin);
+                    importRva = br.ReadUInt32();
+                } else if (magic == 0x10B) { // PE32 (32-bit)
+                    fs.Seek(peOffset + 24 + 96 + 8, SeekOrigin.Begin);
+                    importRva = br.ReadUInt32();
+                } else {
+                    return dlls;
+                }
+                if (importRva == 0) return dlls;
+                
+                long secOffset = peOffset + 24 + optSize;
+                var sections = new List<Tuple<uint, uint, uint>>();
+                for (int i = 0; i < numSections; i++) {
+                    fs.Seek(secOffset + i * 40 + 8, SeekOrigin.Begin);
+                    uint vSize = br.ReadUInt32();
+                    uint vAddr = br.ReadUInt32();
+                    uint rSize = br.ReadUInt32();
+                    uint rPtr = br.ReadUInt32();
+                    sections.Add(new Tuple<uint, uint, uint>(vAddr, Math.Max(vSize, rSize), rPtr));
+                }
+                
+                Func<uint, long> rvaToOff = (rva) => {
+                    foreach (var s in sections) {
+                        if (rva >= s.Item1 && rva < s.Item1 + s.Item2) {
+                            return (long)(rva - s.Item1 + s.Item3);
+                        }
+                    }
+                    return -1L;
+                };
+                
+                long importOff = rvaToOff(importRva);
+                if (importOff < 0 || importOff >= fs.Length) return dlls;
+                
+                while (importOff + 20 <= fs.Length) {
+                    fs.Seek(importOff, SeekOrigin.Begin);
+                    uint oft = br.ReadUInt32();
+                    uint ts = br.ReadUInt32();
+                    uint fc = br.ReadUInt32();
+                    uint nameRva = br.ReadUInt32();
+                    uint ft = br.ReadUInt32();
+                    if (oft == 0 && ts == 0 && fc == 0 && nameRva == 0 && ft == 0) break;
+                    
+                    long nameOff = rvaToOff(nameRva);
+                    if (nameOff >= 0 && nameOff < fs.Length) {
+                        fs.Seek(nameOff, SeekOrigin.Begin);
+                        var nameBytes = new List<byte>();
+                        byte b;
+                        while ((b = br.ReadByte()) != 0 && nameBytes.Count < 260) {
+                            nameBytes.Add(b);
+                        }
+                        if (nameBytes.Count > 0) {
+                            dlls.Add(System.Text.Encoding.ASCII.GetString(nameBytes.ToArray()));
+                        }
+                    }
+                    importOff += 20;
+                }
+            }
+        } catch {}
+        return dlls;
+    }
+}
+"@ -ErrorAction SilentlyContinue
+} catch {}
+
+function Get-PEFileImports([string] $filePath) {
+    try {
+        $parsed = [PEImportParser]::GetImports($filePath)
+        if ($parsed -and $parsed.Count -gt 0) {
+            return $parsed
+        }
+    } catch {}
+    
+    $imports = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    try {
+        $bytes = [System.IO.File]::ReadAllBytes($filePath)
+        $text = [System.Text.Encoding]::ASCII.GetString($bytes)
+        $matches = [regex]::Matches($text, '[A-Za-z0-9_\-\.]+\.dll', [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+        foreach ($m in $matches) {
+            $imports.Add($m.Value) | Out-Null
+        }
+    } catch {}
+    return @($imports)
+}
+
 $knownSysDlls = @(
     "KERNEL32.DLL", "USER32.DLL", "GDI32.DLL", "ADVAPI32.DLL", "SHELL32.DLL", "OLE32.DLL",
     "OLEAUT32.DLL", "COMCTL32.DLL", "COMDLG32.DLL", "WS2_32.DLL", "SHLWAPI.DLL", "VERSION.DLL",
     "IMM32.DLL", "WINMM.DLL", "UXTHEME.DLL", "DWMAPI.DLL", "IPHLPAPI.DLL", "DNSAPI.DLL",
     "NETAPI32.DLL", "SECUR32.DLL", "CRYPT32.DLL", "BCRYPT.DLL", "NCRYPT.DLL", "USERENV.DLL",
     "WTSAPI32.DLL", "SETUPAPI.DLL", "WINHTTP.DLL", "WININET.DLL", "OPENGL32.DLL", "GLU32.DLL",
-    "POWRPROF.DLL", "MSVCRT.DLL", "UCRTBASE.DLL", "NTDLL.DLL"
+    "POWRPROF.DLL", "MSVCRT.DLL", "UCRTBASE.DLL", "NTDLL.DLL", "RPCMRT4.DLL", "WSOCK32.DLL",
+    "MPR.DLL", "NETUTILS.DLL", "SRVCLI.DLL", "WLDAP32.DLL", "CFGMGR32.DLL", "DEVOBJ.DLL",
+    "PROPSYS.DLL", "DXGI.DLL", "D3D11.DLL", "D3D9.DLL", "D2D1.DLL", "DWRITE.DLL", "WINDOWSCODELCS.DLL"
 )
 
 $checkedFiles = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
 $missingDlls = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
 
-function Resolve-PEImports([string] $filePath) {
-    if (-not (Test-Path $filePath) -or ($checkedFiles.Contains($filePath))) { return }
-    $checkedFiles.Add($filePath) | Out-Null
-    try {
-        $bytes = [System.IO.File]::ReadAllBytes($filePath)
-        $text = [System.Text.Encoding]::ASCII.GetString($bytes)
-        $matches = [regex]::Matches($text, '[A-Za-z0-9_\-\.]+\.dll', [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
-        foreach ($m in $matches) {
-            $dllName = $m.Value
+Write-Host "Running recursive dependency scan on all executables and DLLs in layout..."
+$pass = 0
+do {
+    $pass++
+    $newDllAdded = $false
+    # Collect all PE binaries currently in layout (root, platforms, styles, imageformats, etc.)
+    $currentBinaries = Get-ChildItem $layoutDir -Recurse -File | Where-Object { $_.Extension -match '^\.(exe|dll)$' }
+    foreach ($bin in $currentBinaries) {
+        if ($checkedFiles.Contains($bin.FullName)) { continue }
+        $checkedFiles.Add($bin.FullName) | Out-Null
+        
+        $importedDlls = Get-PEFileImports $bin.FullName
+        foreach ($dllName in $importedDlls) {
             if ($knownSysDlls -contains $dllName.ToUpperInvariant()) { continue }
-            if ($dllName.StartsWith("api-ms-win-") -or $dllName.StartsWith("ext-ms-win-")) { continue }
+            if ($dllName.StartsWith("api-ms-win-", [System.StringComparison]::OrdinalIgnoreCase) -or
+                $dllName.StartsWith("ext-ms-win-", [System.StringComparison]::OrdinalIgnoreCase)) { continue }
+            
             $inLayout = Join-Path $layoutDir $dllName
             if (-not (Test-Path $inLayout)) {
                 $found = $false
@@ -374,9 +552,12 @@ function Resolve-PEImports([string] $filePath) {
                     $cand = Join-Path $d $dllName
                     if (Test-Path $cand) {
                         Copy-Item $cand $inLayout -Force
-                        Write-Host "Auto-resolved dependency: $dllName"
+                        Write-Host "Auto-resolved dependency (Pass $pass): $dllName (required by $($bin.Name))"
                         $found = $true
-                        Resolve-PEImports $inLayout
+                        $newDllAdded = $true
+                        if ($missingDlls.Contains($dllName)) {
+                            $missingDlls.Remove($dllName) | Out-Null
+                        }
                         break
                     }
                 }
@@ -385,13 +566,20 @@ function Resolve-PEImports([string] $filePath) {
                 }
             }
         }
-    } catch {}
-}
+    }
+} while ($newDllAdded)
 
-# Scan aqemu.exe and all qemu-system-*.exe
-Get-ChildItem $layoutDir -Filter "*.exe" | ForEach-Object { Resolve-PEImports $_.FullName }
 if ($missingDlls.Count -gt 0) {
-    Write-Warning ("Layout may be missing {0} runtime DLL(s): {1}" -f $missingDlls.Count, ($missingDlls -join ", "))
+    $stillMissing = @()
+    foreach ($m in $missingDlls) {
+        if (-not (Test-Path (Join-Path $layoutDir $m))) {
+            $stillMissing += $m
+        }
+    }
+    if ($stillMissing.Count -gt 0) {
+        $errList = ($stillMissing -join ", ")
+        throw "Packaging error: The following required runtime DLLs could not be found in any search path: $errList"
+    }
 }
 
 $qemuSystems = @(Get-ChildItem (Join-Path $layoutDir "qemu-system-*.exe") -ErrorAction SilentlyContinue)
