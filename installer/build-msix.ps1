@@ -515,14 +515,32 @@ function Get-PEFileImports([string] $filePath) {
 }
 
 $knownSysDlls = @(
-    "KERNEL32.DLL", "USER32.DLL", "GDI32.DLL", "ADVAPI32.DLL", "SHELL32.DLL", "OLE32.DLL",
-    "OLEAUT32.DLL", "COMCTL32.DLL", "COMDLG32.DLL", "WS2_32.DLL", "SHLWAPI.DLL", "VERSION.DLL",
-    "IMM32.DLL", "WINMM.DLL", "UXTHEME.DLL", "DWMAPI.DLL", "IPHLPAPI.DLL", "DNSAPI.DLL",
-    "NETAPI32.DLL", "SECUR32.DLL", "CRYPT32.DLL", "BCRYPT.DLL", "NCRYPT.DLL", "USERENV.DLL",
-    "WTSAPI32.DLL", "SETUPAPI.DLL", "WINHTTP.DLL", "WININET.DLL", "OPENGL32.DLL", "GLU32.DLL",
-    "POWRPROF.DLL", "MSVCRT.DLL", "UCRTBASE.DLL", "NTDLL.DLL", "RPCMRT4.DLL", "WSOCK32.DLL",
-    "MPR.DLL", "NETUTILS.DLL", "SRVCLI.DLL", "WLDAP32.DLL", "CFGMGR32.DLL", "DEVOBJ.DLL",
-    "PROPSYS.DLL", "DXGI.DLL", "D3D11.DLL", "D3D9.DLL", "D2D1.DLL", "DWRITE.DLL", "WINDOWSCODELCS.DLL"
+    # Core Win32 subsystem
+    "KERNEL32.DLL", "KERNELBASE.DLL", "USER32.DLL", "GDI32.DLL", "GDI32FULL.DLL",
+    "ADVAPI32.DLL", "SHELL32.DLL", "OLE32.DLL", "OLEAUT32.DLL", "COMCTL32.DLL",
+    "COMDLG32.DLL", "WS2_32.DLL", "SHLWAPI.DLL", "VERSION.DLL", "IMM32.DLL",
+    "WINMM.DLL", "UXTHEME.DLL", "DWMAPI.DLL", "IPHLPAPI.DLL", "DNSAPI.DLL",
+    "NETAPI32.DLL", "SECUR32.DLL", "CRYPT32.DLL", "BCRYPT.DLL", "NCRYPT.DLL",
+    "USERENV.DLL", "WTSAPI32.DLL", "SETUPAPI.DLL", "WINHTTP.DLL", "WININET.DLL",
+    "OPENGL32.DLL", "GLU32.DLL", "POWRPROF.DLL", "MSVCRT.DLL", "UCRTBASE.DLL",
+    "NTDLL.DLL", "NTOSKRNL.EXE",
+    # RPC / Print / Debug — these were missing and caused the packaging error
+    "RPCRT4.DLL",     # Windows RPC runtime (was typo'd as RPCMRT4.DLL)
+    "USP10.DLL",      # Unicode Script Processor (Uniscribe)
+    "WINSPOOL.DRV",   # Windows Print Spooler driver
+    "DBGHELP.DLL",    # Debug helper (Windows SDK / OS)
+    "DBGCORE.DLL",    # Debug core (Windows 10+)
+    # Networking / security
+    "WSOCK32.DLL", "MPR.DLL", "NETUTILS.DLL", "SRVCLI.DLL", "WLDAP32.DLL",
+    "CFGMGR32.DLL", "DEVOBJ.DLL", "WINTRUST.DLL", "IMAGEHLP.DLL",
+    # UI / graphics
+    "PROPSYS.DLL", "DXGI.DLL", "D3D11.DLL", "D3D9.DLL", "D2D1.DLL", "DWRITE.DLL",
+    "WINDOWSCODECS.DLL", "WINDOWSCODELCS.DLL", "COMBASE.DLL", "SHCORE.DLL",
+    # CRT / runtime
+    "MSVCP140.DLL", "VCRUNTIME140.DLL", "VCRUNTIME140_1.DLL",
+    "MSVCP140_1.DLL", "MSVCP140_2.DLL", "CONCRT140.DLL",
+    # API sets (catch-all patterns handled inline, but list common ones too)
+    "API-MS-WIN-CORE-SYNCH-L1-2-0.DLL", "API-MS-WIN-CRT-RUNTIME-L1-1-0.DLL"
 )
 
 $checkedFiles = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
@@ -544,6 +562,8 @@ do {
             if ($knownSysDlls -contains $dllName.ToUpperInvariant()) { continue }
             if ($dllName.StartsWith("api-ms-win-", [System.StringComparison]::OrdinalIgnoreCase) -or
                 $dllName.StartsWith("ext-ms-win-", [System.StringComparison]::OrdinalIgnoreCase)) { continue }
+            # .drv files are Windows kernel-mode drivers — never bundleable
+            if ($dllName.EndsWith(".drv", [System.StringComparison]::OrdinalIgnoreCase)) { continue }
             
             $inLayout = Join-Path $layoutDir $dllName
             if (-not (Test-Path $inLayout)) {
