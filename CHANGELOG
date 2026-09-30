@@ -7,7 +7,8 @@
 	  - Implemented multi-pass PE import directory analysis in build-msix.ps1 and build-msi.ps1
 	    to guarantee 100% of transitive DLL dependencies are detected and bundled.
 	  - Suppressed console/terminal window on Windows GUI launch behind AQEMU_ENABLE_CONSOLE switch.
-	  - Centralized single source of truth versioning in root VERSION file.
+	  - Centralized single source of truth versioning in root VERSION.txt
+	    (renamed from VERSION so it does not shadow the C++ <version> header on Windows).
 	  - Bumped project version globally to 1.4.1 across all packaging pipelines and targets.
 
 2026-09-29 Chronic Engineering — AQEMU 1.4.0 (Full QEMU 11.0.2 Multi-Architecture Integration & CI/CD Pipeline)
