@@ -89,10 +89,10 @@ index bd6a46e2af..d062473cbb 100644
          return -1;
      }
 diff --git a/qapi/audio.json b/qapi/audio.json
-index 2df87b9710..ab0fef7553 100644
+index 2df87b9710..f9cee46817 100644
 --- a/qapi/audio.json
 +++ b/qapi/audio.json
-@@ -181,6 +181,21 @@
+@@ -181,6 +181,20 @@
      '*in':  'AudiodevCoreaudioPerDirectionOptions',
      '*out': 'AudiodevCoreaudioPerDirectionOptions' } }
  
@@ -101,8 +101,7 @@ index 2df87b9710..ab0fef7553 100644
 +#
 +# DirectSound options for one direction.
 +#
-+# @dev: endpoint GUID ({xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx}), or empty
-+#     for the default device
++# @dev: endpoint GUID, or empty for the default device
 +#
 +# Since: 4.0
 +##
@@ -114,7 +113,7 @@ index 2df87b9710..ab0fef7553 100644
  ##
  # @AudiodevDsoundOptions:
  #
-@@ -197,8 +212,8 @@
+@@ -197,8 +211,8 @@
  ##
  { 'struct': 'AudiodevDsoundOptions',
    'data': {
@@ -125,7 +124,7 @@ index 2df87b9710..ab0fef7553 100644
      '*latency': 'uint32' } }
  
  ##
-@@ -401,7 +416,8 @@
+@@ -401,7 +415,8 @@
  { 'struct': 'AudiodevSdlPerDirectionOptions',
    'base': 'AudiodevPerDirectionOptions',
    'data': {
