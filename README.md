@@ -11,7 +11,7 @@
 
 <p align="center">
   <b>The QEMU virtual machine manager built for maximum power and modern ease.</b><br/>
-  69k+ additions beyond the legacy community tree — probe-driven hardware catalogs, embedded displays, QMP, bundled QEMU <b>11.0.2</b>, and 195 guest profiles.<br/>
+  118k additions beyond Tobias Gläßer’s 0.9.x tree — probe-driven hardware catalogs, embedded displays, QMP, bundled QEMU <b>11.0.2</b>, and 195 guest profiles.<br/>
   <b>Now Available on the Microsoft Store!</b><br/>
   Maintained by <a href="https://github.com/chronic8000">Chronic Engineering</a> • <a href="https://chronic8000.github.io/aqemu">chronic8000.github.io/aqemu</a>
 </p>
@@ -171,15 +171,13 @@ AQEMU started with **Andrey Rijov (RDron)**, then the community era under **Tobi
 
 ### https://github.com/chronic8000/aqemu
 
-Compared to [tobimensch/aqemu](https://github.com/tobimensch/aqemu): **iOS on Windows 11**, **probe-driven QEMU catalogs**, **five-path VM creation**, **embedded SPICE/VNC sessions**, **bundled QEMU 11.0.2**, **Win11 ARM**, proper **Win9x TCG**, **classic Mac + Intel macOS** (WSL/KVM), Solaris/AIX/OS/2 recipes, QMP/blockdev/migrate UI, Windows packaging + **Microsoft Store**.
+Compared to [tobimensch/aqemu](https://github.com/tobimensch/aqemu): **iOS on Windows 11**, **probe-driven QEMU catalogs**, **six-path VM creation**, **embedded SPICE/VNC sessions**, **bundled QEMU 11.0.2**, **Win11 ARM**, proper **Win9x TCG**, **classic Mac + Intel macOS** (WSL/KVM), Solaris/AIX/OS/2 recipes, QMP/blockdev/migrate UI, Windows packaging + **Microsoft Store**.
 
-This is not a reskin. Measured from the final inactive upstream baseline, the revival represents approximately:
+Measured against that tree ([compare](https://github.com/tobimensch/aqemu/compare/master...chronic8000:aqemu:master)):
 
-- **69,000 additions / 2,400 deletions**
-- **250+ changed files** and **100+ fork-era commits**
-- **30 merged pull requests**
-- **193 curated guest OS profiles**
-- **29 selectable QEMU target architectures**
+- **118,707 additions / 7,617 deletions** across **416 files** and **197 commits**
+- **195 curated guest OS profiles**
+- **29 selectable QEMU target architectures**, plus ChefKiss Inferno (`qemu-system-applesoc`) and Reims (`qemu-system-reims3d`)
 - Probe data covering **28 architectures, 490 machines, 2,074 CPUs, 604 NICs and 194 display models**
 
 The work reaches through QEMU discovery, command generation, device compatibility, VM persistence, process supervision, display transport, runtime control, migration, packaging and the creation wizard. The interface changed because the system underneath it changed.
@@ -202,7 +200,26 @@ We keep the original authors’ names. We do **not** inherit their old donation 
 
 ## What’s new vs the old AQEMU (tobimensch / ~0.9.x)
 
-The last widely known community tree — [tobimensch/aqemu](https://github.com/tobimensch/aqemu) — went quiet in 2020 (Qt5 port, VNC-era display, you brought your own QEMU). **Calling this revival a reskin misses nearly all of the engineering.** AQEMU 1.4.0 adds working Apple SoC (Inferno/iOS) and hardware-accelerated Reims macOS on Windows via WSL, on top of the capability model, runtime architecture, VM creation flow, platform support and distribution pipeline from earlier 1.x releases.
+The last widely known community tree — [tobimensch/aqemu](https://github.com/tobimensch/aqemu) — went quiet in 2020 (Qt5 port, embedded VNC, you brought your own QEMU). **AQEMU 1.4.1** is that codebase continued: the same GPLv2 frontend, with the capability model, runtime, wizard, hosts, and distribution pipeline rebuilt on top.
+
+| | Tobias Gläßer’s 0.9.x | AQEMU 1.4.1 |
+|--|--|--|
+| **Status** | Community tree, quiet since 2020 | Active. [Microsoft Store](https://apps.microsoft.com/detail/9p0hgkhq9w19) listing with automatic updates |
+| **QEMU** | Whatever was installed on the host. Version detection often stuck on old labels | Bundled **QEMU 11.0.2**: 29 `qemu-system-*` targets, `qemu-img`, firmware, plus Inferno and Reims. Custom QEMU folder still works |
+| **Display** | Embedded VNC | Embedded **SPICE and VNC**, headless QEMU, in-app session toolbar, fullscreen, canvas stretch |
+| **Control** | Monitor window | Asynchronous **QMP**: pause, ACPI shutdown, reset, media change, block queries, live migration |
+| **Create a VM** | Add-new-VM wizard | **Six paths**: Guest OS, System/Board, CPU Architecture, Custom, Existing Disk, **OVA/OVF appliance** |
+| **Profiles** | A handful of OS templates | **195** guest profiles with probe-checked machine, CPU, disk, NIC, video, and audio |
+| **Hardware lists** | PC-shaped assumptions on every architecture | Checked-in probes for **28 architectures** (490 machines, 2,074 CPUs, 604 NICs, 194 displays), merged with live `qemu -help` |
+| **Storage** | A few disks and one CD-ROM | Unlimited disks and optical drives on IDE, AHCI, SCSI, VirtIO, and NVMe. **4Kn / 512e** sector size. Unique disk serials for ZFS. OVA/OVF import and export |
+| **USB** | Add-device dialog; several upstream bugs around bus and VID:PID | Session-toolbar hotplug on a USB 3.0 XHCI controller, with host mouse/keyboard lockout guards |
+| **Hosts** | Linux, and a Windows port that was still on the TODO list | **Windows x64**, **Windows on ARM** (Snapdragon), **Linux x86_64**, **Raspberry Pi 5** (KVM, 16KB-page kernels) |
+| **Acceleration** | One accelerator choice, easy to apply to the wrong guest | Explicit **TCG**, WHPX/HAX, or KVM. Win9x is forced to TCG. Cross-architecture guests stay on TCG. WSL/KVM path for Intel macOS and Reims |
+| **Guests that needed hand-written flags** | Generic PC | **iOS 14 on Windows 11** (Inferno restore, filesystem patches, SpringBoard), **Windows 11 ARM**, Win9x, classic Mac, Intel macOS + **Reims vGPU**, TrueNAS CORE & SCALE (including ARM64), Solaris, AIX, OS/2 |
+| **Packaging** | Build it yourself | GitHub Actions builds **Windows MSIX** (x64 and ARM64) and **Linux tarballs** (x86_64 and Pi 5) on every `master` push. WiX MSI for a classic installer. Version comes from `VERSION.txt` |
+| **Upstream issue list** | [72 open issues](https://github.com/tobimensch/aqemu/issues) we cannot close there | Triaged in [`docs/TOBIMENSCH_ISSUE_TRIAGE.md`](docs/TOBIMENSCH_ISSUE_TRIAGE.md). Launch, network `vlan=`, USB, CD/floppy, UEFI, and QEMU version detection are fixed here. New bugs go to [chronic8000/aqemu](https://github.com/chronic8000/aqemu/issues) |
+
+Tobias Gläßer remains credited as the 0.9.x maintainer. This repository does not take over that GitHub project’s issues, donation pages, or SourceForge links.
 
 ### 1. Ground-truth capability engine
 
@@ -263,7 +280,7 @@ Compatibility guardrails handle vintage Windows guests that hang under WHPX, non
 
 ### 9. A complete Windows distribution pipeline
 
-The repository now builds a portable application, WiX MSI and signed full-trust MSIX. Packaging stages QEMU, firmware, plugins and dependencies and validates that required runtime pieces are present. The Microsoft Store package adds managed installation and updates while the GPLv2 source remains public.
+The repository builds a portable application, a WiX MSI, and a signed full-trust MSIX. Packaging stages QEMU, firmware, plugins, and runtime DLLs, then fails the build if a required piece is missing. [`.github/workflows/build-windows-msix.yml`](.github/workflows/build-windows-msix.yml) and [`.github/workflows/build-linux.yml`](.github/workflows/build-linux.yml) compile QEMU and AQEMU on every relevant `master` push: Windows x64, Windows on ARM, Linux x86_64, and Raspberry Pi 5. The Microsoft Store package adds managed installation and updates. The GPLv2 source stays public.
 
 ### 10. Still AQEMU—just alive
 
@@ -503,7 +520,7 @@ More of the guest zoo — Win11 ARM and classic Windows under the same session U
 
 ### 🛠️ Overhauled VM Creation Wizard (5 Creation Paths & 29 QEMU Targets)
 
-**1. Creation Method** — Select from 5 creation paths: Guest OS, System/Board Platform, CPU Architecture, Custom/Advanced, or Import Existing Disk:
+**1. Creation Method** — Six paths: Guest OS, System/Board Platform, CPU Architecture, Custom/Advanced, Import Existing Disk, or Import Virtual Appliance (OVA / OVF):
 
 ![AQEMU Creation Method Page](screenshots/wizard-1-creation-method.png)
 
@@ -535,9 +552,9 @@ Details: [`third_party/README.md`](third_party/README.md).
 
 ## Feature highlights
 
-- **Beyond the old AQEMU** — 69k+ additions across 250+ files; this is an architectural revival, not a reskin
+- **Beyond Tobias Gläßer’s 0.9.x** — 118,707 additions across 416 files and 197 commits ([compare](https://github.com/tobimensch/aqemu/compare/master...chronic8000:aqemu:master))
 - **Ground-truth catalogs** — 28 probed architectures, 490 machines, 2,074 CPUs, 604 NICs and 194 displays
-- **Five-path wizard** — 193 curated guest profiles plus system, architecture, custom and disk-import flows
+- **Six-path wizard** — 195 curated guest profiles, plus system, architecture, custom, disk-import, and OVA/OVF flows
 - **QEMU installation** — **Use built-in QEMU** (portable zip) or **custom folder**
 - **Embedded SPICE/VNC + QMP** session UI (CD/FD/HDD/USB hotplug/net toolbar while the guest runs)
 - **Full architecture discovery** — 29 selectable QEMU targets plus live `qemu-system-*` discovery
@@ -590,7 +607,7 @@ Get the official **AQEMU VM Manager** package on the Microsoft Store:
 </p>
 
 The Microsoft Store version includes:
-- **AQEMU 1.4.0** with Apple SoC (Inferno/iOS) and Reims hardware-accelerated macOS via WSL
+- **AQEMU 1.4.1** with Apple SoC (Inferno/iOS) and Reims hardware-accelerated macOS via WSL
 - **Bundled QEMU 11.0.2** binaries (no separate QEMU setup required)
 - **Automatic background updates** via the Microsoft Store
 - Dedicated Windows app installation & single-click launcher
