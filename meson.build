@@ -3,7 +3,7 @@
 
 aqemu_ver = run_command('cat', files('VERSION.txt'), check : false).stdout().strip()
 if aqemu_ver == ''
-  aqemu_ver = '1.4.0'
+  aqemu_ver = '1.4.1'
 endif
 
 project('aqemu', 'cpp', version : aqemu_ver, default_options : ['cpp_std=c++11', 'warning_level=3'])
