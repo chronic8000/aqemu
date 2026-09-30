@@ -1520,6 +1520,26 @@ with embedded display</string>
                   </property>
                   <item>
                    <property name="text">
+                    <string>sdl</string>
+                   </property>
+                  </item>
+                  <item>
+                   <property name="text">
+                    <string>dsound</string>
+                   </property>
+                  </item>
+                  <item>
+                   <property name="text">
+                    <string>pa</string>
+                   </property>
+                  </item>
+                  <item>
+                   <property name="text">
+                    <string>pipewire</string>
+                   </property>
+                  </item>
+                  <item>
+                   <property name="text">
                     <string>alsa</string>
                    </property>
                   </item>
@@ -1530,17 +1550,27 @@ with embedded display</string>
                   </item>
                   <item>
                    <property name="text">
-                    <string>pa</string>
+                    <string>coreaudio</string>
                    </property>
                   </item>
                   <item>
                    <property name="text">
-                    <string>esd</string>
+                    <string>jack</string>
                    </property>
                   </item>
                   <item>
                    <property name="text">
-                    <string>sdl</string>
+                    <string>sndio</string>
+                   </property>
+                  </item>
+                  <item>
+                   <property name="text">
+                    <string>spice</string>
+                   </property>
+                  </item>
+                  <item>
+                   <property name="text">
+                    <string>dbus</string>
                    </property>
                   </item>
                   <item>

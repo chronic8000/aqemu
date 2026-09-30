@@ -70,6 +70,7 @@
 #include "VM.h"
 #include "QMP_Client.h"
 #include "Utils.h"
+#include "Audio_Host.h"
 #include "WSL_Launch.h"
 #include "WSL_Wizard_Window.h"
 #include "Apple_SoC_Support.h"
@@ -333,6 +334,12 @@ Virtual_Machine::Virtual_Machine( const Virtual_Machine &vm )
 	this->FW_CFG_Lines = vm.Get_FW_CFG_Lines();
 	this->Audiodev_Backend = vm.Get_Audiodev_Backend();
 	this->Audiodev_Timer_Period = vm.Get_Audiodev_Timer_Period();
+	this->Audio_Use_Host_Defaults = vm.Get_Audio_Use_Host_Defaults();
+	this->HDA_Codec = vm.Get_HDA_Codec();
+	this->Audio_Options = vm.Get_Audio_Options();
+	this->VirtIO_Sound_Jacks = vm.Get_VirtIO_Sound_Jacks();
+	this->VirtIO_Sound_Streams = vm.Get_VirtIO_Sound_Streams();
+	this->VirtIO_Sound_Chmaps = vm.Get_VirtIO_Sound_Chmaps();
 	this->Use_NUMA_Memdev_Flag = vm.Use_NUMA_Memdev();
 	this->ICount = vm.Get_ICount();
 	this->Sandbox = vm.Get_Sandbox();
@@ -627,6 +634,12 @@ void Virtual_Machine::Shared_Constructor()
 	FW_CFG_Lines.clear();
 	Audiodev_Backend.clear();
 	Audiodev_Timer_Period = 0;
+	Audio_Use_Host_Defaults = true;
+	HDA_Codec.clear();
+	Audio_Options.clear();
+	VirtIO_Sound_Jacks = -1;
+	VirtIO_Sound_Streams = -1;
+	VirtIO_Sound_Chmaps = -1;
 	Use_NUMA_Memdev_Flag = false;
 	ICount.clear();
 	Sandbox.clear();
@@ -817,6 +830,12 @@ bool Virtual_Machine::operator==( const Virtual_Machine &vm ) const
 		this->SMBIOS_File == vm.Get_SMBIOS_File() &&
 		this->FW_CFG_Lines == vm.Get_FW_CFG_Lines() &&
 		this->Audiodev_Backend == vm.Get_Audiodev_Backend() &&
+		this->Audio_Use_Host_Defaults == vm.Get_Audio_Use_Host_Defaults() &&
+		this->HDA_Codec == vm.Get_HDA_Codec() &&
+		this->Audio_Options == vm.Get_Audio_Options() &&
+		this->VirtIO_Sound_Jacks == vm.Get_VirtIO_Sound_Jacks() &&
+		this->VirtIO_Sound_Streams == vm.Get_VirtIO_Sound_Streams() &&
+		this->VirtIO_Sound_Chmaps == vm.Get_VirtIO_Sound_Chmaps() &&
 		this->Audiodev_Timer_Period == vm.Get_Audiodev_Timer_Period() &&
 		this->Use_NUMA_Memdev_Flag == vm.Use_NUMA_Memdev() &&
 		this->ICount == vm.Get_ICount() &&
@@ -1140,6 +1159,12 @@ Virtual_Machine &Virtual_Machine::operator=( const Virtual_Machine &vm )
 	FW_CFG_Lines = vm.Get_FW_CFG_Lines();
 	Audiodev_Backend = vm.Get_Audiodev_Backend();
 	Audiodev_Timer_Period = vm.Get_Audiodev_Timer_Period();
+	Audio_Use_Host_Defaults = vm.Get_Audio_Use_Host_Defaults();
+	HDA_Codec = vm.Get_HDA_Codec();
+	Audio_Options = vm.Get_Audio_Options();
+	VirtIO_Sound_Jacks = vm.Get_VirtIO_Sound_Jacks();
+	VirtIO_Sound_Streams = vm.Get_VirtIO_Sound_Streams();
+	VirtIO_Sound_Chmaps = vm.Get_VirtIO_Sound_Chmaps();
 	Use_NUMA_Memdev_Flag = vm.Use_NUMA_Memdev();
 	ICount = vm.Get_ICount();
 	Sandbox = vm.Get_Sandbox();
@@ -3579,6 +3604,30 @@ bool Virtual_Machine::Create_VM_File( const QString &file_name, bool template_mo
 	VM_Element.appendChild( Dom_Element );
 	Dom_Text = New_Dom_Document.createTextNode( QString::number( Audiodev_Timer_Period ) );
 	Dom_Element.appendChild( Dom_Text );
+	Dom_Element = New_Dom_Document.createElement( "Audio_Use_Host_Defaults" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( Audio_Use_Host_Defaults ? "true" : "false" );
+	Dom_Element.appendChild( Dom_Text );
+	Dom_Element = New_Dom_Document.createElement( "HDA_Codec" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( HDA_Codec );
+	Dom_Element.appendChild( Dom_Text );
+	Dom_Element = New_Dom_Document.createElement( "Audio_Options" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( Audio_Options );
+	Dom_Element.appendChild( Dom_Text );
+	Dom_Element = New_Dom_Document.createElement( "VirtIO_Sound_Jacks" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( QString::number( VirtIO_Sound_Jacks ) );
+	Dom_Element.appendChild( Dom_Text );
+	Dom_Element = New_Dom_Document.createElement( "VirtIO_Sound_Streams" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( QString::number( VirtIO_Sound_Streams ) );
+	Dom_Element.appendChild( Dom_Text );
+	Dom_Element = New_Dom_Document.createElement( "VirtIO_Sound_Chmaps" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( QString::number( VirtIO_Sound_Chmaps ) );
+	Dom_Element.appendChild( Dom_Text );
 	Dom_Element = New_Dom_Document.createElement( "Use_NUMA_Memdev" );
 	VM_Element.appendChild( Dom_Element );
 	Dom_Text = New_Dom_Document.createTextNode( Use_NUMA_Memdev_Flag ? "true" : "false" );
@@ -5554,6 +5603,21 @@ bool Virtual_Machine::Load_VM( const QString &file_name )
 				const int tp = Child_Element.firstChildElement( "Audiodev_Timer_Period" ).text().toInt( &ok );
 				Audiodev_Timer_Period = ok ? tp : 0;
 			}
+			{
+				const QString host_def = Child_Element.firstChildElement( "Audio_Use_Host_Defaults" ).text().trimmed();
+				Audio_Use_Host_Defaults = host_def.isEmpty() ? Audiodev_Backend.trimmed().isEmpty() : ( host_def == QLatin1String( "true" ) );
+			}
+			HDA_Codec = Child_Element.firstChildElement( "HDA_Codec" ).text().trimmed();
+			Audio_Options = Child_Element.firstChildElement( "Audio_Options" ).text();
+			{
+				bool okj = false;
+				const int j = Child_Element.firstChildElement( "VirtIO_Sound_Jacks" ).text().toInt( &okj );
+				VirtIO_Sound_Jacks = okj ? j : -1;
+				const int st = Child_Element.firstChildElement( "VirtIO_Sound_Streams" ).text().toInt( &okj );
+				VirtIO_Sound_Streams = okj ? st : -1;
+				const int ch = Child_Element.firstChildElement( "VirtIO_Sound_Chmaps" ).text().toInt( &okj );
+				VirtIO_Sound_Chmaps = okj ? ch : -1;
+			}
 			Use_NUMA_Memdev_Flag = ( Child_Element.firstChildElement( "Use_NUMA_Memdev" ).text() == "true" );
 			ICount = Child_Element.firstChildElement( "ICount" ).text().trimmed();
 			Sandbox = Child_Element.firstChildElement( "Sandbox" ).text().trimmed();
@@ -5960,6 +6024,9 @@ VM_Native_Storage_Device Virtual_Machine::Load_VM_Native_Storage_Device( const Q
 	// Physical Block Size
 	tmp_device.Set_Physical_Block_Size( Second_Element.firstChildElement("Physical_Block_Size").text().toInt() > 0 ? Second_Element.firstChildElement("Physical_Block_Size").text().toInt() : 512 );
 
+	// Read only. Missing on older VM files means the disk stays writable.
+	tmp_device.Set_Read_Only( Second_Element.firstChildElement("Read_Only").text() == "true" );
+	tmp_device.Set_Disk_Serial( Second_Element.firstChildElement("Disk_Serial").text() );
 
 	return tmp_device;
 }
@@ -6313,6 +6380,16 @@ void Virtual_Machine::Save_VM_Native_Storage_Device( QDomDocument &New_Dom_Docum
 	Dom_Element.appendChild( Sec_Element );
 	Dom_Text = New_Dom_Document.createTextNode( QString::number( device.Get_Physical_Block_Size() ) );
 	Sec_Element.appendChild( Dom_Text );
+
+	Sec_Element = New_Dom_Document.createElement( "Read_Only" );
+	Dom_Element.appendChild( Sec_Element );
+	Dom_Text = New_Dom_Document.createTextNode( device.Get_Read_Only() ? "true" : "false" );
+	Sec_Element.appendChild( Dom_Text );
+
+	Sec_Element = New_Dom_Document.createElement( "Disk_Serial" );
+	Dom_Element.appendChild( Sec_Element );
+	Dom_Text = New_Dom_Document.createTextNode( device.Get_Disk_Serial() );
+	Sec_Element.appendChild( Dom_Text );
 }
 
 void Virtual_Machine::Save_VM_Shared_Folder( QDomDocument &New_Dom_Document, QDomElement &Dom_Element,
@@ -6575,13 +6652,16 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		if( system_name.isEmpty() )
 			system_name = Computer_Type;
 		const QString bin_path = Get_Current_Emulator_Binary_Path( system_name );
-		const QString data_dir = AQ_Get_QEMU_Data_Dir( bin_path );
-		if( ! data_dir.isEmpty() )
+		const QStringList data_dirs = AQ_Get_QEMU_Data_Dirs( bin_path );
+		if( ! data_dirs.isEmpty() )
 		{
-			if( Build_QEMU_Args_for_Script_Mode )
-				Args << "-L" << ( QStringLiteral( "\"" ) + data_dir + QLatin1Char( '"' ) );
-			else
-				Args << "-L" << data_dir;
+			for( int di = 0; di < data_dirs.count(); ++di )
+			{
+				if( Build_QEMU_Args_for_Script_Mode )
+					Args << "-L" << ( QStringLiteral( "\"" ) + data_dirs.at( di ) + QLatin1Char( '"' ) );
+				else
+					Args << "-L" << data_dirs.at( di );
+			}
 		}
 		else if( ! bin_path.isEmpty() )
 		{
@@ -6958,54 +7038,45 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		}
 	}
 	
-	// Audio ? emit modern -audiodev / -device for every card the user checked
-	// PC speaker does not get a -device (not pluggable); ignore it for audiodev
+	// Host method is -audiodev. Guest cards are -device and share id=snd0.
+	// PC Speaker is not a second isa-pcspk device; it is pcspk-audiodev on -machine.
 	const bool need_audiodev =
 		Audio_Card.Audio_sb16 || Audio_Card.Audio_es1370 || Audio_Card.Audio_Adlib ||
 		Audio_Card.Audio_GUS || Audio_Card.Audio_AC97 || Audio_Card.Audio_HDA ||
-		Audio_Card.Audio_cs4231a || Audio_Card.Audio_VirtIO || Audio_Card.Audio_USB;
+		Audio_Card.Audio_cs4231a || Audio_Card.Audio_VirtIO || Audio_Card.Audio_USB ||
+		Audio_Card.Audio_PC_Speaker;
 	
 	if( need_audiodev )
 	{
-		QString audiodev_backend;
+		QString forced_backend;
 		#ifdef Q_OS_WIN
 		if( Launch_Via_WSL )
 		{
-			// Linux QEMU in WSL often lacks pa/sdl (minimal/server builds).
 			const QString distro = Settings.value( QStringLiteral( "WSL_Launch/Distro" ), QString() ).toString();
 			const QString linux_qemu = Settings.value( QStringLiteral( "WSL_Launch/Qemu_Binary" ),
 				QStringLiteral( "qemu-system-x86_64" ) ).toString();
 			const QString preferred = Settings.value( QStringLiteral( "WSL_Launch/Audio_Backend" ),
 				QString() ).toString();
-			audiodev_backend = WSL_Pick_Audio_Backend( distro, linux_qemu, preferred );
+			forced_backend = WSL_Pick_Audio_Backend( distro, linux_qemu, preferred );
 		}
-		else
-		{
-			const QString pref = Settings.value( "QEMU_AUDIO/QEMU_AUDIO_DRV", "sdl" ).toString();
-			const QString bin = Get_Current_Emulator_Binary_Path( Current_Emulator_Devices.System.QEMU_Name );
-			audiodev_backend = AQ_Pick_Host_Audio_Backend( bin, pref );
-		}
-		#else
-		const QString pref = ( Settings.value("QEMU_AUDIO/Use_Default_Driver", "yes").toString() == "no" )
-			? Settings.value("QEMU_AUDIO/QEMU_AUDIO_DRV", "pa").toString()
-			: QStringLiteral("pa");
-		const QString bin = Get_Current_Emulator_Binary_Path( Current_Emulator_Devices.System.QEMU_Name );
-		audiodev_backend = AQ_Pick_Host_Audio_Backend( bin, pref );
 		#endif
-		
-		if( ! Audiodev_Backend.trimmed().isEmpty() )
-		{
-			const QString bin = Get_Current_Emulator_Binary_Path( Current_Emulator_Devices.System.QEMU_Name );
-			const QString probed = AQ_Pick_Host_Audio_Backend( bin, Audiodev_Backend.trimmed() );
-			audiodev_backend = probed;
-		}
-		QString audiodev_arg = audiodev_backend + ",id=snd0";
-		if( Audiodev_Timer_Period > 0 )
-			audiodev_arg += QStringLiteral( ",timer-period=%1" ).arg( Audiodev_Timer_Period );
+		const QString bin = Get_Current_Emulator_Binary_Path( Current_Emulator_Devices.System.QEMU_Name );
+		const QString audiodev_arg = AQ_Audio_Build_Audiodev(
+			Audio_Use_Host_Defaults, Audio_Options, Audiodev_Backend, Audiodev_Timer_Period,
+			bin, forced_backend );
 		Args << "-audiodev" << audiodev_arg;
 		
 		if( Audio_Card.Audio_VirtIO )
-			Args << "-device" << "virtio-sound-pci,audiodev=snd0";
+		{
+			QString virt = QStringLiteral( "virtio-sound-pci,audiodev=snd0" );
+			if( VirtIO_Sound_Jacks >= 0 )
+				virt += QStringLiteral( ",jacks=%1" ).arg( VirtIO_Sound_Jacks );
+			if( VirtIO_Sound_Streams >= 0 )
+				virt += QStringLiteral( ",streams=%1" ).arg( VirtIO_Sound_Streams );
+			if( VirtIO_Sound_Chmaps >= 0 )
+				virt += QStringLiteral( ",chmaps=%1" ).arg( VirtIO_Sound_Chmaps );
+			Args << "-device" << virt;
+		}
 		
 		if( Audio_Card.Audio_USB )
 		{
@@ -7020,7 +7091,8 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 				Args << "-device" << "ich9-intel-hda,id=hda0,bus=pcie.0,addr=0x1b";
 			else
 				Args << "-device" << "intel-hda,id=hda0";
-			Args << "-device" << "hda-duplex,bus=hda0.0,audiodev=snd0";
+			const QString codec = AQ_Audio_HDA_Codec_Name( HDA_Codec );
+			Args << "-device" << QStringLiteral( "%1,bus=hda0.0,audiodev=snd0" ).arg( codec );
 		}
 		
 		if( Audio_Card.Audio_AC97 )
@@ -7379,7 +7451,24 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		}
 	}
 
+	bool pcspk_global = false;
+	const bool x86_pcspk =
+		Computer_Type.contains( QLatin1String( "i386" ), Qt::CaseInsensitive ) ||
+		Computer_Type.contains( QLatin1String( "x86_64" ), Qt::CaseInsensitive );
+	if( Audio_Card.Audio_PC_Speaker && need_audiodev && x86_pcspk )
+	{
+		const QString bin = Get_Current_Emulator_Binary_Path( Current_Emulator_Devices.System.QEMU_Name );
+		const QString machine_for_probe = effective_machine.trimmed().isEmpty()
+			? QStringLiteral( "pc" ) : effective_machine.trimmed();
+		if( AQ_Audio_Machine_Has_Pcspk_Property( bin, machine_for_probe ) )
+			props << QStringLiteral( "pcspk-audiodev=snd0" );
+		else
+			pcspk_global = true;
+	}
+
 	Args << props.join(",");
+	if( pcspk_global )
+		Args << "-global" << "isa-pcspk.audiodev=snd0";
 
 	// TCG: multi-thread + larger TB cache (Gemini/Linaro tips). tb-size is an -accel prop, not -tb-size.
 	// Legacy Win9x (Force_TCG): thread=single - multi-thread TCG also breaks splash?desktop.
@@ -8477,7 +8566,8 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 					Modern_Netdev &&
 					( ntype == VM::Net_Mode_Native_User ||
 					  ntype == VM::Net_Mode_Native_TAP ||
-					  ntype == VM::Net_Mode_Native_Bridge );
+					  ntype == VM::Net_Mode_Native_Bridge ||
+					  ntype == VM::Net_Mode_Native_MulticastSocket );
 				if( can_modern )
 				{
 					const QString nid = QStringLiteral( "aqnet%1" ).arg( nc );
@@ -10297,6 +10387,9 @@ QStringList Virtual_Machine::Build_Native_Device_Args( VM_Native_Storage_Device 
 
 	QString vsname = (device.Get_Media() == VM::DM_CD_ROM ? "aqcd" : "aqhd")
                + QString::number (native_device_count++);
+	const QString serial_token = device.Get_Disk_Serial().trimmed().isEmpty()
+		? (QStringLiteral( "aqemu-" ) + vsname)
+		: device.Get_Disk_Serial().trimmed();
 
 	// File
 	if( device.Use_File_Path() )
@@ -10399,7 +10492,13 @@ QStringList Virtual_Machine::Build_Native_Device_Args( VM_Native_Storage_Device 
 				break;
 		}
 	}
-	
+
+	if( device.Get_Read_Only() )
+		opt << "readonly=on";
+
+	if( device.Get_Interface() == VM::DI_SCSI && ! device.Get_Disk_Serial().trimmed().isEmpty() )
+		opt << QStringLiteral( "serial=" ) + device.Get_Disk_Serial().trimmed();
+
 	// hdachs
 	if( device.Use_hdachs() )
 	{
@@ -10528,7 +10627,7 @@ QStringList Virtual_Machine::Build_Native_Device_Args( VM_Native_Storage_Device 
 	    const int boot_idx = Bootindex_For( *this,
 		device.Get_Media() == VM::DM_CD_ROM ? VM::Boot_From_CDROM : VM::Boot_From_HDD );
 	    args << "-device" << With_Bootindex(
-		devtype + ",bus=aq-vscsi.0,drive=" + vsname + (devtype == "scsi-hd" ? (block_size_dev_opts + QStringLiteral( ",serial=aqemu-" ) + vsname) : QString()), boot_idx );
+		devtype + ",bus=aq-vscsi.0,drive=" + vsname + (devtype == "scsi-hd" ? (block_size_dev_opts + QStringLiteral( ",serial=" ) + serial_token) : QString()), boot_idx );
 	}
 	else if( device.Get_Interface() == VM::DI_NVMe &&
 			 ( ! device.Use_Media() || device.Get_Media() == VM::DM_Disk ) )
@@ -10536,7 +10635,7 @@ QStringList Virtual_Machine::Build_Native_Device_Args( VM_Native_Storage_Device 
 		const int boot_idx = Bootindex_For( *this, VM::Boot_From_HDD );
 		// serial= is required by some guests (SteamOS recovery looks for NVMe; TrueNAS ZFS pools require unique disk serials)
 		args << "-device" << With_Bootindex(
-			"nvme,drive=" + vsname + ",serial=aqemu-" + vsname + block_size_dev_opts, boot_idx );
+			"nvme,drive=" + vsname + ",serial=" + serial_token + block_size_dev_opts, boot_idx );
 	}
 	else if( device.Get_Interface() == VM::DI_AHCI )
 	{
@@ -10553,14 +10652,14 @@ QStringList Virtual_Machine::Build_Native_Device_Args( VM_Native_Storage_Device 
 			device.Get_Media() == VM::DM_CD_ROM ? VM::Boot_From_CDROM : VM::Boot_From_HDD );
 		args << "-device" << With_Bootindex(
 			QStringLiteral( "%1,bus=aqemu_ahci.%2,drive=%3" )
-				.arg( devtype ).arg( unit ).arg( vsname ) + (devtype == "ide-hd" ? (block_size_dev_opts + QStringLiteral( ",serial=aqemu-" ) + vsname) : QString()),
+				.arg( devtype ).arg( unit ).arg( vsname ) + (devtype == "ide-hd" ? (block_size_dev_opts + QStringLiteral( ",serial=" ) + serial_token) : QString()),
 			boot_idx );
 	}
 	else if( device.Get_Interface() == VM::DI_Virtio && (virt_arch_blk || device.Use_Block_Size() || Machine_Name.contains( "TrueNAS", Qt::CaseInsensitive ) || Machine_Name.contains( "FreeNAS", Qt::CaseInsensitive )) &&
 			 ( ! device.Use_Media() || device.Get_Media() == VM::DM_Disk ) )
 	{
 		const int boot_idx = Bootindex_For( *this, VM::Boot_From_HDD );
-		QString vblk = QStringLiteral( "virtio-blk-pci,drive=" ) + vsname + block_size_dev_opts + QStringLiteral( ",serial=aqemu-" ) + vsname;
+		QString vblk = QStringLiteral( "virtio-blk-pci,drive=" ) + vsname + block_size_dev_opts + QStringLiteral( ",serial=" ) + serial_token;
 		if( Use_IOThread_Flag )
 			vblk += QStringLiteral( ",iothread=aq-iothread0" );
 		args << "-device" << With_Bootindex( vblk, boot_idx );
@@ -10585,6 +10684,8 @@ QStringList Virtual_Machine::Build_Native_Device_Args( VM_Native_Storage_Device 
 			const QString file_node = node + QStringLiteral( "-file" );
 			QString file_bd = QStringLiteral( "driver=file,node-name=" ) + file_node +
 			                  QStringLiteral( ",filename=" ) + fp;
+			if( device.Get_Read_Only() )
+				file_bd += QStringLiteral( ",read-only=on" );
 			QString fmt = QStringLiteral( "raw" );
 			if( fp.endsWith( QLatin1String( ".qcow2" ), Qt::CaseInsensitive ) )
 				fmt = QStringLiteral( "qcow2" );
@@ -10596,10 +10697,10 @@ QStringList Virtual_Machine::Build_Native_Device_Args( VM_Native_Storage_Device 
 			if( args.isEmpty() )
 			{
 				if( device.Get_Interface() == VM::DI_NVMe )
-					args << "-device" << QStringLiteral( "nvme,drive=%1,serial=aqemu-%2" ).arg( node ).arg( vsname ) + block_size_dev_opts;
+					args << "-device" << QStringLiteral( "nvme,drive=%1,serial=%2" ).arg( node ).arg( serial_token ) + block_size_dev_opts;
 				else
 				{
-					QString vblk = QStringLiteral( "virtio-blk-pci,drive=" ) + node + block_size_dev_opts + QStringLiteral( ",serial=aqemu-" ) + vsname;
+					QString vblk = QStringLiteral( "virtio-blk-pci,drive=" ) + node + block_size_dev_opts + QStringLiteral( ",serial=" ) + serial_token;
 					if( Use_IOThread_Flag )
 						vblk += QStringLiteral( ",iothread=aq-iothread0" );
 					args << "-device" << vblk;
@@ -11043,6 +11144,7 @@ bool Virtual_Machine::Start_impl()
         else
         {
             QString bin_name = tmp_list.takeAt( 0 );
+            QEMU_Process->setWorkingDirectory( AQ_QEMU_Process_Work_Dir() );
             QEMU_Process->start( bin_name, tmp_list );
         }
     }
@@ -11064,6 +11166,14 @@ bool Virtual_Machine::Start_impl()
             }
         }
 
+		// A Store install must not launch a developer tree such as C:\msys64\home\...
+		if( ! bin_path.isEmpty() && ! AQ_Store_May_Use_QEMU_Path( bin_path ) )
+		{
+			AQWarning( "bool Virtual_Machine::Start()",
+			           QString( "Ignoring QEMU outside this Microsoft Store install: %1" ).arg( bin_path ) );
+			bin_path.clear();
+		}
+
 		// Fallback resolution if binary_files map lacked entry or saved path was empty
 		if( bin_path.isEmpty() && ! find_name.isEmpty() )
 		{
@@ -11079,25 +11189,32 @@ bool Virtual_Machine::Start_impl()
 			            << QDir::cleanPath( app_dir + QStringLiteral( "/.." ) )
 			            << QDir::cleanPath( app_dir + QStringLiteral( "/../qemu" ) );
 
-			// System PATH & Standard Windows/Store Paths
-			QStringList sys_env = QProcess::systemEnvironment();
-			for( int ix = 0; ix < sys_env.count(); ++ix )
+			// Developer builds may follow PATH. The Store build must not: MSYS on PATH
+			// (C:\msys64\home\...) is a different QEMU from the one in the package.
+			if( ! AQ_Is_Store_Build() )
 			{
-				if( sys_env[ix].startsWith( "PATH=", Qt::CaseInsensitive ) )
+				QStringList sys_env = QProcess::systemEnvironment();
+				for( int ix = 0; ix < sys_env.count(); ++ix )
 				{
-					QString tmp = sys_env[ ix ].mid( 5 );
-					search_dirs += tmp.split( QDir::listSeparator(), QString::SkipEmptyParts );
-					break;
+					if( sys_env[ix].startsWith( "PATH=", Qt::CaseInsensitive ) )
+					{
+						QString tmp = sys_env[ ix ].mid( 5 );
+						search_dirs += tmp.split( QDir::listSeparator(), QString::SkipEmptyParts );
+						break;
+					}
 				}
 			}
 
+			if( ! AQ_Is_Store_Build() )
+			{
 #ifdef Q_OS_WIN32
-			search_dirs << QStringLiteral( "C:/Program Files/qemu" )
-			            << QStringLiteral( "C:/Program Files (x86)/qemu" );
+				search_dirs << QStringLiteral( "C:/Program Files/qemu" )
+				            << QStringLiteral( "C:/Program Files (x86)/qemu" );
 #else
-			search_dirs << QStringLiteral( "/usr/bin" )
-			            << QStringLiteral( "/usr/local/bin" );
+				search_dirs << QStringLiteral( "/usr/bin" )
+				            << QStringLiteral( "/usr/local/bin" );
 #endif
+			}
 			search_dirs.removeDuplicates();
 
 			for( int d_idx = 0; d_idx < search_dirs.count(); ++d_idx )
@@ -11105,7 +11222,9 @@ bool Virtual_Machine::Start_impl()
 				if( search_dirs[d_idx].isEmpty() || ! QFile::exists( search_dirs[d_idx] ) )
 					continue;
 				QMap<QString, QString> discovered = System_Info::Find_QEMU_Binary_Files( search_dirs[d_idx] );
-				if( discovered.contains( find_name ) && ! discovered[ find_name ].isEmpty() && QFile::exists( discovered[ find_name ] ) )
+				if( discovered.contains( find_name ) && ! discovered[ find_name ].isEmpty() &&
+				    QFile::exists( discovered[ find_name ] ) &&
+				    AQ_Store_May_Use_QEMU_Path( discovered[ find_name ] ) )
 				{
 					bin_path = discovered[ find_name ];
 					break;
@@ -11117,7 +11236,9 @@ bool Virtual_Machine::Start_impl()
 		if( bin_path.isEmpty() )
 		{
 			AQGraphic_Error( "bool Virtual_Machine::Start()", tr("Error!"),
-			                 tr("Cannot start emulator! Binary path is empty for '%1'!\nPlease check binary path under Advanced Settings.").arg( find_name ), false );
+			                 AQ_Is_Store_Build()
+			                 ? tr("Cannot start emulator! This Microsoft Store build uses the QEMU shipped with AQEMU, and that copy was not found next to AQEMU.\nA developer QEMU under C:\\msys64 is not used.")
+			                 : tr("Cannot start emulator! Binary path is empty for '%1'!\nPlease check binary path under Advanced Settings.").arg( find_name ), false );
 			Start_Snapshot_Tag = "";
 			return false;
 		}
@@ -11440,6 +11561,7 @@ bool Virtual_Machine::Start_impl()
         env.insert( QStringLiteral( "PATH" ), binDir + QLatin1Char( ';' ) + appDir + QLatin1Char( ';' ) + msysPaths + QLatin1Char( ';' ) + curPath );
         QEMU_Process->setProcessEnvironment( env );
 #endif
+        QEMU_Process->setWorkingDirectory( AQ_QEMU_Process_Work_Dir() );
         QEMU_Process->start( bin_path, qemu_args );
 		if( ! QEMU_Process->waitForStarted( 15000 ) )
 		{
@@ -13798,6 +13920,18 @@ const QString &Virtual_Machine::Get_Audiodev_Backend() const { return Audiodev_B
 void Virtual_Machine::Set_Audiodev_Backend( const QString &backend ) { Audiodev_Backend = backend.trimmed(); }
 int Virtual_Machine::Get_Audiodev_Timer_Period() const { return Audiodev_Timer_Period; }
 void Virtual_Machine::Set_Audiodev_Timer_Period( int us ) { Audiodev_Timer_Period = us < 0 ? 0 : us; }
+bool Virtual_Machine::Get_Audio_Use_Host_Defaults() const { return Audio_Use_Host_Defaults; }
+void Virtual_Machine::Set_Audio_Use_Host_Defaults( bool use ) { Audio_Use_Host_Defaults = use; }
+const QString &Virtual_Machine::Get_HDA_Codec() const { return HDA_Codec; }
+void Virtual_Machine::Set_HDA_Codec( const QString &codec ) { HDA_Codec = codec.trimmed(); }
+const QString &Virtual_Machine::Get_Audio_Options() const { return Audio_Options; }
+void Virtual_Machine::Set_Audio_Options( const QString &options ) { Audio_Options = options; }
+int Virtual_Machine::Get_VirtIO_Sound_Jacks() const { return VirtIO_Sound_Jacks; }
+void Virtual_Machine::Set_VirtIO_Sound_Jacks( int n ) { VirtIO_Sound_Jacks = n; }
+int Virtual_Machine::Get_VirtIO_Sound_Streams() const { return VirtIO_Sound_Streams; }
+void Virtual_Machine::Set_VirtIO_Sound_Streams( int n ) { VirtIO_Sound_Streams = n; }
+int Virtual_Machine::Get_VirtIO_Sound_Chmaps() const { return VirtIO_Sound_Chmaps; }
+void Virtual_Machine::Set_VirtIO_Sound_Chmaps( int n ) { VirtIO_Sound_Chmaps = n; }
 bool Virtual_Machine::Use_NUMA_Memdev() const { return Use_NUMA_Memdev_Flag; }
 void Virtual_Machine::Use_NUMA_Memdev( bool use ) { Use_NUMA_Memdev_Flag = use; }
 const QString &Virtual_Machine::Get_ICount() const { return ICount; }

@@ -200,9 +200,9 @@ We keep the original authors’ names. We do **not** inherit their old donation 
 
 ## What’s new vs the old AQEMU (tobimensch / ~0.9.x)
 
-The last widely known community tree — [tobimensch/aqemu](https://github.com/tobimensch/aqemu) — went quiet in 2020 (Qt5 port, embedded VNC, you brought your own QEMU). **AQEMU 1.4.1** is that codebase continued: the same GPLv2 frontend, with the capability model, runtime, wizard, hosts, and distribution pipeline rebuilt on top.
+The last widely known community tree — [tobimensch/aqemu](https://github.com/tobimensch/aqemu) — went quiet in 2020 (Qt5 port, embedded VNC, you brought your own QEMU). **AQEMU 1.4.2** is that codebase continued: the same GPLv2 frontend, with the capability model, runtime, wizard, hosts, and distribution pipeline rebuilt on top.
 
-| | Tobias Gläßer’s 0.9.x | AQEMU 1.4.1 |
+| | Tobias Gläßer’s 0.9.x | AQEMU 1.4.2 |
 |--|--|--|
 | **Status** | Community tree, quiet since 2020 | Active. [Microsoft Store](https://apps.microsoft.com/detail/9p0hgkhq9w19) listing with automatic updates |
 | **QEMU** | Whatever was installed on the host. Version detection often stuck on old labels | Bundled **QEMU 11.0.2**: 29 `qemu-system-*` targets, `qemu-img`, firmware, plus Inferno and Reims. Custom QEMU folder still works |
@@ -607,7 +607,7 @@ Get the official **AQEMU VM Manager** package on the Microsoft Store:
 </p>
 
 The Microsoft Store version includes:
-- **AQEMU 1.4.1** with Apple SoC (Inferno/iOS) and Reims hardware-accelerated macOS via WSL
+- **AQEMU 1.4.2** with Apple SoC (Inferno/iOS) and Reims hardware-accelerated macOS via WSL
 - **Bundled QEMU 11.0.2** binaries (no separate QEMU setup required)
 - **Automatic background updates** via the Microsoft Store
 - Dedicated Windows app installation & single-click launcher

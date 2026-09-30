@@ -5,6 +5,7 @@
 ****************************************************************************/
 
 #include "OVF_Parser.h"
+#include "Storage_Recovery.h"
 #include "VM.h"
 #include "Utils.h"
 
@@ -14,6 +15,7 @@
 #include <QDateTime>
 #include <QXmlStreamReader>
 #include <QXmlStreamWriter>
+#include <QPair>
 #include <cstring>
 
 #pragma pack(push, 1)
@@ -492,6 +494,10 @@ bool OVF_Parser::Parse_OVF( const QString &ovf_path, OVF_Appliance &appliance, Q
 	QMap<QString, OVF_File_Ref> file_refs;
 	QMap<QString, OVF_Disk> disks_by_id;
 	QMap<QString, QString> controller_types; // instance_id -> controller type
+	QMap<QString, int> controller_index;
+	QMap<QString, int> next_controller_index;
+	QList<QPair<QString, QString> > disk_properties;
+	QString product_text;
 
 	int cim_os_id = -1;
 
@@ -578,11 +584,38 @@ bool OVF_Parser::Parse_OVF( const QString &ovf_path, OVF_Appliance &appliance, Q
 			if( appliance.name.isEmpty() || appliance.name == xml.attributes().value( QLatin1String( "id" ) ).toString() )
 				appliance.name = xml.readElementText().trimmed();
 		}
+		else if( tag == QLatin1String( "Product" ) )
+		{
+			const QString product = xml.readElementText().trimmed();
+			if( ! product.isEmpty() && product_text.isEmpty() )
+				product_text = product;
+		}
+		else if( tag == QLatin1String( "ExtraConfig" ) || tag == QLatin1String( "Config" ) )
+		{
+			QString key;
+			QString value;
+			const QXmlStreamAttributes attrs = xml.attributes();
+			for( int a = 0; a < attrs.size(); ++a )
+			{
+				if( attrs[a].name() == QLatin1String( "key" ) )
+					key = attrs[a].value().toString();
+				else if( attrs[a].name() == QLatin1String( "value" ) )
+					value = attrs[a].value().toString();
+			}
+			if( ! key.isEmpty() )
+				disk_properties.append( qMakePair( key, value ) );
+		}
 		else if( tag == QLatin1String( "OperatingSystemSection" ) )
 		{
 			const QString id_str = xml.attributes().value( QLatin1String( "id" ) ).toString();
 			if( ! id_str.isEmpty() )
 				cim_os_id = id_str.toInt();
+			const QXmlStreamAttributes os_attrs = xml.attributes();
+			for( int a = 0; a < os_attrs.size(); ++a )
+			{
+				if( os_attrs[a].name() == QLatin1String( "osType" ) && appliance.os_type_raw.isEmpty() )
+					appliance.os_type_raw = os_attrs[a].value().toString();
+			}
 			const QString vbox_os = xml.attributes().value( QStringLiteral( "http://www.virtualbox.org/ovf/machine" ), QStringLiteral( "ostype" ) ).toString();
 			if( ! vbox_os.isEmpty() )
 				appliance.os_type_raw = vbox_os;
@@ -646,20 +679,20 @@ bool OVF_Parser::Parse_OVF( const QString &ovf_path, OVF_Appliance &appliance, Q
 			{
 				appliance.memory_mb = static_cast<int>( quantity );
 			}
-			else if( res_type == 5 ) // IDE Controller
+			else if( res_type == 5 || res_type == 6 || res_type == 20 )
 			{
+				QString kind = QStringLiteral( "sata" );
+				if( res_type == 5 )
+					kind = QStringLiteral( "ide" );
+				else if( res_type == 6 )
+					kind = QStringLiteral( "scsi" );
 				if( ! instance_id.isEmpty() )
-					controller_types.insert( instance_id, QStringLiteral( "ide" ) );
-			}
-			else if( res_type == 6 ) // SCSI Controller
-			{
-				if( ! instance_id.isEmpty() )
-					controller_types.insert( instance_id, QStringLiteral( "scsi" ) );
-			}
-			else if( res_type == 20 ) // SATA Controller
-			{
-				if( ! instance_id.isEmpty() )
-					controller_types.insert( instance_id, QStringLiteral( "sata" ) );
+				{
+					controller_types.insert( instance_id, kind );
+					const int index = next_controller_index.value( kind, 0 );
+					controller_index.insert( instance_id, index );
+					next_controller_index.insert( kind, index + 1 );
+				}
 			}
 			else if( res_type == 10 ) // Ethernet Adapter
 			{
@@ -681,6 +714,7 @@ bool OVF_Parser::Parse_OVF( const QString &ovf_path, OVF_Appliance &appliance, Q
 				{
 					OVF_Disk d = disks_by_id.value( disk_id );
 					d.controller_type = controller_types.value( parent_id, QStringLiteral( "sata" ) );
+					d.bus = controller_index.value( parent_id, 0 );
 					d.unit = address_on_parent.toInt();
 					if( ! sanitize_and_resolve_disk( d ) )
 						return false;
@@ -711,6 +745,32 @@ bool OVF_Parser::Parse_OVF( const QString &ovf_path, OVF_Appliance &appliance, Q
 
 	if( appliance.name.isEmpty() )
 		appliance.name = QFileInfo( ovf_path ).baseName();
+
+	for( int p = 0; p < disk_properties.size(); ++p )
+	{
+		QString controller;
+		int controller_ix = 0;
+		int unit = 0;
+		QString field;
+		if( ! Parse_Vmw_Disk_Property( disk_properties[p].first, &controller, &controller_ix, &unit, &field ) )
+			continue;
+		for( int i = 0; i < appliance.disks.size(); ++i )
+		{
+			OVF_Disk &disk = appliance.disks[i];
+			if( disk.controller_type != controller || disk.bus != controller_ix || disk.unit != unit )
+				continue;
+			if( field == QLatin1String( "serialNumber" ) )
+				disk.serial = disk_properties[p].second.trimmed();
+			else if( field == QLatin1String( "logicalSectorSize" ) )
+				disk.logical_sector = disk_properties[p].second.toInt();
+			else if( field == QLatin1String( "physicalSectorSize" ) )
+				disk.physical_sector = disk_properties[p].second.toInt();
+		}
+	}
+
+	const QString product_lower = product_text.toLower();
+	if( product_lower.contains( QLatin1String( "truenas" ) ) || product_lower.contains( QLatin1String( "freenas" ) ) )
+		appliance.os_type_raw = product_text + QLatin1Char( ' ' ) + appliance.os_type_raw;
 
 	appliance.aqemu_profile_name = Map_OS_To_AQEMU_Profile( appliance.os_type_raw, cim_os_id );
 	return true;

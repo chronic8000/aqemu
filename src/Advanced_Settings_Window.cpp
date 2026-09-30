@@ -514,14 +514,12 @@ Advanced_Settings_Window::Advanced_Settings_Window( QWidget *parent )
 	ui.CH_Audio_Default->setChecked( Settings.value("QEMU_AUDIO/Use_Default_Driver", "yes").toString() == "no" );
 	
 	// QEMU_AUDIO_DRV
-	for( int ix = 0; ix < ui.CB_Host_Sound_System->count(); ++ix )
-	{
-		if( ui.CB_Host_Sound_System->itemText(ix) ==
-			Settings.value("QEMU_AUDIO/QEMU_AUDIO_DRV", "alsa").toString() )
-		{
-			ui.CB_Host_Sound_System->setCurrentIndex( ix );
-		}
-	}
+	const QString host_drv = Settings.value( "QEMU_AUDIO/QEMU_AUDIO_DRV", "alsa" ).toString();
+	const int host_drv_ix = ui.CB_Host_Sound_System->findText( host_drv );
+	if( host_drv_ix >= 0 )
+		ui.CB_Host_Sound_System->setCurrentIndex( host_drv_ix );
+	else if( ! host_drv.isEmpty() )
+		ui.CB_Host_Sound_System->setEditText( host_drv );
 	
 	// Tab USB
 	ui.RB_USB_Style_device->setChecked( Settings.value("USB_Style", "device").toString() == "device" );

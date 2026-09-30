@@ -1508,7 +1508,7 @@
                  <item>
                   <widget class="QComboBox" name="CB_Audiodev_Backend">
                    <property name="toolTip">
-                    <string>Per-VM host audio backend for -audiodev. “(global)” uses Advanced Settings.</string>
+                    <string>Per-VM host audio backend for -audiodev. “(global)” uses Advanced Settings. Names are QEMU drivers: sdl and dsound are the Windows ones. Playback still works with dsound; the microphone capture voice is left off so a PC with no mic can start.</string>
                    </property>
                    <item>
                     <property name="text">
@@ -1523,11 +1523,6 @@
                    <item>
                     <property name="text">
                      <string>dsound</string>
-                    </property>
-                   </item>
-                   <item>
-                    <property name="text">
-                     <string>wasapi</string>
                     </property>
                    </item>
                    <item>
@@ -1553,6 +1548,26 @@
                    <item>
                     <property name="text">
                      <string>coreaudio</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>jack</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>sndio</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>spice</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>dbus</string>
                     </property>
                    </item>
                    <item>
@@ -1588,6 +1603,39 @@
                    <property name="singleStep">
                     <number>100</number>
                    </property>
+                  </widget>
+                 </item>
+                </layout>
+               </item>
+               <item row="5" column="0">
+                <widget class="QLabel" name="Label_HDA_Codec">
+                 <property name="text">
+                  <string>HDA codec:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="5" column="1" colspan="2">
+                <layout class="QHBoxLayout" name="HL_HDA_Codec">
+                 <item>
+                  <widget class="QComboBox" name="CB_HDA_Codec">
+                   <property name="toolTip">
+                    <string>Playback only avoids opening a microphone. Playback and microphone uses hda-duplex.</string>
+                   </property>
+                   <item>
+                    <property name="text">
+                     <string>Playback only</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>Playback and microphone</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>Microphone only</string>
+                    </property>
+                   </item>
                   </widget>
                  </item>
                 </layout>

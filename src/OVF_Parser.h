@@ -25,6 +25,9 @@ struct OVF_Disk
 	QString controller_type; // ide, sata, scsi, virtio
 	int bus = 0;
 	int unit = 0;
+	QString serial;
+	int logical_sector = 0;
+	int physical_sector = 0;
 };
 
 struct OVF_Network

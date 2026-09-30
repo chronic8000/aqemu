@@ -13,7 +13,7 @@ IF( EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/VERSION.txt" )
 	STRING( STRIP "${AQEMU_PROJECT_VERSION}" AQEMU_PROJECT_VERSION )
 ENDIF()
 IF( NOT AQEMU_PROJECT_VERSION )
-	SET( AQEMU_PROJECT_VERSION "1.4.1" )
+	SET( AQEMU_PROJECT_VERSION "1.4.2" )
 ENDIF()
 
 PROJECT( AQEMU VERSION ${AQEMU_PROJECT_VERSION} LANGUAGES CXX )
@@ -37,9 +37,17 @@ OPTION( PI4_OPTIMIZATIONS "Enable compiler and linker optimizations for Raspberr
 OPTION( PI5_OPTIMIZATIONS "Enable compiler and linker optimizations for Raspberry Pi 5" OFF )
 OPTION( RASPBERRY_PI_BUILD "Enable Raspberry Pi build target and optimizations" OFF )
 OPTION( AQEMU_BUNDLE_QEMU "Prefer/copy QEMU from AQEMU_QEMU_PREFIX into the build tree" OFF )
+OPTION( AQEMU_STORE_BUILD "Microsoft Store channel: separate settings and VM folder, bundled QEMU only" OFF )
 OPTION( AQEMU_WITH_SPICE_GTK "Build embedded SPICE client via spice-client-glib (Linux/Pi/Windows)" OFF )
 OPTION( AQEMU_ENABLE_CONSOLE "Enable console window and stdout logging on startup (Windows/GUI default: OFF)" OFF )
 SET( AQEMU_QEMU_PREFIX "${CMAKE_SOURCE_DIR}/third_party/qemu-install" CACHE PATH "Prefix of a built QEMU bundle (bin/qemu-system-*)" )
+
+IF( AQEMU_STORE_BUILD )
+	ADD_DEFINITIONS( -DAQEMU_STORE_BUILD=1 )
+	MESSAGE( STATUS "AQEMU channel: Microsoft Store (isolated settings, bundled QEMU only)" )
+ELSE()
+	MESSAGE( STATUS "AQEMU channel: developer / self-compiled" )
+ENDIF()
 
 IF( AQEMU_ENABLE_CONSOLE OR DEBUG )
 	ADD_DEFINITIONS( -DAQEMU_ENABLE_CONSOLE=1 )
@@ -170,6 +178,10 @@ SET( aqemu_headers
 	src/Appliance_Import_Window.h
 	src/Appliance_Export_Window.h
 	src/SAN_Storage_Dialog.h
+	src/Storage_Recovery.h
+	src/Storage_Recovery_Window.h
+	src/TrueNAS_Guest_API.h
+	src/Storage_Guest_Tab.h
 )
 
 SET( aqemu_sources
@@ -251,6 +263,12 @@ SET( aqemu_sources
 	src/Appliance_Import_Window.cpp
 	src/Appliance_Export_Window.cpp
 	src/SAN_Storage_Dialog.cpp
+	src/Storage_Recovery.cpp
+	src/Storage_Recovery_Window.cpp
+	src/TrueNAS_Guest_API.cpp
+	src/Storage_Guest_Tab.cpp
+	src/Audio_Host.cpp
+	src/Audio_Settings_Window.cpp
 )
 
 SET( aqemu_ui
@@ -383,8 +401,16 @@ TARGET_LINK_LIBRARIES( aqemu
     Qt5::DBus
 )
 
+ADD_EXECUTABLE( aqemu_storage_recovery_test
+	tests/storage_recovery_test.cpp
+	src/Storage_Recovery.cpp )
+TARGET_INCLUDE_DIRECTORIES( aqemu_storage_recovery_test PRIVATE src )
+SET_PROPERTY( TARGET aqemu_storage_recovery_test PROPERTY CXX_STANDARD 11 )
+SET_PROPERTY( TARGET aqemu_storage_recovery_test PROPERTY CXX_STANDARD_REQUIRED ON )
+TARGET_LINK_LIBRARIES( aqemu_storage_recovery_test Qt5::Core )
+
 IF( WIN32 )
-	TARGET_LINK_LIBRARIES( aqemu advapi32 )
+	TARGET_LINK_LIBRARIES( aqemu advapi32 ole32 dsound )
 	IF( AQEMU_ENABLE_CONSOLE )
 		SET_TARGET_PROPERTIES( aqemu PROPERTIES WIN32_EXECUTABLE FALSE )
 		IF( MSVC )

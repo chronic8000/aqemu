@@ -268,7 +268,11 @@ QString AQEMU_User_Data_Dir()
 	if( root.isEmpty() )
 	{
 		#ifdef Q_OS_WIN
+		#ifdef AQEMU_STORE_BUILD
+		root = QDir::homePath() + QStringLiteral( "/AppData/Local/aqemu-store/AQEMU" );
+		#else
 		root = QDir::homePath() + QStringLiteral( "/AppData/Local/aqemu/AQEMU" );
+		#endif
 		#else
 		root = QDir::homePath() + QStringLiteral( "/.local/share/AQEMU" );
 		#endif
@@ -307,13 +311,50 @@ bool AQEMU_Path_Is_Install_Dir( const QString &path )
 	return false;
 }
 
+bool AQ_Is_Store_Build()
+{
+#ifdef AQEMU_STORE_BUILD
+	return true;
+#else
+	return false;
+#endif
+}
+
+bool AQ_Path_Is_Msys_Tree( const QString &path )
+{
+	const QString n = QDir::fromNativeSeparators( path ).toLower();
+	return n.contains( QLatin1String( "/msys64/" ) ) ||
+	       n.startsWith( QLatin1String( "/msys64" ) ) ||
+	       n.contains( QLatin1String( "c:/msys64" ) );
+}
+
+bool AQ_Store_May_Use_QEMU_Path( const QString &path )
+{
+	if( ! AQ_Is_Store_Build() )
+		return true;
+	if( path.trimmed().isEmpty() || AQ_Path_Is_Msys_Tree( path ) )
+		return false;
+	const QString app = QDir::cleanPath( QCoreApplication::applicationDirPath() ).toLower();
+	const QString n = QDir::cleanPath( path ).toLower();
+	return ! app.isEmpty() && ( n == app || n.startsWith( app + QLatin1Char( '/' ) ) );
+}
+
+QString AQ_QEMU_Process_Work_Dir()
+{
+	const QString dir = AQEMU_With_Trailing_Sep( AQEMU_User_Data_Dir() + QStringLiteral( "qemu-run" ) );
+	QDir().mkpath( dir );
+	return QDir::toNativeSeparators( dir );
+}
+
 void AQEMU_Ensure_Writable_User_Paths( QSettings &settings )
 {
 	QString vm_dir = settings.value( QStringLiteral( "VM_Directory" ), QString() ).toString().trimmed();
 	#ifdef Q_OS_WIN
 	// Store / Windows: default VMs under AppData (never next to the exe / WindowsApps).
+	// A Store install must not keep using a developer tree such as C:\msys64\home\...
 	if( vm_dir.isEmpty() || AQEMU_Path_Is_Install_Dir( vm_dir ) ||
-	    vm_dir == QLatin1String( "~" ) )
+	    vm_dir == QLatin1String( "~" ) ||
+	    ( AQ_Is_Store_Build() && AQ_Path_Is_Msys_Tree( vm_dir ) ) )
 	{
 		vm_dir = AQEMU_Default_VM_Directory();
 		settings.setValue( QStringLiteral( "VM_Directory" ), vm_dir );
@@ -1808,6 +1849,44 @@ bool Update_Emulators_List()
 	QDir emulDir( aqemuSettingsFolder );
 	QStringList emulFiles = emulDir.entryList( QStringList("*.emulator"), QDir::Files, QDir::Name );
 	
+	if( AQ_Is_Store_Build() && ! emulFiles.isEmpty() )
+	{
+		bool foreign = false;
+		for( int ex = 0; ex < emulFiles.count() && ! foreign; ++ex )
+		{
+			QFile emul_file( aqemuSettingsFolder + emulFiles[ex] );
+			if( ! emul_file.open( QIODevice::ReadOnly ) )
+			{
+				foreign = true;
+				break;
+			}
+			const QString text = QString::fromUtf8( emul_file.readAll() );
+			if( AQ_Path_Is_Msys_Tree( text ) )
+				foreign = true;
+			const QString app = QDir::fromNativeSeparators(
+				QCoreApplication::applicationDirPath() ).toLower();
+			QRegularExpression re( QStringLiteral( "([A-Za-z]:[\\\\/][^\\r\\n\"<>|]*qemu-system[^\\r\\n\"<>|]*)" ),
+				QRegularExpression::CaseInsensitiveOption );
+			QRegularExpressionMatchIterator it = re.globalMatch( text );
+			while( it.hasNext() && ! foreign )
+			{
+				const QString found = QDir::fromNativeSeparators( it.next().captured( 1 ) ).toLower();
+				if( ! app.isEmpty() && ! found.startsWith( app ) )
+					foreign = true;
+			}
+		}
+		if( foreign )
+		{
+			const QString bundled = AQ_Get_Bundled_QEMU_Dir();
+			if( ! bundled.isEmpty() &&
+			    AQ_Apply_QEMU_Dir_As_Default_Emulator( bundled, QObject::tr( "Built-in QEMU" ) ) )
+			{
+				AQ_Set_QEMU_Source_Mode( QStringLiteral( "bundled" ) );
+				emulFiles = emulDir.entryList( QStringList( "*.emulator" ), QDir::Files, QDir::Name );
+			}
+		}
+	}
+
 	if( emulFiles.isEmpty() )
 	{
 		AQDebug( "bool Update_Emulators_List()", "No emulators configured, running auto-discovery..." );
@@ -2379,15 +2458,15 @@ static bool AQ_Looks_Like_QEMU_Data_Dir( const QString &dir )
 	       QFile::exists( d + QLatin1String( "/edk2-arm-code.fd" ) );
 }
 
-QString AQ_Get_QEMU_Data_Dir( const QString &qemu_binary_path )
+static QStringList AQ_QEMU_Data_Probes( const QString &qemu_binary_path )
 {
 	QStringList probes;
-
 	const QFileInfo bin( qemu_binary_path );
 	if( bin.exists() )
 	{
 		const QString bin_dir = bin.absolutePath();
 		probes << ( bin_dir + QLatin1String( "/share" ) )
+		       << ( bin_dir + QLatin1String( "/share/qemu" ) )
 		       << bin_dir
 		       << ( bin_dir + QLatin1String( "/../share" ) )
 		       << ( bin_dir + QLatin1String( "/../share/qemu" ) );
@@ -2397,8 +2476,8 @@ QString AQ_Get_QEMU_Data_Dir( const QString &qemu_binary_path )
 	if( ! bundled.isEmpty() )
 	{
 		probes << ( bundled + QLatin1String( "share" ) )
-		       << bundled
-		       << ( bundled + QLatin1String( "share/qemu" ) );
+		       << ( bundled + QLatin1String( "share/qemu" ) )
+		       << bundled;
 	}
 
 	const QString app_dir = QCoreApplication::applicationDirPath();
@@ -2407,14 +2486,38 @@ QString AQ_Get_QEMU_Data_Dir( const QString &qemu_binary_path )
 		probes << ( app_dir + QLatin1String( "/share" ) )
 		       << ( app_dir + QLatin1String( "/share/qemu" ) );
 	}
+	return probes;
+}
 
+QStringList AQ_Get_QEMU_Data_Dirs( const QString &qemu_binary_path )
+{
+	const QStringList probes = AQ_QEMU_Data_Probes( qemu_binary_path );
+	QString firmware;
+	QString keymaps;
 	for( int i = 0; i < probes.count(); ++i )
 	{
 		const QString cand = QDir::cleanPath( probes.at( i ) );
-		if( AQ_Looks_Like_QEMU_Data_Dir( cand ) )
-			return QDir::toNativeSeparators( cand );
+		if( AQ_Is_Store_Build() && AQ_Path_Is_Msys_Tree( cand ) )
+			continue;
+		if( firmware.isEmpty() && AQ_Looks_Like_QEMU_Data_Dir( cand ) )
+			firmware = cand;
+		if( keymaps.isEmpty() &&
+		    QFile::exists( cand + QLatin1String( "/keymaps/en-us" ) ) )
+			keymaps = cand;
 	}
-	return QString();
+
+	QStringList dirs;
+	if( ! firmware.isEmpty() )
+		dirs << QDir::toNativeSeparators( firmware );
+	if( ! keymaps.isEmpty() && QDir::cleanPath( keymaps ) != QDir::cleanPath( firmware ) )
+		dirs << QDir::toNativeSeparators( keymaps );
+	return dirs;
+}
+
+QString AQ_Get_QEMU_Data_Dir( const QString &qemu_binary_path )
+{
+	const QStringList dirs = AQ_Get_QEMU_Data_Dirs( qemu_binary_path );
+	return dirs.isEmpty() ? QString() : dirs.first();
 }
 
 QString AQ_Find_QEMU_Binary_With_Native_Display( const QString &system_name,

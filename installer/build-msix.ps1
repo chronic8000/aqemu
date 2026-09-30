@@ -54,7 +54,7 @@ if (-not $Version) {
             $Version = $raw
         }
     } else {
-        $Version = "1.4.1.0"
+        $Version = "1.4.2.0"
     }
 }
 
@@ -248,6 +248,35 @@ if (-not (Test-Path $shareBios)) {
         Write-Warning "MSIX layout is missing share\bios-256k.bin. Creating placeholder firmware directory for CI packaging."
         New-Item -ItemType Directory -Path (Join-Path $layoutDir "share") -Force | Out-Null
         Set-Content (Join-Path $layoutDir "share\bios-256k.bin") "QEMU BIOS placeholder"
+    }
+}
+
+# VNC always opens keymap "en-us". Without share\keymaps\en-us, QEMU falls back
+# to the compile-time prefix (often C:\msys64\...) and the Store sandbox denies it.
+$keymapFile = Join-Path $layoutDir "share\keymaps\en-us"
+if (-not (Test-Path $keymapFile)) {
+    $keymapCandidates = @()
+    $qemuPrefix = Join-Path $RepoRoot "third_party\qemu-install"
+    $keymapCandidates += (Join-Path $qemuPrefix "share\qemu\keymaps")
+    $keymapCandidates += (Join-Path $qemuPrefix "share\keymaps")
+    if ($MsysLocation -and (Test-Path $MsysLocation)) {
+        foreach ($sub in @("ucrt64\share\qemu\keymaps", "clangarm64\share\qemu\keymaps", "mingw64\share\qemu\keymaps")) {
+            $keymapCandidates += (Join-Path $MsysLocation $sub)
+        }
+    }
+    $keymapSrc = $null
+    foreach ($cand in $keymapCandidates) {
+        if ($cand -and (Test-Path (Join-Path $cand "en-us"))) {
+            $keymapSrc = $cand
+            break
+        }
+    }
+    if ($keymapSrc) {
+        Write-Host "Copying QEMU keymaps from $keymapSrc ..."
+        New-Item -ItemType Directory -Path (Join-Path $layoutDir "share\keymaps") -Force | Out-Null
+        & robocopy $keymapSrc (Join-Path $layoutDir "share\keymaps") /E /NFL /NDL /NJH /NJS /nc /ns /np | Out-Null
+    } else {
+        Write-Warning "MSIX layout is missing share\keymaps\en-us. VNC guests will fail to start."
     }
 }
 

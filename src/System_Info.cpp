@@ -4402,6 +4402,13 @@ bool System_Info::Auto_Find_And_Save_Emulators()
 	paths << "/usr/bin/" << "/usr/local/bin/";
 	#endif
 
+	if( AQ_Is_Store_Build() )
+	{
+		AQWarning( "bool System_Info::Auto_Find_And_Save_Emulators()",
+		           "Microsoft Store build did not find the bundled QEMU. PATH is not searched." );
+		return false;
+	}
+
 	const QString bundled = AQ_Get_Bundled_QEMU_Dir();
 	if( ! bundled.isEmpty() && mode != QLatin1String( "system" ) )
 		paths.prepend( bundled );

@@ -25,7 +25,7 @@
 #define UTILS_H
 
 #ifndef CURRENT_AQEMU_VERSION
-#define CURRENT_AQEMU_VERSION "1.4.1"
+#define CURRENT_AQEMU_VERSION "1.4.2"
 #endif
 #ifndef CURRENT_AQEMU_RELEASE_DATE
 #define CURRENT_AQEMU_RELEASE_DATE "2026-09-30"
@@ -88,6 +88,15 @@ bool AQEMU_Path_Is_Install_Dir( const QString &path );
  * Relocates empty paths and any path under the install directory to AppData.
  */
 void AQEMU_Ensure_Writable_User_Paths( QSettings &settings );
+
+/** Microsoft Store / MSIX build. Developer and self-compiled builds are false. */
+bool AQ_Is_Store_Build();
+/** True for C:\\msys64\\... and other MSYS developer prefixes. */
+bool AQ_Path_Is_Msys_Tree( const QString &path );
+/** Store builds may launch only the QEMU shipped beside aqemu.exe. */
+bool AQ_Store_May_Use_QEMU_Path( const QString &path );
+/** Empty directory used as QEMU's working directory so keymap names are not picked up from the install tree. */
+QString AQ_QEMU_Process_Work_Dir();
 
 bool Create_New_HDD_Image( bool encrypted, const QString &base_image,
 						   const QString &file_name, const QString &format, VM::Device_Size size, bool verbose,
@@ -284,6 +293,8 @@ QString AQ_Find_QEMU_Binary_With_Native_Display( const QString &system_name,
  * other common relative locations. Empty if nothing usable is found.
  */
 QString AQ_Get_QEMU_Data_Dir( const QString &qemu_binary_path );
+/** Firmware and keymap directories for one or more -L arguments. */
+QStringList AQ_Get_QEMU_Data_Dirs( const QString &qemu_binary_path );
 
 /**
  * Host helper binaries (Python, pyimg4, img4, …).

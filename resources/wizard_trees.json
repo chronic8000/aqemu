@@ -179,7 +179,10 @@
     "TrueNAS / Storage": [
       "TrueNAS CORE",
       "TrueNAS SCALE",
-      "TrueNAS SCALE (ARM64)"
+      "TrueNAS SCALE (ARM64)",
+      "TrueNAS lab",
+      "Folder-backed disks",
+      "Storage network"
     ],
     "Consoles & Retro": [
       "440 Bamboo",
@@ -4458,6 +4461,88 @@
       "disk_bus": [
         "virtio-blk-pci",
         "nvme"
+      ]
+    },
+    "TrueNAS lab": {
+      "target": "x86_64",
+      "machine": [
+        "q35"
+      ],
+      "ram_mb": 8192,
+      "hdd_gb": 16,
+      "nic": [
+        "virtio-net-pci"
+      ],
+      "sound": "none",
+      "tip": "TrueNAS lab: 8 GB RAM, UEFI, four empty 4Kn VirtIO-SCSI disks with unique serials, and a VirtIO NIC. No pool is created. Boot your own TrueNAS ISO.",
+      "flags": [
+        "truenas",
+        "4kn_default",
+        "truenas_lab",
+        "uefi"
+      ],
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-scsi-pci"
+      ],
+      "vga": [
+        "virtio-vga",
+        "std"
+      ]
+    },
+    "Folder-backed disks": {
+      "target": "x86_64",
+      "machine": [
+        "q35"
+      ],
+      "ram_mb": 8192,
+      "hdd_gb": 16,
+      "nic": [
+        "virtio-net-pci"
+      ],
+      "sound": "none",
+      "tip": "Creates empty 4Kn disks in a folder you choose and attaches them with VirtIO-SCSI or NVMe. No pool is created.",
+      "flags": [
+        "truenas",
+        "4kn_default",
+        "folder_backed",
+        "uefi"
+      ],
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-scsi-pci",
+        "nvme"
+      ],
+      "vga": [
+        "virtio-vga",
+        "std"
+      ]
+    },
+    "Storage network": {
+      "target": "x86_64",
+      "machine": [
+        "q35"
+      ],
+      "ram_mb": 8192,
+      "hdd_gb": 16,
+      "nic": [
+        "virtio-net-pci"
+      ],
+      "sound": "none",
+      "tip": "Four empty VMs on one loopback multicast network: two TrueNAS nodes, a Linux client, and a Windows client. No operating system and no pool is created.",
+      "flags": [
+        "truenas",
+        "4kn_default",
+        "storage_network",
+        "uefi"
+      ],
+      "cpu": "max",
+      "disk_bus": [
+        "virtio-scsi-pci"
+      ],
+      "vga": [
+        "virtio-vga",
+        "std"
       ]
     },
     "OpenBSD (64-bit)": {

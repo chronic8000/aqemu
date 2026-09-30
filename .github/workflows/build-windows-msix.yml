@@ -135,6 +135,7 @@ jobs:
           cmake -G Ninja -B ${{ matrix.build_dir }} -S . \
             -DCMAKE_BUILD_TYPE=Release \
             -DAQEMU_BUNDLE_QEMU=ON \
+            -DAQEMU_STORE_BUILD=ON \
             -DAQEMU_QEMU_PREFIX="third_party/qemu-install" \
             ${{ matrix.cmake_flags }}
           ninja -C ${{ matrix.build_dir }}

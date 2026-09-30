@@ -5,6 +5,7 @@
 ****************************************************************************/
 
 #include "Appliance_Import_Window.h"
+#include "Storage_Recovery.h"
 #include "Utils.h"
 #include "System_Info.h"
 
@@ -87,8 +88,9 @@ void Appliance_Import_Window::Setup_UI()
 	QGroupBox *gb_disks = new QGroupBox( tr( "Appliance Storage Disks" ), this );
 	QVBoxLayout *disk_lay = new QVBoxLayout( gb_disks );
 	Table_Disks = new QTableWidget( gb_disks );
-	Table_Disks->setColumnCount( 3 );
-	Table_Disks->setHorizontalHeaderLabels( QStringList() << tr( "Disk Name" ) << tr( "Capacity" ) << tr( "Format" ) );
+	Table_Disks->setColumnCount( 5 );
+	Table_Disks->setHorizontalHeaderLabels( QStringList()
+		<< tr( "Disk Name" ) << tr( "Capacity" ) << tr( "Format" ) << tr( "Serial" ) << tr( "Sector" ) );
 	Table_Disks->horizontalHeader()->setStretchLastSection( true );
 	Table_Disks->setSelectionBehavior( QAbstractItemView::SelectRows );
 	Table_Disks->setEditTriggers( QAbstractItemView::NoEditTriggers );
@@ -234,7 +236,13 @@ void Appliance_Import_Window::On_Appliance_Path_Changed( const QString &path )
 	Current_Appliance.source_archive_path = trimmed;
 	Update_Appliance_Details( Current_Appliance );
 	Btn_Import->setEnabled( true );
-	Label_Status->setText( tr( "Appliance ready to import." ) );
+	const bool nas = Current_Appliance.aqemu_profile_name.contains( QLatin1String( "TrueNAS" ), Qt::CaseInsensitive )
+		|| Current_Appliance.os_type_raw.contains( QLatin1String( "truenas" ), Qt::CaseInsensitive )
+		|| Current_Appliance.os_type_raw.contains( QLatin1String( "freenas" ), Qt::CaseInsensitive );
+	if( nas )
+		Label_Status->setText( tr( "Appliance ready to import. Disk serials are kept. 4Kn follows disk geometry or ZFS labels." ) );
+	else
+		Label_Status->setText( tr( "Appliance ready to import." ) );
 }
 
 void Appliance_Import_Window::Update_Appliance_Details( const OVF_Appliance &appliance )
@@ -264,6 +272,24 @@ void Appliance_Import_Window::Update_Appliance_Details( const OVF_Appliance &app
 		Table_Disks->setItem( i, 1, new QTableWidgetItem( cap_str ) );
 
 		Table_Disks->setItem( i, 2, new QTableWidgetItem( d.format.isEmpty() ? QStringLiteral( "VMDK" ) : d.format ) );
+		Table_Disks->setItem( i, 3, new QTableWidgetItem( d.serial.isEmpty() ? tr( "from disk label" ) : d.serial ) );
+		QString sector = tr( "from disk" );
+		if( d.logical_sector >= 4096 || d.physical_sector >= 4096 )
+			sector = QStringLiteral( "4096" );
+		else if( d.logical_sector == 512 || d.physical_sector == 512 )
+			sector = QStringLiteral( "512" );
+		Table_Disks->setItem( i, 4, new QTableWidgetItem( sector ) );
+	}
+
+	const bool nas = appliance.aqemu_profile_name.contains( QLatin1String( "TrueNAS" ), Qt::CaseInsensitive )
+		|| appliance.aqemu_profile_name.contains( QLatin1String( "FreeNAS" ), Qt::CaseInsensitive )
+		|| appliance.os_type_raw.contains( QLatin1String( "truenas" ), Qt::CaseInsensitive )
+		|| appliance.os_type_raw.contains( QLatin1String( "freenas" ), Qt::CaseInsensitive );
+	if( nas )
+	{
+		const int fmt = CB_Disk_Format->findData( QStringLiteral( "qcow2_4k" ) );
+		if( fmt >= 0 )
+			CB_Disk_Format->setCurrentIndex( fmt );
 	}
 }
 
@@ -376,6 +402,14 @@ bool Appliance_Import_Window::Execute_Extraction_And_Conversion()
 	const QString qemu_img = Get_QEMU_IMG_Path();
 
 	QStringList final_disk_paths;
+	QList<int> disk_sectors;
+	QStringList disk_serials;
+	QList<bool> disk_virtio_scsi;
+	const QString guest_name = CB_Guest_OS->currentText();
+	const bool nas = guest_name.contains( QLatin1String( "TrueNAS" ), Qt::CaseInsensitive )
+		|| guest_name.contains( QLatin1String( "FreeNAS" ), Qt::CaseInsensitive )
+		|| Current_Appliance.os_type_raw.contains( QLatin1String( "truenas" ), Qt::CaseInsensitive )
+		|| Current_Appliance.os_type_raw.contains( QLatin1String( "freenas" ), Qt::CaseInsensitive );
 
 	// Process Disks
 	const int disk_count = Current_Appliance.disks.size();
@@ -385,6 +419,18 @@ bool Appliance_Import_Window::Execute_Extraction_And_Conversion()
 		const QString src_disk = d.local_extracted_path.isEmpty()
 			? QDir( QFileInfo( ovf_path ).absolutePath() ).filePath( d.href )
 			: d.local_extracted_path;
+
+		const Disk_Probe probed = Probe_Disk( src_disk );
+		const int logical = qMax( d.logical_sector, probed.descriptor_logical );
+		const int physical = qMax( d.physical_sector, probed.descriptor_physical );
+		const bool evidence_4k = Four_Kn_Sector( logical, physical, probed.ashift ) == 4096;
+		const bool evidence_512 = ( logical == 512 || physical == 512 ) && ! evidence_4k;
+		disk_sectors << ( ( evidence_4k || ( ( align_4k || nas ) && ! evidence_512 ) ) ? 4096 : 0 );
+		QString serial = d.serial.trimmed();
+		if( serial.isEmpty() && ( nas || probed.zfs_labels ) )
+			serial = Stable_Disk_Serial( QString(), probed.disk_guid, i + 1 );
+		disk_serials << serial;
+		disk_virtio_scsi << ( disk_sectors.last() == 4096 || ! serial.isEmpty() );
 
 		if( convert_to_qcow2 )
 		{
@@ -488,7 +534,8 @@ bool Appliance_Import_Window::Execute_Extraction_And_Conversion()
 	if( ! final_disk_paths.isEmpty() )
 	{
 		const QString c_type0 = Current_Appliance.disks.isEmpty() ? QString() : Current_Appliance.disks[0].controller_type;
-		const VM::Device_Interface iface0 = controller_to_interface( c_type0 );
+		const bool virtio0 = ! disk_virtio_scsi.isEmpty() && disk_virtio_scsi.first();
+		const VM::Device_Interface iface0 = virtio0 ? VM::DI_Virtio_SCSI : controller_to_interface( c_type0 );
 
 		VM_HDD hda( true, final_disk_paths.first() );
 		VM_Native_Storage_Device native;
@@ -498,12 +545,14 @@ bool Appliance_Import_Window::Execute_Extraction_And_Conversion()
 		native.Set_Interface( iface0 );
 		native.Use_Media( true );
 		native.Set_Media( VM::DM_Disk );
-		if( align_4k || CB_Guest_OS->currentText().contains( QStringLiteral( "TrueNAS" ), Qt::CaseInsensitive ) )
+		if( ! disk_sectors.isEmpty() && disk_sectors.first() == 4096 )
 		{
 			native.Use_Block_Size( true );
 			native.Set_Logical_Block_Size( 4096 );
 			native.Set_Physical_Block_Size( 4096 );
 		}
+		if( ! disk_serials.isEmpty() && ! disk_serials.first().isEmpty() )
+			native.Set_Disk_Serial( disk_serials.first() );
 		hda.Set_Native_Device( native );
 		vm->Set_HDA( hda );
 
@@ -512,7 +561,8 @@ bool Appliance_Import_Window::Execute_Extraction_And_Conversion()
 		for( int i = 1; i < final_disk_paths.size(); ++i )
 		{
 			const QString c_type = ( i < Current_Appliance.disks.size() ) ? Current_Appliance.disks[i].controller_type : QString();
-			const VM::Device_Interface sec_iface = controller_to_interface( c_type );
+			const bool virtio = i < disk_virtio_scsi.size() && disk_virtio_scsi[i];
+			const VM::Device_Interface sec_iface = virtio ? VM::DI_Virtio_SCSI : controller_to_interface( c_type );
 
 			VM_Native_Storage_Device sec;
 			sec.Use_File_Path( true );
@@ -521,12 +571,14 @@ bool Appliance_Import_Window::Execute_Extraction_And_Conversion()
 			sec.Set_Interface( sec_iface );
 			sec.Use_Media( true );
 			sec.Set_Media( VM::DM_Disk );
-			if( align_4k || CB_Guest_OS->currentText().contains( QStringLiteral( "TrueNAS" ), Qt::CaseInsensitive ) )
+			if( i < disk_sectors.size() && disk_sectors[i] == 4096 )
 			{
 				sec.Use_Block_Size( true );
 				sec.Set_Logical_Block_Size( 4096 );
 				sec.Set_Physical_Block_Size( 4096 );
 			}
+			if( i < disk_serials.size() && ! disk_serials[i].isEmpty() )
+				sec.Set_Disk_Serial( disk_serials[i] );
 			extra_storage << sec;
 		}
 		if( ! extra_storage.isEmpty() )

@@ -60,6 +60,8 @@
 #include "Apple_SoC_Support.h"
 #include "Inferno_Companion_Setup.h"
 #include "Appliance_Import_Window.h"
+#include "Storage_Recovery_Window.h"
+#include "Storage_Recovery.h"
 #include "WSL_Launch.h"
 #include "WSL_Wizard_Window.h"
 #include "VM_Wizard_Window.h"
@@ -596,6 +598,7 @@ void VM_Wizard_Window::Build_Three_Path_Pages()
 	RB_Method_Custom = new QRadioButton( tr( "Custom / Advanced" ) );
 	RB_Method_Import = new QRadioButton( tr( "Import Existing Disk" ) );
 	RB_Method_Appliance = new QRadioButton( tr( "Import Virtual Appliance (OVA / OVF)" ) );
+	RB_Method_Recovery = new QRadioButton( tr( "Recover storage" ) );
 
 	Group_Creation_Method->addButton( RB_Method_Guest_OS, 0 );
 	Group_Creation_Method->addButton( RB_Method_Platform, 1 );
@@ -603,6 +606,7 @@ void VM_Wizard_Window::Build_Three_Path_Pages()
 	Group_Creation_Method->addButton( RB_Method_Custom, 3 );
 	Group_Creation_Method->addButton( RB_Method_Import, 4 );
 	Group_Creation_Method->addButton( RB_Method_Appliance, 5 );
+	Group_Creation_Method->addButton( RB_Method_Recovery, 6 );
 
 	RB_Method_Guest_OS->setChecked( true );
 
@@ -618,6 +622,8 @@ void VM_Wizard_Window::Build_Three_Path_Pages()
 		tr( "5. Import Existing Disk: Select an existing qcow2, raw, vmdk, or vhdx disk image — AQEMU resolves format & default controller." ) );
 	Add_Method_Card( methodLay, RB_Method_Appliance,
 		tr( "6. Import Virtual Appliance: Import a multi-disk virtual appliance (.ova or .ovf) from VirtualBox, VMware, or cloud." ) );
+	Add_Method_Card( methodLay, RB_Method_Recovery,
+		tr( "7. Recover storage: Read labels from a disk set or physical disks, show a recovery report, then build a read-only TrueNAS VM. The guest decides whether a pool imports." ) );
 
 	methodLay->addStretch( 1 );
 	scroll->setWidget( inner );
@@ -1618,6 +1624,9 @@ void VM_Wizard_Window::Apply_OS_Defaults( const QString &os_name )
 	Guest_RAM_MB = 2048;
 	Guest_HDD_GB = 20.0;
 	Guest_NIC_Model = "e1000";
+	Guest_TrueNAS_Lab = false;
+	Guest_Folder_Backed = false;
+	Guest_Storage_Network = false;
 	Guest_CPU_Type.clear();
 	Guest_Compat_Tip.clear();
 	Guest_Machine_Candidates.clear();
@@ -1679,6 +1688,17 @@ void VM_Wizard_Window::Apply_OS_Defaults( const QString &os_name )
 
 		if( has_flag( "win2k_hack" ) )
 			Guest_Suggest_Win2K_Hack = true;
+
+		Guest_TrueNAS_Lab = has_flag( "truenas_lab" );
+		Guest_Folder_Backed = has_flag( "folder_backed" );
+		Guest_Storage_Network = has_flag( "storage_network" );
+		if( Guest_TrueNAS_Lab || Guest_Folder_Backed || Guest_Storage_Network )
+		{
+			Guest_RAM_MB = 8192;
+			Guest_NIC_Model = QStringLiteral( "virtio-net-pci" );
+			Guest_NIC_Candidates = QStringList{ QStringLiteral( "virtio-net-pci" ) };
+			Apply_X86_OVMF();
+		}
 
 		if( has_flag( "4kn_default" ) || os_name.contains( "TrueNAS", Qt::CaseInsensitive ) )
 		{
@@ -1802,7 +1822,10 @@ void VM_Wizard_Window::Apply_OS_Defaults( const QString &os_name )
 		if( Guest_Compat_Tip.isEmpty() )
 			Guest_Compat_Tip = caps.summary;
 	}
+	if( Guest_TrueNAS_Lab || Guest_Folder_Backed || Guest_Storage_Network )
+		Guest_NIC_Model = QStringLiteral( "virtio-net-pci" );
 	Update_Guest_Compat_Tip();
+	Update_Lab_Disk_Page();
 }
 
 void VM_Wizard_Window::Update_Architecture_Page_Chrome()
@@ -3617,6 +3640,71 @@ void VM_Wizard_Window::Enhance_Typical_HDD_Page()
 			Guest_Sector_Size = CB_Typical_Sector_Size->currentData().toString();
 	} );
 
+	Widget_Lab_Disks = new QWidget( content );
+	QVBoxLayout *labLay = new QVBoxLayout( Widget_Lab_Disks );
+	labLay->setContentsMargins( 0, 4, 0, 0 );
+	Label_Lab_Note = new QLabel( Widget_Lab_Disks );
+	Label_Lab_Note->setWordWrap( true );
+	labLay->addWidget( Label_Lab_Note );
+
+	QWidget *countRow = new QWidget( Widget_Lab_Disks );
+	QHBoxLayout *countLay = new QHBoxLayout( countRow );
+	countLay->setContentsMargins( 22, 0, 0, 0 );
+	SB_Lab_Disk_Count = new QSpinBox( countRow );
+	SB_Lab_Disk_Count->setRange( 1, 8 );
+	SB_Lab_Disk_Count->setValue( 4 );
+	ensure_min_height( SB_Lab_Disk_Count );
+	countLay->addWidget( new QLabel( tr( "Disk count:" ), countRow ) );
+	countLay->addWidget( SB_Lab_Disk_Count );
+	countLay->addStretch( 1 );
+	labLay->addWidget( countRow );
+
+	QWidget *fmtRow = new QWidget( Widget_Lab_Disks );
+	QHBoxLayout *fmtLay = new QHBoxLayout( fmtRow );
+	fmtLay->setContentsMargins( 22, 0, 0, 0 );
+	CB_Lab_Disk_Format = new QComboBox( fmtRow );
+	CB_Lab_Disk_Format->addItem( tr( "qcow2, 4K clusters" ), QStringLiteral( "qcow2" ) );
+	CB_Lab_Disk_Format->addItem( tr( "raw" ), QStringLiteral( "raw" ) );
+	ensure_min_height( CB_Lab_Disk_Format );
+	fmtLay->addWidget( new QLabel( tr( "Image format:" ), fmtRow ) );
+	fmtLay->addWidget( CB_Lab_Disk_Format, 1 );
+	labLay->addWidget( fmtRow );
+
+	QWidget *busRow = new QWidget( Widget_Lab_Disks );
+	QHBoxLayout *busLay = new QHBoxLayout( busRow );
+	busLay->setContentsMargins( 22, 0, 0, 0 );
+	CB_Lab_Disk_Bus = new QComboBox( busRow );
+	CB_Lab_Disk_Bus->addItem( tr( "VirtIO-SCSI" ), QStringLiteral( "virtio-scsi" ) );
+	CB_Lab_Disk_Bus->addItem( tr( "NVMe" ), QStringLiteral( "nvme" ) );
+	ensure_min_height( CB_Lab_Disk_Bus );
+	busLay->addWidget( new QLabel( tr( "Controller:" ), busRow ) );
+	busLay->addWidget( CB_Lab_Disk_Bus, 1 );
+	labLay->addWidget( busRow );
+
+	Widget_Lab_Folder_Row = new QWidget( Widget_Lab_Disks );
+	QHBoxLayout *folderLay = new QHBoxLayout( Widget_Lab_Folder_Row );
+	folderLay->setContentsMargins( 22, 0, 0, 0 );
+	Edit_Lab_Folder = new QLineEdit( Widget_Lab_Folder_Row );
+	Edit_Lab_Folder->setPlaceholderText( tr( "Folder for the empty disk files" ) );
+	ensure_min_height( Edit_Lab_Folder );
+	QToolButton *tb_lab_folder = new QToolButton( Widget_Lab_Folder_Row );
+	tb_lab_folder->setText( QStringLiteral( "..." ) );
+	ensure_btn_size( tb_lab_folder, 36 );
+	folderLay->addWidget( new QLabel( tr( "Folder:" ), Widget_Lab_Folder_Row ) );
+	folderLay->addWidget( Edit_Lab_Folder, 1 );
+	folderLay->addWidget( tb_lab_folder );
+	labLay->addWidget( Widget_Lab_Folder_Row );
+	connect( tb_lab_folder, &QToolButton::clicked, this, [this]() {
+		const QString dir = QFileDialog::getExistingDirectory( this, tr( "Folder for lab disks" ),
+			Edit_Lab_Folder && ! Edit_Lab_Folder->text().isEmpty()
+				? Edit_Lab_Folder->text()
+				: Settings.value( "VM_Directory", QDir::homePath() ).toString() );
+		if( ! dir.isEmpty() && Edit_Lab_Folder )
+			Edit_Lab_Folder->setText( QDir::toNativeSeparators( dir ) );
+	} );
+	Widget_Lab_Disks->setVisible( false );
+	lay->addWidget( Widget_Lab_Disks );
+
 	QLabel *lblInstallMedia = new QLabel( tr( "Install media:" ), content );
 	lblInstallMedia->setStyleSheet( QStringLiteral( "font-weight: 600; margin-top: 4px;" ) );
 	lay->addWidget( lblInstallMedia );
@@ -3866,6 +3954,300 @@ void VM_Wizard_Window::Apply_Apple_Nand_HDD_Page_Mode()
 		Widget_Install_Kernel_Row->setVisible( ! apple );
 }
 
+void VM_Wizard_Window::Apply_X86_OVMF()
+{
+	New_VM->Use_UEFI( true );
+	Emulator emul = Get_Default_Emulator();
+	QMap<QString, QString> bins = emul.Get_Binary_Files();
+	QString qemu_bin;
+	if( bins.contains( QStringLiteral( "qemu-system-x86_64" ) ) )
+		qemu_bin = bins[ QStringLiteral( "qemu-system-x86_64" ) ];
+	const QString code = Find_UEFI_Firmware_CODE( qemu_bin, QStringLiteral( "x86_64" ) );
+	const QString vm_dir = Settings.value( QStringLiteral( "VM_Directory" ), "~" ).toString();
+	const QString vm_base = Get_FS_Compatible_VM_Name( ui.Edit_VM_Name->text() );
+	if( ! code.isEmpty() )
+		New_VM->Set_UEFI_CODE_File( code );
+	New_VM->Set_UEFI_VARS_File( vm_dir + vm_base + QStringLiteral( "_VARS.fd" ) );
+}
+
+void VM_Wizard_Window::Update_Lab_Disk_Page()
+{
+	const bool lab = Guest_TrueNAS_Lab || Guest_Folder_Backed || Guest_Storage_Network;
+	if( Widget_Lab_Disks )
+		Widget_Lab_Disks->setVisible( lab );
+	if( Label_Lab_Note )
+	{
+		if( Guest_TrueNAS_Lab )
+			Label_Lab_Note->setText( tr(
+				"Four empty 4Kn VirtIO-SCSI disks, each using the size above, with unique serials. "
+				"8 GB RAM, UEFI, and a VirtIO NIC. No pool is created. Boot your own TrueNAS ISO." ) );
+		else if( Guest_Folder_Backed )
+			Label_Lab_Note->setText( tr(
+				"Empty 4Kn disks are created in the folder below and attached to this VM. "
+				"No pool is created." ) );
+		else if( Guest_Storage_Network )
+			Label_Lab_Note->setText( tr(
+				"Finish creates four empty VMs on one loopback network (230.0.0.1, local to this computer). "
+				"The name above is the TrueNAS primary, with four 4Kn VirtIO-SCSI disks at the size below. "
+				"The secondary gets two 4Kn disks. The Linux client gets one 32 GB VirtIO disk. "
+				"The Windows client gets one 64 GB AHCI disk and an e1000 NIC. "
+				"No operating system and no pool is created. Attach your own ISOs after the VMs exist." ) );
+		else
+			Label_Lab_Note->clear();
+	}
+	const bool folder = Guest_Folder_Backed && ! Guest_TrueNAS_Lab;
+	if( SB_Lab_Disk_Count && SB_Lab_Disk_Count->parentWidget() )
+		SB_Lab_Disk_Count->parentWidget()->setVisible( folder );
+	if( CB_Lab_Disk_Format && CB_Lab_Disk_Format->parentWidget() )
+		CB_Lab_Disk_Format->parentWidget()->setVisible( folder );
+	if( CB_Lab_Disk_Bus && CB_Lab_Disk_Bus->parentWidget() )
+		CB_Lab_Disk_Bus->parentWidget()->setVisible( folder );
+	if( Widget_Lab_Folder_Row )
+		Widget_Lab_Folder_Row->setVisible( folder );
+	if( RB_Typical_New_Disk )
+		RB_Typical_New_Disk->setVisible( ! lab );
+	if( RB_Typical_Existing_Disk )
+		RB_Typical_Existing_Disk->setVisible( ! lab );
+	if( Edit_Typical_Disk_Path && Edit_Typical_Disk_Path->parentWidget() )
+		Edit_Typical_Disk_Path->parentWidget()->setVisible( ! lab );
+	if( CB_Typical_Sector_Size && CB_Typical_Sector_Size->parentWidget() )
+		CB_Typical_Sector_Size->parentWidget()->setVisible( ! lab );
+	if( lab )
+	{
+		Guest_Sector_Size = QStringLiteral( "4096" );
+		if( CB_Typical_Sector_Size )
+			CB_Typical_Sector_Size->setCurrentIndex( 1 );
+		ui.Label_Typical_HDD->setText( Guest_Storage_Network
+			? tr( "The size below is the size of each TrueNAS data disk." )
+			: ( Guest_TrueNAS_Lab
+				? tr( "Each disk uses the size below. AQEMU creates four empty 4Kn images." )
+				: tr( "Each disk uses the size below. AQEMU creates the empty 4Kn images in the folder you choose." ) ) );
+	}
+}
+
+bool VM_Wizard_Window::Create_Lab_Disks( bool simulate )
+{
+	const bool folder = Guest_Folder_Backed && ! Guest_TrueNAS_Lab;
+	const int count = Guest_TrueNAS_Lab ? 4 : ( SB_Lab_Disk_Count ? SB_Lab_Disk_Count->value() : 4 );
+	const bool qcow2 = ! folder || ! CB_Lab_Disk_Format || CB_Lab_Disk_Format->currentData().toString() != QLatin1String( "raw" );
+	const bool nvme = folder && CB_Lab_Disk_Bus && CB_Lab_Disk_Bus->currentData().toString() == QLatin1String( "nvme" );
+	Guest_Disk_Bus = nvme ? QStringLiteral( "nvme" ) : QStringLiteral( "virtio-scsi" );
+	Guest_Sector_Size = QStringLiteral( "4096" );
+	const QString name_key = Get_FS_Compatible_VM_Name( ui.Edit_VM_Name->text() );
+	const QList<Lab_Disk_Spec> plan = Plan_Lab_Disks( name_key, count, qcow2, nvme );
+
+	QString dir = Settings.value( "VM_Directory", QDir::homePath() + "/.aqemu/" ).toString();
+	if( folder && Edit_Lab_Folder && ! Edit_Lab_Folder->text().trimmed().isEmpty() )
+		dir = Edit_Lab_Folder->text().trimmed();
+	if( ! simulate )
+		QDir().mkpath( dir );
+
+	VM::Device_Size size;
+	size.Size = ui.SB_HDD_Size->value() > 0 ? ui.SB_HDD_Size->value() : 16;
+	size.Suffix = VM::Size_Suf_Gb;
+
+	QStringList created;
+	QList<VM_Native_Storage_Device> extra;
+	for( int i = 0; i < plan.size(); ++i )
+	{
+		const QString file = QDir( dir ).filePath( name_key + QLatin1Char( '-' ) + plan[i].filename );
+		if( ! simulate )
+		{
+			const bool made = Create_New_HDD_Image( false, QString(), file,
+				qcow2 ? QStringLiteral( "qcow2" ) : QStringLiteral( "raw" ),
+				size, false, qcow2 ? 4096 : 0 );
+			if( ! made )
+			{
+				for( int c = 0; c < created.size(); ++c )
+					QFile::remove( created[c] );
+				return false;
+			}
+			created << file;
+		}
+
+		VM_Native_Storage_Device native;
+		native.Use_File_Path( true );
+		native.Set_File_Path( file );
+		native.Use_Interface( true );
+		native.Set_Interface( plan[i].nvme ? VM::DI_NVMe : VM::DI_Virtio_SCSI );
+		native.Use_Media( true );
+		native.Set_Media( VM::DM_Disk );
+		native.Use_Block_Size( true );
+		native.Set_Logical_Block_Size( plan[i].logical_sector );
+		native.Set_Physical_Block_Size( plan[i].logical_sector );
+		native.Set_Disk_Serial( plan[i].serial );
+		if( i == 0 )
+		{
+			VM_HDD hda( true, file );
+			hda.Set_Native_Device( native );
+			New_VM->Set_HDA( hda );
+		}
+		else
+		{
+			extra << native;
+		}
+	}
+	if( ! extra.isEmpty() )
+		New_VM->Set_Storage_Devices_List( extra );
+	return true;
+}
+
+bool VM_Wizard_Window::Finish_Storage_Network( bool simulate )
+{
+	const QString base_name = ui.Edit_VM_Name->text().trimmed();
+	const QString name_key = Get_FS_Compatible_VM_Name( base_name );
+	const Storage_Network_Plan plan = Plan_Storage_Network( name_key );
+	const QString dir = Settings.value( "VM_Directory", QDir::homePath() + "/.aqemu/" ).toString();
+	if( ! simulate )
+		QDir().mkpath( dir );
+
+	QStringList created;
+	const int nas_gb = ui.SB_HDD_Size->value() > 0 ? static_cast<int>( ui.SB_HDD_Size->value() ) : 16;
+
+	auto cleanup = [this, &created]() {
+		for( int i = 0; i < created.size(); ++i )
+			QFile::remove( created[i] );
+		for( int i = 0; i < Extra_Created_VMs.size(); ++i )
+			delete Extra_Created_VMs[i];
+		Extra_Created_VMs.clear();
+	};
+
+	Emulator emul = Get_Default_Emulator();
+	QMap<QString, QString> bins = emul.Get_Binary_Files();
+	QString qemu_bin;
+	if( bins.contains( QStringLiteral( "qemu-system-x86_64" ) ) )
+		qemu_bin = bins[ QStringLiteral( "qemu-system-x86_64" ) ];
+	const QString ovmf_code = Find_UEFI_Firmware_CODE( qemu_bin, QStringLiteral( "x86_64" ) );
+
+	for( int i = 0; i < plan.nodes.size(); ++i )
+	{
+		const Storage_Node_Spec &node = plan.nodes[i];
+		const bool primary = ( i == 0 );
+		if( ! primary && simulate )
+			continue;
+
+		Virtual_Machine *vm = primary ? New_VM : new Virtual_Machine();
+		if( ! primary )
+			Extra_Created_VMs << vm;
+
+		const QString node_name = base_name + node.title_suffix;
+		const QString node_key = Get_FS_Compatible_VM_Name( node_name );
+		if( ! primary )
+		{
+			vm->Set_Machine_Name( node_name );
+			const QString icon = Find_OS_Icon( node.role == QLatin1String( "windows" )
+				? QStringLiteral( "Windows" )
+				: ( node.role == QLatin1String( "linux" ) ? QStringLiteral( "Linux" ) : QStringLiteral( "TrueNAS" ) ) );
+			vm->Set_Icon_Path( icon.isEmpty() ? QStringLiteral( ":/other.png" ) : icon );
+		}
+		vm->Set_Computer_Type( QStringLiteral( "qemu-system-x86_64" ) );
+		vm->Set_Machine_Type( QStringLiteral( "q35" ) );
+		vm->Update_Current_Emulator_Devices();
+		vm->Set_CPU_Type( QStringLiteral( "max" ) );
+		vm->Set_SMP_CPU_Count( 2 );
+		vm->Set_Memory_Size( node.four_kn
+			? ( ui.Memory_Size->value() > 0 ? ui.Memory_Size->value() : node.ram_mb )
+			: node.ram_mb );
+		if( node.uefi )
+		{
+			vm->Use_UEFI( true );
+			if( ! ovmf_code.isEmpty() )
+				vm->Set_UEFI_CODE_File( ovmf_code );
+			vm->Set_UEFI_VARS_File( dir + node_key + QStringLiteral( "_VARS.fd" ) );
+		}
+
+		const int gb = node.four_kn ? nas_gb : node.disk_gb;
+		const QList<Lab_Disk_Spec> disks = Plan_Lab_Disks( node_key, node.disk_count, true, false );
+		VM::Device_Size size;
+		size.Size = gb;
+		size.Suffix = VM::Size_Suf_Gb;
+		QList<VM_Native_Storage_Device> extra_disks;
+		for( int d = 0; d < disks.size(); ++d )
+		{
+			const QString file = QDir( dir ).filePath( node_key + QLatin1Char( '-' ) + disks[d].filename );
+			if( ! simulate )
+			{
+				const bool made = Create_New_HDD_Image( false, QString(), file,
+					QStringLiteral( "qcow2" ), size, false, node.four_kn ? 4096 : 0 );
+				if( ! made )
+				{
+					cleanup();
+					return false;
+				}
+				created << file;
+			}
+			VM_Native_Storage_Device native;
+			native.Use_File_Path( true );
+			native.Set_File_Path( file );
+			native.Use_Interface( true );
+			native.Set_Interface( node.virtio_scsi ? VM::DI_Virtio_SCSI : VM::DI_AHCI );
+			native.Use_Media( true );
+			native.Set_Media( VM::DM_Disk );
+			if( node.four_kn )
+			{
+				native.Use_Block_Size( true );
+				native.Set_Logical_Block_Size( 4096 );
+				native.Set_Physical_Block_Size( 4096 );
+			}
+			else
+			{
+				native.Use_Block_Size( false );
+				native.Set_Logical_Block_Size( 512 );
+				native.Set_Physical_Block_Size( 512 );
+			}
+			native.Set_Disk_Serial( disks[d].serial );
+			if( d == 0 )
+			{
+				VM_HDD hda( true, file );
+				hda.Set_Native_Device( native );
+				vm->Set_HDA( hda );
+			}
+			else
+			{
+				extra_disks << native;
+			}
+		}
+		if( ! extra_disks.isEmpty() )
+			vm->Set_Storage_Devices_List( extra_disks );
+
+		while( vm->Get_Network_Cards_Count() > 0 )
+			vm->Delete_Network_Card( 0 );
+		vm->Set_Use_Network( true );
+		vm->Use_Native_Network( true );
+		vm->Use_Modern_Netdev( true );
+		VM_Net_Card_Native card;
+		card.Set_Network_Type( VM::Net_Mode_Native_MulticastSocket );
+		card.Set_Card_Model( node.nic_model );
+		card.Use_MCast( true );
+		card.Set_MCast( plan.mcast );
+		card.Use_MAC_Address( true );
+		card.Set_MAC_Address( node.mac );
+		QList<VM_Net_Card_Native> cards;
+		cards << card;
+		vm->Set_Network_Cards_Nativ( cards );
+
+		if( ! primary && ! simulate )
+		{
+			if( node.uefi && ! qemu_bin.isEmpty() )
+				Prepare_UEFI_VARS_File( vm->Get_UEFI_VARS_File(), qemu_bin, QStringLiteral( "x86_64" ) );
+			QString xml = QDir( dir ).filePath( node_key + QStringLiteral( ".aqemu" ) );
+			int suffix = 2;
+			while( QFileInfo::exists( xml ) )
+			{
+				xml = QDir( dir ).filePath( QStringLiteral( "%1-%2.aqemu" ).arg( node_key ).arg( suffix ) );
+				++suffix;
+			}
+			if( ! vm->Create_VM_File( xml, false ) )
+			{
+				cleanup();
+				return false;
+			}
+			created << xml;
+		}
+	}
+	return true;
+}
+
 void VM_Wizard_Window::Show_Typical_HDD_Page()
 {
 	Apply_Apple_Nand_HDD_Page_Mode();
@@ -3879,9 +4261,12 @@ void VM_Wizard_Window::Show_Typical_HDD_Page()
 			CB_Typical_Sector_Size->setCurrentIndex( 0 );
 	}
 	ui.Wizard_Pages->setCurrentWidget( ui.Typical_HDD_Page );
-	ui.Label_Page->setText( Is_Apple_Silicon_Or_iOS_Template()
-		? tr( "NAND (root) size" )
-		: tr( "Virtual Hard Disk" ) );
+	ui.Label_Page->setText( ( Guest_TrueNAS_Lab || Guest_Folder_Backed || Guest_Storage_Network )
+		? tr( "TrueNAS lab disks" )
+		: ( Is_Apple_Silicon_Or_iOS_Template()
+			? tr( "NAND (root) size" )
+			: tr( "Virtual Hard Disk" ) ) );
+	Update_Lab_Disk_Page();
 }
 
 void VM_Wizard_Window::Typical_Disk_Browse_Clicked()
@@ -4099,8 +4484,23 @@ bool VM_Wizard_Window::Validate_Typical_HDD_Page()
 		}
 		return true;
 	}
-	if( ! Edit_Typical_Disk_Path )
+	if( Guest_TrueNAS_Lab || Guest_Folder_Backed || Guest_Storage_Network )
+	{
+		if( Guest_Folder_Backed && ! Guest_TrueNAS_Lab )
+		{
+			const QString folder = Edit_Lab_Folder ? Edit_Lab_Folder->text().trimmed() : QString();
+			if( folder.isEmpty() || ! QFileInfo( folder ).isDir() )
+			{
+				AQGraphic_Warning( tr( "Lab disks" ),
+					tr( "Choose an existing folder. AQEMU creates the empty disk files there." ) );
+				return false;
+			}
+		}
+	}
+	else if( ! Edit_Typical_Disk_Path )
 		return true;
+	else
+	{
 	const QString path = QDir::toNativeSeparators( Edit_Typical_Disk_Path->text().trimmed() );
 	Edit_Typical_Disk_Path->setText( path );
 
@@ -4142,6 +4542,7 @@ bool VM_Wizard_Window::Validate_Typical_HDD_Page()
 				tr( "The folder for the new disk image does not exist:\n%1" ).arg( parent.path() ) );
 			return false;
 		}
+	}
 	}
 
 	if( RB_Install_URL_ISO && RB_Install_URL_ISO->isChecked() )
@@ -4705,6 +5106,12 @@ void VM_Wizard_Window::Set_VM_List( QList<Virtual_Machine*> *list )
 	VM_List = list;
 }
 
+void VM_Wizard_Window::Select_Storage_Recovery()
+{
+	if( RB_Method_Recovery )
+		RB_Method_Recovery->setChecked( true );
+}
+
 void VM_Wizard_Window::on_Button_Back_clicked()
 {
 	ui.Button_Next->setEnabled( true );
@@ -4968,6 +5375,17 @@ void VM_Wizard_Window::on_Button_Next_clicked()
 			{
 				delete New_VM;
 				New_VM = import_win.Get_Imported_VM();
+				accept();
+			}
+			return;
+		}
+		else if( RB_Method_Recovery && RB_Method_Recovery->isChecked() )
+		{
+			Storage_Recovery_Window recovery_win( this );
+			if( recovery_win.exec() == QDialog::Accepted && recovery_win.Get_VM() != nullptr )
+			{
+				delete New_VM;
+				New_VM = recovery_win.Get_VM();
 				accept();
 			}
 			return;
@@ -5528,7 +5946,7 @@ void VM_Wizard_Window::applyTemplate()
 			ui.SB_HDD_Size->setValue( Guest_HDD_GB );
 		else
 			ui.SB_HDD_Size->setValue( 20.0 );
-		ui.SB_CPU_Cores->setValue( 1 );
+		ui.SB_CPU_Cores->setValue( ( Guest_TrueNAS_Lab || Guest_Folder_Backed || Guest_Storage_Network ) ? 2 : 1 );
 
 		// Find CPU List For This Template
 		QString compCaption = ui.CB_Computer_Type->currentText();
@@ -5679,7 +6097,17 @@ bool VM_Wizard_Window::Create_New_VM(bool simulate)
 		// Companion profile creates companion.qcow2 + Ubuntu ISO itself.
 		if( ! Is_Inferno_Companion_Template() )
 		{
-		if( Is_Windows11_ARM_Template() && RB_Win11_Existing_Disk->isChecked() )
+		if( Guest_Storage_Network )
+		{
+			// Disks and the shared NIC are applied in Finish_Storage_Network.
+		}
+		else if( Guest_TrueNAS_Lab || Guest_Folder_Backed )
+		{
+			Apply_X86_OVMF();
+			if( ! Create_Lab_Disks( simulate ) && ! simulate )
+				return false;
+		}
+		else if( Is_Windows11_ARM_Template() && RB_Win11_Existing_Disk->isChecked() )
 		{
 			New_VM->Set_HDA( VM_HDD(true, Edit_Win11_Existing_Disk->text()) );
 		}
@@ -5957,6 +6385,9 @@ bool VM_Wizard_Window::Create_New_VM(bool simulate)
 	else
 		Apply_Guest_Hardware_To_New_VM(); // still apply device-page / NIC overrides
 
+	if( Guest_Storage_Network && ! Finish_Storage_Network( simulate ) )
+		return false;
+
 	// Guests that opted into UEFI need a writable OVMF VARS file
 	if( ! simulate && New_VM->Use_UEFI() )
 	{
@@ -5989,8 +6420,17 @@ bool VM_Wizard_Window::Create_New_VM(bool simulate)
 void VM_Wizard_Window::Update_Finish_Page_Guidance()
 {
 	QString help;
-	
-	if( Is_Windows11_ARM_Template() )
+
+	if( Guest_Storage_Network )
+	{
+		help = tr( "<p><b>Storage network</b></p><ul>"
+			"<li>Finish creates four empty VMs. The name on this page is the TrueNAS primary.</li>"
+			"<li>All four NICs join the same loopback multicast bus, so the traffic stays on this computer.</li>"
+			"<li>No operating system and no pool is created. Attach your own ISO to each VM.</li>"
+			"<li>After TrueNAS is installed, the Storage tab can read pool health from the guest API.</li>"
+			"</ul>" );
+	}
+	else if( Is_Windows11_ARM_Template() )
 	{
 		if( CH_Win11_Already_Installed->isChecked() )
 		{

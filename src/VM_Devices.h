@@ -698,6 +698,12 @@ class VM_Native_Storage_Device
 		void Set_Logical_Block_Size( int bytes );
 		int Get_Physical_Block_Size() const;
 		void Set_Physical_Block_Size( int bytes );
+
+		bool Get_Read_Only() const;
+		void Set_Read_Only( bool read_only );
+
+		const QString &Get_Disk_Serial() const;
+		void Set_Disk_Serial( const QString &serial );
 	private:
 		bool UFile_Path;
 		QString File_Path;
@@ -733,6 +739,8 @@ class VM_Native_Storage_Device
 		bool UBlock_Size;
 		int Logical_Block_Size;
 		int Physical_Block_Size;
+		bool Read_Only;
+		QString Disk_Serial;
 };
 
 // Virtual Machine Storage Device (FDD, CD, HDD)

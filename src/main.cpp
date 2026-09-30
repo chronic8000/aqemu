@@ -395,13 +395,34 @@ void AQEMU_Main::register_qresource()
 
 void AQEMU_Main::init_qsettings()
 {
-    // Set QSettings Data
+    // Set QSettings Data.
+    // AQEMU_STORE_BUILD (Microsoft Store / GitHub Actions MSIX) uses a different
+    // organization so QSettings and the VM folder stay out of the self-compiled
+    // tree (%APPDATA%\\aqemu and C:\\msys64). A plain cmake build keeps "aqemu".
+#ifdef AQEMU_STORE_BUILD
+    QCoreApplication::setOrganizationName( "aqemu-store" );
+#else
     QCoreApplication::setOrganizationName( "aqemu" );
+#endif
     QCoreApplication::setApplicationName( "AQEMU" );
     #ifdef Q_OS_WIN32
     QSettings::setDefaultFormat( QSettings::IniFormat );
     #endif
     settings = new QSettings();
+
+#ifdef AQEMU_STORE_BUILD
+    // First Store launch: reuse a VM folder from the developer ini when that
+    // folder is a normal data path. Emulator binaries are not copied.
+    if( ! settings->contains( QStringLiteral( "VM_Directory" ) ) )
+    {
+        QSettings legacy( QSettings::IniFormat, QSettings::UserScope,
+                          QStringLiteral( "aqemu" ), QStringLiteral( "AQEMU" ) );
+        const QString vm_dir = legacy.value( QStringLiteral( "VM_Directory" ) ).toString().trimmed();
+        if( ! vm_dir.isEmpty() && vm_dir != QLatin1String( "~" ) &&
+            ! AQ_Path_Is_Msys_Tree( vm_dir ) && ! AQEMU_Path_Is_Install_Dir( vm_dir ) )
+            settings->setValue( QStringLiteral( "VM_Directory" ), vm_dir );
+    }
+#endif
 }
 
 void AQEMU_Main::upgrade_settings()

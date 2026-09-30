@@ -54,8 +54,10 @@ class VM_Wizard_Window: public QDialog
 	public:
 		VM_Wizard_Window( QWidget *parent = 0 );
 		void Set_VM_List( QList<Virtual_Machine*> *list );
+		void Select_Storage_Recovery();
 		
 		Virtual_Machine *New_VM;
+		QList<Virtual_Machine*> Extra_Created_VMs;
 		
 	protected:
 		bool eventFilter( QObject *watched, QEvent *event ) override;
@@ -130,6 +132,10 @@ class VM_Wizard_Window: public QDialog
 		/** @return false if asset download/create failed (caller should abort VM create). */
 		bool Apply_Inferno_Companion_Profile( bool simulate );
 		void Apply_Intel_MacOS_Profile( bool simulate );
+		void Apply_X86_OVMF();
+		bool Create_Lab_Disks( bool simulate );
+		bool Finish_Storage_Network( bool simulate );
+		void Update_Lab_Disk_Page();
 		void Build_Intel_MacOS_Page();
 		void Show_Intel_MacOS_Page();
 		void Probe_WSL_For_Intel_Mac_Page();
@@ -270,6 +276,7 @@ class VM_Wizard_Window: public QDialog
 		QRadioButton *RB_Method_Custom;
 		QRadioButton *RB_Method_Import;
 		QRadioButton *RB_Method_Appliance;
+		QRadioButton *RB_Method_Recovery;
 		QTreeWidget *Tree_OS;
 		QTreeWidget *Tree_Platform;
 		QListWidget *List_Arch;
@@ -295,6 +302,16 @@ class VM_Wizard_Window: public QDialog
 		QString Guest_Compat_Tip;
 		QString Guest_Disk_Bus;
 		QString Guest_Sector_Size;
+		bool Guest_TrueNAS_Lab = false;
+		bool Guest_Folder_Backed = false;
+		bool Guest_Storage_Network = false;
+		QWidget *Widget_Lab_Disks = nullptr;
+		QLabel *Label_Lab_Note = nullptr;
+		QWidget *Widget_Lab_Folder_Row = nullptr;
+		QSpinBox *SB_Lab_Disk_Count = nullptr;
+		QComboBox *CB_Lab_Disk_Format = nullptr;
+		QComboBox *CB_Lab_Disk_Bus = nullptr;
+		QLineEdit *Edit_Lab_Folder = nullptr;
 		QString Guest_Video_Card;
 		bool Guest_Use_VirtIO_Extras;
 		bool Guest_Use_GPU_Passthrough;

@@ -571,6 +571,18 @@ class Virtual_Machine: public QObject
 		/** Optional timer-period=N microseconds for -audiodev (0 = omit). */
 		int Get_Audiodev_Timer_Period() const;
 		void Set_Audiodev_Timer_Period( int us );
+		bool Get_Audio_Use_Host_Defaults() const;
+		void Set_Audio_Use_Host_Defaults( bool use );
+		const QString &Get_HDA_Codec() const;
+		void Set_HDA_Codec( const QString &codec );
+		const QString &Get_Audio_Options() const;
+		void Set_Audio_Options( const QString &options );
+		int Get_VirtIO_Sound_Jacks() const;
+		void Set_VirtIO_Sound_Jacks( int n );
+		int Get_VirtIO_Sound_Streams() const;
+		void Set_VirtIO_Sound_Streams( int n );
+		int Get_VirtIO_Sound_Chmaps() const;
+		void Set_VirtIO_Sound_Chmaps( int n );
 
 		/** Prefer -object memory-backend-ram + -numa node,memdev=… */
 		bool Use_NUMA_Memdev() const;
@@ -980,6 +992,12 @@ class Virtual_Machine: public QObject
 		QString FW_CFG_Lines;
 		QString Audiodev_Backend;
 		int Audiodev_Timer_Period;
+		bool Audio_Use_Host_Defaults;
+		QString HDA_Codec;
+		QString Audio_Options;
+		int VirtIO_Sound_Jacks;
+		int VirtIO_Sound_Streams;
+		int VirtIO_Sound_Chmaps;
 		bool Use_NUMA_Memdev_Flag;
 		QString ICount;
 		QString Sandbox;

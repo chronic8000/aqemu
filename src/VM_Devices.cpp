@@ -1657,6 +1657,8 @@ VM_Native_Storage_Device::VM_Native_Storage_Device()
 	UBlock_Size = false;
 	Logical_Block_Size = 512;
 	Physical_Block_Size = 512;
+	Read_Only = false;
+	Disk_Serial = "";
 }
 
 VM_Native_Storage_Device::VM_Native_Storage_Device( const VM_Native_Storage_Device &sd )
@@ -1690,6 +1692,8 @@ VM_Native_Storage_Device::VM_Native_Storage_Device( const VM_Native_Storage_Devi
 	UBlock_Size = sd.Use_Block_Size();
 	Logical_Block_Size = sd.Get_Logical_Block_Size();
 	Physical_Block_Size = sd.Get_Physical_Block_Size();
+	Read_Only = sd.Get_Read_Only();
+	Disk_Serial = sd.Get_Disk_Serial();
 }
 
 bool VM_Native_Storage_Device::Get_Native_Mode() const
@@ -1745,7 +1749,9 @@ bool VM_Native_Storage_Device::operator==( const VM_Native_Storage_Device &sd ) 
 		Discard == sd.Get_Discard() &&
 		UBlock_Size == sd.Use_Block_Size() &&
 		Logical_Block_Size == sd.Get_Logical_Block_Size() &&
-		Physical_Block_Size == sd.Get_Physical_Block_Size() )
+		Physical_Block_Size == sd.Get_Physical_Block_Size() &&
+		Read_Only == sd.Get_Read_Only() &&
+		Disk_Serial == sd.Get_Disk_Serial() )
 	{
 		return true;
 	}
@@ -2049,6 +2055,26 @@ int VM_Native_Storage_Device::Get_Physical_Block_Size() const
 void VM_Native_Storage_Device::Set_Physical_Block_Size( int bytes )
 {
 	Physical_Block_Size = bytes;
+}
+
+bool VM_Native_Storage_Device::Get_Read_Only() const
+{
+	return Read_Only;
+}
+
+void VM_Native_Storage_Device::Set_Read_Only( bool read_only )
+{
+	Read_Only = read_only;
+}
+
+const QString &VM_Native_Storage_Device::Get_Disk_Serial() const
+{
+	return Disk_Serial;
+}
+
+void VM_Native_Storage_Device::Set_Disk_Serial( const QString &serial )
+{
+	Disk_Serial = serial;
 }
 
 //===========================================================================

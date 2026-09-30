@@ -1,4 +1,4 @@
-AQEMU 1.4.1 — Windows portable (x64)
+AQEMU 1.4.2 — Windows portable (x64)
 ====================================
 
 Updated build: 2026-09-30 (runtime DLL bundling; version read from VERSION.txt).
@@ -9,7 +9,7 @@ Please file bugs:
 Run:  aqemu.exe
 
 This zip includes:
-  - AQEMU 1.4.1 (Qt5 + embedded SPICE)
+  - AQEMU 1.4.2 (Qt5 + embedded SPICE)
   - QEMU 11.0.2 (full softmmu set + qemu-img)
   - UEFI/BIOS firmware under share/
   - OpenPartitionDxe.efi (Intel macOS OpenCore prep)

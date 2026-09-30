@@ -102,6 +102,9 @@
 #include "VNC_Password_Window.h"
 #include "Copy_VM_Window.h"
 #include "Advanced_Settings_Window.h"
+#include "Audio_Settings_Window.h"
+#include "Audio_Host.h"
+#include <QMap>
 #include "WSL_Wizard_Window.h"
 #include "First_Start_Wizard.h"
 #include "Emulator_Control_Window.h"
@@ -115,6 +118,8 @@
 #include "QEMU_Probe_Catalog.h"
 #include "Blockdev_Graph_Window.h"
 #include "Appliance_Import_Window.h"
+#include "Storage_Recovery_Window.h"
+#include "Storage_Guest_Tab.h"
 #include "Appliance_Export_Window.h"
 #include "Service.h"
 #include "No_Boot_Device.h"
@@ -178,8 +183,10 @@ Main_Window::Main_Window( QWidget *parent )
 	VM_Ui_Refresh_Timer->setInterval( 60 );
 	connect( VM_Ui_Refresh_Timer, &QTimer::timeout, this, [this]() { Update_VM_Ui(); } );
 
-    ui.setupUi( this );
+	ui.setupUi( this );
 	ui_ao.setupUi( Advanced_Options );
+	Storage_Tab = new Storage_Guest_Tab( ui.Tabs );
+	ui.Tabs->addTab( Storage_Tab, tr( "Storage" ) );
 	Build_Apple_SoC_Inferno_Ui();
 
 	// Make the options body inside Advanced Options scrollable while keeping OK/Cancel fixed at the bottom
@@ -277,6 +284,79 @@ Main_Window::Main_Window( QWidget *parent )
 		connect( actDev, &QAction::triggered, this, &Main_Window::slot_Apple_SoC_Device_Tools_triggered );
 		ui.menuFile->insertAction( ui.actionCreate_HDD_Image, actDev );
 		ui.menuVM->insertAction( ui.actionManage_Snapshots, actDev );
+	}
+	{
+		QAction *actRecovery = new QAction( QIcon( ":/hdd.png" ),
+			tr( "Storage &Recovery…" ), this );
+		actRecovery->setStatusTip( tr( "Read disk labels and build a read-only recovery VM" ) );
+		connect( actRecovery, &QAction::triggered, this, [this]() {
+			VM_Wizard_Window *wizard = new VM_Wizard_Window( this );
+			wizard->Set_VM_List( &VM_List );
+			wizard->Select_Storage_Recovery();
+			if( wizard->exec() == QDialog::Accepted )
+				Add_VM_To_List( wizard->New_VM );
+			wizard->deleteLater();
+		} );
+		ui.menuFile->insertAction( ui.actionCreate_HDD_Image, actRecovery );
+	}
+	{
+		QAction *actAudio = new QAction( tr( "&Audio…" ), this );
+		actAudio->setStatusTip( tr( "Host audio method, speakers, microphone, and buffer settings" ) );
+		connect( actAudio, &QAction::triggered, this, [this]() {
+			Audio_Settings_Window dlg( true, this );
+			QString bin;
+			if( Virtual_Machine *vm = Get_Current_VM() )
+				bin = vm->Get_Current_Emulator_Binary_Path( vm->Get_Computer_Type() );
+			dlg.Set_VM( true, QString(), -1, -1, -1, bin );
+			dlg.exec();
+		} );
+		ui.menuFile->insertAction( ui.actionShow_Advanced_Settings_Window, actAudio );
+		QAction *actVmAudio = new QAction( tr( "&Audio…" ), this );
+		actVmAudio->setStatusTip( tr( "Audio override for the selected virtual machine" ) );
+		connect( actVmAudio, &QAction::triggered, this, [this]() {
+			Virtual_Machine *vm = Get_Current_VM();
+			if( vm == NULL )
+			{
+				AQGraphic_Warning( tr( "Audio" ), tr( "Select a virtual machine first." ) );
+				return;
+			}
+			Audio_Settings_Window dlg( false, this );
+			dlg.Set_VM( vm->Get_Audio_Use_Host_Defaults(), vm->Get_Audio_Options(),
+				vm->Get_VirtIO_Sound_Jacks(), vm->Get_VirtIO_Sound_Streams(),
+				vm->Get_VirtIO_Sound_Chmaps(),
+				vm->Get_Current_Emulator_Binary_Path( vm->Get_Computer_Type() ) );
+			if( dlg.exec() != QDialog::Accepted )
+				return;
+			vm->Set_Audio_Use_Host_Defaults( dlg.Use_Host_Defaults() );
+			if( ! dlg.Use_Host_Defaults() )
+			{
+				vm->Set_Audio_Options( dlg.Options_Blob() );
+				const QMap<QString, QString> opt = AQ_Audio_Options_From_String( dlg.Options_Blob() );
+				vm->Set_Audiodev_Backend( opt.value( QStringLiteral( "backend" ) ) );
+			}
+			else
+				vm->Set_Audiodev_Backend( QString() );
+			vm->Set_VirtIO_Sound_Jacks( dlg.VirtIO_Jacks() );
+			vm->Set_VirtIO_Sound_Streams( dlg.VirtIO_Streams() );
+			vm->Set_VirtIO_Sound_Chmaps( dlg.VirtIO_Chmaps() );
+			vm->Save_VM();
+		} );
+		ui.menuVM->addAction( actVmAudio );
+	}
+	{
+		QAction *actCheckpoint = new QAction( tr( "Recovery &Checkpoint…" ), this );
+		actCheckpoint->setStatusTip( tr( "Enable, discard, or keep a recovery checkpoint for this VM" ) );
+		connect( actCheckpoint, &QAction::triggered, this, [this]() {
+			Virtual_Machine *vm = Get_Current_VM();
+			if( vm == NULL )
+			{
+				AQGraphic_Warning( tr( "Recovery Checkpoint" ), tr( "Select a virtual machine first." ) );
+				return;
+			}
+			Recovery_Checkpoint_Window dlg( vm, this );
+			dlg.exec();
+		} );
+		ui.menuVM->insertAction( ui.actionManage_Snapshots, actCheckpoint );
 	}
 	if( ui.actionCopy )
 		ui.actionCopy->setText( tr( "Clone &VM…" ) );
@@ -1820,6 +1900,21 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
 		const int ai = ui.CB_Audiodev_Backend->currentIndex();
 		tmp_vm->Set_Audiodev_Backend( ai <= 0 ? QString() : ui.CB_Audiodev_Backend->currentText() );
 		tmp_vm->Set_Audiodev_Timer_Period( ui.SB_Audiodev_Timer_Period->value() );
+		if( ai <= 0 )
+			tmp_vm->Set_Audio_Use_Host_Defaults( true );
+		else
+		{
+			tmp_vm->Set_Audio_Use_Host_Defaults( false );
+			QMap<QString, QString> opt = AQ_Audio_Options_From_String( tmp_vm->Get_Audio_Options() );
+			opt.insert( QStringLiteral( "backend" ), ui.CB_Audiodev_Backend->currentText() );
+			if( ui.SB_Audiodev_Timer_Period->value() > 0 )
+				opt.insert( QStringLiteral( "timer-period" ),
+					QString::number( ui.SB_Audiodev_Timer_Period->value() ) );
+			tmp_vm->Set_Audio_Options( AQ_Audio_Options_To_String( opt ) );
+		}
+		const int codec = ui.CB_HDA_Codec->currentIndex();
+		tmp_vm->Set_HDA_Codec( codec == 1 ? QStringLiteral( "duplex" ) :
+			codec == 2 ? QStringLiteral( "micro" ) : QStringLiteral( "output" ) );
 	}
 
 	// Memory
@@ -2792,10 +2887,17 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 		if( ! ab.isEmpty() )
 		{
 			ai = ui.CB_Audiodev_Backend->findText( ab );
-			if( ai < 0 ) ai = 0;
+			if( ai < 0 )
+			{
+				ui.CB_Audiodev_Backend->addItem( ab );
+				ai = ui.CB_Audiodev_Backend->count() - 1;
+			}
 		}
 		ui.CB_Audiodev_Backend->setCurrentIndex( ai );
 		ui.SB_Audiodev_Timer_Period->setValue( tmp_vm->Get_Audiodev_Timer_Period() );
+		const QString codec = tmp_vm->Get_HDA_Codec().trimmed().toLower();
+		ui.CB_HDA_Codec->setCurrentIndex( codec == QLatin1String( "duplex" ) || codec == QLatin1String( "hda-duplex" ) ? 1 :
+			codec == QLatin1String( "micro" ) || codec == QLatin1String( "hda-micro" ) ? 2 : 0 );
 	}
 
 	// Disk bus (HDA)
@@ -3227,6 +3329,9 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 	// For VM Changes Signals
 	ui.Button_Apply->setEnabled( false );
 	ui.Button_Cancel->setEnabled( false );
+
+	if( Storage_Tab )
+		Storage_Tab->Show_VM( tmp_vm->Get_UID() );
 
 	setUpdatesEnabled( true );
 }
@@ -5160,6 +5265,9 @@ void Main_Window::on_actionShow_New_VM_Wizard_triggered()
 	{
 		Virtual_Machine *vm = Wizard_Win->New_VM;
 		Add_VM_To_List( vm );
+		for( int i = 0; i < Wizard_Win->Extra_Created_VMs.size(); ++i )
+			Add_VM_To_List( Wizard_Win->Extra_Created_VMs[i] );
+		Wizard_Win->Extra_Created_VMs.clear();
 	}
 
 	Wizard_Win->deleteLater();

@@ -55,6 +55,7 @@ class QCheckBox;
 class QComboBox;
 class QLabel;
 class QSpinBox;
+class Storage_Guest_Tab;
 
 class Main_Window: public QMainWindow
 {
@@ -381,7 +382,8 @@ class Main_Window: public QMainWindow
 		Network_Widget *New_Network_Settings_Widget;
 		Old_Network_Widget *Old_Network_Settings_Widget;
 		
-        SPICE_Settings_Widget* SPICE_Widget;
+		SPICE_Settings_Widget* SPICE_Widget;
+		Storage_Guest_Tab *Storage_Tab = nullptr;
 
 		QStackedWidget *Main_Stack;
 		VM_Session_Widget *Session_Widget;
