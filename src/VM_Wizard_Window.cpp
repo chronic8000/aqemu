@@ -48,6 +48,7 @@
 #include <QComboBox>
 #include <QSpinBox>
 #include <QProcess>
+#include <QStandardPaths>
 #include <QSet>
 #include <QCoreApplication>
 #include <QApplication>
@@ -4675,9 +4676,15 @@ void VM_Wizard_Window::Build_Windows11_ARM_Page()
 	virtioLay->addWidget( Edit_Win11_VirtIO_ISO );
 	virtioLay->addWidget( TB_Win11_VirtIO_ISO_Browse );
 	isoLay->addLayout( virtioLay );
-	CH_Win11_TPM = new QCheckBox( tr( "TPM 2.0 emulator (existing swtpm socket)" ) );
-	CH_Win11_TPM->setChecked( true );
-	CH_Win11_Secure_Boot = new QCheckBox( tr( "Secure Boot: private OVMF VARS for this VM" ) );
+	CH_Win11_TPM = new QCheckBox( tr( "TPM 2.0 (start swtpm with this VM)" ) );
+	{
+		const bool have_swtpm = ! QStandardPaths::findExecutable( QStringLiteral( "swtpm" ) ).isEmpty();
+		CH_Win11_TPM->setChecked( have_swtpm );
+		CH_Win11_TPM->setEnabled( have_swtpm );
+		if( ! have_swtpm )
+			CH_Win11_TPM->setToolTip( tr( "Install swtpm to enable TPM. The VM still boots without it." ) );
+	}
+	CH_Win11_Secure_Boot = new QCheckBox( tr( "Secure Boot firmware, when a secboot image is installed" ) );
 	CH_Win11_Secure_Boot->setChecked( true );
 	isoLay->addWidget( CH_Win11_TPM );
 	isoLay->addWidget( CH_Win11_Secure_Boot );
@@ -6720,16 +6727,29 @@ void VM_Wizard_Window::Apply_Windows11_ARM_Profile( bool simulate )
 	QString code = Find_UEFI_Firmware_CODE( qemu_bin );
 	QString vars_dest = vm_dir + vm_base + "_VARS.fd";
 	
-	const bool secure_boot = ! CH_Win11_Secure_Boot || CH_Win11_Secure_Boot->isChecked();
+	const bool secure_boot = CH_Win11_Secure_Boot && CH_Win11_Secure_Boot->isChecked();
 	New_VM->Use_UEFI( true );
+	if( secure_boot && ! code.isEmpty() )
+	{
+		const QFileInfo code_info( code );
+		const QStringList secboot = QStringList()
+			<< code_info.dir().filePath( QStringLiteral( "OVMF_CODE.secboot.fd" ) )
+			<< code_info.dir().filePath( QStringLiteral( "AAVMF_CODE.secboot.fd" ) )
+			<< code_info.dir().filePath( code_info.completeBaseName() + QStringLiteral( ".secboot.fd" ) );
+		for( int i = 0; i < secboot.count(); ++i )
+		{
+			if( QFileInfo( secboot.at( i ) ).exists() )
+			{
+				code = secboot.at( i );
+				break;
+			}
+		}
+	}
 	if( ! code.isEmpty() )
 		New_VM->Set_UEFI_CODE_File( code );
-	if( secure_boot )
-	{
-		New_VM->Set_UEFI_VARS_File( vars_dest );
-		if( ! simulate )
-			Prepare_UEFI_VARS_File( vars_dest, qemu_bin );
-	}
+	New_VM->Set_UEFI_VARS_File( vars_dest );
+	if( ! simulate )
+		Prepare_UEFI_VARS_File( vars_dest, qemu_bin );
 	if( CH_Win11_TPM && CH_Win11_TPM->isChecked() )
 	{
 		New_VM->Set_TPM_Type( QStringLiteral( "emulator" ) );

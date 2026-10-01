@@ -10837,9 +10837,11 @@ QStringList Virtual_Machine::Build_Shared_Folder_Args( VM_Shared_Folder folder, 
 	}
     args << QStringLiteral( "-chardev" )
          << ( QStringLiteral( "socket,id=virtiofs" ) + QString::number( id ) + QStringLiteral( ",path=" ) + sock );
-    args << QStringLiteral( "-device" )
-         << ( QStringLiteral( "vhost-user-fs-pci,chardev=virtiofs" ) + QString::number( id )
-              + QStringLiteral( ",tag=" ) + tag );
+    QString fsdev = QStringLiteral( "vhost-user-fs-pci,chardev=virtiofs" ) + QString::number( id )
+                    + QStringLiteral( ",tag=" ) + tag;
+    if( folder.Get_Read_Only() )
+        fsdev += QStringLiteral( ",readonly=on" );
+    args << QStringLiteral( "-device" ) << fsdev;
     return args;
 }
 

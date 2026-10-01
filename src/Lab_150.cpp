@@ -217,7 +217,7 @@ void AQ_Lab_Append_Args( QStringList &args, Virtual_Machine *vm )
 	{
 		const QString port = opt.value( QStringLiteral( "gdb_port" ), QStringLiteral( "1234" ) );
 		if( ! Args_Have( args, QStringLiteral( "-gdb" ) ) )
-			args << QStringLiteral( "-gdb" ) << ( QStringLiteral( "tcp::" ) + port );
+			args << QStringLiteral( "-gdb" ) << ( QStringLiteral( "tcp:127.0.0.1:" ) + port );
 		if( opt.value( QStringLiteral( "gdb_wait" ) ) == QLatin1String( "on" ) && ! Args_Have( args, QStringLiteral( "-S" ) ) )
 			args << QStringLiteral( "-S" );
 	}
@@ -556,9 +556,32 @@ bool AQ_Lab_Prepare_Start( Virtual_Machine *vm )
 		const QString sock = QDir( AQEMU_User_Data_Dir() ).filePath(
 			QStringLiteral( "virtiofs-" ) + QString::number( i ) + QStringLiteral( ".sock" ) );
 		QFile::remove( sock );
-		Start_Companion( vm, vfd, QStringList()
-			<< QStringLiteral( "--socket-path" ) << sock
-			<< QStringLiteral( "--shared-dir" ) << shares.at( i ).Get_Folder() );
+		QStringList vargs;
+		vargs << QStringLiteral( "--socket-path" ) << sock
+		      << QStringLiteral( "--shared-dir" ) << shares.at( i ).Get_Folder();
+		if( shares.at( i ).Get_Read_Only() )
+			vargs << QStringLiteral( "--readonly" );
+		Start_Companion( vm, vfd, vargs );
+	}
+
+	if( vm->Get_TPM_Type().trimmed().compare( QLatin1String( "emulator" ), Qt::CaseInsensitive ) == 0 )
+	{
+		QString tpm_sock = vm->Get_TPM_Path().trimmed();
+		if( tpm_sock.isEmpty() )
+			tpm_sock = QStringLiteral( "/tmp/aqemu-swtpm.sock" );
+		const QString swtpm = QStandardPaths::findExecutable( QStringLiteral( "swtpm" ) );
+		if( ! swtpm.isEmpty() && ! QFileInfo( tpm_sock ).exists() )
+		{
+			const QFileInfo sock_info( tpm_sock );
+			const QString state = sock_info.absolutePath() + QLatin1Char( '/' )
+				+ sock_info.completeBaseName() + QStringLiteral( "-state" );
+			QDir().mkpath( state );
+			Start_Companion( vm, swtpm, QStringList()
+				<< QStringLiteral( "socket" )
+				<< QStringLiteral( "--tpm2" )
+				<< QStringLiteral( "--ctrl" ) << ( QStringLiteral( "type=unixio,path=" ) + tpm_sock )
+				<< QStringLiteral( "--tpmstate" ) << ( QStringLiteral( "dir=" ) + state ) );
+		}
 	}
 
 	const QString vsock_helper = opt.value( QStringLiteral( "vsock_helper" ) );
@@ -914,7 +937,7 @@ void AQ_Lab_Open_VM_Window( Virtual_Machine *vm, const QList<Virtual_Machine*> &
 		extra.Set_Network_Type( VM::Net_Mode_Native_Socket );
 		extra.Set_Card_Model( QStringLiteral( "virtio-net-pci" ) );
 		extra.Use_Listen( true );
-		extra.Set_Listen( QStringLiteral( ":1234" ) );
+		extra.Set_Listen( QStringLiteral( "127.0.0.1:1234" ) );
 		cards << extra;
 		vm->Set_Network_Cards_Nativ( cards );
 	} );
@@ -991,7 +1014,7 @@ void AQ_Lab_Open_VM_Window( Virtual_Machine *vm, const QList<Virtual_Machine*> &
 	gdb_wait->setChecked( opt.value( QStringLiteral( "gdb_wait" ) ) == QLatin1String( "on" ) );
 	QPushButton *copy_gdb = new QPushButton( QObject::tr( "Copy target remote" ), dbg );
 	QObject::connect( copy_gdb, &QPushButton::clicked, &dlg, [gdb_port]() {
-		QGuiApplication::clipboard()->setText( QStringLiteral( "target remote :" ) + QString::number( gdb_port->value() ) );
+		QGuiApplication::clipboard()->setText( QStringLiteral( "target remote 127.0.0.1:" ) + QString::number( gdb_port->value() ) );
 	} );
 	dbg_form->addRow( gdb );
 	dbg_form->addRow( QObject::tr( "Port" ), gdb_port );
@@ -1952,10 +1975,24 @@ void AQ_Lab_NBD( QWidget *parent, Virtual_Machine *vm )
 		vm ? vm->Get_HDA().Get_File_Name() : QString() );
 	if( disk.isEmpty() )
 		return;
-	QProcess *proc = new QProcess( parent );
-	proc->start( QStringLiteral( "qemu-nbd" ), QStringList() << QStringLiteral( "--read-only" ) << QStringLiteral( "-p" ) << QStringLiteral( "10809" ) << disk );
-	QMessageBox::information( parent, QObject::tr( "qemu-nbd" ),
-		QObject::tr( "Read-only export requested on port 10809. Stop the qemu-nbd process when you are finished." ) );
+	QDialog dlg( parent );
+	dlg.setWindowTitle( QObject::tr( "qemu-nbd" ) );
+	QVBoxLayout *lay = new QVBoxLayout( &dlg );
+	lay->addWidget( new QLabel( QObject::tr( "Read-only export on 127.0.0.1:10809. Close this window to stop it." ), &dlg ) );
+	QProcess proc( &dlg );
+	proc.start( QStringLiteral( "qemu-nbd" ), QStringList()
+		<< QStringLiteral( "--read-only" )
+		<< QStringLiteral( "-b" ) << QStringLiteral( "127.0.0.1" )
+		<< QStringLiteral( "-p" ) << QStringLiteral( "10809" )
+		<< disk );
+	QObject::connect( &dlg, &QDialog::finished, &dlg, [&proc]() {
+		if( proc.state() == QProcess::NotRunning )
+			return;
+		proc.terminate();
+		if( ! proc.waitForFinished( 2000 ) )
+			proc.kill();
+	} );
+	dlg.exec();
 }
 
 void AQ_Lab_Pack( QWidget *parent, Virtual_Machine *vm, bool do_import )

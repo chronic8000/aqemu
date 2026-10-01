@@ -1029,6 +1029,8 @@ void Network_Widget::on_CB_Network_Type_currentIndexChanged( int index )
 	
 	ui.CH_hostfwd->setVisible( false );
 	ui.Edit_hostfwd->setVisible( false );
+	if( Hostfwd_Table && Hostfwd_Table->parentWidget() )
+		Hostfwd_Table->parentWidget()->setVisible( false );
 	
 	ui.CH_guestfwd->setVisible( false );
 	ui.Edit_guestfwd->setVisible( false );
@@ -1105,7 +1107,9 @@ void Network_Widget::on_CB_Network_Type_currentIndexChanged( int index )
 		ui.TB_Browse_bootfile->setVisible( true );
 		
 		ui.CH_hostfwd->setVisible( true );
-		ui.Edit_hostfwd->setVisible( true );
+		ui.Edit_hostfwd->setVisible( false );
+		if( Hostfwd_Table && Hostfwd_Table->parentWidget() )
+			Hostfwd_Table->parentWidget()->setVisible( true );
 		
 		ui.CH_guestfwd->setVisible( true );
 		ui.Edit_guestfwd->setVisible( true );
