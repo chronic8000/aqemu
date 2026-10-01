@@ -56,7 +56,7 @@ index f976112087..d8426d00a8 100644
  
      if (!s->FIELD2) {
 diff --git a/audio/dsoundaudio.c b/audio/dsoundaudio.c
-index 338ee49c2f..e41e2c8463 100644
+index 338ee49c2f..9d76409d66 100644
 --- a/audio/dsoundaudio.c
 +++ b/audio/dsoundaudio.c
 @@ -604,7 +604,20 @@ audio_dsound_realize(AudioBackend *abe, Audiodev *dev, Error **errp)
@@ -66,7 +66,7 @@ index 338ee49c2f..e41e2c8463 100644
 -    hr = IDirectSound_Initialize (s->dsound, NULL);
 +    GUID out_guid;
 +    LPGUID out_dev = NULL;
-+    if (dso->out && dso->out->has_dev && dso->out->dev && dso->out->dev[0] &&
++    if (dso->out && dso->out->dev && dso->out->dev[0] &&
 +        strcmp(dso->out->dev, "default") != 0) {
 +        wchar_t wguid[64];
 +        size_t n = mbstowcs(wguid, dso->out->dev, 63);
@@ -88,7 +88,7 @@ index 338ee49c2f..e41e2c8463 100644
 -    hr = IDirectSoundCapture_Initialize (s->dsound_capture, NULL);
 +    GUID in_guid;
 +    LPGUID in_dev = NULL;
-+    if (dso->in && dso->in->has_dev && dso->in->dev && dso->in->dev[0] &&
++    if (dso->in && dso->in->dev && dso->in->dev[0] &&
 +        strcmp(dso->in->dev, "default") != 0) {
 +        wchar_t wguid[64];
 +        size_t n = mbstowcs(wguid, dso->in->dev, 63);
@@ -104,7 +104,7 @@ index 338ee49c2f..e41e2c8463 100644
          dserror_set(errp, hr, "Could not initialize DirectSoundCapture");
          return false;
 diff --git a/audio/sdlaudio.c b/audio/sdlaudio.c
-index bd6a46e2af..d062473cbb 100644
+index bd6a46e2af..41e8d44a5b 100644
 --- a/audio/sdlaudio.c
 +++ b/audio/sdlaudio.c
 @@ -158,7 +158,7 @@ static int sdl_to_audfmt(int sdlfmt, AudioFormat *fmt, bool *big_endian)
@@ -121,7 +121,7 @@ index bd6a46e2af..d062473cbb 100644
  #endif
  
 -    devid = SDL_OpenAudioDevice(NULL, rec, req, obt, 0);
-+    if (devname && devname[0] && strcmp(devname, "default") == 0)
++    if (devname && (!devname[0] || strcmp(devname, "default") == 0))
 +        devname = NULL;
 +    devid = SDL_OpenAudioDevice(devname, rec, req, obt, 0);
      if (!devid) {
@@ -132,7 +132,7 @@ index bd6a46e2af..d062473cbb 100644
  
      sdl->dev = dev;
 -    sdl->devid = sdl_open(&req, &obt, 0);
-+    sdl->devid = sdl_open(&req, &obt, 0, (spdo && spdo->has_dev) ? spdo->dev : NULL);
++    sdl->devid = sdl_open(&req, &obt, 0, spdo ? spdo->dev : NULL);
      if (!sdl->devid) {
          return -1;
      }
@@ -141,7 +141,7 @@ index bd6a46e2af..d062473cbb 100644
  
      sdl->dev = dev;
 -    sdl->devid = sdl_open(&req, &obt, 1);
-+    sdl->devid = sdl_open(&req, &obt, 1, (spdo && spdo->has_dev) ? spdo->dev : NULL);
++    sdl->devid = sdl_open(&req, &obt, 1, spdo ? spdo->dev : NULL);
      if (!sdl->devid) {
          return -1;
      }
