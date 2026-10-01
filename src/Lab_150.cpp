@@ -570,8 +570,9 @@ bool AQ_Lab_Prepare_Start( Virtual_Machine *vm )
 		if( tpm_sock.isEmpty() )
 			tpm_sock = QStringLiteral( "/tmp/aqemu-swtpm.sock" );
 		const QString swtpm = QStandardPaths::findExecutable( QStringLiteral( "swtpm" ) );
-		if( ! swtpm.isEmpty() && ! QFileInfo( tpm_sock ).exists() )
+		if( ! swtpm.isEmpty() )
 		{
+			QFile::remove( tpm_sock );
 			const QFileInfo sock_info( tpm_sock );
 			const QString state = sock_info.absolutePath() + QLatin1Char( '/' )
 				+ sock_info.completeBaseName() + QStringLiteral( "-state" );

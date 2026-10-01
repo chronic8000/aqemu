@@ -45,13 +45,13 @@ LUKS passphrases stay out of the VM file. Windows keeps them in Credential Manag
 - fw_cfg is a name, kind, and file-or-string table. Values with more than one line round-trip.
 - Sandbox presets are Off, Recommended, and Paranoid. On Windows the panel says sandbox is Linux-only.
 - Direct boot fields for kernel, initrd, append, and dtb. `aarch64=off` is available for 32-bit ARM guests on `qemu-system-aarch64`.
-- The firmware library clones a private OVMF VARS file per VM. Windows 11 ARM always gets that private VARS file. Secure Boot selects a secboot firmware image when one is installed beside the CODE file. If `swtpm` is installed, the TPM checkbox starts `swtpm socket` with the VM and stops it if start fails. qemu-nbd exports read-only on `127.0.0.1:10809` and stops when its window closes. The isolated socket NIC listens on `127.0.0.1:1234`.
+- The firmware library clones a private OVMF VARS file per VM. Windows 11 ARM always gets that private VARS file. Secure Boot selects a secboot firmware image when one is installed beside the CODE file. If `swtpm` is installed, the TPM checkbox starts `swtpm socket` with the VM. A leftover control socket is removed first, so the next start launches swtpm again. The helper stops if start fails. qemu-nbd exports read-only on `127.0.0.1:10809` and stops when its window closes. The isolated socket NIC listens on `127.0.0.1:1234`.
 
 **Help → Support bundle** writes a zip with the version, redacted settings, the QEMU command, and `qemu-boot.log`. Arguments that contain OSK, IPSW, secret, token, or password text are replaced with `[redacted]`.
 
 ## Devices, display, and shares
 
-Shared folders stay on the existing `-virtfs` path and add mount tag, security model, and read-only. On Linux, virtiofs is used when `virtiofsd` is installed. A read-only share passes `--readonly` to virtiofsd and `readonly=on` to `vhost-user-fs-pci`. That path adds a shared-memory backend (`share=on`). If the VM already uses NUMA, those NUMA nodes become `memory-backend-memfd` with `share=on` instead of a second memory topology. Windows hosts stay on 9p and say so.
+Shared folders stay on the existing `-virtfs` path and add mount tag, security model, and read-only. On Linux, virtiofs is used when `virtiofsd` is installed. A read-only share passes `--readonly` to virtiofsd. QEMU 11's `vhost-user-fs-pci` has no readonly property, so the device line stays unchanged. That path adds a shared-memory backend (`share=on`). If the VM already uses NUMA, those NUMA nodes become `memory-backend-memfd` with `share=on` instead of a second memory topology. Windows hosts stay on 9p and say so.
 
 VirGL on Linux rewrites `virtio-vga` to `virtio-vga-gl` and `virtio-gpu-pci` to `virtio-gpu-gl-pci`. Windows does not offer VirGL. Multi-head is a virtio-gpu / QXL head count. `virtio-ramfb` is offered only when the selected QEMU lists it.
 
