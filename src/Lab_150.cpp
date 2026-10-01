@@ -67,7 +67,6 @@
 #  endif
 #  include <windows.h>
 #  include <wincred.h>
-#  include <aclapi.h>
 #endif
 
 static QHash<const Virtual_Machine*, QList<QProcess*> > g_companions;
@@ -789,21 +788,21 @@ static void Lock_Secret_File( const QString &path )
 	}
 	CloseHandle( token );
 	TOKEN_USER *user = reinterpret_cast<TOKEN_USER *>( buf.data() );
-	EXPLICIT_ACCESS_W access;
-	memset( &access, 0, sizeof( access ) );
-	access.grfAccessPermissions = GENERIC_READ | GENERIC_WRITE;
-	access.grfAccessMode = SET_ACCESS;
-	access.grfInheritance = NO_INHERITANCE;
-	access.Trustee.TrusteeForm = TRUSTEE_IS_SID;
-	access.Trustee.TrusteeType = TRUSTEE_IS_USER;
-	access.Trustee.ptstrName = (LPWSTR)user->User.Sid;
-	PACL acl = 0;
-	if( SetEntriesInAclW( 1, &access, 0, &acl ) != ERROR_SUCCESS )
+	const DWORD sid_len = GetLengthSid( user->User.Sid );
+	const DWORD acl_size = sizeof( ACL ) + sizeof( ACCESS_ALLOWED_ACE ) + sid_len - sizeof( DWORD );
+	QByteArray acl_buf( int( acl_size ), 0 );
+	PACL acl = reinterpret_cast<PACL>( acl_buf.data() );
+	if( ! InitializeAcl( acl, acl_size, ACL_REVISION ) )
 		return;
-	SetNamedSecurityInfoW( (LPWSTR)path.utf16(), SE_FILE_OBJECT,
-		DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION,
-		0, 0, acl, 0 );
-	LocalFree( acl );
+	if( ! AddAccessAllowedAce( acl, ACL_REVISION, GENERIC_READ | GENERIC_WRITE, user->User.Sid ) )
+		return;
+	SECURITY_DESCRIPTOR sd;
+	if( ! InitializeSecurityDescriptor( &sd, SECURITY_DESCRIPTOR_REVISION ) )
+		return;
+	if( ! SetSecurityDescriptorDacl( &sd, TRUE, acl, FALSE ) )
+		return;
+	SetSecurityDescriptorControl( &sd, SE_DACL_PROTECTED, SE_DACL_PROTECTED );
+	SetFileSecurityW( (LPCWSTR)path.utf16(), DACL_SECURITY_INFORMATION, &sd );
 }
 #endif
 
