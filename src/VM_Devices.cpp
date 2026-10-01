@@ -2175,24 +2175,38 @@ VM_Shared_Folder::VM_Shared_Folder()
 {
 	Enabled = false;
 	Folder = "";
+	Security_Model = QStringLiteral( "none" );
+	Read_Only = false;
+	Share_Kind = QStringLiteral( "9p" );
 }
 
 VM_Shared_Folder::VM_Shared_Folder( const VM_Shared_Folder &device )
 {
 	Enabled = device.Get_Enabled();
 	Folder = device.Get_Folder();
+	Security_Model = device.Get_Security_Model();
+	Mount_Tag = device.Get_Mount_Tag();
+	Read_Only = device.Get_Read_Only();
+	Share_Kind = device.Get_Share_Kind();
 }
 
 VM_Shared_Folder::VM_Shared_Folder( bool enabled, const QString &folder )
 {
 	Enabled = enabled;
 	Folder = folder;
+	Security_Model = QStringLiteral( "none" );
+	Read_Only = false;
+	Share_Kind = QStringLiteral( "9p" );
 }
 
 bool VM_Shared_Folder::operator==( const VM_Shared_Folder &folder ) const
 {
 	if( Enabled == folder.Get_Enabled() &&
-		Folder == folder.Get_Folder() )
+		Folder == folder.Get_Folder() &&
+		Security_Model == folder.Get_Security_Model() &&
+		Mount_Tag == folder.Get_Mount_Tag() &&
+		Read_Only == folder.Get_Read_Only() &&
+		Share_Kind == folder.Get_Share_Kind() )
 	{
 		return true;
 	}
@@ -2222,6 +2236,46 @@ const QString &VM_Shared_Folder::Get_Folder() const
 void VM_Shared_Folder::Set_Folder( const QString &folder )
 {
 	Folder = folder;
+}
+
+const QString &VM_Shared_Folder::Get_Security_Model() const
+{
+	return Security_Model;
+}
+
+void VM_Shared_Folder::Set_Security_Model( const QString &model )
+{
+	Security_Model = model.isEmpty() ? QStringLiteral( "none" ) : model;
+}
+
+const QString &VM_Shared_Folder::Get_Mount_Tag() const
+{
+	return Mount_Tag;
+}
+
+void VM_Shared_Folder::Set_Mount_Tag( const QString &tag )
+{
+	Mount_Tag = tag;
+}
+
+bool VM_Shared_Folder::Get_Read_Only() const
+{
+	return Read_Only;
+}
+
+void VM_Shared_Folder::Set_Read_Only( bool read_only )
+{
+	Read_Only = read_only;
+}
+
+const QString &VM_Shared_Folder::Get_Share_Kind() const
+{
+	return Share_Kind;
+}
+
+void VM_Shared_Folder::Set_Share_Kind( const QString &kind )
+{
+	Share_Kind = kind.isEmpty() ? QStringLiteral( "9p" ) : kind;
 }
 
 //===========================================================================

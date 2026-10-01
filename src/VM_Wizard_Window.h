@@ -55,6 +55,7 @@ class VM_Wizard_Window: public QDialog
 		VM_Wizard_Window( QWidget *parent = 0 );
 		void Set_VM_List( QList<Virtual_Machine*> *list );
 		void Select_Storage_Recovery();
+		void Select_Guest_OS( const QString &name );
 		
 		Virtual_Machine *New_VM;
 		QList<Virtual_Machine*> Extra_Created_VMs;

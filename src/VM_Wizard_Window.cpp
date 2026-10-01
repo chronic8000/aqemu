@@ -56,6 +56,7 @@
 #include <QStandardItemModel>
 
 #include "Utils.h"
+#include "Lab_150.h"
 #include "AQ_UI_Style.h"
 #include "Apple_SoC_Support.h"
 #include "Inferno_Companion_Setup.h"
@@ -831,8 +832,16 @@ void VM_Wizard_Window::Populate_OS_Tree()
 			// Keep JSON order (Microsoft is chronological; others are A–Z in the file)
 			for( int i = 0; i < children.size(); ++i )
 			{
+				const QString leaf_name = children.at(i).toString();
+#ifdef Q_OS_WIN
+				if( AQ_Is_Store_Build() &&
+				    ( leaf_name == QLatin1String( "Nitro Enclave" ) ||
+				      leaf_name == QLatin1String( "SEV-SNP Guest" ) ||
+				      leaf_name == QLatin1String( "TDX Guest" ) ) )
+					continue;
+#endif
 				QTreeWidgetItem *leaf = new QTreeWidgetItem( family );
-				leaf->setText( 0, children.at(i).toString() );
+				leaf->setText( 0, leaf_name );
 			}
 		}
 	}
@@ -2715,6 +2724,8 @@ void VM_Wizard_Window::Apply_Guest_Hardware_To_New_VM()
 				New_VM->Set_UEFI_CODE_File( code );
 			New_VM->Set_UEFI_VARS_File( vars_dest );
 		}
+
+		AQ_Lab_Apply_Guest_Profile( New_VM, os );
 
 		// Always set an explicit HDA bus. If left unset, Main_Window's post-wizard
 		// Apply used to default the combo to VirtIO and rewrite the .aqemu file —
@@ -5110,6 +5121,19 @@ void VM_Wizard_Window::Select_Storage_Recovery()
 {
 	if( RB_Method_Recovery )
 		RB_Method_Recovery->setChecked( true );
+}
+
+void VM_Wizard_Window::Select_Guest_OS( const QString &name )
+{
+	if( RB_Method_Guest_OS )
+		RB_Method_Guest_OS->setChecked( true );
+	if( ! Tree_OS )
+		return;
+	const QList<QTreeWidgetItem*> hits = Tree_OS->findItems( name, Qt::MatchExactly | Qt::MatchRecursive );
+	if( hits.isEmpty() )
+		return;
+	Tree_OS->setCurrentItem( hits.first() );
+	hits.first()->setSelected( true );
 }
 
 void VM_Wizard_Window::on_Button_Back_clicked()

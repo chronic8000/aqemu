@@ -3,7 +3,7 @@
 
 aqemu_ver = run_command('cat', files('VERSION.txt'), check : false).stdout().strip()
 if aqemu_ver == ''
-  aqemu_ver = '1.4.2'
+  aqemu_ver = '1.5.0'
 endif
 
 project('aqemu', 'cpp', version : aqemu_ver, default_options : ['cpp_std=c++11', 'warning_level=3'])
@@ -167,6 +167,7 @@ aqemu_sources =    ['src/No_Boot_Device.cpp',
                     'src/Storage_Guest_Tab.cpp',
                     'src/Audio_Host.cpp',
                     'src/Audio_Settings_Window.cpp',
+                    'src/Lab_150.cpp',
                     'src/Guest_Capabilities.cpp',
                     'src/ISO_Guess.cpp',
                     'src/iOS_Firmware_Tool_Window.cpp',

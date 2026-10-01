@@ -577,6 +577,8 @@ class Virtual_Machine: public QObject
 		void Set_HDA_Codec( const QString &codec );
 		const QString &Get_Audio_Options() const;
 		void Set_Audio_Options( const QString &options );
+		const QString &Get_Lab_Options() const;
+		void Set_Lab_Options( const QString &options );
 		int Get_VirtIO_Sound_Jacks() const;
 		void Set_VirtIO_Sound_Jacks( int n );
 		int Get_VirtIO_Sound_Streams() const;
@@ -995,6 +997,7 @@ class Virtual_Machine: public QObject
 		bool Audio_Use_Host_Defaults;
 		QString HDA_Codec;
 		QString Audio_Options;
+		QString Lab_Options;
 		int VirtIO_Sound_Jacks;
 		int VirtIO_Sound_Streams;
 		int VirtIO_Sound_Chmaps;

@@ -1,5 +1,20 @@
 {
   "operating_systems": {
+    "Lab": [
+      "PowerNV",
+      "s390x Debian",
+      "RISC-V virt lab",
+      "LoongArch virt lab",
+      "WoA native Linux",
+      "WoA x86 via TCG",
+      "Original Xbox",
+      "Android (AOSP Emulator)",
+      "macOS (OpenCore)",
+      "Nitro Enclave",
+      "SEV-SNP Guest",
+      "TDX Guest",
+      "Darwin research shell"
+    ],
     "Apple": [
       "Darwin",
       "iOS (ARM64)",
@@ -943,6 +958,84 @@
     }
   },
   "os_profiles": {
+    "PowerNV": {
+      "target": "ppc64",
+      "machine": "powernv",
+      "ram_mb": 2048,
+      "tip": "PowerNV uses the bundled qemu-system-ppc64. Bring your own firmware and disk."
+    },
+    "s390x Debian": {
+      "target": "s390x",
+      "machine": "s390-ccw-virtio",
+      "ram_mb": 1024,
+      "tip": "s390x uses the bundled qemu-system-s390x. Open firmware and kernels only."
+    },
+    "RISC-V virt lab": {
+      "target": "riscv64",
+      "machine": "virt",
+      "ram_mb": 2048,
+      "tip": "RISC-V virt. Open firmware and kernels only."
+    },
+    "LoongArch virt lab": {
+      "target": "loongarch64",
+      "machine": "virt",
+      "ram_mb": 2048,
+      "tip": "LoongArch virt. Open firmware and kernels only."
+    },
+    "WoA native Linux": {
+      "target": "aarch64",
+      "machine": "virt",
+      "ram_mb": 4096,
+      "tip": "Windows on ARM: a native aarch64 guest. This is not WHPX for an x86 guest."
+    },
+    "WoA x86 via TCG": {
+      "target": "x86_64",
+      "machine": "q35",
+      "ram_mb": 2048,
+      "tip": "Windows on ARM runs this x86 guest with TCG. WHPX is not offered."
+    },
+    "Original Xbox": {
+      "target": "i386",
+      "machine": "pc",
+      "ram_mb": 64,
+      "tip": "Bring your own xemu binary, MCPX, flash BIOS, HDD, DVD, and EEPROM. AQEMU does not ship Microsoft ROMs."
+    },
+    "Android (AOSP Emulator)": {
+      "target": "x86_64",
+      "machine": "q35",
+      "ram_mb": 2048,
+      "tip": "Uses an Android SDK already installed on this computer. AQEMU does not vendor Google's emulator."
+    },
+    "macOS (OpenCore)": {
+      "target": "x86_64",
+      "machine": "q35",
+      "ram_mb": 4096,
+      "tip": "OpenCore and Apple media stay on your disk. AQEMU does not include macOS."
+    },
+    "Nitro Enclave": {
+      "target": "x86_64",
+      "machine": "nitro-enclave",
+      "ram_mb": 2048,
+      "tip": "Linux or WSL. Bring your own .eif and vhost-user-vsock helper."
+    },
+    "SEV-SNP Guest": {
+      "target": "x86_64",
+      "machine": "q35",
+      "ram_mb": 4096,
+      "tip": "Shown when this Linux host has SEV. Hidden on Windows Store builds."
+    },
+    "TDX Guest": {
+      "target": "x86_64",
+      "machine": "q35",
+      "ram_mb": 4096,
+      "tip": "Linux host with TDX firmware. Hidden on Windows Store builds."
+    },
+    "Darwin research shell": {
+      "target": "aarch64",
+      "machine": "virt",
+      "ram_mb": 2048,
+      "tip": "Import a firmware directory prepared on a Mac. This is not Inferno and it does not boot SpringBoard."
+    },
     "MS-DOS": {
       "target": "i386",
       "machine": [

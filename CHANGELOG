@@ -1,3 +1,49 @@
+2026-10-01 Chronic Engineering — AQEMU 1.5.0 (QEMU catalog and custom wraps)
+
+	* Stage A, small stock-QEMU niches:
+	  - VM → Lab replaces the raw hostfwd text box with a port table, SSH/RDP/HTTP
+	    presets, and a user-net air-gap next to the existing SMB fields.
+	  - Help → Support bundle writes a redacted settings and command log.
+	  - GDB stub, guest memory dump, disk throttle, cache and aio presets,
+	    floppy/SD/MTD/pflash, RTC, direct boot, aarch64=off, fw_cfg, and
+	    sandbox presets (Linux only on Windows).
+	  - Help → QEMU catalog and bundle auditor, first-run cards, argument
+	    snippets, period video and audio presets, PowerNV and s390x wizard
+	    profiles, and an optional TCG plugin picker.
+	  - File → Convert disk reuses the existing 4Kn control.
+
+	* Stage B, medium studios:
+	  - Accelerator policy shows the effective choice. WHPX is not offered for
+	    a guest this host cannot accelerate. A failed WHPX probe offers Force TCG.
+	  - TPM and Secure Boot stay on the existing swtpm socket and OVMF VARS.
+	  - VM → Manage Snapshots is now the snapshot timeline.
+	  - Command diff, QMP scratchpad, chardev lines, SPICE agent notes,
+	    tablet and keyboard toggles, smartcard when usb-ccid is listed,
+	    migration, dirty bitmaps, qemu-nbd, TAP and bridge, multi-NIC
+	    templates, USB redirect rules, CPU pin, guest agent, lab packs,
+	    linked clones, tagged groups, device_add, LUKS secrets outside the
+	    VM file, block jobs, the WSL dashboard, and WoA presets.
+
+	* Stage C, large stock features:
+	  - Shared folders keep one -virtfs path and add mount tag, security model,
+	    and read-only. virtiofsd is used only when the host has it.
+	  - Chain Studio, retro Force TCG packs, the multi-arch gallery,
+	    record/replay, multi-head, VirGL on Linux, VFIO on Linux, and a
+	    firmware library that clones a private VARS file.
+
+	* Stage D, bring-your-own wraps:
+	  - Quickemu .conf import, an xemu picker (README only, no Microsoft ROMs),
+	    Android SDK detection, OpenCore beside the existing macOS profiles,
+	    Nitro and SEV/TDX on Linux, virtio-ramfb only when that QEMU lists it,
+	    and a Darwin research shell that is not Inferno and does not boot
+	    SpringBoard.
+	  - Unicorn, Qiling, WinAFL, Firecracker, crosvm, Xenia, Dolphin, RPCS3,
+	    Anbox, Waydroid, Limbo, Xen, dead XNU trees, and Corellium stay skipped.
+	    vmapple stays a Mac-host note.
+
+	* 1.4.2 remains the Store build already submitted. Store copy still does
+	  not say AQEMU includes Xbox, Android, or macOS. Issue #42 stays open.
+
 2026-10-01 Chronic Engineering — AQEMU 1.4.2 (Storage Recovery, TrueNAS Lab & Host Audio)
 
 	* Storage recovery:
