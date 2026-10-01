@@ -1,5 +1,7 @@
 2026-10-01 Chronic Engineering — AQEMU 1.5.0 (QEMU catalog and custom wraps)
 
+	* User guide: docs/LAB_1.5.0.md. Documentation index: docs/README.md.
+
 	* Stage A, small stock-QEMU niches:
 	  - VM → Lab replaces the raw hostfwd text box with a port table, SSH/RDP/HTTP
 	    presets, and a user-net air-gap next to the existing SMB fields.
