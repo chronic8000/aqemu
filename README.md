@@ -200,9 +200,9 @@ We keep the original authors’ names. We do **not** inherit their old donation 
 
 ## What’s new vs the old AQEMU (tobimensch / ~0.9.x)
 
-The last widely known community tree — [tobimensch/aqemu](https://github.com/tobimensch/aqemu) — went quiet in 2020 (Qt5 port, embedded VNC, you brought your own QEMU). **AQEMU 1.4.2** is that codebase continued: the same GPLv2 frontend, with the capability model, runtime, wizard, hosts, and distribution pipeline rebuilt on top.
+The last widely known community tree — [tobimensch/aqemu](https://github.com/tobimensch/aqemu) — went quiet in 2020 (Qt5 port, embedded VNC, you brought your own QEMU). **AQEMU 1.5.0** is that codebase continued: the same GPLv2 frontend, with the capability model, runtime, wizard, hosts, and distribution pipeline rebuilt on top. The 1.5.0 QEMU Lab is documented in [`docs/LAB_1.5.0.md`](docs/LAB_1.5.0.md). The rest of the long guides are indexed in [`docs/README.md`](docs/README.md).
 
-| | Tobias Gläßer’s 0.9.x | AQEMU 1.4.2 |
+| | Tobias Gläßer’s 0.9.x | AQEMU 1.5.0 |
 |--|--|--|
 | **Status** | Community tree, quiet since 2020 | Active. [Microsoft Store](https://apps.microsoft.com/detail/9p0hgkhq9w19) listing with automatic updates |
 | **QEMU** | Whatever was installed on the host. Version detection often stuck on old labels | Bundled **QEMU 11.0.2**: 29 `qemu-system-*` targets, `qemu-img`, firmware, plus Inferno and Reims. Custom QEMU folder still works |
@@ -569,6 +569,7 @@ Details: [`third_party/README.md`](third_party/README.md).
 - **Embedded Display Canvas Auto-Stretch** — Seamless full-canvas stretching without letterboxing, maintaining crisp aspect rendering and immediate adaptation to dynamic in-guest resolution changes.
 - **VMware-Style USB Passthrough** — Hotplug host physical USB hardware (printers, flash drives, security dongles) directly into running guests via the session toolbar with modern XHCI 3.0 controller support.
 - **Pi 5** optimizations (`-mcpu=cortex-a76`, 64KB page alignment, Wayland)
+- **QEMU Lab (1.5.0)** — port table, support bundle, snapshot timeline, Chain Studio, virtiofs when the host has it, and bring-your-own wraps. Guide: [`docs/LAB_1.5.0.md`](docs/LAB_1.5.0.md)
 - **Microsoft Store–ready** posture: GPLv2 source public, [privacy policy](PRIVACY.md), no proprietary OS media in the box
 
 ---
@@ -580,9 +581,11 @@ Details: [`third_party/README.md`](third_party/README.md).
 We **never** ship:
 
 - Windows ISOs / product keys  
-- Apple OS / recovery / BaseSystem  
+- Apple OS / recovery / BaseSystem / IPSW  
 - OpenCore images  
 - A default Apple **OSK**
+- Xbox MCPX, BIOS, HDD, DVD, or EEPROM
+- Android system images
 - IBM AIX / Oracle Solaris media
 
 You point at files you obtained lawfully.
@@ -606,8 +609,8 @@ Get the official **AQEMU VM Manager** package on the Microsoft Store:
   </a>
 </p>
 
-The Microsoft Store version includes:
-- **AQEMU 1.4.2** with Apple SoC (Inferno/iOS) and Reims hardware-accelerated macOS via WSL
+This repository builds **AQEMU 1.5.0**. The Store listing already submitted is still the 1.4.2 package until the next upload. A Store install includes:
+- Apple SoC (Inferno/iOS) and the existing Reims path via WSL
 - **Bundled QEMU 11.0.2** binaries (no separate QEMU setup required)
 - **Automatic background updates** via the Microsoft Store
 - Dedicated Windows app installation & single-click launcher

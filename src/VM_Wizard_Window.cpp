@@ -48,6 +48,7 @@
 #include <QComboBox>
 #include <QSpinBox>
 #include <QProcess>
+#include <QStandardPaths>
 #include <QSet>
 #include <QCoreApplication>
 #include <QApplication>
@@ -56,6 +57,7 @@
 #include <QStandardItemModel>
 
 #include "Utils.h"
+#include "Lab_150.h"
 #include "AQ_UI_Style.h"
 #include "Apple_SoC_Support.h"
 #include "Inferno_Companion_Setup.h"
@@ -103,6 +105,8 @@ VM_Wizard_Window::VM_Wizard_Window( QWidget *parent )
 	
 	New_VM = new Virtual_Machine();
 	Win11_ARM_Page = nullptr;
+	CH_Win11_TPM = nullptr;
+	CH_Win11_Secure_Boot = nullptr;
 	Intel_MacOS_Page = nullptr;
 	Inferno_Companion_Page = nullptr;
 	Label_Inferno_Companion_Help = nullptr;
@@ -831,8 +835,16 @@ void VM_Wizard_Window::Populate_OS_Tree()
 			// Keep JSON order (Microsoft is chronological; others are A–Z in the file)
 			for( int i = 0; i < children.size(); ++i )
 			{
+				const QString leaf_name = children.at(i).toString();
+#ifdef Q_OS_WIN
+				if( AQ_Is_Store_Build() &&
+				    ( leaf_name == QLatin1String( "Nitro Enclave" ) ||
+				      leaf_name == QLatin1String( "SEV-SNP Guest" ) ||
+				      leaf_name == QLatin1String( "TDX Guest" ) ) )
+					continue;
+#endif
 				QTreeWidgetItem *leaf = new QTreeWidgetItem( family );
-				leaf->setText( 0, children.at(i).toString() );
+				leaf->setText( 0, leaf_name );
 			}
 		}
 	}
@@ -2715,6 +2727,8 @@ void VM_Wizard_Window::Apply_Guest_Hardware_To_New_VM()
 				New_VM->Set_UEFI_CODE_File( code );
 			New_VM->Set_UEFI_VARS_File( vars_dest );
 		}
+
+		AQ_Lab_Apply_Guest_Profile( New_VM, os );
 
 		// Always set an explicit HDA bus. If left unset, Main_Window's post-wizard
 		// Apply used to default the combo to VirtIO and rewrite the .aqemu file —
@@ -4662,6 +4676,18 @@ void VM_Wizard_Window::Build_Windows11_ARM_Page()
 	virtioLay->addWidget( Edit_Win11_VirtIO_ISO );
 	virtioLay->addWidget( TB_Win11_VirtIO_ISO_Browse );
 	isoLay->addLayout( virtioLay );
+	CH_Win11_TPM = new QCheckBox( tr( "TPM 2.0 (start swtpm with this VM)" ) );
+	{
+		const bool have_swtpm = ! QStandardPaths::findExecutable( QStringLiteral( "swtpm" ) ).isEmpty();
+		CH_Win11_TPM->setChecked( have_swtpm );
+		CH_Win11_TPM->setEnabled( have_swtpm );
+		if( ! have_swtpm )
+			CH_Win11_TPM->setToolTip( tr( "Install swtpm to enable TPM. The VM still boots without it." ) );
+	}
+	CH_Win11_Secure_Boot = new QCheckBox( tr( "Secure Boot firmware, when a secboot image is installed" ) );
+	CH_Win11_Secure_Boot->setChecked( true );
+	isoLay->addWidget( CH_Win11_TPM );
+	isoLay->addWidget( CH_Win11_Secure_Boot );
 	mainLay->addWidget( isoBox );
 	
 	Label_Win11_UEFI_Status = new QLabel();
@@ -5110,6 +5136,25 @@ void VM_Wizard_Window::Select_Storage_Recovery()
 {
 	if( RB_Method_Recovery )
 		RB_Method_Recovery->setChecked( true );
+}
+
+void VM_Wizard_Window::Select_Appliance()
+{
+	if( RB_Method_Appliance )
+		RB_Method_Appliance->setChecked( true );
+}
+
+void VM_Wizard_Window::Select_Guest_OS( const QString &name )
+{
+	if( RB_Method_Guest_OS )
+		RB_Method_Guest_OS->setChecked( true );
+	if( ! Tree_OS )
+		return;
+	const QList<QTreeWidgetItem*> hits = Tree_OS->findItems( name, Qt::MatchExactly | Qt::MatchRecursive );
+	if( hits.isEmpty() )
+		return;
+	Tree_OS->setCurrentItem( hits.first() );
+	hits.first()->setSelected( true );
 }
 
 void VM_Wizard_Window::on_Button_Back_clicked()
@@ -6682,13 +6727,34 @@ void VM_Wizard_Window::Apply_Windows11_ARM_Profile( bool simulate )
 	QString code = Find_UEFI_Firmware_CODE( qemu_bin );
 	QString vars_dest = vm_dir + vm_base + "_VARS.fd";
 	
+	const bool secure_boot = CH_Win11_Secure_Boot && CH_Win11_Secure_Boot->isChecked();
 	New_VM->Use_UEFI( true );
+	if( secure_boot && ! code.isEmpty() )
+	{
+		const QFileInfo code_info( code );
+		const QStringList secboot = QStringList()
+			<< code_info.dir().filePath( QStringLiteral( "OVMF_CODE.secboot.fd" ) )
+			<< code_info.dir().filePath( QStringLiteral( "AAVMF_CODE.secboot.fd" ) )
+			<< code_info.dir().filePath( code_info.completeBaseName() + QStringLiteral( ".secboot.fd" ) );
+		for( int i = 0; i < secboot.count(); ++i )
+		{
+			if( QFileInfo( secboot.at( i ) ).exists() )
+			{
+				code = secboot.at( i );
+				break;
+			}
+		}
+	}
 	if( ! code.isEmpty() )
 		New_VM->Set_UEFI_CODE_File( code );
-	
 	New_VM->Set_UEFI_VARS_File( vars_dest );
 	if( ! simulate )
 		Prepare_UEFI_VARS_File( vars_dest, qemu_bin );
+	if( CH_Win11_TPM && CH_Win11_TPM->isChecked() )
+	{
+		New_VM->Set_TPM_Type( QStringLiteral( "emulator" ) );
+		New_VM->Set_TPM_Path( QDir( vm_dir ).filePath( vm_base + QStringLiteral( "-swtpm.sock" ) ) );
+	}
 }
 
 void VM_Wizard_Window::Apply_Apple_SoC_Profile( bool simulate )

@@ -26,6 +26,7 @@
 #include <QObject>
 #include <QString>
 #include <QDir>
+#include <QStandardPaths>
 #include <QFile>
 #include <QSaveFile>
 #include <QFileInfo>
@@ -68,6 +69,7 @@
 
 #include <QProcess>
 #include "VM.h"
+#include "Lab_150.h"
 #include "QMP_Client.h"
 #include "Utils.h"
 #include "Audio_Host.h"
@@ -337,6 +339,7 @@ Virtual_Machine::Virtual_Machine( const Virtual_Machine &vm )
 	this->Audio_Use_Host_Defaults = vm.Get_Audio_Use_Host_Defaults();
 	this->HDA_Codec = vm.Get_HDA_Codec();
 	this->Audio_Options = vm.Get_Audio_Options();
+	this->Lab_Options = vm.Get_Lab_Options();
 	this->VirtIO_Sound_Jacks = vm.Get_VirtIO_Sound_Jacks();
 	this->VirtIO_Sound_Streams = vm.Get_VirtIO_Sound_Streams();
 	this->VirtIO_Sound_Chmaps = vm.Get_VirtIO_Sound_Chmaps();
@@ -637,6 +640,7 @@ void Virtual_Machine::Shared_Constructor()
 	Audio_Use_Host_Defaults = true;
 	HDA_Codec.clear();
 	Audio_Options.clear();
+	Lab_Options.clear();
 	VirtIO_Sound_Jacks = -1;
 	VirtIO_Sound_Streams = -1;
 	VirtIO_Sound_Chmaps = -1;
@@ -833,6 +837,7 @@ bool Virtual_Machine::operator==( const Virtual_Machine &vm ) const
 		this->Audio_Use_Host_Defaults == vm.Get_Audio_Use_Host_Defaults() &&
 		this->HDA_Codec == vm.Get_HDA_Codec() &&
 		this->Audio_Options == vm.Get_Audio_Options() &&
+		this->Lab_Options == vm.Get_Lab_Options() &&
 		this->VirtIO_Sound_Jacks == vm.Get_VirtIO_Sound_Jacks() &&
 		this->VirtIO_Sound_Streams == vm.Get_VirtIO_Sound_Streams() &&
 		this->VirtIO_Sound_Chmaps == vm.Get_VirtIO_Sound_Chmaps() &&
@@ -1162,6 +1167,7 @@ Virtual_Machine &Virtual_Machine::operator=( const Virtual_Machine &vm )
 	Audio_Use_Host_Defaults = vm.Get_Audio_Use_Host_Defaults();
 	HDA_Codec = vm.Get_HDA_Codec();
 	Audio_Options = vm.Get_Audio_Options();
+	Lab_Options = vm.Get_Lab_Options();
 	VirtIO_Sound_Jacks = vm.Get_VirtIO_Sound_Jacks();
 	VirtIO_Sound_Streams = vm.Get_VirtIO_Sound_Streams();
 	VirtIO_Sound_Chmaps = vm.Get_VirtIO_Sound_Chmaps();
@@ -3616,6 +3622,10 @@ bool Virtual_Machine::Create_VM_File( const QString &file_name, bool template_mo
 	VM_Element.appendChild( Dom_Element );
 	Dom_Text = New_Dom_Document.createTextNode( Audio_Options );
 	Dom_Element.appendChild( Dom_Text );
+	Dom_Element = New_Dom_Document.createElement( "Lab_Options" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( Lab_Options );
+	Dom_Element.appendChild( Dom_Text );
 	Dom_Element = New_Dom_Document.createElement( "VirtIO_Sound_Jacks" );
 	VM_Element.appendChild( Dom_Element );
 	Dom_Text = New_Dom_Document.createTextNode( QString::number( VirtIO_Sound_Jacks ) );
@@ -5609,6 +5619,7 @@ bool Virtual_Machine::Load_VM( const QString &file_name )
 			}
 			HDA_Codec = Child_Element.firstChildElement( "HDA_Codec" ).text().trimmed();
 			Audio_Options = Child_Element.firstChildElement( "Audio_Options" ).text();
+			Lab_Options = Child_Element.firstChildElement( "Lab_Options" ).text();
 			{
 				bool okj = false;
 				const int j = Child_Element.firstChildElement( "VirtIO_Sound_Jacks" ).text().toInt( &okj );
@@ -6038,6 +6049,10 @@ VM_Shared_Folder Virtual_Machine::Load_VM_Shared_Folder( const QDomElement &Seco
 	
 	// Folder Path
 	tmp_device.Set_Folder( Second_Element.firstChildElement("Path").text() );
+	tmp_device.Set_Security_Model( Second_Element.firstChildElement("Security_Model").text() );
+	tmp_device.Set_Mount_Tag( Second_Element.firstChildElement("Mount_Tag").text() );
+	tmp_device.Set_Read_Only( Second_Element.firstChildElement("Read_Only").text() == "true" );
+	tmp_device.Set_Share_Kind( Second_Element.firstChildElement("Share_Kind").text() );
 	
 	return tmp_device;
 }
@@ -6400,6 +6415,26 @@ void Virtual_Machine::Save_VM_Shared_Folder( QDomDocument &New_Dom_Document, QDo
 	Dom_Element.appendChild( Sec_Element );
 	QDomText Dom_Text = New_Dom_Document.createTextNode( shared_folder.Get_Folder() );	
 	
+	Sec_Element.appendChild( Dom_Text );
+
+	Sec_Element = New_Dom_Document.createElement( "Security_Model" );
+	Dom_Element.appendChild( Sec_Element );
+	Dom_Text = New_Dom_Document.createTextNode( shared_folder.Get_Security_Model() );
+	Sec_Element.appendChild( Dom_Text );
+
+	Sec_Element = New_Dom_Document.createElement( "Mount_Tag" );
+	Dom_Element.appendChild( Sec_Element );
+	Dom_Text = New_Dom_Document.createTextNode( shared_folder.Get_Mount_Tag() );
+	Sec_Element.appendChild( Dom_Text );
+
+	Sec_Element = New_Dom_Document.createElement( "Read_Only" );
+	Dom_Element.appendChild( Sec_Element );
+	Dom_Text = New_Dom_Document.createTextNode( shared_folder.Get_Read_Only() ? "true" : "false" );
+	Sec_Element.appendChild( Dom_Text );
+
+	Sec_Element = New_Dom_Document.createElement( "Share_Kind" );
+	Dom_Element.appendChild( Sec_Element );
+	Dom_Text = New_Dom_Document.createTextNode( shared_folder.Get_Share_Kind() );
 	Sec_Element.appendChild( Dom_Text );
 }
 
@@ -7516,19 +7551,41 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	if( ! UUID.trimmed().isEmpty() )
 		Args << "-uuid" << UUID.trimmed();
 
-	// NUMA (equal split of -m across nodes)
+	// NUMA (equal split of -m across nodes). virtiofs needs share=on backends.
+	bool virtiofs_share = false;
+#ifndef Q_OS_WIN
+	{
+		const QList<VM_Shared_Folder> shares = Get_Shared_Folders_List();
+		for( int si = 0; si < shares.count(); ++si )
+		{
+			if( shares.at( si ).Get_Share_Kind() == QLatin1String( "virtiofs" )
+			    && ! QStandardPaths::findExecutable( QStringLiteral( "virtiofsd" ) ).isEmpty() )
+			{
+				virtiofs_share = true;
+				break;
+			}
+		}
+	}
+#endif
 	if( Use_NUMA_Flag && NUMA_Nodes >= 2 && Memory_Size > 0 )
 	{
 		const int nodes = qMin( NUMA_Nodes, 8 );
 		const int per = Memory_Size / nodes;
 		int rem = Memory_Size - ( per * nodes );
+		const bool memdev = Use_NUMA_Memdev_Flag || virtiofs_share;
 		for( int ni = 0; ni < nodes; ++ni )
 		{
 			int mb = per + ( ni == 0 ? rem : 0 );
-			if( Use_NUMA_Memdev_Flag )
+			if( memdev )
 			{
 				const QString mid = QStringLiteral( "aqmem%1" ).arg( ni );
-				Args << "-object" << QStringLiteral( "memory-backend-ram,id=%1,size=%2M" ).arg( mid ).arg( mb );
+				const QString kind = virtiofs_share
+					? QStringLiteral( "memory-backend-memfd" )
+					: QStringLiteral( "memory-backend-ram" );
+				QString spec = QStringLiteral( "%1,id=%2,size=%3M" ).arg( kind, mid ).arg( mb );
+				if( virtiofs_share )
+					spec += QStringLiteral( ",share=on" );
+				Args << "-object" << spec;
 				Args << "-numa" << QStringLiteral( "node,nodeid=%1,memdev=%2" ).arg( ni ).arg( mid );
 			}
 			else
@@ -10243,6 +10300,8 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		#endif
 	}
 	
+	AQ_Lab_Append_Args( Args, this );
+
 	// Additional Args...
 	if( Only_User_Args )
 	{
@@ -10742,17 +10801,70 @@ QStringList Virtual_Machine::Build_Shared_Folder_Args( VM_Shared_Folder folder, 
 
     virtfs << "path="+path;
 
-    virtfs << "security_model=none";
+    QString model = folder.Get_Security_Model().trimmed();
+    if( model.isEmpty() )
+        model = QStringLiteral( "none" );
+    virtfs << "security_model=" + model;
 
-    virtfs << "mount_tag=shared"+QString::number(id);
+    QString tag = folder.Get_Mount_Tag().trimmed();
+    if( tag.isEmpty() )
+        tag = QStringLiteral( "shared" ) + QString::number( id );
+    virtfs << "mount_tag=" + tag;
+    if( folder.Get_Read_Only() )
+        virtfs << QStringLiteral( "readonly=on" );
 
-    opt << virtfs.join(",");
+#ifdef Q_OS_WIN
+    const bool virtiofs = false;
+#else
+    const bool virtiofs = ( folder.Get_Share_Kind() == QLatin1String( "virtiofs" ) )
+        && ! QStandardPaths::findExecutable( QStringLiteral( "virtiofsd" ) ).isEmpty();
+#endif
+    if( ! virtiofs )
+    {
+        opt << virtfs.join(",");
+        return opt;
+    }
 
-    return opt;
+    const QString sock = QDir( AQEMU_User_Data_Dir() ).filePath(
+        QStringLiteral( "virtiofs-" ) + QString::number( id ) + QStringLiteral( ".sock" ) );
+    QStringList args;
+	if( id == 0 && ! Use_NUMA() )
+	{
+		const int mem = Get_Memory_Size() > 0 ? Get_Memory_Size() : 128;
+		args << QStringLiteral( "-object" )
+		     << ( QStringLiteral( "memory-backend-memfd,id=virtiofsmem,share=on,size=" ) + QString::number( mem ) + QLatin1Char( 'M' ) );
+		args << QStringLiteral( "-numa" ) << QStringLiteral( "node,memdev=virtiofsmem" );
+	}
+    args << QStringLiteral( "-chardev" )
+         << ( QStringLiteral( "socket,id=virtiofs" ) + QString::number( id ) + QStringLiteral( ",path=" ) + sock );
+    args << QStringLiteral( "-device" )
+         << ( QStringLiteral( "vhost-user-fs-pci,chardev=virtiofs" ) + QString::number( id )
+              + QStringLiteral( ",tag=" ) + tag );
+    return args;
 }
+
+struct Lab_Start_Companions
+{
+	Virtual_Machine *vm;
+	bool keep;
+	explicit Lab_Start_Companions( Virtual_Machine *machine ) : vm( machine ), keep( false ) {}
+	~Lab_Start_Companions()
+	{
+		if( ! keep )
+			AQ_Lab_Stop_Companions( vm );
+	}
+};
 
 bool Virtual_Machine::Start_impl()
 {
+	if( ! AQ_Lab_Prepare_Start( this ) )
+	{
+		AQ_Lab_Stop_Companions( this );
+		Start_Cancelled_By_User = true;
+		return false;
+	}
+	Lab_Start_Companions lab_companions( this );
+
 	QEMU_Stderr_History.clear();
 	QEMU_Stdout_History.clear();
 	User_Requested_Power_Off = false;
@@ -11452,6 +11564,7 @@ bool Virtual_Machine::Start_impl()
 			}
 
 			QStringList qemu_args = this->Build_QEMU_Args();
+			AQ_Lab_Adjust_Launch( this, linux_qemu, &qemu_args );
 			if( Computer_Type.contains( QLatin1String( "reimsvgpu" ), Qt::CaseInsensitive ) )
 			{
 				// Ensure the Linux Reims device is present (do not skip when other -device args exist).
@@ -11528,9 +11641,12 @@ bool Virtual_Machine::Start_impl()
 				Start_Snapshot_Tag = "";
 				return false;
 			}
+			AQ_Lab_After_Start( this, QEMU_Process );
 		}
 		else
 #endif
+		{
+		AQ_Lab_Adjust_Launch( this, bin_path, nullptr );
 		if( ! QFile::exists(bin_path) )
         {
             AQGraphic_Error( "bool Virtual_Machine::Start()", tr("Error!"),
@@ -11549,6 +11665,7 @@ bool Virtual_Machine::Start_impl()
         }
 
         QStringList qemu_args = this->Build_QEMU_Args();
+        AQ_Lab_Adjust_Launch( this, bin_path, &qemu_args );
         AQWarning( "bool Virtual_Machine::Start()",
                  QString( "Starting: \"%1\" %2" ).arg( bin_path, qemu_args.join( " " ) ) );
 #if defined(Q_OS_WIN32)
@@ -11570,6 +11687,8 @@ bool Virtual_Machine::Start_impl()
 			                     .arg( QEMU_Process->errorString() ), false );
 			Start_Snapshot_Tag = "";
 			return false;
+		}
+		AQ_Lab_After_Start( this, QEMU_Process );
 		}
 		}
     }
@@ -11614,6 +11733,7 @@ bool Virtual_Machine::Start_impl()
         Show_VM_Load_Window();
     }
 
+    lab_companions.keep = true;
     return true;
 }
 
@@ -11673,6 +11793,7 @@ void Virtual_Machine::Stop()
 	}
 
 	User_Requested_Power_Off = true;
+	AQ_Lab_Stop_Companions( this );
 
 	if( QMP && QMP->Is_Connected() )
 		QMP->Quit_QEMU();
@@ -13926,6 +14047,8 @@ const QString &Virtual_Machine::Get_HDA_Codec() const { return HDA_Codec; }
 void Virtual_Machine::Set_HDA_Codec( const QString &codec ) { HDA_Codec = codec.trimmed(); }
 const QString &Virtual_Machine::Get_Audio_Options() const { return Audio_Options; }
 void Virtual_Machine::Set_Audio_Options( const QString &options ) { Audio_Options = options; }
+const QString &Virtual_Machine::Get_Lab_Options() const { return Lab_Options; }
+void Virtual_Machine::Set_Lab_Options( const QString &options ) { Lab_Options = options; }
 int Virtual_Machine::Get_VirtIO_Sound_Jacks() const { return VirtIO_Sound_Jacks; }
 void Virtual_Machine::Set_VirtIO_Sound_Jacks( int n ) { VirtIO_Sound_Jacks = n; }
 int Virtual_Machine::Get_VirtIO_Sound_Streams() const { return VirtIO_Sound_Streams; }

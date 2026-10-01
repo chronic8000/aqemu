@@ -23,13 +23,68 @@
 #include <QMessageBox>
 #include <QFile>
 #include <QFileDialog>
+#include <QTableWidget>
+#include <QHeaderView>
+#include <QPushButton>
+#include <QGridLayout>
+#include <QVBoxLayout>
+#include <QHBoxLayout>
+#include <QLabel>
+#include <QCheckBox>
 #include "Utils.h"
 #include "Network_Widget.h"
 
 Network_Widget::Network_Widget( QWidget *parent ) : QWidget( parent )
 {
 	ui.setupUi( this );
-	
+	Hostfwd_Table = 0;
+	Hostfwd_Conflict = 0;
+	Hostfwd_Loading = false;
+
+	QWidget *host_box = new QWidget( this );
+	QVBoxLayout *host_lay = new QVBoxLayout( host_box );
+	host_lay->setContentsMargins( 0, 0, 0, 0 );
+	Hostfwd_Table = new QTableWidget( 0, 4, host_box );
+	Hostfwd_Table->setHorizontalHeaderLabels( QStringList()
+		<< tr( "Proto" ) << tr( "Host port" ) << tr( "Guest IP" ) << tr( "Guest port" ) );
+	Hostfwd_Table->horizontalHeader()->setStretchLastSection( true );
+	Hostfwd_Table->setMinimumHeight( 120 );
+	host_lay->addWidget( Hostfwd_Table );
+	QHBoxLayout *presets = new QHBoxLayout();
+	QPushButton *ssh = new QPushButton( tr( "SSH 22" ), host_box );
+	QPushButton *rdp = new QPushButton( tr( "RDP 3389" ), host_box );
+	QPushButton *http = new QPushButton( tr( "HTTP 80" ), host_box );
+	QPushButton *add_row = new QPushButton( tr( "Add row" ), host_box );
+	presets->addWidget( ssh );
+	presets->addWidget( rdp );
+	presets->addWidget( http );
+	presets->addWidget( add_row );
+	host_lay->addLayout( presets );
+	Hostfwd_Conflict = new QLabel( host_box );
+	Hostfwd_Conflict->setWordWrap( true );
+	host_lay->addWidget( Hostfwd_Conflict );
+	connect( ssh, &QPushButton::clicked, this, [this]() { Add_Hostfwd_Preset( QStringLiteral( "tcp" ), QStringLiteral( "2222" ), QStringLiteral( "22" ) ); } );
+	connect( rdp, &QPushButton::clicked, this, [this]() { Add_Hostfwd_Preset( QStringLiteral( "tcp" ), QStringLiteral( "3389" ), QStringLiteral( "3389" ) ); } );
+	connect( http, &QPushButton::clicked, this, [this]() { Add_Hostfwd_Preset( QStringLiteral( "tcp" ), QStringLiteral( "8080" ), QStringLiteral( "80" ) ); } );
+	connect( add_row, &QPushButton::clicked, this, [this]() { Add_Hostfwd_Preset( QStringLiteral( "tcp" ), QString(), QString() ); } );
+	connect( Hostfwd_Table, &QTableWidget::cellChanged, this, [this]( int, int ) { Sync_Hostfwd_From_Table(); } );
+
+	if( QGridLayout *grid = qobject_cast<QGridLayout*>( ui.Edit_hostfwd->parentWidget()->layout() ) )
+	{
+		int index = grid->indexOf( ui.Edit_hostfwd );
+		int row = 0, col = 0, row_span = 1, col_span = 1;
+		if( index >= 0 )
+			grid->getItemPosition( index, &row, &col, &row_span, &col_span );
+		grid->removeWidget( ui.Edit_hostfwd );
+		ui.Edit_hostfwd->hide();
+		grid->addWidget( host_box, row, col, row_span, col_span );
+	}
+	ui.CH_hostfwd->setText( tr( "Port forwards" ) );
+	connect( ui.CH_hostfwd, &QCheckBox::toggled, this, [this]( bool on ) {
+		if( Hostfwd_Table )
+			Hostfwd_Table->setEnabled( on );
+	} );
+
 	on_CB_Network_Type_currentIndexChanged( 0 );
 	
 	Connect_Slots();
@@ -974,6 +1029,8 @@ void Network_Widget::on_CB_Network_Type_currentIndexChanged( int index )
 	
 	ui.CH_hostfwd->setVisible( false );
 	ui.Edit_hostfwd->setVisible( false );
+	if( Hostfwd_Table && Hostfwd_Table->parentWidget() )
+		Hostfwd_Table->parentWidget()->setVisible( false );
 	
 	ui.CH_guestfwd->setVisible( false );
 	ui.Edit_guestfwd->setVisible( false );
@@ -1050,7 +1107,9 @@ void Network_Widget::on_CB_Network_Type_currentIndexChanged( int index )
 		ui.TB_Browse_bootfile->setVisible( true );
 		
 		ui.CH_hostfwd->setVisible( true );
-		ui.Edit_hostfwd->setVisible( true );
+		ui.Edit_hostfwd->setVisible( false );
+		if( Hostfwd_Table && Hostfwd_Table->parentWidget() )
+			Hostfwd_Table->parentWidget()->setVisible( true );
 		
 		ui.CH_guestfwd->setVisible( true );
 		ui.Edit_guestfwd->setVisible( true );
@@ -1915,6 +1974,9 @@ void Network_Widget::Set_Net_Card_To_Ui( const VM_Net_Card_Native &card )
 	// HostFwd
 	ui.CH_hostfwd->setChecked( card.Use_HostFwd() );
 	ui.Edit_hostfwd->setText( card.Get_HostFwd() );
+	Load_Hostfwd_Table( card.Get_HostFwd() );
+	if( Hostfwd_Table )
+		Hostfwd_Table->setEnabled( card.Use_HostFwd() );
 	
 	// GuestFwd
 	ui.CH_guestfwd->setChecked( card.Use_GuestFwd() );
@@ -2205,6 +2267,104 @@ QString Network_Widget::Get_Items_Count( VM::Network_Mode_Nativ type )
 	}
 	
 	return QString::number( count ? count : 1 );
+}
+
+static void Hostfwd_Set_Cell( QTableWidget *table, int row, int col, const QString &text )
+{
+	QTableWidgetItem *item = new QTableWidgetItem( text );
+	table->setItem( row, col, item );
+}
+
+void Network_Widget::Add_Hostfwd_Preset( const QString &proto, const QString &host, const QString &guest )
+{
+	if( ! Hostfwd_Table )
+		return;
+	Hostfwd_Loading = true;
+	const int row = Hostfwd_Table->rowCount();
+	Hostfwd_Table->insertRow( row );
+	Hostfwd_Set_Cell( Hostfwd_Table, row, 0, proto );
+	Hostfwd_Set_Cell( Hostfwd_Table, row, 1, host );
+	Hostfwd_Set_Cell( Hostfwd_Table, row, 2, QStringLiteral( "10.0.2.15" ) );
+	Hostfwd_Set_Cell( Hostfwd_Table, row, 3, guest );
+	Hostfwd_Loading = false;
+	ui.CH_hostfwd->setChecked( true );
+	Sync_Hostfwd_From_Table();
+}
+
+void Network_Widget::Load_Hostfwd_Table( const QString &rules )
+{
+	if( ! Hostfwd_Table )
+		return;
+	Hostfwd_Loading = true;
+	Hostfwd_Table->setRowCount( 0 );
+	const QStringList parts = rules.split( QStringLiteral( ",hostfwd=" ), QString::SkipEmptyParts );
+	for( int i = 0; i < parts.count(); ++i )
+	{
+		QString rule = parts.at( i ).trimmed();
+		if( rule.startsWith( QLatin1String( "hostfwd=" ) ) )
+			rule = rule.mid( 8 );
+		const int colon = rule.indexOf( QLatin1Char( ':' ) );
+		if( colon <= 0 )
+			continue;
+		const QString proto = rule.left( colon );
+		const QString rest = rule.mid( colon + 1 );
+		const int dash = rest.indexOf( QLatin1Char( '-' ) );
+		if( dash < 0 )
+			continue;
+		QString host = rest.left( dash );
+		if( host.startsWith( QLatin1Char( ':' ) ) )
+			host = host.mid( 1 );
+		QString guest_side = rest.mid( dash + 1 );
+		QString guest_ip = QStringLiteral( "10.0.2.15" );
+		QString guest_port = guest_side;
+		const int guest_colon = guest_side.lastIndexOf( QLatin1Char( ':' ) );
+		if( guest_colon >= 0 )
+		{
+			guest_ip = guest_side.left( guest_colon );
+			if( guest_ip.isEmpty() )
+				guest_ip = QStringLiteral( "10.0.2.15" );
+			guest_port = guest_side.mid( guest_colon + 1 );
+		}
+		const int row = Hostfwd_Table->rowCount();
+		Hostfwd_Table->insertRow( row );
+		Hostfwd_Set_Cell( Hostfwd_Table, row, 0, proto );
+		Hostfwd_Set_Cell( Hostfwd_Table, row, 1, host );
+		Hostfwd_Set_Cell( Hostfwd_Table, row, 2, guest_ip );
+		Hostfwd_Set_Cell( Hostfwd_Table, row, 3, guest_port );
+	}
+	Hostfwd_Loading = false;
+}
+
+void Network_Widget::Sync_Hostfwd_From_Table()
+{
+	if( Hostfwd_Loading || ! Hostfwd_Table )
+		return;
+	QStringList rules;
+	QStringList seen;
+	QStringList conflicts;
+	for( int row = 0; row < Hostfwd_Table->rowCount(); ++row )
+	{
+		const QString proto = Hostfwd_Table->item( row, 0 ) ? Hostfwd_Table->item( row, 0 )->text().trimmed() : QStringLiteral( "tcp" );
+		const QString host = Hostfwd_Table->item( row, 1 ) ? Hostfwd_Table->item( row, 1 )->text().trimmed() : QString();
+		const QString guest_ip = Hostfwd_Table->item( row, 2 ) ? Hostfwd_Table->item( row, 2 )->text().trimmed() : QStringLiteral( "10.0.2.15" );
+		const QString guest = Hostfwd_Table->item( row, 3 ) ? Hostfwd_Table->item( row, 3 )->text().trimmed() : QString();
+		if( host.isEmpty() || guest.isEmpty() )
+			continue;
+		if( seen.contains( proto + host ) )
+			conflicts << tr( "Host port %1 is listed more than once." ).arg( host );
+		seen << proto + host;
+		rules << ( proto + QStringLiteral( "::" ) + host + QLatin1Char( '-' ) + guest_ip + QLatin1Char( ':' ) + guest );
+	}
+	QString joined;
+	for( int i = 0; i < rules.count(); ++i )
+	{
+		if( i )
+			joined += QStringLiteral( ",hostfwd=" );
+		joined += rules.at( i );
+	}
+	ui.Edit_hostfwd->setText( joined );
+	if( Hostfwd_Conflict )
+		Hostfwd_Conflict->setText( conflicts.join( QLatin1Char( ' ' ) ) );
 }
 
 void Network_Widget::Enable_Buttons( bool add, bool del )

@@ -103,6 +103,7 @@
 #include "Copy_VM_Window.h"
 #include "Advanced_Settings_Window.h"
 #include "Audio_Settings_Window.h"
+#include "Lab_150.h"
 #include "Audio_Host.h"
 #include <QMap>
 #include "WSL_Wizard_Window.h"
@@ -357,6 +358,124 @@ Main_Window::Main_Window( QWidget *parent )
 			dlg.exec();
 		} );
 		ui.menuVM->insertAction( ui.actionManage_Snapshots, actCheckpoint );
+	}
+	{
+		auto need_vm = [this]( const QString &title ) -> Virtual_Machine* {
+			Virtual_Machine *vm = Get_Current_VM();
+			if( vm == NULL )
+				AQGraphic_Warning( title, tr( "Select a virtual machine first." ) );
+			return vm;
+		};
+		QAction *actLab = new QAction( tr( "&Lab…" ), this );
+		connect( actLab, &QAction::triggered, this, [this, need_vm]() {
+			if( Virtual_Machine *vm = need_vm( tr( "Lab" ) ) )
+				AQ_Lab_Open_VM_Window( vm, VM_List, this );
+		} );
+		ui.menuVM->addAction( actLab );
+
+		QAction *actDiff = new QAction( tr( "Command &diff…" ), this );
+		connect( actDiff, &QAction::triggered, this, [this, need_vm]() {
+			if( Virtual_Machine *vm = need_vm( tr( "Command diff" ) ) )
+				AQ_Lab_Command_Diff( vm, this );
+		} );
+		ui.menuVM->addAction( actDiff );
+
+		QAction *actJobs = new QAction( tr( "Block &jobs…" ), this );
+		connect( actJobs, &QAction::triggered, this, [this, need_vm]() {
+			if( Virtual_Machine *vm = need_vm( tr( "Block jobs" ) ) )
+				AQ_Lab_Block_Jobs( vm, this );
+		} );
+		ui.menuVM->addAction( actJobs );
+
+		QAction *actMig = new QAction( tr( "&Migrate…" ), this );
+		connect( actMig, &QAction::triggered, this, [this, need_vm]() {
+			if( Virtual_Machine *vm = need_vm( tr( "Migrate" ) ) )
+				AQ_Lab_Migrate( vm, this );
+		} );
+		ui.menuVM->addAction( actMig );
+
+		QAction *actChain = new QAction( tr( "Chain &Studio…" ), this );
+		connect( actChain, &QAction::triggered, this, [this, need_vm]() {
+			if( Virtual_Machine *vm = need_vm( tr( "Chain Studio" ) ) )
+				AQ_Lab_Chain_Studio( this, vm );
+		} );
+		ui.menuVM->addAction( actChain );
+
+		QAction *actFw = new QAction( tr( "&Firmware library…" ), this );
+		connect( actFw, &QAction::triggered, this, [this, need_vm]() {
+			if( Virtual_Machine *vm = need_vm( tr( "Firmware" ) ) )
+				AQ_Lab_Firmware( vm, this );
+		} );
+		ui.menuVM->addAction( actFw );
+
+		QAction *actSnip = new QAction( tr( "Argument &snippets…" ), this );
+		connect( actSnip, &QAction::triggered, this, [this, need_vm]() {
+			if( Virtual_Machine *vm = need_vm( tr( "Snippets" ) ) )
+				AQ_Lab_Snippets( vm, this );
+		} );
+		ui.menuVM->addAction( actSnip );
+
+		QAction *actClones = new QAction( tr( "Linked &clones…" ), this );
+		connect( actClones, &QAction::triggered, this, [this, need_vm]() {
+			Virtual_Machine *vm = need_vm( tr( "Linked clones" ) );
+			if( ! vm )
+				return;
+			const QList<Virtual_Machine*> created = AQ_Lab_Linked_Clones( vm, this );
+			for( int i = 0; i < created.count(); ++i )
+			{
+				created.at( i )->Save_VM();
+				Add_VM_To_List( created.at( i ) );
+			}
+		} );
+		ui.menuVM->addAction( actClones );
+
+		QAction *actGroup = new QAction( tr( "Start tagged &group…" ), this );
+		connect( actGroup, &QAction::triggered, this, [this]() { AQ_Lab_Start_Group( VM_List, this, false ); } );
+		ui.menuVM->addAction( actGroup );
+		QAction *actGroupStop = new QAction( tr( "Stop tagged group…" ), this );
+		connect( actGroupStop, &QAction::triggered, this, [this]() { AQ_Lab_Start_Group( VM_List, this, true ); } );
+		ui.menuVM->addAction( actGroupStop );
+
+		QAction *actBundle = new QAction( tr( "Support &bundle…" ), this );
+		connect( actBundle, &QAction::triggered, this, [this]() { AQ_Lab_Support_Bundle( this, Get_Current_VM() ); } );
+		ui.menuHelp->addAction( actBundle );
+		QAction *actCatalog = new QAction( tr( "QEMU &catalog…" ), this );
+		connect( actCatalog, &QAction::triggered, this, [this]() { AQ_Lab_Catalog( this, Get_Current_VM() ); } );
+		ui.menuHelp->addAction( actCatalog );
+		QAction *actAudit = new QAction( tr( "QEMU bundle &auditor…" ), this );
+		connect( actAudit, &QAction::triggered, this, [this]() { AQ_Lab_Auditor( this ); } );
+		ui.menuHelp->addAction( actAudit );
+		QAction *actHealth = new QAction( tr( "&WHPX health…" ), this );
+		connect( actHealth, &QAction::triggered, this, [this]() { AQ_Lab_Health( this, Get_Current_VM() ); } );
+		ui.menuHelp->addAction( actHealth );
+		QAction *actFirst = new QAction( tr( "&First-run cards…" ), this );
+		connect( actFirst, &QAction::triggered, this, [this]() { AQ_Lab_First_Run( this ); } );
+		ui.menuHelp->addAction( actFirst );
+		QAction *actWsl = new QAction( tr( "&WSL dashboard…" ), this );
+		connect( actWsl, &QAction::triggered, this, [this]() { AQ_Lab_WSL( this ); } );
+		ui.menuHelp->addAction( actWsl );
+
+		QAction *actConvert = new QAction( tr( "&Convert disk…" ), this );
+		connect( actConvert, &QAction::triggered, this, [this]() { AQ_Lab_Convert( this, Get_Current_VM() ); } );
+		ui.menuFile->addAction( actConvert );
+		QAction *actNbd = new QAction( tr( "qemu-&nbd…" ), this );
+		connect( actNbd, &QAction::triggered, this, [this]() { AQ_Lab_NBD( this, Get_Current_VM() ); } );
+		ui.menuFile->addAction( actNbd );
+		QAction *actPack = new QAction( tr( "Export lab &pack…" ), this );
+		connect( actPack, &QAction::triggered, this, [this, need_vm]() {
+			if( Virtual_Machine *vm = need_vm( tr( "Lab pack" ) ) )
+				AQ_Lab_Pack( this, vm, false );
+		} );
+		ui.menuFile->addAction( actPack );
+		QAction *actPackIn = new QAction( tr( "Import lab pack…" ), this );
+		connect( actPackIn, &QAction::triggered, this, [this]() { AQ_Lab_Pack( this, Get_Current_VM(), true ); } );
+		ui.menuFile->addAction( actPackIn );
+		QAction *actQuick = new QAction( tr( "&Quickemu conf…" ), this );
+		connect( actQuick, &QAction::triggered, this, [this, need_vm]() {
+			if( Virtual_Machine *vm = need_vm( tr( "Quickemu" ) ) )
+				AQ_Lab_Quickemu( this, vm );
+		} );
+		ui.menuFile->addAction( actQuick );
 	}
 	if( ui.actionCopy )
 		ui.actionCopy->setText( tr( "Clone &VM…" ) );
@@ -5948,9 +6067,7 @@ void Main_Window::on_actionManage_Snapshots_triggered()
 		return;
 	}
 
-	Snapshots_Window snapshot_win( this );
-	snapshot_win.Set_VM( cur_vm );
-	snapshot_win.exec();
+	AQ_Lab_Snapshot_Timeline( cur_vm, this );
 }
 
 void Main_Window::on_actionShow_QEMU_Arguments_triggered()

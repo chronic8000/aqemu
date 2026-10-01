@@ -790,9 +790,22 @@ class VM_Shared_Folder
 		const QString &Get_Folder() const;
 		void Set_Folder( const QString &folder );
 
+		const QString &Get_Security_Model() const;
+		void Set_Security_Model( const QString &model );
+		const QString &Get_Mount_Tag() const;
+		void Set_Mount_Tag( const QString &tag );
+		bool Get_Read_Only() const;
+		void Set_Read_Only( bool read_only );
+		const QString &Get_Share_Kind() const;
+		void Set_Share_Kind( const QString &kind );
+
 	protected:
 		bool Enabled;
 		QString Folder;
+		QString Security_Model;
+		QString Mount_Tag;
+		bool Read_Only;
+		QString Share_Kind;
 };
 
 // Virtual Machine Hard Drive Device
