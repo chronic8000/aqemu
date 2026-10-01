@@ -7551,19 +7551,41 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	if( ! UUID.trimmed().isEmpty() )
 		Args << "-uuid" << UUID.trimmed();
 
-	// NUMA (equal split of -m across nodes)
+	// NUMA (equal split of -m across nodes). virtiofs needs share=on backends.
+	bool virtiofs_share = false;
+#ifndef Q_OS_WIN
+	{
+		const QList<VM_Shared_Folder> shares = Get_Shared_Folders_List();
+		for( int si = 0; si < shares.count(); ++si )
+		{
+			if( shares.at( si ).Get_Share_Kind() == QLatin1String( "virtiofs" )
+			    && ! QStandardPaths::findExecutable( QStringLiteral( "virtiofsd" ) ).isEmpty() )
+			{
+				virtiofs_share = true;
+				break;
+			}
+		}
+	}
+#endif
 	if( Use_NUMA_Flag && NUMA_Nodes >= 2 && Memory_Size > 0 )
 	{
 		const int nodes = qMin( NUMA_Nodes, 8 );
 		const int per = Memory_Size / nodes;
 		int rem = Memory_Size - ( per * nodes );
+		const bool memdev = Use_NUMA_Memdev_Flag || virtiofs_share;
 		for( int ni = 0; ni < nodes; ++ni )
 		{
 			int mb = per + ( ni == 0 ? rem : 0 );
-			if( Use_NUMA_Memdev_Flag )
+			if( memdev )
 			{
 				const QString mid = QStringLiteral( "aqmem%1" ).arg( ni );
-				Args << "-object" << QStringLiteral( "memory-backend-ram,id=%1,size=%2M" ).arg( mid ).arg( mb );
+				const QString kind = virtiofs_share
+					? QStringLiteral( "memory-backend-memfd" )
+					: QStringLiteral( "memory-backend-ram" );
+				QString spec = QStringLiteral( "%1,id=%2,size=%3M" ).arg( kind, mid ).arg( mb );
+				if( virtiofs_share )
+					spec += QStringLiteral( ",share=on" );
+				Args << "-object" << spec;
 				Args << "-numa" << QStringLiteral( "node,nodeid=%1,memdev=%2" ).arg( ni ).arg( mid );
 			}
 			else
@@ -10806,6 +10828,13 @@ QStringList Virtual_Machine::Build_Shared_Folder_Args( VM_Shared_Folder folder, 
     const QString sock = QDir( AQEMU_User_Data_Dir() ).filePath(
         QStringLiteral( "virtiofs-" ) + QString::number( id ) + QStringLiteral( ".sock" ) );
     QStringList args;
+	if( id == 0 && ! Use_NUMA() )
+	{
+		const int mem = Get_Memory_Size() > 0 ? Get_Memory_Size() : 128;
+		args << QStringLiteral( "-object" )
+		     << ( QStringLiteral( "memory-backend-memfd,id=virtiofsmem,share=on,size=" ) + QString::number( mem ) + QLatin1Char( 'M' ) );
+		args << QStringLiteral( "-numa" ) << QStringLiteral( "node,memdev=virtiofsmem" );
+	}
     args << QStringLiteral( "-chardev" )
          << ( QStringLiteral( "socket,id=virtiofs" ) + QString::number( id ) + QStringLiteral( ",path=" ) + sock );
     args << QStringLiteral( "-device" )
@@ -10814,13 +10843,27 @@ QStringList Virtual_Machine::Build_Shared_Folder_Args( VM_Shared_Folder folder, 
     return args;
 }
 
+struct Lab_Start_Companions
+{
+	Virtual_Machine *vm;
+	bool keep;
+	explicit Lab_Start_Companions( Virtual_Machine *machine ) : vm( machine ), keep( false ) {}
+	~Lab_Start_Companions()
+	{
+		if( ! keep )
+			AQ_Lab_Stop_Companions( vm );
+	}
+};
+
 bool Virtual_Machine::Start_impl()
 {
 	if( ! AQ_Lab_Prepare_Start( this ) )
 	{
+		AQ_Lab_Stop_Companions( this );
 		Start_Cancelled_By_User = true;
 		return false;
 	}
+	Lab_Start_Companions lab_companions( this );
 
 	QEMU_Stderr_History.clear();
 	QEMU_Stdout_History.clear();
@@ -11690,6 +11733,7 @@ bool Virtual_Machine::Start_impl()
         Show_VM_Load_Window();
     }
 
+    lab_companions.keep = true;
     return true;
 }
 

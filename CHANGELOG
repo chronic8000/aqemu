@@ -41,6 +41,22 @@
 	    Anbox, Waydroid, Limbo, Xen, dead XNU trees, and Corellium stay skipped.
 	    vmapple stays a Mac-host note.
 
+	* Network page port table, support zip, and Windows 11 TPM step:
+	  - The NIC hostfwd box is a port table with SSH, RDP, and HTTP presets.
+	    It still saves hostfwd= rules.
+	  - Help → Support bundle writes a zip of redacted settings, the QEMU
+	    command, the boot log, and the version.
+	  - The Windows 11 ARM wizard step can enable the existing swtpm socket
+	    and a private OVMF VARS file.
+	  - fw_cfg in VM → Lab is a name, kind, and file-or-string table.
+	  - Saved hostfwd rules reload as proto, host port, guest IP, and guest port.
+	    The support zip redacts OSK, IPSW, and secret arguments. Failed starts
+	    stop virtiofsd and vsock helpers. Snapshot overlays become the disk.
+	    WHPX health is Windows-only. Import OVA opens appliance import.
+	    Record/replay Off clears -icount. VirGL uses virtio-gpu-gl-pci.
+	    Auto clears a Lab-owned TCG or WSL launch. Disk throttle is on -drive.
+	    Windows LUKS secret files are readable only by the current user.
+
 	* 1.4.2 remains the Store build already submitted. Store copy still does
 	  not say AQEMU includes Xbox, Android, or macOS. Issue #42 stays open.
 

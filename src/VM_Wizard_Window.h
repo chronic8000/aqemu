@@ -56,6 +56,7 @@ class VM_Wizard_Window: public QDialog
 		void Set_VM_List( QList<Virtual_Machine*> *list );
 		void Select_Storage_Recovery();
 		void Select_Guest_OS( const QString &name );
+		void Select_Appliance();
 		
 		Virtual_Machine *New_VM;
 		QList<Virtual_Machine*> Extra_Created_VMs;
@@ -199,6 +200,8 @@ class VM_Wizard_Window: public QDialog
 		QLineEdit *Edit_Win11_ISO;
 		QToolButton *TB_Win11_ISO_Browse;
 		QCheckBox *CH_Win11_VirtIO_ISO;
+		QCheckBox *CH_Win11_TPM;
+		QCheckBox *CH_Win11_Secure_Boot;
 		QLineEdit *Edit_Win11_VirtIO_ISO;
 		QToolButton *TB_Win11_VirtIO_ISO_Browse;
 		QLabel *Label_Win11_UEFI_Status;

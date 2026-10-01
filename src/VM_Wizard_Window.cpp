@@ -104,6 +104,8 @@ VM_Wizard_Window::VM_Wizard_Window( QWidget *parent )
 	
 	New_VM = new Virtual_Machine();
 	Win11_ARM_Page = nullptr;
+	CH_Win11_TPM = nullptr;
+	CH_Win11_Secure_Boot = nullptr;
 	Intel_MacOS_Page = nullptr;
 	Inferno_Companion_Page = nullptr;
 	Label_Inferno_Companion_Help = nullptr;
@@ -4673,6 +4675,12 @@ void VM_Wizard_Window::Build_Windows11_ARM_Page()
 	virtioLay->addWidget( Edit_Win11_VirtIO_ISO );
 	virtioLay->addWidget( TB_Win11_VirtIO_ISO_Browse );
 	isoLay->addLayout( virtioLay );
+	CH_Win11_TPM = new QCheckBox( tr( "TPM 2.0 emulator (existing swtpm socket)" ) );
+	CH_Win11_TPM->setChecked( true );
+	CH_Win11_Secure_Boot = new QCheckBox( tr( "Secure Boot: private OVMF VARS for this VM" ) );
+	CH_Win11_Secure_Boot->setChecked( true );
+	isoLay->addWidget( CH_Win11_TPM );
+	isoLay->addWidget( CH_Win11_Secure_Boot );
 	mainLay->addWidget( isoBox );
 	
 	Label_Win11_UEFI_Status = new QLabel();
@@ -5121,6 +5129,12 @@ void VM_Wizard_Window::Select_Storage_Recovery()
 {
 	if( RB_Method_Recovery )
 		RB_Method_Recovery->setChecked( true );
+}
+
+void VM_Wizard_Window::Select_Appliance()
+{
+	if( RB_Method_Appliance )
+		RB_Method_Appliance->setChecked( true );
 }
 
 void VM_Wizard_Window::Select_Guest_OS( const QString &name )
@@ -6706,13 +6720,21 @@ void VM_Wizard_Window::Apply_Windows11_ARM_Profile( bool simulate )
 	QString code = Find_UEFI_Firmware_CODE( qemu_bin );
 	QString vars_dest = vm_dir + vm_base + "_VARS.fd";
 	
+	const bool secure_boot = ! CH_Win11_Secure_Boot || CH_Win11_Secure_Boot->isChecked();
 	New_VM->Use_UEFI( true );
 	if( ! code.isEmpty() )
 		New_VM->Set_UEFI_CODE_File( code );
-	
-	New_VM->Set_UEFI_VARS_File( vars_dest );
-	if( ! simulate )
-		Prepare_UEFI_VARS_File( vars_dest, qemu_bin );
+	if( secure_boot )
+	{
+		New_VM->Set_UEFI_VARS_File( vars_dest );
+		if( ! simulate )
+			Prepare_UEFI_VARS_File( vars_dest, qemu_bin );
+	}
+	if( CH_Win11_TPM && CH_Win11_TPM->isChecked() )
+	{
+		New_VM->Set_TPM_Type( QStringLiteral( "emulator" ) );
+		New_VM->Set_TPM_Path( QDir( vm_dir ).filePath( vm_base + QStringLiteral( "-swtpm.sock" ) ) );
+	}
 }
 
 void VM_Wizard_Window::Apply_Apple_SoC_Profile( bool simulate )

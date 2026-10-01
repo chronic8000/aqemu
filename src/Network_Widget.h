@@ -26,6 +26,9 @@
 #include "ui_Network_Widget.h"
 #include "VM_Devices.h"
 
+class QTableWidget;
+class QLabel;
+
 class Network_Widget: public QWidget
 {
 	Q_OBJECT
@@ -58,6 +61,9 @@ class Network_Widget: public QWidget
 		void on_TB_Browse_smb_clicked();
 		void on_CH_smb_toggled( bool checked );
 		void Update_Card_Item();
+		void Sync_Hostfwd_From_Table();
+		void Load_Hostfwd_Table( const QString &rules );
+		void Add_Hostfwd_Preset( const QString &proto, const QString &host, const QString &guest );
 		
 	private:
 		VM_Net_Card_Native Get_Net_Card_From_Ui() const;
@@ -116,6 +122,10 @@ class Network_Widget: public QWidget
 		
 		bool PSO_Net_file;
 		bool PSO_Net_len;
+
+		QTableWidget *Hostfwd_Table;
+		QLabel *Hostfwd_Conflict;
+		bool Hostfwd_Loading;
 };
 
 #endif

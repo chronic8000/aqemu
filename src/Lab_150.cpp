@@ -17,6 +17,7 @@
 #include "WSL_Launch.h"
 #include "VM_Wizard_Window.h"
 #include "Service.h"
+#include "Snapshots_Window.h"
 
 #include <QCheckBox>
 #include <QClipboard>
@@ -63,6 +64,7 @@
 #ifdef Q_OS_WIN
 #include <windows.h>
 #include <wincred.h>
+#include <aclapi.h>
 #endif
 
 static QHash<const Virtual_Machine*, QList<QProcess*> > g_companions;
@@ -71,6 +73,48 @@ static bool g_note_launch = false;
 static QString Lab_Blob_Of( const Virtual_Machine *vm )
 {
 	return vm ? vm->Get_Lab_Options() : QString();
+}
+
+static QString Lab_Escape( const QString &value )
+{
+	QString out;
+	for( int i = 0; i < value.size(); ++i )
+	{
+		const QChar c = value.at( i );
+		if( c == QLatin1Char( '\\' ) )
+			out += QLatin1String( "\\\\" );
+		else if( c == QLatin1Char( '\n' ) )
+			out += QLatin1String( "\\n" );
+		else
+			out += c;
+	}
+	return out;
+}
+
+static QString Lab_Unescape( const QString &value )
+{
+	QString out;
+	for( int i = 0; i < value.size(); ++i )
+	{
+		if( value.at( i ) == QLatin1Char( '\\' ) && i + 1 < value.size() )
+		{
+			const QChar next = value.at( i + 1 );
+			if( next == QLatin1Char( 'n' ) )
+			{
+				out += QLatin1Char( '\n' );
+				++i;
+				continue;
+			}
+			if( next == QLatin1Char( '\\' ) )
+			{
+				out += QLatin1Char( '\\' );
+				++i;
+				continue;
+			}
+		}
+		out += value.at( i );
+	}
+	return out;
 }
 
 QMap<QString, QString> AQ_Lab_Map( const QString &blob )
@@ -83,7 +127,7 @@ QMap<QString, QString> AQ_Lab_Map( const QString &blob )
 		const int eq = line.indexOf( QLatin1Char( '=' ) );
 		if( eq <= 0 )
 			continue;
-		opt.insert( line.left( eq ).trimmed(), line.mid( eq + 1 ) );
+		opt.insert( line.left( eq ).trimmed(), Lab_Unescape( line.mid( eq + 1 ) ) );
 	}
 	return opt;
 }
@@ -95,7 +139,7 @@ QString AQ_Lab_Blob( const QMap<QString, QString> &opt )
 	{
 		if( it.key().trimmed().isEmpty() )
 			continue;
-		lines << ( it.key().trimmed() + QLatin1Char( '=' ) + it.value() );
+		lines << ( it.key().trimmed() + QLatin1Char( '=' ) + Lab_Escape( it.value() ) );
 	}
 	return lines.join( QLatin1Char( '\n' ) );
 }
@@ -217,15 +261,12 @@ void AQ_Lab_Append_Args( QStringList &args, Virtual_Machine *vm )
 	{
 		for( int i = 0; i < args.count(); ++i )
 		{
-			if( args.at( i ) != QLatin1String( "-device" ) || i + 1 >= args.count() )
+			if( args.at( i ) != QLatin1String( "-drive" ) || i + 1 >= args.count() )
 				continue;
-			if( ! args.at( i + 1 ).contains( QLatin1String( "drive=" ) ) )
-				continue;
-			if( ! iops.isEmpty() && ! args.at( i + 1 ).contains( QLatin1String( "iops=" ) ) )
-				args[ i + 1 ] += QStringLiteral( ",iops=" ) + iops;
-			if( ! bps.isEmpty() && ! args.at( i + 1 ).contains( QLatin1String( "bps=" ) ) )
-				args[ i + 1 ] += QStringLiteral( ",bps=" ) + bps;
-			break;
+			if( ! iops.isEmpty() && ! args.at( i + 1 ).contains( QLatin1String( "throttling.iops-total=" ) ) )
+				args[ i + 1 ] += QStringLiteral( ",throttling.iops-total=" ) + iops;
+			if( ! bps.isEmpty() && ! args.at( i + 1 ).contains( QLatin1String( "throttling.bps-total=" ) ) )
+				args[ i + 1 ] += QStringLiteral( ",throttling.bps-total=" ) + bps;
 		}
 	}
 
@@ -259,8 +300,8 @@ void AQ_Lab_Append_Args( QStringList &args, Virtual_Machine *vm )
 				    ! args.at( i + 1 ).contains( QLatin1String( "virtio-vga-gl" ) ) )
 					args[ i + 1 ].replace( QLatin1String( "virtio-vga" ), QLatin1String( "virtio-vga-gl" ) );
 				else if( args.at( i + 1 ).startsWith( QLatin1String( "virtio-gpu-pci" ) ) &&
-				         ! args.at( i + 1 ).contains( QLatin1String( "virtio-gpu-gl" ) ) )
-					args[ i + 1 ].replace( QLatin1String( "virtio-gpu-pci" ), QLatin1String( "virtio-gpu-gl" ) );
+				         ! args.at( i + 1 ).contains( QLatin1String( "virtio-gpu-gl-pci" ) ) )
+					args[ i + 1 ].replace( QLatin1String( "virtio-gpu-pci" ), QLatin1String( "virtio-gpu-gl-pci" ) );
 			}
 		}
 	}
@@ -446,7 +487,11 @@ bool AQ_Lab_Prepare_Start( Virtual_Machine *vm )
 	}
 
 	QSettings settings;
+#ifdef Q_OS_WIN
 	const bool whpx_bad = settings.value( QStringLiteral( "Lab/Whpx_Probe_Failed" ), false ).toBool();
+#else
+	const bool whpx_bad = false;
+#endif
 	if( whpx_bad && ! vm->Use_Force_TCG() && opt.value( QStringLiteral( "accel_policy" ) ) != QLatin1String( "tcg" ) )
 	{
 		const int answer = QMessageBox::warning( nullptr, QObject::tr( "WHPX health" ),
@@ -460,10 +505,21 @@ bool AQ_Lab_Prepare_Start( Virtual_Machine *vm )
 	}
 
 	const QString policy = opt.value( QStringLiteral( "accel_policy" ) );
+	const QString owned = opt.value( QStringLiteral( "accel_forced" ) );
+	if( policy == QLatin1String( "auto" ) || policy == QLatin1String( "hw" ) || policy.isEmpty() )
+	{
+		if( owned == QLatin1String( "tcg" ) )
+			vm->Use_Force_TCG( false );
+		if( owned == QLatin1String( "wsl" ) )
+			vm->Use_Launch_Via_WSL( false );
+		if( ! owned.isEmpty() )
+			AQ_Lab_Set( vm, QStringLiteral( "accel_forced" ), QString() );
+	}
 	if( policy == QLatin1String( "tcg" ) )
 	{
 		vm->Use_Force_TCG( true );
 		vm->Set_Machine_Accelerator( VM::TCG );
+		AQ_Lab_Set( vm, QStringLiteral( "accel_forced" ), QStringLiteral( "tcg" ) );
 	}
 	else if( policy == QLatin1String( "hw" ) )
 	{
@@ -474,6 +530,7 @@ bool AQ_Lab_Prepare_Start( Virtual_Machine *vm )
 		{
 			vm->Use_Force_TCG( true );
 			vm->Set_Machine_Accelerator( VM::TCG );
+			AQ_Lab_Set( vm, QStringLiteral( "accel_forced" ), QStringLiteral( "tcg" ) );
 		}
 		else
 			vm->Set_Machine_Accelerator( VM::KVM );
@@ -485,6 +542,7 @@ bool AQ_Lab_Prepare_Start( Virtual_Machine *vm )
 	else if( policy == QLatin1String( "wsl" ) )
 	{
 		vm->Use_Launch_Via_WSL( true );
+		AQ_Lab_Set( vm, QStringLiteral( "accel_forced" ), QStringLiteral( "wsl" ) );
 	}
 
 	const QList<VM_Shared_Folder> shares = vm->Get_Shared_Folders_List();
@@ -688,6 +746,40 @@ static void Store_Secret( const QString &vm_name, const QString &secret )
 #endif
 }
 
+#ifdef Q_OS_WIN
+static void Lock_Secret_File( const QString &path )
+{
+	HANDLE token = 0;
+	if( ! OpenProcessToken( GetCurrentProcess(), TOKEN_QUERY, &token ) )
+		return;
+	DWORD len = 0;
+	GetTokenInformation( token, TokenUser, 0, 0, &len );
+	QByteArray buf( int( len ), 0 );
+	if( len == 0 || ! GetTokenInformation( token, TokenUser, buf.data(), len, &len ) )
+	{
+		CloseHandle( token );
+		return;
+	}
+	CloseHandle( token );
+	TOKEN_USER *user = reinterpret_cast<TOKEN_USER *>( buf.data() );
+	EXPLICIT_ACCESS_W access;
+	memset( &access, 0, sizeof( access ) );
+	access.grfAccessPermissions = GENERIC_READ | GENERIC_WRITE;
+	access.grfAccessMode = SET_ACCESS;
+	access.grfInheritance = NO_INHERITANCE;
+	access.Trustee.TrusteeForm = TRUSTEE_IS_SID;
+	access.Trustee.TrusteeType = TRUSTEE_IS_USER;
+	access.Trustee.ptstrName = (LPWSTR)user->User.Sid;
+	PACL acl = 0;
+	if( SetEntriesInAclW( 1, &access, 0, &acl ) != ERROR_SUCCESS )
+		return;
+	SetNamedSecurityInfoW( (LPWSTR)path.utf16(), SE_FILE_OBJECT,
+		DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION,
+		0, 0, acl, 0 );
+	LocalFree( acl );
+}
+#endif
+
 static QString Load_Secret_File( const QString &vm_name )
 {
 #ifdef Q_OS_WIN
@@ -704,6 +796,7 @@ static QString Load_Secret_File( const QString &vm_name )
 	{
 		file.write( secret.toUtf8() );
 		file.close();
+		Lock_Secret_File( path );
 	}
 	return path;
 #else
@@ -721,6 +814,36 @@ static QWidget *Row( QWidget *parent, QWidget *left, QWidget *right )
 	if( right )
 		lay->addWidget( right );
 	return w;
+}
+
+static bool Parse_Hostfwd_Rule( const QString &raw, QString &proto, QString &host, QString &guest_ip, QString &guest )
+{
+	QString rule = raw.trimmed();
+	if( rule.startsWith( QLatin1String( "hostfwd=" ) ) )
+		rule = rule.mid( 8 );
+	const int colon = rule.indexOf( QLatin1Char( ':' ) );
+	const int dash = rule.indexOf( QLatin1Char( '-' ) );
+	if( colon <= 0 || dash < 0 || dash < colon )
+		return false;
+	proto = rule.left( colon );
+	host = rule.mid( colon + 1, dash - colon - 1 );
+	if( host.startsWith( QLatin1Char( ':' ) ) )
+		host = host.mid( 1 );
+	const QString guest_side = rule.mid( dash + 1 );
+	const int guest_colon = guest_side.lastIndexOf( QLatin1Char( ':' ) );
+	if( guest_colon >= 0 )
+	{
+		guest_ip = guest_side.left( guest_colon );
+		if( guest_ip.isEmpty() )
+			guest_ip = QStringLiteral( "10.0.2.15" );
+		guest = guest_side.mid( guest_colon + 1 );
+	}
+	else
+	{
+		guest_ip = QStringLiteral( "10.0.2.15" );
+		guest = guest_side;
+	}
+	return ! host.isEmpty() && ! guest.isEmpty();
 }
 
 static void Add_Port_Row( QTableWidget *table, const QString &proto, const QString &host, const QString &guest_ip, const QString &guest )
@@ -757,12 +880,9 @@ void AQ_Lab_Open_VM_Window( Virtual_Machine *vm, const QList<Virtual_Machine*> &
 	const QStringList rules = existing.split( QStringLiteral( ",hostfwd=" ), QString::SkipEmptyParts );
 	for( int i = 0; i < rules.count(); ++i )
 	{
-		QString rule = rules.at( i );
-		rule.remove( QStringLiteral( "hostfwd=" ) );
-		const QStringList bits = rule.split( QLatin1Char( ':' ) );
-		if( bits.count() >= 4 )
-			Add_Port_Row( ports, bits.at( 0 ), bits.at( 2 ), bits.at( 3 ).section( QLatin1Char( '-' ), 0, 0 ),
-				bits.at( 3 ).section( QLatin1Char( '-' ), 1, 1 ) );
+		QString proto, host, guest_ip, guest;
+		if( Parse_Hostfwd_Rule( rules.at( i ), proto, host, guest_ip, guest ) )
+			Add_Port_Row( ports, proto, host, guest_ip, guest );
 	}
 	net_lay->addWidget( ports );
 	QHBoxLayout *presets = new QHBoxLayout();
@@ -1034,8 +1154,38 @@ void AQ_Lab_Open_VM_Window( Virtual_Machine *vm, const QList<Virtual_Machine*> &
 	drift->setChecked( vm->Use_RTC_TD_Hack() );
 	QCheckBox *arm32 = new QCheckBox( QObject::tr( "32-bit ARM EL1 (aarch64=off)" ), boot );
 	arm32->setChecked( opt.value( QStringLiteral( "aarch64_off" ) ) == QLatin1String( "on" ) );
-	QPlainTextEdit *fwcfg = new QPlainTextEdit( vm->Get_FW_CFG_Lines(), boot );
-	fwcfg->setPlaceholderText( QObject::tr( "name=opt/com.example,file=/path or name=opt/x,string=value" ) );
+	QTableWidget *fwcfg = new QTableWidget( 0, 3, boot );
+	fwcfg->setHorizontalHeaderLabels( QStringList() << QObject::tr( "Name" ) << QObject::tr( "Kind" ) << QObject::tr( "File or string" ) );
+	fwcfg->horizontalHeader()->setStretchLastSection( true );
+	fwcfg->setMinimumHeight( 120 );
+	const QStringList fw_lines = vm->Get_FW_CFG_Lines().split( QLatin1Char( '\n' ), QString::SkipEmptyParts );
+	for( int i = 0; i < fw_lines.count(); ++i )
+	{
+		const QString line = fw_lines.at( i ).trimmed();
+		const QString name = line.section( QLatin1Char( '=' ), 1 ).section( QLatin1Char( ',' ), 0, 0 );
+		QString kind = QStringLiteral( "file" );
+		QString value;
+		if( line.contains( QLatin1String( ",string=" ) ) )
+		{
+			kind = QStringLiteral( "string" );
+			value = line.section( QLatin1String( ",string=" ), 1 );
+		}
+		else if( line.contains( QLatin1String( ",file=" ) ) )
+			value = line.section( QLatin1String( ",file=" ), 1 );
+		const int row = fwcfg->rowCount();
+		fwcfg->insertRow( row );
+		fwcfg->setItem( row, 0, new QTableWidgetItem( name ) );
+		fwcfg->setItem( row, 1, new QTableWidgetItem( kind ) );
+		fwcfg->setItem( row, 2, new QTableWidgetItem( value ) );
+	}
+	QPushButton *fw_add = new QPushButton( QObject::tr( "Add fw_cfg row" ), boot );
+	QObject::connect( fw_add, &QPushButton::clicked, &dlg, [fwcfg]() {
+		const int row = fwcfg->rowCount();
+		fwcfg->insertRow( row );
+		fwcfg->setItem( row, 0, new QTableWidgetItem( QStringLiteral( "opt/com.example" ) ) );
+		fwcfg->setItem( row, 1, new QTableWidgetItem( QStringLiteral( "file" ) ) );
+		fwcfg->setItem( row, 2, new QTableWidgetItem() );
+	} );
 	QComboBox *sandbox = new QComboBox( boot );
 	sandbox->addItem( QObject::tr( "Off" ), QString() );
 	sandbox->addItem( QObject::tr( "Recommended" ), QStringLiteral( "on" ) );
@@ -1053,6 +1203,7 @@ void AQ_Lab_Open_VM_Window( Virtual_Machine *vm, const QList<Virtual_Machine*> &
 	boot_form->addRow( drift );
 	boot_form->addRow( arm32 );
 	boot_form->addRow( QObject::tr( "fw_cfg" ), fwcfg );
+	boot_form->addRow( fw_add );
 	boot_form->addRow( QObject::tr( "Sandbox" ), sandbox );
 	boot_form->addRow( sb_note );
 	tabs->addTab( boot, QObject::tr( "Boot" ) );
@@ -1297,6 +1448,8 @@ void AQ_Lab_Open_VM_Window( Virtual_Machine *vm, const QList<Virtual_Machine*> &
 				.arg( rr->currentData().toString() )
 				.arg( rrfile->text().trimmed() ) );
 		}
+		else
+			vm->Set_ICount( QString() );
 		opt.insert( QStringLiteral( "cache_mode" ), cache->currentData().toString() );
 		opt.insert( QStringLiteral( "aio" ), aio->currentData().toString() );
 		opt.insert( QStringLiteral( "iops" ), iops->text().trimmed() );
@@ -1323,7 +1476,19 @@ void AQ_Lab_Open_VM_Window( Virtual_Machine *vm, const QList<Virtual_Machine*> &
 		vm->Set_RTC_Clock( rtc->currentText() );
 		vm->Use_RTC_TD_Hack( drift->isChecked() );
 		opt.insert( QStringLiteral( "aarch64_off" ), arm32->isChecked() ? QStringLiteral( "on" ) : QString() );
-		vm->Set_FW_CFG_Lines( fwcfg->toPlainText() );
+		QStringList fw_out;
+		for( int row = 0; row < fwcfg->rowCount(); ++row )
+		{
+			const QString name = fwcfg->item( row, 0 ) ? fwcfg->item( row, 0 )->text().trimmed() : QString();
+			QString kind = fwcfg->item( row, 1 ) ? fwcfg->item( row, 1 )->text().trimmed() : QStringLiteral( "file" );
+			const QString value = fwcfg->item( row, 2 ) ? fwcfg->item( row, 2 )->text().trimmed() : QString();
+			if( name.isEmpty() || value.isEmpty() )
+				continue;
+			if( kind != QLatin1String( "string" ) )
+				kind = QStringLiteral( "file" );
+			fw_out << ( QStringLiteral( "name=" ) + name + QLatin1Char( ',' ) + kind + QLatin1Char( '=' ) + value );
+		}
+		vm->Set_FW_CFG_Lines( fw_out.join( QLatin1Char( '\n' ) ) );
 		vm->Set_Sandbox( sandbox->currentData().toString() );
 		if( tablet->isChecked() )
 			vm->Set_Mouse_Type( QStringLiteral( "usb-tablet" ) );
@@ -1470,32 +1635,123 @@ static QString Redact( const QString &text )
 	return kept.join( QLatin1Char( '\n' ) );
 }
 
+static void Zip_Put16( QByteArray &out, quint16 value )
+{
+	out.append( char( value & 0xff ) );
+	out.append( char( ( value >> 8 ) & 0xff ) );
+}
+
+static void Zip_Put32( QByteArray &out, quint32 value )
+{
+	out.append( char( value & 0xff ) );
+	out.append( char( ( value >> 8 ) & 0xff ) );
+	out.append( char( ( value >> 16 ) & 0xff ) );
+	out.append( char( ( value >> 24 ) & 0xff ) );
+}
+
+static quint32 Zip_Crc32( const QByteArray &data )
+{
+	quint32 crc = 0xffffffffu;
+	for( int i = 0; i < data.size(); ++i )
+	{
+		crc ^= quint32( quint8( data.at( i ) ) );
+		for( int bit = 0; bit < 8; ++bit )
+			crc = ( crc & 1u ) ? ( ( crc >> 1 ) ^ 0xedb88320u ) : ( crc >> 1 );
+	}
+	return crc ^ 0xffffffffu;
+}
+
+static void Zip_Add( QByteArray &zip, QByteArray &central, int &count, const QString &name, const QByteArray &data )
+{
+	const QByteArray raw_name = name.toUtf8();
+	const quint32 crc = Zip_Crc32( data );
+	const quint32 offset = quint32( zip.size() );
+	zip.append( "PK\x03\x04", 4 );
+	Zip_Put16( zip, 20 );
+	Zip_Put16( zip, 0 );
+	Zip_Put16( zip, 0 );
+	Zip_Put16( zip, 0 );
+	Zip_Put16( zip, 0 );
+	Zip_Put32( zip, crc );
+	Zip_Put32( zip, quint32( data.size() ) );
+	Zip_Put32( zip, quint32( data.size() ) );
+	Zip_Put16( zip, quint16( raw_name.size() ) );
+	Zip_Put16( zip, 0 );
+	zip.append( raw_name );
+	zip.append( data );
+
+	central.append( "PK\x01\x02", 4 );
+	Zip_Put16( central, 20 );
+	Zip_Put16( central, 20 );
+	Zip_Put16( central, 0 );
+	Zip_Put16( central, 0 );
+	Zip_Put16( central, 0 );
+	Zip_Put16( central, 0 );
+	Zip_Put32( central, crc );
+	Zip_Put32( central, quint32( data.size() ) );
+	Zip_Put32( central, quint32( data.size() ) );
+	Zip_Put16( central, quint16( raw_name.size() ) );
+	Zip_Put16( central, 0 );
+	Zip_Put16( central, 0 );
+	Zip_Put16( central, 0 );
+	Zip_Put16( central, 0 );
+	Zip_Put32( central, 0 );
+	Zip_Put32( central, offset );
+	central.append( raw_name );
+	++count;
+}
+
 void AQ_Lab_Support_Bundle( QWidget *parent, Virtual_Machine *vm )
 {
 	const QString path = QFileDialog::getSaveFileName( parent, QObject::tr( "Support bundle" ),
-		QDir( AQEMU_User_Data_Dir() ).filePath( QStringLiteral( "aqemu-support.txt" ) ) );
+		QDir( AQEMU_User_Data_Dir() ).filePath( QStringLiteral( "aqemu-support.zip" ) ),
+		QObject::tr( "Zip archive (*.zip)" ) );
 	if( path.isEmpty() )
 		return;
 	QSettings settings;
-	QFile file( path );
-	if( ! file.open( QIODevice::WriteOnly | QIODevice::Truncate ) )
-		return;
-	QTextStream ts( &file );
-	ts << "AQEMU " << CURRENT_AQEMU_VERSION << "\n";
-	ts << "Settings " << settings.fileName() << "\n";
-	ts << Redact( QString::fromUtf8( QFile( settings.fileName() ).exists() ? "" : "" ) );
+	QString settings_text = QStringLiteral( "AQEMU " ) + QStringLiteral( CURRENT_AQEMU_VERSION ) + QLatin1Char( '\n' );
 	QFile ini( settings.fileName() );
 	if( ini.open( QIODevice::ReadOnly ) )
-		ts << Redact( QString::fromUtf8( ini.readAll() ) ) << "\n";
+		settings_text += Redact( QString::fromUtf8( ini.readAll() ) );
+	QString command;
 	if( vm )
 	{
-		ts << "Command\n" << vm->Build_QEMU_Args().join( QStringLiteral( " " ) ) << "\n";
-		ts << "Accel " << AQ_Lab_Effective_Accel( vm ) << "\n";
+		QStringList args = vm->Build_QEMU_Args();
+		for( int i = 0; i < args.count(); ++i )
+		{
+			const QString lower = args.at( i ).toLower();
+			if( lower.contains( QLatin1String( "osk" ) ) || lower.contains( QLatin1String( "ipsw" ) ) ||
+			    lower.contains( QLatin1String( "secret" ) ) || lower.contains( QLatin1String( "token" ) ) ||
+			    lower.contains( QLatin1String( "password" ) ) )
+				args[ i ] = QStringLiteral( "[redacted]" );
+		}
+		command = args.join( QStringLiteral( " " ) ) + QLatin1Char( '\n' )
+			+ AQ_Lab_Effective_Accel( vm ) + QLatin1Char( '\n' );
 	}
-	const QString boot = QDir( AQEMU_User_Data_Dir() ).filePath( QStringLiteral( "qemu-boot.log" ) );
-	QFile blog( boot );
+	QString boot_log;
+	QFile blog( QDir( AQEMU_User_Data_Dir() ).filePath( QStringLiteral( "qemu-boot.log" ) ) );
 	if( blog.open( QIODevice::ReadOnly ) )
-		ts << "qemu-boot.log\n" << Redact( QString::fromUtf8( blog.readAll() ) );
+		boot_log = Redact( QString::fromUtf8( blog.readAll() ) );
+
+	QByteArray zip, central;
+	int count = 0;
+	Zip_Add( zip, central, count, QStringLiteral( "version.txt" ), QByteArray( CURRENT_AQEMU_VERSION ) + '\n' );
+	Zip_Add( zip, central, count, QStringLiteral( "settings.txt" ), settings_text.toUtf8() );
+	Zip_Add( zip, central, count, QStringLiteral( "qemu-command.txt" ), command.toUtf8() );
+	Zip_Add( zip, central, count, QStringLiteral( "qemu-boot.log" ), boot_log.toUtf8() );
+	const quint32 central_off = quint32( zip.size() );
+	zip.append( central );
+	zip.append( "PK\x05\x06", 4 );
+	Zip_Put16( zip, 0 );
+	Zip_Put16( zip, 0 );
+	Zip_Put16( zip, quint16( count ) );
+	Zip_Put16( zip, quint16( count ) );
+	Zip_Put32( zip, quint32( central.size() ) );
+	Zip_Put32( zip, central_off );
+	Zip_Put16( zip, 0 );
+	QFile file( path );
+	if( file.open( QIODevice::WriteOnly | QIODevice::Truncate ) )
+		file.write( zip );
 }
 
 void AQ_Lab_Convert( QWidget *parent, Virtual_Machine *vm )
@@ -1613,7 +1869,11 @@ void AQ_Lab_Health( QWidget *parent, Virtual_Machine *vm )
 		<< QStringLiteral( "HKLM\\SYSTEM\\CurrentControlSet\\Control\\DeviceGuard" )
 		<< QStringLiteral( "/v" ) << QStringLiteral( "EnableVirtualizationBasedSecurity" ), 4000, &code );
 #endif
+#ifdef Q_OS_WIN
 	const bool failed = report.contains( QLatin1String( "whpx" ), Qt::CaseInsensitive ) == false && ! bin.isEmpty();
+#else
+	const bool failed = false;
+#endif
 	QSettings settings;
 	settings.setValue( QStringLiteral( "Lab/Whpx_Probe_Failed" ), failed );
 	QMessageBox box( parent );
@@ -1771,30 +2031,60 @@ void AQ_Lab_Snapshot_Timeline( Virtual_Machine *vm, QWidget *parent )
 	view->setPlainText( Run_Tool( Find_Qemu_Img( vm ), QStringList() << QStringLiteral( "snapshot" ) << QStringLiteral( "-l" ) << disk, 8000, &code ) );
 	QLineEdit *note = new QLineEdit( &dlg );
 	note->setPlaceholderText( QObject::tr( "Note for the next overlay" ) );
-	QPushButton *make = new QPushButton( QObject::tr( "Create overlay" ), &dlg );
-	QPushButton *internal = new QPushButton( QObject::tr( "Internal savevm via QMP" ), &dlg );
+	QPushButton *make = new QPushButton( QObject::tr( "Create overlay and use it" ), &dlg );
+	QPushButton *internal = new QPushButton( QObject::tr( "Internal savevm" ), &dlg );
+	QPushButton *classic = new QPushButton( QObject::tr( "Classic snapshot list" ), &dlg );
 	lay->addWidget( view );
 	lay->addWidget( note );
 	lay->addWidget( make );
 	lay->addWidget( internal );
-	QObject::connect( make, &QPushButton::clicked, &dlg, [vm, disk, note]() {
+	lay->addWidget( classic );
+	QObject::connect( make, &QPushButton::clicked, &dlg, [vm, disk, note, view]() {
+		if( vm->Get_State() == VM::VMS_Running )
+		{
+			view->appendPlainText( QObject::tr( "Shut the VM down before replacing its disk with an overlay." ) );
+			return;
+		}
 		const QString dest = disk + QStringLiteral( "." ) + QDateTime::currentDateTime().toString( QStringLiteral( "yyyyMMddhhmmss" ) ) + QStringLiteral( ".qcow2" );
 		int code = 0;
-		Run_Tool( Find_Qemu_Img( vm ), QStringList() << QStringLiteral( "create" ) << QStringLiteral( "-f" ) << QStringLiteral( "qcow2" )
+		const QString out = Run_Tool( Find_Qemu_Img( vm ), QStringList() << QStringLiteral( "create" ) << QStringLiteral( "-f" ) << QStringLiteral( "qcow2" )
 			<< QStringLiteral( "-b" ) << disk << QStringLiteral( "-F" ) << QStringLiteral( "qcow2" ) << dest, 20000, &code );
+		if( code != 0 )
+		{
+			view->appendPlainText( out.left( 800 ) );
+			return;
+		}
 		QFile notes( dest + QStringLiteral( ".txt" ) );
 		if( notes.open( QIODevice::WriteOnly ) )
 			notes.write( note->text().toUtf8() );
+		VM_HDD hda = vm->Get_HDA();
+		hda.Set_File_Name( dest );
+		VM_Native_Storage_Device native = hda.Get_Native_Device();
+		native.Use_File_Path( true );
+		native.Set_File_Path( dest );
+		hda.Set_Native_Device( native );
+		vm->Set_HDA( hda );
 		AQ_Lab_Set( vm, QStringLiteral( "check_chain" ), QStringLiteral( "on" ) );
+		vm->Save_VM();
+		view->appendPlainText( QObject::tr( "This VM now boots %1." ).arg( dest ) );
 	} );
-	QObject::connect( internal, &QPushButton::clicked, &dlg, [vm, note]() {
-		if( vm->Get_QMP() && vm->Get_QMP()->Is_Connected() )
+	QObject::connect( internal, &QPushButton::clicked, &dlg, [vm, note, view]() {
+		if( ! vm->Get_QMP() || ! vm->Get_QMP()->Is_Connected() )
 		{
-			QJsonObject args;
-			args.insert( QStringLiteral( "job-id" ), QStringLiteral( "snap" ) );
-			args.insert( QStringLiteral( "tag" ), note->text().isEmpty() ? QStringLiteral( "aqemu" ) : note->text() );
-			vm->Get_QMP()->Send_Command( QStringLiteral( "snapshot-save" ), args );
+			view->appendPlainText( QObject::tr( "Start the VM and wait for QMP before an internal savevm." ) );
+			return;
 		}
+		QString tag = note->text().trimmed();
+		if( tag.isEmpty() )
+			tag = QStringLiteral( "aqemu" );
+		tag.replace( QLatin1Char( ' ' ), QLatin1Char( '_' ) );
+		vm->Get_QMP()->Human_Monitor( QStringLiteral( "savevm " ) + tag );
+		view->appendPlainText( QObject::tr( "Sent savevm %1." ).arg( tag ) );
+	} );
+	QObject::connect( classic, &QPushButton::clicked, &dlg, [vm, parent]() {
+		Snapshots_Window snapshot_win( parent );
+		snapshot_win.Set_VM( vm );
+		snapshot_win.exec();
 	} );
 	dlg.exec();
 }
@@ -1992,7 +2282,7 @@ void AQ_Lab_First_Run( QWidget *parent )
 		QObject::connect( btn, &QPushButton::clicked, &dlg, [parent, name, appliance, &dlg]() {
 			VM_Wizard_Window *wizard = new VM_Wizard_Window( parent );
 			if( appliance )
-				wizard->Select_Storage_Recovery();
+				wizard->Select_Appliance();
 			else
 				wizard->Select_Guest_OS( name );
 			dlg.accept();
