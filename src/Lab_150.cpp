@@ -62,9 +62,12 @@
 #include <cstring>
 
 #ifdef Q_OS_WIN
-#include <windows.h>
-#include <wincred.h>
-#include <aclapi.h>
+#  ifndef WIN32_LEAN_AND_MEAN
+#    define WIN32_LEAN_AND_MEAN
+#  endif
+#  include <windows.h>
+#  include <wincred.h>
+#  include <aclapi.h>
 #endif
 
 static QHash<const Virtual_Machine*, QList<QProcess*> > g_companions;
