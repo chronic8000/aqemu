@@ -1,3 +1,30 @@
+2026-10-01 Chronic Engineering — AQEMU 1.4.2 (Storage Recovery, TrueNAS Lab & Host Audio)
+
+	* Storage recovery:
+	  - File → Storage Recovery… and a Recover storage card in the New VM wizard.
+	  - Recovery checkpoints copy disks onto overlays, then rewire the VM only after
+	    the manifest is written. Discard deletes only files named in that manifest.
+	    Keep leaves the overlays in place and does not modify the original disks.
+	  - Probe text stays at detected labels and a probable pool. The guest decides
+	    whether an import or repair worked.
+
+	* TrueNAS and folder-backed disks:
+	  - Appliance import recognizes TrueNAS and FreeNAS, forces 4Kn when the
+	    descriptor or a ZFS label says so, and keeps disk serials on VirtIO-SCSI.
+	  - Guest OS → TrueNAS / Storage: a lab VM, folder-backed empty disks, and a
+	    four-VM storage network on one multicast bus. No pool and no image are shipped.
+	  - The VM Storage tab can read TrueNAS pools and snapshots when integration
+	    is enabled. The API token stays in settings, not in the VM file.
+
+	* Audio:
+	  - File → Audio… sets the computer-wide backend, devices, and buffer options.
+	  - VM → Audio… can override that profile. Intel HDA can be playback only,
+	    playback and microphone, or microphone only.
+	  - Bundled QEMU accepts DirectSound and SDL input and output device names.
+
+	* Microsoft Store builds keep their own settings and start only the QEMU
+	  shipped beside AQEMU. 1.4.1 remains the previous Store release.
+
 2026-09-30 Chronic Engineering — AQEMU 1.4.1 (Complete Runtime DLL Dependency Bundling & Headless GUI Subsystem)
 
 	* Packaging & Runtime Dependency Fixes:
