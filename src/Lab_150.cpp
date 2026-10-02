@@ -67,6 +67,9 @@
 #  endif
 #  include <windows.h>
 #  include <wincred.h>
+#  ifdef XMLDocument
+#    undef XMLDocument
+#  endif
 #endif
 
 static QHash<const Virtual_Machine*, QList<QProcess*> > g_companions;
