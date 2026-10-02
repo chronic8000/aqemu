@@ -19,14 +19,7 @@ aqemu_qemu_require_pkg() {
 # Populate global array AQEMU_QEMU_EXTRA_CONFIGURE with --enable-* flags.
 # Call as: aqemu_qemu_feature_flags   then use "${AQEMU_QEMU_EXTRA_CONFIGURE[@]}"
 aqemu_qemu_feature_flags() {
-	# Upstream QEMU is a submodule. AQEMU patches (device selection, and any
-	# later files in third_party/patches) must land before configure, on every host.
-	local _aqemu_root
-	_aqemu_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-	if [[ -f "${_aqemu_root}/third_party/qemu/meson.build" || -f "${_aqemu_root}/third_party/qemu/configure" ]]; then
-		bash "${_aqemu_root}/scripts/qemu_apply_patches.sh"
-	fi
-
+	# Upstream QEMU is used as checked out. AQEMU does not patch it.
 	AQEMU_QEMU_EXTRA_CONFIGURE=(
 		--enable-vnc
 		--enable-slirp

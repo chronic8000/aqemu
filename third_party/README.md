@@ -2,7 +2,7 @@
 
 Pin (current): **v11.0.2** via submodule `third_party/qemu`.
 
-AQEMU changes to that tree live in `third_party/patches/` and are applied by `scripts/qemu_apply_patches.sh` before configure, locally and on GitHub Actions. A fresh submodule checkout does not contain them until that script runs.
+That tree stays unmodified upstream QEMU. Guest and host choices (which binary, which audiodev, which machine) are made in AQEMU. A person building QEMU from this checkout gets the same source as the v11.0.2 tag.
 
 ```bash
 git submodule update --init --depth 1 third_party/qemu

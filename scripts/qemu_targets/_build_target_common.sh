@@ -101,7 +101,6 @@ if [[ ! -f "${QEMU_SRC}/configure" && ! -f "${QEMU_SRC}/meson.build" ]]; then
   echo "QEMU source submodule missing. Running: git submodule update --init --depth 1 third_party/qemu"
   git -C "${ROOT}" submodule update --init --depth 1 third_party/qemu
 fi
-bash "${ROOT}/scripts/qemu_apply_patches.sh"
 
 # Handle target naming
 TARGET_CLEAN="$(echo "${TARGET}" | sed 's/-softmmu$//')"
