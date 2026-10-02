@@ -128,6 +128,9 @@ class QEMU_Probe_Catalog
 		static void Parse_CPU_Help_Lines( const QStringList &lines,
 		                                  QList<Device_Map> &out );
 
+		/** Host -audiodev drivers from the probe's raw.audio text. */
+		static QStringList Audio_Drivers( const QString &computer_type_or_binary );
+
 		/** Prefer candidates that exist in qemu_probe_full_v3 for this arch. */
 		static QString First_Available_CPU( const QString &computer_type_or_binary,
 		                                    const QStringList &candidates );

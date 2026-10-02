@@ -95,6 +95,13 @@ bool AQ_Is_Store_Build();
 bool AQ_Path_Is_Msys_Tree( const QString &path );
 /** Store builds may launch only the QEMU shipped beside aqemu.exe. */
 bool AQ_Store_May_Use_QEMU_Path( const QString &path );
+/**
+ * Legacy names "qemu" and "qemu-system-x86" are the old i386 binary.
+ * The package ships that guest as qemu-system-i386.
+ */
+QString AQ_Canonical_QEMU_Binary_Name( const QString &name );
+/** qemu-system-* beside aqemu.exe, or empty. Store builds ignore MSYS copies. */
+QString AQ_Bundled_QEMU_Binary( const QString &system_name );
 /** Empty directory used as QEMU's working directory so keymap names are not picked up from the install tree. */
 QString AQ_QEMU_Process_Work_Dir();
 
@@ -164,7 +171,13 @@ QString AQ_Normalize_File_Path( const QString &path );
 QString AQ_Qemu_Drive_File_Key( const QString &path );
 
 /**
- * Probe QEMU binary for supported -audiodev backends and select the best supported match.
+ * Probe this QEMU binary's -audiodev help and the host sound servers.
+ * preferred is used when that binary lists it and the host can run it.
+ * Otherwise the first driver in the platform order that both sides accept.
+ * The bundled Windows QEMU has no SDL driver. Windows playback uses spice
+ * (the embedded viewer). DirectSound is not offered on Windows ARM: that
+ * backend access-violates in this QEMU build. Linux (including Pi and ARM)
+ * prefers pa/pipewire/alsa, then spice.
  */
 QString AQ_Pick_Host_Audio_Backend( const QString &qemu_binary, const QString &preferred = QString() );
 

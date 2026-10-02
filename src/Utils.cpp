@@ -61,6 +61,7 @@ HANDLE Console_HANDLE = GetStdHandle( STD_OUTPUT_HANDLE );
 #endif
 
 #include "Utils.h"
+#include "Audio_Host.h"
 #include "System_Info.h"
 
 static uint Messages_Index = 0;
@@ -337,6 +338,40 @@ bool AQ_Store_May_Use_QEMU_Path( const QString &path )
 	const QString app = QDir::cleanPath( QCoreApplication::applicationDirPath() ).toLower();
 	const QString n = QDir::cleanPath( path ).toLower();
 	return ! app.isEmpty() && ( n == app || n.startsWith( app + QLatin1Char( '/' ) ) );
+}
+
+QString AQ_Canonical_QEMU_Binary_Name( const QString &name )
+{
+	QString n = name.trimmed();
+	if( n.endsWith( QLatin1String( ".exe" ), Qt::CaseInsensitive ) )
+		n.chop( 4 );
+	const int slash = n.lastIndexOf( QLatin1Char( '/' ) );
+	if( slash >= 0 )
+		n = n.mid( slash + 1 );
+	const int bslash = n.lastIndexOf( QLatin1Char( '\\' ) );
+	if( bslash >= 0 )
+		n = n.mid( bslash + 1 );
+	if( n == QLatin1String( "qemu" ) || n == QLatin1String( "qemu-system-x86" ) )
+		return QStringLiteral( "qemu-system-i386" );
+	return n;
+}
+
+QString AQ_Bundled_QEMU_Binary( const QString &system_name )
+{
+	const QString name = AQ_Canonical_QEMU_Binary_Name( system_name );
+	if( name.isEmpty() || name == QLatin1String( "qemu" ) )
+		return QString();
+	const QString dir = AQ_Get_Bundled_QEMU_Dir();
+	if( dir.isEmpty() )
+		return QString();
+#ifdef Q_OS_WIN32
+	const QString exe = QDir( dir ).filePath( name + QStringLiteral( ".exe" ) );
+#else
+	const QString exe = QDir( dir ).filePath( name );
+#endif
+	if( QFile::exists( exe ) && AQ_Store_May_Use_QEMU_Path( exe ) )
+		return exe;
+	return QString();
 }
 
 QString AQ_QEMU_Process_Work_Dir()
@@ -1267,78 +1302,107 @@ QString AQ_Qemu_Drive_File_Key( const QString &path )
 	return QStringLiteral( "file=%1" ).arg( p );
 }
 
+static bool AQ_Audio_Host_Ready( const QString &driver )
+{
+	const QString d = driver.trimmed().toLower();
+#if defined(Q_OS_WIN)
+	// This QEMU's DirectSound backend access-violates on Windows ARM
+	// (exit 0xC0000005). SDL is compiled out of the Store package.
+#if defined(_M_ARM64) || defined(__aarch64__)
+	if( d == QLatin1String( "dsound" ) || d == QLatin1String( "sdl" ) )
+		return false;
+#else
+	Q_UNUSED( d );
+#endif
+	return true;
+#elif defined(Q_OS_DARWIN)
+	Q_UNUSED( d );
+	return true;
+#else
+	const QString runtime = QString::fromLocal8Bit( qgetenv( "XDG_RUNTIME_DIR" ) );
+	if( d == QLatin1String( "pa" ) )
+	{
+		if( ! QStandardPaths::findExecutable( QStringLiteral( "pactl" ) ).isEmpty() )
+			return true;
+		return ! runtime.isEmpty() && QFile::exists( runtime + QStringLiteral( "/pulse/native" ) );
+	}
+	if( d == QLatin1String( "pipewire" ) )
+	{
+		if( ! QStandardPaths::findExecutable( QStringLiteral( "pw-cli" ) ).isEmpty()
+		    || ! QStandardPaths::findExecutable( QStringLiteral( "wpctl" ) ).isEmpty() )
+			return true;
+		return ! runtime.isEmpty() && QFile::exists( runtime + QStringLiteral( "/pipewire-0" ) );
+	}
+	if( d == QLatin1String( "alsa" ) )
+		return QDir( QStringLiteral( "/dev/snd" ) ).exists()
+			|| ! QStandardPaths::findExecutable( QStringLiteral( "aplay" ) ).isEmpty();
+	if( d == QLatin1String( "oss" ) )
+		return QFile::exists( QStringLiteral( "/dev/dsp" ) );
+	return true;
+#endif
+}
+
+static QStringList AQ_Audio_Backend_Priority()
+{
+#ifdef Q_OS_WIN
+	// spice is compiled into the Store QEMU and plays through the embedded
+	// viewer. sdl is not. dsound is listed by QEMU but crashes on Windows ARM.
+	return QStringList()
+		<< QStringLiteral( "spice" )
+		<< QStringLiteral( "pa" )
+		<< QStringLiteral( "pipewire" )
+		<< QStringLiteral( "alsa" )
+		<< QStringLiteral( "sdl" )
+		<< QStringLiteral( "dsound" )
+		<< QStringLiteral( "oss" )
+		<< QStringLiteral( "wav" )
+		<< QStringLiteral( "dbus" )
+		<< QStringLiteral( "none" );
+#elif defined(Q_OS_DARWIN)
+	return QStringList()
+		<< QStringLiteral( "coreaudio" )
+		<< QStringLiteral( "sdl" )
+		<< QStringLiteral( "pa" )
+		<< QStringLiteral( "spice" )
+		<< QStringLiteral( "oss" )
+		<< QStringLiteral( "wav" )
+		<< QStringLiteral( "none" );
+#else
+	return QStringList()
+		<< QStringLiteral( "pa" )
+		<< QStringLiteral( "pipewire" )
+		<< QStringLiteral( "alsa" )
+		<< QStringLiteral( "sdl" )
+		<< QStringLiteral( "spice" )
+		<< QStringLiteral( "oss" )
+		<< QStringLiteral( "wav" )
+		<< QStringLiteral( "none" );
+#endif
+}
+
 QString AQ_Pick_Host_Audio_Backend( const QString &qemu_binary, const QString &preferred )
 {
-	static QMap<QString, QStringList> cache;
-	const QString qemu = qemu_binary.trimmed();
+	const QStringList supported = AQ_Audio_Backend_Names( qemu_binary );
 	const QString pref = preferred.trimmed().toLower();
 
-	QStringList supported;
-	if( ! qemu.isEmpty() )
-	{
-		if( cache.contains( qemu ) )
-		{
-			supported = cache.value( qemu );
-		}
-		else
-		{
-			QProcess p;
-			p.start( qemu, QStringList() << QStringLiteral( "-audiodev" ) << QStringLiteral( "help" ) );
-			if( p.waitForFinished( 2000 ) )
-			{
-				QString out = QString::fromUtf8( p.readAllStandardOutput() );
-				if( out.isEmpty() )
-					out = QString::fromUtf8( p.readAllStandardError() );
-				const QStringList lines = out.split( QRegularExpression( QStringLiteral( "[\\r\\n]+" ) ),
-				                                     QString::SkipEmptyParts );
-				for( const QString &line : lines )
-				{
-					const QString t = line.trimmed().toLower();
-					if( t.isEmpty() || t.contains( QLatin1Char( ' ' ) ) ||
-					    t.startsWith( QLatin1String( "available" ) ) )
-						continue;
-					supported << t;
-				}
-			}
-			cache.insert( qemu, supported );
-		}
-	}
-
-	if( supported.isEmpty() )
-	{
-		if( ! pref.isEmpty() && pref != QLatin1String( "none" ) )
-			return pref;
-#ifdef Q_OS_WIN32
-		return QStringLiteral( "dsound" );
-#elif defined(Q_OS_DARWIN)
-		return QStringLiteral( "coreaudio" );
-#else
-		return QStringLiteral( "pa" );
-#endif
-	}
-
-	if( ! pref.isEmpty() && supported.contains( pref ) )
+	if( ! pref.isEmpty() && supported.contains( pref ) && AQ_Audio_Host_Ready( pref ) )
 		return pref;
 
-	const QStringList priority = {
-		QStringLiteral( "pa" ),
-		QStringLiteral( "pipewire" ),
-		QStringLiteral( "alsa" ),
-		QStringLiteral( "sdl" ),
-		QStringLiteral( "dsound" ),
-		QStringLiteral( "spice" ),
-		QStringLiteral( "oss" ),
-		QStringLiteral( "wav" ),
-		QStringLiteral( "none" )
-	};
-
-	for( const QString &driver : priority )
+	const QStringList priority = AQ_Audio_Backend_Priority();
+	for( int i = 0; i < priority.count(); ++i )
 	{
-		if( supported.contains( driver ) )
+		const QString driver = priority.at( i );
+		if( supported.contains( driver ) && AQ_Audio_Host_Ready( driver ) )
 			return driver;
 	}
 
-	return supported.first();
+	for( int i = 0; i < supported.count(); ++i )
+	{
+		if( AQ_Audio_Host_Ready( supported.at( i ) ) )
+			return supported.at( i );
+	}
+
+	return QStringLiteral( "none" );
 }
 
 bool AQ_Is_Apple_Partition_Map_Image( const QString &path )

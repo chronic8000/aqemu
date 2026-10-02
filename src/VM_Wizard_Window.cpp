@@ -849,25 +849,12 @@ void VM_Wizard_Window::Populate_OS_Tree()
 		}
 	}
 
-	Tree_OS->expandToDepth( 0 );
-
-	// Host-aware auto-expansion: expand Linux and the host-native architecture subfolder
-	if( linux_family_item )
-	{
-		linux_family_item->setExpanded( true );
-		if( host_is_arm && arm_sub_to_expand )
-		{
-			arm_sub_to_expand->setExpanded( true );
-			if( x86_sub_to_expand )
-				x86_sub_to_expand->setExpanded( false );
-		}
-		else if( ! host_is_arm && x86_sub_to_expand )
-		{
-			x86_sub_to_expand->setExpanded( true );
-			if( arm_sub_to_expand )
-				arm_sub_to_expand->setExpanded( false );
-		}
-	}
+	// Show every guest, including old Windows and the non-host Linux architectures.
+	// An ARM host used to leave Microsoft collapsed and hide the x86 Linux folder.
+	Tree_OS->expandAll();
+	Q_UNUSED( linux_family_item );
+	Q_UNUSED( arm_sub_to_expand );
+	Q_UNUSED( x86_sub_to_expand );
 }
 
 void VM_Wizard_Window::Populate_Platform_Tree()

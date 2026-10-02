@@ -301,6 +301,7 @@ class Main_Window: public QMainWindow
 		void Update_Recent_CD_ROM_Images_List();
 		void Update_Recent_Floppy_Images_List();
         void Computer_Type_Changed();
+        void Refresh_Audiodev_Backends();
         void Enforce_Accel_Honesty();
 	void Enforce_Disk_Bus_Honesty();
 	int Disk_Interface_To_Combo_Index( VM::Device_Interface iface ) const;

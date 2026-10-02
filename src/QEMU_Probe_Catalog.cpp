@@ -176,6 +176,42 @@ QString QEMU_Probe_Catalog::Architecture_Key( const QString &computer_type_or_bi
 	return s;
 }
 
+QStringList QEMU_Probe_Catalog::Audio_Drivers( const QString &computer_type_or_binary )
+{
+	static QMap<QString, QStringList> cache;
+	const QString key = Architecture_Key( computer_type_or_binary );
+	if( key.isEmpty() )
+		return QStringList();
+	if( cache.contains( key ) )
+		return cache.value( key );
+
+	QStringList out;
+	const QString dir = Probe_Directory();
+	if( ! dir.isEmpty() )
+	{
+		QFile f( QDir( dir ).filePath( key + QStringLiteral( ".json" ) ) );
+		if( f.open( QIODevice::ReadOnly ) )
+		{
+			const QJsonDocument doc = QJsonDocument::fromJson( f.readAll() );
+			const QString audio = doc.object().value( QLatin1String( "raw" ) ).toObject()
+				.value( QLatin1String( "audio" ) ).toString();
+			const QStringList lines = audio.split( QRegExp( QStringLiteral( "[\\r\\n]+" ) ),
+				QString::SkipEmptyParts );
+			for( int i = 0; i < lines.count(); ++i )
+			{
+				const QString t = lines.at( i ).trimmed().toLower();
+				if( t.isEmpty() || t.contains( QLatin1Char( ' ' ) ) ||
+				    t.startsWith( QLatin1String( "available" ) ) )
+					continue;
+				out << t;
+			}
+		}
+	}
+	out.removeDuplicates();
+	cache.insert( key, out );
+	return out;
+}
+
 Architecture_Hardware_Capabilities QEMU_Probe_Catalog::Get_Hardware_Capabilities( const QString &computer_type_or_binary )
 {
 	static QMap<QString, Architecture_Hardware_Capabilities> s_cache;

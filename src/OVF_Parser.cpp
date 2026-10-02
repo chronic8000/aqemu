@@ -500,6 +500,7 @@ bool OVF_Parser::Parse_OVF( const QString &ovf_path, OVF_Appliance &appliance, Q
 	QString product_text;
 
 	int cim_os_id = -1;
+	QString os_section_text;
 
 	auto sanitize_and_resolve_disk = [&]( OVF_Disk &disk ) -> bool {
 		if( file_refs.contains( disk.file_ref ) )
@@ -626,6 +627,8 @@ bool OVF_Parser::Parse_OVF( const QString &ovf_path, OVF_Appliance &appliance, Q
 				if( xml.isStartElement() && xml.name() == QLatin1String( "Description" ) )
 				{
 					const QString desc = xml.readElementText().trimmed();
+					if( ! desc.isEmpty() )
+						os_section_text = desc;
 					if( appliance.os_type_raw.isEmpty() )
 						appliance.os_type_raw = desc;
 				}
@@ -772,68 +775,138 @@ bool OVF_Parser::Parse_OVF( const QString &ovf_path, OVF_Appliance &appliance, Q
 	if( product_lower.contains( QLatin1String( "truenas" ) ) || product_lower.contains( QLatin1String( "freenas" ) ) )
 		appliance.os_type_raw = product_text + QLatin1Char( ' ' ) + appliance.os_type_raw;
 
-	appliance.aqemu_profile_name = Map_OS_To_AQEMU_Profile( appliance.os_type_raw, cim_os_id );
+	QString os_hint = appliance.os_type_raw;
+	if( ! os_section_text.isEmpty() && os_hint != os_section_text )
+		os_hint += QLatin1Char( ' ' ) + os_section_text;
+	appliance.aqemu_profile_name = Map_OS_To_AQEMU_Profile( os_hint, cim_os_id );
 	return true;
 }
 
 QString OVF_Parser::Map_OS_To_AQEMU_Profile( const QString &os_str, int cim_os_id )
 {
-	const QString t = os_str.toLower();
+	QString compact = os_str.toLower();
+	compact.remove( QLatin1Char( ' ' ) );
+	compact.remove( QLatin1Char( '-' ) );
+	compact.remove( QLatin1Char( '_' ) );
+	const bool is64 = compact.contains( QLatin1String( "64" ) )
+		|| compact.contains( QLatin1String( "x64" ) )
+		|| compact.contains( QLatin1String( "amd64" ) );
+	const bool is_arm = compact.contains( QLatin1String( "aarch64" ) )
+		|| compact.contains( QLatin1String( "arm64" ) );
 
-	// TrueNAS & FreeNAS
-	if( t.contains( QStringLiteral( "truenas" ) ) || t.contains( QStringLiteral( "freenas" ) ) )
+	auto bit = [ is64 ]( const char *name32, const char *name64 ) -> QString {
+		return QString::fromLatin1( is64 ? name64 : name32 );
+	};
+
+	if( compact.contains( QLatin1String( "truenas" ) ) || compact.contains( QLatin1String( "freenas" ) ) )
 	{
-		if( t.contains( QStringLiteral( "scale" ) ) )
-		{
-			if( t.contains( QStringLiteral( "aarch64" ) ) || t.contains( QStringLiteral( "arm64" ) ) )
-				return QStringLiteral( "TrueNAS SCALE (ARM64)" );
-			return QStringLiteral( "TrueNAS SCALE" );
-		}
+		if( compact.contains( QLatin1String( "scale" ) ) )
+			return is_arm ? QStringLiteral( "TrueNAS SCALE (ARM64)" ) : QStringLiteral( "TrueNAS SCALE" );
 		return QStringLiteral( "TrueNAS CORE" );
 	}
 
-	// Windows
-	if( t.contains( QStringLiteral( "win11" ) ) || t.contains( QStringLiteral( "windows11" ) ) || t.contains( QStringLiteral( "windows 11" ) ) )
+	// Specific Windows releases before the generic "windows" word.
+	// "Windows 95" does not contain "win95", and VMware's windows9Guest is Windows 10.
+	if( compact.contains( QLatin1String( "windows11" ) ) || compact.contains( QLatin1String( "win11" ) ) )
 		return QStringLiteral( "Windows 11" );
-	if( t.contains( QStringLiteral( "win10" ) ) || t.contains( QStringLiteral( "windows10" ) ) || t.contains( QStringLiteral( "windows 10" ) ) || cim_os_id == 115 || cim_os_id == 116 )
-		return t.contains( QStringLiteral( "32" ) ) ? QStringLiteral( "Windows 10 (32-bit)" ) : QStringLiteral( "Windows 10 (64-bit)" );
-	if( t.contains( QStringLiteral( "win8" ) ) || t.contains( QStringLiteral( "windows8" ) ) || cim_os_id == 105 )
-		return QStringLiteral( "Windows 8.1 (64-bit)" );
-	if( t.contains( QStringLiteral( "win7" ) ) || t.contains( QStringLiteral( "windows7" ) ) || cim_os_id == 102 || cim_os_id == 103 )
-		return t.contains( QStringLiteral( "32" ) ) ? QStringLiteral( "Windows 7 (32-bit)" ) : QStringLiteral( "Windows 7 (64-bit)" );
-	if( t.contains( QStringLiteral( "winxp" ) ) || t.contains( QStringLiteral( "windowsxp" ) ) || cim_os_id == 69 || cim_os_id == 70 )
-		return QStringLiteral( "Windows XP (32-bit)" );
-	if( t.contains( QStringLiteral( "win98" ) ) || cim_os_id == 59 )
+	if( compact.contains( QLatin1String( "windows10" ) ) || compact.contains( QLatin1String( "win10" ) )
+	    || compact.contains( QLatin1String( "windows9guest" ) ) || cim_os_id == 115 || cim_os_id == 116 )
+		return bit( "Windows 10 (32-bit)", "Windows 10 (64-bit)" );
+	if( compact.contains( QLatin1String( "windows81" ) ) || compact.contains( QLatin1String( "win81" ) ) )
+		return bit( "Windows 8.1 (32-bit)", "Windows 8.1 (64-bit)" );
+	if( compact.contains( QLatin1String( "windows8" ) ) || compact.contains( QLatin1String( "win8" ) ) )
+		return bit( "Windows 8 (32-bit)", "Windows 8 (64-bit)" );
+	if( compact.contains( QLatin1String( "windows7" ) ) || compact.contains( QLatin1String( "win7" ) ) )
+		return bit( "Windows 7 (32-bit)", "Windows 7 (64-bit)" );
+	if( compact.contains( QLatin1String( "vista" ) ) || compact.contains( QLatin1String( "longhorn" ) ) )
+		return bit( "Windows Vista (32-bit)", "Windows Vista (64-bit)" );
+	if( compact.contains( QLatin1String( "windowsxp" ) ) || compact.contains( QLatin1String( "winxp" ) ) )
+		return bit( "Windows XP (32-bit)", "Windows XP (64-bit)" );
+	if( compact.contains( QLatin1String( "server2022" ) ) || compact.contains( QLatin1String( "windows2022" ) ) )
+		return QStringLiteral( "Windows Server 2022" );
+	if( compact.contains( QLatin1String( "server2019" ) ) || compact.contains( QLatin1String( "windows2019" ) ) )
+		return QStringLiteral( "Windows Server 2019" );
+	if( compact.contains( QLatin1String( "server2016" ) ) || compact.contains( QLatin1String( "windows2016" ) ) )
+		return QStringLiteral( "Windows Server 2016" );
+	if( compact.contains( QLatin1String( "server2012" ) ) || compact.contains( QLatin1String( "windows2012" ) ) )
+		return QStringLiteral( "Windows Server 2012" );
+	if( compact.contains( QLatin1String( "server2008" ) ) || compact.contains( QLatin1String( "windows2008" ) ) )
+		return bit( "Windows Server 2008 (32-bit)", "Windows Server 2008 (64-bit)" );
+	if( compact.contains( QLatin1String( "server2003" ) ) || compact.contains( QLatin1String( "windows2003" ) ) || compact.contains( QLatin1String( "winnet" ) ) )
+		return QStringLiteral( "Windows Server 2003" );
+	if( compact.contains( QLatin1String( "windows2000" ) ) || compact.contains( QLatin1String( "win2000" ) ) || compact.contains( QLatin1String( "win2k" ) ) )
+		return QStringLiteral( "Windows 2000" );
+	if( compact.contains( QLatin1String( "windowsme" ) ) || compact.contains( QLatin1String( "winme" ) ) )
+		return QStringLiteral( "Windows ME" );
+	if( compact.contains( QLatin1String( "windows98" ) ) || compact.contains( QLatin1String( "win98" ) ) )
 		return QStringLiteral( "Windows 98" );
-	if( t.contains( QStringLiteral( "win95" ) ) || cim_os_id == 58 )
+	if( compact.contains( QLatin1String( "windows95" ) ) || compact.contains( QLatin1String( "win95" ) ) )
 		return QStringLiteral( "Windows 95" );
-	if( t.contains( QStringLiteral( "dos" ) ) )
-		return QStringLiteral( "MS-DOS" );
+	if( compact.contains( QLatin1String( "windowsnt4" ) ) || compact.contains( QLatin1String( "winnt4" ) ) || compact.contains( QLatin1String( "windowsnt" ) ) || compact.contains( QLatin1String( "winnt" ) ) )
+		return QStringLiteral( "Windows NT 4.0" );
+	if( compact.contains( QLatin1String( "windows31" ) ) || compact.contains( QLatin1String( "windows3" ) ) || compact.contains( QLatin1String( "win31" ) ) )
+		return QStringLiteral( "Windows 3.x" );
+	if( compact.contains( QLatin1String( "msdos" ) ) || compact.contains( QLatin1String( "msdos" ) ) || compact == QLatin1String( "dos" ) || compact.contains( QLatin1String( "freedos" ) ) )
+		return compact.contains( QLatin1String( "free" ) ) ? QStringLiteral( "FreeDOS" ) : QStringLiteral( "MS-DOS" );
 
-	// Linux & BSD
-	if( t.contains( QStringLiteral( "ubuntu" ) ) || cim_os_id == 94 )
-		return t.contains( QStringLiteral( "32" ) ) ? QStringLiteral( "Ubuntu (32-bit)" ) : QStringLiteral( "Ubuntu (64-bit)" );
-	if( t.contains( QStringLiteral( "debian" ) ) || cim_os_id == 95 )
-		return t.contains( QStringLiteral( "32" ) ) ? QStringLiteral( "Debian (32-bit)" ) : QStringLiteral( "Debian (64-bit)" );
-	if( t.contains( QStringLiteral( "fedora" ) ) )
-		return QStringLiteral( "Fedora (64-bit)" );
-	if( t.contains( QStringLiteral( "arch" ) ) )
-		return QStringLiteral( "Arch Linux (64-bit)" );
-	if( t.contains( QStringLiteral( "freebsd" ) ) || ( cim_os_id >= 36 && cim_os_id <= 40 ) )
-		return t.contains( QStringLiteral( "32" ) ) ? QStringLiteral( "FreeBSD (32-bit)" ) : QStringLiteral( "FreeBSD (64-bit)" );
-	if( t.contains( QStringLiteral( "openbsd" ) ) )
-		return QStringLiteral( "OpenBSD (64-bit)" );
-	if( t.contains( QStringLiteral( "netbsd" ) ) )
-		return QStringLiteral( "NetBSD (64-bit)" );
-	if( t.contains( QStringLiteral( "solaris" ) ) || t.contains( QStringLiteral( "illumos" ) ) )
+	// CIM_OperatingSystem.OSType values used in OperatingSystemSection ovf:id.
+	switch( cim_os_id )
+	{
+		case 14: return QStringLiteral( "MS-DOS" );
+		case 15: return QStringLiteral( "Windows 3.x" );
+		case 16: return QStringLiteral( "Windows 95" );
+		case 17: return QStringLiteral( "Windows 98" );
+		case 18: return QStringLiteral( "Windows NT 4.0" );
+		case 58: return QStringLiteral( "Windows 2000" );
+		case 63: return QStringLiteral( "Windows ME" );
+		case 67: case 72: return QStringLiteral( "Windows XP (32-bit)" );
+		case 69: return QStringLiteral( "Windows Server 2003" );
+		case 70: return QStringLiteral( "Windows Server 2003" );
+		case 71: return QStringLiteral( "Windows XP (64-bit)" );
+		case 73: return QStringLiteral( "Windows Vista (32-bit)" );
+		case 74: return QStringLiteral( "Windows Vista (64-bit)" );
+		case 76: return QStringLiteral( "Windows Server 2008 (32-bit)" );
+		case 77: case 103: return QStringLiteral( "Windows Server 2008 (64-bit)" );
+		case 105: return is64 ? QStringLiteral( "Windows 7 (64-bit)" ) : QStringLiteral( "Windows 7 (32-bit)" );
+		default: break;
+	}
+
+	if( compact.contains( QLatin1String( "windows" ) ) )
+		return is64 ? QStringLiteral( "Windows 10 (64-bit)" ) : QStringLiteral( "Windows 7 (32-bit)" );
+
+	if( compact.contains( QLatin1String( "ubuntu" ) ) || cim_os_id == 93 || cim_os_id == 94 )
+	{
+		if( is_arm ) return QStringLiteral( "Ubuntu (ARM64)" );
+		return bit( "Ubuntu (32-bit)", "Ubuntu (64-bit)" );
+	}
+	if( compact.contains( QLatin1String( "debian" ) ) || cim_os_id == 95 || cim_os_id == 96 )
+	{
+		if( is_arm ) return QStringLiteral( "Debian (ARM64)" );
+		return bit( "Debian (32-bit)", "Debian (64-bit)" );
+	}
+	if( compact.contains( QLatin1String( "fedora" ) ) )
+		return is_arm ? QStringLiteral( "Fedora (ARM64)" ) : QStringLiteral( "Fedora (64-bit)" );
+	if( compact.contains( QLatin1String( "archlinux" ) ) || compact.startsWith( QLatin1String( "arch" ) ) )
+		return is_arm ? QStringLiteral( "Arch Linux ARM (ARM64)" ) : QStringLiteral( "Arch Linux (64-bit)" );
+	if( compact.contains( QLatin1String( "freebsd" ) ) || cim_os_id == 36 )
+		return bit( "FreeBSD (32-bit)", "FreeBSD (64-bit)" );
+	if( compact.contains( QLatin1String( "openbsd" ) ) )
+		return bit( "OpenBSD (32-bit)", "OpenBSD (64-bit)" );
+	if( compact.contains( QLatin1String( "netbsd" ) ) )
+		return bit( "NetBSD (32-bit)", "NetBSD (64-bit)" );
+	if( compact.contains( QLatin1String( "solaris" ) ) || compact.contains( QLatin1String( "illumos" ) ) )
 		return QStringLiteral( "Solaris x86" );
-	if( t.contains( QStringLiteral( "macos" ) ) || t.contains( QStringLiteral( "darwin" ) ) )
-		return QStringLiteral( "macOS" );
-	if( t.contains( QStringLiteral( "reactos" ) ) )
+	if( compact.contains( QLatin1String( "macos" ) ) || compact.contains( QLatin1String( "darwin" ) ) )
+		return is_arm ? QStringLiteral( "macOS Apple Silicon (ARM64)" ) : QStringLiteral( "macOS" );
+	if( compact.contains( QLatin1String( "reactos" ) ) )
 		return QStringLiteral( "ReactOS (32-bit)" );
-	if( t.contains( QStringLiteral( "haiku" ) ) )
+	if( compact.contains( QLatin1String( "haiku" ) ) )
 		return QStringLiteral( "Haiku (64-bit)" );
 
+	if( is_arm )
+		return QStringLiteral( "Generic Linux (ARM64)" );
+	if( compact.contains( QLatin1String( "linux" ) ) )
+		return is64 ? QStringLiteral( "Generic Linux (64-bit)" ) : QStringLiteral( "Generic Linux (32-bit)" );
 	return QStringLiteral( "Generic Linux (64-bit)" );
 }
 

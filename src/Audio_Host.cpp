@@ -8,6 +8,7 @@
 
 #include "Audio_Host.h"
 
+#include "QEMU_Probe_Catalog.h"
 #include "Utils.h"
 
 #include <QFile>
@@ -102,12 +103,32 @@ static QString AQ_Audio_Help_Text( const QString &qemu_binary, const QStringList
 	return out;
 }
 
+static bool AQ_Audio_Offer_Driver( const QString &driver )
+{
+	const QString d = driver.trimmed().toLower();
+	if( d.isEmpty() )
+		return false;
+#if defined(Q_OS_WIN) && ( defined(_M_ARM64) || defined(__aarch64__) )
+	// DirectSound access-violates on Windows ARM. SDL is not in this QEMU.
+	if( d == QLatin1String( "dsound" ) || d == QLatin1String( "sdl" ) )
+		return false;
+#endif
+	return true;
+}
+
 QStringList AQ_Audio_Backend_Names( const QString &qemu_binary )
 {
-	const QString help = AQ_Audio_Help_Text( qemu_binary,
-		QStringList() << QStringLiteral( "-audiodev" ) << QStringLiteral( "help" ) );
+	static QMap<QString, QStringList> cache;
+	QString qemu = qemu_binary.trimmed();
+	if( qemu.isEmpty() )
+		qemu = AQ_Bundled_QEMU_Binary( QStringLiteral( "qemu-system-x86_64" ) );
+	if( cache.contains( qemu ) )
+		return cache.value( qemu );
+
 	QStringList found;
 	const QStringList known = AQ_Known_Backends();
+	const QString help = AQ_Audio_Help_Text( qemu,
+		QStringList() << QStringLiteral( "-audiodev" ) << QStringLiteral( "help" ) );
 	const QStringList lines = help.split( QRegularExpression( QStringLiteral( "[\\r\\n]+" ) ),
 		QString::SkipEmptyParts );
 	for( int i = 0; i < lines.count(); ++i )
@@ -116,8 +137,19 @@ QStringList AQ_Audio_Backend_Names( const QString &qemu_binary )
 		if( known.contains( t ) )
 			found << t;
 	}
-	found.removeDuplicates();
-	return found.isEmpty() ? known : found;
+	if( found.isEmpty() )
+		found = QEMU_Probe_Catalog::Audio_Drivers( qemu.isEmpty()
+			? QStringLiteral( "qemu-system-x86_64" ) : qemu );
+
+	QStringList offered;
+	for( int i = 0; i < found.count(); ++i )
+	{
+		if( AQ_Audio_Offer_Driver( found.at( i ) ) )
+			offered << found.at( i );
+	}
+	offered.removeDuplicates();
+	cache.insert( qemu, offered );
+	return offered;
 }
 
 bool AQ_Audio_Backend_Has_Dev( const QString &qemu_binary, const QString &backend )
@@ -268,11 +300,9 @@ AQ_Audio_Profile AQ_Audio_Host_Load()
 	if( ! s.value( QStringLiteral( "Initialized" ), false ).toBool() )
 	{
 		s.endGroup();
-#ifdef Q_OS_WIN
-		p.backend = QStringLiteral( "sdl" );
-#else
-		p.backend = QStringLiteral( "pa" );
-#endif
+		// A saved name is only a preference. Launch drops it when this QEMU
+		// did not compile that driver in (the Windows package has no sdl).
+		p.backend.clear();
 		QSettings root;
 		const bool custom = root.value( QStringLiteral( "QEMU_AUDIO/Use_Default_Driver" ), QStringLiteral( "yes" ) )
 			.toString() == QLatin1String( "no" );
@@ -318,15 +348,11 @@ QString AQ_Audio_Build_Audiodev(
 		p.backend = forced_backend.trimmed();
 	else if( p.backend.trimmed().isEmpty() )
 		p.backend = legacy_backend.trimmed();
-	if( p.backend.trimmed().isEmpty() )
-	{
-#ifdef Q_OS_WIN
-		p.backend = QStringLiteral( "sdl" );
-#else
-		p.backend = QStringLiteral( "pa" );
-#endif
-	}
 	p.backend = p.backend.trimmed().toLower();
+	// Global and per-VM choices are preferences. The binary and the host decide
+	// what is actually emitted, so Pulse on a Pi QEMU without pa becomes spice.
+	if( forced_backend.trimmed().isEmpty() )
+		p.backend = AQ_Pick_Host_Audio_Backend( qemu_binary, p.backend );
 	if( legacy_timer_us > 0 && ! p.opt.contains( QStringLiteral( "timer-period" ) ) )
 		p.set_option( QStringLiteral( "timer-period" ), QString::number( legacy_timer_us ) );
 

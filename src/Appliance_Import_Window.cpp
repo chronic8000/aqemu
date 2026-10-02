@@ -23,6 +23,99 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QUuid>
+#include <QFile>
+#include <QDir>
+
+namespace {
+
+void Add_OS_Leaves( QComboBox *combo, const QJsonValue &node )
+{
+	if( node.isArray() )
+	{
+		const QJsonArray arr = node.toArray();
+		for( const QJsonValue &v : arr )
+		{
+			if( v.isString() )
+			{
+				const QString name = v.toString();
+				if( ! name.isEmpty() && combo->findText( name ) < 0 )
+					combo->addItem( name );
+			}
+			else if( v.isArray() || v.isObject() )
+				Add_OS_Leaves( combo, v );
+		}
+	}
+	else if( node.isObject() )
+	{
+		const QJsonObject obj = node.toObject();
+		for( auto it = obj.constBegin(); it != obj.constEnd(); ++it )
+			Add_OS_Leaves( combo, it.value() );
+	}
+}
+
+QJsonObject Load_OS_Profiles()
+{
+	QFile f( QStringLiteral( ":/wizard_trees.json" ) );
+	if( ! f.open( QIODevice::ReadOnly ) )
+		return QJsonObject();
+	const QJsonDocument doc = QJsonDocument::fromJson( f.readAll() );
+	return doc.object().value( QStringLiteral( "os_profiles" ) ).toObject();
+}
+
+QString First_Profile_String( const QJsonValue &value )
+{
+	if( value.isString() )
+		return value.toString();
+	if( value.isArray() )
+	{
+		const QJsonArray arr = value.toArray();
+		for( const QJsonValue &v : arr )
+		{
+			if( v.isString() && ! v.toString().isEmpty() )
+				return v.toString();
+		}
+	}
+	return QString();
+}
+
+QString Profile_To_QEMU_Binary( const QString &target )
+{
+	const QString t = target.trimmed().toLower();
+	if( t.isEmpty() || t == QLatin1String( "x86_64" ) || t == QLatin1String( "amd64" ) )
+		return QStringLiteral( "qemu-system-x86_64" );
+	if( t == QLatin1String( "i386" ) || t == QLatin1String( "x86" ) )
+		return QStringLiteral( "qemu-system-i386" );
+	if( t.startsWith( QLatin1String( "qemu-system-" ) ) )
+		return t;
+	return QStringLiteral( "qemu-system-" ) + t;
+}
+
+void Apply_Profile_Sound( Virtual_Machine *vm, const QString &preset )
+{
+	if( preset.isEmpty() || ! vm )
+		return;
+	VM::Sound_Cards cards;
+	if( preset == QLatin1String( "sb16" ) || preset.startsWith( QLatin1String( "sb16_" ) ) )
+		cards.Audio_sb16 = true;
+	else if( preset == QLatin1String( "es1370" ) || preset.startsWith( QLatin1String( "es1370" ) ) )
+		cards.Audio_es1370 = true;
+	else if( preset == QLatin1String( "ac97" ) )
+		cards.Audio_AC97 = true;
+	else if( preset == QLatin1String( "pcspk" ) )
+		cards.Audio_PC_Speaker = true;
+	else if( preset == QLatin1String( "virtio" ) )
+		cards.Audio_VirtIO = true;
+	else if( preset == QLatin1String( "none" ) )
+	{
+		vm->Set_Audio_Cards( cards );
+		return;
+	}
+	else
+		cards.Audio_HDA = true;
+	vm->Set_Audio_Cards( cards );
+}
+
+}
 
 Appliance_Import_Window::Appliance_Import_Window( QWidget *parent )
 	: QDialog( parent )
@@ -142,21 +235,23 @@ void Appliance_Import_Window::Setup_UI()
 void Appliance_Import_Window::Populate_OS_List()
 {
 	CB_Guest_OS->clear();
-	const QString json_path = Settings.value( "AQEMU_Data_Folder", "" ).toString() + "/wizard_trees.json";
-	QFile f( json_path.isEmpty() ? QStringLiteral( ":/wizard_trees.json" ) : json_path );
-	if( f.open( QIODevice::ReadOnly ) )
+	QStringList paths;
+	paths << QStringLiteral( ":/wizard_trees.json" );
+	const QString data = Settings.value( "AQEMU_Data_Folder", "" ).toString();
+	if( ! data.isEmpty() )
+		paths << QDir( data ).filePath( QStringLiteral( "wizard_trees.json" ) );
+
+	for( const QString &json_path : paths )
 	{
+		QFile f( json_path );
+		if( ! f.open( QIODevice::ReadOnly ) )
+			continue;
 		const QJsonDocument doc = QJsonDocument::fromJson( f.readAll() );
 		const QJsonObject os_tree = doc.object().value( QStringLiteral( "operating_systems" ) ).toObject();
 		for( auto cat = os_tree.constBegin(); cat != os_tree.constEnd(); ++cat )
-		{
-			const QJsonArray arr = cat.value().toArray();
-			for( const QJsonValue &v : arr )
-			{
-				if( CB_Guest_OS->findText( v.toString() ) < 0 )
-					CB_Guest_OS->addItem( v.toString() );
-			}
-		}
+			Add_OS_Leaves( CB_Guest_OS, cat.value() );
+		if( CB_Guest_OS->count() > 0 )
+			break;
 	}
 
 	if( CB_Guest_OS->count() == 0 )
@@ -479,20 +574,41 @@ bool Appliance_Import_Window::Execute_Extraction_And_Conversion()
 	Virtual_Machine *vm = new Virtual_Machine();
 	vm->Set_Machine_Name( vm_name );
 
-	// Resolve valid emulator target for the guest OS
+	// Guest profile supplies the QEMU binary and machine. Old Windows is i386 + pc, not x86_64 + q35.
 	const QString profile = CB_Guest_OS->currentText();
-	QString qemu_target = QStringLiteral( "qemu-system-x86_64" );
-	if( profile.contains( QStringLiteral( "32-bit" ) ) || profile.contains( QStringLiteral( "MS-DOS" ) ) ||
-	    profile.contains( QStringLiteral( "Windows 9" ) ) )
+	const QJsonObject os_profile = Load_OS_Profiles().value( profile ).toObject();
+	QString qemu_target = Profile_To_QEMU_Binary( os_profile.value( QStringLiteral( "target" ) ).toString() );
+	if( os_profile.isEmpty() )
 	{
-		qemu_target = QStringLiteral( "qemu-system-i386" );
+		qemu_target = QStringLiteral( "qemu-system-x86_64" );
+		if( profile.contains( QStringLiteral( "32-bit" ) ) || profile.contains( QStringLiteral( "MS-DOS" ) ) ||
+		    profile.contains( QStringLiteral( "FreeDOS" ) ) || profile.contains( QStringLiteral( "Windows 9" ) ) ||
+		    profile.contains( QStringLiteral( "Windows 3" ) ) || profile.contains( QStringLiteral( "Windows ME" ) ) ||
+		    profile.contains( QStringLiteral( "Windows NT" ) ) || profile.contains( QStringLiteral( "Windows 2000" ) ) ||
+		    profile.contains( QStringLiteral( "Server 2000" ) ) || profile.contains( QStringLiteral( "Server 2003" ) ) )
+			qemu_target = QStringLiteral( "qemu-system-i386" );
+		else if( profile.contains( QStringLiteral( "ARM" ) ) || profile.contains( QStringLiteral( "aarch64" ) ) )
+			qemu_target = QStringLiteral( "qemu-system-aarch64" );
 	}
-	else if( profile.contains( QStringLiteral( "ARM" ) ) || profile.contains( QStringLiteral( "aarch64" ) ) )
+	QString machine = First_Profile_String( os_profile.value( QStringLiteral( "machine" ) ) );
+	if( machine.isEmpty() )
 	{
-		qemu_target = QStringLiteral( "qemu-system-aarch64" );
+		if( qemu_target == QStringLiteral( "qemu-system-aarch64" ) )
+			machine = QStringLiteral( "virt" );
+		else if( qemu_target == QStringLiteral( "qemu-system-x86_64" ) )
+			machine = QStringLiteral( "q35" );
+		else
+			machine = QStringLiteral( "pc" );
 	}
 	vm->Set_Computer_Type( qemu_target );
-	vm->Set_Machine_Type( qemu_target == QStringLiteral( "qemu-system-x86_64" ) ? QStringLiteral( "q35" ) : QStringLiteral( "pc" ) );
+	vm->Set_Machine_Type( machine );
+	const QString cpu = os_profile.value( QStringLiteral( "cpu" ) ).toString();
+	if( ! cpu.isEmpty() )
+		vm->Set_CPU_Type( cpu );
+	Apply_Profile_Sound( vm, First_Profile_String( os_profile.value( QStringLiteral( "sound" ) ) ) );
+	const QString vga = First_Profile_String( os_profile.value( QStringLiteral( "vga" ) ) );
+	if( ! vga.isEmpty() )
+		vm->Set_Video_Card( vga );
 	vm->Update_Current_Emulator_Devices();
 	vm->Set_SMP_CPU_Count( SB_CPU->value() );
 	vm->Set_Memory_Size( SB_RAM->value() );
@@ -501,7 +617,9 @@ bool Appliance_Import_Window::Execute_Extraction_And_Conversion()
 	vm->Set_Use_Network( true );
 	VM_Net_Card net;
 	net.Set_Net_Mode( VM::Net_Mode_Usermode );
-	QString model = QStringLiteral( "e1000" );
+	QString model = First_Profile_String( os_profile.value( QStringLiteral( "nic" ) ) );
+	if( model.isEmpty() )
+		model = QStringLiteral( "e1000" );
 	if( ! Current_Appliance.networks.isEmpty() && ! Current_Appliance.networks.first().adapter_type.isEmpty() )
 	{
 		const QString a = Current_Appliance.networks.first().adapter_type.toLower();

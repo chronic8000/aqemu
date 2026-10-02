@@ -1508,76 +1508,11 @@
                  <item>
                   <widget class="QComboBox" name="CB_Audiodev_Backend">
                    <property name="toolTip">
-                    <string>Per-VM host audio backend for -audiodev. “(global)” uses Advanced Settings. Names are QEMU drivers: sdl and dsound are the Windows ones. Playback still works with dsound; the microphone capture voice is left off so a PC with no mic can start.</string>
+                    <string>Per-VM host audio backend for -audiodev. “(global)” uses the driver this QEMU actually compiled in. The list is that binary’s -audiodev help. The Windows package has no SDL driver; playback uses spice. DirectSound is not offered on Windows ARM.</string>
                    </property>
                    <item>
                     <property name="text">
                      <string>(global)</string>
-                    </property>
-                   </item>
-                   <item>
-                    <property name="text">
-                     <string>sdl</string>
-                    </property>
-                   </item>
-                   <item>
-                    <property name="text">
-                     <string>dsound</string>
-                    </property>
-                   </item>
-                   <item>
-                    <property name="text">
-                     <string>pa</string>
-                    </property>
-                   </item>
-                   <item>
-                    <property name="text">
-                     <string>pipewire</string>
-                    </property>
-                   </item>
-                   <item>
-                    <property name="text">
-                     <string>alsa</string>
-                    </property>
-                   </item>
-                   <item>
-                    <property name="text">
-                     <string>oss</string>
-                    </property>
-                   </item>
-                   <item>
-                    <property name="text">
-                     <string>coreaudio</string>
-                    </property>
-                   </item>
-                   <item>
-                    <property name="text">
-                     <string>jack</string>
-                    </property>
-                   </item>
-                   <item>
-                    <property name="text">
-                     <string>sndio</string>
-                    </property>
-                   </item>
-                   <item>
-                    <property name="text">
-                     <string>spice</string>
-                    </property>
-                   </item>
-                   <item>
-                    <property name="text">
-                     <string>dbus</string>
-                    </property>
-                   </item>
-                   <item>
-                    <property name="text">
-                     <string>wav</string>
-                    </property>
-                   </item>
-                   <item>
-                    <property name="text">
-                     <string>none</string>
                     </property>
                    </item>
                   </widget>

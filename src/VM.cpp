@@ -4456,7 +4456,8 @@ bool Virtual_Machine::Load_VM( const QString &file_name )
 			
 			// Computer Type
 			Computer_Type = Child_Element.firstChildElement("Computer_Type").text();
-			if( Computer_Type == "qemu-system-x86" ) Computer_Type = "qemu-system-i386";
+			if( Computer_Type == "qemu-system-x86" || Computer_Type == "qemu" )
+				Computer_Type = "qemu-system-i386";
 			if( Computer_Type == "qemu-kvm" )
             {
                 Computer_Type = "qemu-system-x86_64";            
@@ -11262,32 +11263,16 @@ bool Virtual_Machine::Start_impl()
     }
     else
     {
-        // Get bin path
-        QMap<QString, QString> bin_list = Current_Emulator.Get_Binary_Files();
+        // Get bin path. "qemu" / "qemu-system-x86" are the old i386 name;
+        // the package ships qemu-system-i386.exe next to aqemu.exe.
         QString find_name = Current_Emulator_Devices.System.QEMU_Name;
         if( find_name.isEmpty() ) find_name = Computer_Type;
-        QString bin_path = "";
+        find_name = AQ_Canonical_QEMU_Binary_Name( find_name );
+        QString bin_path = Get_Current_Emulator_Binary_Path( find_name );
 
-        for( QMap<QString, QString>::const_iterator iter = bin_list.constBegin(); iter != bin_list.constEnd(); iter++ )
-        {
-            if( iter.key() == find_name ||
-                (find_name == "qemu-system-x86" && iter.key() == "qemu")) // FIXME
-            {
-                bin_path = iter.value();
-                break;
-            }
-        }
-
-		// A Store install must not launch a developer tree such as C:\msys64\home\...
-		if( ! bin_path.isEmpty() && ! AQ_Store_May_Use_QEMU_Path( bin_path ) )
-		{
-			AQWarning( "bool Virtual_Machine::Start()",
-			           QString( "Ignoring QEMU outside this Microsoft Store install: %1" ).arg( bin_path ) );
-			bin_path.clear();
-		}
-
-		// Fallback resolution if binary_files map lacked entry or saved path was empty
-		if( bin_path.isEmpty() && ! find_name.isEmpty() )
+		// Developer builds may follow PATH. The Store build must not: MSYS on PATH
+		// is a different QEMU from the one in the package.
+		if( bin_path.isEmpty() && ! find_name.isEmpty() && ! AQ_Is_Store_Build() )
 		{
 			QStringList search_dirs;
 			if( ! Current_Emulator.Get_Path().isEmpty() )
@@ -11301,8 +11286,6 @@ bool Virtual_Machine::Start_impl()
 			            << QDir::cleanPath( app_dir + QStringLiteral( "/.." ) )
 			            << QDir::cleanPath( app_dir + QStringLiteral( "/../qemu" ) );
 
-			// Developer builds may follow PATH. The Store build must not: MSYS on PATH
-			// (C:\msys64\home\...) is a different QEMU from the one in the package.
 			if( ! AQ_Is_Store_Build() )
 			{
 				QStringList sys_env = QProcess::systemEnvironment();
@@ -11349,7 +11332,8 @@ bool Virtual_Machine::Start_impl()
 		{
 			AQGraphic_Error( "bool Virtual_Machine::Start()", tr("Error!"),
 			                 AQ_Is_Store_Build()
-			                 ? tr("Cannot start emulator! This Microsoft Store build uses the QEMU shipped with AQEMU, and that copy was not found next to AQEMU.\nA developer QEMU under C:\\msys64 is not used.")
+			                 ? tr("Cannot start emulator! AQEMU did not find %1 next to the app.\nThis package uses the QEMU shipped with AQEMU.")
+			                       .arg( find_name + QStringLiteral( ".exe" ) )
 			                 : tr("Cannot start emulator! Binary path is empty for '%1'!\nPlease check binary path under Advanced Settings.").arg( find_name ), false );
 			Start_Snapshot_Tag = "";
 			return false;
@@ -12419,25 +12403,36 @@ const Available_Devices *Virtual_Machine::Get_Current_Emulator_Devices() const
 
 QString Virtual_Machine::Get_Current_Emulator_Binary_Path( const QString &names ) const
 {
+	QStringList want;
+	const QStringList nl = names.split( " ", QString::SkipEmptyParts );
+	for( int i = 0; i < nl.count(); ++i )
+	{
+		const QString canon = AQ_Canonical_QEMU_Binary_Name( nl.at( i ) );
+		if( ! canon.isEmpty() && ! want.contains( canon ) )
+			want << canon;
+	}
+	if( want.isEmpty() )
+		return QString();
+
 	QMap<QString, QString> bin_list = Current_Emulator.Get_Binary_Files();
-	QStringList nl = names.split( " ", QString::SkipEmptyParts );
-	
-	if( bin_list.count() <= 0 || nl.count() <= 0 )
+	for( int i = 0; i < want.count(); ++i )
 	{
-		AQError( "QString Virtual_Machine::Get_Current_Emulator_Binary_Path( const QString &names ) const",
-				 "bin_list.count() <= 0 || nl.count() <= 0" );
-		return "";
+		const QString path = bin_list.value( want.at( i ) );
+		if( path.isEmpty() || ! QFile::exists( path ) )
+			continue;
+		if( ! AQ_Store_May_Use_QEMU_Path( path ) )
+			continue;
+		return path;
 	}
-	
-	for( QMap<QString, QString>::const_iterator iter = bin_list.constBegin(); iter != bin_list.constEnd(); iter++ )
+
+	for( int i = 0; i < want.count(); ++i )
 	{
-		for( int fx = 0; fx < nl.count(); fx++ )
-		{
-			if( iter.key() == nl[fx] ) return iter.value();
-		}
+		const QString bundled = AQ_Bundled_QEMU_Binary( want.at( i ) );
+		if( ! bundled.isEmpty() )
+			return bundled;
 	}
-	
-	return "";
+
+	return QString();
 }
 
 VM::VM_State Virtual_Machine::Get_State() const

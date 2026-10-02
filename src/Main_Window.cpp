@@ -3001,16 +3001,14 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 	if( tmp_vm->Get_Audio_Cards().Audio_USB ) ui.CH_USB_Audio->setChecked( true );
 	else ui.CH_USB_Audio->setChecked( false );
 	{
+		Refresh_Audiodev_Backends();
 		const QString ab = tmp_vm->Get_Audiodev_Backend();
 		int ai = 0;
 		if( ! ab.isEmpty() )
 		{
 			ai = ui.CB_Audiodev_Backend->findText( ab );
 			if( ai < 0 )
-			{
-				ui.CB_Audiodev_Backend->addItem( ab );
-				ai = ui.CB_Audiodev_Backend->count() - 1;
-			}
+				ai = 0;
 		}
 		ui.CB_Audiodev_Backend->setCurrentIndex( ai );
 		ui.SB_Audiodev_Timer_Period->setValue( tmp_vm->Get_Audiodev_Timer_Period() );
@@ -6371,6 +6369,46 @@ QStringList Main_Window::Create_Info_HDD_String( const QString &disk_format, con
 	return ret;
 }
 
+void Main_Window::Refresh_Audiodev_Backends()
+{
+	if( ! ui.CB_Audiodev_Backend )
+		return;
+
+	const QString keep = ui.CB_Audiodev_Backend->currentText();
+	QString arch = ui.CB_Computer_Type ? ui.CB_Computer_Type->currentData().toString() : QString();
+	if( arch.isEmpty() )
+	{
+		if( Virtual_Machine *vm = Get_Current_VM() )
+			arch = vm->Get_Computer_Type();
+	}
+	arch = AQ_Canonical_QEMU_Binary_Name( arch );
+
+	QString bin;
+	if( Virtual_Machine *vm = Get_Current_VM() )
+		bin = vm->Get_Current_Emulator_Binary_Path( arch );
+	if( bin.isEmpty() || ! QFile::exists( bin ) )
+		bin = AQ_Bundled_QEMU_Binary( arch.isEmpty() ? QStringLiteral( "qemu-system-x86_64" ) : arch );
+
+	QStringList names = AQ_Audio_Backend_Names( bin );
+	if( names.isEmpty() )
+		names = QEMU_Probe_Catalog::Audio_Drivers( arch.isEmpty()
+			? QStringLiteral( "qemu-system-x86_64" ) : arch );
+
+	ui.CB_Audiodev_Backend->blockSignals( true );
+	ui.CB_Audiodev_Backend->clear();
+	ui.CB_Audiodev_Backend->addItem( tr( "(global)" ) );
+	for( int i = 0; i < names.count(); ++i )
+	{
+		const QString n = names.at( i ).trimmed().toLower();
+		if( n.isEmpty() || ui.CB_Audiodev_Backend->findText( n ) >= 0 )
+			continue;
+		ui.CB_Audiodev_Backend->addItem( n );
+	}
+	const int ix = ui.CB_Audiodev_Backend->findText( keep );
+	ui.CB_Audiodev_Backend->setCurrentIndex( ix >= 0 ? ix : 0 );
+	ui.CB_Audiodev_Backend->blockSignals( false );
+}
+
 void Main_Window::on_CB_Computer_Type_currentIndexChanged( int index )
 {
 	Computer_Type_Changed();
@@ -6619,6 +6657,8 @@ void Main_Window::Computer_Type_Changed()
 
 	if( ui.CB_Audiodev_Backend )
 		ui.CB_Audiodev_Backend->setEnabled( arch_has_sound );
+
+	Refresh_Audiodev_Backends();
 
 	ui.CH_sb16->setEnabled( arch_has_sound && curComp.Audio_Card_List.Audio_sb16 );
 	ui.CH_es1370->setEnabled( arch_has_sound && curComp.Audio_Card_List.Audio_es1370 );
@@ -7494,7 +7534,13 @@ void Main_Window::Update_Computer_Types()
 
 	for( QMap<QString, Available_Devices>::const_iterator i = current_devices.constBegin(); i != current_devices.constEnd(); i++ )
     {
-		ui.CB_Computer_Type->addItem( i->System.Caption, i.key() );
+		// "qemu" / "qemu-system-x86" are the old i386 binary name. The package
+		// ships qemu-system-i386.exe. Offering the old name looks for qemu.exe
+		// under a developer tree.
+		const QString key = i.key();
+		if( key == QLatin1String( "qemu" ) || key == QLatin1String( "qemu-system-x86" ) )
+			continue;
+		ui.CB_Computer_Type->addItem( i->System.Caption, key );
     }
     ui.CB_Computer_Type->setCurrentText(text);
 

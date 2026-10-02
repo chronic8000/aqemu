@@ -893,7 +893,6 @@ bool System_Info::Update_VM_Computers_List()
 	
 	AQEMU_Target_Template target_templates[] = {
 		{ "qemu-system-i386", "x86 (i386 PC)" },
-		{ "qemu", "x86 (i386 PC)" },
 		{ "qemu-system-aarch64", "AArch64 (ARM 64-bit)" },
 		{ "qemu-system-riscv64", "RISC-V 64-bit" },
 		{ "qemu-system-riscv32", "RISC-V 32-bit" },
