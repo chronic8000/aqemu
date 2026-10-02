@@ -182,6 +182,7 @@ Virtual_Machine::Virtual_Machine( const Virtual_Machine &vm )
 	this->Keyboard_Layout = vm.Get_Keyboard_Layout();
 	this->Boot_Order_List = vm.Get_Boot_Order_List();
 	this->Show_Boot_Menu = vm.Get_Show_Boot_Menu();
+	this->Show_Boot_Logo = vm.Get_Show_Boot_Logo();
     this->Video_Card = vm.Get_Video_Card();
 	this->Display_Resolution = vm.Get_Display_Resolution();
 	this->Mouse_Type = vm.Get_Mouse_Type();
@@ -527,6 +528,7 @@ void Virtual_Machine::Shared_Constructor()
 	this->Boot_Order_List << tmpBootOrder;
 	
 	Show_Boot_Menu = true;
+	Show_Boot_Logo = true;
 	
     Video_Card = "";
 	Display_Resolution = "native";
@@ -738,6 +740,7 @@ bool Virtual_Machine::operator==( const Virtual_Machine &vm ) const
 		this->SMP == vm.Get_SMP() &&
 		this->Keyboard_Layout == vm.Get_Keyboard_Layout() &&
 		this->Show_Boot_Menu == vm.Get_Show_Boot_Menu() &&
+		this->Show_Boot_Logo == vm.Get_Show_Boot_Logo() &&
         this->Video_Card == vm.Get_Video_Card() &&
 		this->Display_Resolution == vm.Get_Display_Resolution() &&
 		this->Mouse_Type == vm.Get_Mouse_Type() &&
@@ -1036,6 +1039,7 @@ Virtual_Machine &Virtual_Machine::operator=( const Virtual_Machine &vm )
 	Keyboard_Layout = vm.Get_Keyboard_Layout();
 	Boot_Order_List = vm.Get_Boot_Order_List();
 	Show_Boot_Menu = vm.Get_Show_Boot_Menu();
+	Show_Boot_Logo = vm.Get_Show_Boot_Logo();
 	Video_Card = vm.Get_Video_Card();
 	Display_Resolution = vm.Get_Display_Resolution();
 	Mouse_Type = vm.Get_Mouse_Type();
@@ -1499,6 +1503,11 @@ bool Virtual_Machine::Create_VM_File( const QString &file_name, bool template_mo
 	VM_Element.appendChild( Dom_Element );
 	if( Show_Boot_Menu ) Dom_Text = New_Dom_Document.createTextNode( "true" );
 	else Dom_Text = New_Dom_Document.createTextNode( "false" );
+	Dom_Element.appendChild( Dom_Text );
+
+	Dom_Element = New_Dom_Document.createElement( "Show_Boot_Logo" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( Show_Boot_Logo ? "true" : "false" );
 	Dom_Element.appendChild( Dom_Text );
 	
 	// Video_Card
@@ -4684,6 +4693,10 @@ bool Virtual_Machine::Load_VM( const QString &file_name )
 
 			// Show Boot Menu
 			Show_Boot_Menu = (Child_Element.firstChildElement("Show_Boot_Menu").text() == "true");
+			{
+				const QString logo_text = Child_Element.firstChildElement( "Show_Boot_Logo" ).text().trimmed();
+				Show_Boot_Logo = logo_text.isEmpty() || logo_text == QLatin1String( "true" );
+			}
 			
 			// Video Card
 			Video_Card = Child_Element.firstChildElement("Video_Card").text();
@@ -6660,12 +6673,39 @@ QString Virtual_Machine::Get_X86_Boot_Order_Letters() const
 	return letters;
 }
 
+static bool Guest_Supports_Boot_Splash( const Virtual_Machine &vm )
+{
+	// SeaBIOS on a PC. UEFI draws its own logo and ignores -boot splash.
+	if( vm.Use_UEFI() )
+		return false;
+	const QString ct = vm.Get_Computer_Type().toLower();
+	return ct.contains( QLatin1String( "qemu-system-i386" ) )
+		|| ct.contains( QLatin1String( "qemu-system-x86_64" ) )
+		|| ct == QLatin1String( "qemu" )
+		|| ct == QLatin1String( "qemu-system-x86" );
+}
+
 static QString Build_X86_Boot_Arg( const Virtual_Machine &vm, bool show_menu )
 {
 	const QString letters = vm.Get_X86_Boot_Order_Letters();
 	if( letters.isEmpty() )
 		return QString();
-	return QString( "order=%1,menu=%2" ).arg( letters, show_menu ? "on" : "off" );
+
+	QSettings splash_settings;
+	const bool app_logo = splash_settings.value( QStringLiteral( "Show_Boot_Logo" ), QStringLiteral( "yes" ) ).toString() != QLatin1String( "no" );
+	const bool splash = app_logo && vm.Get_Show_Boot_Logo() && Guest_Supports_Boot_Splash( vm );
+	// The picture is only drawn when menu=on. splash-time lets the guest continue.
+	const bool menu = show_menu || splash;
+	QString arg = QString( "order=%1,menu=%2" ).arg( letters, menu ? QStringLiteral( "on" ) : QStringLiteral( "off" ) );
+	if( ! splash )
+		return arg;
+
+	QString path = AQ_Ensure_Boot_Splash_File();
+	if( path.isEmpty() )
+		return arg;
+	path.replace( QLatin1String( "," ), QLatin1String( ",," ) );
+	arg += QStringLiteral( ",splash=" ) + path + QStringLiteral( ",splash-time=3000" );
+	return arg;
 }
 
 QStringList Virtual_Machine::Build_QEMU_Args()
@@ -12928,6 +12968,16 @@ bool Virtual_Machine::Get_Show_Boot_Menu() const
 void Virtual_Machine::Set_Show_Boot_Menu( bool use )
 {
 	Show_Boot_Menu = use;
+}
+
+bool Virtual_Machine::Get_Show_Boot_Logo() const
+{
+	return Show_Boot_Logo;
+}
+
+void Virtual_Machine::Set_Show_Boot_Logo( bool use )
+{
+	Show_Boot_Logo = use;
 }
 
 bool Virtual_Machine::Use_Fullscreen_Mode() const

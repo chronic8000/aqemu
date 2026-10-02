@@ -291,6 +291,76 @@ QString AQEMU_Default_VM_Directory()
 	return vms;
 }
 
+static bool AQ_File_Is_Boot_Splash( const QString &path )
+{
+	QFile f( path );
+	if( ! f.open( QIODevice::ReadOnly ) )
+		return false;
+	if( f.size() < 54 )
+		return false;
+	return f.read( 2 ) == QByteArray( "BM", 2 );
+}
+
+QString AQ_Ensure_Boot_Splash_File()
+{
+	// Prefer the picture shipped next to the source or the installed data dir.
+	QStringList candidates;
+	const QString app = QCoreApplication::applicationDirPath();
+	candidates << QDir( app ).filePath( QStringLiteral( "bootsplash.bmp" ) );
+	candidates << QDir( app ).filePath( QStringLiteral( "resources/bootsplash.bmp" ) );
+	candidates << QDir( app + QStringLiteral( "/../resources" ) ).filePath( QStringLiteral( "bootsplash.bmp" ) );
+	candidates << QDir( app + QStringLiteral( "/../../resources" ) ).filePath( QStringLiteral( "bootsplash.bmp" ) );
+	candidates << QDir( QDir::currentPath() ).filePath( QStringLiteral( "resources/bootsplash.bmp" ) );
+	candidates << QDir( QDir::currentPath() ).filePath( QStringLiteral( "bootsplash.bmp" ) );
+
+	QSettings settings;
+	const QString data = settings.value( QStringLiteral( "AQEMU_Data_Folder" ) ).toString();
+	if( ! data.isEmpty() )
+	{
+		candidates << QDir( data ).filePath( QStringLiteral( "bootsplash.bmp" ) );
+		candidates << QDir( data + QStringLiteral( "/.." ) ).filePath( QStringLiteral( "bootsplash.bmp" ) );
+	}
+	const QStringList share = QStandardPaths::standardLocations( QStandardPaths::GenericDataLocation );
+	for( const QString &root : share )
+		candidates << QDir( root ).filePath( QStringLiteral( "aqemu/bootsplash.bmp" ) );
+
+	for( const QString &candidate : candidates )
+	{
+		const QString clean = QDir::cleanPath( candidate );
+		if( AQ_File_Is_Boot_Splash( clean ) )
+			return clean;
+	}
+
+	QFile res( QStringLiteral( ":/bootsplash.bmp" ) );
+	if( ! res.open( QIODevice::ReadOnly ) )
+		return QString();
+	const QByteArray data_bytes = res.readAll();
+	res.close();
+	if( data_bytes.size() < 54 || ! data_bytes.startsWith( "BM" ) )
+		return QString();
+
+	const QString dest = QDir( AQEMU_User_Data_Dir() ).filePath( QStringLiteral( "bootsplash.bmp" ) );
+	QFile cur( dest );
+	if( cur.open( QIODevice::ReadOnly ) )
+	{
+		const QByteArray have = cur.readAll();
+		cur.close();
+		if( have == data_bytes )
+			return dest;
+	}
+	QFile out( dest );
+	if( ! out.open( QIODevice::WriteOnly | QIODevice::Truncate ) )
+		return QString();
+	if( out.write( data_bytes ) != data_bytes.size() )
+	{
+		out.close();
+		QFile::remove( dest );
+		return QString();
+	}
+	out.close();
+	return dest;
+}
+
 QString AQEMU_Default_Log_Path()
 {
 	return QDir::toNativeSeparators( AQEMU_User_Data_Dir() + QStringLiteral( "aqemu.log" ) );

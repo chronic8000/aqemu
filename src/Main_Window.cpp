@@ -1999,6 +1999,7 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
 	Boot_Order_List = VM::Expand_Boot_Order_List( Boot_Order_List );
 	tmp_vm->Set_Boot_Order_List( Boot_Order_List );
 	tmp_vm->Set_Show_Boot_Menu( Show_Boot_Menu );
+	tmp_vm->Set_Show_Boot_Logo( Show_Boot_Logo );
 
 	// Audio
 	VM::Sound_Cards snd_card;
@@ -2969,6 +2970,7 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 	Boot_Order_List = VM::Expand_Boot_Order_List( tmp_vm->Get_Boot_Order_List() );
 	Set_Boot_Order( Boot_Order_List );
 	Show_Boot_Menu = tmp_vm->Get_Show_Boot_Menu();
+	Show_Boot_Logo = tmp_vm->Get_Show_Boot_Logo();
 
 	// Audio Cards
 	if( tmp_vm->Get_Audio_Cards().Audio_sb16 ) ui.CH_sb16->setChecked( true );
@@ -7712,11 +7714,13 @@ void Main_Window::on_TB_Show_Boot_Settings_Window_clicked()
     Boot_Device_Window boot_win(this);
 	boot_win.setData( Boot_Order_List );
 	boot_win.setUseBootMenu( Show_Boot_Menu );
+	boot_win.setUseBootLogo( Show_Boot_Logo );
 
 	if( boot_win.exec() == QDialog::Accepted )
 	{
 		Boot_Order_List = VM::Expand_Boot_Order_List( boot_win.data() );
 		Show_Boot_Menu = boot_win.useBootMenu();
+		Show_Boot_Logo = boot_win.useBootLogo();
 
 		// Apply data to UI and persist (Set_Boot_Order alone may not emit
 		// currentIndexChanged when the combo index stays the same).

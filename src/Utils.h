@@ -25,7 +25,7 @@
 #define UTILS_H
 
 #ifndef CURRENT_AQEMU_VERSION
-#define CURRENT_AQEMU_VERSION "1.5.0"
+#define CURRENT_AQEMU_VERSION "1.5.1"
 #endif
 #ifndef CURRENT_AQEMU_RELEASE_DATE
 #define CURRENT_AQEMU_RELEASE_DATE "2026-09-30"
@@ -79,6 +79,12 @@ QString AQEMU_Default_VM_Directory();
 
 /** Default log file: <User_Data>/aqemu.log */
 QString AQEMU_Default_Log_Path();
+
+/**
+ * SeaBIOS splash bitmap. Copies the embedded picture into the user data
+ * directory and returns that path. Empty if the picture cannot be written.
+ */
+QString AQ_Ensure_Boot_Splash_File();
 
 /** True if path is under the install / WindowsApps tree (not writable). */
 bool AQEMU_Path_Is_Install_Dir( const QString &path );

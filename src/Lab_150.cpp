@@ -1,5 +1,5 @@
 /****************************************************************************
-** AQEMU 1.5.0 lab tools. Stock QEMU niches, studios, and BYO-firmware wraps.
+** AQEMU 1.5.1 lab tools. Stock QEMU niches, studios, and BYO-firmware wraps.
 ****************************************************************************/
 #ifndef Q_OS_WIN
 #ifndef _GNU_SOURCE

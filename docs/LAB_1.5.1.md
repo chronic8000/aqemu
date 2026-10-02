@@ -1,6 +1,6 @@
-# AQEMU 1.5.0 QEMU Lab
+# AQEMU 1.5.1 QEMU Lab
 
-This page is the feature guide for **AQEMU 1.5.0**. Packages built from this tree use `VERSION.txt`, which is `1.5.0` (Store MSIX `1.5.0.0`). The Microsoft Store listing already submitted is still the 1.4.2 package until the next upload.
+This page is the feature guide for **AQEMU 1.5.1**. Packages built from this tree use `VERSION.txt`, which is `1.5.1` (Store MSIX `1.5.1.0`).
 
 Older releases stay in the root [`CHANGELOG`](../CHANGELOG). This file does not replace that history.
 
@@ -82,8 +82,8 @@ New wizard profiles cover extra architectures, including PowerNV and s390x, plus
 | Nitro / SEV / TDX | Linux when the host can support them. Hidden on Windows Store builds |
 | Darwin research shell | Imports a firmware directory prepared on a Mac. It is not Inferno and it does not boot SpringBoard |
 
-## Left out of 1.5.0
+## Left out of 1.5.1
 
-These stay skipped: Unicorn, Qiling, WinAFL, Firecracker, crosvm, Xenia, Dolphin, RPCS3, Anbox, Waydroid, Limbo, Xen, dead XNU trees, and Corellium. `vmapple` is a Mac-host note, not a Windows feature. Inferno and Reims are the existing 1.3.0 paths, not a second copy.
+These stay skipped: Unicorn, Qiling, WinAFL, Firecracker, crosvm, Xenia, Dolphin, RPCS3, Anbox, Waydroid, Limbo, Xen, dead XNU trees, and Corellium. `vmapple` is a Mac-host note, not a Windows feature. Inferno and Reims are the existing paths, not a second copy.
 
 The in-app Reims status panel stays blocked on [issue #42](https://github.com/chronic8000/aqemu/issues/42). Store text still does not say AQEMU includes Xbox, Android, or macOS.

@@ -3,7 +3,7 @@
 
 aqemu_ver = run_command('cat', files('VERSION.txt'), check : false).stdout().strip()
 if aqemu_ver == ''
-  aqemu_ver = '1.5.0'
+  aqemu_ver = '1.5.1'
 endif
 
 project('aqemu', 'cpp', version : aqemu_ver, default_options : ['cpp_std=c++11', 'warning_level=3'])
@@ -252,6 +252,7 @@ q5exe = executable('aqemu',
 install_man('resources/docs/aqemu.1')
 
 install_subdir('resources/os_icons/', install_dir : 'share/aqemu')
+install_data('resources/bootsplash.bmp', install_dir : 'share/aqemu')
 install_subdir('resources/os_templates/', install_dir : 'share/aqemu')
 install_subdir('resources/docs/', install_dir : 'share/aqemu')
 

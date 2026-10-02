@@ -179,6 +179,10 @@ class Virtual_Machine: public QObject
 		
 		bool Get_Show_Boot_Menu() const;
 		void Set_Show_Boot_Menu( bool use );
+
+		/** SeaBIOS splash. Default on. The app-wide setting can still hide it. */
+		bool Get_Show_Boot_Logo() const;
+		void Set_Show_Boot_Logo( bool use );
 		
 		const QString &Get_Video_Card() const;
 		void Set_Video_Card( const QString &card );
@@ -862,6 +866,7 @@ class Virtual_Machine: public QObject
 		QString Keyboard_Layout; // language en, ru, jp...
 		QList<VM::Boot_Order> Boot_Order_List; // New boot order
 		bool Show_Boot_Menu; // Enable interactive boot menu
+		bool Show_Boot_Logo; // SeaBIOS AQEMU picture; default on
         QString Video_Card; // std vga, cirus logic
 		QString Display_Resolution; // virtio-gpu EDID: native|auto|WxH
 		QString Mouse_Type; // ps2|usb-tablet|usb-mouse|...

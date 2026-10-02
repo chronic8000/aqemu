@@ -477,6 +477,19 @@
               </property>
              </widget>
             </item>
+            <item row="6" column="1" colspan="2">
+             <widget class="QCheckBox" name="CH_Show_Boot_Logo">
+              <property name="text">
+               <string>Show boot logo</string>
+              </property>
+              <property name="checked">
+               <bool>true</bool>
+              </property>
+              <property name="toolTip">
+               <string>The PC BIOS (SeaBIOS) on 32-bit and 64-bit PCs shows the AQEMU picture for 3 seconds. Turn this off to hide it on every virtual machine. UEFI firmware does not display this picture, and neither do ARM, RISC-V, or other non-PC guests.</string>
+              </property>
+             </widget>
+            </item>
             <item row="3" column="1" colspan="2">
              <widget class="QCheckBox" name="CH_Screenshot_for_OS_Logo">
               <property name="sizePolicy">

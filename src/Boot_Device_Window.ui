@@ -8,7 +8,7 @@
     <x>0</x>
     <y>0</y>
     <width>312</width>
-    <height>248</height>
+    <height>276</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -110,6 +110,19 @@
     </widget>
    </item>
    <item row="4" column="0">
+    <widget class="QCheckBox" name="CH_Boot_Logo">
+     <property name="text">
+      <string>Show boot logo</string>
+     </property>
+     <property name="checked">
+      <bool>true</bool>
+     </property>
+     <property name="toolTip">
+      <string>Show the AQEMU picture while SeaBIOS starts this virtual machine. The application setting can turn it off for every machine.</string>
+     </property>
+    </widget>
+   </item>
+   <item row="5" column="0">
     <layout class="QHBoxLayout" name="horizontalLayout">
      <item>
       <widget class="Dialog_Button_Box" name="buttonBox">
@@ -137,6 +150,7 @@
   <tabstop>TB_Up</tabstop>
   <tabstop>TB_Down</tabstop>
   <tabstop>CH_Boot_Menu</tabstop>
+  <tabstop>CH_Boot_Logo</tabstop>
  </tabstops>
  <resources>
   <include location="../resources/icons.qrc"/>

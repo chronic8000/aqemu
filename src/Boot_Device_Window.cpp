@@ -140,6 +140,16 @@ void Boot_Device_Window::setUseBootMenu( bool use )
 	ui.CH_Boot_Menu->setChecked( use );
 }
 
+bool Boot_Device_Window::useBootLogo() const
+{
+	return ui.CH_Boot_Logo->isChecked();
+}
+
+void Boot_Device_Window::setUseBootLogo( bool use )
+{
+	ui.CH_Boot_Logo->setChecked( use );
+}
+
 void Boot_Device_Window::on_TB_Up_clicked()
 {
 	int index = Get_Current_Index();
