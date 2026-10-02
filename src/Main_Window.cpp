@@ -1222,24 +1222,17 @@ void Main_Window::Polish_Settings_Tabs_Layout()
 		}
 	}
 
-	// White page behind Machine / Memory / … (avoid grey Window chrome bleed).
-	auto paint_white = []( QWidget *w ) {
-		if( ! w ) return;
-		w->setAutoFillBackground( true );
-		QPalette p = w->palette();
-		p.setColor( QPalette::Window, Qt::white );
-		p.setColor( QPalette::Base, Qt::white );
-		w->setPalette( p );
-	};
-	paint_white( ui.centralwidget );
-	paint_white( ui.Widget_for_Tabs );
-	paint_white( ui.Tabs );
-	paint_white( ui.Tab_General );
-	paint_white( ui.Tab_Info );
-	paint_white( ui.Tab_Media );
-	paint_white( ui.Tab_Display );
-	paint_white( ui.Tab_Network );
-	paint_white( ui.Machines_List );
+	// Light mode keeps a white page (Windows Window color is grey).
+	// Dark mode follows the OS palette so these panes are not left white.
+	AQ_Apply_Page_Surface( ui.centralwidget );
+	AQ_Apply_Page_Surface( ui.Widget_for_Tabs );
+	AQ_Apply_Page_Surface( ui.Tabs );
+	AQ_Apply_Page_Surface( ui.Tab_General );
+	AQ_Apply_Page_Surface( ui.Tab_Info );
+	AQ_Apply_Page_Surface( ui.Tab_Media );
+	AQ_Apply_Page_Surface( ui.Tab_Display );
+	AQ_Apply_Page_Surface( ui.Tab_Network );
+	AQ_Apply_Page_Surface( ui.Machines_List );
 
 	auto polish_nested_tabs = []( QTabWidget *tw ) {
 		if( ! tw ) return;

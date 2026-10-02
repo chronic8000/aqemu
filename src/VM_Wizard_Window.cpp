@@ -205,10 +205,10 @@ VM_Wizard_Window::VM_Wizard_Window( QWidget *parent )
 	// Summary + tip labels on Template / Architecture page
 	Label_Arch_Summary = new QLabel( ui.Template_Page );
 	Label_Arch_Summary->setWordWrap( true );
-	Label_Arch_Summary->setStyleSheet( "QLabel { color: #223; font-weight: bold; padding: 6px; }" );
+	Label_Arch_Summary->setStyleSheet( "QLabel { color: palette(window-text); font-weight: bold; padding: 6px; }" );
 	Label_Guest_Compat_Tip = new QLabel( ui.Template_Page );
 	Label_Guest_Compat_Tip->setWordWrap( true );
-	Label_Guest_Compat_Tip->setStyleSheet( "QLabel { color: #335; padding: 6px; }" );
+	Label_Guest_Compat_Tip->setStyleSheet( "QLabel { color: palette(window-text); padding: 6px; }" );
 	Label_Wizard_Machine = new QLabel( tr( "Mach&ine Type:" ), ui.Template_Page );
 	CB_Wizard_Machine = new QComboBox( ui.Template_Page );
 	CB_Wizard_Machine->setEditable( true );
@@ -2964,7 +2964,7 @@ void VM_Wizard_Window::Build_Devices_Page()
 
 	Label_Devices_Summary = new QLabel();
 	Label_Devices_Summary->setWordWrap( true );
-	Label_Devices_Summary->setStyleSheet( QStringLiteral( "color: #223; padding: 4px;" ) );
+	Label_Devices_Summary->setStyleSheet( QStringLiteral( "color: palette(window-text); padding: 4px;" ) );
 	lay->addWidget( Label_Devices_Summary );
 
 	auto add_row = [&]( const QString &label, QComboBox **combo ) {
@@ -3804,7 +3804,7 @@ void VM_Wizard_Window::Enhance_Typical_HDD_Page()
 
 	Label_Install_ISO_Guess = new QLabel( content );
 	Label_Install_ISO_Guess->setWordWrap( true );
-	Label_Install_ISO_Guess->setStyleSheet( QStringLiteral( "color: #335; font-weight: 500; padding: 4px 0;" ) );
+	Label_Install_ISO_Guess->setStyleSheet( QStringLiteral( "color: palette(window-text); font-weight: 500; padding: 4px 0;" ) );
 	lay->addWidget( Label_Install_ISO_Guess );
 
 	QLabel *hint = new QLabel( tr(

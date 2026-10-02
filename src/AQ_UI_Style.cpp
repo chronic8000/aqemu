@@ -31,6 +31,11 @@
 #include <QCoreApplication>
 #include <QWindow>
 #include <QPaintEvent>
+#include <QEvent>
+#include <QTimer>
+#ifdef Q_OS_WIN
+#include <QSettings>
+#endif
 
 void AQ_Enable_High_Dpi()
 {
@@ -190,34 +195,198 @@ void AQ_Install_West_TabBar( QTabWidget *tabs )
 	tabs->setProperty( "aq_west_tabbar", true );
 }
 
-void AQ_Apply_App_Style( QApplication *app )
+static bool s_chrome_is_light = true;
+static bool s_applying_style = false;
+static bool s_theme_refresh_pending = false;
+
+static bool AQ_Color_Is_Dark( const QColor &c )
+{
+	return c.isValid() && c.lightness() < 128;
+}
+
+#ifdef Q_OS_WIN
+static bool AQ_Windows_Apps_Use_Dark()
+{
+	QSettings reg(
+		QStringLiteral( "HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize" ),
+		QSettings::NativeFormat );
+	if( ! reg.contains( QStringLiteral( "AppsUseLightTheme" ) ) )
+		return false;
+	return reg.value( QStringLiteral( "AppsUseLightTheme" ) ).toInt() == 0;
+}
+#endif
+
+static bool AQ_Os_Prefers_Dark( const QApplication *app )
 {
 	if( ! app )
+		return false;
+#ifdef Q_OS_WIN
+	// Qt 5 keeps a light palette on Windows even when Apps are in dark mode.
+	if( AQ_Windows_Apps_Use_Dark() )
+		return true;
+#endif
+	return AQ_Color_Is_Dark( app->palette().color( QPalette::Window ) );
+}
+
+static void AQ_Install_Dark_Palette( QApplication *app )
+{
+	QPalette pal = app->palette();
+	const QColor window( 32, 32, 32 );
+	const QColor base( 43, 43, 43 );
+	const QColor text( 240, 240, 240 );
+	const QColor disabled( 140, 140, 140 );
+	QColor highlight = pal.color( QPalette::Highlight );
+	if( highlight.lightness() > 180 || highlight.lightness() < 40 )
+		highlight = QColor( 0, 120, 215 );
+
+	pal.setColor( QPalette::Window, window );
+	pal.setColor( QPalette::WindowText, text );
+	pal.setColor( QPalette::Base, base );
+	pal.setColor( QPalette::AlternateBase, QColor( 50, 50, 50 ) );
+	pal.setColor( QPalette::ToolTipBase, window );
+	pal.setColor( QPalette::ToolTipText, text );
+	pal.setColor( QPalette::Text, text );
+	pal.setColor( QPalette::Button, QColor( 50, 50, 50 ) );
+	pal.setColor( QPalette::ButtonText, text );
+	pal.setColor( QPalette::BrightText, Qt::white );
+	pal.setColor( QPalette::Highlight, highlight );
+	pal.setColor( QPalette::HighlightedText, Qt::white );
+	pal.setColor( QPalette::Link, QColor( 100, 180, 255 ) );
+	pal.setColor( QPalette::Mid, QColor( 90, 90, 90 ) );
+	pal.setColor( QPalette::Dark, QColor( 20, 20, 20 ) );
+	pal.setColor( QPalette::Shadow, Qt::black );
+	pal.setColor( QPalette::Light, QColor( 70, 70, 70 ) );
+	pal.setColor( QPalette::Midlight, QColor( 60, 60, 60 ) );
+	pal.setColor( QPalette::Disabled, QPalette::Text, disabled );
+	pal.setColor( QPalette::Disabled, QPalette::WindowText, disabled );
+	pal.setColor( QPalette::Disabled, QPalette::ButtonText, disabled );
+	app->setPalette( pal );
+}
+
+static void AQ_Refresh_Page_Surfaces()
+{
+	const QWidgetList tops = QApplication::topLevelWidgets();
+	for( QWidget *top : tops )
+	{
+		if( ! top )
+			continue;
+		QList<QWidget *> pages = top->findChildren<QWidget *>();
+		if( top->property( "aq_page_surface" ).toBool() )
+			pages.prepend( top );
+		for( QWidget *w : pages )
+		{
+			if( w && w->property( "aq_page_surface" ).toBool() )
+				AQ_Apply_Page_Surface( w );
+		}
+	}
+}
+
+class AQ_Theme_Filter : public QObject
+{
+public:
+	explicit AQ_Theme_Filter( QObject *parent )
+		: QObject( parent )
+	{}
+
+protected:
+	bool eventFilter( QObject *watched, QEvent *event ) override
+	{
+		Q_UNUSED( watched );
+		if( s_applying_style || ! event )
+			return false;
+		const QEvent::Type type = event->type();
+		if( type != QEvent::ApplicationPaletteChange && type != QEvent::ThemeChange )
+			return false;
+		if( s_theme_refresh_pending )
+			return false;
+		s_theme_refresh_pending = true;
+		QTimer::singleShot( 0, this, []() {
+			s_theme_refresh_pending = false;
+			if( s_applying_style )
+				return;
+			QApplication *app = qobject_cast<QApplication *>( qApp );
+			if( ! app )
+				return;
+			const bool want_light = ! AQ_Os_Prefers_Dark( app );
+			const bool palette_is_dark = AQ_Color_Is_Dark( app->palette().color( QPalette::Window ) );
+			if( want_light == s_chrome_is_light && want_light != palette_is_dark )
+				return;
+			AQ_Apply_App_Style( app );
+		} );
+		return false;
+	}
+};
+
+bool AQ_Chrome_Is_Light()
+{
+	return s_chrome_is_light;
+}
+
+void AQ_Apply_Page_Surface( QWidget *w )
+{
+	if( ! w )
+		return;
+	w->setProperty( "aq_page_surface", true );
+	w->setAutoFillBackground( true );
+	QPalette p = QApplication::palette();
+	if( s_chrome_is_light )
+	{
+		p.setColor( QPalette::Window, QColor( 255, 255, 255 ) );
+		p.setColor( QPalette::Base, QColor( 255, 255, 255 ) );
+	}
+	w->setPalette( p );
+}
+
+void AQ_Apply_App_Style( QApplication *app )
+{
+	if( ! app || s_applying_style )
 		return;
 
-	// Light chrome: white page background (Windows palette(window) is grey).
-	QPalette pal = app->palette();
-	pal.setColor( QPalette::Window, QColor( 255, 255, 255 ) );
-	pal.setColor( QPalette::Base, QColor( 255, 255, 255 ) );
-	pal.setColor( QPalette::AlternateBase, QColor( 248, 248, 248 ) );
-	app->setPalette( pal );
+	s_applying_style = true;
+
+	const bool want_light = ! AQ_Os_Prefers_Dark( app );
+	s_chrome_is_light = want_light;
+
+	if( want_light )
+	{
+		// Light chrome: white page background (Windows palette(window) is grey).
+		QPalette pal = app->palette();
+		const QColor white( 255, 255, 255 );
+		if( pal.color( QPalette::Window ) != white || pal.color( QPalette::Base ) != white )
+		{
+			pal.setColor( QPalette::Window, white );
+			pal.setColor( QPalette::Base, white );
+			pal.setColor( QPalette::AlternateBase, QColor( 248, 248, 248 ) );
+			app->setPalette( pal );
+		}
+	}
+	else if( ! AQ_Color_Is_Dark( app->palette().color( QPalette::Window ) ) )
+	{
+		// OS is dark but Qt still handed us a light palette (Windows).
+		AQ_Install_Dark_Palette( app );
+	}
 
 	// CRITICAL (Qt 5 + Windows HiDPI): never put padding / min-height / border-radius
 	// on QComboBox, QLineEdit, QSpinBox, QPushButton, QCheckBox, QRadioButton, or
 	// QToolButton in a global stylesheet. Those rules shrink the content rect and
 	// clip glyphs mid-letter. Keep chrome-only styling; leave form controls native.
+	//
+	// QMenuBar::item must set background and border. Styling QMenuBar alone makes
+	// Qt draw each title (File, VM, Help) as a bordered button on every platform.
 	app->setStyleSheet( QStringLiteral( R"(
 QMainWindow, QDialog {
-	background-color: #ffffff;
+	background-color: palette(window);
+	color: palette(window-text);
 }
 
 QGroupBox {
 	font-weight: 600;
-	border: 1px solid #e0e0e0;
+	border: 1px solid palette(mid);
 	border-radius: 6px;
 	margin-top: 12px;
 	padding-top: 8px;
-	background-color: #ffffff;
+	background-color: palette(base);
+	color: palette(window-text);
 }
 QGroupBox::title {
 	subcontrol-origin: margin;
@@ -230,47 +399,97 @@ QGroupBox::title {
 /* Never style QTabWidget::pane / QTabBar globally — blanks West panes on Qt 5. */
 
 QListWidget, QTreeWidget, QTableWidget {
-	border: 1px solid #e0e0e0;
+	border: 1px solid palette(mid);
 	border-radius: 4px;
-	background: #ffffff;
+	background: palette(base);
+	color: palette(text);
 	outline: 0;
 }
-QListWidget::item:selected, QTreeWidget::item:selected {
+QListWidget::item:selected, QTreeWidget::item:selected, QTableWidget::item:selected {
 	background: palette(highlight);
 	color: palette(highlighted-text);
 }
 
 QScrollArea {
 	border: none;
-	background: #ffffff;
+	background: palette(window);
 }
 QSplitter::handle {
-	background: #e8e8e8;
+	background: palette(mid);
 }
 
 QStatusBar {
-	border-top: 1px solid #e0e0e0;
-	background: #ffffff;
+	border-top: 1px solid palette(mid);
+	background: palette(window);
+	color: palette(window-text);
 }
 QMenuBar {
-	background: #ffffff;
-	border-bottom: 1px solid #e0e0e0;
+	background: palette(window);
+	color: palette(window-text);
+	border: none;
+	border-bottom: 1px solid palette(mid);
 }
-QMenuBar::item:selected {
+QMenuBar::item {
+	background: transparent;
+	color: palette(window-text);
+	padding: 4px 10px;
+	margin: 1px 0;
+	border: none;
+	border-radius: 3px;
+}
+QMenuBar::item:selected, QMenuBar::item:pressed {
 	background: palette(highlight);
 	color: palette(highlighted-text);
+	border: none;
+}
+QMenuBar::item:disabled {
+	background: transparent;
+	color: palette(disabled, window-text);
+	border: none;
+}
+QMenu {
+	background: palette(base);
+	color: palette(text);
+	border: 1px solid palette(mid);
+}
+QMenu::item {
+	background: transparent;
+	color: palette(text);
+	padding: 5px 28px 5px 16px;
+	border: none;
 }
 QMenu::item:selected {
 	background: palette(highlight);
 	color: palette(highlighted-text);
+	border: none;
+}
+QMenu::item:disabled {
+	background: transparent;
+	color: palette(disabled, text);
+	border: none;
+}
+QMenu::separator {
+	height: 1px;
+	background: palette(mid);
+	margin: 4px 8px;
 }
 
 QToolTip {
-	border: 1px solid #e0e0e0;
-	background: #ffffff;
-	color: palette(window-text);
+	border: 1px solid palette(mid);
+	background: palette(tool-tip-base);
+	color: palette(tool-tip-text);
 }
 )" ) );
+
+	static bool filter_installed = false;
+	if( ! filter_installed )
+	{
+		filter_installed = true;
+		app->installEventFilter( new AQ_Theme_Filter( app ) );
+	}
+
+	AQ_Refresh_Page_Surfaces();
+	s_applying_style = false;
 }
 
 void AQ_Style_Card( QWidget *w, int max_width )

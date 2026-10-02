@@ -52,6 +52,15 @@ int AQ_Content_Max_Width( const QWidget *hint = nullptr );
 /** Install the global AQEMU chrome (group boxes, tabs, lists, inputs). */
 void AQ_Apply_App_Style( QApplication *app );
 
+/** True when the chrome is the light page (white), false when following a dark OS theme. */
+bool AQ_Chrome_Is_Light();
+
+/**
+ * Fill a page with the current chrome color. Light mode stays white.
+ * Dark mode uses the application palette so system dark themes are not painted over.
+ */
+void AQ_Apply_Page_Surface( QWidget *w );
+
 /** Style a flat QWidget as a bordered content card (objectName required). */
 void AQ_Style_Card( QWidget *w, int max_width = 0 );
 
