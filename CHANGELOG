@@ -11,6 +11,9 @@
 	  under an MSYS tree is not used.
 	* The bundled QEMU tree stays unmodified upstream 11.0.2. The audiodev device
 	  patch is no longer applied before configure.
+	* The menu bar no longer draws a box around File, VM, and Help. Dark mode
+	  follows the OS theme on Linux, Windows, and macOS instead of leaving
+	  white bars.
 
 2026-10-01 Chronic Engineering — AQEMU 1.5.0 (QEMU catalog and custom wraps)
 
