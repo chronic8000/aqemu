@@ -480,6 +480,267 @@ Main_Window::Main_Window( QWidget *parent )
 	if( ui.actionCopy )
 		ui.actionCopy->setText( tr( "Clone &VM…" ) );
 
+	// One home for every command. Exit stays last on File. The same QAction
+	// objects are moved, so the slots already wired above still run.
+	{
+		auto norm = []( QString text ) {
+			text.remove( QLatin1Char( '&' ) );
+			text.replace( QLatin1String( "..." ), QStringLiteral( "…" ) );
+			return text;
+		};
+		auto steal = [&]( QMenu *menu, const QString &label ) -> QAction * {
+			if( ! menu )
+				return nullptr;
+			const QString want = norm( label );
+			const QList<QAction *> acts = menu->actions();
+			for( QAction *act : acts )
+			{
+				if( ! act || act->isSeparator() || act->menu() )
+					continue;
+				if( norm( act->text() ) == want )
+				{
+					menu->removeAction( act );
+					return act;
+				}
+			}
+			return nullptr;
+		};
+		auto drop = []( QMenu *menu, QAction *act ) {
+			if( menu && act )
+				menu->removeAction( act );
+		};
+		auto add = []( QMenu *menu, QAction *act ) {
+			if( menu && act )
+				menu->addAction( act );
+		};
+		auto clear_menu = []( QMenu *menu ) {
+			if( ! menu )
+				return;
+			const QList<QAction *> acts = menu->actions();
+			for( QAction *act : acts )
+				menu->removeAction( act );
+		};
+		auto windows_only = []( QAction *act, const QString &tip ) {
+#ifndef Q_OS_WIN
+			if( ! act )
+				return;
+			act->setEnabled( false );
+			act->setStatusTip( tip );
+			act->setToolTip( tip );
+#else
+			Q_UNUSED( act );
+			Q_UNUSED( tip );
+#endif
+		};
+
+		QAction *actPool = steal( ui.menuFile, QStringLiteral( "Storage Browser…" ) );
+		QAction *actRemote = steal( ui.menuFile, QStringLiteral( "Remote Hosts…" ) );
+		QAction *actWslCfg = steal( ui.menuFile, QStringLiteral( "Configure WSL…" ) );
+		QAction *actIosFw = steal( ui.menuFile, QStringLiteral( "iOS Firmware Tool…" ) );
+		QAction *actRestore = steal( ui.menuFile, QStringLiteral( "Apple SoC Restore…" ) );
+		drop( ui.menuVM, actRestore );
+		QAction *actFs = steal( ui.menuFile, QStringLiteral( "Apply iOS filesystem patches…" ) );
+		drop( ui.menuVM, actFs );
+		QAction *actWipe = steal( ui.menuFile, QStringLiteral( "Wipe Inferno disks…" ) );
+		drop( ui.menuVM, actWipe );
+		QAction *actDev = steal( ui.menuFile, QStringLiteral( "Guest Internet / iOS Device Tools…" ) );
+		drop( ui.menuVM, actDev );
+		QAction *actRecovery = steal( ui.menuFile, QStringLiteral( "Storage Recovery…" ) );
+		QAction *actHostAudio = steal( ui.menuFile, QStringLiteral( "Audio…" ) );
+		QAction *actConvert = steal( ui.menuFile, QStringLiteral( "Convert disk…" ) );
+		QAction *actNbd = steal( ui.menuFile, QStringLiteral( "qemu-nbd…" ) );
+		QAction *actPack = steal( ui.menuFile, QStringLiteral( "Export lab pack…" ) );
+		QAction *actPackIn = steal( ui.menuFile, QStringLiteral( "Import lab pack…" ) );
+		QAction *actQuick = steal( ui.menuFile, QStringLiteral( "Quickemu conf…" ) );
+		QAction *actCreate = steal( ui.menuFile, QStringLiteral( "Create HDD Image" ) );
+		QAction *actConvertHdd = steal( ui.menuFile, QStringLiteral( "Convert HDD Image" ) );
+		drop( ui.menuFile, ui.actionAttach_SAN_Storage );
+		QAction *actImport = steal( ui.menuFile, QStringLiteral( "Import Appliance (OVA / OVF)…" ) );
+		QAction *actExport = steal( ui.menuFile, QStringLiteral( "Export Appliance (OVA)…" ) );
+		QAction *actPrefs = steal( ui.menuFile, QStringLiteral( "Configure" ) );
+		QAction *actFirstStart = steal( ui.menuFile, QStringLiteral( "First Start Wizard" ) );
+		QAction *actExit = steal( ui.menuFile, QStringLiteral( "Exit" ) );
+		if( ! actCreate )
+			actCreate = ui.actionCreate_HDD_Image;
+		if( ! actConvertHdd )
+			actConvertHdd = ui.actionConvert_HDD_Image;
+		if( ! actImport )
+			actImport = ui.actionImport_Appliance;
+		if( ! actExport )
+			actExport = ui.actionExport_Appliance;
+		if( ! actPrefs )
+			actPrefs = ui.actionShow_Advanced_Settings_Window;
+		if( ! actFirstStart )
+			actFirstStart = ui.actionShow_First_Run_Wizard;
+		if( ! actExit )
+			actExit = ui.actionExit;
+		if( actPrefs )
+		{
+			actPrefs->setText( tr( "&Preferences…" ) );
+			actPrefs->setStatusTip( tr( "AQEMU settings, including the exit confirmation" ) );
+		}
+		clear_menu( ui.menuFile );
+
+		QMenu *disks = ui.menuFile->addMenu( tr( "&Disks" ) );
+		add( disks, actPool );
+		add( disks, actCreate );
+		add( disks, actConvertHdd );
+		add( disks, actConvert );
+		add( disks, actNbd );
+
+		QMenu *xfer = ui.menuFile->addMenu( tr( "&Import and Export" ) );
+		add( xfer, actImport );
+		add( xfer, actExport );
+		add( xfer, actPackIn );
+		add( xfer, actPack );
+		add( xfer, actQuick );
+
+		QMenu *host = ui.menuFile->addMenu( tr( "&Host" ) );
+		add( host, actRemote );
+		windows_only( actWslCfg, tr( "Windows Subsystem for Linux is only available on Windows." ) );
+		add( host, actWslCfg );
+		add( host, actHostAudio );
+
+		ui.menuFile->addSeparator();
+		add( ui.menuFile, actPrefs );
+		add( ui.menuFile, actFirstStart );
+		ui.menuFile->addSeparator();
+		add( ui.menuFile, actExit );
+
+		QAction *actCheckpoint = steal( ui.menuVM, QStringLiteral( "Recovery Checkpoint…" ) );
+		QAction *actVmAudio = steal( ui.menuVM, QStringLiteral( "Audio…" ) );
+		QAction *actLab = steal( ui.menuVM, QStringLiteral( "Lab…" ) );
+		QAction *actDiff = steal( ui.menuVM, QStringLiteral( "Command diff…" ) );
+		QAction *actJobs = steal( ui.menuVM, QStringLiteral( "Block jobs…" ) );
+		QAction *actMig = steal( ui.menuVM, QStringLiteral( "Migrate…" ) );
+		QAction *actChain = steal( ui.menuVM, QStringLiteral( "Chain Studio…" ) );
+		QAction *actFw = steal( ui.menuVM, QStringLiteral( "Firmware library…" ) );
+		QAction *actSnip = steal( ui.menuVM, QStringLiteral( "Argument snippets…" ) );
+		QAction *actClones = steal( ui.menuVM, QStringLiteral( "Linked clones…" ) );
+		QAction *actGroup = steal( ui.menuVM, QStringLiteral( "Start tagged group…" ) );
+		QAction *actGroupStop = steal( ui.menuVM, QStringLiteral( "Stop tagged group…" ) );
+		QAction *actDelete = steal( ui.menuVM, QStringLiteral( "Delete VM" ) );
+		QAction *actTemplate = steal( ui.menuVM, QStringLiteral( "Save As Template" ) );
+		QAction *actClone = steal( ui.menuVM, QStringLiteral( "Clone VM…" ) );
+		QAction *actSan = steal( ui.menuVM, QStringLiteral( "Attach Remote SAN Storage (iSCSI / NVMe-oF)…" ) );
+		QAction *actStart = steal( ui.menuVM, QStringLiteral( "Start" ) );
+		QAction *actConnect = steal( ui.menuVM, QStringLiteral( "Connect" ) );
+		QAction *actPause = steal( ui.menuVM, QStringLiteral( "Pause" ) );
+		QAction *actShutdown = steal( ui.menuVM, QStringLiteral( "Shutdown" ) );
+		QAction *actStop = steal( ui.menuVM, QStringLiteral( "Stop" ) );
+		QAction *actReset = steal( ui.menuVM, QStringLiteral( "Reset" ) );
+		QAction *actSave = steal( ui.menuVM, QStringLiteral( "Save" ) );
+		QAction *actSnaps = steal( ui.menuVM, QStringLiteral( "Manage Snapshots" ) );
+		QAction *actControl = steal( ui.menuVM, QStringLiteral( "Show Emulator Control" ) );
+		QAction *actArgs = steal( ui.menuVM, QStringLiteral( "Show QEMU Arguments" ) );
+		QAction *actScript = steal( ui.menuVM, QStringLiteral( "Create Shell Script" ) );
+		QAction *actLog = steal( ui.menuVM, QStringLiteral( "Show QEMU Error Log Window" ) );
+		QAction *actIcon = steal( ui.menuVM, QStringLiteral( "Change Icon" ) );
+		if( ! actDelete )
+			actDelete = ui.actionDelete_VM_And_Files;
+		if( ! actTemplate )
+			actTemplate = ui.actionSave_As_Template;
+		if( ! actClone )
+			actClone = ui.actionCopy;
+		if( ! actSan )
+			actSan = ui.actionAttach_SAN_Storage;
+		if( ! actStart )
+			actStart = ui.actionPower_On;
+		if( ! actConnect )
+			actConnect = ui.actionConnect_Session;
+		if( ! actPause )
+			actPause = ui.actionPause;
+		if( ! actShutdown )
+			actShutdown = ui.actionShutdown;
+		if( ! actStop )
+			actStop = ui.actionPower_Off;
+		if( ! actReset )
+			actReset = ui.actionReset;
+		if( ! actSave )
+			actSave = ui.actionSave;
+		if( ! actSnaps )
+			actSnaps = ui.actionManage_Snapshots;
+		if( ! actControl )
+			actControl = ui.actionShow_Emulator_Control;
+		if( ! actArgs )
+			actArgs = ui.actionShow_QEMU_Arguments;
+		if( ! actScript )
+			actScript = ui.actionCreate_Shell_Script;
+		if( ! actLog )
+			actLog = ui.actionShow_QEMU_Error_Log_Window;
+		if( ! actIcon )
+			actIcon = ui.actionChange_Icon;
+		QMenu *add_vm = ui.menuNew_VM;
+		clear_menu( ui.menuVM );
+
+		if( add_vm )
+			ui.menuVM->addMenu( add_vm );
+		add( ui.menuVM, actDelete );
+		add( ui.menuVM, actTemplate );
+		add( ui.menuVM, actClone );
+		ui.menuVM->addSeparator();
+		add( ui.menuVM, actStart );
+		add( ui.menuVM, actConnect );
+		add( ui.menuVM, actPause );
+		add( ui.menuVM, actShutdown );
+		add( ui.menuVM, actStop );
+		add( ui.menuVM, actReset );
+		add( ui.menuVM, actSave );
+		ui.menuVM->addSeparator();
+
+		QMenu *apple = ui.menuVM->addMenu( tr( "A&pple" ) );
+		add( apple, actIosFw );
+		add( apple, actRestore );
+		add( apple, actFs );
+		add( apple, actDev );
+		add( apple, actWipe );
+
+		QMenu *recovery = ui.menuVM->addMenu( tr( "R&ecovery" ) );
+		add( recovery, actRecovery );
+		add( recovery, actCheckpoint );
+
+		QMenu *storage = ui.menuVM->addMenu( tr( "&Storage" ) );
+		add( storage, actSnaps );
+		add( storage, actSan );
+
+		QMenu *tools = ui.menuVM->addMenu( tr( "&Tools" ) );
+		add( tools, actControl );
+		add( tools, actArgs );
+		add( tools, actScript );
+		add( tools, actLog );
+		add( tools, actIcon );
+		add( tools, actVmAudio );
+
+		QMenu *lab = ui.menuVM->addMenu( tr( "&Lab" ) );
+		add( lab, actLab );
+		add( lab, actDiff );
+		add( lab, actJobs );
+		add( lab, actMig );
+		add( lab, actChain );
+		add( lab, actFw );
+		add( lab, actSnip );
+		add( lab, actClones );
+		lab->addSeparator();
+		add( lab, actGroup );
+		add( lab, actGroupStop );
+
+		QAction *actBundle = steal( ui.menuHelp, QStringLiteral( "Support bundle…" ) );
+		QAction *actCatalog = steal( ui.menuHelp, QStringLiteral( "QEMU catalog…" ) );
+		QAction *actAudit = steal( ui.menuHelp, QStringLiteral( "QEMU bundle auditor…" ) );
+		QAction *actHealth = steal( ui.menuHelp, QStringLiteral( "WHPX health…" ) );
+		QAction *actCards = steal( ui.menuHelp, QStringLiteral( "First-run cards…" ) );
+		QAction *actWslDash = steal( ui.menuHelp, QStringLiteral( "WSL dashboard…" ) );
+		windows_only( actHealth, tr( "WHPX health applies to Windows hosts." ) );
+		windows_only( actWslDash, tr( "The WSL dashboard is only available on Windows." ) );
+		QMenu *diag = ui.menuHelp->addMenu( tr( "&Diagnostics" ) );
+		add( diag, actBundle );
+		add( diag, actCatalog );
+		add( diag, actAudit );
+		add( diag, actHealth );
+		add( diag, actCards );
+		add( diag, actWslDash );
+	}
+
 	// Embedded session shell (guest view replaces idle UI)
 	Idle_Window_Title = windowTitle();
 	QWidget *idle_root = takeCentralWidget();
@@ -921,6 +1182,12 @@ void Main_Window::VM_State_Changed(const QString &vm, int state)
 
 void Main_Window::closeEvent( QCloseEvent *event )
 {
+	if( ! Confirm_Exit() )
+	{
+		event->ignore();
+		return;
+	}
+
 	// Tear down embedded VNC/SPICE before killing QEMU — otherwise the RFB
 	// thread blocks in BlockingQueuedConnection and the UI hangs (AppHang).
 	if( Session_Mode_Active )
@@ -5307,6 +5574,32 @@ void Main_Window::on_actionDelete_VM_And_Files_triggered()
 void Main_Window::on_actionExit_triggered()
 {
 	close();
+}
+
+bool Main_Window::Confirm_Exit()
+{
+	if( Settings.value( QStringLiteral( "Confirm_On_Exit" ), QStringLiteral( "yes" ) ).toString() == QLatin1String( "no" ) )
+		return true;
+
+	QMessageBox box( this );
+	box.setIcon( QMessageBox::Question );
+	box.setWindowTitle( tr( "Exit AQEMU" ) );
+	box.setText( tr( "Are you sure you want to exit?" ) );
+	box.setInformativeText( tr( "Running virtual machines will be stopped." ) );
+	box.setStandardButtons( QMessageBox::Yes | QMessageBox::No );
+	box.setDefaultButton( QMessageBox::No );
+	QCheckBox *dont_ask = new QCheckBox( tr( "Don't ask me again" ), &box );
+	box.setCheckBox( dont_ask );
+
+	if( box.exec() != QMessageBox::Yes )
+		return false;
+
+	if( dont_ask->isChecked() )
+	{
+		Settings.setValue( QStringLiteral( "Confirm_On_Exit" ), QStringLiteral( "no" ) );
+		Settings.sync();
+	}
+	return true;
 }
 
 void Main_Window::Add_VM_To_List( Virtual_Machine *vm )

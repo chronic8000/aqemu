@@ -1,6 +1,6 @@
-# AQEMU 1.5.1 QEMU Lab
+# AQEMU 1.5.2 QEMU Lab
 
-This page is the feature guide for **AQEMU 1.5.1**. Packages built from this tree use `VERSION.txt`, which is `1.5.1` (Store MSIX `1.5.1.0`).
+This page is the feature guide for **AQEMU 1.5.2**. Packages built from this tree use `VERSION.txt`, which is `1.5.2` (Store MSIX `1.5.2.0`).
 
 Older releases stay in the root [`CHANGELOG`](../CHANGELOG). This file does not replace that history.
 
@@ -10,11 +10,12 @@ AQEMU does not ship Xbox firmware, Android images, IPSW files, OpenCore, macOS m
 
 | Place | What it does |
 |--|--|
-| **VM → Lab** | Per-VM networking, storage, debug, device, display, and firmware controls |
+| **VM → Lab** | Per-VM lab window, command diff, block jobs, migrate, Chain Studio, firmware library, snippets, linked clones, and tagged groups |
 | **Network** page | Port-forward table. SSH, RDP, and HTTP presets. Saves `hostfwd=` rules |
-| **VM → Manage Snapshots** | Timeline: overlay that becomes the disk, internal `savevm`, and the classic snapshot list |
-| **File** menu | Convert disk, Chain Studio, lab packs, linked clones, qemu-nbd |
-| **Help** menu | Support bundle, QEMU catalog, bundle auditor, WHPX health |
+| **VM → Storage** | Manage Snapshots, and remote SAN attach |
+| **File → Disks** | Storage browser, create and convert disk images, qemu-nbd |
+| **File → Import and Export** | OVA/OVF, lab packs, and Quickemu conf |
+| **Help → Diagnostics** | Support bundle, QEMU catalog, bundle auditor, WHPX health, first-run cards, WSL dashboard |
 | **New VM** wizard | First-run cards, extra guest profiles, Windows 11 ARM TPM and Secure Boot |
 
 ## Networking
@@ -82,7 +83,7 @@ New wizard profiles cover extra architectures, including PowerNV and s390x, plus
 | Nitro / SEV / TDX | Linux when the host can support them. Hidden on Windows Store builds |
 | Darwin research shell | Imports a firmware directory prepared on a Mac. It is not Inferno and it does not boot SpringBoard |
 
-## Left out of 1.5.1
+## Left out of 1.5.2
 
 These stay skipped: Unicorn, Qiling, WinAFL, Firecracker, crosvm, Xenia, Dolphin, RPCS3, Anbox, Waydroid, Limbo, Xen, dead XNU trees, and Corellium. `vmapple` is a Mac-host note, not a Windows feature. Inferno and Reims are the existing paths, not a second copy.
 

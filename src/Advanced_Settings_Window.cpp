@@ -637,6 +637,7 @@ Advanced_Settings_Window::Advanced_Settings_Window( QWidget *parent )
 	// Screenshot for OS Logo
 	ui.CH_Screenshot_for_OS_Logo->setChecked( Settings.value("Use_Screenshot_for_OS_Logo", "yes").toString() == "yes" );
 	ui.CH_Show_Boot_Logo->setChecked( Settings.value( "Show_Boot_Logo", "yes" ).toString() != "no" );
+	ui.CH_Confirm_On_Exit->setChecked( Settings.value( "Confirm_On_Exit", "yes" ).toString() != "no" );
 
 	ui.CH_Minimize_To_Tray->setChecked( Settings.value( "Minimize_To_Tray", "yes" ).toString() == "yes" );
 	
@@ -1190,6 +1191,7 @@ void Advanced_Settings_Window::done(int r)
 	    else Settings.setValue( "Use_Screenshot_for_OS_Logo", "no" );
 
 	    Settings.setValue( "Show_Boot_Logo", ui.CH_Show_Boot_Logo->isChecked() ? "yes" : "no" );
+	    Settings.setValue( "Confirm_On_Exit", ui.CH_Confirm_On_Exit->isChecked() ? "yes" : "no" );
 
 	    Settings.setValue( "Minimize_To_Tray",
 	                       ui.CH_Minimize_To_Tray->isChecked() ? "yes" : "no" );

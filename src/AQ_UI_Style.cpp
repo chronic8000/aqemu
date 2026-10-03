@@ -444,7 +444,7 @@ QMenuBar::item:selected, QMenuBar::item:pressed {
 }
 QMenuBar::item:disabled {
 	background: transparent;
-	color: palette(disabled, window-text);
+	color: #8d8d8d;
 	border: none;
 }
 QMenu {
@@ -463,9 +463,9 @@ QMenu::item:selected {
 	color: palette(highlighted-text);
 	border: none;
 }
-QMenu::item:disabled {
+QMenu::item:disabled, QMenu::item:disabled:selected {
 	background: transparent;
-	color: palette(disabled, text);
+	color: #8d8d8d;
 	border: none;
 }
 QMenu::separator {

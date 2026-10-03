@@ -1,3 +1,16 @@
+2026-10-03 Chronic Engineering — AQEMU 1.5.2 (menus and exit confirmation)
+
+	* File, VM, and Help commands are grouped, and each command is listed once.
+	  Exit is the last item on File. Apple commands live under VM → Apple.
+	  Disk, import, host, recovery, storage, tools, lab, and diagnostics each
+	  have their own submenu.
+	* Closing AQEMU asks “Are you sure you want to exit?” Running virtual
+	  machines are stopped only after you confirm. Don’t ask me again and
+	  Preferences → Ask before exiting remember the choice.
+	* Disabled menu items draw in grey on Windows and Linux. Configure WSL,
+	  the WSL dashboard, and WHPX health stay visible and are disabled when
+	  the host is not Windows.
+
 2026-10-02 Chronic Engineering — AQEMU 1.5.1 (boot logo, guest detection, host audio)
 
 	* SeaBIOS on 32-bit and 64-bit PCs shows resources/bootsplash.bmp for 3 seconds.

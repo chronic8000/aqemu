@@ -21,9 +21,9 @@ powershell -ExecutionPolicy Bypass -File installer\build-msi.ps1
 
 Output: `installer\out\AQEMU-<version>-win64.msi`
 
-The script reads `<version>` from the repo-root `VERSION.txt` (currently `1.5.1`) unless you pass `-Version`.
+The script reads `<version>` from the repo-root `VERSION.txt` (currently `1.5.2`) unless you pass `-Version`.
 
-Silent install: `msiexec /i AQEMU-1.5.1-win64.msi /qn`
+Silent install: `msiexec /i AQEMU-1.5.2-win64.msi /qn`
 
 Requires: [WiX CLI](https://wixtoolset.org/) (`winget install WiXToolset.WiXCLI`), then `wix eula accept wix7` once (or let the script accept it).
 
@@ -39,7 +39,7 @@ powershell -ExecutionPolicy Bypass -File installer\build-msix.ps1
 
 Output: `installer\out\AQEMU-<version>-win64.msix` (ARM64 builds use `win-arm64` instead of `win64`).
 
-`<version>` comes from `VERSION.txt` (currently `1.5.1`). Store packages use a four-part version (`1.5.1.0`).
+`<version>` comes from `VERSION.txt` (currently `1.5.2`). Store packages use a four-part version (`1.5.2.0`).
 
 Requires: Windows 10/11 SDK (`makeappx.exe`, `signtool.exe`).
 
@@ -51,7 +51,7 @@ In Partner Center, create an **MSIX or PWA** app (not EXE/MSI), open **Product i
 powershell -ExecutionPolicy Bypass -File installer\build-msix.ps1 `
   -Publisher "CN=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
   -IdentityName "YourPublisher.AQEMU" `
-  -Version "1.5.1.0"
+  -Version "1.5.2.0"
 ```
 
 - **Publisher** must match the Store `CN=...` exactly (signing cert subject must match too).

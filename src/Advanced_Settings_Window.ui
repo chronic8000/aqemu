@@ -477,6 +477,19 @@
               </property>
              </widget>
             </item>
+            <item row="7" column="1" colspan="2">
+             <widget class="QCheckBox" name="CH_Confirm_On_Exit">
+              <property name="text">
+               <string>Ask before exiting</string>
+              </property>
+              <property name="checked">
+               <bool>true</bool>
+              </property>
+              <property name="toolTip">
+               <string>Show “Are you sure you want to exit?” when AQEMU closes. The exit dialog has the same switch.</string>
+              </property>
+             </widget>
+            </item>
             <item row="6" column="1" colspan="2">
              <widget class="QCheckBox" name="CH_Show_Boot_Logo">
               <property name="text">

@@ -279,6 +279,7 @@ class Main_Window: public QMainWindow
 		
 		void Connect_Signals();
 		void Polish_Settings_Tabs_Layout();
+		bool Confirm_Exit();
 		
 		const QMap<QString, Available_Devices> Get_Devices_Info( bool *ok ) const;
 		Available_Devices Get_Current_Machine_Devices( bool *ok ) const;
