@@ -54,7 +54,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential cmake ninja-build pkg-config \
-            qtbase5-dev libqt5widgets5 libqt5network5 libqt5dbus5 libvncserver-dev \
+            qtbase5-dev qttools5-dev-tools libqt5widgets5 libqt5network5 libqt5dbus5 libvncserver-dev \
             libspice-client-glib-2.0-dev libspice-server-dev libslirp-dev libusb-1.0-0-dev \
             libusbredirparser-dev libcurl4-openssl-dev libzstd-dev libglib2.0-dev \
             libpixman-1-dev bison flex libfdt-dev python3 python3-pip \
