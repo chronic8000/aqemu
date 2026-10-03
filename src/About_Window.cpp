@@ -26,26 +26,50 @@
 #include <QTextStream>
 #include <QDir>
 #include <QMessageBox>
+#include <QApplication>
+#include <QCoreApplication>
+#include <QPalette>
+#include <QStandardPaths>
 
 #include "Utils.h"
+#include "AQ_UI_Style.h"
 #include "About_Window.h"
 
 About_Window::About_Window( QWidget *parent ): QDialog( parent )
 {
 	ui.setupUi( this );
-	
+	setStyleSheet( QString() );
+	ui.Widget_Logo_Background->setStyleSheet( QString() );
+	ui.About_Text->setStyleSheet( QString() );
+	ui.AQEMU_Logo->setStyleSheet( QString() );
+
 	// Minimum Size
 	resize( width(), minimumSizeHint().height() );
-
-	const QString version_line =
-		QStringLiteral( "%1 (%2)" )
-			.arg( QStringLiteral( CURRENT_AQEMU_VERSION ),
-			      QStringLiteral( CURRENT_AQEMU_RELEASE_DATE ) );
 
 	// About HTML (set in code so maintainers / links stay easy to update)
 	ui.About_Text->setTextFormat( Qt::RichText );
 	ui.About_Text->setOpenExternalLinks( true );
-	ui.About_Text->setText( tr(
+	Apply_About_Colors();
+}
+
+void About_Window::changeEvent( QEvent *event )
+{
+	if( event && ( event->type() == QEvent::PaletteChange || event->type() == QEvent::StyleChange ) )
+		Apply_About_Colors();
+	QDialog::changeEvent( event );
+}
+
+void About_Window::Apply_About_Colors()
+{
+	const QString accent = AQ_Chrome_Is_Light()
+		? QStringLiteral( "#2e6b12" )
+		: QStringLiteral( "#b6e37a" );
+	const QString body = QApplication::palette().color( QPalette::WindowText ).name();
+	const QString version_line =
+		QStringLiteral( "%1 (%2)" )
+			.arg( QStringLiteral( CURRENT_AQEMU_VERSION ),
+			      QStringLiteral( CURRENT_AQEMU_RELEASE_DATE ) );
+	QString html = tr(
 		"<div style='font-family:monospace; font-size:10pt;'>"
 		"<p align='center'><span style='font-weight:600; color:#3c6e05;'>a frontend for QEMU</span></p>"
 		"<p align='center'><span style='font-size:9pt;'>Revived and maintained by Chronic Engineering</span></p>"
@@ -91,7 +115,12 @@ About_Window::About_Window( QWidget *parent ): QDialog( parent )
 		"Microsoft, Windows, Apple, macOS, and related names are trademarks of their respective owners. "
 		"AQEMU is an independent QEMU frontend and is not affiliated with or endorsed by those parties."
 		"</p></div>"
-		).arg( version_line ) );
+		).arg( version_line );
+	html.replace( QStringLiteral( "#3c6e05" ), accent, Qt::CaseInsensitive );
+	html.replace( QStringLiteral( "font-family:monospace; font-size:10pt;" ),
+		QStringLiteral( "font-family:monospace; font-size:10pt; color:%1;" ).arg( body ) );
+	html.replace( QStringLiteral( "fo&nt-family" ), QStringLiteral( "font-family" ) );
+	ui.About_Text->setText( html );
 
 	// Thanks HTML Text
 	ui.Edit_Thanks_To_Text->setHtml( tr(
@@ -136,11 +165,6 @@ About_Window::About_Window( QWidget *parent ): QDialog( parent )
 	"<br><br><b>Icons:</b>\n"
 	"<br>Oxygen - Icon Theme From Oxygen Team\n") );
 	
-	// Load Links
-	QSettings settings;
-	QFileInfo logFileDir( settings.fileName() );
-	linksFilePath = QDir::toNativeSeparators( logFileDir.absolutePath() + "/links.html" );
-	
 	Show_Links_File();
 
     ui.Tabs->setCurrentIndex(0);
@@ -149,17 +173,47 @@ About_Window::About_Window( QWidget *parent ): QDialog( parent )
 void About_Window::Show_Links_File()
 {
 	QSettings settings;
-	QString show_url;
+	QStringList candidates;
+	auto add = [&candidates]( const QString &path ) {
+		const QString clean = QDir::cleanPath( path );
+		if( ! clean.isEmpty() && clean != QLatin1String( "." ) && ! candidates.contains( clean ) )
+			candidates << clean;
+	};
 
-	if( QFile::exists(linksFilePath) )
+	if( ! linksFilePath.isEmpty() )
+		add( linksFilePath );
+	const QString data = settings.value( QStringLiteral( "AQEMU_Data_Folder" ) ).toString();
+	if( ! data.isEmpty() )
 	{
-		show_url = linksFilePath;
+		add( QDir( data ).filePath( QStringLiteral( "docs/links.html" ) ) );
+		add( QDir( data ).filePath( QStringLiteral( "links.html" ) ) );
 	}
-	else if( QFile::exists(QDir::toNativeSeparators(settings.value("AQEMU_Data_Folder", "").toString() + "/docs/links.html")) )
+	const QString app_dir = QCoreApplication::applicationDirPath();
+	add( QDir( app_dir ).filePath( QStringLiteral( "docs/links.html" ) ) );
+	add( QDir( app_dir ).filePath( QStringLiteral( "resources/docs/links.html" ) ) );
+	const QString generic = QStandardPaths::writableLocation( QStandardPaths::GenericDataLocation );
+	if( ! generic.isEmpty() )
+		add( QDir( generic ).filePath( QStringLiteral( "aqemu/docs/links.html" ) ) );
+#ifndef Q_OS_WIN
+	add( QStringLiteral( "/usr/share/aqemu/docs/links.html" ) );
+	add( QStringLiteral( "/usr/local/share/aqemu/docs/links.html" ) );
+#endif
+
+	QString show_url;
+	for( const QString &path : candidates )
 	{
-		show_url = QDir::toNativeSeparators( settings.value("AQEMU_Data_Folder", "").toString() + "/docs/links.html" );
+		if( QFile::exists( path ) )
+		{
+			show_url = path;
+			break;
+		}
 	}
-	else
+	// Built into the binary, so Help → About works when the Windows package
+	// did not copy docs/links.html next to aqemu.exe.
+	if( show_url.isEmpty() && QFile::exists( QStringLiteral( ":/docs/links.html" ) ) )
+		show_url = QStringLiteral( ":/docs/links.html" );
+
+	if( show_url.isEmpty() )
 	{
 		AQGraphic_Warning( tr("Error!"),
 						   tr("Cannot Find AQEMU Links File!") );

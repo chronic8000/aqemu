@@ -37,6 +37,7 @@
 #include <QStandardPaths>
 #include <QVBoxLayout>
 
+#include "Physical_Drive.h"
 #include "Utils.h"
 #include "VM.h"
 
@@ -296,37 +297,11 @@ void Storage_Recovery_Window::Add_Folder()
 
 void Storage_Recovery_Window::Add_Physical()
 {
-	QString note;
-	const QStringList disks = List_Recovery_Physical_Disks( &note );
-	if( disks.isEmpty() )
-	{
-		QMessageBox::information( this, tr( "Physical disks" ),
-			note.isEmpty() ? tr( "No physical disks were found." ) : note );
+	const QStringList picked = AQ_Pick_Physical_Drives( this, true );
+	if( picked.isEmpty() )
 		return;
-	}
-	QDialog picker( this );
-	picker.setWindowTitle( tr( "Physical disks" ) );
-	QVBoxLayout *lay = new QVBoxLayout( &picker );
-	lay->addWidget( new QLabel( tr( "The host boot disk is not listed." ) ) );
-	QListWidget *list = new QListWidget();
-	list->setSelectionMode( QAbstractItemView::MultiSelection );
-	for( int i = 0; i < disks.size(); ++i )
-		list->addItem( disks[i] );
-	lay->addWidget( list );
-	QHBoxLayout *row = new QHBoxLayout();
-	QPushButton *ok = new QPushButton( tr( "Add" ) );
-	QPushButton *cancel = new QPushButton( tr( "Cancel" ) );
-	row->addStretch( 1 );
-	row->addWidget( ok );
-	row->addWidget( cancel );
-	lay->addLayout( row );
-	connect( ok, SIGNAL(clicked()), &picker, SLOT(accept()) );
-	connect( cancel, SIGNAL(clicked()), &picker, SLOT(reject()) );
-	if( picker.exec() != QDialog::Accepted )
-		return;
-	const QList<QListWidgetItem *> picked = list->selectedItems();
 	for( int i = 0; i < picked.size(); ++i )
-		Remember_Path( picked[i]->text() );
+		Remember_Path( picked.at( i ) );
 	Refresh_Source_List();
 	Invalidate_Report();
 	Refresh_Source_List();

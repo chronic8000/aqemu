@@ -27,6 +27,12 @@
 #include <QListWidget>
 #include <QPalette>
 #include <QColor>
+#include <QTextEdit>
+#include <QPlainTextEdit>
+#include <QTextDocument>
+#include <QTextCursor>
+#include <QTextBlock>
+#include <QTextFragment>
 #include <QtGlobal>
 #include <QCoreApplication>
 #include <QWindow>
@@ -198,6 +204,9 @@ void AQ_Install_West_TabBar( QTabWidget *tabs )
 static bool s_chrome_is_light = true;
 static bool s_applying_style = false;
 static bool s_theme_refresh_pending = false;
+static int s_theme_generation = 0;
+
+static void AQ_Polish_Window( QWidget *window );
 
 static bool AQ_Color_Is_Dark( const QColor &c )
 {
@@ -322,6 +331,85 @@ bool AQ_Chrome_Is_Light()
 	return s_chrome_is_light;
 }
 
+static bool AQ_Stylesheet_Owns_Color( const QString &sheet )
+{
+	return sheet.contains( QLatin1String( "color:" ), Qt::CaseInsensitive );
+}
+
+static void AQ_Recolor_Default_Text( QTextDocument *doc )
+{
+	if( ! doc )
+		return;
+	const QColor text = QApplication::palette().color( QPalette::Text );
+	const bool dark = ! s_chrome_is_light;
+	for( QTextBlock block = doc->begin(); block.isValid(); block = block.next() )
+	{
+		for( QTextBlock::iterator it = block.begin(); ! it.atEnd(); ++it )
+		{
+			const QTextFragment frag = it.fragment();
+			if( ! frag.isValid() )
+				continue;
+			const QTextCharFormat fmt = frag.charFormat();
+			if( fmt.isAnchor() )
+				continue;
+			const QBrush fg = fmt.foreground();
+			const QColor color = fg.color();
+			const bool unset = fg.style() == Qt::NoBrush || ! color.isValid();
+			const bool default_ink = unset
+				|| ( dark && color.lightness() < 48 )
+				|| ( ! dark && color.lightness() > 210 );
+			if( ! default_ink )
+				continue;
+			QTextCursor cursor( doc );
+			cursor.setPosition( frag.position() );
+			cursor.setPosition( frag.position() + frag.length(), QTextCursor::KeepAnchor );
+			QTextCharFormat next;
+			next.setForeground( text );
+			cursor.mergeCharFormat( next );
+		}
+	}
+}
+
+static void AQ_Polish_Window( QWidget *window )
+{
+	if( ! window )
+		return;
+	if( window->property( "aq_theme_generation" ).toInt() == s_theme_generation )
+		return;
+	window->setProperty( "aq_theme_generation", s_theme_generation );
+
+	const QPalette pal = QApplication::palette();
+	const auto edits = window->findChildren<QTextEdit *>();
+	for( QTextEdit *edit : edits )
+	{
+		if( ! edit || AQ_Stylesheet_Owns_Color( edit->styleSheet() ) )
+			continue;
+		edit->setPalette( pal );
+		AQ_Recolor_Default_Text( edit->document() );
+	}
+	const auto plains = window->findChildren<QPlainTextEdit *>();
+	for( QPlainTextEdit *edit : plains )
+	{
+		if( ! edit || AQ_Stylesheet_Owns_Color( edit->styleSheet() ) )
+			continue;
+		edit->setPalette( pal );
+	}
+}
+
+bool AQ_Application::notify( QObject *receiver, QEvent *event )
+{
+	const bool delivered = QApplication::notify( receiver, event );
+	if( event && event->type() == QEvent::Show )
+	{
+		if( QWidget *widget = qobject_cast<QWidget *>( receiver ) )
+		{
+			if( widget->isWindow() )
+				AQ_Polish_Window( widget );
+		}
+	}
+	return delivered;
+}
+
 void AQ_Apply_Page_Surface( QWidget *w )
 {
 	if( ! w )
@@ -346,6 +434,7 @@ void AQ_Apply_App_Style( QApplication *app )
 
 	const bool want_light = ! AQ_Os_Prefers_Dark( app );
 	s_chrome_is_light = want_light;
+	++s_theme_generation;
 
 	if( want_light )
 	{
@@ -377,6 +466,19 @@ void AQ_Apply_App_Style( QApplication *app )
 QMainWindow, QDialog {
 	background-color: palette(window);
 	color: palette(window-text);
+}
+QLabel {
+	color: palette(window-text);
+	background-color: transparent;
+}
+QLabel:disabled {
+	color: #8d8d8d;
+}
+QTextEdit, QPlainTextEdit, QTextBrowser {
+	background-color: palette(base);
+	color: palette(text);
+	selection-background-color: palette(highlight);
+	selection-color: palette(highlighted-text);
 }
 
 QGroupBox {
@@ -489,6 +591,9 @@ QToolTip {
 	}
 
 	AQ_Refresh_Page_Surfaces();
+	const QWidgetList tops = QApplication::topLevelWidgets();
+	for( QWidget *top : tops )
+		AQ_Polish_Window( top );
 	s_applying_style = false;
 }
 

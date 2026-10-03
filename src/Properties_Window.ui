@@ -187,6 +187,16 @@
          <widget class="QLineEdit" name="Edit_HDD_Image_Path"/>
         </item>
         <item>
+         <widget class="QToolButton" name="TB_HDD_Physical">
+          <property name="toolTip">
+           <string>Use a whole physical drive or one partition</string>
+          </property>
+          <property name="text">
+           <string>Drive...</string>
+          </property>
+         </widget>
+        </item>
+        <item>
          <widget class="QToolButton" name="TB_HDD_Image_Browse">
           <property name="toolTip">
            <string>Browse</string>

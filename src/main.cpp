@@ -34,6 +34,7 @@
 #include <QTextStream>
 #include <QMutex>
 #include <QMutexLocker>
+#include <QThread>
 #include <QStandardPaths>
 #ifndef Q_OS_WIN32
 #include <QtDBus>
@@ -193,7 +194,7 @@ int AQEMU_Main::main(int argc, char *argv[])
     AQEMU_Startup_Log( "docopt ok" );
 
     // Create QApplication
-    application = new QApplication( argc, argv );
+    application = new AQ_Application( argc, argv );
     AQ_Apply_App_Style( application );
     AQEMU_Startup_Log( "QApplication ok" );
 
@@ -322,7 +323,21 @@ int AQEMU_Main::load_settings()
 int AQEMU_Main::main_window()
 {
     Run_Guard guard( "Gmp[0Ab5598" ); //unique random key
-    if ( !guard.tryToRun() )
+    const bool elevated_restart = QCoreApplication::arguments().contains(
+	    QLatin1String( "--aqemu-elevated" ) );
+    bool started = false;
+    const int attempts = elevated_restart ? 40 : 1;
+    for( int attempt = 0; attempt < attempts; ++attempt )
+    {
+	    if( guard.tryToRun() )
+	    {
+		    started = true;
+		    break;
+	    }
+	    if( elevated_restart )
+		    QThread::msleep( 250 );
+    }
+    if( ! started )
     {
         AQEMU_Startup_Log( "Run_Guard: another instance is already running" );
         std::cout << qPrintable(QObject::tr("AQEMU is already running. Only one main window can be used at one time.")) << std::endl;
@@ -359,11 +374,8 @@ void AQEMU_Main::load_language()
     if( settings->value("Language", "").toString() != "en" )
     {
         const QString lang = settings->value("Language", "").toString();
-        const QString data = settings->value("AQEMU_Data_Folder", "").toString();
-        // Try data folder, then next to the binary (portable builds)
-        if( ! appTranslator.load( data + lang + ".qm", application->applicationDirPath() ) )
-            appTranslator.load( lang + ".qm", application->applicationDirPath() + "/translations" );
-        application->installTranslator( &appTranslator );
+        if( AQ_Load_App_Translation( &appTranslator, lang ) )
+            application->installTranslator( &appTranslator );
     }
 }
 

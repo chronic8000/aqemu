@@ -370,19 +370,13 @@ void First_Start_Wizard::on_All_Pages_currentChanged( int index )
 
 void First_Start_Wizard::Load_Settings()
 {
-	// Find All Language Files (*.qm)
-	QDir data_dir( Settings.value( "AQEMU_Data_Folder", "/usr/share/aqemu/" ).toString() );
-	QFileInfoList lang_files = data_dir.entryInfoList( QStringList( "*.qm" ), QDir::Files, QDir::Name );
-
-	if( lang_files.count() > 0 )
+	const QString saved_lang = Settings.value( "Language", "en" ).toString();
+	const QStringList catalogs = AQ_List_Translation_Catalogs();
+	for( int dd = 0; dd < catalogs.count(); ++dd )
 	{
-		for( int dd = 0; dd < lang_files.count(); ++dd )
-		{
-			ui.CB_Language->addItem( lang_files[dd].completeBaseName() );
-
-			if( lang_files[dd].completeBaseName() == Settings.value( "Language", "en" ).toString() )
-				ui.CB_Language->setCurrentIndex( dd + 1 ); // First item English
-		}
+		ui.CB_Language->addItem( catalogs.at( dd ) );
+		if( catalogs.at( dd ) == saved_lang )
+			ui.CB_Language->setCurrentIndex( dd + 1 ); // First item English
 	}
 
 	// Virtual Machines Folder
@@ -432,11 +426,9 @@ void First_Start_Wizard::retranslateUi()
 
 	if( ui.CB_Language->currentIndex() > 0 )
 	{
-		if( appTranslator.load( Settings.value( "AQEMU_Data_Folder", "" ).toString() +
-							   ui.CB_Language->itemText( ui.CB_Language->currentIndex() ) + ".qm" ) )
-		{
+		if( AQ_Load_App_Translation( &appTranslator,
+				ui.CB_Language->itemText( ui.CB_Language->currentIndex() ) ) )
 			QCoreApplication::installTranslator( &appTranslator );
-		}
 	}
 
 	Header_Captions.clear();

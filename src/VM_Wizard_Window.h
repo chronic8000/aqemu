@@ -105,6 +105,7 @@ class VM_Wizard_Window: public QDialog
 
 		void Typical_New_Disk_Toggled( bool on );
 		void Typical_Disk_Browse_Clicked();
+		void Typical_Physical_Drive_Clicked();
 		void Refresh_Typical_HDD_Defaults();
 		void Apply_Apple_Nand_HDD_Page_Mode();
 		void Show_Typical_HDD_Page();
@@ -213,6 +214,7 @@ class VM_Wizard_Window: public QDialog
 		QRadioButton *RB_Typical_Existing_Disk;
 		QLineEdit *Edit_Typical_Disk_Path;
 		QToolButton *TB_Typical_Disk_Browse;
+		QToolButton *TB_Typical_Physical;
 		QWidget *Widget_Typical_Size_Row;
 		QComboBox *CB_Typical_Sector_Size;
 		QComboBox *CB_Wizard_Nand;

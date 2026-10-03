@@ -55,6 +55,7 @@ class Properties_Window: public QDialog
 		void on_TB_FD_Image_Browse_clicked();
 		void on_TB_CDROM_Image_Browse_clicked();
 		void on_TB_HDD_Image_Browse_clicked();
+		void on_TB_HDD_Physical_clicked();
 		void on_Button_HDD_New_clicked();
 		void on_Button_HDD_Format_clicked();
 		

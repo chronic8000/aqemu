@@ -1077,11 +1077,42 @@ QString Host_Boot_Disk_Path()
 #endif
 }
 
+#ifdef Q_OS_WIN
+static int Windows_Disk_Index( const QString &path )
+{
+	const QString phys = QStringLiteral( "PhysicalDrive" );
+	int at = path.indexOf( phys, 0, Qt::CaseInsensitive );
+	if( at >= 0 )
+	{
+		bool ok = false;
+		const int n = path.mid( at + phys.size() ).toInt( &ok );
+		return ok ? n : -1;
+	}
+	const QString hard = QStringLiteral( "Harddisk" );
+	at = path.indexOf( hard, 0, Qt::CaseInsensitive );
+	if( at < 0 )
+		return -1;
+	const QString rest = path.mid( at + hard.size() );
+	const int cut = rest.indexOf( QLatin1String( "Partition" ), 0, Qt::CaseInsensitive );
+	if( cut <= 0 )
+		return -1;
+	bool ok = false;
+	const int n = rest.left( cut ).toInt( &ok );
+	return ok ? n : -1;
+}
+#endif
+
 bool Path_Is_Host_Boot_Disk( const QString &path )
 {
 	const QString boot = Host_Boot_Disk_Path();
 	if( boot.isEmpty() || path.isEmpty() )
 		return false;
+#ifdef Q_OS_WIN
+	const int boot_n = Windows_Disk_Index( boot );
+	const int path_n = Windows_Disk_Index( path );
+	if( boot_n >= 0 && path_n >= 0 )
+		return boot_n == path_n;
+#endif
 	const QString canon = QFileInfo( path ).canonicalFilePath();
 	const QString whole = Whole_Disk_Device( canon.isEmpty() ? path : canon );
 	return whole == boot || QFileInfo( whole ).canonicalFilePath() == QFileInfo( boot ).canonicalFilePath();

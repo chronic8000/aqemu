@@ -57,6 +57,7 @@
 #include <QStandardItemModel>
 
 #include "Utils.h"
+#include "Physical_Drive.h"
 #include "Lab_150.h"
 #include "AQ_UI_Style.h"
 #include "Apple_SoC_Support.h"
@@ -118,6 +119,7 @@ VM_Wizard_Window::VM_Wizard_Window( QWidget *parent )
 	RB_Typical_Existing_Disk = nullptr;
 	Edit_Typical_Disk_Path = nullptr;
 	TB_Typical_Disk_Browse = nullptr;
+	TB_Typical_Physical = nullptr;
 	Widget_Typical_Size_Row = nullptr;
 	CB_Typical_Sector_Size = nullptr;
 	CB_Wizard_Nand = nullptr;
@@ -3617,7 +3619,12 @@ void VM_Wizard_Window::Enhance_Typical_HDD_Page()
 	ensure_btn_size( tb_disk_pool, 52 );
 	pathLay->addWidget( lblDisk );
 	pathLay->addWidget( Edit_Typical_Disk_Path, 1 );
+	TB_Typical_Physical = new QToolButton( Widget_Typical_Path_Row );
+	TB_Typical_Physical->setText( tr( "Drive..." ) );
+	TB_Typical_Physical->setToolTip( tr( "Use a whole physical drive or one partition" ) );
+	ensure_btn_size( TB_Typical_Physical, 72 );
 	pathLay->addWidget( TB_Typical_Disk_Browse );
+	pathLay->addWidget( TB_Typical_Physical );
 	pathLay->addWidget( tb_disk_pool );
 	lay->addWidget( Widget_Typical_Path_Row );
 
@@ -3820,6 +3827,7 @@ void VM_Wizard_Window::Enhance_Typical_HDD_Page()
 	connect( RB_Typical_New_Disk, &QRadioButton::toggled, this, &VM_Wizard_Window::Typical_New_Disk_Toggled );
 	connect( RB_Typical_Existing_Disk, &QRadioButton::toggled, this, [this]( bool on ){ Typical_New_Disk_Toggled( ! on ); } );
 	connect( TB_Typical_Disk_Browse, &QToolButton::clicked, this, &VM_Wizard_Window::Typical_Disk_Browse_Clicked );
+	connect( TB_Typical_Physical, &QToolButton::clicked, this, &VM_Wizard_Window::Typical_Physical_Drive_Clicked );
 	connect( tb_disk_pool, &QToolButton::clicked, this, &VM_Wizard_Window::Storage_Browser_For_Disk_Clicked );
 	connect( TB_Install_ISO_Browse, &QToolButton::clicked, this, &VM_Wizard_Window::Install_ISO_Browse_Clicked );
 	connect( TB_Install_ISO_Storage, &QToolButton::clicked, this, &VM_Wizard_Window::Storage_Browser_For_ISO_Clicked );
@@ -3895,6 +3903,8 @@ void VM_Wizard_Window::Typical_New_Disk_Toggled( bool on )
 			? tr( "Path where new virtual disk image will be created" )
 			: tr( "Path to existing virtual disk image file (.qcow2, .vmdk, .raw, .vhdx, etc.)" ) );
 	}
+	if( TB_Typical_Physical )
+		TB_Typical_Physical->setVisible( ! on );
 	if( on )
 		Refresh_Typical_HDD_Defaults();
 }
@@ -4270,6 +4280,18 @@ void VM_Wizard_Window::Show_Typical_HDD_Page()
 	Update_Lab_Disk_Page();
 }
 
+void VM_Wizard_Window::Typical_Physical_Drive_Clicked()
+{
+	if( ! Edit_Typical_Disk_Path )
+		return;
+	const QStringList paths = AQ_Pick_Physical_Drives( this, false );
+	if( paths.isEmpty() )
+		return;
+	if( RB_Typical_Existing_Disk )
+		RB_Typical_Existing_Disk->setChecked( true );
+	Edit_Typical_Disk_Path->setText( paths.first() );
+}
+
 void VM_Wizard_Window::Typical_Disk_Browse_Clicked()
 {
 	if( ! Edit_Typical_Disk_Path )
@@ -4513,7 +4535,12 @@ bool VM_Wizard_Window::Validate_Typical_HDD_Page()
 				tr( "Please select an existing disk image, or choose \"Create a new disk image\"." ) );
 			return false;
 		}
-		if( ! QFileInfo( path ).exists() )
+		if( AQ_Is_Physical_Disk_Path( path ) )
+		{
+			if( ! AQ_Require_Physical_Disk_Privilege( this, QStringList() << path ) )
+				return false;
+		}
+		else if( ! QFileInfo( path ).exists() )
 		{
 			AQGraphic_Warning( tr( "Hard Disk" ),
 				tr( "The selected disk image does not exist:\n%1" ).arg( path ) );

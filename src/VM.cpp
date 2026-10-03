@@ -72,6 +72,7 @@
 #include "Lab_150.h"
 #include "QMP_Client.h"
 #include "Utils.h"
+#include "Physical_Drive.h"
 #include "Audio_Host.h"
 #include "WSL_Launch.h"
 #include "WSL_Wizard_Window.h"
@@ -6589,7 +6590,7 @@ static bool Media_Is_Bootable_Now( const Virtual_Machine &vm, VM::Boot_Device ty
 			for( const VM_HDD &d : disks )
 			{
 				const QString p = Storage_Boot_Path( d );
-				if( d.Get_Enabled() && ! p.isEmpty() && QFile::exists( p ) )
+				if( d.Get_Enabled() && ! p.isEmpty() && AQ_Storage_Path_Present( p ) )
 					return true;
 			}
 			// Native / Device Manager extra storage (virtio, NVMe, -)
@@ -6601,7 +6602,7 @@ static bool Media_Is_Bootable_Now( const Virtual_Machine &vm, VM::Boot_Device ty
 				if( extra[i].Use_Media() && extra[i].Get_Media() == VM::DM_CD_ROM )
 					continue;
 				const QString p = extra[i].Get_File_Path();
-				if( ! p.isEmpty() && QFile::exists( p ) )
+				if( ! p.isEmpty() && AQ_Storage_Path_Present( p ) )
 					return true;
 			}
 			return false;
@@ -10625,7 +10626,8 @@ QStringList Virtual_Machine::Build_Native_Device_Args( VM_Native_Storage_Device 
 			fp.startsWith( QLatin1String( "nbd+" ), Qt::CaseInsensitive ) ||
 			fp.startsWith( QLatin1String( "gluster" ), Qt::CaseInsensitive ) ||
 			fp.startsWith( QLatin1String( "ssh://" ), Qt::CaseInsensitive );
-		if( net_proto )
+		const bool physical_disk = AQ_Is_Physical_Disk_Path( fp );
+		if( net_proto || physical_disk )
 		{
 			bool has_fmt = false;
 			for( int oi = 0; oi < opt.count(); ++oi )

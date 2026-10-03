@@ -264,6 +264,7 @@ SET( aqemu_sources
 	src/Appliance_Export_Window.cpp
 	src/SAN_Storage_Dialog.cpp
 	src/Storage_Recovery.cpp
+	src/Physical_Drive.cpp
 	src/Storage_Recovery_Window.cpp
 	src/TrueNAS_Guest_API.cpp
 	src/Storage_Guest_Tab.cpp
@@ -317,14 +318,11 @@ SET( aqemu_qrc
 SET( aqemu_man_page
     resources/docs/aqemu.1 )
 
-SET( translations 
-     translations/German.ts
-     transtations/Russian.ts
-     translations/Ukrainian.ts
-     translations/French.ts
-     translations/English.ts )
-
-SET( files_to_translate ${files_to_translate} ${aqemu_headers} ${aqemu_sources} ${aqemu_ui} )
+# English.ts is the source catalog and is not shipped. Russian is not shipped.
+SET( translation_ts
+     ${CMAKE_CURRENT_SOURCE_DIR}/resources/translations/French.ts
+     ${CMAKE_CURRENT_SOURCE_DIR}/resources/translations/German.ts
+     ${CMAKE_CURRENT_SOURCE_DIR}/resources/translations/Ukrainian.ts )
 
 # Find includes in corresponding build directories
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
@@ -366,15 +364,26 @@ IF( NOT WITHOUT_EMBEDDED_DISPLAY )
 	ADD_DEFINITIONS( -DVNC_DISPLAY -DQTONLY )
 ENDIF( NOT WITHOUT_EMBEDDED_DISPLAY )
 
-# TODO: port from Qt4 to Qt5
-# For translation
-#IF( UPDATE_TRANSLATIONS )
-#	QT5_CREATE_TRANSLATION( qm_files ${CMAKE_CURRENT_SOURCE_DIR} ${files_to_translate} ${translations} )
-#ELSE( UPDATE_TRANSLATIONS )
-#	QT5_ADD_TRANSLATION( qm_files ${translations} )
-#ENDIF( UPDATE_TRANSLATIONS )
+FIND_PROGRAM( LRELEASE_EXECUTABLE NAMES lrelease lrelease-qt5 )
+SET( qm_files )
+IF( LRELEASE_EXECUTABLE )
+	FOREACH( ts_file ${translation_ts} )
+		GET_FILENAME_COMPONENT( ts_name ${ts_file} NAME_WE )
+		SET( qm_file "${CMAKE_CURRENT_BINARY_DIR}/${ts_name}.qm" )
+		ADD_CUSTOM_COMMAND(
+			OUTPUT ${qm_file}
+			COMMAND ${LRELEASE_EXECUTABLE} ${ts_file} -qm ${qm_file}
+			DEPENDS ${ts_file}
+			COMMENT "Releasing ${ts_name}.qm"
+			VERBATIM )
+		LIST( APPEND qm_files ${qm_file} )
+	ENDFOREACH()
+	MESSAGE( STATUS "Qt5 translations via ${LRELEASE_EXECUTABLE}: ${translation_ts}" )
+ELSE()
+	MESSAGE( STATUS "lrelease not found; language catalogs will not be built" )
+ENDIF()
 
-ADD_CUSTOM_TARGET( translations_target DEPENDS ${qm_files} )
+ADD_CUSTOM_TARGET( translations_target ALL DEPENDS ${qm_files} )
 
 IF( COMMAND CMAKE_POLICY )
 	CMAKE_POLICY( SET CMP0003 NEW )
@@ -384,7 +393,6 @@ ADD_EXECUTABLE( aqemu
 	${aqemu_sources}
 	${ui_headers}
 	${moc_srcs}
-	${qm_files}
     ${aqemu_qrc}
 )
 
@@ -411,7 +419,7 @@ SET_PROPERTY( TARGET aqemu_storage_recovery_test PROPERTY CXX_STANDARD_REQUIRED 
 TARGET_LINK_LIBRARIES( aqemu_storage_recovery_test Qt5::Core )
 
 IF( WIN32 )
-	TARGET_LINK_LIBRARIES( aqemu advapi32 ole32 dsound )
+	TARGET_LINK_LIBRARIES( aqemu advapi32 ole32 shell32 dsound )
 	IF( AQEMU_ENABLE_CONSOLE )
 		SET_TARGET_PROPERTIES( aqemu PROPERTIES WIN32_EXECUTABLE FALSE )
 		IF( MSVC )
@@ -670,6 +678,16 @@ ELSEIF( EXISTS "${CMAKE_SOURCE_DIR}/scripts/OSX-KVM/OVMF_CODE_4M.fd" )
 		COMMENT "Bundle OSX-KVM OVMF_CODE_4M.fd for Intel/Reims macOS"
 	)
 ENDIF()
+
+# About → Links. The page is also in icons.qrc; this copy covers packages that
+# ship the build directory without going through the Qt resource.
+ADD_CUSTOM_COMMAND( TARGET aqemu POST_BUILD
+	COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:aqemu>/docs"
+	COMMAND ${CMAKE_COMMAND} -E copy_if_different
+		"${CMAKE_SOURCE_DIR}/resources/docs/links.html"
+		"$<TARGET_FILE_DIR:aqemu>/docs/links.html"
+	COMMENT "Bundle docs/links.html for Help → About"
+)
 
 # Inferno extras (FS-patch scripts, tickets notes) next to aqemu.exe for GUI tools
 ADD_CUSTOM_COMMAND( TARGET aqemu POST_BUILD

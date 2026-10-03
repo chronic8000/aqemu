@@ -588,22 +588,13 @@ Advanced_Settings_Window::Advanced_Settings_Window( QWidget *parent )
 	// Use New Emulator Control Removable Device Menu
 	ui.CH_Use_New_Device_Changer->setChecked( Settings.value("Use_New_Device_Changer", "no").toString() == "yes" );
 	
-	// Find All Language Files (*.qm)
-	QDir data_dir( Settings.value("AQEMU_Data_Folder", "/usr/share/aqemu/").toString() );
-	QFileInfoList lang_files = data_dir.entryInfoList( QStringList("*.qm"), QDir::Files, QDir::Name );
-	
-	if( lang_files.count() > 0 )
+	const QString saved_lang = Settings.value( "Language", "en" ).toString();
+	const QStringList catalogs = AQ_List_Translation_Catalogs();
+	for( int dd = 0; dd < catalogs.count(); ++dd )
 	{
-		// Add Languages to List
-		for( int dd = 0; dd < lang_files.count(); ++dd )
-		{
-			ui.CB_Language->addItem( lang_files[dd].completeBaseName() );
-			
-			if( lang_files[dd].completeBaseName() == Settings.value( "Language", "en" ).toString() )
-			{
-				ui.CB_Language->setCurrentIndex( dd + 1 ); // First Item 'English'
-			}
-		}
+		ui.CB_Language->addItem( catalogs.at( dd ) );
+		if( catalogs.at( dd ) == saved_lang )
+			ui.CB_Language->setCurrentIndex( dd + 1 ); // First item English
 	}
 	
 	// VM Icons Size

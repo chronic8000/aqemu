@@ -33,6 +33,7 @@
 #include <QCoreApplication>
 #include <QSettings>
 #include <QStandardPaths>
+#include <QTranslator>
 #include <QRegExp>
 #include <QRegularExpression>
 #include <QHash>
@@ -3219,6 +3220,76 @@ QString AQ_Resolve_Host_Tool( const QString &settings_key,
 			return hit;
 	}
 	return QString();
+}
+
+QStringList AQ_Translation_Dirs()
+{
+	QStringList dirs;
+	auto add = [&dirs]( const QString &path ) {
+		const QString clean = QDir::cleanPath( path );
+		if( clean.isEmpty() || dirs.contains( clean ) )
+			return;
+		if( QDir( clean ).exists() )
+			dirs << clean;
+	};
+
+	QSettings settings;
+	const QString data = settings.value( QStringLiteral( "AQEMU_Data_Folder" ) ).toString();
+	if( ! data.isEmpty() )
+	{
+		add( data );
+		add( QDir( data ).filePath( QStringLiteral( "translations" ) ) );
+	}
+	add( QDir( QCoreApplication::applicationDirPath() ).filePath( QStringLiteral( "translations" ) ) );
+	const QString generic = QStandardPaths::writableLocation( QStandardPaths::GenericDataLocation );
+	if( ! generic.isEmpty() )
+		add( QDir( generic ).filePath( QStringLiteral( "aqemu" ) ) );
+#ifndef Q_OS_WIN
+	add( QStringLiteral( "/usr/share/aqemu" ) );
+	add( QStringLiteral( "/usr/local/share/aqemu" ) );
+#endif
+	return dirs;
+}
+
+QStringList AQ_List_Translation_Catalogs()
+{
+	QStringList names;
+	const QStringList dirs = AQ_Translation_Dirs();
+	for( const QString &dir : dirs )
+	{
+		const QFileInfoList files = QDir( dir ).entryInfoList(
+			QStringList() << QStringLiteral( "*.qm" ), QDir::Files, QDir::Name );
+		for( const QFileInfo &fi : files )
+		{
+			const QString base = fi.completeBaseName();
+			if( base.compare( QLatin1String( "English" ), Qt::CaseInsensitive ) == 0 )
+				continue;
+			if( base.compare( QLatin1String( "Russian" ), Qt::CaseInsensitive ) == 0 )
+				continue;
+			if( ! names.contains( base ) )
+				names << base;
+		}
+	}
+	return names;
+}
+
+bool AQ_Load_App_Translation( QTranslator *translator, const QString &language )
+{
+	if( ! translator )
+		return false;
+	const QString lang = language.trimmed();
+	if( lang.isEmpty() || lang == QLatin1String( "en" ) ||
+	    lang.compare( QLatin1String( "English" ), Qt::CaseInsensitive ) == 0 ||
+	    lang.compare( QLatin1String( "Russian" ), Qt::CaseInsensitive ) == 0 )
+		return false;
+
+	const QStringList dirs = AQ_Translation_Dirs();
+	for( const QString &dir : dirs )
+	{
+		if( translator->load( lang, dir ) || translator->load( lang + QStringLiteral( ".qm" ), dir ) )
+			return true;
+	}
+	return false;
 }
 
 QString Get_Binary_Extension()

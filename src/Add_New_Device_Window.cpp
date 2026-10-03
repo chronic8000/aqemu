@@ -26,6 +26,7 @@
 #include "Utils.h"
 #include "System_Info.h"
 #include "Add_New_Device_Window.h"
+#include "Physical_Drive.h"
 #include "SAN_Storage_Dialog.h"
 
 Add_New_Device_Window::Add_New_Device_Window( QWidget *parent )
@@ -185,6 +186,7 @@ void Add_New_Device_Window::Set_Emulator_Devices( const Available_Devices &devic
 		ui.CH_File->setVisible( true );
 		ui.Edit_File_Path->setVisible( true );
 		ui.TB_File_Path_Browse->setVisible( true );
+		ui.TB_Physical_Browse->setVisible( true );
 		ui.TB_SAN_Browse->setVisible( true );
 	}
 	else
@@ -192,6 +194,7 @@ void Add_New_Device_Window::Set_Emulator_Devices( const Available_Devices &devic
 		ui.CH_File->setVisible( false );
 		ui.Edit_File_Path->setVisible( false );
 		ui.TB_File_Path_Browse->setVisible( false );
+		ui.TB_Physical_Browse->setVisible( false );
 		ui.TB_SAN_Browse->setVisible( false );
 	}
 	
@@ -455,6 +458,9 @@ void Add_New_Device_Window::on_CB_Interface_currentIndexChanged( const QString &
 		ui.SB_Bus->setEnabled( false );
 		ui.SB_Unit->setEnabled( false );
 	}
+	const bool optical_now = ( ui.CB_Media->currentIndex() == 1 );
+	const bool floppy_now = ( text == QLatin1String( "floppy" ) );
+	ui.TB_Physical_Browse->setVisible( ! optical_now && ! floppy_now && ui.TB_File_Path_Browse->isVisible() );
 }
 
 void Add_New_Device_Window::on_CB_Media_currentIndexChanged( int )
@@ -475,6 +481,8 @@ void Add_New_Device_Window::on_CB_Media_currentIndexChanged( int )
 		ui.CB_Logical_Block_Size->setEnabled( ui.CH_Block_Size->isChecked() );
 		ui.CB_Physical_Block_Size->setEnabled( ui.CH_Block_Size->isChecked() );
 	}
+	const bool floppy = ( ui.CB_Interface->currentText() == QLatin1String( "floppy" ) );
+	ui.TB_Physical_Browse->setVisible( ! optical && ! floppy && ui.TB_File_Path_Browse->isVisible() );
 	Enforce_Interface_Honesty();
 }
 
@@ -488,6 +496,16 @@ void Add_New_Device_Window::on_TB_File_Path_Browse_clicked()
 	
 	if( ! file_name.isEmpty() )
 		ui.Edit_File_Path->setText( QDir::toNativeSeparators(file_name) );
+}
+
+void Add_New_Device_Window::on_TB_Physical_Browse_clicked()
+{
+	const QStringList paths = AQ_Pick_Physical_Drives( this, false );
+	if( paths.isEmpty() )
+		return;
+	ui.CH_File->setChecked( true );
+	ui.Edit_File_Path->setEnabled( true );
+	ui.Edit_File_Path->setText( paths.first() );
 }
 
 void Add_New_Device_Window::on_TB_SAN_Browse_clicked()
@@ -613,7 +631,13 @@ void Add_New_Device_Window::done(int r)
 	    // File Path
 	    if( ui.CH_File->isChecked() )
 	    {
-		    if( ! QFile::exists(ui.Edit_File_Path->text()) )
+		    const QString path = ui.Edit_File_Path->text();
+		    if( AQ_Is_Physical_Disk_Path( path ) )
+		    {
+			    if( ! AQ_Require_Physical_Disk_Privilege( this, QStringList() << path ) )
+				    return;
+		    }
+		    else if( ! QFile::exists( path ) )
 		    {
 			    AQGraphic_Warning( tr("Error!"), tr("File does not exist!") );
 			    return;

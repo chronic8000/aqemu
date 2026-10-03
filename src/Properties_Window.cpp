@@ -26,6 +26,7 @@
 
 #include "Properties_Window.h"
 #include "Create_HDD_Image_Window.h"
+#include "Physical_Drive.h"
 #include "Utils.h"
 #include "System_Info.h"
 #include "Add_New_Device_Window.h"
@@ -227,7 +228,13 @@ void Properties_Window::done(int r)
 	    }
 	    else if( ui.GB_HDD->isEnabled() )
 	    {
-		    if( ! QFile::exists(ui.Edit_HDD_Image_Path->text()) )
+		    const QString hdd_path = ui.Edit_HDD_Image_Path->text();
+		    if( AQ_Is_Physical_Disk_Path( hdd_path ) )
+		    {
+			    if( ! AQ_Require_Physical_Disk_Privilege( this, QStringList() << hdd_path ) )
+				    return;
+		    }
+		    else if( ! QFile::exists( hdd_path ) )
             {
 			    AQGraphic_Warning( tr("Warning"), tr("Image file doesn't exist!") );
                 return;
@@ -361,6 +368,13 @@ void Properties_Window::on_TB_CDROM_Image_Browse_clicked()
 		
 		ui.CB_CDROM_Devices->addItem( fileName );
 	}
+}
+
+void Properties_Window::on_TB_HDD_Physical_clicked()
+{
+	const QStringList paths = AQ_Pick_Physical_Drives( this, false );
+	if( ! paths.isEmpty() )
+		ui.Edit_HDD_Image_Path->setText( paths.first() );
 }
 
 void Properties_Window::on_TB_HDD_Image_Browse_clicked()

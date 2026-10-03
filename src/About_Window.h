@@ -25,6 +25,7 @@
 #define ABOUT_WINDOW_H
 
 #include <QtNetwork>
+#include <QEvent>
 #include "ui_About_Window.h"
 
 class About_Window: public QDialog
@@ -37,7 +38,12 @@ class About_Window: public QDialog
 	private slots:
 		void Show_Links_File();
 
+	protected:
+		void changeEvent( QEvent *event ) override;
+
 	private:
+		void Apply_About_Colors();
+
 		Ui::About_Window ui;
 
 		QString linksFilePath;

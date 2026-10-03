@@ -162,6 +162,7 @@ aqemu_sources =    ['src/No_Boot_Device.cpp',
                     'src/VM_Devices.cpp',
                     'src/VM_Wizard_Window.cpp',
                     'src/Storage_Recovery.cpp',
+                    'src/Physical_Drive.cpp',
                     'src/Storage_Recovery_Window.cpp',
                     'src/TrueNAS_Guest_API.cpp',
                     'src/Storage_Guest_Tab.cpp',
@@ -265,5 +266,13 @@ install_data('resources/menu_data/aqemu.png', install_dir : 'share/pixmaps')
 install_data('resources/menu_data/aqemu.desktop', install_dir : 'share/applications')
 install_data('resources/menu_data/aqemu.appdata.xml', install_dir : 'share/appdata')
 
-# TODO: qt5 translations
+qt5.compile_translations(
+  ts_files : [
+    'resources/translations/French.ts',
+    'resources/translations/German.ts',
+    'resources/translations/Ukrainian.ts',
+  ],
+  install : true,
+  install_dir : 'share/aqemu',
+)
 

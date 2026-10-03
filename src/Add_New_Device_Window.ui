@@ -59,6 +59,19 @@
       </widget>
      </item>
      <item>
+      <widget class="QToolButton" name="TB_Physical_Browse">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
+       <property name="toolTip">
+        <string>Use a whole physical drive or one partition</string>
+       </property>
+       <property name="text">
+        <string>Drive...</string>
+       </property>
+      </widget>
+     </item>
+     <item>
       <widget class="QToolButton" name="TB_SAN_Browse">
        <property name="enabled">
         <bool>false</bool>
@@ -582,6 +595,7 @@
   <tabstop>CH_File</tabstop>
   <tabstop>Edit_File_Path</tabstop>
   <tabstop>TB_File_Path_Browse</tabstop>
+  <tabstop>TB_Physical_Browse</tabstop>
   <tabstop>CH_Interface</tabstop>
   <tabstop>CB_Interface</tabstop>
   <tabstop>CH_Index</tabstop>
@@ -669,6 +683,22 @@
     </hint>
     <hint type="destinationlabel">
      <x>303</x>
+     <y>34</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>CH_File</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>TB_Physical_Browse</receiver>
+   <slot>setEnabled(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>47</x>
+     <y>30</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>325</x>
      <y>34</y>
     </hint>
    </hints>

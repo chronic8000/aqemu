@@ -74,5 +74,6 @@
         <file alias="reboot.png">icons/oxygen/reboot.png</file>
         <file alias="wizard_trees.json">wizard_trees.json</file>
         <file alias="bootsplash.bmp">bootsplash.bmp</file>
+        <file alias="docs/links.html">docs/links.html</file>
     </qresource>
 </RCC>

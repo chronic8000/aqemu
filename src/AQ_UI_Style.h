@@ -7,8 +7,9 @@
 #include <QString>
 #include <QSize>
 #include <QTabBar>
+#include <QApplication>
+#include <QEvent>
 
-class QApplication;
 class QWidget;
 class QLayout;
 class QTabWidget;
@@ -48,6 +49,17 @@ QSize AQ_Vm_List_Icon_Size( const QWidget *hint = nullptr );
 
 /** Readable content column width from font metrics (~72 average characters). */
 int AQ_Content_Max_Width( const QWidget *hint = nullptr );
+
+/**
+ * QApplication that paints each window with the current light or dark chrome
+ * when it is shown. Same path on Linux and on Windows ARM and x64.
+ */
+class AQ_Application : public QApplication
+{
+public:
+	using QApplication::QApplication;
+	bool notify( QObject *receiver, QEvent *event ) override;
+};
 
 /** Install the global AQEMU chrome (group boxes, tabs, lists, inputs). */
 void AQ_Apply_App_Style( QApplication *app );

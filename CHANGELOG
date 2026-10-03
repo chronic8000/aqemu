@@ -1,3 +1,33 @@
+2026-10-03 Chronic Engineering — languages, About, and physical drives
+
+	* French, German, and Ukrainian are listed in the first-start wizard and
+	  in Preferences. English stays the built-in language. Russian is removed.
+	  The Ukrainian catalog is filled. Qt 5 is unchanged: lrelease compiles
+	  the three catalogs. A language applies after AQEMU is restarted.
+	  QEMU tokens such as ide, scsi, floppy, and qcow2 stay English, so a
+	  saved machine still starts.
+	* Help → About follows light mode and dark mode, including the text and
+	  the tab pages. The same palette path is used on Linux and on Windows
+	  ARM and x64. Child windows pick up the theme when they are shown.
+	* The About links page is built into the program and copied next to the
+	  executable. Help → About no longer reports “Cannot Find AQEMU Links
+	  File!” when a package omitted docs/links.html.
+	* A hard disk can be a whole physical drive or one partition. Drive...
+	  is on the new storage device dialog, virtual machine properties, the
+	  new virtual machine wizard (existing disk), and storage recovery.
+	  The first step chooses the whole drive or partitions. The second step
+	  lists size and model so the selection can be added. The computer’s
+	  startup disk, and its partitions, are not listed. QEMU receives the
+	  device as a raw disk.
+	* Windows checks for administrator rights when you add a physical drive.
+	  If AQEMU is already elevated, the list opens. If it is not, Windows
+	  asks for permission and AQEMU restarts. Running virtual machines are
+	  stopped, and the drive is chosen again after AQEMU opens.
+	* Linux checks whether the drive can already be opened (root, or group
+	  permission such as disk). If it can, there is no password prompt. If
+	  it cannot, AQEMU asks for your password and passes it only to sudo.
+	  The password is not saved. sudo then lets your user open that drive.
+
 2026-10-03 Chronic Engineering — AQEMU 1.5.2 (menus and exit confirmation)
 
 	* File, VM, and Help commands are grouped, and each command is listed once.

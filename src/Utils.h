@@ -325,6 +325,17 @@ QString AQ_Resolve_Host_Tool( const QString &settings_key,
                              const QStringList &exe_names,
                              const QStringList &app_dir_relatives = QStringList() );
 
+class QTranslator;
+
+/** Directories that may contain AQEMU *.qm catalogs. */
+QStringList AQ_Translation_Dirs();
+
+/** Language catalog base names (French, German, Ukrainian). English is the source language. */
+QStringList AQ_List_Translation_Catalogs();
+
+/** Load a catalog into translator. Returns false for English or a missing file. */
+bool AQ_Load_App_Translation( QTranslator *translator, const QString &language );
+
 /** Executable extension for current host OS (".exe" on Windows, "" on Linux/POSIX). */
 QString Get_Binary_Extension();
 
