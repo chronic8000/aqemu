@@ -426,6 +426,18 @@ AQEMU now provides physical USB hardware redirection directly from the session t
 
 ---
 
+## Copy and paste files
+
+Text copied on the host still reaches the guest through the embedded display. Files use the session toolbar:
+
+- **Paste files**, or drop files on the guest window. No guest installer. Small copies appear as floppy A. Larger copies, up to 512 MB, appear as an AQEMU USB drive. This works on Linux and Windows hosts, on x86_64 and ARM, including DOS and Windows 9x.
+- **To guest** and **From guest** copy one file by path once the guest is running `qemu-guest-agent`.
+- **Guest tools** inserts the installer disk. Linux runs `sh install-linux.sh`. Windows installs qemu-guest-agent, then runs `aqemu-guest.ps1`. After that, files copied in the guest file manager can be saved on the host.
+
+Guide: [`docs/COPY_AND_PASTE.md`](docs/COPY_AND_PASTE.md).
+
+---
+
 ## Windows from 1.x through modern
 
 | Era | What AQEMU helps with |
@@ -568,6 +580,7 @@ Details: [`third_party/README.md`](third_party/README.md).
 - **QCOW2 4K Cluster Alignment** — Create disk images with 4 KB cluster size alignment directly from the wizard or File menu to eliminate write amplification on 4Kn / ZFS workloads.
 - **Embedded Display Canvas Auto-Stretch** — Seamless full-canvas stretching without letterboxing, maintaining crisp aspect rendering and immediate adaptation to dynamic in-guest resolution changes.
 - **VMware-Style USB Passthrough** — Hotplug host physical USB hardware (printers, flash drives, security dongles) directly into running guests via the session toolbar with modern XHCI 3.0 controller support.
+- **Copy and paste files** — Paste or drop files onto a running guest as floppy A or an AQEMU USB drive. With qemu-guest-agent, copy one file to a guest path or back to the host. Guide: [`docs/COPY_AND_PASTE.md`](docs/COPY_AND_PASTE.md).
 - **Pi 5** optimizations (`-mcpu=cortex-a76`, 64KB page alignment, Wayland)
 - **QEMU Lab (1.5.2)** — port table, support bundle, snapshot timeline, Chain Studio, virtiofs when the host has it, and bring-your-own wraps. Guide: [`docs/LAB_1.5.2.md`](docs/LAB_1.5.2.md)
 - **Microsoft Store–ready** posture: GPLv2 source public, [privacy policy](PRIVACY.md), no proprietary OS media in the box

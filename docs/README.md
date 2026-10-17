@@ -4,6 +4,7 @@ The product overview stays in the root [`README.md`](../README.md). Release hist
 
 | Guide | What it covers |
 |--|--|
+| [COPY_AND_PASTE.md](COPY_AND_PASTE.md) | Copy text, paste files into a guest, and copy files back out |
 | [LAB_1.5.2.md](LAB_1.5.2.md) | AQEMU 1.5.2 QEMU Lab: menus, storage, networking, acceleration, and bring-your-own wraps |
 | [QEMU_MACHINE_CATALOG.md](QEMU_MACHINE_CATALOG.md) | Probe-driven machine catalog used by the wizard |
 | [VM_WIZARD_THREE_PATH.md](VM_WIZARD_THREE_PATH.md) | How the New VM wizard paths fit together |
