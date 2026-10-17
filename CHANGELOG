@@ -20,6 +20,10 @@
 	* Paste files on the running-VM toolbar, or drop files on the guest
 	  window. Small copies appear as floppy A. Larger copies appear as an
 	  AQEMU USB drive. The same path is used on Linux and Windows.
+	* Ordinary virtual machines open a guest-agent port and a file port.
+	  To guest and From guest copy one file by path once the guest is
+	  running qemu-guest-agent. Guest tools inserts the installer disk.
+	  The helper inside the guest sends files copied there back to AQEMU.
 
 2026-10-03 Chronic Engineering — languages, About, and physical drives
 

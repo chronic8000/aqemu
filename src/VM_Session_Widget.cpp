@@ -43,6 +43,8 @@
 #include "Serial_Console_Window.h"
 #include "AQ_UI_Style.h"
 #include "Guest_Files.h"
+#include "Guest_Agent.h"
+#include "Guest_File_Channel.h"
 
 #include <QDragEnterEvent>
 #include <QDropEvent>
@@ -133,6 +135,7 @@ VM_Session_Widget::VM_Session_Widget( QWidget *parent )
 	, Menu_USB( nullptr )
 	, USB_Enum_Busy( false )
 	, Paste_Serial( 0 )
+	, File_Channel( nullptr )
 	, Apple_SOS_Busy( false )
 	, Apple_SOS_Generation( 0 )
 	, Serial_Win( nullptr )
@@ -252,6 +255,12 @@ void VM_Session_Widget::Build_Toolbar()
 	Toolbar->addSeparator();
 	QAction *paste = Toolbar->addAction( tr( "Paste files" ), this, SLOT(On_Paste_Files()) );
 	paste->setToolTip( tr( "Copy files from the host clipboard into the guest. They appear as floppy A or an AQEMU USB drive." ) );
+	Toolbar->addAction( tr( "To guest" ), this, SLOT(On_Copy_To_Guest_Path()) )
+		->setToolTip( tr( "Copy one host file to a path inside the guest. The guest must be running qemu-guest-agent." ) );
+	Toolbar->addAction( tr( "From guest" ), this, SLOT(On_Copy_From_Guest()) )
+		->setToolTip( tr( "Copy one file from a path inside the guest onto the host. The guest must be running qemu-guest-agent." ) );
+	Toolbar->addAction( tr( "Guest tools" ), this, SLOT(On_Insert_Guest_Tools()) )
+		->setToolTip( tr( "Insert the AQEMU guest tools disk. Run the installer once inside the guest." ) );
 	Toolbar->addSeparator();
 
 	// Apple controls & Restore IPSW (only visible on Apple SoC VMs)
@@ -597,6 +606,100 @@ void VM_Session_Widget::dropEvent( QDropEvent *event )
 	event->acceptProposedAction();
 }
 
+void VM_Session_Widget::On_Copy_To_Guest_Path()
+{
+	if( ! VM || VM->Get_Guest_Agent_Port() <= 0 )
+	{
+		QMessageBox::information( this, tr( "Copy to guest" ),
+			tr( "Start the virtual machine, then try again. This machine type has no guest agent port." ) );
+		return;
+	}
+	const QString host = QFileDialog::getOpenFileName( this, tr( "Copy to guest" ) );
+	if( host.isEmpty() )
+		return;
+	const QString guest = QInputDialog::getText( this, tr( "Copy to guest" ),
+		tr( "Path inside the guest, including the file name.\n"
+		    "Linux example: /home/user/notes.txt\n"
+		    "Windows example: C:\\\\Users\\\\Public\\\\notes.txt" ),
+		QLineEdit::Normal, QFileInfo( host ).fileName() );
+	if( guest.isEmpty() )
+		return;
+	QString error;
+	AQ_Guest_Agent agent;
+	if( ! agent.Open( static_cast<quint16>( VM->Get_Guest_Agent_Port() ), &error ) ||
+	    ! agent.Copy_To_Guest( host, guest, &error ) )
+	{
+		QMessageBox::warning( this, tr( "Copy to guest" ), error );
+		return;
+	}
+	QMessageBox::information( this, tr( "Copy to guest" ),
+		tr( "Copied to %1 in the guest." ).arg( guest ) );
+}
+
+void VM_Session_Widget::On_Copy_From_Guest()
+{
+	if( ! VM || VM->Get_Guest_Agent_Port() <= 0 )
+	{
+		QMessageBox::information( this, tr( "Copy from guest" ),
+			tr( "Start the virtual machine, then try again. This machine type has no guest agent port." ) );
+		return;
+	}
+	const QString guest = QInputDialog::getText( this, tr( "Copy from guest" ),
+		tr( "Path inside the guest.\n"
+		    "Linux example: /home/user/notes.txt\n"
+		    "Windows example: C:\\\\Users\\\\Public\\\\notes.txt" ) );
+	if( guest.isEmpty() )
+		return;
+	const QString host = QFileDialog::getSaveFileName( this, tr( "Save guest file" ),
+		QFileInfo( guest ).fileName() );
+	if( host.isEmpty() )
+		return;
+	QString error;
+	AQ_Guest_Agent agent;
+	if( ! agent.Open( static_cast<quint16>( VM->Get_Guest_Agent_Port() ), &error ) ||
+	    ! agent.Copy_From_Guest( guest, host, &error ) )
+	{
+		QMessageBox::warning( this, tr( "Copy from guest" ), error );
+		return;
+	}
+	QMessageBox::information( this, tr( "Copy from guest" ),
+		tr( "Saved %1" ).arg( host ) );
+}
+
+void VM_Session_Widget::On_Insert_Guest_Tools()
+{
+	QDir dir( QDir::temp().filePath( QStringLiteral( "aqemu-guest-tools" ) ) );
+	if( ! dir.exists() && ! dir.mkpath( QStringLiteral( "." ) ) )
+	{
+		QMessageBox::warning( this, tr( "Guest tools" ),
+			tr( "Could not create a temporary folder for the guest tools." ) );
+		return;
+	}
+	const char *names[] = { "README.txt", "install-linux.sh", "aqemu-guest.py", "aqemu-guest.ps1" };
+	QStringList paths;
+	for( int i = 0; i < 4; ++i )
+	{
+		QFile in( QStringLiteral( ":/guest-tools/" ) + QString::fromLatin1( names[ i ] ) );
+		if( ! in.open( QIODevice::ReadOnly ) )
+		{
+			QMessageBox::warning( this, tr( "Guest tools" ),
+				tr( "The guest tools are missing from this AQEMU build." ) );
+			return;
+		}
+		const QString path = dir.filePath( QString::fromLatin1( names[ i ] ) );
+		QFile out( path );
+		if( ! out.open( QIODevice::WriteOnly | QIODevice::Truncate ) )
+		{
+			QMessageBox::warning( this, tr( "Guest tools" ),
+				tr( "Could not write the guest tools." ) );
+			return;
+		}
+		out.write( in.readAll() );
+		paths << path;
+	}
+	Deliver_Files( paths );
+}
+
 void VM_Session_Widget::On_Paste_Files()
 {
 	const QClipboard *clip = QGuiApplication::clipboard();
@@ -741,6 +844,33 @@ void VM_Session_Widget::Attach_VM( Virtual_Machine *vm, QMP_Client *qmp,
 {
 	VM = vm;
 	QMP = qmp;
+	if( ! File_Channel )
+	{
+		File_Channel = new Guest_File_Channel( this );
+		connect( File_Channel, &Guest_File_Channel::Files_Arrived, this,
+			[this]( const QList<AQ_Guest_File> &files ) {
+				const QString dir = QFileDialog::getExistingDirectory( this, tr( "Save files from the guest" ) );
+				if( dir.isEmpty() )
+					return;
+				for( int i = 0; i < files.size(); ++i )
+				{
+					QFile out( QDir( dir ).filePath( files.at( i ).name ) );
+					if( ! out.open( QIODevice::WriteOnly | QIODevice::Truncate ) )
+						continue;
+					out.write( files.at( i ).data );
+				}
+				QMessageBox::information( this, tr( "Files from the guest" ),
+					tr( "Saved %n file(s) from the guest.", "", files.size() ) );
+			} );
+		connect( File_Channel, &Guest_File_Channel::Channel_Error, this,
+			[this]( const QString &message ) {
+				QMessageBox::warning( this, tr( "Files from the guest" ), message );
+			} );
+	}
+	if( vm && vm->Get_Guest_Files_Port() > 0 )
+		File_Channel->Start( static_cast<quint16>( vm->Get_Guest_Files_Port() ) );
+	else if( File_Channel )
+		File_Channel->Stop();
 	Host = display_host;
 	Spice_Port = spice_port;
 	Vnc_Port = vnc_port;
@@ -941,6 +1071,8 @@ void VM_Session_Widget::Detach()
 	if( Vnc )
 		Vnc->disconnectVNC();
 #endif
+	if( File_Channel )
+		File_Channel->Stop();
 	if( Serial_Win )
 	{
 		Serial_Win->Detach();

@@ -770,6 +770,8 @@ class Virtual_Machine: public QObject
 		int Get_Embedded_Spice_Port() const { return Embedded_Spice_Port; }
 		int Get_Embedded_VNC_Port() const { return Embedded_VNC_Port; }
 		int Get_QMP_Port() const { return QMP_Port; }
+		int Get_Guest_Agent_Port() const { return Guest_Agent_Port; }
+		int Get_Guest_Files_Port() const { return Guest_Files_Port; }
 		/** TCP port for guest serial console (0 = none / not allocated this run). */
 		int Get_Serial_Console_Port() const { return Serial_Console_Port; }
 		class QMP_Client *Get_QMP() const { return QMP; }
@@ -1084,6 +1086,8 @@ class Virtual_Machine: public QObject
 		int Embedded_VNC_Port;
 		int QMP_Port;
 		int Serial_Console_Port;
+		int Guest_Agent_Port;
+		int Guest_Files_Port;
 		int QMP_Connect_Attempts;
 		class QMP_Client *QMP;
 		

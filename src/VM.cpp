@@ -69,6 +69,7 @@
 
 #include <QProcess>
 #include "VM.h"
+#include "Guest_Agent.h"
 #include "Lab_150.h"
 #include "QMP_Client.h"
 #include "Utils.h"
@@ -146,6 +147,8 @@ Virtual_Machine::Virtual_Machine( const Virtual_Machine &vm )
 	Embedded_VNC_Port = 0;
 	QMP_Port = 0;
 	Serial_Console_Port = 0;
+	Guest_Agent_Port = 0;
+	Guest_Files_Port = 0;
 	QMP = nullptr;
 	QMP_Connect_Attempts = 0;
 	
@@ -716,6 +719,8 @@ void Virtual_Machine::Shared_Constructor()
 	Embedded_VNC_Port = 0;
 	QMP_Port = 0;
 	Serial_Console_Port = 0;
+	Guest_Agent_Port = 0;
+	Guest_Files_Port = 0;
 	QMP = nullptr;
 	QMP_Connect_Attempts = 0;
 	
@@ -10383,6 +10388,21 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		#endif
 	}
 	
+	const bool guest_channels =
+		! Build_QEMU_Args_for_Tab_Info &&
+		! AQ_Is_Apple_SoC_VM( this ) &&
+		! Machine_Type.contains( QLatin1String( "next" ), Qt::CaseInsensitive ) &&
+		! Machine_Type.contains( QLatin1String( "isapc" ), Qt::CaseInsensitive ) &&
+		! Machine_Type.contains( QLatin1String( "microvm" ), Qt::CaseInsensitive );
+	if( guest_channels )
+	{
+		if( Guest_Agent_Port <= 0 )
+			Guest_Agent_Port = Find_Free_TCP_Port( 0 );
+		if( Guest_Files_Port <= 0 || Guest_Files_Port == Guest_Agent_Port )
+			Guest_Files_Port = Find_Free_TCP_Port( 0 );
+		AQ_Append_Guest_Channels( Args, Guest_Agent_Port, Guest_Files_Port );
+	}
+
 	AQ_Lab_Append_Args( Args, this );
 
 	// Additional Args...
@@ -10965,6 +10985,8 @@ bool Virtual_Machine::Start_impl()
 	// Drop ports from a previous run so we allocate fresh free ones
 	QMP_Port = 0;
 	Serial_Console_Port = 0;
+	Guest_Agent_Port = 0;
+	Guest_Files_Port = 0;
 	QMP_Connect_Attempts = 0;
 	Embedded_Spice_Port = 0;
 	Embedded_VNC_Port = 0;
@@ -15069,6 +15091,8 @@ void Virtual_Machine::QEMU_Finished( int exitCode, QProcess::ExitStatus exitStat
 	}
 	QMP_Port = 0;
 	Serial_Console_Port = 0;
+	Guest_Agent_Port = 0;
+	Guest_Files_Port = 0;
 	Embedded_Spice_Port = 0;
 	Embedded_VNC_Port = 0;
 }

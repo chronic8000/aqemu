@@ -238,6 +238,8 @@ SET( aqemu_sources
 	src/Guest_Capabilities.cpp
 	src/Guest_Boot.cpp
 	src/Guest_Files.cpp
+	src/Guest_Agent.cpp
+	src/Guest_File_Channel.cpp
 	src/ISO_Guess.cpp
 	src/iOS_Firmware_Tool_Window.cpp
 	src/Apple_SoC_Support.cpp
@@ -434,6 +436,14 @@ TARGET_INCLUDE_DIRECTORIES( aqemu_guest_files_test PRIVATE src )
 SET_PROPERTY( TARGET aqemu_guest_files_test PROPERTY CXX_STANDARD 11 )
 SET_PROPERTY( TARGET aqemu_guest_files_test PROPERTY CXX_STANDARD_REQUIRED ON )
 TARGET_LINK_LIBRARIES( aqemu_guest_files_test Qt5::Core Qt5::Gui )
+
+ADD_EXECUTABLE( aqemu_guest_agent_test
+	tests/guest_agent_test.cpp
+	src/Guest_Agent.cpp )
+TARGET_INCLUDE_DIRECTORIES( aqemu_guest_agent_test PRIVATE src )
+SET_PROPERTY( TARGET aqemu_guest_agent_test PROPERTY CXX_STANDARD 11 )
+SET_PROPERTY( TARGET aqemu_guest_agent_test PROPERTY CXX_STANDARD_REQUIRED ON )
+TARGET_LINK_LIBRARIES( aqemu_guest_agent_test Qt5::Core Qt5::Network )
 TARGET_INCLUDE_DIRECTORIES( aqemu_guest_boot_test PRIVATE src )
 SET_PROPERTY( TARGET aqemu_guest_boot_test PROPERTY CXX_STANDARD 11 )
 SET_PROPERTY( TARGET aqemu_guest_boot_test PROPERTY CXX_STANDARD_REQUIRED ON )

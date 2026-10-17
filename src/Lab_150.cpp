@@ -331,13 +331,22 @@ void AQ_Lab_Append_Args( QStringList &args, Virtual_Machine *vm )
 
 	if( opt.value( QStringLiteral( "guest_agent" ) ) == QLatin1String( "on" ) )
 	{
-		const QString sock = QDir( AQEMU_User_Data_Dir() ).filePath(
-			QStringLiteral( "qga-" ) + vm->Get_Machine_Name() + QStringLiteral( ".sock" ) );
-		args << QStringLiteral( "-chardev" )
-		     << ( QStringLiteral( "socket,id=qga0,path=" ) + sock + QStringLiteral( ",server=on,wait=off" ) );
-		args << QStringLiteral( "-device" ) << QStringLiteral( "virtio-serial" );
-		args << QStringLiteral( "-device" )
-		     << QStringLiteral( "virtserialport,chardev=qga0,name=org.qemu.guest_agent.0" );
+		bool already = false;
+		for( int i = 0; i < args.count(); ++i )
+		{
+			if( args.at( i ).contains( QLatin1String( "org.qemu.guest_agent.0" ) ) )
+				already = true;
+		}
+		if( ! already )
+		{
+			const QString sock = QDir( AQEMU_User_Data_Dir() ).filePath(
+				QStringLiteral( "qga-" ) + vm->Get_Machine_Name() + QStringLiteral( ".sock" ) );
+			args << QStringLiteral( "-chardev" )
+			     << ( QStringLiteral( "socket,id=qga0,path=" ) + sock + QStringLiteral( ",server=on,wait=off" ) );
+			args << QStringLiteral( "-device" ) << QStringLiteral( "virtio-serial" );
+			args << QStringLiteral( "-device" )
+			     << QStringLiteral( "virtserialport,chardev=qga0,name=org.qemu.guest_agent.0" );
+		}
 	}
 
 	if( opt.value( QStringLiteral( "smartcard" ) ) == QLatin1String( "emulated" ) )

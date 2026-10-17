@@ -76,6 +76,9 @@ class VM_Session_Widget : public QWidget
 		void On_Change_FD1();
 		void On_Eject_FD1();
 		void On_Paste_Files();
+		void On_Copy_To_Guest_Path();
+		void On_Copy_From_Guest();
+		void On_Insert_Guest_Tools();
 		void On_CAD();
 		void On_Shift_F10();
 		void On_Fullscreen();
@@ -209,6 +212,7 @@ class VM_Session_Widget : public QWidget
 		QHash<int, Pending_USB_Op> Pending_USB_Ops;
 		QSet<int> Paste_Qmp_Ids;
 		int Paste_Serial;
+		class Guest_File_Channel *File_Channel;
 		bool USB_Enum_Busy;
 		bool Apple_SOS_Busy;
 		quint64 Apple_SOS_Generation;
