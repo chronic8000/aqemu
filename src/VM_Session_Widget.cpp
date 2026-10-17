@@ -137,6 +137,8 @@ VM_Session_Widget::VM_Session_Widget( QWidget *parent )
 	, USB_Enum_Busy( false )
 	, Paste_Serial( 0 )
 	, Guest_Copy_Busy( false )
+	, Guest_Copy_Epoch( 0 )
+	, Guest_Copy_Stop( nullptr )
 	, File_Channel( nullptr )
 	, Apple_SOS_Busy( false )
 	, Apple_SOS_Generation( 0 )
@@ -613,6 +615,7 @@ namespace {
 class Guest_Copy_Thread : public QThread
 {
 	public:
+		QAtomicInt stop;
 		QString socket_path;
 		QString host_path;
 		QString guest_path;
@@ -623,6 +626,7 @@ class Guest_Copy_Thread : public QThread
 		void run() override
 		{
 			AQ_Guest_Agent agent;
+			agent.Set_Cancel( &stop );
 			if( ! agent.Open( socket_path, &error ) )
 				return;
 			if( to_guest )
@@ -658,28 +662,7 @@ void VM_Session_Widget::On_Copy_To_Guest_Path()
 		QLineEdit::Normal, QFileInfo( host ).fileName() );
 	if( guest.isEmpty() )
 		return;
-	Guest_Copy_Thread *job = new Guest_Copy_Thread();
-	job->socket_path = VM->Get_Guest_Agent_Socket();
-	job->host_path = host;
-	job->guest_path = guest;
-	job->to_guest = true;
-	Guest_Copy_Busy = true;
-	QPointer<VM_Session_Widget> self( this );
-	connect( job, &QThread::finished, qApp, [self, job]() {
-		const QString error = job->error;
-		const QString guest_path = job->guest_path;
-		if( self )
-			self->Guest_Copy_Busy = false;
-		job->deleteLater();
-		if( ! self )
-			return;
-		if( ! error.isEmpty() )
-			QMessageBox::warning( self, self->tr( "Copy to guest" ), error );
-		else
-			QMessageBox::information( self, self->tr( "Copy to guest" ),
-				self->tr( "Copied to %1 in the guest." ).arg( guest_path ) );
-	} );
-	job->start();
+	Start_Guest_Copy( true, host, guest );
 }
 
 void VM_Session_Widget::On_Copy_From_Guest()
@@ -706,26 +689,39 @@ void VM_Session_Widget::On_Copy_From_Guest()
 		QFileInfo( guest ).fileName() );
 	if( host.isEmpty() )
 		return;
+	Start_Guest_Copy( false, host, guest );
+}
+
+void VM_Session_Widget::Start_Guest_Copy( bool to_guest, const QString &host, const QString &guest )
+{
 	Guest_Copy_Thread *job = new Guest_Copy_Thread();
 	job->socket_path = VM->Get_Guest_Agent_Socket();
 	job->host_path = host;
 	job->guest_path = guest;
-	job->to_guest = false;
+	job->to_guest = to_guest;
+	const int epoch = ++Guest_Copy_Epoch;
+	Guest_Copy_Stop = &job->stop;
 	Guest_Copy_Busy = true;
 	QPointer<VM_Session_Widget> self( this );
-	connect( job, &QThread::finished, qApp, [self, job]() {
+	connect( job, &QThread::finished, qApp, [self, job, epoch, to_guest]() {
 		const QString error = job->error;
-		const QString host_path = job->host_path;
-		if( self )
-			self->Guest_Copy_Busy = false;
+		const QString shown = to_guest ? job->guest_path : job->host_path;
+		if( self && self->Guest_Copy_Stop == &job->stop )
+			self->Guest_Copy_Stop = nullptr;
 		job->deleteLater();
-		if( ! self )
+		if( ! self || self->Guest_Copy_Epoch != epoch )
+			return;
+		self->Guest_Copy_Busy = false;
+		if( error == QLatin1String( "The copy was cancelled." ) )
 			return;
 		if( ! error.isEmpty() )
-			QMessageBox::warning( self, self->tr( "Copy from guest" ), error );
+			QMessageBox::warning( self, to_guest ? self->tr( "Copy to guest" ) : self->tr( "Copy from guest" ), error );
+		else if( to_guest )
+			QMessageBox::information( self, self->tr( "Copy to guest" ),
+				self->tr( "Copied to %1 in the guest." ).arg( shown ) );
 		else
 			QMessageBox::information( self, self->tr( "Copy from guest" ),
-				self->tr( "Saved %1" ).arg( host_path ) );
+				self->tr( "Saved %1" ).arg( shown ) );
 	} );
 	job->start();
 }
@@ -1140,6 +1136,11 @@ void VM_Session_Widget::Detach()
 #endif
 	if( File_Channel )
 		File_Channel->Stop();
+	if( Guest_Copy_Stop )
+		Guest_Copy_Stop->storeRelaxed( 1 );
+	Guest_Copy_Stop = nullptr;
+	++Guest_Copy_Epoch;
+	Guest_Copy_Busy = false;
 	if( Serial_Win )
 	{
 		Serial_Win->Detach();

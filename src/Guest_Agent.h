@@ -5,6 +5,7 @@
 #ifndef GUEST_AGENT_H
 #define GUEST_AGENT_H
 
+#include <QAtomicInt>
 #include <QByteArray>
 #include <QList>
 #include <QString>
@@ -53,12 +54,15 @@ class AQ_Guest_Agent
 		bool Open( const QString &socket_path, QString *error );
 		bool Copy_To_Guest( const QString &host_path, const QString &guest_path, QString *error );
 		bool Copy_From_Guest( const QString &guest_path, const QString &host_path, QString *error );
+		void Set_Cancel( QAtomicInt *flag );
 
 	private:
 		QJsonValue Exec( const QString &command, const QJsonObject &arguments, QString *error );
 		void Close_Handle( int handle );
+		bool Cancelled( QString *error );
 		QLocalSocket *socket;
 		QByteArray incoming;
+		QAtomicInt *cancel_flag;
 };
 
 /** True for machines that can accept virtio-serial-pci. */

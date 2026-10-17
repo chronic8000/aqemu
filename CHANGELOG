@@ -5,6 +5,11 @@
 	* Windows VirtIO drivers are linked from the README and the Windows 11 wizard.
 	* About Qt is a tab in About AQEMU. The Qt notice is still one click away.
 	* Help → Copy setup for a GitHub issue puts the version, host, and QEMU path on the clipboard.
+	* A Darwin firmware directory from the wizard is passed to QEMU as -L.
+	  The Original Xbox config file is saved only after it is written, and
+	  quotes in those paths stay inside the file.
+	* Leaving a guest session stops a file copy that is still running, and
+	  the result is not shown for the next virtual machine.
 	* Hard disk sector sizes are labelled 512n, 512e, and 4Kn, in that order.
 	  Image cluster size no longer says ZFS. Advanced disk properties say
 	  Discard / Unmap. A new disk image starts in the virtual machine folder.

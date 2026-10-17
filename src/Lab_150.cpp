@@ -38,6 +38,7 @@
 #include <QLabel>
 #include <QRegularExpression>
 #include <QLineEdit>
+#include <QTextStream>
 #include <QListWidget>
 #include <QMessageBox>
 #include <QPlainTextEdit>
@@ -165,6 +166,57 @@ void AQ_Lab_Set( Virtual_Machine *vm, const QString &key, const QString &value )
 	else
 		opt.insert( key, value );
 	vm->Set_Lab_Options( AQ_Lab_Blob( opt ) );
+}
+
+static QString Toml_Single( const QString &path )
+{
+	QString safe = path;
+	safe.replace( QLatin1Char( '\'' ), QLatin1String( "''" ) );
+	safe.replace( QLatin1Char( '\n' ), QString() );
+	safe.replace( QLatin1Char( '\r' ), QString() );
+	return QLatin1Char( '\'' ) + safe + QLatin1Char( '\'' );
+}
+
+QString AQ_Lab_Write_Xemu_Config( Virtual_Machine *vm, const QString &mcpx, const QString &bios,
+	const QString &hdd, const QString &dvd, const QString &eeprom )
+{
+	if( ! vm || ( mcpx.trimmed().isEmpty() && bios.trimmed().isEmpty()
+		&& hdd.trimmed().isEmpty() && dvd.trimmed().isEmpty() && eeprom.trimmed().isEmpty() ) )
+		return QString();
+	QString safe = vm->Get_Machine_Name();
+	for( int i = 0; i < safe.size(); ++i )
+	{
+		const QChar c = safe.at( i );
+		if( ! c.isLetterOrNumber() && c != QLatin1Char( '-' ) && c != QLatin1Char( '_' ) )
+			safe[ i ] = QLatin1Char( '_' );
+	}
+	if( safe.isEmpty() )
+		safe = QStringLiteral( "vm" );
+	const QString toml = QDir( AQEMU_User_Data_Dir() ).filePath( safe + QStringLiteral( "-xemu.toml" ) );
+	QFile file( toml );
+	if( ! file.open( QIODevice::WriteOnly | QIODevice::Truncate ) )
+		return QString();
+	QTextStream ts( &file );
+	ts << "[sys.files]\n";
+	if( ! mcpx.trimmed().isEmpty() )
+		ts << "bootrom_path = " << Toml_Single( mcpx.trimmed() ) << "\n";
+	if( ! bios.trimmed().isEmpty() )
+		ts << "flashrom_path = " << Toml_Single( bios.trimmed() ) << "\n";
+	if( ! hdd.trimmed().isEmpty() )
+		ts << "hdd_path = " << Toml_Single( hdd.trimmed() ) << "\n";
+	if( ! dvd.trimmed().isEmpty() )
+		ts << "dvd_path = " << Toml_Single( dvd.trimmed() ) << "\n";
+	if( ! eeprom.trimmed().isEmpty() )
+		ts << "eeprom_path = " << Toml_Single( eeprom.trimmed() ) << "\n";
+	ts.flush();
+	const bool wrote = ts.status() == QTextStream::Ok && file.flush();
+	file.close();
+	if( ! wrote )
+	{
+		QFile::remove( toml );
+		return QString();
+	}
+	return toml;
 }
 
 static QString Find_Qemu_Img( Virtual_Machine *vm )
@@ -410,6 +462,10 @@ void AQ_Lab_Append_Args( QStringList &args, Virtual_Machine *vm )
 	if( opt.value( QStringLiteral( "tdx" ) ) == QLatin1String( "on" ) )
 		args << QStringLiteral( "-object" )
 		     << ( QStringLiteral( "tdx-guest,id=tdx0" ) );
+
+	const QString darwin_dir = opt.value( QStringLiteral( "darwin_dir" ) ).trimmed();
+	if( ! darwin_dir.isEmpty() && QFileInfo( darwin_dir ).isDir() )
+		args << QStringLiteral( "-L" ) << darwin_dir;
 
 	const QString eif = opt.value( QStringLiteral( "nitro_eif" ) );
 	if( ! eif.isEmpty() && ! Args_Have( args, QStringLiteral( "-kernel" ) ) )
@@ -1624,24 +1680,10 @@ void AQ_Lab_Open_VM_Window( Virtual_Machine *vm, const QList<Virtual_Machine*> &
 		}
 		if( ! mcpx->text().isEmpty() || ! bios->text().isEmpty() )
 		{
-			const QString toml = QDir( AQEMU_User_Data_Dir() ).filePath( vm->Get_Machine_Name() + QStringLiteral( "-xemu.toml" ) );
-			QFile file( toml );
-			if( file.open( QIODevice::WriteOnly | QIODevice::Truncate ) )
-			{
-				QTextStream ts( &file );
-				ts << "[sys.files]\n";
-				if( ! mcpx->text().isEmpty() )
-					ts << "bootrom_path = '" << mcpx->text() << "'\n";
-				if( ! bios->text().isEmpty() )
-					ts << "flashrom_path = '" << bios->text() << "'\n";
-				if( ! xhdd->text().isEmpty() )
-					ts << "hdd_path = '" << xhdd->text() << "'\n";
-				if( ! dvd->text().isEmpty() )
-					ts << "dvd_path = '" << dvd->text() << "'\n";
-				if( ! eeprom->text().isEmpty() )
-					ts << "eeprom_path = '" << eeprom->text() << "'\n";
-			}
-			opt.insert( QStringLiteral( "xemu_toml" ), toml );
+			const QString toml = AQ_Lab_Write_Xemu_Config( vm, mcpx->text().trimmed(), bios->text().trimmed(),
+				xhdd->text().trimmed(), dvd->text().trimmed(), eeprom->text().trimmed() );
+			if( ! toml.isEmpty() )
+				opt.insert( QStringLiteral( "xemu_toml" ), toml );
 		}
 		vm->Set_Lab_Options( AQ_Lab_Blob( opt ) );
 		vm->Save_VM();

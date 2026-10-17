@@ -3696,19 +3696,9 @@ void VM_Wizard_Window::Apply_Boot_Fields_To_VM()
 		const QString bios = AQ_Lab_Get( New_VM, QStringLiteral( "xemu_bios" ) );
 		if( ! mcpx.isEmpty() || ! bios.isEmpty() )
 		{
-			const QString toml = QDir( AQEMU_User_Data_Dir() ).filePath(
-				New_VM->Get_Machine_Name() + QStringLiteral( "-xemu.toml" ) );
-			QFile file( toml );
-			if( file.open( QIODevice::WriteOnly | QIODevice::Truncate ) )
-			{
-				QTextStream ts( &file );
-				ts << "[sys.files]\n";
-				if( ! mcpx.isEmpty() )
-					ts << "bootrom_path = '" << mcpx << "'\n";
-				if( ! bios.isEmpty() )
-					ts << "flashrom_path = '" << bios << "'\n";
-			}
-			AQ_Lab_Set( New_VM, QStringLiteral( "xemu_toml" ), toml );
+			const QString toml = AQ_Lab_Write_Xemu_Config( New_VM, mcpx, bios );
+			if( ! toml.isEmpty() )
+				AQ_Lab_Set( New_VM, QStringLiteral( "xemu_toml" ), toml );
 		}
 	}
 }

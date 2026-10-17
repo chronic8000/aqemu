@@ -23,6 +23,7 @@
 #include <QToolButton>
 #include <QThread>
 #include <QPointer>
+#include <QAtomicInt>
 #include <QVariantMap>
 #include <QRegularExpression>
 
@@ -161,6 +162,7 @@ class VM_Session_Widget : public QWidget
 		QString USB_Device_Add_Command( const VM_USB &u, const QString &qemu_id ) const;
 		QString USB_Target_Bus() const;
 		void Deliver_Files( const QStringList &paths );
+		void Start_Guest_Copy( bool to_guest, const QString &host, const QString &guest );
 
 		Virtual_Machine *VM;
 		QMP_Client *QMP;
@@ -213,6 +215,8 @@ class VM_Session_Widget : public QWidget
 		QSet<int> Paste_Qmp_Ids;
 		int Paste_Serial;
 		bool Guest_Copy_Busy;
+		int Guest_Copy_Epoch;
+		QAtomicInt *Guest_Copy_Stop;
 		class Guest_File_Channel *File_Channel;
 		bool USB_Enum_Busy;
 		bool Apple_SOS_Busy;

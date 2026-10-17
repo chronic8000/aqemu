@@ -148,7 +148,23 @@ QList<AQ_Guest_File> AQ_Guest_Frame_Parser::Take()
 
 AQ_Guest_Agent::AQ_Guest_Agent()
 	: socket( new QLocalSocket() )
+	, cancel_flag( nullptr )
 {
+}
+
+void AQ_Guest_Agent::Set_Cancel( QAtomicInt *flag )
+{
+	cancel_flag = flag;
+}
+
+bool AQ_Guest_Agent::Cancelled( QString *error )
+{
+	if( ! cancel_flag || cancel_flag->loadRelaxed() == 0 )
+		return false;
+	socket->abort();
+	if( error )
+		*error = QStringLiteral( "The copy was cancelled." );
+	return true;
 }
 
 void AQ_Guest_Agent::Close_Handle( int handle )
@@ -169,6 +185,8 @@ AQ_Guest_Agent::~AQ_Guest_Agent()
 
 QJsonValue AQ_Guest_Agent::Exec( const QString &command, const QJsonObject &arguments, QString *error )
 {
+	if( Cancelled( error ) )
+		return QJsonValue();
 	if( error )
 		error->clear();
 	QJsonObject cmd;
@@ -185,6 +203,8 @@ QJsonValue AQ_Guest_Agent::Exec( const QString &command, const QJsonObject &argu
 	}
 	for( int spins = 0; spins < 40 && ! incoming.contains( '\n' ); ++spins )
 	{
+		if( Cancelled( error ) )
+			return QJsonValue();
 		if( ! socket->waitForReadyRead( 500 ) )
 			break;
 		incoming += socket->readAll();
