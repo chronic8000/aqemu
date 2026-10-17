@@ -860,9 +860,9 @@ void VM_Wizard_Window::Populate_OS_Tree()
 		}
 	}
 
-	// Show every guest, including old Windows and the non-host Linux architectures.
-	// An ARM host used to leave Microsoft collapsed and hide the x86 Linux folder.
-	Tree_OS->expandAll();
+	// Families start collapsed. The list is long, and the expand control is
+	// only useful when the tree is not already open.
+	Tree_OS->collapseAll();
 	Q_UNUSED( linux_family_item );
 	Q_UNUSED( arm_sub_to_expand );
 	Q_UNUSED( x86_sub_to_expand );
@@ -1714,9 +1714,9 @@ void VM_Wizard_Window::Apply_OS_Defaults( const QString &os_name )
 		{
 			Guest_Sector_Size = QStringLiteral( "4096" );
 			if( CB_Typical_Sector_Size )
-				CB_Typical_Sector_Size->setCurrentIndex( 1 );
+				CB_Typical_Sector_Size->setCurrentIndex( 2 );
 			if( CB_Dev_Sector_Size )
-				CB_Dev_Sector_Size->setCurrentIndex( 1 );
+				CB_Dev_Sector_Size->setCurrentIndex( 2 );
 		}
 		else
 		{
@@ -3351,17 +3351,17 @@ void VM_Wizard_Window::Refresh_Devices_Page()
 	Guest_Video_Card = prefer_video;
 	if( CB_Dev_Sector_Size && CB_Dev_Sector_Size->count() == 0 )
 	{
-		CB_Dev_Sector_Size->addItem( tr( "Default (512 Bytes / 512n)" ), QStringLiteral( "512" ) );
-		CB_Dev_Sector_Size->addItem( tr( "4096 Bytes Native (4Kn - Advanced Format / TrueNAS / ZFS)" ), QStringLiteral( "4096" ) );
-		CB_Dev_Sector_Size->addItem( tr( "512e (512B Logical / 4096B Physical)" ), QStringLiteral( "512e" ) );
-		CB_Dev_Sector_Size->setToolTip( tr( "Native 4096-byte (4Kn) sector size allows booting and running 4K-native disks (e.g. TrueNAS ZFS pools). Supported natively on VirtIO, NVMe, and SCSI." ) );
+		CB_Dev_Sector_Size->addItem( tr( "512n (512 Logical / 512 Physical) (Default)" ), QStringLiteral( "512" ) );
+		CB_Dev_Sector_Size->addItem( tr( "512e (512 Logical / 4096 Physical)" ), QStringLiteral( "512e" ) );
+		CB_Dev_Sector_Size->addItem( tr( "4Kn (4096 Logical / 4096 Physical)" ), QStringLiteral( "4096" ) );
+		CB_Dev_Sector_Size->setToolTip( tr( "512e keeps 512-byte logical sectors on 4096-byte physical sectors. 4Kn uses 4096 for both. VirtIO, NVMe, and SCSI accept 4Kn." ) );
 	}
 	if( CB_Dev_Sector_Size )
 	{
 		if( Guest_Sector_Size == "4096" )
-			CB_Dev_Sector_Size->setCurrentIndex( 1 );
-		else if( Guest_Sector_Size == "512e" )
 			CB_Dev_Sector_Size->setCurrentIndex( 2 );
+		else if( Guest_Sector_Size == "512e" )
+			CB_Dev_Sector_Size->setCurrentIndex( 1 );
 		else
 			CB_Dev_Sector_Size->setCurrentIndex( 0 );
 	}
@@ -3913,10 +3913,10 @@ void VM_Wizard_Window::Enhance_Typical_HDD_Page()
 	secLay->setSpacing( 6 );
 	QLabel *lblSec = new QLabel( tr( "Sector size:" ), Widget_Typical_Sector_Row );
 	CB_Typical_Sector_Size = new QComboBox( Widget_Typical_Sector_Row );
-	CB_Typical_Sector_Size->addItem( tr( "Default (512 Bytes / 512n)" ), QStringLiteral( "512" ) );
-	CB_Typical_Sector_Size->addItem( tr( "4096 Bytes Native (4Kn - Advanced Format / TrueNAS / ZFS)" ), QStringLiteral( "4096" ) );
-	CB_Typical_Sector_Size->addItem( tr( "512e (512B Logical / 4096B Physical)" ), QStringLiteral( "512e" ) );
-	CB_Typical_Sector_Size->setToolTip( tr( "Native 4096-byte (4Kn) sector size emulation allows running disks from TrueNAS ZFS pools natively without translation." ) );
+	CB_Typical_Sector_Size->addItem( tr( "512n (512 Logical / 512 Physical) (Default)" ), QStringLiteral( "512" ) );
+	CB_Typical_Sector_Size->addItem( tr( "512e (512 Logical / 4096 Physical)" ), QStringLiteral( "512e" ) );
+	CB_Typical_Sector_Size->addItem( tr( "4Kn (4096 Logical / 4096 Physical)" ), QStringLiteral( "4096" ) );
+	CB_Typical_Sector_Size->setToolTip( tr( "512e keeps 512-byte logical sectors on 4096-byte physical sectors. 4Kn uses 4096 for both." ) );
 	ensure_min_height( CB_Typical_Sector_Size );
 	secLay->addWidget( lblSec );
 	secLay->addWidget( CB_Typical_Sector_Size, 1 );
@@ -4306,7 +4306,7 @@ void VM_Wizard_Window::Update_Lab_Disk_Page()
 	{
 		Guest_Sector_Size = QStringLiteral( "4096" );
 		if( CB_Typical_Sector_Size )
-			CB_Typical_Sector_Size->setCurrentIndex( 1 );
+			CB_Typical_Sector_Size->setCurrentIndex( 2 );
 		ui.Label_Typical_HDD->setText( Guest_Storage_Network
 			? tr( "The size below is the size of each TrueNAS data disk." )
 			: ( Guest_TrueNAS_Lab
@@ -4544,9 +4544,9 @@ void VM_Wizard_Window::Show_Typical_HDD_Page()
 	if( CB_Typical_Sector_Size )
 	{
 		if( Guest_Sector_Size == "4096" )
-			CB_Typical_Sector_Size->setCurrentIndex( 1 );
-		else if( Guest_Sector_Size == "512e" )
 			CB_Typical_Sector_Size->setCurrentIndex( 2 );
+		else if( Guest_Sector_Size == "512e" )
+			CB_Typical_Sector_Size->setCurrentIndex( 1 );
 		else
 			CB_Typical_Sector_Size->setCurrentIndex( 0 );
 	}
@@ -4957,6 +4957,11 @@ void VM_Wizard_Window::Build_Windows11_ARM_Page()
 	
 	CH_Win11_VirtIO_ISO = new QCheckBox( tr("Also attach virtio-win.iso (only if drivers were not slipstreamed)") );
 	isoLay->addWidget( CH_Win11_VirtIO_ISO );
+	QLabel *virtio_link = new QLabel( isoBox );
+	virtio_link->setTextFormat( Qt::RichText );
+	virtio_link->setOpenExternalLinks( true );
+	virtio_link->setText( tr( "<a href=\"https://github.com/virtio-win/virtio-win-pkg-scripts\">Windows VirtIO drivers</a>" ) );
+	isoLay->addWidget( virtio_link );
 	QHBoxLayout *virtioLay = new QHBoxLayout();
 	virtioLay->setSpacing( 6 );
 	Edit_Win11_VirtIO_ISO = new QLineEdit();

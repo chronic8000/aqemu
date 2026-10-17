@@ -443,6 +443,28 @@ Main_Window::Main_Window( QWidget *parent )
 		connect( actGroupStop, &QAction::triggered, this, [this]() { AQ_Lab_Start_Group( VM_List, this, true ); } );
 		ui.menuVM->addAction( actGroupStop );
 
+		QAction *actIssue = new QAction( tr( "Copy setup for a GitHub &issue" ), this );
+		connect( actIssue, &QAction::triggered, this, [this]() {
+			QString qemu = tr( "No virtual machine selected" );
+			if( Virtual_Machine *vm = Get_Current_VM() )
+			{
+				const QString path = vm->Get_Current_Emulator_Binary_Path( vm->Get_Computer_Type() );
+				if( ! path.isEmpty() )
+					qemu = path;
+			}
+			const QString md = QStringLiteral(
+				"| | |\n|--|--|\n| AQEMU | %1 |\n| Qt | %2 |\n| Host | %3 |\n| Architecture | %4 |\n| QEMU | %5 |\n" )
+				.arg( QLatin1String( CURRENT_AQEMU_VERSION ),
+				      QLatin1String( qVersion() ),
+				      QSysInfo::prettyProductName(),
+				      QSysInfo::currentCpuArchitecture(),
+				      qemu );
+			QGuiApplication::clipboard()->setText( md );
+			QMessageBox::information( this, tr( "Copy setup" ),
+				tr( "Setup details are on the clipboard. Paste them into a GitHub issue." ) );
+		} );
+		ui.menuHelp->insertAction( ui.actionQEMU_Help_Browser, actIssue );
+
 		QAction *actBundle = new QAction( tr( "Support &bundle…" ), this );
 		connect( actBundle, &QAction::triggered, this, [this]() { AQ_Lab_Support_Bundle( this, Get_Current_VM() ); } );
 		ui.menuHelp->addAction( actBundle );
@@ -5804,6 +5826,7 @@ void Main_Window::on_actionAdd_New_VM_triggered()
 void Main_Window::on_actionCreate_HDD_Image_triggered()
 {
 	Create_HDD_Image_Window Create_HDD_Win( this );
+	Create_HDD_Win.Set_Image_File_Name( QDir( AQEMU_Default_VM_Directory() ).filePath( QStringLiteral( "new-disk.qcow2" ) ) );
 
 	Create_HDD_Win.exec();
 }

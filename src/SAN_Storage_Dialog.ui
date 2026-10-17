@@ -273,12 +273,12 @@
            <widget class="QComboBox" name="combo_iSCSI_Sector">
             <item>
              <property name="text">
-              <string>4096 Bytes Native (4Kn - TrueNAS / ZFS)</string>
+              <string>4Kn (4096 Logical / 4096 Physical)</string>
              </property>
             </item>
             <item>
              <property name="text">
-              <string>512 Bytes (Standard)</string>
+              <string>512n (512 Logical / 512 Physical)</string>
              </property>
             </item>
            </widget>
@@ -495,12 +495,12 @@
            <widget class="QComboBox" name="combo_NVMe_Sector">
             <item>
              <property name="text">
-              <string>4096 Bytes Native (4Kn)</string>
+              <string>4Kn (4096 Logical / 4096 Physical)</string>
              </property>
             </item>
             <item>
              <property name="text">
-              <string>512 Bytes (Standard)</string>
+              <string>512n (512 Logical / 512 Physical)</string>
              </property>
             </item>
            </widget>

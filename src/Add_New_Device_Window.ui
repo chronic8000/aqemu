@@ -12,7 +12,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>New Storage Device</string>
+   <string>Advanced Properties</string>
   </property>
   <property name="windowIcon">
    <iconset resource="../resources/icons.qrc">
@@ -499,7 +499,7 @@
    <item row="9" column="0">
     <widget class="QCheckBox" name="CH_Discard">
      <property name="text">
-      <string>&amp;Discard</string>
+      <string>&amp;Discard / Unmap</string>
      </property>
     </widget>
    </item>
@@ -510,12 +510,12 @@
      </property>
      <item>
       <property name="text">
-       <string>on</string>
+       <string>Unmap</string>
       </property>
      </item>
      <item>
       <property name="text">
-       <string>off</string>
+       <string>Off</string>
       </property>
      </item>
     </widget>

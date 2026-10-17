@@ -1,3 +1,14 @@
+2026-10-18 Chronic Engineering — small reports from the issue list
+
+	* The new-VM guest list starts collapsed.
+	* The README no longer links to a website that is not published.
+	* Windows VirtIO drivers are linked from the README and the Windows 11 wizard.
+	* About Qt is a tab in About AQEMU. The Qt notice is still one click away.
+	* Help → Copy setup for a GitHub issue puts the version, host, and QEMU path on the clipboard.
+	* Hard disk sector sizes are labelled 512n, 512e, and 4Kn, in that order.
+	  Image cluster size no longer says ZFS. Advanced disk properties say
+	  Discard / Unmap. A new disk image starts in the virtual machine folder.
+
 2026-10-17 Chronic Engineering — library, firmware paths, and Windows UI
 
 	* A virtual machine stays in the folder where its .aqemu file was opened.

@@ -4091,7 +4091,6 @@
     </property>
     <addaction name="actionAbout_AQEMU"/>
     <addaction name="actionQEMU_Help_Browser"/>
-    <addaction name="actionAbout_Qt"/>
    </widget>
    <widget class="QMenu" name="menuFile">
     <property name="title">

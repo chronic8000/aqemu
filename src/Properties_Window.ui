@@ -261,21 +261,21 @@
       <item row="3" column="1" colspan="2">
        <widget class="QComboBox" name="CB_HDD_Sector_Size">
         <property name="toolTip">
-         <string>Native sector size emulation. 4096B (4Kn) enables running modern TrueNAS, ZFS, and Advanced Format disks natively.</string>
+         <string>Logical and physical sector size presented to the guest. 512e keeps 512-byte logical sectors on 4096-byte physical sectors. 4Kn uses 4096 for both.</string>
         </property>
         <item>
          <property name="text">
-          <string>Default (512 Bytes / 512n)</string>
+          <string>512n (512 Logical / 512 Physical) (Default)</string>
          </property>
         </item>
         <item>
          <property name="text">
-          <string>4096 Bytes Native (4Kn - ZFS / TrueNAS)</string>
+          <string>512e (512 Logical / 4096 Physical)</string>
          </property>
         </item>
         <item>
          <property name="text">
-          <string>512e (512B Logical / 4096B Physical)</string>
+          <string>4Kn (4096 Logical / 4096 Physical)</string>
          </property>
         </item>
        </widget>

@@ -13,7 +13,7 @@
   <b>The QEMU virtual machine manager built for maximum power and modern ease.</b><br/>
   118k additions beyond Tobias Gläßer’s 0.9.x tree — probe-driven hardware catalogs, embedded displays, QMP, bundled QEMU <b>11.0.2</b>, and 195 guest profiles.<br/>
   <b>Now Available on the Microsoft Store!</b><br/>
-  Maintained by <a href="https://github.com/chronic8000">Chronic Engineering</a> • <a href="https://chronic8000.github.io/aqemu">chronic8000.github.io/aqemu</a>
+  Maintained by <a href="https://github.com/chronic8000">Chronic Engineering</a> • <a href="https://github.com/chronic8000/aqemu">github.com/chronic8000/aqemu</a>
 </p>
 
 <p align="center">
@@ -45,9 +45,6 @@ AQEMU is open-source under the **GNU General Public License v2 (GPL-2.0)**. You 
 If you want to support ongoing development, maintenance, and future feature releases while enjoying seamless automatic updates directly on Windows, purchase **AQEMU VM Manager** on the Microsoft Store:
 
 <p align="center">
-  <a href="https://chronic8000.github.io/aqemu">
-    <b>🌐 Visit the Official Website & Feature Tour: https://chronic8000.github.io/aqemu</b>
-  </a><br/><br/>
   <a href="ms-windows-store://pdp/?productid=9P0HGKHQ9W19">
     <b>👉 Open in Microsoft Store app (`ms-windows-store://pdp/?productid=9P0HGKHQ9W19`)</b>
   </a><br/>
@@ -186,7 +183,6 @@ We keep the original authors’ names. We do **not** inherit their old donation 
 
 | | |
 |--|--|
-| **Website** | https://chronic8000.github.io/aqemu |
 | **Home** | https://github.com/chronic8000/aqemu |
 | **Store** | https://apps.microsoft.com/detail/9p0hgkhq9w19 |
 | **Releases** | https://github.com/chronic8000/aqemu/releases |
@@ -425,6 +421,14 @@ AQEMU now provides physical USB hardware redirection directly from the session t
 - **Safety Guardrails**: Prevents accidental redirection of the host's primary mouse or keyboard to avoid host lockouts.
 
 ---
+
+## Windows VirtIO drivers
+
+Windows guests do not ship VirtIO drivers. The packages are published by the virtio-win project:
+
+https://github.com/virtio-win/virtio-win-pkg-scripts
+
+The Windows 11 wizard can attach a virtio-win ISO that is already on this computer. AQEMU does not download it. The same link is on the wizard page.
 
 ## Copy and paste files
 
