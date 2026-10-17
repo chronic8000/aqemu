@@ -10,6 +10,10 @@
 	  quotes in those paths stay inside the file.
 	* Leaving a guest session stops a file copy that is still running, and
 	  the result is not shown for the next virtual machine.
+	* Pasted files and guest tools are written in the user's AQEMU folder.
+	  A shared temp directory that someone else created is not used.
+	* The SAN 512n choice uses 512-byte logical and physical sectors.
+	  4Kn still uses 4096 for both.
 	* Hard disk sector sizes are labelled 512n, 512e, and 4Kn, in that order.
 	  Image cluster size no longer says ZFS. Advanced disk properties say
 	  Discard / Unmap. A new disk image starts in the virtual machine folder.

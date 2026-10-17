@@ -53,7 +53,11 @@
 #include <QClipboard>
 
 #include <QDir>
+#include <QFileInfo>
 #include <QEventLoop>
+#ifndef Q_OS_WIN
+#include <unistd.h>
+#endif
 #include <QThread>
 #ifdef VNC_DISPLAY
 #include "Embedded_Display/Machine_View.h"
@@ -726,16 +730,60 @@ void VM_Session_Widget::Start_Guest_Copy( bool to_guest, const QString &host, co
 	job->start();
 }
 
+static bool Private_Work_Dir( const QString &name, QString *error )
+{
+	const QString path = QDir( AQEMU_User_Data_Dir() ).filePath( name );
+	const QFileInfo before( path );
+	if( before.exists() && ( before.isSymLink() || ! before.isDir() ) )
+	{
+		if( error )
+			*error = QObject::tr( "The work folder is not private." );
+		return false;
+	}
+	if( ! before.exists() && ! QDir().mkpath( path ) )
+	{
+		if( error )
+			*error = QObject::tr( "Could not create a private folder for the copied files." );
+		return false;
+	}
+	const QFile::Permissions owner = QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner;
+	if( ! QFile::setPermissions( path, owner ) )
+	{
+		if( error )
+			*error = QObject::tr( "Could not keep the work folder private." );
+		return false;
+	}
+	const QFileInfo info( path );
+#ifndef Q_OS_WIN
+	const QFile::Permissions extra = info.permissions() & (
+		QFileDevice::ReadGroup | QFileDevice::WriteGroup | QFileDevice::ExeGroup |
+		QFileDevice::ReadOther | QFileDevice::WriteOther | QFileDevice::ExeOther );
+	if( ! info.isDir() || info.isSymLink() || extra || info.ownerId() != static_cast<uint>( ::getuid() ) )
+	{
+		if( error )
+			*error = QObject::tr( "The work folder is not private." );
+		return false;
+	}
+#else
+	if( ! info.isDir() || info.isSymLink() )
+	{
+		if( error )
+			*error = QObject::tr( "The work folder is not private." );
+		return false;
+	}
+#endif
+	return true;
+}
+
 void VM_Session_Widget::On_Insert_Guest_Tools()
 {
-	QDir dir( QDir::temp().filePath( QStringLiteral( "aqemu-guest-tools" ) ) );
-	if( ! dir.exists() && ! dir.mkpath( QStringLiteral( "." ) ) )
+	QString dir_error;
+	if( ! Private_Work_Dir( QStringLiteral( "guest-tools" ), &dir_error ) )
 	{
-		QMessageBox::warning( this, tr( "Guest tools" ),
-			tr( "Could not create a temporary folder for the guest tools." ) );
+		QMessageBox::warning( this, tr( "Guest tools" ), dir_error );
 		return;
 	}
-	QFile::setPermissions( dir.path(), QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner );
+	QDir dir( QDir( AQEMU_User_Data_Dir() ).filePath( QStringLiteral( "guest-tools" ) ) );
 	const char *names[] = { "README.txt", "install-linux.sh", "aqemu-guest.py", "aqemu-guest.ps1" };
 	QStringList paths;
 	for( int i = 0; i < 4; ++i )
@@ -756,6 +804,8 @@ void VM_Session_Widget::On_Insert_Guest_Tools()
 			return;
 		}
 		out.write( in.readAll() );
+		out.close();
+		QFile::setPermissions( path, QFileDevice::ReadOwner | QFileDevice::WriteOwner );
 		paths << path;
 	}
 	Deliver_Files( paths );
@@ -789,14 +839,13 @@ void VM_Session_Widget::Deliver_Files( const QStringList &paths )
 		return;
 	}
 
-	QDir dir( QDir::temp().filePath( QStringLiteral( "aqemu-paste" ) ) );
-	if( ! dir.exists() && ! dir.mkpath( QStringLiteral( "." ) ) )
+	QString dir_error;
+	if( ! Private_Work_Dir( QStringLiteral( "paste" ), &dir_error ) )
 	{
-		QMessageBox::warning( this, tr( "Paste files" ),
-			tr( "Could not create a temporary folder for the copied files." ) );
+		QMessageBox::warning( this, tr( "Paste files" ), dir_error );
 		return;
 	}
-	QFile::setPermissions( dir.path(), QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner );
+	QDir dir( QDir( AQEMU_User_Data_Dir() ).filePath( QStringLiteral( "paste" ) ) );
 	++Paste_Serial;
 	const QString image = dir.filePath( QStringLiteral( "paste-%1.img" ).arg( Paste_Serial ) );
 	QString error;

@@ -629,7 +629,7 @@ void SAN_Storage_Dialog::on_btn_Attach_clicked()
         const int sector_size = ( ui->combo_iSCSI_Sector->currentIndex() == 0 ) ? 4096 : 512;
         Configured_Device.Use_Block_Size( true );
         Configured_Device.Set_Logical_Block_Size( sector_size );
-        Configured_Device.Set_Physical_Block_Size( 4096 );
+        Configured_Device.Set_Physical_Block_Size( sector_size );
 
         accept();
     }
@@ -653,7 +653,7 @@ void SAN_Storage_Dialog::on_btn_Attach_clicked()
         const int sector_size = ( ui->combo_NVMe_Sector->currentIndex() == 0 ) ? 4096 : 512;
         Configured_Device.Use_Block_Size( true );
         Configured_Device.Set_Logical_Block_Size( sector_size );
-        Configured_Device.Set_Physical_Block_Size( 4096 );
+        Configured_Device.Set_Physical_Block_Size( sector_size );
 
         accept();
     }
