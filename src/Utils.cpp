@@ -62,6 +62,7 @@ HANDLE Console_HANDLE = GetStdHandle( STD_OUTPUT_HANDLE );
 #endif
 
 #include "Utils.h"
+#include "WHPX_Host.h"
 #include "Audio_Host.h"
 #include "System_Info.h"
 
@@ -2546,6 +2547,65 @@ bool AQ_Guest_Matches_Host_Architecture( const QString &guest_target )
 		return true;
 
 	return false;
+}
+
+bool AQ_Host_WHPX_Usable()
+{
+#ifndef Q_OS_WIN
+	return false;
+#else
+	static int cached = -1;
+	if( cached >= 0 )
+		return cached == 1;
+	cached = 0;
+
+	HMODULE library = LoadLibraryW( L"WinHvPlatform.dll" );
+	if( ! library )
+		return false;
+	typedef HRESULT (WINAPI *GetCapabilityFn)( UINT32, void *, UINT32, UINT32 * );
+	GetCapabilityFn get_capability = reinterpret_cast<GetCapabilityFn>(
+		GetProcAddress( library, "WHvGetCapability" ) );
+	if( ! get_capability )
+		return false;
+
+	BOOL present = FALSE;
+	UINT32 written = 0;
+	const HRESULT present_hr = get_capability( 0, &present, sizeof( present ), &written );
+	if( present_hr < 0 || ! present )
+		return false;
+
+	if( AQ_Get_Host_CPU_Architecture() == QLatin1String( "aarch64" ) )
+	{
+		AQ_WHPX_Arm_Features features;
+		const HRESULT features_hr = get_capability( 1, &features, sizeof( features ), &written );
+		if( features_hr < 0 || ! features.Arm64Support )
+			return false;
+	}
+
+	cached = 1;
+	return true;
+#endif
+}
+
+bool AQ_QEMU_Has_WHPX( const QString &qemu_binary )
+{
+	static QHash<QString, bool> cache;
+	const QString key = QDir::toNativeSeparators( qemu_binary );
+	if( key.isEmpty() || ! QFile::exists( key ) )
+		return false;
+	if( cache.contains( key ) )
+		return cache.value( key );
+
+	QProcess probe;
+	probe.setProcessChannelMode( QProcess::MergedChannels );
+	probe.start( key, QStringList() << QStringLiteral( "-accel" ) << QStringLiteral( "help" ) );
+	bool listed = false;
+	if( probe.waitForFinished( 5000 ) )
+		listed = QString::fromLocal8Bit( probe.readAll() ).contains( QLatin1String( "whpx" ), Qt::CaseInsensitive );
+	else
+		probe.kill();
+	cache.insert( key, listed );
+	return listed;
 }
 
 bool AQ_Should_Prefer_Native_Accelerator( const QString &guest_target )

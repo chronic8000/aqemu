@@ -7022,6 +7022,24 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		}
 	}
 	
+	// ARM guest on a Windows ARM host: WHPX only when the OS reports Arm64Support
+	// and this qemu-system-aarch64 was built with whpx. Otherwise stay on TCG.
+	bool use_whpx_arm = false;
+#ifdef Q_OS_WIN
+	if( Computer_Type.contains( QLatin1String( "aarch64" ), Qt::CaseInsensitive ) &&
+	    ! AQ_Is_Apple_SoC_VM( this ) &&
+	    AQ_Get_Host_CPU_Architecture() == QLatin1String( "aarch64" ) &&
+	    Machine_Accelerator == VM::KVM &&
+	    ! Force_TCG &&
+	    AQ_Host_WHPX_Usable() )
+	{
+		const QString whpx_bin = Get_Current_Emulator_Binary_Path( Current_Emulator_Devices.System.QEMU_Name );
+		use_whpx_arm = AQ_QEMU_Has_WHPX( whpx_bin );
+	}
+#else
+	Q_UNUSED( use_whpx_arm );
+#endif
+
 	// CPU Model
 	// TCG aarch64 / Win11 ARM: -cpu max,pauth-impdef=on (PAuth without full crypto cost).
 	// KVM on ARM hosts: -cpu host. Bare -cpu max without pauth-impdef is too slow under TCG.
@@ -7037,7 +7055,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 				 Computer_Type.contains( "applesoc", Qt::CaseInsensitive ) )
 		{
 			#ifdef Q_OS_WIN
-			cpu_arg = QStringLiteral( "max,pauth-impdef=on" );
+			cpu_arg = use_whpx_arm ? QStringLiteral( "host" ) : QStringLiteral( "max,pauth-impdef=on" );
 			#else
 			if( Machine_Accelerator == VM::KVM )
 				cpu_arg = QStringLiteral( "host" );
@@ -7102,7 +7120,9 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 				Computer_Type.contains( "aarch64", Qt::CaseInsensitive ) ||
 				Computer_Type.contains( "qemu-system-arm", Qt::CaseInsensitive );
 			#ifdef Q_OS_WIN
-			const bool tcg_guest = aarch64; // WHPX cannot accelerate aarch64 on x86 hosts
+			if( use_whpx_arm )
+				cpu_arg = QStringLiteral( "host" );
+			const bool tcg_guest = aarch64 && ! use_whpx_arm;
 			#else
 			const bool tcg_guest = aarch64 && Machine_Accelerator != VM::KVM;
 			#endif
@@ -7488,18 +7508,26 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			use_separate_tcg_accel = true;
 	}
 	else if( is_virt_arch )
-		use_separate_tcg_accel = true;
+	{
+		// Matching ARM guest on Windows ARM. whpx:tcg lets QEMU drop to TCG
+		// if WHPX refuses to start. Cross-arch guests stay on TCG.
+		if( use_whpx_arm )
+			props << QStringLiteral( "accel=whpx:tcg" );
+		else
+			use_separate_tcg_accel = true;
+	}
 	else if( legacy_force_tcg )
 		// Win95/98: WHPX hangs at splash. XP: WHPX disables SMM ? black text mode.
 		use_separate_tcg_accel = true;
 	else if( ! is_x86_guest || Machine_Accelerator == VM::TCG )
-		// WHPX/HAX only accelerate x86. Also: selecting TCG in the UI must mean TCG
-		// (do not silently map it to whpx:hax:tcg - that is what "KVM" means on Windows).
+		// Selecting TCG in the UI must mean TCG.
 		use_separate_tcg_accel = true;
-	else if( want_native_accel )
+	else if( want_native_accel && AQ_Host_WHPX_Usable() )
 		// Prefer Hyper-V WHPX (or HAX) for x86; fall back to TCG. Pure TCG makes
 		// DOS IDE/ATAPI CD (PIO) feel like a 1x optical drive.
 		props << "accel=whpx:hax:tcg";
+	else if( want_native_accel )
+		use_separate_tcg_accel = true;
 	else if( Machine_Accelerator == VM::XEN )
 		props << "accel=xen:tcg";
 	else

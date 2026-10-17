@@ -298,6 +298,17 @@ bool AQ_Guest_Matches_Host_Architecture( const QString &guest_target );
 bool AQ_Should_Prefer_Native_Accelerator( const QString &guest_target );
 
 /**
+ * Windows Hypervisor Platform is usable on this host.
+ * x64: WHvGetCapability says the hypervisor is present.
+ * ARM64: that check, plus WHV_CAPABILITY_FEATURES.Arm64Support
+ * (Windows 11 24H2 build 26100.3915 or later).
+ */
+bool AQ_Host_WHPX_Usable();
+
+/** True when this QEMU binary lists whpx in `-accel help`. Cached. */
+bool AQ_QEMU_Has_WHPX( const QString &qemu_binary );
+
+/**
  * Probe `qemu -display help` (cached). Returns backends like "sdl", "gtk".
  */
 QStringList AQ_QEMU_List_Display_Backends( const QString &qemu_binary );

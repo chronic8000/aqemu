@@ -20,6 +20,10 @@
 	* Paste files on the running-VM toolbar, or drop files on the guest
 	  window. Small copies appear as floppy A. Larger copies appear as an
 	  AQEMU USB drive. The same path is used on Linux and Windows.
+	* An ARM guest on Windows ARM uses accel=whpx:tcg and -cpu host when
+	  Windows reports Arm64Support and qemu-system-aarch64 lists whpx.
+	  Otherwise the guest stays on TCG. x86 guests on a Snapdragon host
+	  stay on TCG.
 	* The Windows QEMU build enables WHPX on x64 and on ARM64. QEMU 11
 	  already has the ARM WHPX backend. Inferno stays on TCG.
 	* Ordinary virtual machines open a guest-agent port and a file port.

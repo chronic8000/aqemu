@@ -437,6 +437,11 @@ SET_PROPERTY( TARGET aqemu_guest_files_test PROPERTY CXX_STANDARD 11 )
 SET_PROPERTY( TARGET aqemu_guest_files_test PROPERTY CXX_STANDARD_REQUIRED ON )
 TARGET_LINK_LIBRARIES( aqemu_guest_files_test Qt5::Core Qt5::Gui )
 
+ADD_EXECUTABLE( aqemu_whpx_host_test tests/whpx_host_test.cpp )
+TARGET_INCLUDE_DIRECTORIES( aqemu_whpx_host_test PRIVATE src )
+SET_PROPERTY( TARGET aqemu_whpx_host_test PROPERTY CXX_STANDARD 11 )
+SET_PROPERTY( TARGET aqemu_whpx_host_test PROPERTY CXX_STANDARD_REQUIRED ON )
+
 ADD_EXECUTABLE( aqemu_guest_agent_test
 	tests/guest_agent_test.cpp
 	src/Guest_Agent.cpp )
