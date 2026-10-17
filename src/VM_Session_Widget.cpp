@@ -42,6 +42,12 @@
 #include "Apple_SoC_Device_Tools_Window.h"
 #include "Serial_Console_Window.h"
 #include "AQ_UI_Style.h"
+#include "Guest_Files.h"
+
+#include <QDragEnterEvent>
+#include <QDropEvent>
+#include <QMimeData>
+#include <QClipboard>
 
 #include <QDir>
 #include <QEventLoop>
@@ -126,6 +132,7 @@ VM_Session_Widget::VM_Session_Widget( QWidget *parent )
 	, TB_USB( nullptr )
 	, Menu_USB( nullptr )
 	, USB_Enum_Busy( false )
+	, Paste_Serial( 0 )
 	, Apple_SOS_Busy( false )
 	, Apple_SOS_Generation( 0 )
 	, Serial_Win( nullptr )
@@ -161,6 +168,18 @@ VM_Session_Widget::VM_Session_Widget( QWidget *parent )
 	Stack->addWidget( Vnc );
 #endif
 
+	setAcceptDrops( true );
+	Stack->setAcceptDrops( true );
+	Stack->installEventFilter( this );
+	Spice->setAcceptDrops( true );
+	Spice->installEventFilter( this );
+#ifdef VNC_DISPLAY
+	if( Vnc )
+	{
+		Vnc->setAcceptDrops( true );
+		Vnc->installEventFilter( this );
+	}
+#endif
 	Build_Toolbar();
 	Main_Layout->addWidget( Toolbar );
 	Main_Layout->addWidget( Stack, 1 );
@@ -230,6 +249,9 @@ void VM_Session_Widget::Build_Toolbar()
 	Act_Eject_FD0 = Add_Toolbar_Action( QIcon( ":/eject.png" ), tr( "Eject floppy A" ), SLOT(On_Eject_FD0()) );
 	Act_Insert_FD1 = Add_Toolbar_Action( QIcon( ":/fdd.png" ), tr( "Insert floppy B image…" ), SLOT(On_Change_FD1()) );
 	Act_Eject_FD1 = Add_Toolbar_Action( QIcon( ":/eject.png" ), tr( "Eject floppy B" ), SLOT(On_Eject_FD1()) );
+	Toolbar->addSeparator();
+	QAction *paste = Toolbar->addAction( tr( "Paste files" ), this, SLOT(On_Paste_Files()) );
+	paste->setToolTip( tr( "Copy files from the host clipboard into the guest. They appear as floppy A or an AQEMU USB drive." ) );
 	Toolbar->addSeparator();
 
 	// Apple controls & Restore IPSW (only visible on Apple SoC VMs)
@@ -541,7 +563,132 @@ bool VM_Session_Widget::eventFilter( QObject *obj, QEvent *event )
 	if( Fullscreen_Active && event->type() == QEvent::MouseMove )
 		Handle_Fullscreen_Mouse( static_cast<QMouseEvent *>( event )->globalPos() );
 
+	QWidget *watched = qobject_cast<QWidget *>( obj );
+	const bool ours = watched && ( watched == this || isAncestorOf( watched ) );
+	if( ours && ( event->type() == QEvent::DragEnter || event->type() == QEvent::DragMove ) )
+	{
+		QDropEvent *drop = static_cast<QDropEvent *>( event );
+		if( drop->mimeData() && drop->mimeData()->hasUrls() )
+		{
+			drop->acceptProposedAction();
+			return true;
+		}
+	}
+	if( ours && event->type() == QEvent::Drop )
+	{
+		QDropEvent *drop = static_cast<QDropEvent *>( event );
+		Deliver_Files( AQ_File_Paths_From_Mime( drop->mimeData() ) );
+		drop->acceptProposedAction();
+		return true;
+	}
+
 	return QWidget::eventFilter( obj, event );
+}
+
+void VM_Session_Widget::dragEnterEvent( QDragEnterEvent *event )
+{
+	if( event->mimeData() && event->mimeData()->hasUrls() )
+		event->acceptProposedAction();
+}
+
+void VM_Session_Widget::dropEvent( QDropEvent *event )
+{
+	Deliver_Files( AQ_File_Paths_From_Mime( event->mimeData() ) );
+	event->acceptProposedAction();
+}
+
+void VM_Session_Widget::On_Paste_Files()
+{
+	const QClipboard *clip = QGuiApplication::clipboard();
+	Deliver_Files( AQ_File_Paths_From_Mime( clip ? clip->mimeData() : nullptr ) );
+}
+
+void VM_Session_Widget::Deliver_Files( const QStringList &paths )
+{
+	if( paths.isEmpty() )
+	{
+		QMessageBox::information( this, tr( "Paste files" ),
+			tr( "Copy files in the host file manager first, or drop them on this window." ) );
+		return;
+	}
+	if( ! VM )
+	{
+		QMessageBox::information( this, tr( "Paste files" ),
+			tr( "Start the virtual machine, then paste the files again." ) );
+		return;
+	}
+	QMP_Client *q = Active_QMP();
+	if( ! q || ! q->Is_Connected() )
+	{
+		QMessageBox::information( this, tr( "Paste files" ),
+			tr( "Wait until the guest display is connected, then paste the files again." ) );
+		return;
+	}
+
+	QDir dir( QDir::temp().filePath( QStringLiteral( "aqemu-paste" ) ) );
+	if( ! dir.exists() && ! dir.mkpath( QStringLiteral( "." ) ) )
+	{
+		QMessageBox::warning( this, tr( "Paste files" ),
+			tr( "Could not create a temporary folder for the copied files." ) );
+		return;
+	}
+	++Paste_Serial;
+	const QString image = dir.filePath( QStringLiteral( "paste-%1.img" ).arg( Paste_Serial ) );
+	QString error;
+	bool floppy = false;
+	if( ! AQ_Write_Guest_Fat_Image( image, paths, &floppy, &error ) )
+	{
+		QMessageBox::warning( this, tr( "Paste files" ), error );
+		return;
+	}
+
+	const QString shown = QDir::fromNativeSeparators( image );
+	if( floppy )
+	{
+		Change_Medium_Id( QStringLiteral( "aqemu-fd0" ), shown );
+		QMessageBox::information( this, tr( "Paste files" ),
+			tr( "Copied %n file(s). In the guest, open floppy drive A.", "", paths.size() ) );
+		return;
+	}
+
+	const QString node = QStringLiteral( "aqpaste%1" ).arg( Paste_Serial );
+	QJsonObject file;
+	file.insert( QStringLiteral( "driver" ), QStringLiteral( "file" ) );
+	file.insert( QStringLiteral( "filename" ), shown );
+	QJsonObject raw;
+	raw.insert( QStringLiteral( "driver" ), QStringLiteral( "raw" ) );
+	raw.insert( QStringLiteral( "node-name" ), node );
+	raw.insert( QStringLiteral( "file" ), file );
+	int id = -1;
+	if( ! q->Send_Command( QStringLiteral( "blockdev-add" ), raw, &id ) )
+	{
+		QMessageBox::warning( this, tr( "Paste files" ),
+			tr( "The virtual machine is not accepting commands yet." ) );
+		return;
+	}
+	Paste_Qmp_Ids.insert( id );
+
+	QString bus = USB_Target_Bus();
+	QJsonObject dev;
+	dev.insert( QStringLiteral( "driver" ), QStringLiteral( "usb-storage" ) );
+	dev.insert( QStringLiteral( "id" ), node + QStringLiteral( "dev" ) );
+	dev.insert( QStringLiteral( "drive" ), node );
+	if( bus.isEmpty() )
+	{
+		bus = QStringLiteral( "aqemu_file_xhci.0" );
+		QJsonObject hub;
+		hub.insert( QStringLiteral( "driver" ), QStringLiteral( "qemu-xhci" ) );
+		hub.insert( QStringLiteral( "id" ), QStringLiteral( "aqemu_file_xhci" ) );
+		q->Send_Command( QStringLiteral( "device_add" ), hub );
+	}
+	dev.insert( QStringLiteral( "bus" ), bus );
+	id = -1;
+	q->Send_Command( QStringLiteral( "device_add" ), dev, &id );
+	if( id >= 0 )
+		Paste_Qmp_Ids.insert( id );
+
+	QMessageBox::information( this, tr( "Paste files" ),
+		tr( "Copied %n file(s). In the guest, open the AQEMU USB drive.", "", paths.size() ) );
 }
 
 void VM_Session_Widget::On_Toolbar_Hide_Timeout()
@@ -1366,6 +1513,19 @@ void VM_Session_Widget::On_QMP_Command_Result( int id, const QString &cmd, bool 
 {
 	Q_UNUSED( cmd );
 	Q_UNUSED( raw_reply );
+
+	if( Paste_Qmp_Ids.contains( id ) )
+	{
+		Paste_Qmp_Ids.remove( id );
+		if( ! ok )
+		{
+			QMessageBox::warning( this, tr( "Paste files" ),
+				error_desc.isEmpty()
+					? tr( "QEMU could not attach the copied files." )
+					: error_desc );
+		}
+		return;
+	}
 
 	if( ! Pending_USB_Ops.contains( id ) )
 		return;

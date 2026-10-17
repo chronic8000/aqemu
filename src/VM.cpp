@@ -10868,6 +10868,13 @@ QStringList Virtual_Machine::Build_Native_Device_Args( VM_Native_Storage_Device 
 
 QStringList Virtual_Machine::Build_Shared_Folder_Args( VM_Shared_Folder folder, int id, bool Build_QEMU_Args_for_Script_Mode )
 {
+#ifdef Q_OS_WIN
+	Q_UNUSED( folder );
+	Q_UNUSED( id );
+	Q_UNUSED( Build_QEMU_Args_for_Script_Mode );
+	// QEMU on Windows has no virtfs local driver. Copy files from the session toolbar.
+	return QStringList();
+#endif
 	QStringList opt;
 	
     QString path = folder.Get_Folder();

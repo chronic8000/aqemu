@@ -17,6 +17,9 @@
 	* Back, Next, and Cancel keep readable text in dark mode.
 	* GitHub Actions checkout does not persist the job token. The Windows
 	  workflow pins the MSYS2 setup action.
+	* Paste files on the running-VM toolbar, or drop files on the guest
+	  window. Small copies appear as floppy A. Larger copies appear as an
+	  AQEMU USB drive. The same path is used on Linux and Windows.
 
 2026-10-03 Chronic Engineering — languages, About, and physical drives
 

@@ -23,7 +23,7 @@ class QMP_Client : public QObject
 		bool Is_Connected() const;
 		bool Is_Connecting() const;
 
-		bool Send_Command( const QString &execute, const QJsonObject &arguments = QJsonObject() );
+		bool Send_Command( const QString &execute, const QJsonObject &arguments = QJsonObject(), int *out_id = 0 );
 		bool Change_Medium( const QString &device_id, const QString &file_path );
 		bool Eject_Medium( const QString &device_id, bool force = true );
 		bool System_Powerdown();
