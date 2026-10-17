@@ -15,6 +15,9 @@
 	  WindowsApps location. Preferences and the support bundle say
 	  “QEMU bundled with AQEMU” instead of the publisher path.
 	* Back, Next, and Cancel keep readable text in dark mode.
+	* The first-start wizard pages, fields, and choices use the same
+	  window and text colours, so dark mode is not white text on a
+	  white page.
 	* GitHub Actions checkout does not persist the job token. The Windows
 	  workflow pins the MSYS2 setup action.
 	* Paste files on the running-VM toolbar, or drop files on the guest

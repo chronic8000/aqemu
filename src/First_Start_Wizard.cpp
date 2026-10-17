@@ -26,6 +26,7 @@
 #include <QMessageBox>
 #include <QTranslator>
 #include <QFileDialog>
+#include <QApplication>
 
 #include "First_Start_Wizard.h"
 #include "AQ_UI_Style.h"
@@ -39,6 +40,15 @@ First_Start_Wizard::First_Start_Wizard( QWidget *parent )
 {
 	ui.setupUi( this );
 	AQ_Cap_Content_Width( this, 720 );
+	ui.All_Pages->setAutoFillBackground( true );
+	for( int i = 0; i < ui.All_Pages->count(); ++i )
+	{
+		if( QWidget *page = ui.All_Pages->widget( i ) )
+		{
+			page->setAutoFillBackground( true );
+			page->setPalette( qApp->palette() );
+		}
+	}
 
 	connect( ui.RB_FS_QEMU_Built_In, SIGNAL(toggled(bool)), this, SLOT(On_FS_QEMU_Source_Toggled(bool)) );
 	connect( ui.RB_FS_QEMU_System, SIGNAL(toggled(bool)), this, SLOT(On_FS_QEMU_Source_Toggled(bool)) );
