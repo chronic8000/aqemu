@@ -3,6 +3,7 @@
 # Build QEMU for Windows on ARM (WoA / Qualcomm Snapdragon Laptops)
 # ==============================================================================
 # Run from MSYS2 CLANGARM64 shell on Snapdragon X Elite / 8cx laptops.
+# Feature flags enable WHPX. Inferno stays on TCG.
 #
 # Usage:
 #   ./scripts/build_qemu_win_arm64.sh [TARGET] [PREFIX]

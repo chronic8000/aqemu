@@ -20,6 +20,8 @@
 	* Paste files on the running-VM toolbar, or drop files on the guest
 	  window. Small copies appear as floppy A. Larger copies appear as an
 	  AQEMU USB drive. The same path is used on Linux and Windows.
+	* The Windows QEMU build enables WHPX on x64 and on ARM64. QEMU 11
+	  already has the ARM WHPX backend. Inferno stays on TCG.
 	* Ordinary virtual machines open a guest-agent port and a file port.
 	  To guest and From guest copy one file by path once the guest is
 	  running qemu-guest-agent. Guest tools inserts the installer disk.
