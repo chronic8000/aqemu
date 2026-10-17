@@ -9597,26 +9597,24 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			this, Build_QEMU_Args_for_Script_Mode, Launch_Via_WSL, false, nullptr );
 	}
 	
-	// Use ROM File
-	if( Use_ROM_File )
+	// Use ROM File. NeXT Cube firmware is -bios from the VM-tab ROM field
+	// (BIOS_File), so this etherboot checkbox must not add a second -bios.
+	if( Use_ROM_File && ! is_next_cube )
 	{
-		if( QFile::exists(ROM_File) == false &&
-			Build_QEMU_Args_for_Tab_Info == false )
+		if( ! AQ_Path_Usable_On_This_Host( ROM_File ) )
 		{
-			AQGraphic_Warning( tr("Error!"), tr("ROM File doesn't Exists! Can't run emulator!") );
+			if( Build_QEMU_Args_for_Tab_Info == false &&
+			    ! AQ_Path_Is_Foreign_To_This_Host( ROM_File ) )
+			{
+				AQGraphic_Warning( tr("Error!"), tr("ROM File doesn't Exists! Can't run emulator!") );
+			}
 		}
 		else
 		{
-			// next-cube loads board firmware with -bios (not PC option ROM).
-			const bool next_cube_rom =
-				Machine_Type.contains( QLatin1String( "next-cube" ), Qt::CaseInsensitive );
-			const QString rom_flag = next_cube_rom
-				? QStringLiteral( "-bios" )
-				: QStringLiteral( "-option-rom" );
 			if( Build_QEMU_Args_for_Script_Mode )
-				Args << rom_flag << "\"" + ROM_File + "\"";
+				Args << "-option-rom" << "\"" + ROM_File + "\"";
 			else
-				Args << rom_flag << ROM_File;
+				Args << "-option-rom" << ROM_File;
 		}
 	}
 	
@@ -9679,13 +9677,21 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	{
 		QString code_path = UEFI_CODE_File;
 		QString qemu_bin = Get_Current_Emulator_Binary_Path( Computer_Type );
+		QString arch;
+		if( Computer_Type.contains( "aarch64", Qt::CaseInsensitive ) )
+			arch = QStringLiteral( "aarch64" );
+		else if( Computer_Type.contains( "x86_64", Qt::CaseInsensitive ) )
+			arch = QStringLiteral( "x86_64" );
+		/* A VM saved on another computer keeps that machine's firmware path.
+		   Use this install's copy when that file is not here. */
+		if( ! code_path.isEmpty() && ! QFile::exists( code_path ) )
+		{
+			AQDebug( "QStringList Virtual_Machine::Build_QEMU_Args()",
+				QStringLiteral( "UEFI firmware is not on this machine, looking locally: %1" ).arg( code_path ) );
+			code_path.clear();
+		}
 		if( code_path.isEmpty() )
 		{
-			QString arch;
-			if( Computer_Type.contains( "aarch64", Qt::CaseInsensitive ) )
-				arch = QStringLiteral( "aarch64" );
-			else if( Computer_Type.contains( "x86_64", Qt::CaseInsensitive ) )
-				arch = QStringLiteral( "x86_64" );
 			code_path = Find_UEFI_Firmware_CODE( qemu_bin, arch );
 			if( ! code_path.isEmpty() )
 				UEFI_CODE_File = code_path;
@@ -9693,7 +9699,15 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 
 		if( ! code_path.isEmpty() )
 		{
-			if( UEFI_VARS_File.isEmpty() )
+			/* A Windows path like C:\Users\...\OVMF_VARS.fd is one filename on Linux,
+			   so its "directory" is the current folder and looks like it exists. */
+			auto vars_path_on_this_host = []( const QString &path ) -> bool {
+				const QString p = path.trimmed();
+				if( p.isEmpty() || AQ_Path_Is_Foreign_To_This_Host( p ) )
+					return false;
+				return QFile::exists( p ) || QFileInfo( p ).absoluteDir().exists();
+			};
+			if( ! vars_path_on_this_host( UEFI_VARS_File ) )
 			{
 				QString vm_dir = QFileInfo( VM_XML_File_Path ).absolutePath();
 				if( vm_dir.isEmpty() || vm_dir == "." )
@@ -10061,13 +10075,40 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	if( ! Sandbox.trimmed().isEmpty() )
 		Args << "-sandbox" << Sandbox.trimmed();
 
-	// BIOS (SeaBIOS alternative / board firmware)
-	if( ! BIOS_File.trimmed().isEmpty() )
+	// BIOS (SeaBIOS alternative / board firmware).
+	// NeXT Cube: the VM tab stores the ROM here. A path from the other
+	// operating system is not passed through; QEMU would fail to open it.
 	{
-		if( Build_QEMU_Args_for_Script_Mode )
-			Args << "-bios" << "\"" + BIOS_File + "\"";
-		else
-			Args << "-bios" << BIOS_File;
+		QString bios = BIOS_File.trimmed();
+		if( is_next_cube && ! AQ_Path_Usable_On_This_Host( bios ) && Use_ROM_File )
+			bios = ROM_File.trimmed();
+		if( ! bios.isEmpty() )
+		{
+			if( ! AQ_Path_Usable_On_This_Host( bios ) )
+			{
+				if( Build_QEMU_Args_for_Tab_Info == false )
+				{
+					if( is_next_cube )
+					{
+						AQGraphic_Warning( tr( "NeXT ROM" ),
+							tr( "The NeXT ROM saved with this virtual machine is not on this computer:\n%1\n\n"
+							    "Set it at the bottom of the VM tab. AQEMU will start without that path." )
+							.arg( bios ) );
+					}
+					else
+					{
+						AQGraphic_Warning( tr( "BIOS file" ),
+							tr( "The BIOS file saved with this virtual machine is not on this computer:\n%1\n\n"
+							    "AQEMU will start without -bios." )
+							.arg( bios ) );
+					}
+				}
+			}
+			else if( Build_QEMU_Args_for_Script_Mode )
+				Args << "-bios" << "\"" + bios + "\"";
+			else
+				Args << "-bios" << bios;
+		}
 	}
 
 	// SPICE
@@ -12071,7 +12112,7 @@ void Virtual_Machine::Save_VM_State( const QString &tag, bool quit )
 	
 	if( Settings.value("Use_Screenshot_for_OS_Logo", "yes").toString() == "yes" )
 	{
-		QString scrn_file = Settings.value( "VM_Directory", "~" ).toString() + Get_FS_Compatible_VM_Name( Machine_Name );
+		QString scrn_file = AQ_File_Beside_VM( VM_XML_File_Path, Get_FS_Compatible_VM_Name( Machine_Name ) );
 		if( Take_Screenshot(scrn_file, 64, 64) ) Screenshot_Path = scrn_file;
 	}
 	
@@ -15192,8 +15233,8 @@ QString Virtual_Machine::GenerateHTMLInfoText(int info_mode)
     if( Settings.value("Info/Show_Screenshot_in_Save_Mode", "no").toString() == "yes" )
     {
         // Find Full Size Screenshot
-        QString img_path = QDir::toNativeSeparators( Settings.value("VM_Directory", "~").toString() +
-                Get_FS_Compatible_VM_Name(Get_Machine_Name()) + "_screenshot" );
+        QString img_path = AQ_File_Beside_VM( Get_VM_XML_File_Path(),
+                Get_FS_Compatible_VM_Name( Get_Machine_Name() ) + QStringLiteral( "_screenshot" ) );
 
         if( ! QFile::exists(img_path) )
         {

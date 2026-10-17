@@ -29,11 +29,15 @@
 #include <QSpacerItem>
 #include <QFont>
 #include <QGridLayout>
+#include <QHBoxLayout>
+#include <QLabel>
 #include <QStyle>
 #include <QMouseEvent>
 #include <QEvent>
 #include <QAbstractItemView>
 #include <QFile>
+#include <QFileDialog>
+#include <QToolButton>
 #include <QFileInfo>
 #include <QTreeWidget>
 #include <QListWidget>
@@ -58,6 +62,7 @@
 
 #include "Utils.h"
 #include "Physical_Drive.h"
+#include "Guest_Boot.h"
 #include "Lab_150.h"
 #include "AQ_UI_Style.h"
 #include "Apple_SoC_Support.h"
@@ -175,6 +180,7 @@ VM_Wizard_Window::VM_Wizard_Window( QWidget *parent )
 	CB_Wizard_Machine = nullptr;
 	Machine_Catalog_Loaded = false;
 	Devices_Page = nullptr;
+	Boot_Fields_Host = nullptr;
 	Label_Devices_Summary = nullptr;
 	CB_Dev_Disk = nullptr;
 	CB_Dev_Sector_Size = nullptr;
@@ -2889,6 +2895,52 @@ void VM_Wizard_Window::Apply_Guest_Hardware_To_New_VM()
 	{
 		New_VM->Set_Computer_Type( QStringLiteral( "qemu-system-reimsvgpu" ) );
 	}
+
+	QJsonObject profile;
+	if( ! Selected_OS_Name.isEmpty() )
+		profile = Wizard_Trees.value( QStringLiteral( "os_profiles" ) ).toObject().value( Selected_OS_Name ).toObject();
+	const Guest_Boot_Set boot = AQ_Resolve_Guest_Boot(
+		Selected_OS_Name, Selected_Target, Selected_Machine_Id, profile );
+	if( boot.probe_loaded )
+	{
+		const QString cpu_now = New_VM->Get_CPU_Type();
+		const bool stuck_486 = cpu_now.compare( QLatin1String( "486" ), Qt::CaseInsensitive ) == 0
+			|| cpu_now.startsWith( QLatin1String( "486-" ), Qt::CaseInsensitive );
+		const bool profile_wants_486 = boot.cpu.startsWith( QLatin1String( "486" ), Qt::CaseInsensitive );
+		if( ( cpu_now.isEmpty() || ( stuck_486 && ! profile_wants_486 ) ) && ! boot.cpu.isEmpty() )
+			New_VM->Set_CPU_Type( boot.cpu );
+		if( New_VM->Get_Machine_Type().trimmed().isEmpty() && ! boot.machine.isEmpty() )
+			New_VM->Set_Machine_Type( boot.machine );
+		if( New_VM->Get_Video_Card().trimmed().isEmpty() && ! boot.video.isEmpty()
+			&& caps.guest_class != Guest_Capabilities::Classic_Mac )
+			New_VM->Set_Video_Card( boot.video );
+		if( New_VM->Get_Audiodev_Backend().trimmed().isEmpty() && ! boot.audiodev.isEmpty() )
+			New_VM->Set_Audiodev_Backend( boot.audiodev );
+		if( New_VM->Get_Display_Backend().trimmed().isEmpty() && ! boot.display.isEmpty() )
+			New_VM->Set_Display_Backend( boot.display );
+		const QString usb_now = New_VM->Get_Mouse_USB_Controller();
+		if( ( usb_now.isEmpty() || usb_now == QLatin1String( "auto" ) ) && ! boot.usb.isEmpty() )
+			New_VM->Set_Mouse_USB_Controller( boot.usb );
+		if( ! boot.native_accel )
+			New_VM->Use_Force_TCG( true );
+
+		VM_HDD hda = New_VM->Get_HDA();
+		if( hda.Get_Enabled() && hda.Get_Image_Format().trimmed().isEmpty() && ! boot.disk_format.isEmpty() )
+		{
+			hda.Set_Image_Format( boot.disk_format );
+			New_VM->Set_HDA( hda );
+		}
+		if( ! boot.nic.isEmpty() && New_VM->Get_Network_Cards_Count() > 0 )
+		{
+			QList<VM_Net_Card> cards = New_VM->Get_Network_Cards();
+			if( cards[0].Get_Card_Model().trimmed().isEmpty() )
+			{
+				cards[0].Set_Card_Model( boot.nic );
+				New_VM->Set_Network_Cards( cards );
+			}
+		}
+	}
+	Apply_Boot_Fields_To_VM();
 }
 
 void VM_Wizard_Window::Prefer_Accelerator_For_Target( const QString &target )
@@ -2903,7 +2955,7 @@ void VM_Wizard_Window::Prefer_Accelerator_For_Target( const QString &target )
 		ui.RB_Emulator_QEMU->setChecked( true );
 
 #ifdef Q_OS_WIN32
-	ui.RB_Emulator_KVM->setText( tr( "&KVM / WHPX (native acceleration)" ) );
+	ui.RB_Emulator_KVM->setText( tr( "&WHPX (native acceleration)" ) );
 #else
 	ui.RB_Emulator_KVM->setText( tr( "&KVM (native acceleration)" ) );
 #endif
@@ -2912,15 +2964,19 @@ void VM_Wizard_Window::Prefer_Accelerator_For_Target( const QString &target )
 	QString tip;
 	if( prefer_native )
 	{
-		tip = tr( "Host CPU is %1; guest target is %2 — using native acceleration "
-		          "(KVM on Linux/WSL, WHPX on Windows)." )
+		tip = tr( "Host CPU is %1; guest target is %2 — using native acceleration." )
 			.arg( host ).arg( guest.isEmpty() ? target : guest );
 	}
 	else if( AQ_Guest_Matches_Host_Architecture( target ) && guest == QLatin1String( "i386" ) )
 	{
+#ifdef Q_OS_WIN32
 		tip = tr( "Host is %1 but 32-bit x86 guests on Windows are more reliable with TCG "
-		          "(WHPX often hangs). You can still try KVM/WHPX if you prefer." )
+		          "(WHPX often hangs). You can still try WHPX if you prefer." )
 			.arg( host );
+#else
+		tip = tr( "Host is %1. 32-bit x86 guests use TCG unless you choose KVM." )
+			.arg( host );
+#endif
 	}
 	else
 	{
@@ -2968,6 +3024,13 @@ void VM_Wizard_Window::Build_Devices_Page()
 	Label_Devices_Summary->setWordWrap( true );
 	Label_Devices_Summary->setStyleSheet( QStringLiteral( "color: palette(window-text); padding: 4px;" ) );
 	lay->addWidget( Label_Devices_Summary );
+
+	CH_Dev_Show_All = new QCheckBox( tr(
+		"Show all QEMU options (power user — may offer devices this guest cannot use)" ) );
+	lay->addWidget( CH_Dev_Show_All );
+	connect( CH_Dev_Show_All, &QCheckBox::toggled, this, [this]( bool ) {
+		Refresh_Devices_Page();
+	} );
 
 	auto add_row = [&]( const QString &label, QComboBox **combo ) {
 		QHBoxLayout *row = new QHBoxLayout();
@@ -3025,12 +3088,10 @@ void VM_Wizard_Window::Build_Devices_Page()
 		if( Label_Dev_GPU ) Label_Dev_GPU->setEnabled( on );
 	} );
 
-	CH_Dev_Show_All = new QCheckBox( tr(
-		"Show all QEMU options (power user — may offer devices this guest cannot use)" ) );
-	lay->addWidget( CH_Dev_Show_All );
-	connect( CH_Dev_Show_All, &QCheckBox::toggled, this, [this]( bool ) {
-		Refresh_Devices_Page();
-	} );
+	Boot_Fields_Host = new QWidget( Devices_Page );
+	new QVBoxLayout( Boot_Fields_Host );
+	Boot_Fields_Host->hide();
+	lay->addWidget( Boot_Fields_Host );
 
 	lay->addStretch( 1 );
 	ui.Wizard_Pages->addWidget( Devices_Page );
@@ -3041,6 +3102,11 @@ void VM_Wizard_Window::Refresh_Devices_Page()
 	if( ! Devices_Page || ! CB_Dev_Disk )
 		return;
 
+	const QString keep_disk = CB_Dev_Disk->count() > 0 ? CB_Dev_Disk->currentData().toString() : QString();
+	const QString keep_nic = ( CB_Dev_NIC && CB_Dev_NIC->count() > 0 ) ? CB_Dev_NIC->currentData().toString() : QString();
+	const QString keep_sound = ( CB_Dev_Sound && CB_Dev_Sound->count() > 0 ) ? CB_Dev_Sound->currentData().toString() : QString();
+	const QString keep_video = ( CB_Dev_Video && CB_Dev_Video->count() > 0 ) ? CB_Dev_Video->currentData().toString() : QString();
+
 	const Guest_Capabilities caps = Current_Guest_Capabilities();
 	const bool show_all = CH_Dev_Show_All && CH_Dev_Show_All->isChecked();
 
@@ -3050,6 +3116,16 @@ void VM_Wizard_Window::Refresh_Devices_Page()
 		if( text.isEmpty() )
 			text = tr( "Pick devices that match this guest. Incompatible options are hidden unless you enable “Show all”." );
 		Label_Devices_Summary->setText( text );
+	}
+
+	if( Edit_Dev_BIOS_File )
+	{
+		const bool next =
+			Selected_OS_Name.contains( QLatin1String( "NeXT" ), Qt::CaseInsensitive ) ||
+			Selected_Machine_Id.contains( QLatin1String( "next-cube" ), Qt::CaseInsensitive );
+		Edit_Dev_BIOS_File->setPlaceholderText( next
+			? tr( "Your NeXT ROM, for example Rev_2.5_v66.bin" )
+			: tr( "Optional custom firmware file" ) );
 	}
 
 	auto fill_named = []( QComboBox *cb, const QList<Guest_Named_Option> &opts, const QString &prefer ) {
@@ -3212,6 +3288,59 @@ void VM_Wizard_Window::Refresh_Devices_Page()
 	else if( ! prefer_video.isEmpty() )
 		prefer_video = Guest_Capabilities::Resolve_Optimal_Device(
 			QStringList{ prefer_video }, video_ids, prefer_video );
+
+	if( ! show_all )
+	{
+		const Architecture_Hardware_Capabilities hw =
+			QEMU_Probe_Catalog::Get_Hardware_Capabilities( Selected_Target );
+		if( hw.valid )
+		{
+			QList<Guest_Disk_Option> kept_disks;
+			for( int i = 0; i < disks.size(); ++i )
+			{
+				if( hw.Is_Disk_Bus_Supported( disks.at( i ).id ) )
+					kept_disks << disks.at( i );
+			}
+			if( ! kept_disks.isEmpty() )
+				disks = kept_disks;
+
+			QList<Guest_Named_Option> kept_nics;
+			for( int i = 0; i < nics.size(); ++i )
+			{
+				if( hw.Is_NIC_Supported( nics.at( i ).id ) )
+					kept_nics << nics.at( i );
+			}
+			if( ! kept_nics.isEmpty() )
+				nics = kept_nics;
+
+			QList<Guest_Named_Option> kept_sounds;
+			for( int i = 0; i < sounds.size(); ++i )
+			{
+				if( hw.Is_Sound_Supported( sounds.at( i ).id ) )
+					kept_sounds << sounds.at( i );
+			}
+			if( ! kept_sounds.isEmpty() )
+				sounds = kept_sounds;
+
+			QList<Guest_Named_Option> kept_videos;
+			for( int i = 0; i < videos.size(); ++i )
+			{
+				if( hw.Is_Video_Supported( videos.at( i ).id ) )
+					kept_videos << videos.at( i );
+			}
+			if( ! kept_videos.isEmpty() )
+				videos = kept_videos;
+		}
+	}
+
+	if( ! keep_disk.isEmpty() && disk_ids.contains( keep_disk ) )
+		prefer_disk = keep_disk;
+	if( ! keep_nic.isEmpty() && nic_ids.contains( keep_nic ) )
+		prefer_nic = keep_nic;
+	if( ! keep_sound.isEmpty() && sound_ids.contains( keep_sound ) )
+		prefer_sound = keep_sound;
+	if( ! keep_video.isEmpty() && video_ids.contains( keep_video ) )
+		prefer_video = keep_video;
 
 	fill_disk( CB_Dev_Disk, disks, prefer_disk );
 	Guest_Disk_Bus = prefer_disk;
@@ -3431,6 +3560,107 @@ void VM_Wizard_Window::Refresh_Devices_Page()
 				QString() );
 		}
 		CB_Dev_GPU->setEnabled( CH_Dev_GPU_Passthrough && CH_Dev_GPU_Passthrough->isChecked() );
+	}
+
+	Refresh_Boot_Fields();
+}
+
+void VM_Wizard_Window::Refresh_Boot_Fields()
+{
+	if( ! Boot_Fields_Host || ! Boot_Fields_Host->layout() )
+		return;
+	QLayout *lay = Boot_Fields_Host->layout();
+	while( QLayoutItem *it = lay->takeAt( 0 ) )
+	{
+		if( QWidget *w = it->widget() )
+			w->deleteLater();
+		delete it;
+	}
+	Boot_Field_Edits.clear();
+	Boot_Field_Ids.clear();
+	Boot_Field_Required.clear();
+	Boot_Field_Is_File.clear();
+
+	QJsonObject profile;
+	if( ! Selected_OS_Name.isEmpty() )
+		profile = Wizard_Trees.value( QStringLiteral( "os_profiles" ) ).toObject().value( Selected_OS_Name ).toObject();
+	const Guest_Boot_Set boot = AQ_Resolve_Guest_Boot(
+		Selected_OS_Name, Selected_Target, Selected_Machine_Id, profile );
+	if( boot.fields.isEmpty() )
+	{
+		Boot_Fields_Host->hide();
+		return;
+	}
+
+	lay->addWidget( new QLabel( tr( "This guest needs these files before it can boot." ), Boot_Fields_Host ) );
+	for( int i = 0; i < boot.fields.size(); ++i )
+	{
+		const Guest_Boot_Field &field = boot.fields.at( i );
+		QWidget *row = new QWidget( Boot_Fields_Host );
+		QHBoxLayout *row_lay = new QHBoxLayout( row );
+		row_lay->setContentsMargins( 0, 0, 0, 0 );
+		QString caption = field.label;
+		if( field.required )
+			caption += QLatin1String( " *" );
+		row_lay->addWidget( new QLabel( caption, row ) );
+		QLineEdit *edit = new QLineEdit( row );
+		if( ! field.is_file )
+			edit->setPlaceholderText( tr( "Optional text" ) );
+		row_lay->addWidget( edit, 1 );
+		if( field.is_file )
+		{
+			QToolButton *browse = new QToolButton( row );
+			browse->setText( QStringLiteral( "..." ) );
+			row_lay->addWidget( browse );
+			connect( browse, &QToolButton::clicked, this, [this, edit]() {
+				const QString path = QFileDialog::getOpenFileName( this, tr( "Select file" ) );
+				if( ! path.isEmpty() )
+					edit->setText( path );
+			} );
+		}
+		lay->addWidget( row );
+		Boot_Field_Edits << edit;
+		Boot_Field_Ids << field.id;
+		Boot_Field_Required << field.required;
+		Boot_Field_Is_File << field.is_file;
+	}
+	Boot_Fields_Host->show();
+}
+
+bool VM_Wizard_Window::Boot_Fields_Ready() const
+{
+	for( int i = 0; i < Boot_Field_Edits.size(); ++i )
+	{
+		if( i >= Boot_Field_Required.size() || ! Boot_Field_Required.at( i ) )
+			continue;
+		if( ! Boot_Field_Edits.at( i ) || Boot_Field_Edits.at( i )->text().trimmed().isEmpty() )
+			return false;
+	}
+	return true;
+}
+
+void VM_Wizard_Window::Apply_Boot_Fields_To_VM()
+{
+	if( ! New_VM )
+		return;
+	for( int i = 0; i < Boot_Field_Edits.size() && i < Boot_Field_Ids.size(); ++i )
+	{
+		if( ! Boot_Field_Edits.at( i ) )
+			continue;
+		const QString value = Boot_Field_Edits.at( i )->text().trimmed();
+		if( value.isEmpty() )
+			continue;
+		const QString id = Boot_Field_Ids.at( i );
+		if( id == QLatin1String( "kernel" ) )
+			New_VM->Set_App_Kernel_Path( value );
+		else if( id == QLatin1String( "initrd" ) )
+			New_VM->Set_Initrd_Path( value );
+		else if( id == QLatin1String( "append" ) )
+			New_VM->Set_Kernel_ComLine( value );
+		else if( id == QLatin1String( "bios" ) )
+			New_VM->Set_BIOS_File( value );
+		else if( id == QLatin1String( "firmware" ) && New_VM->Get_BIOS_File().trimmed().isEmpty() )
+			New_VM->Set_BIOS_File( value );
 	}
 }
 
@@ -5870,6 +6100,12 @@ void VM_Wizard_Window::on_Button_Next_clicked()
 	}
 	else if( Devices_Page && Devices_Page == ui.Wizard_Pages->currentWidget() )
 	{
+		if( ! Boot_Fields_Ready() )
+		{
+			AQGraphic_Warning( tr( "Files needed to boot" ),
+				tr( "Fill in every required file for this operating system before continuing." ) );
+			return;
+		}
 		Apply_Devices_Page_To_State();
 		ui.Wizard_Pages->setCurrentWidget( ui.Network_Page );
 		ui.Label_Page->setText( tr( "Network" ) );

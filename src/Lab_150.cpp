@@ -36,6 +36,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QLabel>
+#include <QRegularExpression>
 #include <QLineEdit>
 #include <QListWidget>
 #include <QMessageBox>
@@ -1643,6 +1644,10 @@ void AQ_Lab_Open_VM_Window( Virtual_Machine *vm, const QList<Virtual_Machine*> &
 static QString Redact( const QString &text )
 {
 	QString out = text;
+	out.replace( QRegularExpression( QStringLiteral( "(?i)[A-Za-z]:\\\\[^\\r\\n]*WindowsApps\\\\[^\\r\\n]*" ) ),
+		QStringLiteral( "<AQEMU install>\\" ) );
+	out.replace( QRegularExpression( QStringLiteral( "(?i)/[^\\r\\n]*WindowsApps/[^\\r\\n]*" ) ),
+		QStringLiteral( "<AQEMU install>/" ) );
 	const QStringList keys = QStringList() << QStringLiteral( "token" ) << QStringLiteral( "password" )
 		<< QStringLiteral( "osk" ) << QStringLiteral( "secret" ) << QStringLiteral( "ipsw" );
 	const QStringList lines = out.split( QLatin1Char( '\n' ) );

@@ -212,6 +212,95 @@ QStringList QEMU_Probe_Catalog::Audio_Drivers( const QString &computer_type_or_b
 	return out;
 }
 
+static QJsonObject Load_Probe_Root( const QString &computer_type_or_binary )
+{
+	const QString key = QEMU_Probe_Catalog::Architecture_Key( computer_type_or_binary );
+	if( key.isEmpty() )
+		return QJsonObject();
+	const QString dir = QEMU_Probe_Catalog::Probe_Directory();
+	if( dir.isEmpty() )
+		return QJsonObject();
+	QFile f( QDir( dir ).filePath( key + QStringLiteral( ".json" ) ) );
+	if( ! f.open( QIODevice::ReadOnly ) )
+		return QJsonObject();
+	const QJsonDocument doc = QJsonDocument::fromJson( f.readAll() );
+	return doc.isObject() ? doc.object() : QJsonObject();
+}
+
+QStringList QEMU_Probe_Catalog::Section_Tokens( const QString &computer_type_or_binary,
+                                                const QString &json_key )
+{
+	static QMap<QString, QStringList> cache;
+	const QString key = Architecture_Key( computer_type_or_binary ) + QLatin1Char( '\n' ) + json_key;
+	if( cache.contains( key ) )
+		return cache.value( key );
+
+	QStringList out;
+	const QJsonObject root = Load_Probe_Root( computer_type_or_binary );
+	const QJsonArray arr = root.value( json_key ).toArray();
+	for( int i = 0; i < arr.size(); ++i )
+	{
+		QString line = arr.at( i ).toString().trimmed();
+		if( line.isEmpty() )
+			continue;
+		const int colon = line.indexOf( QLatin1Char( ':' ) );
+		if( colon >= 0 && ! line.startsWith( QLatin1String( "name " ) ) )
+			line = line.mid( colon + 1 ).trimmed();
+		const QStringList words = line.split( QRegExp( QStringLiteral( "\\s+" ) ),
+			QString::SkipEmptyParts );
+		for( int w = 0; w < words.size(); ++w )
+		{
+			QString tok = words.at( w ).trimmed().toLower();
+			if( tok.isEmpty() || tok.contains( QLatin1Char( '"' ) ) )
+				continue;
+			if( tok == QLatin1String( "supported" ) || tok == QLatin1String( "available" )
+				|| tok == QLatin1String( "formats" ) || tok == QLatin1String( "formats(read-only)" )
+				|| tok == QLatin1String( "(read-only)" ) || tok.startsWith( QLatin1String( "some" ) )
+				|| tok.startsWith( QLatin1String( "for" ) ) || tok.startsWith( QLatin1String( "list" ) )
+				|| tok.startsWith( QLatin1String( "accelerators" ) ) || tok.startsWith( QLatin1String( "backend" ) ) )
+				continue;
+			if( tok.contains( QLatin1Char( ',' ) ) || tok.contains( QLatin1Char( '=' ) ) )
+				continue;
+			out << tok;
+		}
+	}
+	out.removeDuplicates();
+	cache.insert( key, out );
+	return out;
+}
+
+QStringList QEMU_Probe_Catalog::USB_Controllers( const QString &computer_type_or_binary )
+{
+	static QMap<QString, QStringList> cache;
+	const QString key = Architecture_Key( computer_type_or_binary );
+	if( key.isEmpty() )
+		return QStringList();
+	if( cache.contains( key ) )
+		return cache.value( key );
+
+	QStringList out;
+	const QJsonObject root = Load_Probe_Root( computer_type_or_binary );
+	const QJsonArray arr = root.value( QLatin1String( "devices" ) ).toArray();
+	QRegExp rx( "name\\s+\"([^\"]+)\"" );
+	for( int i = 0; i < arr.size(); ++i )
+	{
+		const QString line = arr.at( i ).toString();
+		if( rx.indexIn( line ) < 0 )
+			continue;
+		const QString name = rx.cap( 1 );
+		const QString low = name.toLower();
+		const bool usb = low.contains( QLatin1String( "xhci" ) )
+			|| low.contains( QLatin1String( "uhci" ) )
+			|| low.contains( QLatin1String( "ehci" ) )
+			|| low.contains( QLatin1String( "ohci" ) );
+		if( usb )
+			out << name;
+	}
+	out.removeDuplicates();
+	cache.insert( key, out );
+	return out;
+}
+
 Architecture_Hardware_Capabilities QEMU_Probe_Catalog::Get_Hardware_Capabilities( const QString &computer_type_or_binary )
 {
 	static QMap<QString, Architecture_Hardware_Capabilities> s_cache;

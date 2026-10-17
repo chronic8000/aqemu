@@ -236,6 +236,7 @@ SET( aqemu_sources
 	src/VM_Devices.cpp
 	src/VM_Wizard_Window.cpp
 	src/Guest_Capabilities.cpp
+	src/Guest_Boot.cpp
 	src/ISO_Guess.cpp
 	src/iOS_Firmware_Tool_Window.cpp
 	src/Apple_SoC_Support.cpp
@@ -245,6 +246,7 @@ SET( aqemu_sources
 	src/Apple_SoC_Device_Tools_Window.cpp
 	src/Inferno_Companion_Setup.cpp
 	src/Storage_Browser_Window.cpp
+	src/VM_Scanner_Window.cpp
 	src/Serial_Console_Window.cpp
 	src/URL_Fetch.cpp
 	src/Remote_Host_Window.cpp
@@ -417,6 +419,16 @@ TARGET_INCLUDE_DIRECTORIES( aqemu_storage_recovery_test PRIVATE src )
 SET_PROPERTY( TARGET aqemu_storage_recovery_test PROPERTY CXX_STANDARD 11 )
 SET_PROPERTY( TARGET aqemu_storage_recovery_test PROPERTY CXX_STANDARD_REQUIRED ON )
 TARGET_LINK_LIBRARIES( aqemu_storage_recovery_test Qt5::Core )
+
+ADD_EXECUTABLE( aqemu_guest_boot_test
+	tests/guest_boot_test.cpp
+	src/Guest_Boot.cpp
+	src/Guest_Capabilities.cpp
+	src/QEMU_Probe_Catalog.cpp )
+TARGET_INCLUDE_DIRECTORIES( aqemu_guest_boot_test PRIVATE src )
+SET_PROPERTY( TARGET aqemu_guest_boot_test PROPERTY CXX_STANDARD 11 )
+SET_PROPERTY( TARGET aqemu_guest_boot_test PROPERTY CXX_STANDARD_REQUIRED ON )
+TARGET_LINK_LIBRARIES( aqemu_guest_boot_test Qt5::Core )
 
 IF( WIN32 )
 	TARGET_LINK_LIBRARIES( aqemu advapi32 ole32 shell32 dsound )

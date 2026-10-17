@@ -1325,6 +1325,19 @@ QString Get_Complete_VM_File_Path( const QString &vm_name )
 	return ret_str;
 }
 
+QString AQ_File_Beside_VM( const QString &vm_xml_path, const QString &leaf )
+{
+	QFileInfo info( vm_xml_path );
+	QString dir = info.absolutePath();
+	if( vm_xml_path.trimmed().isEmpty() || dir.isEmpty() || dir == QLatin1String( "." ) )
+	{
+		QSettings settings;
+		dir = settings.value( QStringLiteral( "VM_Directory" ),
+			QDir::homePath() + QStringLiteral( "/.aqemu/" ) ).toString();
+	}
+	return QDir::toNativeSeparators( QDir( dir ).filePath( leaf ) );
+}
+
 QString Get_TR_Size_Suffix( VM::Device_Size suf )
 {
 	switch( suf.Suffix )
@@ -1359,6 +1372,31 @@ QString AQ_Normalize_File_Path( const QString &path )
 		break;
 	}
 	return p;
+}
+
+bool AQ_Path_Is_Foreign_To_This_Host( const QString &path )
+{
+	const QString p = path.trimmed();
+	if( p.isEmpty() )
+		return false;
+#ifndef Q_OS_WIN
+	if( p.contains( QLatin1Char( '\\' ) ) )
+		return true;
+	if( p.size() >= 2 && p.at( 1 ) == QLatin1Char( ':' ) )
+		return true;
+#else
+	if( p.startsWith( QLatin1Char( '/' ) ) && ! p.startsWith( QLatin1String( "//" ) ) )
+		return true;
+#endif
+	return false;
+}
+
+bool AQ_Path_Usable_On_This_Host( const QString &path )
+{
+	const QString p = path.trimmed();
+	if( p.isEmpty() || AQ_Path_Is_Foreign_To_This_Host( p ) )
+		return false;
+	return QFile::exists( p );
 }
 
 QString AQ_Qemu_Drive_File_Key( const QString &path )
@@ -2716,6 +2754,67 @@ QString AQ_Find_QEMU_Binary_With_Native_Display( const QString &system_name,
 	return preferred_path;
 }
 
+static QStringList UEFI_Install_Roots( const QString &qemu_binary_path )
+{
+	QStringList roots;
+	const QString app = QDir::cleanPath( QCoreApplication::applicationDirPath() );
+	roots << app
+	      << QDir( app ).absoluteFilePath( QStringLiteral( "share/qemu" ) )
+	      << QDir( app ).absoluteFilePath( QStringLiteral( "../share/qemu" ) );
+	if( ! qemu_binary_path.trimmed().isEmpty() )
+	{
+		const QString bin = QFileInfo( qemu_binary_path ).absolutePath();
+		roots << bin
+		      << QDir( bin ).absoluteFilePath( QStringLiteral( "share/qemu" ) )
+		      << QDir( bin ).absoluteFilePath( QStringLiteral( "../share/qemu" ) );
+	}
+	roots.removeDuplicates();
+	return roots;
+}
+
+static void Append_Bundled_UEFI_CODE( QStringList &candidates, const QString &qemu_binary_path, bool x86 )
+{
+	const QStringList roots = UEFI_Install_Roots( qemu_binary_path );
+	for( int i = 0; i < roots.size(); ++i )
+	{
+		const QString root = roots.at( i );
+		if( x86 )
+		{
+			candidates << root + QStringLiteral( "/edk2-x86_64-code.fd" )
+			           << root + QStringLiteral( "/OVMF_CODE_4M.fd" )
+			           << root + QStringLiteral( "/OVMF_CODE.fd" )
+			           << root + QStringLiteral( "/edk2-i386-code.fd" );
+		}
+		else
+		{
+			candidates << root + QStringLiteral( "/edk2-aarch64-code.fd" )
+			           << root + QStringLiteral( "/QEMU_EFI.fd" )
+			           << root + QStringLiteral( "/AAVMF_CODE.fd" );
+		}
+	}
+}
+
+static void Append_Bundled_UEFI_VARS( QStringList &candidates, const QString &qemu_binary_path, bool x86 )
+{
+	const QStringList roots = UEFI_Install_Roots( qemu_binary_path );
+	for( int i = 0; i < roots.size(); ++i )
+	{
+		const QString root = roots.at( i );
+		if( x86 )
+		{
+			candidates << root + QStringLiteral( "/edk2-i386-vars.fd" )
+			           << root + QStringLiteral( "/OVMF_VARS_4M.fd" )
+			           << root + QStringLiteral( "/OVMF_VARS.fd" );
+		}
+		else
+		{
+			candidates << root + QStringLiteral( "/edk2-arm-vars.fd" )
+			           << root + QStringLiteral( "/AAVMF_VARS.fd" )
+			           << root + QStringLiteral( "/QEMU_VARS.fd" );
+		}
+	}
+}
+
 static QString First_Existing_Path( const QStringList &candidates )
 {
 	for( int i = 0; i < candidates.count(); ++i )
@@ -2809,6 +2908,7 @@ QString Find_UEFI_Firmware_CODE( const QString &qemu_binary_path, const QString 
 	}
 	#endif
 
+	Append_Bundled_UEFI_CODE( candidates, qemu_binary_path, x86 );
 	return First_Existing_Path( candidates );
 }
 
@@ -2885,6 +2985,7 @@ QString Find_UEFI_Firmware_VARS_Template( const QString &qemu_binary_path, const
 	}
 	#endif
 
+	Append_Bundled_UEFI_VARS( candidates, qemu_binary_path, x86 );
 	return First_Existing_Path( candidates );
 }
 

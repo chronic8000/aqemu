@@ -162,6 +162,8 @@ QList<QString> Get_Templates_List();
 
 QString Get_FS_Compatible_VM_Name( const QString &name );
 QString Get_Complete_VM_File_Path( const QString &vm_name );
+/** A file next to this VM's .aqemu, or in the default VM folder when the VM has no path yet. */
+QString AQ_File_Beside_VM( const QString &vm_xml_path, const QString &leaf );
 
 QString Get_TR_Size_Suffix( VM::Device_Size suf );
 
@@ -169,6 +171,10 @@ QString Get_Last_Dir_Path( const QString &path );
 
 /** Trim and strip a single layer of surrounding "..." or '...' from a file path. */
 QString AQ_Normalize_File_Path( const QString &path );
+/** A Windows path on Linux, or a Unix absolute path on Windows. */
+bool AQ_Path_Is_Foreign_To_This_Host( const QString &path );
+/** The file is on this computer and can be opened. */
+bool AQ_Path_Usable_On_This_Host( const QString &path );
 
 /**
  * QEMU -drive file= key for a host path. Escapes commas and uses

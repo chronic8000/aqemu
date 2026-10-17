@@ -467,6 +467,15 @@ QMainWindow, QDialog {
 	background-color: palette(window);
 	color: palette(window-text);
 }
+/* QDialog color inherits onto QPushButton. On Windows dark mode the button
+   face stays light, so Back/Next/Cancel showed an icon and no text. */
+QPushButton {
+	color: palette(button-text);
+	background-color: palette(button);
+}
+QPushButton:disabled {
+	color: #8d8d8d;
+}
 QLabel {
 	color: palette(window-text);
 	background-color: transparent;

@@ -53,7 +53,7 @@ First_Start_Wizard::First_Start_Wizard( QWidget *parent )
 	if( has_bundled )
 	{
 		ui.RB_FS_QEMU_Built_In->setChecked( true );
-		ui.Edit_Add_Emulator_Path->setText( QDir::toNativeSeparators( AQ_Get_Bundled_QEMU_Dir() ) );
+		ui.Edit_Add_Emulator_Path->clear();
 	}
 	else if( has_system )
 	{
@@ -172,7 +172,7 @@ void First_Start_Wizard::On_FS_QEMU_Source_Toggled( bool )
 
 	if( ui.RB_FS_QEMU_Built_In->isChecked() && AQ_Has_Bundled_QEMU() )
 	{
-		ui.Edit_Add_Emulator_Path->setText( QDir::toNativeSeparators( AQ_Get_Bundled_QEMU_Dir() ) );
+		ui.Edit_Add_Emulator_Path->clear();
 	}
 	else if( ui.RB_FS_QEMU_System->isChecked() && AQ_Has_System_QEMU() )
 	{
@@ -476,7 +476,10 @@ void First_Start_Wizard::retranslateUi()
 		QString ver = System_Info::Get_Emulator_Version_Label( bDir );
 		if( ver.isEmpty() || ver == QLatin1String( "QEMU" ) )
 			ver = QStringLiteral( "QEMU 11.1.1" );
-		ui.Label_QEMU_Built_In_Path->setText( tr( "Location: %1 (%2)" ).arg( bDir ).arg( ver ) );
+		if( AQEMU_Path_Is_Install_Dir( bDir ) )
+			ui.Label_QEMU_Built_In_Path->setText( tr( "Using QEMU bundled with AQEMU (%1)" ).arg( ver ) );
+		else
+			ui.Label_QEMU_Built_In_Path->setText( tr( "Location: %1 (%2)" ).arg( QDir::toNativeSeparators( bDir ), ver ) );
 	}
 	else
 	{

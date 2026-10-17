@@ -142,7 +142,13 @@ Advanced_Settings_Window::Advanced_Settings_Window( QWidget *parent )
 		RB_QEMU_Built_In->setEnabled( has_bundled );
 		TB_QEMU_Use_Built_In->setEnabled( has_bundled );
 		if( has_bundled )
-			Label_QEMU_Built_In_Path->setText( tr( "Location: %1" ).arg( AQ_Get_Bundled_QEMU_Dir() ) );
+		{
+			const QString bDir = AQ_Get_Bundled_QEMU_Dir();
+			if( AQEMU_Path_Is_Install_Dir( bDir ) )
+				Label_QEMU_Built_In_Path->setText( tr( "Using QEMU bundled with AQEMU" ) );
+			else
+				Label_QEMU_Built_In_Path->setText( tr( "Location: %1" ).arg( QDir::toNativeSeparators( bDir ) ) );
+		}
 		else
 			Label_QEMU_Built_In_Path->setText( tr(
 				"No built-in QEMU found next to aqemu. Use a system/custom installation, "
@@ -169,12 +175,17 @@ Advanced_Settings_Window::Advanced_Settings_Window( QWidget *parent )
 			RB_QEMU_Custom->setChecked( true );
 
 		const Emulator &def = Get_Default_Emulator();
-		if( ! def.Get_Path().isEmpty() )
+		const bool saved_is_install = AQEMU_Path_Is_Install_Dir( def.Get_Path() );
+		if( saved_is_install && has_bundled )
+		{
+			RB_QEMU_Built_In->setChecked( true );
+			AQ_Set_QEMU_Source_Mode( QStringLiteral( "bundled" ) );
+			Edit_QEMU_Custom_Path->clear();
+		}
+		else if( ! def.Get_Path().isEmpty() && ! saved_is_install )
 			Edit_QEMU_Custom_Path->setText( QDir::toNativeSeparators( def.Get_Path() ) );
-		else if( has_bundled )
-			Edit_QEMU_Custom_Path->setText( QDir::toNativeSeparators( AQ_Get_Bundled_QEMU_Dir() ) );
-		else if( has_system )
-			Edit_QEMU_Custom_Path->setText( QDir::toNativeSeparators( AQ_Get_System_QEMU_Dir() ) );
+		else
+			Edit_QEMU_Custom_Path->clear();
 
 		connect( RB_QEMU_Built_In, SIGNAL(toggled(bool)), this, SLOT(On_QEMU_Source_Toggled(bool)) );
 		connect( RB_QEMU_System, SIGNAL(toggled(bool)), this, SLOT(On_QEMU_Source_Toggled(bool)) );
@@ -1462,8 +1473,11 @@ void Advanced_Settings_Window::On_QEMU_Use_Built_In_clicked()
 	Update_Emulators_Info();
 	ui.Edit_QEMU_IMG_Path->setText( Settings.value( "QEMU-IMG_Path", "" ).toString() );
 	Update_QEMU_Source_Banner();
+	const QString bundled_dir = AQ_Get_Bundled_QEMU_Dir();
 	QMessageBox::information( this, tr( "QEMU" ),
-		tr( "Using built-in portable QEMU:\n%1" ).arg( AQ_Get_Bundled_QEMU_Dir() ) );
+		AQEMU_Path_Is_Install_Dir( bundled_dir )
+			? tr( "Using QEMU bundled with AQEMU." )
+			: tr( "Using built-in portable QEMU:\n%1" ).arg( QDir::toNativeSeparators( bundled_dir ) ) );
 }
 
 void Advanced_Settings_Window::On_QEMU_Use_System_clicked()
@@ -1606,7 +1620,10 @@ void Advanced_Settings_Window::Update_Emulators_Info()
 		newItem = new QTableWidgetItem( verLabel );
 		ui.Emulators_Table->setItem( ui.Emulators_Table->rowCount()-1, 1, newItem );
 		
-		newItem = new QTableWidgetItem( Emulators[ix].Get_Path() );
+		const QString shown_path = AQEMU_Path_Is_Install_Dir( Emulators[ix].Get_Path() )
+			? tr( "QEMU bundled with AQEMU" )
+			: Emulators[ix].Get_Path();
+		newItem = new QTableWidgetItem( shown_path );
 		ui.Emulators_Table->setItem( ui.Emulators_Table->rowCount()-1, 2, newItem );
 		
 		newItem = new QTableWidgetItem( Emulators[ix].Get_Default() ? tr("Yes") : tr("No") );

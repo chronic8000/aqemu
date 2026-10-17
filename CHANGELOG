@@ -1,3 +1,23 @@
+2026-10-17 Chronic Engineering — library, firmware paths, and Windows UI
+
+	* A virtual machine stays in the folder where its .aqemu file was opened.
+	  File → Virtual Machine Scanner adds those files without copying them.
+	* New virtual machines take the first machine, disk, network, sound,
+	  display, and USB choice that the QEMU probe and the board both allow.
+	* A UEFI or NeXT ROM path saved on another computer is not passed to QEMU.
+	  NeXTSTEP shows a ROM field at the bottom of the VM tab.
+	* On Windows the accelerator list says WHPX. If this QEMU build has no
+	  WHPX, the entry stays in the list and is grey. The new-VM wizard uses
+	  the same name.
+	* Show all QEMU options no longer changes the display that was already
+	  chosen. The checkbox sits at the top of the devices page.
+	* The first-run QEMU page does not fill the custom path with a
+	  WindowsApps location. Preferences and the support bundle say
+	  “QEMU bundled with AQEMU” instead of the publisher path.
+	* Back, Next, and Cancel keep readable text in dark mode.
+	* GitHub Actions checkout does not persist the job token. The Windows
+	  workflow pins the MSYS2 setup action.
+
 2026-10-03 Chronic Engineering — languages, About, and physical drives
 
 	* French, German, and Ukrainian are listed in the first-start wizard and

@@ -44,6 +44,7 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v7
         with:
+          persist-credentials: false
           submodules: false
           fetch-depth: 1
 

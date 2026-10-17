@@ -153,6 +153,9 @@ class VM_Wizard_Window: public QDialog
 
 		void Build_Devices_Page();
 		void Refresh_Devices_Page();
+		void Refresh_Boot_Fields();
+		bool Boot_Fields_Ready() const;
+		void Apply_Boot_Fields_To_VM();
 		void Apply_Devices_Page_To_State();
 		Guest_Capabilities Current_Guest_Capabilities() const;
 
@@ -329,6 +332,11 @@ class VM_Wizard_Window: public QDialog
 
 		// Guest-aware devices page
 		QWidget *Devices_Page;
+		QWidget *Boot_Fields_Host;
+		QList<QLineEdit *> Boot_Field_Edits;
+		QStringList Boot_Field_Ids;
+		QList<bool> Boot_Field_Required;
+		QList<bool> Boot_Field_Is_File;
 		QLabel *Label_Devices_Summary;
 		QComboBox *CB_Dev_Disk;
 		QComboBox *CB_Dev_Sector_Size;

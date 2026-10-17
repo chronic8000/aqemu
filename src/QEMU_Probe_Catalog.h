@@ -1,6 +1,6 @@
 /****************************************************************************
 ** Full-architecture QEMU option catalogs from qemu_probe_full_v3/*.json
-** Used by the Main Window VM config panel (not the New VM wizard).
+** Used by the Main Window, the New VM wizard, and appliance import.
 ****************************************************************************/
 
 #ifndef QEMU_PROBE_CATALOG_H
@@ -36,7 +36,7 @@ struct Architecture_Hardware_Capabilities {
 		if( b == QLatin1String( "virtio-scsi" ) ) return has_virtio_disk || has_scsi;
 		if( b == QLatin1String( "scsi" ) ) return has_scsi;
 		if( b == QLatin1String( "none" ) ) return true;
-		return true;
+		return false;
 	}
 
 	bool Is_Disk_Bus_Supported( VM::Device_Interface iface ) const
@@ -67,7 +67,7 @@ struct Architecture_Hardware_Capabilities {
 		if( s == QLatin1String( "virtio" ) ) return supported_sound_cards.Audio_VirtIO;
 		if( s == QLatin1String( "hda_virtio" ) ) return supported_sound_cards.Audio_HDA || supported_sound_cards.Audio_VirtIO;
 		if( s == QLatin1String( "pcspk" ) ) return supported_sound_cards.Audio_PC_Speaker;
-		return true;
+		return false;
 	}
 
 	bool Is_NIC_Supported( const QString &nic_model ) const
@@ -130,6 +130,16 @@ class QEMU_Probe_Catalog
 
 		/** Host -audiodev drivers from the probe's raw.audio text. */
 		static QStringList Audio_Drivers( const QString &computer_type_or_binary );
+
+		/**
+		 * Tokens from a probe JSON array: accelerators, netdev, drive_formats,
+		 * display_backends, audio_backends. Header lines are split into words.
+		 */
+		static QStringList Section_Tokens( const QString &computer_type_or_binary,
+		                                   const QString &json_key );
+
+		/** USB host controllers named in the probe device list (xhci, uhci, ehci, ohci). */
+		static QStringList USB_Controllers( const QString &computer_type_or_binary );
 
 		/** Prefer candidates that exist in qemu_probe_full_v3 for this arch. */
 		static QString First_Available_CPU( const QString &computer_type_or_binary,
