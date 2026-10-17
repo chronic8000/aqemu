@@ -7885,10 +7885,20 @@ void Main_Window::Enforce_Accel_Honesty()
 			if( QStandardItem *whpx_item = model->item( i ) )
 			{
 				QString tip = tr( "Windows Hypervisor Platform. AQEMU saves this as the native accelerator." );
-				if( ! AQ_Host_WHPX_Usable() && AQ_Get_Host_CPU_Architecture() == QLatin1String( "aarch64" ) )
+				if( ! is_native )
 				{
-					tip = tr( "This Windows build has no ARM64 WHPX (Arm64Support). "
+					tip = tr( "WHPX runs a guest that matches this PC. This guest uses TCG." );
+				}
+				else if( ! AQ_Host_WHPX_Usable() && AQ_Get_Host_CPU_Architecture() == QLatin1String( "aarch64" ) )
+				{
+					tip = tr( "WHPX is not available on this PC. The hypervisor may be off, "
+					          "or this Windows build has no ARM64 support. "
 					          "Windows 11 24H2 build 26100.3915 or later is required. "
+					          "The guest uses TCG." );
+				}
+				else if( ! AQ_Host_WHPX_Usable() )
+				{
+					tip = tr( "WHPX is not available on this PC. Turn on the Windows Hypervisor Platform feature. "
 					          "The guest uses TCG." );
 				}
 				else if( ! allowed )

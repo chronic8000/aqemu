@@ -17,13 +17,23 @@ while ($true) {
                 }
                 $sig = ($paths -join "|")
                 if (-not $sig -or $sig -eq $last) { continue }
-                $last = $sig
-                $header = $enc.GetBytes("AQEMU1`nFROM-GUEST`n$($paths.Count)`n")
-                $fs.Write($header, 0, $header.Length)
+                $ready = @()
                 foreach ($p in $paths) {
-                    $data = [System.IO.File]::ReadAllBytes($p)
+                    try {
+                        $data = [System.IO.File]::ReadAllBytes($p)
+                    } catch {
+                        continue
+                    }
                     if ($data.Length -gt 64MB) { continue }
-                    $name = [System.IO.Path]::GetFileName($p)
+                    $ready += ,@($p, $data)
+                }
+                if ($ready.Count -eq 0) { continue }
+                $last = $sig
+                $header = $enc.GetBytes("AQEMU1`nFROM-GUEST`n$($ready.Count)`n")
+                $fs.Write($header, 0, $header.Length)
+                foreach ($item in $ready) {
+                    $name = [System.IO.Path]::GetFileName($item[0])
+                    $data = $item[1]
                     $meta = $enc.GetBytes("$name`n$($data.Length)`n")
                     $fs.Write($meta, 0, $meta.Length)
                     $fs.Write($data, 0, $data.Length)

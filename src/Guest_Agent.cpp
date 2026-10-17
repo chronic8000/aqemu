@@ -2,11 +2,10 @@
 
 #include <QFile>
 #include <QFileInfo>
-#include <QHostAddress>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonValue>
-#include <QTcpSocket>
+#include <QLocalSocket>
 
 static const int kChunk = 48 * 1024;
 static const int kMaxFile = 64 * 1024 * 1024;
@@ -148,13 +147,23 @@ QList<AQ_Guest_File> AQ_Guest_Frame_Parser::Take()
 }
 
 AQ_Guest_Agent::AQ_Guest_Agent()
-	: socket( new QTcpSocket() )
+	: socket( new QLocalSocket() )
 {
+}
+
+void AQ_Guest_Agent::Close_Handle( int handle )
+{
+	if( handle < 0 )
+		return;
+	QJsonObject close_args;
+	close_args.insert( QStringLiteral( "handle" ), handle );
+	QString ignored;
+	Exec( QStringLiteral( "guest-file-close" ), close_args, &ignored );
 }
 
 AQ_Guest_Agent::~AQ_Guest_Agent()
 {
-	socket->disconnectFromHost();
+	socket->disconnectFromServer();
 	delete socket;
 }
 
@@ -210,19 +219,31 @@ QJsonValue AQ_Guest_Agent::Exec( const QString &command, const QJsonObject &argu
 	return obj.value( QStringLiteral( "return" ) );
 }
 
-bool AQ_Guest_Agent::Open( quint16 port, QString *error )
+static QString AQ_Local_Socket_Name( const QString &qemu_path )
 {
-	if( port == 0 )
+#ifdef Q_OS_WIN
+	const QString prefix = QStringLiteral( "\\\\.\\pipe\\" );
+	if( qemu_path.startsWith( prefix, Qt::CaseInsensitive ) )
+		return qemu_path.mid( prefix.size() );
+#else
+	Q_UNUSED( qemu_path );
+#endif
+	return qemu_path;
+}
+
+bool AQ_Guest_Agent::Open( const QString &socket_path, QString *error )
+{
+	if( socket_path.isEmpty() )
 	{
 		if( error )
-			*error = QStringLiteral( "This machine has no guest agent port." );
+			*error = QStringLiteral( "This machine has no guest agent channel." );
 		return false;
 	}
-	socket->connectToHost( QHostAddress::LocalHost, port );
+	socket->connectToServer( AQ_Local_Socket_Name( socket_path ) );
 	if( ! socket->waitForConnected( 2000 ) )
 	{
 		if( error )
-			*error = QStringLiteral( "Could not connect to the guest agent port." );
+			*error = QStringLiteral( "Could not connect to the guest agent." );
 		return false;
 	}
 	const QJsonValue pong = Exec( QStringLiteral( "guest-ping" ), QJsonObject(), error );
@@ -263,15 +284,13 @@ bool AQ_Guest_Agent::Copy_To_Guest( const QString &host_path, const QString &gue
 		if( error && ! error->isEmpty() )
 		{
 			const QString write_error = *error;
-			QJsonObject close_args;
-			close_args.insert( QStringLiteral( "handle" ), handle );
-			QString ignored;
-			Exec( QStringLiteral( "guest-file-close" ), close_args, &ignored );
+			Close_Handle( handle );
 			*error = write_error;
 			return false;
 		}
 		if( wrote.toObject().value( QStringLiteral( "count" ) ).toInt() != chunk.size() )
 		{
+			Close_Handle( handle );
 			if( error )
 				*error = QStringLiteral( "The guest did not accept the whole file." );
 			return false;
@@ -301,6 +320,7 @@ bool AQ_Guest_Agent::Copy_From_Guest( const QString &guest_path, const QString &
 	QFile out( host_path );
 	if( ! out.open( QIODevice::WriteOnly | QIODevice::Truncate ) )
 	{
+		Close_Handle( handle );
 		if( error )
 			*error = QStringLiteral( "Cannot write %1" ).arg( host_path );
 		return false;
@@ -314,11 +334,17 @@ bool AQ_Guest_Agent::Copy_From_Guest( const QString &guest_path, const QString &
 		read_args.insert( QStringLiteral( "count" ), kChunk );
 		const QJsonValue got = Exec( QStringLiteral( "guest-file-read" ), read_args, error );
 		if( error && ! error->isEmpty() )
+		{
+			const QString read_error = *error;
+			Close_Handle( handle );
+			*error = read_error;
 			return false;
+		}
 		const QJsonObject obj = got.toObject();
 		const QByteArray chunk = QByteArray::fromBase64( obj.value( QStringLiteral( "buf-b64" ) ).toString().toLatin1() );
 		if( ! chunk.isEmpty() && out.write( chunk ) != chunk.size() )
 		{
+			Close_Handle( handle );
 			if( error )
 				*error = QStringLiteral( "Could not finish writing %1" ).arg( host_path );
 			return false;
@@ -326,6 +352,7 @@ bool AQ_Guest_Agent::Copy_From_Guest( const QString &guest_path, const QString &
 		total += chunk.size();
 		if( total > qint64( 512 ) * 1024 * 1024 )
 		{
+			Close_Handle( handle );
 			if( error )
 				*error = QStringLiteral( "That guest file is larger than 512 MB." );
 			return false;
@@ -338,15 +365,37 @@ bool AQ_Guest_Agent::Copy_From_Guest( const QString &guest_path, const QString &
 	return error == nullptr || error->isEmpty();
 }
 
-void AQ_Append_Guest_Channels( QStringList &args, int agent_port, int files_port )
+bool AQ_Machine_Supports_Guest_Channels( const QString &machine )
 {
-	if( agent_port <= 0 || files_port <= 0 || agent_port == files_port )
+	const QString m = machine.trimmed().toLower();
+	if( m.isEmpty() || m == QLatin1String( "none" ) || m.startsWith( QLatin1String( "none-" ) ) )
+		return false;
+	if( m.contains( QLatin1String( "next" ) ) || m.contains( QLatin1String( "isapc" ) )
+		|| m.contains( QLatin1String( "microvm" ) ) || m.contains( QLatin1String( "raspi" ) )
+		|| m.startsWith( QLatin1String( "s390" ) ) )
+		return false;
+	if( m == QLatin1String( "virt" ) || m.startsWith( QLatin1String( "virt-" ) )
+		|| m == QLatin1String( "pc" ) || m.startsWith( QLatin1String( "pc-" ) )
+		|| m == QLatin1String( "q35" ) || m.startsWith( QLatin1String( "q35" ) )
+		|| m.startsWith( QLatin1String( "pseries" ) )
+		|| m == QLatin1String( "mac99" ) || m.startsWith( QLatin1String( "g3beige" ) )
+		|| m == QLatin1String( "pegasos2" ) || m.startsWith( QLatin1String( "ppce500" ) )
+		|| m == QLatin1String( "mpc8544ds" ) || m == QLatin1String( "sam460ex" )
+		|| m == QLatin1String( "40p" ) || m == QLatin1String( "fuloong2e" )
+		|| m == QLatin1String( "fulong2e" ) )
+		return true;
+	return false;
+}
+
+void AQ_Append_Guest_Channels( QStringList &args, const QString &agent_path, const QString &files_path )
+{
+	if( agent_path.isEmpty() || files_path.isEmpty() || agent_path == files_path )
 		return;
 
 	args << QStringLiteral( "-chardev" )
-	     << QStringLiteral( "socket,id=aqga,host=127.0.0.1,port=%1,server=on,wait=off" ).arg( agent_port );
+	     << QStringLiteral( "socket,id=aqga,path=%1,server=on,wait=off" ).arg( agent_path );
 	args << QStringLiteral( "-chardev" )
-	     << QStringLiteral( "socket,id=aqfiles,host=127.0.0.1,port=%1,server=on,wait=off" ).arg( files_port );
+	     << QStringLiteral( "socket,id=aqfiles,path=%1,server=on,wait=off" ).arg( files_path );
 	args << QStringLiteral( "-device" ) << QStringLiteral( "virtio-serial-pci,id=aqemu_vserial" );
 	args << QStringLiteral( "-device" )
 	     << QStringLiteral( "virtserialport,bus=aqemu_vserial.0,nr=1,chardev=aqga,name=org.qemu.guest_agent.0" );

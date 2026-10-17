@@ -18,8 +18,8 @@ Copy the files in the host file manager, then click **Paste files**. You can als
 
 AQEMU writes a FAT disk and gives it to the running guest:
 
-- Small copies, up to about 1.4 MB, become a 1.44 MB floppy and are inserted as drive A. DOS and Windows 9x can open that drive.
-- Larger copies, up to 512 MB, become a FAT16 disk and are hot-plugged as a USB drive. In the guest, open the drive named **AQEMU**. Long file names are kept.
+- Small copies, up to about 1.4 MB, become a 1.44 MB floppy when the virtual machine has floppy drive A. DOS and Windows 9x can open that drive.
+- Every other copy, up to 512 MB, becomes a partitioned FAT16 disk and is hot-plugged as a USB drive. In the guest, open the drive named **AQEMU**. Long file names are kept. Windows needs the partition, so a machine with no floppy still receives a USB disk.
 
 This does not need Samba, 9p, virtiofs, or a program inside the guest. Paste again to send another batch. Each batch is a new floppy or USB disk.
 
@@ -34,7 +34,7 @@ On a Windows host, shared folders are not offered as 9p. The Samba helper on the
 
 **From guest** asks for the path inside the guest, then where to save it on the host.
 
-Both buttons talk to `qemu-guest-agent` over a virtio serial port named `org.qemu.guest_agent.0`. AQEMU opens that port on ordinary PC and `virt` machines. NeXT and Apple SoC machines do not get it. If the agent is not running, AQEMU says so instead of pretending the file arrived.
+Both buttons talk to `qemu-guest-agent` over a virtio serial port named `org.qemu.guest_agent.0`. AQEMU opens that port on PC, `q35`, and `virt` machines. The host side is a socket that only the AQEMU user can open, or a named pipe on Windows. It is not a TCP port. Raspberry Pi, s390x, NeXT, and Apple SoC machines do not get the port, because those boards have no PCI bus for it. If the agent is not running, AQEMU says so instead of pretending the file arrived.
 
 The agent can read and write files that its user can read and write. On many Linux guests that user is root. Type the path you mean.
 

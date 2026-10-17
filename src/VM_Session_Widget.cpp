@@ -24,6 +24,7 @@
 #include <QMenu>
 #include <QToolButton>
 #include <QThread>
+#include <QPointer>
 #include <QFontMetrics>
 #include <QLabel>
 #include <QDesktopServices>
@@ -135,6 +136,7 @@ VM_Session_Widget::VM_Session_Widget( QWidget *parent )
 	, Menu_USB( nullptr )
 	, USB_Enum_Busy( false )
 	, Paste_Serial( 0 )
+	, Guest_Copy_Busy( false )
 	, File_Channel( nullptr )
 	, Apple_SOS_Busy( false )
 	, Apple_SOS_Generation( 0 )
@@ -606,12 +608,44 @@ void VM_Session_Widget::dropEvent( QDropEvent *event )
 	event->acceptProposedAction();
 }
 
+namespace {
+
+class Guest_Copy_Thread : public QThread
+{
+	public:
+		QString socket_path;
+		QString host_path;
+		QString guest_path;
+		bool to_guest;
+		QString error;
+
+	protected:
+		void run() override
+		{
+			AQ_Guest_Agent agent;
+			if( ! agent.Open( socket_path, &error ) )
+				return;
+			if( to_guest )
+				agent.Copy_To_Guest( host_path, guest_path, &error );
+			else
+				agent.Copy_From_Guest( guest_path, host_path, &error );
+		}
+};
+
+}
+
 void VM_Session_Widget::On_Copy_To_Guest_Path()
 {
-	if( ! VM || VM->Get_Guest_Agent_Port() <= 0 )
+	if( ! VM || VM->Get_Guest_Agent_Socket().isEmpty() )
 	{
 		QMessageBox::information( this, tr( "Copy to guest" ),
-			tr( "Start the virtual machine, then try again. This machine type has no guest agent port." ) );
+			tr( "Start the virtual machine, then try again. This machine type has no guest agent channel." ) );
+		return;
+	}
+	if( Guest_Copy_Busy )
+	{
+		QMessageBox::information( this, tr( "Copy to guest" ),
+			tr( "A file copy is already running." ) );
 		return;
 	}
 	const QString host = QFileDialog::getOpenFileName( this, tr( "Copy to guest" ) );
@@ -624,24 +658,42 @@ void VM_Session_Widget::On_Copy_To_Guest_Path()
 		QLineEdit::Normal, QFileInfo( host ).fileName() );
 	if( guest.isEmpty() )
 		return;
-	QString error;
-	AQ_Guest_Agent agent;
-	if( ! agent.Open( static_cast<quint16>( VM->Get_Guest_Agent_Port() ), &error ) ||
-	    ! agent.Copy_To_Guest( host, guest, &error ) )
-	{
-		QMessageBox::warning( this, tr( "Copy to guest" ), error );
-		return;
-	}
-	QMessageBox::information( this, tr( "Copy to guest" ),
-		tr( "Copied to %1 in the guest." ).arg( guest ) );
+	Guest_Copy_Thread *job = new Guest_Copy_Thread();
+	job->socket_path = VM->Get_Guest_Agent_Socket();
+	job->host_path = host;
+	job->guest_path = guest;
+	job->to_guest = true;
+	Guest_Copy_Busy = true;
+	QPointer<VM_Session_Widget> self( this );
+	connect( job, &QThread::finished, qApp, [self, job]() {
+		const QString error = job->error;
+		const QString guest_path = job->guest_path;
+		if( self )
+			self->Guest_Copy_Busy = false;
+		job->deleteLater();
+		if( ! self )
+			return;
+		if( ! error.isEmpty() )
+			QMessageBox::warning( self, self->tr( "Copy to guest" ), error );
+		else
+			QMessageBox::information( self, self->tr( "Copy to guest" ),
+				self->tr( "Copied to %1 in the guest." ).arg( guest_path ) );
+	} );
+	job->start();
 }
 
 void VM_Session_Widget::On_Copy_From_Guest()
 {
-	if( ! VM || VM->Get_Guest_Agent_Port() <= 0 )
+	if( ! VM || VM->Get_Guest_Agent_Socket().isEmpty() )
 	{
 		QMessageBox::information( this, tr( "Copy from guest" ),
-			tr( "Start the virtual machine, then try again. This machine type has no guest agent port." ) );
+			tr( "Start the virtual machine, then try again. This machine type has no guest agent channel." ) );
+		return;
+	}
+	if( Guest_Copy_Busy )
+	{
+		QMessageBox::information( this, tr( "Copy from guest" ),
+			tr( "A file copy is already running." ) );
 		return;
 	}
 	const QString guest = QInputDialog::getText( this, tr( "Copy from guest" ),
@@ -654,16 +706,28 @@ void VM_Session_Widget::On_Copy_From_Guest()
 		QFileInfo( guest ).fileName() );
 	if( host.isEmpty() )
 		return;
-	QString error;
-	AQ_Guest_Agent agent;
-	if( ! agent.Open( static_cast<quint16>( VM->Get_Guest_Agent_Port() ), &error ) ||
-	    ! agent.Copy_From_Guest( guest, host, &error ) )
-	{
-		QMessageBox::warning( this, tr( "Copy from guest" ), error );
-		return;
-	}
-	QMessageBox::information( this, tr( "Copy from guest" ),
-		tr( "Saved %1" ).arg( host ) );
+	Guest_Copy_Thread *job = new Guest_Copy_Thread();
+	job->socket_path = VM->Get_Guest_Agent_Socket();
+	job->host_path = host;
+	job->guest_path = guest;
+	job->to_guest = false;
+	Guest_Copy_Busy = true;
+	QPointer<VM_Session_Widget> self( this );
+	connect( job, &QThread::finished, qApp, [self, job]() {
+		const QString error = job->error;
+		const QString host_path = job->host_path;
+		if( self )
+			self->Guest_Copy_Busy = false;
+		job->deleteLater();
+		if( ! self )
+			return;
+		if( ! error.isEmpty() )
+			QMessageBox::warning( self, self->tr( "Copy from guest" ), error );
+		else
+			QMessageBox::information( self, self->tr( "Copy from guest" ),
+				self->tr( "Saved %1" ).arg( host_path ) );
+	} );
+	job->start();
 }
 
 void VM_Session_Widget::On_Insert_Guest_Tools()
@@ -675,6 +739,7 @@ void VM_Session_Widget::On_Insert_Guest_Tools()
 			tr( "Could not create a temporary folder for the guest tools." ) );
 		return;
 	}
+	QFile::setPermissions( dir.path(), QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner );
 	const char *names[] = { "README.txt", "install-linux.sh", "aqemu-guest.py", "aqemu-guest.ps1" };
 	QStringList paths;
 	for( int i = 0; i < 4; ++i )
@@ -735,11 +800,13 @@ void VM_Session_Widget::Deliver_Files( const QStringList &paths )
 			tr( "Could not create a temporary folder for the copied files." ) );
 		return;
 	}
+	QFile::setPermissions( dir.path(), QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner );
 	++Paste_Serial;
 	const QString image = dir.filePath( QStringLiteral( "paste-%1.img" ).arg( Paste_Serial ) );
 	QString error;
 	bool floppy = false;
-	if( ! AQ_Write_Guest_Fat_Image( image, paths, &floppy, &error ) )
+	const bool allow_floppy = VM->Get_FD0().Get_Enabled();
+	if( ! AQ_Write_Guest_Fat_Image( image, paths, &floppy, &error, allow_floppy ) )
 	{
 		QMessageBox::warning( this, tr( "Paste files" ), error );
 		return;
@@ -867,8 +934,8 @@ void VM_Session_Widget::Attach_VM( Virtual_Machine *vm, QMP_Client *qmp,
 				QMessageBox::warning( this, tr( "Files from the guest" ), message );
 			} );
 	}
-	if( vm && vm->Get_Guest_Files_Port() > 0 )
-		File_Channel->Start( static_cast<quint16>( vm->Get_Guest_Files_Port() ) );
+	if( vm && ! vm->Get_Guest_Files_Socket().isEmpty() )
+		File_Channel->Start( vm->Get_Guest_Files_Socket() );
 	else if( File_Channel )
 		File_Channel->Stop();
 	Host = display_host;

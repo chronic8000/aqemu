@@ -36,14 +36,25 @@ def clipboard_files():
 
 
 def send(fp, paths):
-    fp.write(b"AQEMU1\nFROM-GUEST\n")
-    fp.write(("%d\n" % len(paths)).encode("utf-8"))
+    ready = []
     for path in paths:
-        name = os.path.basename(path).replace("\n", "_").replace("\r", "_")
-        with open(path, "rb") as src:
-            data = src.read()
+        try:
+            size = os.path.getsize(path)
+            if size > 64 * 1024 * 1024:
+                continue
+            with open(path, "rb") as src:
+                data = src.read()
+        except Exception:
+            continue
         if len(data) > 64 * 1024 * 1024:
             continue
+        name = os.path.basename(path).replace("\n", "_").replace("\r", "_")
+        ready.append((name, data))
+    if not ready:
+        return
+    fp.write(b"AQEMU1\nFROM-GUEST\n")
+    fp.write(("%d\n" % len(ready)).encode("utf-8"))
+    for name, data in ready:
         fp.write(name.encode("utf-8") + b"\n")
         fp.write(("%d\n" % len(data)).encode("utf-8"))
         fp.write(data)

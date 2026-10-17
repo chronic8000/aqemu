@@ -489,20 +489,6 @@ QStackedWidget, QStackedWidget > QWidget {
 	background-color: palette(window);
 	color: palette(window-text);
 }
-QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox {
-	color: palette(text);
-	background-color: palette(base);
-}
-QComboBox QAbstractItemView {
-	color: palette(text);
-	background-color: palette(base);
-	selection-color: palette(highlighted-text);
-	selection-background-color: palette(highlight);
-}
-QCheckBox, QRadioButton {
-	color: palette(window-text);
-	background-color: transparent;
-}
 QTextEdit, QPlainTextEdit, QTextBrowser {
 	background-color: palette(base);
 	color: palette(text);

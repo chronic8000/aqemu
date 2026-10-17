@@ -12,7 +12,7 @@
 
 class QJsonObject;
 class QJsonValue;
-class QTcpSocket;
+class QLocalSocket;
 
 struct AQ_Guest_File
 {
@@ -50,17 +50,21 @@ class AQ_Guest_Agent
 		AQ_Guest_Agent();
 		~AQ_Guest_Agent();
 
-		bool Open( quint16 port, QString *error );
+		bool Open( const QString &socket_path, QString *error );
 		bool Copy_To_Guest( const QString &host_path, const QString &guest_path, QString *error );
 		bool Copy_From_Guest( const QString &guest_path, const QString &host_path, QString *error );
 
 	private:
 		QJsonValue Exec( const QString &command, const QJsonObject &arguments, QString *error );
-		QTcpSocket *socket;
+		void Close_Handle( int handle );
+		QLocalSocket *socket;
 		QByteArray incoming;
 };
 
-/** Add the virtio ports. Ports must already be chosen and different. */
-void AQ_Append_Guest_Channels( QStringList &args, int agent_port, int files_port );
+/** True for machines that can accept virtio-serial-pci. */
+bool AQ_Machine_Supports_Guest_Channels( const QString &machine );
+
+/** Add the virtio ports. Paths are a private socket or a Windows named pipe. */
+void AQ_Append_Guest_Channels( QStringList &args, const QString &agent_path, const QString &files_path );
 
 #endif

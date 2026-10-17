@@ -1,10 +1,17 @@
 #include "Guest_File_Channel.h"
 
-#include <QHostAddress>
+static QString AQ_Local_Socket_Name( const QString &qemu_path )
+{
+#ifdef Q_OS_WIN
+	const QString prefix = QStringLiteral( "\\\\.\\pipe\\" );
+	if( qemu_path.startsWith( prefix, Qt::CaseInsensitive ) )
+		return qemu_path.mid( prefix.size() );
+#endif
+	return qemu_path;
+}
 
 Guest_File_Channel::Guest_File_Channel( QObject *parent )
 	: QObject( parent )
-	, port( 0 )
 {
 	retry.setInterval( 2000 );
 	connect( &retry, SIGNAL(timeout()), this, SLOT(Try_Connect()) );
@@ -12,11 +19,11 @@ Guest_File_Channel::Guest_File_Channel( QObject *parent )
 	connect( &socket, SIGNAL(disconnected()), this, SLOT(On_Disconnected()) );
 }
 
-void Guest_File_Channel::Start( quint16 listen_port )
+void Guest_File_Channel::Start( const QString &socket_path )
 {
 	Stop();
-	port = listen_port;
-	if( port == 0 )
+	path = socket_path;
+	if( path.isEmpty() )
 		return;
 	retry.start();
 	Try_Connect();
@@ -25,18 +32,18 @@ void Guest_File_Channel::Start( quint16 listen_port )
 void Guest_File_Channel::Stop()
 {
 	retry.stop();
-	port = 0;
+	path.clear();
 	socket.abort();
 	parser = AQ_Guest_Frame_Parser();
 }
 
 void Guest_File_Channel::Try_Connect()
 {
-	if( port == 0 )
+	if( path.isEmpty() )
 		return;
-	if( socket.state() == QAbstractSocket::ConnectedState || socket.state() == QAbstractSocket::ConnectingState )
+	if( socket.state() == QLocalSocket::ConnectedState || socket.state() == QLocalSocket::ConnectingState )
 		return;
-	socket.connectToHost( QHostAddress::LocalHost, port );
+	socket.connectToServer( AQ_Local_Socket_Name( path ) );
 }
 
 void Guest_File_Channel::On_Ready_Read()
@@ -55,6 +62,6 @@ void Guest_File_Channel::On_Ready_Read()
 
 void Guest_File_Channel::On_Disconnected()
 {
-	if( port != 0 )
+	if( ! path.isEmpty() )
 		retry.start();
 }

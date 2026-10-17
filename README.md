@@ -430,7 +430,7 @@ AQEMU now provides physical USB hardware redirection directly from the session t
 
 Text copied on the host still reaches the guest through the embedded display. Files use the session toolbar:
 
-- **Paste files**, or drop files on the guest window. No guest installer. Small copies appear as floppy A. Larger copies, up to 512 MB, appear as an AQEMU USB drive. This works on Linux and Windows hosts, on x86_64 and ARM, including DOS and Windows 9x.
+- **Paste files**, or drop files on the guest window. No guest installer. Small copies appear as floppy A when that drive exists. Other copies, up to 512 MB, appear as an AQEMU USB drive. This works on Linux and Windows hosts, on x86_64 and ARM, including DOS and Windows 9x.
 - **To guest** and **From guest** copy one file by path once the guest is running `qemu-guest-agent`.
 - **Guest tools** inserts the installer disk. Linux runs `sh install-linux.sh`. Windows installs qemu-guest-agent, then runs `aqemu-guest.ps1`. After that, files copied in the guest file manager can be saved on the host.
 

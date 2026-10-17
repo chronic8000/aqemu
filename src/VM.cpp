@@ -147,8 +147,8 @@ Virtual_Machine::Virtual_Machine( const Virtual_Machine &vm )
 	Embedded_VNC_Port = 0;
 	QMP_Port = 0;
 	Serial_Console_Port = 0;
-	Guest_Agent_Port = 0;
-	Guest_Files_Port = 0;
+	Guest_Agent_Socket.clear();
+	Guest_Files_Socket.clear();
 	QMP = nullptr;
 	QMP_Connect_Attempts = 0;
 	
@@ -719,8 +719,8 @@ void Virtual_Machine::Shared_Constructor()
 	Embedded_VNC_Port = 0;
 	QMP_Port = 0;
 	Serial_Console_Port = 0;
-	Guest_Agent_Port = 0;
-	Guest_Files_Port = 0;
+	Guest_Agent_Socket.clear();
+	Guest_Files_Socket.clear();
 	QMP = nullptr;
 	QMP_Connect_Attempts = 0;
 	
@@ -9621,6 +9621,13 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			else
 				Args << "-append" << Kernel_ComLine;
 		}
+		if( ! Initrd_Path.isEmpty() )
+		{
+			if( Build_QEMU_Args_for_Script_Mode )
+				Args << "-initrd" << "\"" + Initrd_Path + "\"";
+			else
+				Args << "-initrd" << Initrd_Path;
+		}
 	}
 
 	if( AQ_Is_Apple_SoC_VM( this ) )
@@ -10419,16 +10426,34 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	const bool guest_channels =
 		! Build_QEMU_Args_for_Tab_Info &&
 		! AQ_Is_Apple_SoC_VM( this ) &&
-		! Machine_Type.contains( QLatin1String( "next" ), Qt::CaseInsensitive ) &&
-		! Machine_Type.contains( QLatin1String( "isapc" ), Qt::CaseInsensitive ) &&
-		! Machine_Type.contains( QLatin1String( "microvm" ), Qt::CaseInsensitive );
+		AQ_Machine_Supports_Guest_Channels( Machine_Type );
 	if( guest_channels )
 	{
-		if( Guest_Agent_Port <= 0 )
-			Guest_Agent_Port = Find_Free_TCP_Port( 0 );
-		if( Guest_Files_Port <= 0 || Guest_Files_Port == Guest_Agent_Port )
-			Guest_Files_Port = Find_Free_TCP_Port( 0 );
-		AQ_Append_Guest_Channels( Args, Guest_Agent_Port, Guest_Files_Port );
+		const QString dir = QDir( AQEMU_User_Data_Dir() ).filePath( QStringLiteral( "channels" ) );
+		QDir().mkpath( dir );
+		QFile::setPermissions( dir, QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner );
+		QString tag = UID;
+		for( int i = 0; i < tag.size(); ++i )
+		{
+			const QChar c = tag.at( i );
+			if( ! c.isLetterOrNumber() )
+				tag[ i ] = QLatin1Char( '_' );
+		}
+		if( tag.isEmpty() )
+			tag = QStringLiteral( "vm" );
+#ifdef Q_OS_WIN
+		Guest_Agent_Socket = QStringLiteral( "\\\\.\\pipe\\aqemu-ga-%1" ).arg( tag );
+		Guest_Files_Socket = QStringLiteral( "\\\\.\\pipe\\aqemu-files-%1" ).arg( tag );
+#else
+		Guest_Agent_Socket = QDir( dir ).filePath( QStringLiteral( "ga-%1.sock" ).arg( tag ) );
+		Guest_Files_Socket = QDir( dir ).filePath( QStringLiteral( "files-%1.sock" ).arg( tag ) );
+		if( State != VM::VMS_Running && State != VM::VMS_Pause )
+		{
+			QFile::remove( Guest_Agent_Socket );
+			QFile::remove( Guest_Files_Socket );
+		}
+#endif
+		AQ_Append_Guest_Channels( Args, Guest_Agent_Socket, Guest_Files_Socket );
 	}
 
 	AQ_Lab_Append_Args( Args, this );
@@ -11013,8 +11038,8 @@ bool Virtual_Machine::Start_impl()
 	// Drop ports from a previous run so we allocate fresh free ones
 	QMP_Port = 0;
 	Serial_Console_Port = 0;
-	Guest_Agent_Port = 0;
-	Guest_Files_Port = 0;
+	Guest_Agent_Socket.clear();
+	Guest_Files_Socket.clear();
 	QMP_Connect_Attempts = 0;
 	Embedded_Spice_Port = 0;
 	Embedded_VNC_Port = 0;
@@ -15119,8 +15144,8 @@ void Virtual_Machine::QEMU_Finished( int exitCode, QProcess::ExitStatus exitStat
 	}
 	QMP_Port = 0;
 	Serial_Console_Port = 0;
-	Guest_Agent_Port = 0;
-	Guest_Files_Port = 0;
+	Guest_Agent_Socket.clear();
+	Guest_Files_Socket.clear();
 	Embedded_Spice_Port = 0;
 	Embedded_VNC_Port = 0;
 }

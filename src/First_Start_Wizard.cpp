@@ -39,6 +39,22 @@ First_Start_Wizard::First_Start_Wizard( QWidget *parent )
 	: QDialog( parent )
 {
 	ui.setupUi( this );
+	setObjectName( QStringLiteral( "FirstStartWizard" ) );
+	// Colour only this wizard's fields. A global rule for QLineEdit and
+	// QComboBox makes Qt 5 drop the native border, arrow, and indicator.
+	setStyleSheet( QStringLiteral(
+		"QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox {"
+		" color: palette(text);"
+		" background-color: palette(base);"
+		" border: 1px solid palette(mid);"
+		"}"
+		"QComboBox::drop-down { width: 18px; border-left: 1px solid palette(mid); }"
+		"QComboBox QAbstractItemView {"
+		" color: palette(text);"
+		" background-color: palette(base);"
+		" selection-color: palette(highlighted-text);"
+		" selection-background-color: palette(highlight);"
+		"}" ) );
 	AQ_Cap_Content_Width( this, 720 );
 	ui.All_Pages->setAutoFillBackground( true );
 	for( int i = 0; i < ui.All_Pages->count(); ++i )

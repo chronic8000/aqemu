@@ -159,7 +159,7 @@ QStringList AQ_File_Paths_From_Mime( const QMimeData *mime )
 }
 
 bool AQ_Write_Guest_Fat_Image( const QString &image_path, const QStringList &source_files,
-                               bool *floppy_out, QString *error )
+                               bool *floppy_out, QString *error, bool allow_floppy )
 {
 	if( floppy_out )
 		*floppy_out = false;
@@ -167,8 +167,26 @@ bool AQ_Write_Guest_Fat_Image( const QString &image_path, const QStringList &sou
 	if( files.isEmpty() )
 		return false;
 
-	QList<Fat_Item> items;
 	qint64 total = 0;
+	for( int i = 0; i < files.size(); ++i )
+	{
+		const qint64 sz = QFileInfo( files.at( i ) ).size();
+		if( sz < 0 )
+		{
+			if( error )
+				*error = QStringLiteral( "Cannot read %1" ).arg( files.at( i ) );
+			return false;
+		}
+		total += sz;
+		if( total > qint64( 512 ) * 1024 * 1024 )
+		{
+			if( error )
+				*error = QStringLiteral( "Those files are larger than 512 MB. Copy them in smaller groups." );
+			return false;
+		}
+	}
+
+	QList<Fat_Item> items;
 	for( int i = 0; i < files.size(); ++i )
 	{
 		QFile f( files.at( i ) );
@@ -183,17 +201,10 @@ bool AQ_Write_Guest_Fat_Image( const QString &image_path, const QStringList &sou
 		item.short_name = Make_Short_Name( item.display, i + 1 );
 		item.data = f.readAll();
 		f.close();
-		total += item.data.size();
 		items << item;
 	}
-	if( total > qint64( 512 ) * 1024 * 1024 )
-	{
-		if( error )
-			*error = QStringLiteral( "Those files are larger than 512 MB. Copy them in smaller groups." );
-		return false;
-	}
 
-	const bool floppy = total <= 1400 * 1024 && items.size() <= 40;
+	const bool floppy = allow_floppy && total <= 1400 * 1024 && items.size() <= 40;
 	if( floppy_out )
 		*floppy_out = floppy;
 
@@ -214,8 +225,11 @@ bool AQ_Write_Guest_Fat_Image( const QString &image_path, const QStringList &sou
 		{
 			sectors_per_cluster = options[ oi ];
 			const qint64 cluster_bytes = qint64( bytes_per_sector ) * sectors_per_cluster;
-			const qint64 clusters = ( total + cluster_bytes - 1 ) / cluster_bytes + items.size() + 4;
-			if( clusters >= 65500 )
+			qint64 clusters = ( total + cluster_bytes - 1 ) / cluster_bytes + items.size() + 4;
+			// Windows chooses FAT12 when the data cluster count is below 4085.
+			if( clusters < 4085 )
+				clusters = 4085;
+			if( clusters >= 65525 )
 				continue;
 			const int fat_bytes = int( ( clusters + 2 ) * 2 );
 			sectors_per_fat = ( fat_bytes + bytes_per_sector - 1 ) / bytes_per_sector;
@@ -260,6 +274,8 @@ bool AQ_Write_Guest_Fat_Image( const QString &image_path, const QStringList &sou
 	Put16( image, 22, quint16( sectors_per_fat ) );
 	Put16( image, 24, floppy ? 18 : 32 );
 	Put16( image, 26, floppy ? 2 : 64 );
+	if( ! floppy )
+		Put32( image, 28, 2048 );
 	Put32( image, 32, total_sectors >= 65536 ? quint32( total_sectors ) : 0 );
 	image[ 36 ] = char( 0x80 );
 	image[ 38 ] = char( 0x29 );
@@ -378,6 +394,21 @@ bool AQ_Write_Guest_Fat_Image( const QString &image_path, const QStringList &sou
 	for( int i = 0; i < root.size(); ++i )
 		image[ root_off + i ] = root.at( i );
 
+	if( ! floppy )
+	{
+		const int part = 2048;
+		QByteArray disk( ( part * bytes_per_sector ) + image.size(), '\0' );
+		for( int i = 0; i < image.size(); ++i )
+			disk[ part * bytes_per_sector + i ] = image.at( i );
+		disk[ 446 ] = char( 0x80 );
+		disk[ 450 ] = char( 0x0e );
+		Put32( disk, 454, quint32( part ) );
+		Put32( disk, 458, quint32( image.size() / bytes_per_sector ) );
+		disk[ 510 ] = char( 0x55 );
+		disk[ 511 ] = char( 0xaa );
+		image = disk;
+	}
+
 	QFile out( image_path );
 	if( ! out.open( QIODevice::WriteOnly | QIODevice::Truncate ) )
 	{
@@ -391,6 +422,8 @@ bool AQ_Write_Guest_Fat_Image( const QString &image_path, const QStringList &sou
 			*error = QStringLiteral( "Could not finish writing %1" ).arg( image_path );
 		return false;
 	}
+	out.close();
+	QFile::setPermissions( image_path, QFileDevice::ReadOwner | QFileDevice::WriteOwner );
 	return true;
 }
 
@@ -417,20 +450,34 @@ QByteArray AQ_Read_Guest_Fat_File( const QString &image_path, const QString &fil
 	const QByteArray image = f.readAll();
 	if( image.size() < 512 )
 		return QByteArray();
-	const int bps = Get16( image, 11 );
-	const int spc = quint8( image.at( 13 ) );
-	const int reserved = Get16( image, 14 );
-	const int fats = quint8( image.at( 16 ) );
-	const int root_entries = Get16( image, 17 );
-	int total = Get16( image, 19 );
+	int base = 0;
+	if( quint8( image.at( 0 ) ) != 0xeb && quint8( image.at( 0 ) ) != 0xe9 )
+	{
+		if( quint8( image.at( 510 ) ) != 0x55 || quint8( image.at( 511 ) ) != 0xaa )
+			return QByteArray();
+		const int lba = int( Get32( image, 454 ) );
+		if( lba <= 0 )
+			return QByteArray();
+		base = lba * 512;
+		if( base + 512 > image.size() )
+			return QByteArray();
+	}
+	const int bps = Get16( image, base + 11 );
+	const int spc = quint8( image.at( base + 13 ) );
+	const int reserved = Get16( image, base + 14 );
+	const int fats = quint8( image.at( base + 16 ) );
+	const int root_entries = Get16( image, base + 17 );
+	int total = Get16( image, base + 19 );
 	if( total == 0 )
-		total = int( Get32( image, 32 ) );
-	const int spf = Get16( image, 22 );
-	const bool floppy = QString::fromLatin1( image.mid( 54, 5 ) ).startsWith( QLatin1String( "FAT12" ) );
+		total = int( Get32( image, base + 32 ) );
+	const int spf = Get16( image, base + 22 );
+	if( bps < 512 || spc < 1 || fats < 1 || root_entries < 1 || spf < 1 )
+		return QByteArray();
+	const bool floppy = QString::fromLatin1( image.mid( base + 54, 5 ) ).startsWith( QLatin1String( "FAT12" ) );
 	const int root_sectors = ( root_entries * 32 + bps - 1 ) / bps;
-	const int root_off = ( reserved + fats * spf ) * bps;
+	const int root_off = base + ( reserved + fats * spf ) * bps;
 	const int data_start = reserved + fats * spf + root_sectors;
-	const QByteArray fat = image.mid( reserved * bps, spf * bps );
+	const QByteArray fat = image.mid( base + reserved * bps, spf * bps );
 
 	QString lfn;
 	for( int i = 0; i < root_entries; ++i )
@@ -473,7 +520,7 @@ QByteArray AQ_Read_Guest_Fat_File( const QString &image_path, const QString &fil
 		while( cluster >= 2 && cluster < end_of_chain && data.size() < size )
 		{
 			const int sector = data_start + ( cluster - 2 ) * spc;
-			const int offb = sector * bps;
+			const int offb = base + sector * bps;
 			const int take = qMin( spc * bps, size - data.size() );
 			if( offb < 0 || offb + take > image.size() )
 				break;

@@ -4,8 +4,7 @@
 #include "Guest_Agent.h"
 
 #include <QObject>
-#include <QPointer>
-#include <QTcpSocket>
+#include <QLocalSocket>
 #include <QTimer>
 
 class Guest_File_Channel : public QObject
@@ -13,7 +12,7 @@ class Guest_File_Channel : public QObject
 	Q_OBJECT
 	public:
 		explicit Guest_File_Channel( QObject *parent = 0 );
-		void Start( quint16 port );
+		void Start( const QString &socket_path );
 		void Stop();
 
 	signals:
@@ -26,8 +25,8 @@ class Guest_File_Channel : public QObject
 		void On_Disconnected();
 
 	private:
-		quint16 port;
-		QTcpSocket socket;
+		QString path;
+		QLocalSocket socket;
 		QTimer retry;
 		AQ_Guest_Frame_Parser parser;
 };

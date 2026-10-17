@@ -212,6 +212,7 @@ class VM_Session_Widget : public QWidget
 		QHash<int, Pending_USB_Op> Pending_USB_Ops;
 		QSet<int> Paste_Qmp_Ids;
 		int Paste_Serial;
+		bool Guest_Copy_Busy;
 		class Guest_File_Channel *File_Channel;
 		bool USB_Enum_Busy;
 		bool Apple_SOS_Busy;

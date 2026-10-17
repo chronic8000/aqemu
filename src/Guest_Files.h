@@ -15,11 +15,12 @@ QStringList AQ_File_Paths_From_Mime( const QMimeData *mime );
 
 /**
  * Write a FAT disk the guest can open.
- * Small sets become a 1.44 MB floppy. Larger sets become a FAT16 hard-disk image.
- * Returns false and sets error when the files are missing or too large (512 MB).
+ * Small sets become a 1.44 MB floppy when allow_floppy is true. Otherwise, and for
+ * larger sets, the image is a partitioned FAT16 disk. The file size is checked
+ * before the bytes are read. Returns false when the files are missing or over 512 MB.
  */
 bool AQ_Write_Guest_Fat_Image( const QString &image_path, const QStringList &source_files,
-                               bool *floppy_out, QString *error );
+                               bool *floppy_out, QString *error, bool allow_floppy = true );
 
 /** Read one file back out of an image written by AQ_Write_Guest_Fat_Image. For tests. */
 QByteArray AQ_Read_Guest_Fat_File( const QString &image_path, const QString &file_name );

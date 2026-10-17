@@ -37,6 +37,8 @@
 #include <QAbstractItemView>
 #include <QFile>
 #include <QFileDialog>
+#include <QTextStream>
+#include <QDir>
 #include <QToolButton>
 #include <QFileInfo>
 #include <QTreeWidget>
@@ -54,6 +56,7 @@
 #include <QProcess>
 #include <QStandardPaths>
 #include <QSet>
+#include <QHash>
 #include <QCoreApplication>
 #include <QApplication>
 #include <QMessageBox>
@@ -3576,6 +3579,12 @@ void VM_Wizard_Window::Refresh_Boot_Fields()
 			w->deleteLater();
 		delete it;
 	}
+	QHash<QString, QString> kept;
+	for( int i = 0; i < Boot_Field_Edits.size() && i < Boot_Field_Ids.size(); ++i )
+	{
+		if( Boot_Field_Edits.at( i ) )
+			kept.insert( Boot_Field_Ids.at( i ), Boot_Field_Edits.at( i )->text() );
+	}
 	Boot_Field_Edits.clear();
 	Boot_Field_Ids.clear();
 	Boot_Field_Required.clear();
@@ -3604,6 +3613,7 @@ void VM_Wizard_Window::Refresh_Boot_Fields()
 			caption += QLatin1String( " *" );
 		row_lay->addWidget( new QLabel( caption, row ) );
 		QLineEdit *edit = new QLineEdit( row );
+		edit->setText( kept.value( field.id ) );
 		if( ! field.is_file )
 			edit->setPlaceholderText( tr( "Optional text" ) );
 		row_lay->addWidget( edit, 1 );
@@ -3612,8 +3622,12 @@ void VM_Wizard_Window::Refresh_Boot_Fields()
 			QToolButton *browse = new QToolButton( row );
 			browse->setText( QStringLiteral( "..." ) );
 			row_lay->addWidget( browse );
-			connect( browse, &QToolButton::clicked, this, [this, edit]() {
-				const QString path = QFileDialog::getOpenFileName( this, tr( "Select file" ) );
+			const bool directory = field.id == QLatin1String( "firmware" )
+				&& Selected_OS_Name == QLatin1String( "Darwin research shell" );
+			connect( browse, &QToolButton::clicked, this, [this, edit, directory]() {
+				const QString path = directory
+					? QFileDialog::getExistingDirectory( this, tr( "Select firmware directory" ) )
+					: QFileDialog::getOpenFileName( this, tr( "Select file" ) );
 				if( ! path.isEmpty() )
 					edit->setText( path );
 			} );
@@ -3651,6 +3665,8 @@ void VM_Wizard_Window::Apply_Boot_Fields_To_VM()
 		if( value.isEmpty() )
 			continue;
 		const QString id = Boot_Field_Ids.at( i );
+		const bool xbox = Selected_OS_Name == QLatin1String( "Original Xbox" );
+		const bool darwin = Selected_OS_Name == QLatin1String( "Darwin research shell" );
 		if( id == QLatin1String( "kernel" ) )
 			New_VM->Set_App_Kernel_Path( value );
 		else if( id == QLatin1String( "initrd" ) )
@@ -3658,9 +3674,42 @@ void VM_Wizard_Window::Apply_Boot_Fields_To_VM()
 		else if( id == QLatin1String( "append" ) )
 			New_VM->Set_Kernel_ComLine( value );
 		else if( id == QLatin1String( "bios" ) )
-			New_VM->Set_BIOS_File( value );
-		else if( id == QLatin1String( "firmware" ) && New_VM->Get_BIOS_File().trimmed().isEmpty() )
-			New_VM->Set_BIOS_File( value );
+		{
+			if( xbox )
+				AQ_Lab_Set( New_VM, QStringLiteral( "xemu_bios" ), value );
+			else
+				New_VM->Set_BIOS_File( value );
+		}
+		else if( id == QLatin1String( "firmware" ) )
+		{
+			if( xbox )
+				AQ_Lab_Set( New_VM, QStringLiteral( "xemu_mcpx" ), value );
+			else if( darwin )
+				AQ_Lab_Set( New_VM, QStringLiteral( "darwin_dir" ), value );
+			else if( New_VM->Get_BIOS_File().trimmed().isEmpty() )
+				New_VM->Set_BIOS_File( value );
+		}
+	}
+	if( Selected_OS_Name == QLatin1String( "Original Xbox" ) )
+	{
+		const QString mcpx = AQ_Lab_Get( New_VM, QStringLiteral( "xemu_mcpx" ) );
+		const QString bios = AQ_Lab_Get( New_VM, QStringLiteral( "xemu_bios" ) );
+		if( ! mcpx.isEmpty() || ! bios.isEmpty() )
+		{
+			const QString toml = QDir( AQEMU_User_Data_Dir() ).filePath(
+				New_VM->Get_Machine_Name() + QStringLiteral( "-xemu.toml" ) );
+			QFile file( toml );
+			if( file.open( QIODevice::WriteOnly | QIODevice::Truncate ) )
+			{
+				QTextStream ts( &file );
+				ts << "[sys.files]\n";
+				if( ! mcpx.isEmpty() )
+					ts << "bootrom_path = '" << mcpx << "'\n";
+				if( ! bios.isEmpty() )
+					ts << "flashrom_path = '" << bios << "'\n";
+			}
+			AQ_Lab_Set( New_VM, QStringLiteral( "xemu_toml" ), toml );
+		}
 	}
 }
 

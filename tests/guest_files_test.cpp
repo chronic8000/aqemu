@@ -52,5 +52,42 @@ int main()
 	if( back2.size() != 2 * 1024 * 1024 || back2.at( 0 ) != 'Z' || back2.at( back2.size() - 1 ) != 'Z' )
 		return fail( "fat16 round trip" );
 
+	QFile just( dir.filePath( QStringLiteral( "just.bin" ) ) );
+	if( ! just.open( QIODevice::WriteOnly ) )
+		return fail( "just" );
+	just.write( QByteArray( 1500 * 1024, 'Q' ) );
+	just.close();
+	const QString img3 = dir.filePath( QStringLiteral( "paste3.img" ) );
+	bool floppy3 = true;
+	if( ! AQ_Write_Guest_Fat_Image( img3, QStringList() << just.fileName(), &floppy3, &error ) )
+		return fail( error.toUtf8().constData() );
+	if( floppy3 )
+		return fail( "just over floppy limit should be a hard-disk image" );
+	QFile disk( img3 );
+	if( ! disk.open( QIODevice::ReadOnly ) )
+		return fail( "open disk" );
+	const QByteArray head = disk.read( 512 );
+	disk.close();
+	if( head.size() < 512 || quint8( head.at( 510 ) ) != 0x55 || quint8( head.at( 511 ) ) != 0xaa )
+		return fail( "missing mbr" );
+	if( quint8( head.at( 0 ) ) == 0xeb )
+		return fail( "usb image is a superfloppy" );
+	const int lba = int( quint8( head.at( 454 ) ) | ( quint8( head.at( 455 ) ) << 8 )
+		| ( quint8( head.at( 456 ) ) << 16 ) | ( quint8( head.at( 457 ) ) << 24 ) );
+	if( lba != 2048 )
+		return fail( "partition start" );
+	const QByteArray back3 = AQ_Read_Guest_Fat_File( img3, QStringLiteral( "just.bin" ) );
+	if( back3.size() != 1500 * 1024 || back3.at( 0 ) != 'Q' )
+		return fail( "partition round trip" );
+
+	const QString img4 = dir.filePath( QStringLiteral( "paste4.img" ) );
+	bool floppy4 = true;
+	if( ! AQ_Write_Guest_Fat_Image( img4, QStringList() << src, &floppy4, &error, false ) )
+		return fail( error.toUtf8().constData() );
+	if( floppy4 )
+		return fail( "forced hard disk" );
+	if( AQ_Read_Guest_Fat_File( img4, QStringLiteral( "My Document.txt" ) ) != body )
+		return fail( "small file on usb" );
+
 	return 0;
 }

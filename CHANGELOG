@@ -15,21 +15,35 @@
 	  WindowsApps location. Preferences and the support bundle say
 	  “QEMU bundled with AQEMU” instead of the publisher path.
 	* Back, Next, and Cancel keep readable text in dark mode.
-	* The first-start wizard pages, fields, and choices use the same
-	  window and text colours, so dark mode is not white text on a
-	  white page.
+	* The first-start wizard pages use the window colour. Its fields keep
+	  a border and the text colour, so dark mode is not white on white.
+	  Check boxes and the rest of the application stay native controls.
+	* A kernel entered in the new-VM wizard is started with its initrd.
+	  Paths already typed stay put when the devices page refreshes.
+	  Original Xbox MCPX and flash BIOS are saved for xemu. A Darwin
+	  firmware directory is saved as the Darwin firmware path.
+	* Paste files uses floppy A only when that drive exists. Otherwise
+	  the files go out as a partitioned FAT16 USB disk. The image is
+	  readable only by the user who pasted it, and a copy larger than
+	  512 MB is refused before it is read into memory.
+	* The guest agent listens on a private socket, or a named pipe on
+	  Windows, and only on machines that have PCI. File copies run off
+	  the session window. A guest file that is too large is left out of
+	  the batch instead of stalling the transfer.
 	* GitHub Actions checkout does not persist the job token. The Windows
 	  workflow pins the MSYS2 setup action.
 	* Paste files on the running-VM toolbar, or drop files on the guest
-	  window. Small copies appear as floppy A. Larger copies appear as an
-	  AQEMU USB drive. The same path is used on Linux and Windows.
+	  window. Small copies appear as floppy A when that drive exists.
+	  Other copies appear as an AQEMU USB drive. The same path is used
+	  on Linux and Windows.
 	* An ARM guest on Windows ARM uses accel=whpx:tcg and -cpu host when
 	  Windows reports Arm64Support and qemu-system-aarch64 lists whpx.
 	  Otherwise the guest stays on TCG. x86 guests on a Snapdragon host
 	  stay on TCG.
 	* The Windows QEMU build enables WHPX on x64 and on ARM64. QEMU 11
 	  already has the ARM WHPX backend. Inferno stays on TCG.
-	* Ordinary virtual machines open a guest-agent port and a file port.
+	* Ordinary PCI virtual machines open a guest-agent channel and a file
+	  channel.
 	  To guest and From guest copy one file by path once the guest is
 	  running qemu-guest-agent. Guest tools inserts the installer disk.
 	  The helper inside the guest sends files copied there back to AQEMU.
