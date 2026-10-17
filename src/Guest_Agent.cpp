@@ -1,7 +1,9 @@
 #include "Guest_Agent.h"
 
+#include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QTemporaryFile>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonValue>
@@ -337,14 +339,16 @@ bool AQ_Guest_Agent::Copy_From_Guest( const QString &guest_path, const QString &
 			*error = QStringLiteral( "The guest agent did not open %1" ).arg( guest_path );
 		return false;
 	}
-	QFile out( host_path );
-	if( ! out.open( QIODevice::WriteOnly | QIODevice::Truncate ) )
+	QTemporaryFile part( QFileInfo( host_path ).dir().filePath( QStringLiteral( ".aqemu-part-XXXXXX" ) ) );
+	part.setAutoRemove( false );
+	if( ! part.open() )
 	{
 		Close_Handle( handle );
 		if( error )
 			*error = QStringLiteral( "Cannot write %1" ).arg( host_path );
 		return false;
 	}
+	const QString part_path = part.fileName();
 	bool eof = false;
 	qint64 total = 0;
 	while( ! eof )
@@ -356,14 +360,18 @@ bool AQ_Guest_Agent::Copy_From_Guest( const QString &guest_path, const QString &
 		if( error && ! error->isEmpty() )
 		{
 			const QString read_error = *error;
+			part.close();
+			QFile::remove( part_path );
 			Close_Handle( handle );
 			*error = read_error;
 			return false;
 		}
 		const QJsonObject obj = got.toObject();
 		const QByteArray chunk = QByteArray::fromBase64( obj.value( QStringLiteral( "buf-b64" ) ).toString().toLatin1() );
-		if( ! chunk.isEmpty() && out.write( chunk ) != chunk.size() )
+		if( ! chunk.isEmpty() && part.write( chunk ) != chunk.size() )
 		{
+			part.close();
+			QFile::remove( part_path );
 			Close_Handle( handle );
 			if( error )
 				*error = QStringLiteral( "Could not finish writing %1" ).arg( host_path );
@@ -372,6 +380,8 @@ bool AQ_Guest_Agent::Copy_From_Guest( const QString &guest_path, const QString &
 		total += chunk.size();
 		if( total > qint64( 512 ) * 1024 * 1024 )
 		{
+			part.close();
+			QFile::remove( part_path );
 			Close_Handle( handle );
 			if( error )
 				*error = QStringLiteral( "That guest file is larger than 512 MB." );
@@ -379,10 +389,30 @@ bool AQ_Guest_Agent::Copy_From_Guest( const QString &guest_path, const QString &
 		}
 		eof = obj.value( QStringLiteral( "eof" ) ).toBool() || chunk.isEmpty();
 	}
+	part.close();
 	QJsonObject close_args;
 	close_args.insert( QStringLiteral( "handle" ), handle );
 	Exec( QStringLiteral( "guest-file-close" ), close_args, error );
-	return error == nullptr || error->isEmpty();
+	if( error && ! error->isEmpty() )
+	{
+		QFile::remove( part_path );
+		return false;
+	}
+	if( QFileInfo::exists( host_path ) && ! QFile::remove( host_path ) )
+	{
+		QFile::remove( part_path );
+		if( error )
+			*error = QStringLiteral( "Cannot write %1" ).arg( host_path );
+		return false;
+	}
+	if( ! QFile::rename( part_path, host_path ) )
+	{
+		QFile::remove( part_path );
+		if( error )
+			*error = QStringLiteral( "Could not finish writing %1" ).arg( host_path );
+		return false;
+	}
+	return true;
 }
 
 bool AQ_Machine_Supports_Guest_Channels( const QString &machine )

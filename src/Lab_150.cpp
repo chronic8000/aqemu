@@ -168,13 +168,20 @@ void AQ_Lab_Set( Virtual_Machine *vm, const QString &key, const QString &value )
 	vm->Set_Lab_Options( AQ_Lab_Blob( opt ) );
 }
 
-static QString Toml_Single( const QString &path )
+static QString Toml_Basic( const QString &path )
 {
-	QString safe = path;
-	safe.replace( QLatin1Char( '\'' ), QLatin1String( "''" ) );
-	safe.replace( QLatin1Char( '\n' ), QString() );
-	safe.replace( QLatin1Char( '\r' ), QString() );
-	return QLatin1Char( '\'' ) + safe + QLatin1Char( '\'' );
+	QString safe;
+	safe.reserve( path.size() );
+	for( int i = 0; i < path.size(); ++i )
+	{
+		const QChar c = path.at( i );
+		if( c.unicode() < 0x20 )
+			continue;
+		if( c == QLatin1Char( '\\' ) || c == QLatin1Char( '"' ) )
+			safe += QLatin1Char( '\\' );
+		safe += c;
+	}
+	return QLatin1Char( '"' ) + safe + QLatin1Char( '"' );
 }
 
 QString AQ_Lab_Write_Xemu_Config( Virtual_Machine *vm, const QString &mcpx, const QString &bios,
@@ -199,15 +206,15 @@ QString AQ_Lab_Write_Xemu_Config( Virtual_Machine *vm, const QString &mcpx, cons
 	QTextStream ts( &file );
 	ts << "[sys.files]\n";
 	if( ! mcpx.trimmed().isEmpty() )
-		ts << "bootrom_path = " << Toml_Single( mcpx.trimmed() ) << "\n";
+		ts << "bootrom_path = " << Toml_Basic( mcpx.trimmed() ) << "\n";
 	if( ! bios.trimmed().isEmpty() )
-		ts << "flashrom_path = " << Toml_Single( bios.trimmed() ) << "\n";
+		ts << "flashrom_path = " << Toml_Basic( bios.trimmed() ) << "\n";
 	if( ! hdd.trimmed().isEmpty() )
-		ts << "hdd_path = " << Toml_Single( hdd.trimmed() ) << "\n";
+		ts << "hdd_path = " << Toml_Basic( hdd.trimmed() ) << "\n";
 	if( ! dvd.trimmed().isEmpty() )
-		ts << "dvd_path = " << Toml_Single( dvd.trimmed() ) << "\n";
+		ts << "dvd_path = " << Toml_Basic( dvd.trimmed() ) << "\n";
 	if( ! eeprom.trimmed().isEmpty() )
-		ts << "eeprom_path = " << Toml_Single( eeprom.trimmed() ) << "\n";
+		ts << "eeprom_path = " << Toml_Basic( eeprom.trimmed() ) << "\n";
 	ts.flush();
 	const bool wrote = ts.status() == QTextStream::Ok && file.flush();
 	file.close();
