@@ -32,9 +32,11 @@ jobs:
             msystem: UCRT64
             build_dir: build_win
             qemu_script: win_x86_64
-            cmake_flags: ""
+            cmake_flags: "-DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++"
             packages: >-
               mingw-w64-ucrt-x86_64-toolchain
+              mingw-w64-ucrt-x86_64-clang
+              mingw-w64-ucrt-x86_64-lld
               mingw-w64-ucrt-x86_64-cmake
               mingw-w64-ucrt-x86_64-ninja
               mingw-w64-ucrt-x86_64-pkgconf
@@ -152,6 +154,9 @@ jobs:
             mv "${exe}.pdb" "${symdir}/aqemu.pdb"
           elif [ -f "${{ matrix.build_dir }}/aqemu.pdb" ]; then
             mv "${{ matrix.build_dir }}/aqemu.pdb" "${symdir}/aqemu.pdb"
+          else
+            echo "aqemu.pdb was not produced. WinDbg needs the Clang CodeView PDB."
+            exit 1
           fi
           objcopy --only-keep-debug "${exe}" "${symdir}/aqemu.debug"
           strip --strip-debug "${exe}"

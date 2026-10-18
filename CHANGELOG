@@ -3,7 +3,8 @@
 	* A crash writes a local report and the next launch can open that folder.
 	  Windows keeps a minidump. Linux keeps a backtrace. Nothing is uploaded.
 	  The Linux report is marked before the backtrace. A second crash
-	  signal ends the process.
+	  signal ends the process. The x64 Windows build writes a PDB, so
+	  WinDbg can read an Intel or AMD crash dump.
 	* The new-VM guest list starts collapsed.
 	* The README no longer links to a website that is not published.
 	* Windows VirtIO drivers are linked from the README and the Windows 11 wizard.
