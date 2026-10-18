@@ -11,7 +11,8 @@
 	  backslash stays a valid path.
 	* Leaving a guest session stops a file copy that is still running, and
 	  the result is not shown for the next virtual machine. A copy from
-	  the guest replaces the saved file only after the whole file arrives.
+	  the guest replaces the saved file only after the whole file arrives,
+	  and a failed replace leaves the previous file in place.
 	* Pasted files and guest tools are written in the user's AQEMU folder.
 	  A shared temp directory that someone else created is not used.
 	* The SAN 512n choice uses 512-byte logical and physical sectors.
