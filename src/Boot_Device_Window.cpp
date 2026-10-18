@@ -28,6 +28,9 @@ Boot_Device_Window::Boot_Device_Window( QWidget *parent )
 	: QDialog( parent )
 {
 	ui.setupUi( this );
+#ifndef Q_OS_WIN
+	ui.Label_Boot_Windows->hide();
+#endif
 }
 
 QList<VM::Boot_Order> Boot_Device_Window::data() const
@@ -148,6 +151,20 @@ bool Boot_Device_Window::useBootLogo() const
 void Boot_Device_Window::setUseBootLogo( bool use )
 {
 	ui.CH_Boot_Logo->setChecked( use );
+}
+
+int Boot_Device_Window::bootMenuSeconds() const
+{
+	return ui.SB_Boot_Wait->value();
+}
+
+void Boot_Device_Window::setBootMenuSeconds( int seconds )
+{
+	if( seconds < 0 )
+		seconds = 0;
+	if( seconds > 60 )
+		seconds = 60;
+	ui.SB_Boot_Wait->setValue( seconds );
 }
 
 void Boot_Device_Window::on_TB_Up_clicked()

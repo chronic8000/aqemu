@@ -187,6 +187,7 @@ Virtual_Machine::Virtual_Machine( const Virtual_Machine &vm )
 	this->Boot_Order_List = vm.Get_Boot_Order_List();
 	this->Show_Boot_Menu = vm.Get_Show_Boot_Menu();
 	this->Show_Boot_Logo = vm.Get_Show_Boot_Logo();
+	this->Boot_Menu_Seconds = vm.Get_Boot_Menu_Seconds();
     this->Video_Card = vm.Get_Video_Card();
 	this->Display_Resolution = vm.Get_Display_Resolution();
 	this->Mouse_Type = vm.Get_Mouse_Type();
@@ -533,6 +534,7 @@ void Virtual_Machine::Shared_Constructor()
 	
 	Show_Boot_Menu = true;
 	Show_Boot_Logo = true;
+	Boot_Menu_Seconds = 0;
 	
     Video_Card = "";
 	Display_Resolution = "native";
@@ -747,6 +749,7 @@ bool Virtual_Machine::operator==( const Virtual_Machine &vm ) const
 		this->Keyboard_Layout == vm.Get_Keyboard_Layout() &&
 		this->Show_Boot_Menu == vm.Get_Show_Boot_Menu() &&
 		this->Show_Boot_Logo == vm.Get_Show_Boot_Logo() &&
+		this->Boot_Menu_Seconds == vm.Get_Boot_Menu_Seconds() &&
         this->Video_Card == vm.Get_Video_Card() &&
 		this->Display_Resolution == vm.Get_Display_Resolution() &&
 		this->Mouse_Type == vm.Get_Mouse_Type() &&
@@ -1046,6 +1049,7 @@ Virtual_Machine &Virtual_Machine::operator=( const Virtual_Machine &vm )
 	Boot_Order_List = vm.Get_Boot_Order_List();
 	Show_Boot_Menu = vm.Get_Show_Boot_Menu();
 	Show_Boot_Logo = vm.Get_Show_Boot_Logo();
+	Boot_Menu_Seconds = vm.Get_Boot_Menu_Seconds();
 	Video_Card = vm.Get_Video_Card();
 	Display_Resolution = vm.Get_Display_Resolution();
 	Mouse_Type = vm.Get_Mouse_Type();
@@ -1514,6 +1518,11 @@ bool Virtual_Machine::Create_VM_File( const QString &file_name, bool template_mo
 	Dom_Element = New_Dom_Document.createElement( "Show_Boot_Logo" );
 	VM_Element.appendChild( Dom_Element );
 	Dom_Text = New_Dom_Document.createTextNode( Show_Boot_Logo ? "true" : "false" );
+	Dom_Element.appendChild( Dom_Text );
+
+	Dom_Element = New_Dom_Document.createElement( "Boot_Menu_Seconds" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( QString::number( Boot_Menu_Seconds ) );
 	Dom_Element.appendChild( Dom_Text );
 	
 	// Video_Card
@@ -4703,6 +4712,15 @@ bool Virtual_Machine::Load_VM( const QString &file_name )
 				const QString logo_text = Child_Element.firstChildElement( "Show_Boot_Logo" ).text().trimmed();
 				Show_Boot_Logo = logo_text.isEmpty() || logo_text == QLatin1String( "true" );
 			}
+			{
+				bool ok = false;
+				int seconds = Child_Element.firstChildElement( "Boot_Menu_Seconds" ).text().toInt( &ok );
+				if( ! ok || seconds < 0 )
+					seconds = 0;
+				if( seconds > 60 )
+					seconds = 60;
+				Boot_Menu_Seconds = seconds;
+			}
 			
 			// Video Card
 			Video_Card = Child_Element.firstChildElement("Video_Card").text();
@@ -6045,6 +6063,7 @@ VM_Native_Storage_Device Virtual_Machine::Load_VM_Native_Storage_Device( const Q
 	
 	// Discard
 	tmp_device.Set_Discard( Second_Element.firstChildElement("Discard").text() == "true" );
+	tmp_device.Set_SSD( Second_Element.firstChildElement("SSD").text() == "true" );
 
 	// Use Block Size
 	tmp_device.Use_Block_Size( Second_Element.firstChildElement("Use_Block_Size").text() == "true" );
@@ -6398,6 +6417,11 @@ void Virtual_Machine::Save_VM_Native_Storage_Device( QDomDocument &New_Dom_Docum
 
 	Sec_Element.appendChild( Dom_Text );
 
+	Sec_Element = New_Dom_Document.createElement( "SSD" );
+	Dom_Element.appendChild( Sec_Element );
+	Dom_Text = New_Dom_Document.createTextNode( device.Get_SSD() ? "true" : "false" );
+	Sec_Element.appendChild( Dom_Text );
+
 	// Use Block Size
 	Sec_Element = New_Dom_Document.createElement( "Use_Block_Size" );
 	Dom_Element.appendChild( Sec_Element );
@@ -6703,14 +6727,26 @@ static QString Build_X86_Boot_Arg( const Virtual_Machine &vm, bool show_menu )
 	// The picture is only drawn when menu=on. splash-time lets the guest continue.
 	const bool menu = show_menu || splash;
 	QString arg = QString( "order=%1,menu=%2" ).arg( letters, menu ? QStringLiteral( "on" ) : QStringLiteral( "off" ) );
-	if( ! splash )
-		return arg;
-
-	QString path = AQ_Ensure_Boot_Splash_File();
-	if( path.isEmpty() )
-		return arg;
-	path.replace( QLatin1String( "," ), QLatin1String( ",," ) );
-	arg += QStringLiteral( ",splash=" ) + path + QStringLiteral( ",splash-time=3000" );
+	int wait_ms = 0;
+	if( menu && vm.Get_Boot_Menu_Seconds() > 0 )
+		wait_ms = vm.Get_Boot_Menu_Seconds() * 1000;
+	else if( splash )
+		wait_ms = 3000;
+	if( splash )
+	{
+		QString path = AQ_Ensure_Boot_Splash_File();
+		if( ! path.isEmpty() )
+		{
+			path.replace( QLatin1String( "," ), QLatin1String( ",," ) );
+			arg += QStringLiteral( ",splash=" ) + path;
+		}
+	}
+	if( wait_ms > 0 )
+	{
+		if( wait_ms > 65535 )
+			wait_ms = 65535;
+		arg += QStringLiteral( ",splash-time=%1" ).arg( wait_ms );
+	}
 	return arg;
 }
 
@@ -10621,11 +10657,17 @@ QStringList Virtual_Machine::Build_Native_Device_Args( VM_Native_Storage_Device 
 		switch( device.Get_Interface() )
 		{
 			case VM::DI_IDE:
-				opt << "if=ide";
+				if( device.Get_SSD() )
+					opt << "if=none" << ( "id=" + vsname );
+				else
+					opt << "if=ide";
 				break;
 			
 			case VM::DI_SCSI:
-				opt << "if=scsi";
+				if( device.Get_SSD() )
+					opt << "if=none" << ( "id=" + vsname );
+				else
+					opt << "if=scsi";
 				break;
 				
 			case VM::DI_SD:
@@ -10842,8 +10884,10 @@ QStringList Virtual_Machine::Build_Native_Device_Args( VM_Native_Storage_Device 
 		(device.Get_Media() == VM::DM_CD_ROM ? "scsi-cd" : "scsi-hd");
 	    const int boot_idx = Bootindex_For( *this,
 		device.Get_Media() == VM::DM_CD_ROM ? VM::Boot_From_CDROM : VM::Boot_From_HDD );
+	    const QString ssd_opt = ( device.Get_SSD() && devtype == QLatin1String( "scsi-hd" ) )
+		? QStringLiteral( ",rotation_rate=1" ) : QString();
 	    args << "-device" << With_Bootindex(
-		devtype + ",bus=aq-vscsi.0,drive=" + vsname + (devtype == "scsi-hd" ? (block_size_dev_opts + QStringLiteral( ",serial=" ) + serial_token) : QString()), boot_idx );
+		devtype + ",bus=aq-vscsi.0,drive=" + vsname + (devtype == "scsi-hd" ? (block_size_dev_opts + QStringLiteral( ",serial=" ) + serial_token + ssd_opt) : QString()), boot_idx );
 	}
 	else if( device.Get_Interface() == VM::DI_NVMe &&
 			 ( ! device.Use_Media() || device.Get_Media() == VM::DM_Disk ) )
@@ -10866,9 +10910,11 @@ QStringList Virtual_Machine::Build_Native_Device_Args( VM_Native_Storage_Device 
 								: QStringLiteral( "ide-hd" );
 		const int boot_idx = Bootindex_For( *this,
 			device.Get_Media() == VM::DM_CD_ROM ? VM::Boot_From_CDROM : VM::Boot_From_HDD );
+		const QString ssd_opt = ( device.Get_SSD() && devtype == QLatin1String( "ide-hd" ) )
+			? QStringLiteral( ",rotation_rate=1" ) : QString();
 		args << "-device" << With_Bootindex(
 			QStringLiteral( "%1,bus=aqemu_ahci.%2,drive=%3" )
-				.arg( devtype ).arg( unit ).arg( vsname ) + (devtype == "ide-hd" ? (block_size_dev_opts + QStringLiteral( ",serial=" ) + serial_token) : QString()),
+				.arg( devtype ).arg( unit ).arg( vsname ) + (devtype == "ide-hd" ? (block_size_dev_opts + QStringLiteral( ",serial=" ) + serial_token + ssd_opt) : QString()),
 			boot_idx );
 	}
 	else if( device.Get_Interface() == VM::DI_Virtio && (virt_arch_blk || device.Use_Block_Size() || Machine_Name.contains( "TrueNAS", Qt::CaseInsensitive ) || Machine_Name.contains( "FreeNAS", Qt::CaseInsensitive )) &&
@@ -10936,6 +10982,13 @@ QStringList Virtual_Machine::Build_Native_Device_Args( VM_Native_Storage_Device 
 		}
 	}
 	args << "-drive" << driveStr;
+	if( device.Get_SSD() && ( ! device.Use_Media() || device.Get_Media() != VM::DM_CD_ROM ) )
+	{
+		if( device.Get_Interface() == VM::DI_IDE )
+			args << "-device" << QStringLiteral( "ide-hd,drive=%1,rotation_rate=1" ).arg( vsname );
+		else if( device.Get_Interface() == VM::DI_SCSI )
+			args << "-device" << QStringLiteral( "scsi-hd,drive=%1,rotation_rate=1" ).arg( vsname );
+	}
 	return args;
 }
 
@@ -11099,6 +11152,38 @@ bool Virtual_Machine::Start_impl()
 					    "Select an AMD GPU in the Intel macOS settings." ) );
 				return false;
 			}
+		}
+	}
+
+	if( UEFI && ! AQ_Is_Apple_SoC_VM( this ) )
+	{
+		QString qemu_bin = Get_Current_Emulator_Binary_Path( Computer_Type );
+		QString arch;
+		if( Computer_Type.contains( QLatin1String( "aarch64" ), Qt::CaseInsensitive ) )
+			arch = QStringLiteral( "aarch64" );
+		else if( Computer_Type.contains( QLatin1String( "x86_64" ), Qt::CaseInsensitive ) )
+			arch = QStringLiteral( "x86_64" );
+		if( UEFI_CODE_File.isEmpty() || ! QFile::exists( UEFI_CODE_File ) )
+		{
+			const QString found = Find_UEFI_Firmware_CODE( qemu_bin, arch );
+			if( ! found.isEmpty() )
+				UEFI_CODE_File = found;
+		}
+		if( ! UEFI_VARS_File.isEmpty() && ! QFile::exists( UEFI_VARS_File ) )
+		{
+			const QString tmpl = AQ_UEFI_VARS_Template_For_Code( UEFI_CODE_File, qemu_bin, arch );
+			if( ! tmpl.isEmpty() )
+			{
+				QDir().mkpath( QFileInfo( UEFI_VARS_File ).absolutePath() );
+				QFile::copy( tmpl, UEFI_VARS_File );
+			}
+		}
+		QString fw_err;
+		if( ! AQ_UEFI_Pair_Ready( UEFI_CODE_File, UEFI_VARS_File, &fw_err ) )
+		{
+			AQGraphic_Error( "bool Virtual_Machine::Start()", tr( "UEFI firmware" ), fw_err, false );
+			Start_Snapshot_Tag = "";
+			return false;
 		}
 	}
 
@@ -13103,6 +13188,20 @@ bool Virtual_Machine::Get_Show_Boot_Logo() const
 void Virtual_Machine::Set_Show_Boot_Logo( bool use )
 {
 	Show_Boot_Logo = use;
+}
+
+int Virtual_Machine::Get_Boot_Menu_Seconds() const
+{
+	return Boot_Menu_Seconds;
+}
+
+void Virtual_Machine::Set_Boot_Menu_Seconds( int seconds )
+{
+	if( seconds < 0 )
+		seconds = 0;
+	if( seconds > 60 )
+		seconds = 60;
+	Boot_Menu_Seconds = seconds;
 }
 
 bool Virtual_Machine::Use_Fullscreen_Mode() const

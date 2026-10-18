@@ -26,6 +26,9 @@
 #include <QFileInfo>
 #include <QDir>
 #include <QMessageBox>
+#if defined( Q_OS_WIN ) && defined( AQEMU_STORE_BUILD )
+#include "Store_Trial.h"
+#endif
 #include <QInputDialog>
 #include <QTextFrame>
 #include <QTextTableCell>
@@ -483,6 +486,30 @@ Main_Window::Main_Window( QWidget *parent )
 		QAction *actWsl = new QAction( tr( "&WSL dashboard…" ), this );
 		connect( actWsl, &QAction::triggered, this, [this]() { AQ_Lab_WSL( this ); } );
 		ui.menuHelp->addAction( actWsl );
+#if defined( Q_OS_WIN ) && defined( AQEMU_STORE_BUILD )
+		QAction *actBuy = new QAction( tr( "&Buy AQEMU" ), this );
+		connect( actBuy, &QAction::triggered, this, []() { AQ_Store_Buy(); } );
+		ui.menuHelp->addAction( actBuy );
+		const QString trial = AQ_Store_Status_Text();
+		if( ! trial.isEmpty() && statusBar() )
+			statusBar()->showMessage( trial );
+		if( AQ_Store_Licence_Inactive() )
+		{
+			QMessageBox box( this );
+			box.setIcon( QMessageBox::Information );
+			box.setWindowTitle( tr( "AQEMU trial" ) );
+			box.setText( tr( "Your 7-day trial has ended." ) );
+			box.setInformativeText( tr( "Your virtual machines stay on this computer. You can still open this window and copy them." ) );
+			QPushButton *buy = box.addButton( tr( "Buy AQEMU" ), QMessageBox::AcceptRole );
+			box.addButton( tr( "Continue" ), QMessageBox::RejectRole );
+			QPushButton *quit = box.addButton( tr( "Quit" ), QMessageBox::DestructiveRole );
+			box.exec();
+			if( box.clickedButton() == buy )
+				AQ_Store_Buy();
+			else if( box.clickedButton() == quit )
+				qApp->quit();
+		}
+#endif
 
 		QAction *actConvert = new QAction( tr( "&Convert disk…" ), this );
 		connect( actConvert, &QAction::triggered, this, [this]() { AQ_Lab_Convert( this, Get_Current_VM() ); } );
@@ -2293,6 +2320,7 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
 	tmp_vm->Set_Boot_Order_List( Boot_Order_List );
 	tmp_vm->Set_Show_Boot_Menu( Show_Boot_Menu );
 	tmp_vm->Set_Show_Boot_Logo( Show_Boot_Logo );
+	tmp_vm->Set_Boot_Menu_Seconds( Boot_Menu_Seconds );
 
 	// Audio
 	VM::Sound_Cards snd_card;
@@ -3356,6 +3384,7 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 	Set_Boot_Order( Boot_Order_List );
 	Show_Boot_Menu = tmp_vm->Get_Show_Boot_Menu();
 	Show_Boot_Logo = tmp_vm->Get_Show_Boot_Logo();
+	Boot_Menu_Seconds = tmp_vm->Get_Boot_Menu_Seconds();
 
 	// Audio Cards
 	if( tmp_vm->Get_Audio_Cards().Audio_sb16 ) ui.CH_sb16->setChecked( true );
@@ -8304,12 +8333,14 @@ void Main_Window::on_TB_Show_Boot_Settings_Window_clicked()
 	boot_win.setData( Boot_Order_List );
 	boot_win.setUseBootMenu( Show_Boot_Menu );
 	boot_win.setUseBootLogo( Show_Boot_Logo );
+	boot_win.setBootMenuSeconds( Boot_Menu_Seconds );
 
 	if( boot_win.exec() == QDialog::Accepted )
 	{
 		Boot_Order_List = VM::Expand_Boot_Order_List( boot_win.data() );
 		Show_Boot_Menu = boot_win.useBootMenu();
 		Show_Boot_Logo = boot_win.useBootLogo();
+		Boot_Menu_Seconds = boot_win.bootMenuSeconds();
 
 		// Apply data to UI and persist (Set_Boot_Order alone may not emit
 		// currentIndexChanged when the combo index stays the same).

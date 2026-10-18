@@ -110,6 +110,30 @@
     </widget>
    </item>
    <item row="4" column="0">
+    <layout class="QHBoxLayout" name="bootWaitLayout">
+     <item>
+      <widget class="QLabel" name="Label_Boot_Wait">
+       <property name="text">
+        <string>Boot menu wait (seconds)</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QSpinBox" name="SB_Boot_Wait">
+       <property name="minimum">
+        <number>0</number>
+       </property>
+       <property name="maximum">
+        <number>60</number>
+       </property>
+       <property name="toolTip">
+        <string>How long the firmware boot menu stays open. 0 uses the normal short pause. The bundled Windows QEMU cannot take a -boot argument, so this wait is saved and not sent on Windows.</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item row="5" column="0">
     <widget class="QCheckBox" name="CH_Boot_Logo">
      <property name="text">
       <string>Show boot logo</string>
@@ -122,7 +146,17 @@
      </property>
     </widget>
    </item>
-   <item row="5" column="0">
+   <item row="6" column="0">
+    <widget class="QLabel" name="Label_Boot_Windows">
+     <property name="wordWrap">
+      <bool>true</bool>
+     </property>
+     <property name="text">
+      <string>On Windows this wait is saved with the virtual machine. The bundled QEMU crashes if AQEMU passes -boot, so the menu wait is not sent there.</string>
+     </property>
+    </widget>
+   </item>
+   <item row="7" column="0">
     <layout class="QHBoxLayout" name="horizontalLayout">
      <item>
       <widget class="Dialog_Button_Box" name="buttonBox">
@@ -150,6 +184,7 @@
   <tabstop>TB_Up</tabstop>
   <tabstop>TB_Down</tabstop>
   <tabstop>CH_Boot_Menu</tabstop>
+  <tabstop>SB_Boot_Wait</tabstop>
   <tabstop>CH_Boot_Logo</tabstop>
  </tabstops>
  <resources>

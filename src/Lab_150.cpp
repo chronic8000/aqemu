@@ -287,6 +287,34 @@ void AQ_Lab_Append_Args( QStringList &args, Virtual_Machine *vm )
 			args << QStringLiteral( "-S" );
 	}
 
+	const QString kd_mode = opt.value( QStringLiteral( "kd" ) );
+	if( ( kd_mode == QLatin1String( "serial" ) || kd_mode == QLatin1String( "tcp" ) )
+	    && vm->Get_Serial_Ports().isEmpty() && ! Args_Have( args, QStringLiteral( "-serial" ) ) )
+	{
+		const QString port = opt.value( QStringLiteral( "kd_port" ), QStringLiteral( "50000" ) );
+		QString serial;
+		if( kd_mode == QLatin1String( "tcp" ) )
+			serial = QStringLiteral( "tcp:127.0.0.1:%1,server=on,wait=off" ).arg( port );
+		else
+		{
+#ifdef Q_OS_WIN
+			QString id = vm->Get_Machine_Name();
+			for( int i = 0; i < id.size(); ++i )
+			{
+				const QChar c = id.at( i );
+				if( ! c.isLetterOrNumber() && c != QLatin1Char( '-' ) && c != QLatin1Char( '_' ) )
+					id[ i ] = QLatin1Char( '_' );
+			}
+			if( id.isEmpty() )
+				id = QStringLiteral( "vm" );
+			serial = QStringLiteral( "pipe:aqemu-kd-" ) + id;
+#else
+			serial = QStringLiteral( "tcp:127.0.0.1:%1,server=on,wait=off" ).arg( port );
+#endif
+		}
+		args << QStringLiteral( "-serial" ) << serial;
+	}
+
 	const QString plugin = opt.value( QStringLiteral( "tcg_plugin" ) ).trimmed();
 	if( ! plugin.isEmpty() && QFileInfo( plugin ).exists() )
 		args << QStringLiteral( "-plugin" ) << plugin;
@@ -1099,6 +1127,56 @@ void AQ_Lab_Open_VM_Window( Virtual_Machine *vm, const QList<Virtual_Machine*> &
 	dbg_form->addRow( QObject::tr( "Port" ), gdb_port );
 	dbg_form->addRow( gdb_wait );
 	dbg_form->addRow( copy_gdb );
+	QComboBox *kd = new QComboBox( dbg );
+	kd->addItem( QObject::tr( "Off" ), QStringLiteral( "off" ) );
+	kd->addItem( QObject::tr( "Serial" ), QStringLiteral( "serial" ) );
+	kd->addItem( QObject::tr( "TCP" ), QStringLiteral( "tcp" ) );
+	const int kd_idx = kd->findData( opt.value( QStringLiteral( "kd" ), QStringLiteral( "off" ) ) );
+	kd->setCurrentIndex( kd_idx >= 0 ? kd_idx : 0 );
+	QSpinBox *kd_port = new QSpinBox( dbg );
+	kd_port->setRange( 1, 65535 );
+	kd_port->setValue( opt.value( QStringLiteral( "kd_port" ), QStringLiteral( "50000" ) ).toInt() );
+	QLabel *kd_note = new QLabel( dbg );
+	kd_note->setWordWrap( true );
+	if( vm->Get_Serial_Ports().count() > 0 )
+		kd_note->setText( QObject::tr( "This virtual machine already has a serial port. Kernel debug will not replace the session console." ) );
+	else
+		kd_note->setText( QObject::tr( "Serial uses a private pipe on Windows and a local TCP port on Linux. TCP is available on both." ) );
+	auto kd_pipe = [vm]() {
+		QString id = vm->Get_Machine_Name();
+		for( int i = 0; i < id.size(); ++i )
+		{
+			const QChar c = id.at( i );
+			if( ! c.isLetterOrNumber() && c != QLatin1Char( '-' ) && c != QLatin1Char( '_' ) )
+				id[ i ] = QLatin1Char( '_' );
+		}
+		if( id.isEmpty() )
+			id = QStringLiteral( "vm" );
+		return QStringLiteral( "aqemu-kd-" ) + id;
+	};
+	QPushButton *copy_kd = new QPushButton( QObject::tr( "Copy WinDbg connection" ), dbg );
+	QObject::connect( copy_kd, &QPushButton::clicked, &dlg, [kd, kd_port, kd_pipe]() {
+		QString text;
+		if( kd->currentData().toString() == QLatin1String( "tcp" ) )
+			text = QStringLiteral( "-k tcp:Port=%1,Server=127.0.0.1" ).arg( kd_port->value() );
+		else
+#ifdef Q_OS_WIN
+			text = QStringLiteral( "-k com:pipe,port=\\\\.\\pipe\\%1,resets=0" ).arg( kd_pipe() );
+#else
+			text = QStringLiteral( "-k tcp:Port=%1,Server=127.0.0.1" ).arg( kd_port->value() );
+#endif
+		QGuiApplication::clipboard()->setText( text );
+	} );
+	QPushButton *copy_bcd = new QPushButton( QObject::tr( "Copy guest bcdedit commands" ), dbg );
+	QObject::connect( copy_bcd, &QPushButton::clicked, &dlg, []() {
+		QGuiApplication::clipboard()->setText(
+			QStringLiteral( "bcdedit /debug on\r\nbcdedit /dbgsettings serial debugport:1 baudrate:115200\r\n" ) );
+	} );
+	dbg_form->addRow( QObject::tr( "Kernel debug" ), kd );
+	dbg_form->addRow( QObject::tr( "Kernel debug port" ), kd_port );
+	dbg_form->addRow( kd_note );
+	dbg_form->addRow( copy_kd );
+	dbg_form->addRow( copy_bcd );
 	QPushButton *dump = new QPushButton( QObject::tr( "Dump guest memory (ELF)" ), dbg );
 	QObject::connect( dump, &QPushButton::clicked, &dlg, [vm, &dlg]() {
 		if( ! vm->Get_QMP() || ! vm->Get_QMP()->Is_Connected() )
@@ -1540,6 +1618,8 @@ void AQ_Lab_Open_VM_Window( Virtual_Machine *vm, const QList<Virtual_Machine*> &
 		opt.insert( QStringLiteral( "gdb" ), gdb->isChecked() ? QStringLiteral( "on" ) : QString() );
 		opt.insert( QStringLiteral( "gdb_port" ), QString::number( gdb_port->value() ) );
 		opt.insert( QStringLiteral( "gdb_wait" ), gdb_wait->isChecked() ? QStringLiteral( "on" ) : QString() );
+		opt.insert( QStringLiteral( "kd" ), kd->currentData().toString() );
+		opt.insert( QStringLiteral( "kd_port" ), QString::number( kd_port->value() ) );
 		opt.insert( QStringLiteral( "rr" ), rr->currentData().toString() );
 		opt.insert( QStringLiteral( "rrfile" ), rrfile->text().trimmed() );
 		opt.insert( QStringLiteral( "icount_shift" ), QString::number( shift->value() ) );

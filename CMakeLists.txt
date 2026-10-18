@@ -403,6 +403,28 @@ ADD_EXECUTABLE( aqemu
 
 target_include_directories(aqemu PUBLIC src/ )
 
+IF( WIN32 AND AQEMU_STORE_BUILD )
+	TARGET_SOURCES( aqemu PRIVATE src/Store_Trial.cpp )
+	FIND_FILE( AQEMU_STORE_WINRT_HEADER Windows.Services.Store.h
+		PATHS
+			"$ENV{WindowsSdkDir}/Include"
+			"C:/Program Files (x86)/Windows Kits/10/Include"
+		PATH_SUFFIXES
+			"cppwinrt/winrt"
+			"winrt"
+	)
+	IF( AQEMU_STORE_WINRT_HEADER )
+		GET_FILENAME_COMPONENT( _winrt_dir "${AQEMU_STORE_WINRT_HEADER}" DIRECTORY )
+		GET_FILENAME_COMPONENT( _winrt_parent "${_winrt_dir}" DIRECTORY )
+		TARGET_INCLUDE_DIRECTORIES( aqemu PRIVATE "${_winrt_parent}" )
+		TARGET_COMPILE_DEFINITIONS( aqemu PRIVATE AQEMU_HAVE_STORE_WINRT=1 )
+		SET_SOURCE_FILES_PROPERTIES( src/Store_Trial.cpp PROPERTIES CXX_STANDARD 17 )
+		MESSAGE( STATUS "Microsoft Store licence API: ${AQEMU_STORE_WINRT_HEADER}" )
+	ELSE()
+		MESSAGE( STATUS "Microsoft Store licence API headers were not found. Buy still opens the Store page." )
+	ENDIF()
+ENDIF()
+
 # Require C++-11 standard
 SET_PROPERTY(TARGET aqemu PROPERTY CXX_STANDARD 11)
 SET_PROPERTY(TARGET aqemu PROPERTY CXX_STANDARD_REQUIRED ON)
@@ -494,7 +516,7 @@ IF( NOT WITHOUT_EMBEDDED_DISPLAY )
 	ENDIF()
 	IF( WIN32 )
 		TARGET_LINK_LIBRARIES( aqemu ws2_32 )
-		FOREACH( _vnc_dir "$ENV{MINGW_PREFIX}/bin" "$ENV{MSYSTEM_PREFIX}/bin" "C:/msys64/clangarm64/bin" "C:/msys64/ucrt64/bin" "C:/msys64/mingw64/bin" )
+		FOREACH( _vnc_dir "$ENV{MINGW_PREFIX}/bin" "$ENV{MSYSTEM_PREFIX}/bin" "$ENV{MSYS2_ROOT}/clangarm64/bin" "$ENV{MSYS2_ROOT}/ucrt64/bin" "$ENV{MSYS2_ROOT}/mingw64/bin" "C:/msys64/clangarm64/bin" "C:/msys64/ucrt64/bin" "C:/msys64/mingw64/bin" )
 			IF( EXISTS "${_vnc_dir}/libvncclient.dll" )
 				ADD_CUSTOM_COMMAND( TARGET aqemu POST_BUILD
 					COMMAND ${CMAKE_COMMAND} -E copy_if_different "${_vnc_dir}/libvncclient.dll" "$<TARGET_FILE_DIR:aqemu>"
@@ -555,6 +577,12 @@ IF( AQEMU_WITH_SPICE_GTK )
 				SET( _spice_bin_dir "$ENV{MINGW_PREFIX}/bin" )
 			ELSEIF( EXISTS "$ENV{MSYSTEM_PREFIX}/bin" )
 				SET( _spice_bin_dir "$ENV{MSYSTEM_PREFIX}/bin" )
+			ELSEIF( EXISTS "$ENV{MSYS2_ROOT}/clangarm64/bin" )
+				SET( _spice_bin_dir "$ENV{MSYS2_ROOT}/clangarm64/bin" )
+			ELSEIF( EXISTS "$ENV{MSYS2_ROOT}/ucrt64/bin" )
+				SET( _spice_bin_dir "$ENV{MSYS2_ROOT}/ucrt64/bin" )
+			ELSEIF( EXISTS "$ENV{MSYS2_ROOT}/mingw64/bin" )
+				SET( _spice_bin_dir "$ENV{MSYS2_ROOT}/mingw64/bin" )
 			ELSEIF( EXISTS "C:/msys64/clangarm64/bin" )
 				SET( _spice_bin_dir "C:/msys64/clangarm64/bin" )
 			ELSEIF( EXISTS "C:/msys64/ucrt64/bin" )

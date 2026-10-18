@@ -3083,6 +3083,67 @@ bool Prepare_UEFI_VARS_File( const QString &dest_path, const QString &qemu_binar
 	return true;
 }
 
+QString AQ_UEFI_VARS_Template_For_Code( const QString &code_path, const QString &qemu_binary_path,
+                                        const QString &arch )
+{
+	const QFileInfo code( code_path );
+	if( ! code.exists() || code.size() <= 0 )
+		return QString();
+	const bool secboot = code_path.contains( QLatin1String( "secboot" ), Qt::CaseInsensitive );
+	QStringList names;
+	const QString tmpl = Find_UEFI_Firmware_VARS_Template( qemu_binary_path, arch );
+	if( ! tmpl.isEmpty() )
+		names << tmpl;
+	const QDir dir = code.absoluteDir();
+	const QFileInfoList files = dir.entryInfoList( QStringList() << QStringLiteral( "*.fd" ), QDir::Files );
+	for( int i = 0; i < files.count(); ++i )
+	{
+		const QString name = files.at( i ).fileName();
+		if( name.contains( QLatin1String( "VARS" ), Qt::CaseInsensitive )
+		    || name.contains( QLatin1String( "vars" ), Qt::CaseInsensitive ) )
+			names << files.at( i ).absoluteFilePath();
+	}
+	QString fallback;
+	for( int i = 0; i < names.count(); ++i )
+	{
+		const QFileInfo info( names.at( i ) );
+		if( ! info.exists() || info.size() != code.size() )
+			continue;
+		const bool vars_sec = info.fileName().contains( QLatin1String( "secboot" ), Qt::CaseInsensitive );
+		if( secboot == vars_sec )
+			return info.absoluteFilePath();
+		if( fallback.isEmpty() )
+			fallback = info.absoluteFilePath();
+	}
+	return fallback;
+}
+
+bool AQ_UEFI_Pair_Ready( const QString &code_path, const QString &vars_path, QString *error )
+{
+	const QFileInfo code( code_path );
+	const QFileInfo vars( vars_path );
+	if( ! code.exists() || code.size() <= 0 )
+	{
+		if( error )
+			*error = QObject::tr( "UEFI CODE firmware was not found. AQEMU does not ship firmware. Choose a CODE image that matches this guest." );
+		return false;
+	}
+	if( ! vars.exists() || vars.size() <= 0 )
+	{
+		if( error )
+			*error = QObject::tr( "UEFI VARS was not created. A template the same size as the CODE image was not found." );
+		return false;
+	}
+	if( code.size() != vars.size() )
+	{
+		if( error )
+			*error = QObject::tr( "UEFI CODE and VARS are different sizes (%1 and %2 bytes). They must be a matching pair." )
+				.arg( code.size() ).arg( vars.size() );
+		return false;
+	}
+	return true;
+}
+
 QString Win11_OOBE_Bypass_Guest_Commands()
 {
 	return QStringLiteral(

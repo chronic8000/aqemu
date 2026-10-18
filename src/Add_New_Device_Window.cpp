@@ -158,6 +158,7 @@ void Add_New_Device_Window::Set_Device( const VM_Native_Storage_Device &dev )
 	// Discard
 	ui.CH_Discard->setChecked( Device.Use_Discard() );
 	ui.CB_Discard->setCurrentIndex( Device.Get_Discard() ? 0 : 1 );
+	ui.CH_SSD->setChecked( Device.Get_SSD() );
 
 	// Block Size
 	const bool optical_init = ( Device.Get_Media() == VM::DM_CD_ROM );
@@ -420,9 +421,10 @@ void Add_New_Device_Window::Set_Enabled( bool enabled )
 	ui.buttonBox->button(QDialogButtonBox::Ok)->setEnabled( enabled );
 }
 
-void Add_New_Device_Window::on_CB_Interface_currentIndexChanged( const QString &text )
+void Add_New_Device_Window::on_CB_Interface_currentIndexChanged( const QString & )
 {
-	if( text == "ide" || text == "floppy" )
+	const int iface = ui.CB_Interface->currentIndex();
+	if( iface == 0 || iface == 4 )
 	{
 		ui.CH_Index->setEnabled( true );
 		ui.SB_Index->setEnabled( true );
@@ -431,7 +433,7 @@ void Add_New_Device_Window::on_CB_Interface_currentIndexChanged( const QString &
 		ui.SB_Bus->setEnabled( false );
 		ui.SB_Unit->setEnabled( false );
 	}
-	else if( text == "scsi" )
+	else if( iface == 1 )
 	{
 		ui.CH_Index->setEnabled( false );
 		ui.SB_Index->setEnabled( false );
@@ -440,7 +442,7 @@ void Add_New_Device_Window::on_CB_Interface_currentIndexChanged( const QString &
 		ui.SB_Bus->setEnabled( true );
 		ui.SB_Unit->setEnabled( true );
 	}
-	else if( text == "virtio" )
+	else if( iface == 6 )
 	{
 		ui.CH_Index->setEnabled( true );
 		ui.SB_Index->setEnabled( true );
@@ -459,7 +461,7 @@ void Add_New_Device_Window::on_CB_Interface_currentIndexChanged( const QString &
 		ui.SB_Unit->setEnabled( false );
 	}
 	const bool optical_now = ( ui.CB_Media->currentIndex() == 1 );
-	const bool floppy_now = ( text == QLatin1String( "floppy" ) );
+	const bool floppy_now = ( iface == 4 );
 	ui.TB_Physical_Browse->setVisible( ! optical_now && ! floppy_now && ui.TB_File_Path_Browse->isVisible() );
 }
 
@@ -481,7 +483,7 @@ void Add_New_Device_Window::on_CB_Media_currentIndexChanged( int )
 		ui.CB_Logical_Block_Size->setEnabled( ui.CH_Block_Size->isChecked() );
 		ui.CB_Physical_Block_Size->setEnabled( ui.CH_Block_Size->isChecked() );
 	}
-	const bool floppy = ( ui.CB_Interface->currentText() == QLatin1String( "floppy" ) );
+	const bool floppy = ( ui.CB_Interface->currentIndex() == 4 );
 	ui.TB_Physical_Browse->setVisible( ! optical && ! floppy && ui.TB_File_Path_Browse->isVisible() );
 	Enforce_Interface_Honesty();
 }
@@ -489,7 +491,7 @@ void Add_New_Device_Window::on_CB_Media_currentIndexChanged( int )
 void Add_New_Device_Window::on_TB_File_Path_Browse_clicked()
 {
 	const bool optical = ( ui.CB_Media->currentIndex() == 1 );
-	const bool floppy = ( ui.CB_Interface->currentText() == QLatin1String( "floppy" ) );
+	const bool floppy = ( ui.CB_Interface->currentIndex() == 4 );
 	QString file_name = QFileDialog::getOpenFileName( this, tr("Select your device"),
 													  Get_Last_Dir_Path(ui.Edit_File_Path->text()),
 													  Disk_Image_File_Filter( optical, floppy ) );
@@ -676,6 +678,7 @@ void Add_New_Device_Window::done(int r)
 	// Discard
 	Device.Use_Discard( ui.CH_Discard->isChecked() );
 	Device.Set_Discard( (ui.CB_Discard->currentIndex() == 0) ? true : false );
+	Device.Set_SSD( ui.CH_SSD->isChecked() && Device.Get_Media() != VM::DM_CD_ROM );
 
 	// Block Size
 	Device.Use_Block_Size( Device.Get_Media() == VM::DM_Disk && ui.CH_Block_Size->isChecked() );

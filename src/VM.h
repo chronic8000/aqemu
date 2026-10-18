@@ -183,6 +183,10 @@ class Virtual_Machine: public QObject
 		/** SeaBIOS splash. Default on. The app-wide setting can still hide it. */
 		bool Get_Show_Boot_Logo() const;
 		void Set_Show_Boot_Logo( bool use );
+
+		/** Seconds the firmware boot menu stays open. 0 keeps the short default. */
+		int Get_Boot_Menu_Seconds() const;
+		void Set_Boot_Menu_Seconds( int seconds );
 		
 		const QString &Get_Video_Card() const;
 		void Set_Video_Card( const QString &card );
@@ -869,6 +873,7 @@ class Virtual_Machine: public QObject
 		QList<VM::Boot_Order> Boot_Order_List; // New boot order
 		bool Show_Boot_Menu; // Enable interactive boot menu
 		bool Show_Boot_Logo; // SeaBIOS AQEMU picture; default on
+		int Boot_Menu_Seconds; // 0 = short default, 1-60 seconds
         QString Video_Card; // std vga, cirus logic
 		QString Display_Resolution; // virtio-gpu EDID: native|auto|WxH
 		QString Mouse_Type; // ps2|usb-tablet|usb-mouse|...

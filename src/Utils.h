@@ -278,6 +278,11 @@ QString Find_UEFI_Firmware_VARS_Template( const QString &qemu_binary_path = QStr
 // Copy VARS template into dest_path; returns true on success
 bool Prepare_UEFI_VARS_File( const QString &dest_path, const QString &qemu_binary_path = QString(),
                              const QString &arch = QStringLiteral( "aarch64" ) );
+/** VARS template whose size matches the CODE image. Empty if none matches. */
+QString AQ_UEFI_VARS_Template_For_Code( const QString &code_path, const QString &qemu_binary_path = QString(),
+                                        const QString &arch = QStringLiteral( "aarch64" ) );
+/** True when CODE and VARS both exist and are the same size. */
+bool AQ_UEFI_Pair_Ready( const QString &code_path, const QString &vars_path, QString *error );
 
 // Windows 11 ARM helpers (BVM-style UCPD.sys removal + OOBE skip recipes)
 QString Win11_OOBE_Bypass_Guest_Commands();

@@ -84,6 +84,8 @@
 #include "URL_Fetch.h"
 #include "Storage_Browser_Window.h"
 
+static QString New_VM_Directory( const QString &vm_base );
+
 static QStringList Json_String_Or_Array( const QJsonObject &obj, const QString &key, const QStringList &def = QStringList() )
 {
 	const QJsonValue val = obj.value( key );
@@ -1784,8 +1786,8 @@ void VM_Wizard_Window::Apply_OS_Defaults( const QString &os_name )
 			QString code = Find_UEFI_Firmware_CODE( qemu_bin, QStringLiteral( "aarch64" ) );
 			if( ! code.isEmpty() )
 				New_VM->Set_UEFI_CODE_File( code );
-			QString vm_dir = Settings.value( QStringLiteral( "VM_Directory" ), "~" ).toString();
 			QString vm_base = Get_FS_Compatible_VM_Name( os_name );
+			QString vm_dir = New_VM_Directory( vm_base );
 			New_VM->Set_UEFI_VARS_File( vm_dir + vm_base + QStringLiteral( "_VARS.fd" ) );
 		}
 	}
@@ -2718,8 +2720,8 @@ void VM_Wizard_Window::Apply_Guest_Hardware_To_New_VM()
 			if( bins.contains( QStringLiteral( "qemu-system-x86_64" ) ) )
 				qemu_bin = bins[ QStringLiteral( "qemu-system-x86_64" ) ];
 			QString code = Find_UEFI_Firmware_CODE( qemu_bin, QStringLiteral( "x86_64" ) );
-			QString vm_dir = Settings.value( QStringLiteral( "VM_Directory" ), "~" ).toString();
 			QString vm_base = Get_FS_Compatible_VM_Name( ui.Edit_VM_Name->text() );
+			QString vm_dir = New_VM_Directory( vm_base );
 			QString vars_dest = vm_dir + vm_base + QStringLiteral( "_VARS.fd" );
 			if( ! code.isEmpty() )
 				New_VM->Set_UEFI_CODE_File( code );
@@ -4243,8 +4245,8 @@ void VM_Wizard_Window::Apply_X86_OVMF()
 	if( bins.contains( QStringLiteral( "qemu-system-x86_64" ) ) )
 		qemu_bin = bins[ QStringLiteral( "qemu-system-x86_64" ) ];
 	const QString code = Find_UEFI_Firmware_CODE( qemu_bin, QStringLiteral( "x86_64" ) );
-	const QString vm_dir = Settings.value( QStringLiteral( "VM_Directory" ), "~" ).toString();
 	const QString vm_base = Get_FS_Compatible_VM_Name( ui.Edit_VM_Name->text() );
+	const QString vm_dir = New_VM_Directory( vm_base );
 	if( ! code.isEmpty() )
 		New_VM->Set_UEFI_CODE_File( code );
 	New_VM->Set_UEFI_VARS_File( vm_dir + vm_base + QStringLiteral( "_VARS.fd" ) );
@@ -6383,6 +6385,19 @@ bool VM_Wizard_Window::Load_OS_Templates()
 	else return true;
 }
 
+static QString New_VM_Directory( const QString &vm_base )
+{
+	QSettings settings;
+	const QString root = settings.value( QStringLiteral( "VM_Directory" ), QStringLiteral( "~" ) ).toString();
+	QString base = vm_base.trimmed();
+	if( base.isEmpty() )
+		base = QStringLiteral( "vm" );
+	QString folder = QDir( root ).filePath( base );
+	if( ! folder.endsWith( QLatin1Char( '/' ) ) && ! folder.endsWith( QLatin1Char( '\\' ) ) )
+		folder += QLatin1Char( '/' );
+	return folder;
+}
+
 bool VM_Wizard_Window::Create_New_VM(bool simulate)
 {
 	// Icon
@@ -6431,7 +6446,7 @@ bool VM_Wizard_Window::Create_New_VM(bool simulate)
 	// Wizard Mode
 	if( ui.RB_Typical->isChecked() )
 	{
-		QString hd_path = Settings.value( "VM_Directory", "~" ).toString() + VM_File_Name;
+		QString hd_path = New_VM_Directory( VM_File_Name ) + VM_File_Name;
 
 		// Companion profile creates companion.qcow2 + Ubuntu ISO itself.
 		if( ! Is_Inferno_Companion_Template() )
@@ -6750,7 +6765,9 @@ bool VM_Wizard_Window::Create_New_VM(bool simulate)
     if ( ! simulate )
     {
         // Create New VM XML File
-        New_VM->Create_VM_File( Settings.value("VM_Directory", "~").toString() + VM_File_Name + ".aqemu", false );
+        const QString vm_folder = New_VM_Directory( VM_File_Name );
+        QDir().mkpath( vm_folder );
+        New_VM->Create_VM_File( vm_folder + VM_File_Name + ".aqemu", false );
     }
 
 	return true;
@@ -6908,8 +6925,8 @@ void VM_Wizard_Window::Update_Finish_Page_Guidance()
 
 void VM_Wizard_Window::Apply_Windows11_ARM_Profile( bool simulate )
 {
-	QString vm_dir = Settings.value( "VM_Directory", "~" ).toString();
 	QString vm_base = Get_FS_Compatible_VM_Name( ui.Edit_VM_Name->text() );
+	QString vm_dir = New_VM_Directory( vm_base );
 	
 	// CPU: host with Linux KVM; max on Windows / TCG (Windows aarch64 QEMU has no 'host')
 	if( New_VM->Get_Machine_Accelerator() == VM::KVM )
@@ -7053,8 +7070,8 @@ void VM_Wizard_Window::Apply_Windows11_ARM_Profile( bool simulate )
 
 void VM_Wizard_Window::Apply_Apple_SoC_Profile( bool simulate )
 {
-	QString vm_dir = Settings.value( "VM_Directory", "~" ).toString();
 	QString vm_base = Get_FS_Compatible_VM_Name( ui.Edit_VM_Name->text() );
+	QString vm_dir = New_VM_Directory( vm_base );
 	// XML path is assigned later in Create_VM_File; set it early so image dir resolves.
 	New_VM->Set_VM_XML_File_Path( QDir( vm_dir ).filePath( vm_base + QStringLiteral( ".aqemu" ) ) );
 	const QString vm_folder = AQ_Apple_SoC_Image_Dir( New_VM );
@@ -7101,8 +7118,8 @@ void VM_Wizard_Window::Apply_Apple_SoC_Profile( bool simulate )
 
 bool VM_Wizard_Window::Apply_Inferno_Companion_Profile( bool simulate )
 {
-	QString vm_dir = Settings.value( "VM_Directory", "~" ).toString();
 	QString vm_base = Get_FS_Compatible_VM_Name( ui.Edit_VM_Name->text() );
+	QString vm_dir = New_VM_Directory( vm_base );
 	if( vm_base.trimmed().isEmpty() )
 		vm_base = Get_FS_Compatible_VM_Name( AQ_Inferno_Companion_OS_Name() );
 	New_VM->Set_VM_XML_File_Path( QDir( vm_dir ).filePath( vm_base + QStringLiteral( ".aqemu" ) ) );
@@ -7154,8 +7171,8 @@ bool VM_Wizard_Window::Apply_Inferno_Companion_Profile( bool simulate )
 
 void VM_Wizard_Window::Apply_Intel_MacOS_Profile( bool simulate )
 {
-	QString vm_dir = Settings.value( "VM_Directory", "~" ).toString();
 	QString vm_base = Get_FS_Compatible_VM_Name( ui.Edit_VM_Name->text() );
+	QString vm_dir = New_VM_Directory( vm_base );
 
 	const bool is_reims = New_VM->Get_Computer_Type().contains( QLatin1String( "reimsvgpu" ), Qt::CaseInsensitive );
 
@@ -7395,8 +7412,8 @@ void VM_Wizard_Window::Apply_AArch64_Generic_Profile( bool simulate )
 	QString code = Find_UEFI_Firmware_CODE( qemu_bin, QStringLiteral( "aarch64" ) );
 	if( ! code.isEmpty() )
 	{
-		QString vm_dir = Settings.value( "VM_Directory", "~" ).toString();
 		QString vm_base = Get_FS_Compatible_VM_Name( ui.Edit_VM_Name->text() );
+		QString vm_dir = New_VM_Directory( vm_base );
 		QString vars_dest = vm_dir + vm_base + "_VARS.fd";
 		New_VM->Use_UEFI( true );
 		New_VM->Set_UEFI_CODE_File( code );

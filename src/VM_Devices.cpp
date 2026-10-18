@@ -1654,6 +1654,7 @@ VM_Native_Storage_Device::VM_Native_Storage_Device()
 	Boot = false;
 	UDiscard = false;
 	Discard = false;
+	SSD = false;
 	UBlock_Size = false;
 	Logical_Block_Size = 512;
 	Physical_Block_Size = 512;
@@ -1689,6 +1690,7 @@ VM_Native_Storage_Device::VM_Native_Storage_Device( const VM_Native_Storage_Devi
 	Boot = sd.Get_Boot();
 	UDiscard = sd.Use_Discard();
 	Discard = sd.Get_Discard();
+	SSD = sd.Get_SSD();
 	UBlock_Size = sd.Use_Block_Size();
 	Logical_Block_Size = sd.Get_Logical_Block_Size();
 	Physical_Block_Size = sd.Get_Physical_Block_Size();
@@ -1747,6 +1749,7 @@ bool VM_Native_Storage_Device::operator==( const VM_Native_Storage_Device &sd ) 
 		Boot == sd.Get_Boot() &&
 		UDiscard == sd.Use_Discard() &&
 		Discard == sd.Get_Discard() &&
+		SSD == sd.Get_SSD() &&
 		UBlock_Size == sd.Use_Block_Size() &&
 		Logical_Block_Size == sd.Get_Logical_Block_Size() &&
 		Physical_Block_Size == sd.Get_Physical_Block_Size() &&
@@ -2025,6 +2028,16 @@ bool VM_Native_Storage_Device::Get_Discard() const
 void VM_Native_Storage_Device::Set_Discard( bool discard )
 {
 	Discard = discard;
+}
+
+bool VM_Native_Storage_Device::Get_SSD() const
+{
+	return SSD;
+}
+
+void VM_Native_Storage_Device::Set_SSD( bool ssd )
+{
+	SSD = ssd;
 }
 
 bool VM_Native_Storage_Device::Use_Block_Size() const

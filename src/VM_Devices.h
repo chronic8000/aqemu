@@ -692,6 +692,9 @@ class VM_Native_Storage_Device
 		bool Get_Discard() const;
 		void Set_Discard( bool discard );
 
+		bool Get_SSD() const;
+		void Set_SSD( bool ssd );
+
 		bool Use_Block_Size() const;
 		void Use_Block_Size( bool use );
 		int Get_Logical_Block_Size() const;
@@ -736,6 +739,7 @@ class VM_Native_Storage_Device
 		bool Boot;
 		bool UDiscard;
 		bool Discard;
+		bool SSD;
 		bool UBlock_Size;
 		int Logical_Block_Size;
 		int Physical_Block_Size;

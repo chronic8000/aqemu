@@ -104,52 +104,52 @@
      </property>
      <item>
       <property name="text">
-       <string>ide</string>
+       <string>IDE</string>
       </property>
      </item>
      <item>
       <property name="text">
-       <string>scsi</string>
+       <string>SCSI</string>
       </property>
      </item>
      <item>
       <property name="text">
-       <string>sd</string>
+       <string>SD</string>
       </property>
      </item>
      <item>
       <property name="text">
-       <string>mtd</string>
+       <string>MTD</string>
       </property>
      </item>
      <item>
       <property name="text">
-       <string>floppy</string>
+       <string>Floppy</string>
       </property>
      </item>
      <item>
       <property name="text">
-       <string>pflash</string>
+       <string>PFlash</string>
       </property>
      </item>
      <item>
       <property name="text">
-       <string>virtio</string>
+       <string>VirtIO block</string>
       </property>
      </item>
      <item>
       <property name="text">
-       <string>virtio-scsi</string>
+       <string>VirtIO SCSI</string>
       </property>
      </item>
      <item>
       <property name="text">
-       <string>nvme</string>
+       <string>NVMe</string>
       </property>
      </item>
      <item>
       <property name="text">
-       <string>ahci</string>
+       <string>AHCI / SATA</string>
       </property>
      </item>
     </widget>
@@ -467,6 +467,16 @@
        </layout>
       </item>
      </layout>
+    </widget>
+   </item>
+   <item row="12" column="0" colspan="5">
+    <widget class="QCheckBox" name="CH_SSD">
+     <property name="text">
+      <string>Solid-state disk</string>
+     </property>
+     <property name="toolTip">
+      <string>Tell the guest this disk is an SSD. IDE, SCSI, and AHCI get rotation_rate=1. VirtIO and NVMe do not need it.</string>
+     </property>
     </widget>
    </item>
    <item row="11" column="0" colspan="5">

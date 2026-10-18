@@ -20,9 +20,17 @@
 **
 ****************************************************************************/
 
+#include <QCheckBox>
 #include <QFileDialog>
+#include <QFileInfo>
+#include <QGridLayout>
+#include <QLabel>
+#include <QLineEdit>
+#include <QListWidget>
 #include <QMessageBox>
+#include <QPlainTextEdit>
 #include <QProcess>
+#include <QPushButton>
 #include <QRegExp>
 #include <QSettings>
 
@@ -37,9 +45,9 @@ Convert_HDD_Thread::Convert_HDD_Thread()
 	Error_Message = "";
 }
 
-void Convert_HDD_Thread::Set_Args( const QStringList &args )
+void Convert_HDD_Thread::Set_Jobs( const QList<QStringList> &jobs )
 {
-	Arguments = args;
+	Jobs = jobs;
 }
 
 const QString &Convert_HDD_Thread::Get_Error_Message() const
@@ -47,33 +55,51 @@ const QString &Convert_HDD_Thread::Get_Error_Message() const
 	return Error_Message;
 }
 
+const QString &Convert_HDD_Thread::Get_Log() const
+{
+	return Log;
+}
+
 void Convert_HDD_Thread::run()
 {
-	QProcess *proc = new QProcess();
-	
-	QSettings settings;
-	proc->start( Get_QEMU_IMG_Path(), Arguments );
-	
-	if( ! proc->waitForStarted(2000) )
-		AQError( "void Convert_HDD_Thread::run()", "Cannot Start qemu-img!" );
-	
-	if( ! proc->waitForFinished(-1) )
-		AQError( "void Convert_HDD_Thread::run()", "Cannot Finish qemu-img!" );
-	
-	QString err_str = proc->readAllStandardError();
-	delete proc;
-	
-	if( err_str.count() > 0 )
+	Log.clear();
+	Error_Message.clear();
+	bool ok = true;
+	for( int i = 0; i < Jobs.count(); ++i )
 	{
-		AQError( "void Convert_HDD_Thread::run()", "qemu-img Send Error String!\nDetalis: " + err_str );
-		Error_Message = err_str;
-		emit Conversion_Complete( false );
+		QProcess proc;
+		proc.start( Get_QEMU_IMG_Path(), Jobs.at( i ) );
+		Log += Get_QEMU_IMG_Path() + QLatin1String( " " ) + Jobs.at( i ).join( QLatin1Char( ' ' ) ) + QLatin1Char( '\n' );
+		if( ! proc.waitForStarted( 2000 ) )
+		{
+			Log += QStringLiteral( "qemu-img did not start.\n" );
+			Error_Message = QStringLiteral( "qemu-img did not start." );
+			ok = false;
+			break;
+		}
+		if( ! proc.waitForFinished( -1 ) )
+		{
+			proc.kill();
+			Log += QStringLiteral( "qemu-img did not finish.\n" );
+			Error_Message = QStringLiteral( "qemu-img did not finish." );
+			ok = false;
+			break;
+		}
+		const QString out = QString::fromLocal8Bit( proc.readAllStandardOutput() );
+		const QString err = QString::fromLocal8Bit( proc.readAllStandardError() );
+		if( ! out.isEmpty() )
+			Log += out;
+		if( ! err.isEmpty() )
+			Log += err;
+		if( proc.exitCode() != 0 )
+		{
+			Error_Message = err.isEmpty() ? QStringLiteral( "qemu-img failed." ) : err;
+			ok = false;
+			break;
+		}
+		Log += QStringLiteral( "Converted.\n" );
 	}
-	else
-	{
-		AQDebug( "void Convert_HDD_Thread::run()", "Conversion complete!" );
-		emit Conversion_Complete( true );
-	}
+	emit Conversion_Complete( ok );
 }
 
 //===========================================================================
@@ -82,6 +108,10 @@ Convert_HDD_Image_Window::Convert_HDD_Image_Window( QWidget *parent )
 	: QDialog( parent )
 {
 	ui.setupUi( this );
+	Batch_List = nullptr;
+	Log_View = nullptr;
+	CH_Beside = nullptr;
+	Edit_Output_Dir = nullptr;
 	resize( width(), minimumSizeHint().height() );
 	
 	HDD_Info = new HDD_Image_Info();
@@ -102,9 +132,31 @@ Convert_HDD_Image_Window::Convert_HDD_Image_Window( QWidget *parent )
 		ui.CB_Output_Format->addItems( formats );
 		const QString pref = Preferred_QEMU_IMG_Format( formats );
 		const int ix = ui.CB_Output_Format->findText( pref, Qt::MatchFixedString );
-		if( ix >= 0 )
-			ui.CB_Output_Format->setCurrentIndex( ix );
+	if( ix >= 0 )
+		ui.CB_Output_Format->setCurrentIndex( ix );
 	}
+
+	QGridLayout *grid = qobject_cast<QGridLayout *>( layout() );
+	if( ! grid )
+		return;
+	Batch_List = new QListWidget( this );
+	CH_Beside = new QCheckBox( tr( "Write each image next to its source" ), this );
+	Edit_Output_Dir = new QLineEdit( this );
+	QPushButton *add = new QPushButton( tr( "Add images" ), this );
+	QPushButton *dir_btn = new QPushButton( tr( "Output folder" ), this );
+	Log_View = new QPlainTextEdit( this );
+	Log_View->setReadOnly( true );
+	Log_View->setPlaceholderText( tr( "qemu-img output appears here." ) );
+	connect( add, SIGNAL(clicked()), this, SLOT(on_Button_Add_Images_clicked()) );
+	connect( dir_btn, SIGNAL(clicked()), this, SLOT(on_Button_Output_Dir_clicked()) );
+	grid->addWidget( new QLabel( tr( "More images" ), this ), 4, 0, 1, 3 );
+	grid->addWidget( Batch_List, 5, 0, 1, 2 );
+	grid->addWidget( add, 5, 2 );
+	grid->addWidget( CH_Beside, 6, 0, 1, 3 );
+	grid->addWidget( Edit_Output_Dir, 7, 0, 1, 2 );
+	grid->addWidget( dir_btn, 7, 2 );
+	grid->addWidget( Log_View, 8, 0, 1, 3 );
+	resize( 520, 640 );
 }
 
 void Convert_HDD_Image_Window::on_Button_Browse_Base_clicked()
@@ -173,44 +225,110 @@ void Convert_HDD_Image_Window::on_CB_Output_Format_currentIndexChanged( const QS
 	}
 }
 
+static QString Convert_Extension( const QString &format )
+{
+	const QString f = format.trimmed().toLower();
+	if( f == QLatin1String( "raw" ) )
+		return QStringLiteral( "img" );
+	if( f == QLatin1String( "vpc" ) )
+		return QStringLiteral( "vhd" );
+	return f;
+}
+
+void Convert_HDD_Image_Window::on_Button_Add_Images_clicked()
+{
+	const QStringList files = QFileDialog::getOpenFileNames( this, tr( "Add disk images" ),
+		Get_Last_Dir_Path( ui.Edit_Base_File_Name->text() ), Disk_Image_File_Filter( false, false ) );
+	for( int i = 0; i < files.count(); ++i )
+		Batch_List->addItem( QDir::toNativeSeparators( files.at( i ) ) );
+}
+
+void Convert_HDD_Image_Window::on_Button_Output_Dir_clicked()
+{
+	const QString dir = QFileDialog::getExistingDirectory( this, tr( "Output folder" ),
+		Get_Last_Dir_Path( Edit_Output_Dir->text() ) );
+	if( ! dir.isEmpty() )
+		Edit_Output_Dir->setText( QDir::toNativeSeparators( dir ) );
+}
+
 void Convert_HDD_Image_Window::on_Button_Convert_clicked()
 {
-	if( ui.Edit_Output_File_Name->text().isEmpty() )
+	QStringList sources;
+	if( ! ui.Edit_Base_File_Name->text().trimmed().isEmpty() )
+		sources << ui.Edit_Base_File_Name->text().trimmed();
+	if( Batch_List )
 	{
-		AQGraphic_Warning( tr("File Name is Empty!"), tr("Please Enter Correct HDD Image filename!") );
+		for( int i = 0; i < Batch_List->count(); ++i )
+			sources << Batch_List->item( i )->text();
+	}
+	sources.removeDuplicates();
+	if( sources.isEmpty() )
+	{
+		AQGraphic_Warning( tr( "File Name is Empty!" ), tr( "Choose at least one disk image." ) );
 		return;
 	}
-	
-	if( ! Valid_Info )
+	const QString format = ui.CB_Output_Format->currentText().trimmed();
+	if( format.isEmpty() )
 	{
-		AQGraphic_Warning( tr("Error!"), tr("Cannot get a valid format for current HDD image!") );
+		AQGraphic_Warning( tr( "Error!" ), tr( "Choose an output format." ) );
 		return;
 	}
-	
-	QStringList args;
-	args << "convert";
-	
-	// compressed
-	if( ui.CH_Compressed->isEnabled() && 
-		ui.CH_Compressed->isChecked() ) args << "-c";
-	
-    /*
-	// encrypted
-	if( ui.CH_Encrypted->isEnabled() &&
-		ui.CH_Encrypted->isChecked() ) args << "-e";*/
-	
-	args << "-f" << HDD_Info->Get_Disk_Info().Disk_Format; // Input format
-	
-	args << ui.Edit_Base_File_Name->text(); // In file name
-	
-	args << "-O" << ui.CB_Output_Format->currentText(); // Output format
-	
-	args << ui.Edit_Output_File_Name->text(); // Output File name
+	const bool beside = CH_Beside && CH_Beside->isChecked();
+	const QString out_dir = Edit_Output_Dir ? Edit_Output_Dir->text().trimmed() : QString();
+	QList<QStringList> jobs;
+	QString refused;
+	for( int i = 0; i < sources.count(); ++i )
+	{
+		const QFileInfo src( sources.at( i ) );
+		QString dest;
+		if( beside || sources.count() > 1 )
+		{
+			const QString folder = beside ? src.absolutePath() : out_dir;
+			if( folder.isEmpty() )
+			{
+				AQGraphic_Warning( tr( "Output folder" ), tr( "Choose an output folder, or write each image next to its source." ) );
+				return;
+			}
+			dest = QDir( folder ).filePath( src.completeBaseName() + QLatin1Char( '.' ) + Convert_Extension( format ) );
+		}
+		else
+			dest = ui.Edit_Output_File_Name->text().trimmed();
+		if( dest.isEmpty() )
+		{
+			AQGraphic_Warning( tr( "File Name is Empty!" ), tr( "Please Enter Correct HDD Image filename!" ) );
+			return;
+		}
+		if( QFileInfo( dest ) == src || QFileInfo( dest ).absoluteFilePath() == src.absoluteFilePath() )
+		{
+			refused += tr( "Refused to replace the source %1.\n" ).arg( src.absoluteFilePath() );
+			continue;
+		}
+		if( QFileInfo::exists( dest ) )
+		{
+			refused += tr( "Refused to overwrite %1.\n" ).arg( dest );
+			continue;
+		}
+		QStringList args;
+		args << QStringLiteral( "convert" );
+		if( ui.CH_Compressed->isEnabled() && ui.CH_Compressed->isChecked() )
+			args << QStringLiteral( "-c" );
+		args << QStringLiteral( "-O" ) << format;
+		args << src.absoluteFilePath();
+		args << dest;
+		jobs << args;
+	}
+	if( Log_View )
+		Log_View->setPlainText( refused );
+	if( jobs.isEmpty() )
+	{
+		AQGraphic_Warning( tr( "Nothing to convert" ), refused.isEmpty() ? tr( "No image was converted." ) : refused );
+		return;
+	}
 	
 	connect( &Conv_Thread, SIGNAL(Conversion_Complete(bool)),
-			 this, SLOT(Conversion_Done(bool)) );
+			 this, SLOT(Conversion_Done(bool)), Qt::UniqueConnection );
 	
-	Conv_Thread.Set_Args( args );
+	Conv_Thread.Set_Jobs( jobs );
 	Conv_Thread.start();
 	
 	ProgDial = new QProgressDialog( tr("Please Wait. Converting HDD Image..."), tr("Cancel"), 0, 0, this );
@@ -226,6 +344,8 @@ void Convert_HDD_Image_Window::on_Button_Convert_clicked()
 
 void Convert_HDD_Image_Window::Conversion_Done( bool ok )
 {
+	if( Log_View )
+		Log_View->appendPlainText( Conv_Thread.Get_Log() );
 	if( ok )
 	{
 		ProgDial->accept();

@@ -371,6 +371,7 @@ class Main_Window: public QMainWindow
 		QList<VM::Boot_Order> Boot_Order_List;
 		bool Show_Boot_Menu;
 		bool Show_Boot_Logo = true;
+		int Boot_Menu_Seconds = 0;
 		
 		HDD_Image_Info* HDA_Info;
 		HDD_Image_Info* HDB_Info;
