@@ -14,7 +14,7 @@ Text and files are different paths.
 
 ## Paste files into the guest
 
-Copy the files in the host file manager, then click **Paste files**. You can also drop them on the guest window.
+Copy the files in the host file manager, then click **Paste files**. AQEMU lists the paths and copies them only after you confirm. Text on the clipboard is ignored, including a path sent by the guest. You can also drop files on the guest window.
 
 AQEMU writes a FAT disk and gives it to the running guest:
 

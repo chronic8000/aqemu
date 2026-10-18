@@ -139,21 +139,12 @@ QStringList AQ_File_Paths_From_Mime( const QMimeData *mime )
 	const QList<QUrl> urls = mime->urls();
 	for( int i = 0; i < urls.size(); ++i )
 	{
-		const QString local = urls.at( i ).toLocalFile();
+		const QUrl url = urls.at( i );
+		if( ! url.isLocalFile() )
+			continue;
+		const QString local = url.toLocalFile();
 		if( ! local.isEmpty() )
 			paths << local;
-	}
-	if( ! paths.isEmpty() )
-		return paths;
-	const QString text = mime->text();
-	const QStringList lines = text.split( QLatin1Char( '\n' ), QString::SkipEmptyParts );
-	for( int i = 0; i < lines.size(); ++i )
-	{
-		QString line = lines.at( i ).trimmed();
-		if( line.startsWith( QLatin1String( "file://" ) ) )
-			line = QUrl( line ).toLocalFile();
-		if( ! line.isEmpty() && QFileInfo( line ).exists() )
-			paths << line;
 	}
 	return paths;
 }

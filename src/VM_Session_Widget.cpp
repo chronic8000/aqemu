@@ -811,10 +811,33 @@ void VM_Session_Widget::On_Insert_Guest_Tools()
 	Deliver_Files( paths );
 }
 
+static QString Paste_Path_List( const QStringList &paths )
+{
+	const int limit = 12;
+	QStringList shown;
+	for( int i = 0; i < paths.size() && i < limit; ++i )
+		shown << paths.at( i );
+	QString text = shown.join( QStringLiteral( "\n" ) );
+	if( paths.size() > limit )
+		text += QStringLiteral( "\n" ) + QObject::tr( "and %1 more" ).arg( paths.size() - limit );
+	return text;
+}
+
 void VM_Session_Widget::On_Paste_Files()
 {
 	const QClipboard *clip = QGuiApplication::clipboard();
-	Deliver_Files( AQ_File_Paths_From_Mime( clip ? clip->mimeData() : nullptr ) );
+	const QStringList paths = AQ_File_Paths_From_Mime( clip ? clip->mimeData() : nullptr );
+	if( paths.isEmpty() )
+	{
+		QMessageBox::information( this, tr( "Paste files" ),
+			tr( "Copy files in the host file manager first, or drop them on this window. Text on the clipboard is not used." ) );
+		return;
+	}
+	const QString question = tr( "Copy these host files into the guest?" ) + QStringLiteral( "\n\n" ) + Paste_Path_List( paths );
+	if( QMessageBox::question( this, tr( "Paste files" ), question,
+			QMessageBox::Yes | QMessageBox::No, QMessageBox::No ) != QMessageBox::Yes )
+		return;
+	Deliver_Files( paths );
 }
 
 void VM_Session_Widget::Deliver_Files( const QStringList &paths )
@@ -862,7 +885,7 @@ void VM_Session_Widget::Deliver_Files( const QStringList &paths )
 	{
 		Change_Medium_Id( QStringLiteral( "aqemu-fd0" ), shown );
 		QMessageBox::information( this, tr( "Paste files" ),
-			tr( "Copied %n file(s). In the guest, open floppy drive A.", "", paths.size() ) );
+			tr( "Copied these files. In the guest, open floppy drive A." ) + QStringLiteral( "\n\n" ) + Paste_Path_List( paths ) );
 		return;
 	}
 
@@ -903,7 +926,7 @@ void VM_Session_Widget::Deliver_Files( const QStringList &paths )
 		Paste_Qmp_Ids.insert( id );
 
 	QMessageBox::information( this, tr( "Paste files" ),
-		tr( "Copied %n file(s). In the guest, open the AQEMU USB drive.", "", paths.size() ) );
+		tr( "Copied these files. In the guest, open the AQEMU USB drive." ) + QStringLiteral( "\n\n" ) + Paste_Path_List( paths ) );
 }
 
 void VM_Session_Widget::On_Toolbar_Hide_Timeout()

@@ -15,6 +15,8 @@
 	  and a failed replace leaves the previous file in place.
 	* Pasted files and guest tools are written in the user's AQEMU folder.
 	  A shared temp directory that someone else created is not used.
+	  Paste files reads only files copied in the host file manager, shows
+	  those paths, and ignores clipboard text.
 	* The SAN 512n choice uses 512-byte logical and physical sectors.
 	  4Kn still uses 4096 for both.
 	* The boot menu can wait up to 60 seconds. Windows still does not send -boot.

@@ -10,7 +10,7 @@
 
 class QMimeData;
 
-/** File paths from a drop or from the host clipboard (URLs and file:// text). */
+/** Local file paths from a drop or a host file-manager copy (text/uri-list only). */
 QStringList AQ_File_Paths_From_Mime( const QMimeData *mime );
 
 /**
