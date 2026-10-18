@@ -6421,6 +6421,8 @@ bool VM_Wizard_Window::Create_New_VM(bool simulate)
 
 	// Create path valid string
 	QString VM_File_Name = Get_FS_Compatible_VM_Name( ui.Edit_VM_Name->text() );
+	if( VM_File_Name.trimmed().isEmpty() && Is_Inferno_Companion_Template() )
+		VM_File_Name = Get_FS_Compatible_VM_Name( AQ_Inferno_Companion_OS_Name() );
 
 	// Set Computer Type?
 	if( ui.RB_Generate_VM->isChecked() )
@@ -7119,11 +7121,11 @@ void VM_Wizard_Window::Apply_Apple_SoC_Profile( bool simulate )
 bool VM_Wizard_Window::Apply_Inferno_Companion_Profile( bool simulate )
 {
 	QString vm_base = Get_FS_Compatible_VM_Name( ui.Edit_VM_Name->text() );
-	QString vm_dir = New_VM_Directory( vm_base );
 	if( vm_base.trimmed().isEmpty() )
 		vm_base = Get_FS_Compatible_VM_Name( AQ_Inferno_Companion_OS_Name() );
+	QString vm_dir = New_VM_Directory( vm_base );
 	New_VM->Set_VM_XML_File_Path( QDir( vm_dir ).filePath( vm_base + QStringLiteral( ".aqemu" ) ) );
-	const QString vm_folder = QDir( vm_dir ).filePath( vm_base );
+	const QString vm_folder = QDir( vm_dir ).absolutePath();
 
 	New_VM->Set_Computer_Type( QStringLiteral( "qemu-system-x86_64" ) );
 	New_VM->Set_Emulator( Get_Default_Emulator() );

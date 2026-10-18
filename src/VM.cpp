@@ -10657,17 +10657,11 @@ QStringList Virtual_Machine::Build_Native_Device_Args( VM_Native_Storage_Device 
 		switch( device.Get_Interface() )
 		{
 			case VM::DI_IDE:
-				if( device.Get_SSD() )
-					opt << "if=none" << ( "id=" + vsname );
-				else
-					opt << "if=ide";
+				opt << "if=ide";
 				break;
 			
 			case VM::DI_SCSI:
-				if( device.Get_SSD() )
-					opt << "if=none" << ( "id=" + vsname );
-				else
-					opt << "if=scsi";
+				opt << "if=scsi";
 				break;
 				
 			case VM::DI_SD:
@@ -10982,13 +10976,6 @@ QStringList Virtual_Machine::Build_Native_Device_Args( VM_Native_Storage_Device 
 		}
 	}
 	args << "-drive" << driveStr;
-	if( device.Get_SSD() && ( ! device.Use_Media() || device.Get_Media() != VM::DM_CD_ROM ) )
-	{
-		if( device.Get_Interface() == VM::DI_IDE )
-			args << "-device" << QStringLiteral( "ide-hd,drive=%1,rotation_rate=1" ).arg( vsname );
-		else if( device.Get_Interface() == VM::DI_SCSI )
-			args << "-device" << QStringLiteral( "scsi-hd,drive=%1,rotation_rate=1" ).arg( vsname );
-	}
 	return args;
 }
 

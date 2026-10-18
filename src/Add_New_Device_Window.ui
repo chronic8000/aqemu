@@ -475,7 +475,7 @@
       <string>Solid-state disk</string>
      </property>
      <property name="toolTip">
-      <string>Tell the guest this disk is an SSD. IDE, SCSI, and AHCI get rotation_rate=1. VirtIO and NVMe do not need it.</string>
+      <string>Tell the guest this disk is an SSD. AHCI and VirtIO SCSI get rotation_rate=1. IDE, plain SCSI, VirtIO block, and NVMe keep their normal bus.</string>
      </property>
     </widget>
    </item>

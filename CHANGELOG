@@ -19,12 +19,12 @@
 	  4Kn still uses 4096 for both.
 	* The boot menu can wait up to 60 seconds. Windows still does not send -boot.
 	* Disk adapters are labelled IDE, VirtIO, NVMe, and AHCI / SATA.
-	  An SSD tick adds rotation_rate=1 on IDE, SCSI, and AHCI.
+	  An SSD tick adds rotation_rate=1 on AHCI and VirtIO SCSI.
 	* Convert disk images one at a time or as a batch. An existing file is left alone.
 	* Windows build scripts use MSYSTEM_PREFIX or MSYS2_ROOT before C:/msys64.
 	* The Lab debug tab can add a kernel-debug serial port and copy WinDbg and bcdedit text.
-	* A UEFI virtual machine starts only when CODE and VARS exist and are the same size.
-	  Each VM keeps its own VARS copy.
+	* A UEFI virtual machine starts only when CODE and VARS both exist.
+	  VARS is smaller than CODE. Each VM keeps its own VARS copy.
 	* The Microsoft Store build can open the Buy page. Trial text appears when the Store licence API is available.
 	* A new virtual machine is created in its own folder, with the disk beside the .aqemu file.
 	* Hard disk sector sizes are labelled 512n, 512e, and 4Kn, in that order.

@@ -399,15 +399,29 @@ bool AQ_Guest_Agent::Copy_From_Guest( const QString &guest_path, const QString &
 		return false;
 	}
 #ifdef Q_OS_WIN
-	const QString backup = host_path + QStringLiteral( ".aqemu-bak" );
-	QFile::remove( backup );
+	QString backup;
 	const bool had_dest = QFileInfo::exists( host_path );
-	if( had_dest && ! QFile::rename( host_path, backup ) )
+	if( had_dest )
 	{
-		QFile::remove( part_path );
-		if( error )
-			*error = QStringLiteral( "Cannot write %1" ).arg( host_path );
-		return false;
+		QTemporaryFile bak( QFileInfo( host_path ).dir().filePath( QStringLiteral( ".aqemu-bak-XXXXXX" ) ) );
+		bak.setAutoRemove( false );
+		if( ! bak.open() )
+		{
+			QFile::remove( part_path );
+			if( error )
+				*error = QStringLiteral( "Cannot write %1" ).arg( host_path );
+			return false;
+		}
+		backup = bak.fileName();
+		bak.close();
+		QFile::remove( backup );
+		if( ! QFile::rename( host_path, backup ) )
+		{
+			QFile::remove( part_path );
+			if( error )
+				*error = QStringLiteral( "Cannot write %1" ).arg( host_path );
+			return false;
+		}
 	}
 	if( ! QFile::rename( part_path, host_path ) )
 	{

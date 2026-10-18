@@ -3107,7 +3107,7 @@ QString AQ_UEFI_VARS_Template_For_Code( const QString &code_path, const QString 
 	for( int i = 0; i < names.count(); ++i )
 	{
 		const QFileInfo info( names.at( i ) );
-		if( ! info.exists() || info.size() != code.size() )
+		if( ! info.exists() || info.size() <= 0 )
 			continue;
 		const bool vars_sec = info.fileName().contains( QLatin1String( "secboot" ), Qt::CaseInsensitive );
 		if( secboot == vars_sec )
@@ -3131,14 +3131,7 @@ bool AQ_UEFI_Pair_Ready( const QString &code_path, const QString &vars_path, QSt
 	if( ! vars.exists() || vars.size() <= 0 )
 	{
 		if( error )
-			*error = QObject::tr( "UEFI VARS was not created. A template the same size as the CODE image was not found." );
-		return false;
-	}
-	if( code.size() != vars.size() )
-	{
-		if( error )
-			*error = QObject::tr( "UEFI CODE and VARS are different sizes (%1 and %2 bytes). They must be a matching pair." )
-				.arg( code.size() ).arg( vars.size() );
+			*error = QObject::tr( "UEFI VARS was not created. A VARS template for this firmware was not found." );
 		return false;
 	}
 	return true;

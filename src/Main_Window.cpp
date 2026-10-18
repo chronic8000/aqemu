@@ -26,6 +26,7 @@
 #include <QFileInfo>
 #include <QDir>
 #include <QMessageBox>
+#include <QStatusBar>
 #if defined( Q_OS_WIN ) && defined( AQEMU_STORE_BUILD )
 #include "Store_Trial.h"
 #endif
