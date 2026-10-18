@@ -23,9 +23,17 @@ aqemu_qemu_require_pkg() {
 aqemu_apply_qemu_patches() {
 	local src="${ROOT}/third_party/qemu"
 	local dir="${ROOT}/third_party/patches"
-	local p norm
+	local p norm f
 	[[ -d "${dir}" ]] || return 0
 	[[ -f "${src}/meson.build" || -f "${src}/configure" ]] || return 0
+	# Git for Windows checks these out with CRLF, and git apply then
+	# rejects a Unix patch even when the text matches.
+	for f in chardev/char-pipe.c chardev/char-win.c include/chardev/char-win.h; do
+		if [[ -f "${src}/${f}" ]] && grep -q $'\r' "${src}/${f}"; then
+			tr -d '\r' < "${src}/${f}" > "${src}/${f}.lf"
+			mv "${src}/${f}.lf" "${src}/${f}"
+		fi
+	done
 	shopt -s nullglob
 	for p in "${dir}"/*.patch; do
 		echo "Applying QEMU patch $(basename "${p}")"
