@@ -37,6 +37,9 @@
 #include <QAbstractItemView>
 #include <QFile>
 #include <QFileDialog>
+#include <QGuiApplication>
+#include <QScreen>
+#include <QShowEvent>
 #include <QTextStream>
 #include <QDir>
 #include <QToolButton>
@@ -276,11 +279,31 @@ VM_Wizard_Window::VM_Wizard_Window( QWidget *parent )
     connect(ui.RB_Emulator_KVM, SIGNAL(toggled(bool)),this, SLOT(KVM_toggled(bool)));
 }
 
+void VM_Wizard_Window::showEvent( QShowEvent *event )
+{
+	QDialog::showEvent( event );
+	if( property( "aq_wizard_fitted" ).toBool() )
+		return;
+	setProperty( "aq_wizard_fitted", true );
+
+	QScreen *scr = screen();
+	if( ! scr )
+		scr = QGuiApplication::primaryScreen();
+	if( scr )
+	{
+		const QRect avail = scr->availableGeometry();
+		setMinimumSize(
+			qMin( 640, qMax( 420, avail.width() - 48 ) ),
+			qMin( 420, qMax( 320, avail.height() - 80 ) ) );
+	}
+	AQ_Intelligently_Size_Dialog( this, 920, 700 );
+}
+
 void VM_Wizard_Window::Polish_Wizard_Chrome()
 {
-	// Virt-manager-style wide dialog — room for cards + side steps.
-	setMinimumSize( 860, 640 );
-	resize( 920, 700 );
+	// The page body scrolls. Back and Next stay on screen when the
+	// desktop is shorter than the creation-method cards.
+	setMinimumSize( 420, 320 );
 	setSizeGripEnabled( true );
 
 	setStyleSheet( QStringLiteral( R"(
@@ -430,10 +453,21 @@ QPushButton#Button_Next {
 	ui.Label_Page->setObjectName( QStringLiteral( "Label_Page" ) );
 	ui.Label_Page->setAutoFillBackground( false );
 	ui.Label_Page->setMinimumHeight( 36 );
-	ui.Wizard_Pages->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Expanding );
+	ui.Wizard_Pages->setMinimumSize( 0, 0 );
+	ui.Wizard_Pages->setSizePolicy( QSizePolicy::Ignored, QSizePolicy::Ignored );
+
+	QScrollArea *pageScroll = new QScrollArea( content );
+	pageScroll->setObjectName( QStringLiteral( "WizardPageScroll" ) );
+	pageScroll->setWidgetResizable( true );
+	pageScroll->setFrameShape( QFrame::NoFrame );
+	pageScroll->setHorizontalScrollBarPolicy( Qt::ScrollBarAsNeeded );
+	pageScroll->setVerticalScrollBarPolicy( Qt::ScrollBarAsNeeded );
+	pageScroll->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Expanding );
+	pageScroll->setMinimumHeight( 120 );
+	pageScroll->setWidget( ui.Wizard_Pages );
 
 	contentLay->addWidget( ui.Label_Page );
-	contentLay->addWidget( ui.Wizard_Pages, 1 );
+	contentLay->addWidget( pageScroll, 1 );
 	contentLay->addWidget( ui.line_2 );
 
 	if( buttonRow )

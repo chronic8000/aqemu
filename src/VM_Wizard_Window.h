@@ -63,6 +63,7 @@ class VM_Wizard_Window: public QDialog
 		
 	protected:
 		bool eventFilter( QObject *watched, QEvent *event ) override;
+		void showEvent( QShowEvent *event ) override;
 		
 	private slots:
         void KVM_toggled(bool toggled);

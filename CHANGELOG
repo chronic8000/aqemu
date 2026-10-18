@@ -1,5 +1,11 @@
 2026-10-18 Chronic Engineering — AQEMU 1.6.0
 
+	* Finishing the first-start wizard opens the main window. Closing that
+	  wizard no longer quits AQEMU. A crash report is written only when
+	  the process crashes, and a normal start does not show a crash dialog.
+	* The New VM wizard stays inside the screen. Back and Next remain
+	  visible, and a short display scrolls the page instead of covering
+	  the buttons.
 	* The Windows package build clones lzfse with MSYS git. A failed clone
 	  stops the Inferno build instead of compiling an empty directory.
 

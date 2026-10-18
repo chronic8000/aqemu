@@ -32,7 +32,6 @@
 #include "AQ_UI_Style.h"
 #include "Utils.h"
 #include "System_Info.h"
-#include "Advanced_Settings_Window.h"
 #include "Emulator_Options_Window.h"
 
 First_Start_Wizard::First_Start_Wizard( QWidget *parent )
@@ -183,11 +182,7 @@ void First_Start_Wizard::on_Button_Next_clicked()
 	else if( currentIndex == ui.All_Pages->count() - 1 )
 	{
 		if( Save_Settings() )
-		{
-			Advanced_Settings_Window asw;
-			asw.done( QDialog::Accepted );
 			accept();
-		}
 	}
 }
 

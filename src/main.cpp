@@ -351,6 +351,10 @@ int AQEMU_Main::main_window()
     }
     AQEMU_Startup_Log( "Run_Guard ok" );
 
+    // The first-start wizard is the only window. Closing it must not quit
+    // the process before the main window exists.
+    application->setQuitOnLastWindowClosed( false );
+
     int ret = load_settings();
     if ( ret != 0 )
     {
@@ -368,6 +372,7 @@ int AQEMU_Main::main_window()
     AQEMU_Startup_Log( "Main_Window ok" );
     AQEMU_Service::get().setMainWindowPtr( window );
     window->show();
+    application->setQuitOnLastWindowClosed( true );
 
     application->setWindowIcon(QIcon(":/aqemu.png"));
 

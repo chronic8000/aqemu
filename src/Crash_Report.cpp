@@ -1,6 +1,6 @@
 /****************************************************************************
-** Local crash reports. The handler avoids the heap. Qt is used only on
-** the next launch, when the process is healthy again.
+** Local crash reports. The handler avoids the heap and does not show a
+** dialog. A report is written only when the process actually crashes.
 ****************************************************************************/
 #include "Crash_Report.h"
 

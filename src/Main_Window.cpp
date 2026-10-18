@@ -516,8 +516,6 @@ Main_Window::Main_Window( QWidget *parent )
 				qApp->quit();
 		}
 #endif
-		AQ_Crash_Prompt_If_Pending( this );
-
 		QAction *actConvert = new QAction( tr( "&Convert disk…" ), this );
 		connect( actConvert, &QAction::triggered, this, [this]() { AQ_Lab_Convert( this, Get_Current_VM() ); } );
 		ui.menuFile->addAction( actConvert );

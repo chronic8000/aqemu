@@ -864,7 +864,7 @@ Full contributor list: **Help → About → Thanks To**.
 - **AIX `E3403 Bad executable`** → disk is not a QEMU/SLOF-bootable AIX image (common with VMware VMDKs)  
 - **Guest disk locked on Windows** → end stray `qemu-system-*` in Task Manager, restart AQEMU  
 - **Clipboard host↔guest** → real sync needs SPICE + `spice-vdagent` *in the guest*; AIX/SLOF and many vintage guests will not do that  
-- **AQEMU closed unexpectedly** → the report is local. Windows writes `%LOCALAPPDATA%\AQEMU\CrashDumps\`. Linux writes `~/.local/share/AQEMU/crash/`. Help → Open crash dumps folder. Nothing is uploaded. The next launch can copy the system-info table or open a GitHub issue. `aqemu --test-crash` writes one report on purpose.
+- A crash writes a local report and does not open a dialog on the next start. Windows writes `%LOCALAPPDATA%\AQEMU\CrashDumps\`. Linux writes `~/.local/share/AQEMU/crash/`. Help → Open crash dumps folder. Nothing is uploaded. `aqemu --test-crash` writes one report on purpose.
 - **Full Windows dump** → Windows Error Reporting can save a dump of `aqemu.exe` before a symbolised minidump exists. In an elevated PowerShell:
 
 ```
