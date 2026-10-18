@@ -23,20 +23,25 @@ aqemu_qemu_require_pkg() {
 aqemu_apply_qemu_patches() {
 	local src="${ROOT}/third_party/qemu"
 	local dir="${ROOT}/third_party/patches"
-	local p
+	local p norm
 	[[ -d "${dir}" ]] || return 0
 	[[ -f "${src}/meson.build" || -f "${src}/configure" ]] || return 0
 	shopt -s nullglob
 	for p in "${dir}"/*.patch; do
 		echo "Applying QEMU patch $(basename "${p}")"
-		if patch -d "${src}" -p1 -N --forward --dry-run < "${p}" >/dev/null 2>&1; then
-			patch -d "${src}" -p1 -N --forward < "${p}"
-		elif patch -d "${src}" -p1 -R --dry-run < "${p}" >/dev/null 2>&1; then
+		norm="$(mktemp)"
+		tr -d '\r' < "${p}" > "${norm}"
+		if git -C "${src}" apply --check "${norm}" >/dev/null 2>&1; then
+			git -C "${src}" apply "${norm}"
+		elif git -C "${src}" apply --reverse --check "${norm}" >/dev/null 2>&1; then
 			echo "QEMU patch $(basename "${p}") already applied"
 		else
 			echo "ERROR: QEMU patch $(basename "${p}") did not apply" >&2
+			git -C "${src}" apply --check "${norm}" >&2 || true
+			rm -f "${norm}"
 			return 1
 		fi
+		rm -f "${norm}"
 	done
 }
 
