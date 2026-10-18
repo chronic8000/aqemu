@@ -94,7 +94,7 @@ public:
 		QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
 		const QString appDir = QDir::toNativeSeparators( QCoreApplication::applicationDirPath() );
 		const QString curPath = env.value( QStringLiteral( "PATH" ), QString() );
-		const QString msysPaths = QStringLiteral( "C:\\msys64\\clangarm64\\bin;C:\\msys64\\ucrt64\\bin;C:\\msys64\\mingw64\\bin" );
+		const QString msysPaths = AQ_Msys_Bin_Path();
 		env.insert( QStringLiteral( "PATH" ), appDir + QLatin1Char( ';' ) + msysPaths + QLatin1Char( ';' ) + curPath );
 		setProcessEnvironment( env );
 #endif
@@ -11540,8 +11540,7 @@ bool Virtual_Machine::Start_impl()
 			if( ! AQ_Is_Store_Build() )
 			{
 #ifdef Q_OS_WIN32
-				search_dirs << QStringLiteral( "C:/Program Files/qemu" )
-				            << QStringLiteral( "C:/Program Files (x86)/qemu" );
+				search_dirs << AQ_Windows_Qemu_Dirs();
 #else
 				search_dirs << QStringLiteral( "/usr/bin" )
 				            << QStringLiteral( "/usr/local/bin" );
@@ -11596,9 +11595,10 @@ bool Virtual_Machine::Start_impl()
 		if( find_name.contains( QLatin1String( "qemu-system-ppc" ), Qt::CaseInsensitive ) &&
 		    ! find_name.contains( QLatin1String( "ppc64" ), Qt::CaseInsensitive ) )
 		{
-			const QStringList ppc_candidates = QStringList()
-				<< QStringLiteral( "C:/Program Files/qemu/qemu-system-ppc.exe" )
-				<< QStringLiteral( "C:/Program Files (x86)/qemu/qemu-system-ppc.exe" );
+			QStringList ppc_candidates;
+			const QStringList qemu_dirs = AQ_Windows_Qemu_Dirs();
+			for( int qi = 0; qi < qemu_dirs.size(); ++qi )
+				ppc_candidates << qemu_dirs.at( qi ) + QStringLiteral( "/qemu-system-ppc.exe" );
 			for( int ci = 0; ci < ppc_candidates.count(); ++ci )
 			{
 				if( QFile::exists( ppc_candidates[ci] ) )
@@ -11895,7 +11895,7 @@ bool Virtual_Machine::Start_impl()
         const QString binDir = QDir::toNativeSeparators( QFileInfo( bin_path ).absolutePath() );
         const QString appDir = QDir::toNativeSeparators( QCoreApplication::applicationDirPath() );
         const QString curPath = env.value( QStringLiteral( "PATH" ), QString() );
-        const QString msysPaths = QStringLiteral( "C:\\msys64\\clangarm64\\bin;C:\\msys64\\ucrt64\\bin;C:\\msys64\\mingw64\\bin" );
+        const QString msysPaths = AQ_Msys_Bin_Path();
         env.insert( QStringLiteral( "PATH" ), binDir + QLatin1Char( ';' ) + appDir + QLatin1Char( ';' ) + msysPaths + QLatin1Char( ';' ) + curPath );
         QEMU_Process->setProcessEnvironment( env );
 #endif

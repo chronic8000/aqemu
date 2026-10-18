@@ -97,8 +97,19 @@ void AQEMU_Ensure_Writable_User_Paths( QSettings &settings );
 
 /** Microsoft Store / MSIX build. Developer and self-compiled builds are false. */
 bool AQ_Is_Store_Build();
-/** True for C:\\msys64\\... and other MSYS developer prefixes. */
+/** True for an MSYS2 developer tree, on any drive. */
 bool AQ_Path_Is_Msys_Tree( const QString &path );
+/**
+ * MSYS2 roots. MSYSTEM_PREFIX and MSYS2_ROOT win. C:/msys64 is only
+ * used when it exists and nothing else was set.
+ */
+QStringList AQ_Msys_Roots();
+/** Existing MSYS2 bin directories, joined for PATH. */
+QString AQ_Msys_Bin_Path();
+/** Program Files directories from the environment, not a fixed drive. */
+QStringList AQ_Windows_Program_Dirs();
+/** "<Program Files>/qemu" directories. */
+QStringList AQ_Windows_Qemu_Dirs();
 /** Store builds may launch only the QEMU shipped beside aqemu.exe. */
 bool AQ_Store_May_Use_QEMU_Path( const QString &path );
 /**

@@ -409,7 +409,8 @@ IF( WIN32 AND AQEMU_STORE_BUILD )
 	FIND_FILE( AQEMU_STORE_WINRT_HEADER Windows.Services.Store.h
 		PATHS
 			"$ENV{WindowsSdkDir}/Include"
-			"C:/Program Files (x86)/Windows Kits/10/Include"
+			"$ENV{ProgramFiles\(x86\)}/Windows Kits/10/Include"
+			"$ENV{ProgramW6432}/Windows Kits/10/Include"
 		PATH_SUFFIXES
 			"cppwinrt/winrt"
 			"winrt"
@@ -507,6 +508,37 @@ IF( WIN32 )
 	ENDIF()
 ENDIF()
 
+# MSYS2 bin directories. MSYSTEM_PREFIX / MSYS2_ROOT come first.
+# C:/msys64 is only the last resort, and only when that directory exists.
+FUNCTION( aqemu_msys_bin_dirs OUT_VAR )
+	SET( _dirs "" )
+	IF( DEFINED ENV{MSYSTEM_PREFIX} AND EXISTS "$ENV{MSYSTEM_PREFIX}/bin" )
+		LIST( APPEND _dirs "$ENV{MSYSTEM_PREFIX}/bin" )
+	ENDIF()
+	IF( DEFINED ENV{MINGW_PREFIX} AND EXISTS "$ENV{MINGW_PREFIX}/bin" )
+		LIST( APPEND _dirs "$ENV{MINGW_PREFIX}/bin" )
+	ENDIF()
+	SET( _root "" )
+	IF( DEFINED ENV{MSYS2_ROOT} AND NOT "$ENV{MSYS2_ROOT}" STREQUAL "" )
+		SET( _root "$ENV{MSYS2_ROOT}" )
+	ELSEIF( DEFINED ENV{MSYSTEM_PREFIX} AND NOT "$ENV{MSYSTEM_PREFIX}" STREQUAL "" )
+		GET_FILENAME_COMPONENT( _root "$ENV{MSYSTEM_PREFIX}" DIRECTORY )
+	ELSEIF( EXISTS "C:/msys64" )
+		SET( _root "C:/msys64" )
+	ENDIF()
+	IF( _root )
+		FOREACH( _sub clangarm64 clang64 ucrt64 mingw64 )
+			IF( EXISTS "${_root}/${_sub}/bin" )
+				LIST( APPEND _dirs "${_root}/${_sub}/bin" )
+			ENDIF()
+		ENDFOREACH()
+	ENDIF()
+	IF( _dirs )
+		LIST( REMOVE_DUPLICATES _dirs )
+	ENDIF()
+	SET( ${OUT_VAR} "${_dirs}" PARENT_SCOPE )
+ENDFUNCTION()
+
 # Embedded VNC display
 IF( NOT WITHOUT_EMBEDDED_DISPLAY )
 	IF( EXISTS "${CMAKE_SOURCE_DIR}/third_party/libvnc-install/include/rfb/rfbclient.h" )
@@ -526,7 +558,8 @@ IF( NOT WITHOUT_EMBEDDED_DISPLAY )
 	ENDIF()
 	IF( WIN32 )
 		TARGET_LINK_LIBRARIES( aqemu ws2_32 )
-		FOREACH( _vnc_dir "$ENV{MINGW_PREFIX}/bin" "$ENV{MSYSTEM_PREFIX}/bin" "$ENV{MSYS2_ROOT}/clangarm64/bin" "$ENV{MSYS2_ROOT}/ucrt64/bin" "$ENV{MSYS2_ROOT}/mingw64/bin" "C:/msys64/clangarm64/bin" "C:/msys64/ucrt64/bin" "C:/msys64/mingw64/bin" )
+		aqemu_msys_bin_dirs( _vnc_dirs )
+		FOREACH( _vnc_dir ${_vnc_dirs} )
 			IF( EXISTS "${_vnc_dir}/libvncclient.dll" )
 				ADD_CUSTOM_COMMAND( TARGET aqemu POST_BUILD
 					COMMAND ${CMAKE_COMMAND} -E copy_if_different "${_vnc_dir}/libvncclient.dll" "$<TARGET_FILE_DIR:aqemu>"
@@ -541,7 +574,7 @@ ENDIF( NOT WITHOUT_EMBEDDED_DISPLAY )
 # Optional spice-client-glib (Qt paints frames; no GtkWidget embed)
 # Windows (WinLibs UCRT): install MSYS2 ucrt64 packages and point pkg-config at them:
 #   pacman -S mingw-w64-ucrt-x86_64-spice-gtk mingw-w64-ucrt-x86_64-pkgconf
-#   set PKG_CONFIG_PATH=C:/msys64/ucrt64/lib/pkgconfig
+#   set PKG_CONFIG_PATH=%MSYSTEM_PREFIX%/lib/pkgconfig
 IF( AQEMU_WITH_SPICE_GTK )
 	FIND_PACKAGE( PkgConfig REQUIRED )
 	# Prefer glib-only module; fall back to spice-client-gtk-3.0 (pulls glib as dep)
@@ -583,22 +616,10 @@ IF( AQEMU_WITH_SPICE_GTK )
 			ENDIF()
 		ENDFOREACH()
 		IF( NOT _spice_bin_dir )
-			IF( EXISTS "$ENV{MINGW_PREFIX}/bin" )
-				SET( _spice_bin_dir "$ENV{MINGW_PREFIX}/bin" )
-			ELSEIF( EXISTS "$ENV{MSYSTEM_PREFIX}/bin" )
-				SET( _spice_bin_dir "$ENV{MSYSTEM_PREFIX}/bin" )
-			ELSEIF( EXISTS "$ENV{MSYS2_ROOT}/clangarm64/bin" )
-				SET( _spice_bin_dir "$ENV{MSYS2_ROOT}/clangarm64/bin" )
-			ELSEIF( EXISTS "$ENV{MSYS2_ROOT}/ucrt64/bin" )
-				SET( _spice_bin_dir "$ENV{MSYS2_ROOT}/ucrt64/bin" )
-			ELSEIF( EXISTS "$ENV{MSYS2_ROOT}/mingw64/bin" )
-				SET( _spice_bin_dir "$ENV{MSYS2_ROOT}/mingw64/bin" )
-			ELSEIF( EXISTS "C:/msys64/clangarm64/bin" )
-				SET( _spice_bin_dir "C:/msys64/clangarm64/bin" )
-			ELSEIF( EXISTS "C:/msys64/ucrt64/bin" )
-				SET( _spice_bin_dir "C:/msys64/ucrt64/bin" )
-			ELSEIF( EXISTS "C:/msys64/mingw64/bin" )
-				SET( _spice_bin_dir "C:/msys64/mingw64/bin" )
+			aqemu_msys_bin_dirs( _spice_bins )
+			LIST( LENGTH _spice_bins _spice_bin_count )
+			IF( _spice_bin_count GREATER 0 )
+				LIST( GET _spice_bins 0 _spice_bin_dir )
 			ENDIF()
 		ENDIF()
 		IF( _spice_bin_dir )
@@ -685,7 +706,8 @@ IF( AQEMU_BUNDLE_QEMU )
 		FILE( GLOB _qemu_dlls ${_qemu_dll_globs} )
 		# MSYS2 install leaves runtime DLLs under /clangarm64/bin, /ucrt64/bin, or /mingw64/bin.
 		IF( WIN32 )
-			FOREACH( _cand_msys "C:/msys64/clangarm64/bin" "C:/msys64/ucrt64/bin" "C:/msys64/mingw64/bin" )
+			aqemu_msys_bin_dirs( _msys_bins )
+			FOREACH( _cand_msys ${_msys_bins} )
 				IF( EXISTS "${_cand_msys}" )
 					FILE( GLOB _msys_dlls
 						"${_cand_msys}/libslirp*.dll"

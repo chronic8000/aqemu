@@ -8,7 +8,7 @@
   Supports creating native Store MSIX packages via -BuildMsix.
 
 .PARAMETER MsysRoot
-  Path to MSYS2 installation (default: C:\msys64).
+  Path to MSYS2. Empty uses MSYSTEM_PREFIX, then MSYS2_ROOT, then C:\msys64.
 .PARAMETER BuildDir
   Output build directory (default: build_woa).
 .PARAMETER BuildMsix
@@ -18,7 +18,7 @@
 #>
 [CmdletBinding()]
 param(
-    [string] $MsysRoot = "C:\msys64",
+    [string] $MsysRoot = "",
     [string] $BuildDir = "build_woa",
     [switch] $BuildMsix,
     [switch] $SkipSpice
@@ -31,6 +31,11 @@ if ([string]::IsNullOrWhiteSpace($scriptDir)) {
     $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 }
 $RepoRoot = (Resolve-Path (Join-Path $scriptDir "..")).Path
+if ([string]::IsNullOrWhiteSpace($MsysRoot)) {
+    . (Join-Path $scriptDir "msys_prefix.ps1")
+    $MsysRoot = Get-AqemuMsysRoot
+    if (-not $MsysRoot) { $MsysRoot = "C:\msys64" }
+}
 $FullBuildDir = Join-Path $RepoRoot $BuildDir
 
 Write-Host "============================================================" -ForegroundColor Cyan

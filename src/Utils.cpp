@@ -401,6 +401,109 @@ bool AQ_Path_Is_Msys_Tree( const QString &path )
 	       n.contains( QLatin1String( "c:/msys64" ) );
 }
 
+static QString AQ_Env_Path( const char *name )
+{
+	const QByteArray value = qgetenv( name );
+	if( value.isEmpty() )
+		return QString();
+	return QDir::fromNativeSeparators( QString::fromLocal8Bit( value ) ).trimmed();
+}
+
+static void AQ_Add_Unique_Path( QStringList &paths, const QString &raw )
+{
+	const QString cleaned = QDir::cleanPath( QDir::fromNativeSeparators( raw.trimmed() ) );
+	if( cleaned.isEmpty() || cleaned == QLatin1String( "." ) )
+		return;
+	for( int i = 0; i < paths.size(); ++i )
+	{
+		if( paths.at( i ).compare( cleaned, Qt::CaseInsensitive ) == 0 )
+			return;
+	}
+	paths << cleaned;
+}
+
+QStringList AQ_Msys_Roots()
+{
+	QStringList roots;
+	const QString prefix = AQ_Env_Path( "MSYSTEM_PREFIX" );
+	if( ! prefix.isEmpty() )
+		AQ_Add_Unique_Path( roots, QFileInfo( prefix ).absolutePath() );
+	const QString configured = AQ_Env_Path( "MSYS2_ROOT" );
+	if( ! configured.isEmpty() )
+		AQ_Add_Unique_Path( roots, configured );
+	if( roots.isEmpty() && QDir( QStringLiteral( "C:/msys64" ) ).exists() )
+		AQ_Add_Unique_Path( roots, QStringLiteral( "C:/msys64" ) );
+	return roots;
+}
+
+QString AQ_Msys_Bin_Path()
+{
+	const QStringList subs = QStringList()
+		<< QStringLiteral( "clangarm64/bin" )
+		<< QStringLiteral( "clang64/bin" )
+		<< QStringLiteral( "ucrt64/bin" )
+		<< QStringLiteral( "mingw64/bin" );
+	QStringList bins;
+	const QStringList roots = AQ_Msys_Roots();
+	for( int r = 0; r < roots.size(); ++r )
+	{
+		for( int s = 0; s < subs.size(); ++s )
+		{
+			const QString dir = roots.at( r ) + QLatin1Char( '/' ) + subs.at( s );
+			if( QDir( dir ).exists() )
+				AQ_Add_Unique_Path( bins, dir );
+		}
+	}
+	QStringList native;
+	for( int i = 0; i < bins.size(); ++i )
+		native << QDir::toNativeSeparators( bins.at( i ) );
+	return native.join( QLatin1Char( ';' ) );
+}
+
+QStringList AQ_Windows_Program_Dirs()
+{
+	QStringList dirs;
+#ifdef Q_OS_WIN
+	AQ_Add_Unique_Path( dirs, AQ_Env_Path( "ProgramW6432" ) );
+	AQ_Add_Unique_Path( dirs, AQ_Env_Path( "ProgramFiles" ) );
+	AQ_Add_Unique_Path( dirs, AQ_Env_Path( "ProgramFiles(x86)" ) );
+	if( dirs.isEmpty() )
+	{
+		AQ_Add_Unique_Path( dirs, QStringLiteral( "C:/Program Files" ) );
+		AQ_Add_Unique_Path( dirs, QStringLiteral( "C:/Program Files (x86)" ) );
+	}
+#endif
+	return dirs;
+}
+
+QStringList AQ_Windows_Qemu_Dirs()
+{
+	QStringList dirs;
+	const QStringList programs = AQ_Windows_Program_Dirs();
+	for( int i = 0; i < programs.size(); ++i )
+		AQ_Add_Unique_Path( dirs, programs.at( i ) + QStringLiteral( "/qemu" ) );
+	return dirs;
+}
+
+static void AQ_Append_Msys_Qemu_Share( QStringList &candidates, const QStringList &names )
+{
+	const QStringList envs = QStringList()
+		<< QStringLiteral( "ucrt64" )
+		<< QStringLiteral( "clang64" )
+		<< QStringLiteral( "clangarm64" )
+		<< QStringLiteral( "mingw64" );
+	const QStringList roots = AQ_Msys_Roots();
+	for( int r = 0; r < roots.size(); ++r )
+	{
+		for( int e = 0; e < envs.size(); ++e )
+		{
+			const QString share = roots.at( r ) + QLatin1Char( '/' ) + envs.at( e ) + QStringLiteral( "/share/qemu/" );
+			for( int n = 0; n < names.size(); ++n )
+				candidates << share + names.at( n );
+		}
+	}
+}
+
 bool AQ_Store_May_Use_QEMU_Path( const QString &path )
 {
 	if( ! AQ_Is_Store_Build() )
@@ -550,9 +653,10 @@ QString Get_QEMU_IMG_Path()
 			candidates << fi.absolutePath() + "/qemu-img" + exe_suffix;
 	}
 
+	const QStringList qemu_dirs = AQ_Windows_Qemu_Dirs();
+	for( int i = 0; i < qemu_dirs.size(); ++i )
+		candidates << qemu_dirs.at( i ) + "/qemu-img" + exe_suffix;
 	candidates
-		<< "C:/Program Files/qemu/qemu-img" + exe_suffix
-		<< "C:/Program Files (x86)/qemu/qemu-img" + exe_suffix
 		<< "/usr/bin/qemu-img"
 		<< "/usr/local/bin/qemu-img"
 		<< "qemu-img" + exe_suffix
@@ -814,8 +918,7 @@ QString AQ_Get_System_QEMU_Dir()
 {
 	QStringList probes;
 #ifdef Q_OS_WIN32
-	probes << QStringLiteral( "C:/Program Files/qemu" )
-	       << QStringLiteral( "C:/Program Files (x86)/qemu" );
+	probes << AQ_Windows_Qemu_Dirs();
 #else
 	probes << QStringLiteral( "/usr/bin" )
 	       << QStringLiteral( "/usr/local/bin" );
@@ -2799,10 +2902,9 @@ QString AQ_Find_QEMU_Binary_With_Native_Display( const QString &system_name,
 	}
 
 #ifdef Q_OS_WIN32
-	candidates << QDir::toNativeSeparators(
-		QStringLiteral( "C:/Program Files/qemu/" ) + exe );
-	candidates << QDir::toNativeSeparators(
-		QStringLiteral( "C:/Program Files (x86)/qemu/" ) + exe );
+	const QStringList qemu_dirs = AQ_Windows_Qemu_Dirs();
+	for( int i = 0; i < qemu_dirs.size(); ++i )
+		candidates << QDir::toNativeSeparators( qemu_dirs.at( i ) + QLatin1Char( '/' ) + exe );
 #endif
 
 	for( int i = 0; i < candidates.count(); ++i )
@@ -2927,24 +3029,36 @@ QString Find_UEFI_Firmware_CODE( const QString &qemu_binary_path, const QString 
 			           << binDir + "/AAVMF_CODE.fd";
 		}
 	}
+	const QStringList qemu_dirs = AQ_Windows_Qemu_Dirs();
 	if( x86 )
 	{
-		candidates << "C:/Program Files/qemu/share/OVMF_CODE.fd"
-		           << "C:/Program Files/qemu/share/OVMF_CODE_4M.fd"
-		           << "C:/Program Files/qemu/share/edk2-x86_64-code.fd"
-		           << "C:/Program Files/qemu/OVMF_CODE.fd"
-		           << "C:/msys64/ucrt64/share/qemu/OVMF_CODE.fd"
-		           << "C:/msys64/ucrt64/share/qemu/OVMF_CODE_4M.fd"
-		           << "C:/msys64/ucrt64/share/qemu/edk2-x86_64-code.fd"
-		           << "C:/msys64/mingw64/share/qemu/OVMF_CODE.fd"
-		           << "C:/msys64/mingw64/share/qemu/edk2-x86_64-code.fd";
+		const QStringList names = QStringList()
+			<< QStringLiteral( "share/OVMF_CODE.fd" )
+			<< QStringLiteral( "share/OVMF_CODE_4M.fd" )
+			<< QStringLiteral( "share/edk2-x86_64-code.fd" )
+			<< QStringLiteral( "OVMF_CODE.fd" );
+		for( int i = 0; i < qemu_dirs.size(); ++i )
+		{
+			for( int n = 0; n < names.size(); ++n )
+				candidates << qemu_dirs.at( i ) + QLatin1Char( '/' ) + names.at( n );
+		}
+		AQ_Append_Msys_Qemu_Share( candidates, QStringList()
+			<< QStringLiteral( "OVMF_CODE.fd" )
+			<< QStringLiteral( "OVMF_CODE_4M.fd" )
+			<< QStringLiteral( "edk2-x86_64-code.fd" ) );
 	}
 	else
 	{
-		candidates << "C:/Program Files/qemu/share/edk2-aarch64-code.fd"
-		           << "C:/Program Files/qemu/edk2-aarch64-code.fd"
-		           << "C:/msys64/ucrt64/share/qemu/edk2-aarch64-code.fd"
-		           << "C:/msys64/mingw64/share/qemu/edk2-aarch64-code.fd";
+		const QStringList names = QStringList()
+			<< QStringLiteral( "share/edk2-aarch64-code.fd" )
+			<< QStringLiteral( "edk2-aarch64-code.fd" );
+		for( int i = 0; i < qemu_dirs.size(); ++i )
+		{
+			for( int n = 0; n < names.size(); ++n )
+				candidates << qemu_dirs.at( i ) + QLatin1Char( '/' ) + names.at( n );
+		}
+		AQ_Append_Msys_Qemu_Share( candidates, QStringList()
+			<< QStringLiteral( "edk2-aarch64-code.fd" ) );
 	}
 	#else
 	if( x86 )
@@ -3006,24 +3120,36 @@ QString Find_UEFI_Firmware_VARS_Template( const QString &qemu_binary_path, const
 			           << binDir + "/AAVMF_VARS.fd";
 		}
 	}
+	const QStringList qemu_dirs = AQ_Windows_Qemu_Dirs();
 	if( x86 )
 	{
-		candidates << "C:/Program Files/qemu/share/OVMF_VARS.fd"
-		           << "C:/Program Files/qemu/share/OVMF_VARS_4M.fd"
-		           << "C:/Program Files/qemu/share/edk2-i386-vars.fd"
-		           << "C:/Program Files/qemu/OVMF_VARS.fd"
-		           << "C:/msys64/ucrt64/share/qemu/OVMF_VARS.fd"
-		           << "C:/msys64/ucrt64/share/qemu/OVMF_VARS_4M.fd"
-		           << "C:/msys64/ucrt64/share/qemu/edk2-i386-vars.fd"
-		           << "C:/msys64/mingw64/share/qemu/OVMF_VARS.fd"
-		           << "C:/msys64/mingw64/share/qemu/edk2-i386-vars.fd";
+		const QStringList names = QStringList()
+			<< QStringLiteral( "share/OVMF_VARS.fd" )
+			<< QStringLiteral( "share/OVMF_VARS_4M.fd" )
+			<< QStringLiteral( "share/edk2-i386-vars.fd" )
+			<< QStringLiteral( "OVMF_VARS.fd" );
+		for( int i = 0; i < qemu_dirs.size(); ++i )
+		{
+			for( int n = 0; n < names.size(); ++n )
+				candidates << qemu_dirs.at( i ) + QLatin1Char( '/' ) + names.at( n );
+		}
+		AQ_Append_Msys_Qemu_Share( candidates, QStringList()
+			<< QStringLiteral( "OVMF_VARS.fd" )
+			<< QStringLiteral( "OVMF_VARS_4M.fd" )
+			<< QStringLiteral( "edk2-i386-vars.fd" ) );
 	}
 	else
 	{
-		candidates << "C:/Program Files/qemu/share/edk2-arm-vars.fd"
-		           << "C:/Program Files/qemu/edk2-arm-vars.fd"
-		           << "C:/msys64/ucrt64/share/qemu/edk2-arm-vars.fd"
-		           << "C:/msys64/mingw64/share/qemu/edk2-arm-vars.fd";
+		const QStringList names = QStringList()
+			<< QStringLiteral( "share/edk2-arm-vars.fd" )
+			<< QStringLiteral( "edk2-arm-vars.fd" );
+		for( int i = 0; i < qemu_dirs.size(); ++i )
+		{
+			for( int n = 0; n < names.size(); ++n )
+				candidates << qemu_dirs.at( i ) + QLatin1Char( '/' ) + names.at( n );
+		}
+		AQ_Append_Msys_Qemu_Share( candidates, QStringList()
+			<< QStringLiteral( "edk2-arm-vars.fd" ) );
 	}
 	#else
 	if( x86 )

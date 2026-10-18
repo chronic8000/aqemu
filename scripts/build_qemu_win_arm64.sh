@@ -16,6 +16,9 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# shellcheck source=msys_prefix.sh
+source "$(cd "$(dirname "$0")" && pwd)/msys_prefix.sh"
+MSYS_ROOT="$(aqemu_resolve_msys_root)"
 QEMU_SRC="${ROOT}/third_party/qemu"
 TARGET_ARG="${1:-all}"
 PREFIX="${2:-${ROOT}/third_party/qemu-install}"
@@ -27,7 +30,7 @@ local_msys_bin="/clangarm64/bin"
 if command -v cygpath >/dev/null 2>&1; then
   WIN_BIN="$(cygpath -m /clangarm64/bin)"
 else
-  WIN_BIN="C:/msys64/clangarm64/bin"
+  WIN_BIN="${MSYS_ROOT}/clangarm64/bin"
 fi
 
 # Meson runs under Win32 Python — tool paths must be Windows-style (C:/...)

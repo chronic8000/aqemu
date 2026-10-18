@@ -1,5 +1,8 @@
 2026-10-18 Chronic Engineering — AQEMU 1.6.0
 
+	* MSYS2 and Program Files locations follow MSYSTEM_PREFIX, MSYS2_ROOT,
+	  and the Program Files environment variables. C:\\msys64 is only a
+	  last resort when that directory exists.
 	* A crash writes a local report and the next launch can open that folder.
 	  Windows keeps a minidump. Linux keeps a backtrace. Nothing is uploaded.
 	  The Linux report is marked before the backtrace. A second crash

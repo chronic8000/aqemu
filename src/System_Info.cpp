@@ -3006,7 +3006,7 @@ QString System_Info::Get_Emulator_Output( const QString &path, const QStringList
 	const QString binDir = QDir::toNativeSeparators( QFileInfo( path ).absolutePath() );
 	const QString appDir = QDir::toNativeSeparators( QCoreApplication::applicationDirPath() );
 	const QString curPath = env.value( QStringLiteral( "PATH" ), QString() );
-	const QString msysPaths = QStringLiteral( "C:\\msys64\\clangarm64\\bin;C:\\msys64\\ucrt64\\bin;C:\\msys64\\mingw64\\bin" );
+	const QString msysPaths = AQ_Msys_Bin_Path();
 	env.insert( QStringLiteral( "PATH" ), binDir + QLatin1Char( ';' ) + appDir + QLatin1Char( ';' ) + msysPaths + QLatin1Char( ';' ) + curPath );
 	qemu_pr.setProcessEnvironment( env );
 #endif
@@ -4396,7 +4396,7 @@ bool System_Info::Auto_Find_And_Save_Emulators()
 	}
 	
 	#ifdef Q_OS_WIN32
-	paths << "C:/Program Files/qemu/" << "C:/Program Files (x86)/qemu/";
+	paths << AQ_Windows_Qemu_Dirs();
 	#else
 	paths << "/usr/bin/" << "/usr/local/bin/";
 	#endif

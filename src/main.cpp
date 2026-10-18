@@ -548,10 +548,12 @@ int AQEMU_Main::find_data_folders()
         
         #ifdef Q_OS_WIN
         // 4. Typical installation folders on Windows
-        dataDirs << "C:/Program Files/AQEMU/resources/"
-                 << "C:/Program Files/AQEMU/"
-                 << "C:/Program Files (x86)/AQEMU/resources/"
-                 << "C:/Program Files (x86)/AQEMU/";
+        const QStringList program_dirs = AQ_Windows_Program_Dirs();
+        for( int i = 0; i < program_dirs.size(); ++i )
+        {
+            dataDirs << program_dirs.at( i ) + "/AQEMU/resources/";
+            dataDirs << program_dirs.at( i ) + "/AQEMU/";
+        }
         #else
         // 5. Typical installation folders on Unix/Linux
         dataDirs << "/usr/share/aqemu/"

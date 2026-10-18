@@ -28,6 +28,7 @@ if ([string]::IsNullOrWhiteSpace($scriptDir)) {
 if (-not $RepoRoot) {
     $RepoRoot = (Resolve-Path (Join-Path $scriptDir "..")).Path
 }
+. (Join-Path $RepoRoot "scripts\msys_prefix.ps1")
 if (-not $BuildDir) {
     $BuildDir = Join-Path $RepoRoot "build_win"
 }
@@ -123,7 +124,7 @@ if ($MsysLocation -and (Test-Path $MsysLocation)) {
 if ($env:MSYSTEM_PREFIX -and (Test-Path (Join-Path $env:MSYSTEM_PREFIX "bin"))) {
     $binSearchDirs += (Join-Path $env:MSYSTEM_PREFIX "bin")
 }
-foreach ($cand in @("C:\msys64\ucrt64\bin", "C:\msys64\clangarm64\bin", "C:\msys64\mingw64\bin")) {
+foreach ($cand in @(Get-AqemuMsysBinDirs)) {
     if ((Test-Path $cand) -and ($binSearchDirs -notcontains $cand)) { $binSearchDirs += $cand }
 }
 foreach ($p in ($env:PATH -split ";")) {

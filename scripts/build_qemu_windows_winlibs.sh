@@ -8,13 +8,29 @@ QEMU_SRC="${ROOT}/third_party/qemu"
 PREFIX="${1:-${ROOT}/third_party/qemu-install}"
 BUILD_DIR="${ROOT}/third_party/qemu-build-win"
 
-WINLIBS_BIN_WIN="C:/Users/chron/AppData/Local/Microsoft/WinGet/Packages/BrechtSanders.WinLibs.POSIX.UCRT_Microsoft.Winget.Source_8wekyb3d8bbwe/mingw64/bin"
-WINLIBS_BIN="/c/Users/chron/AppData/Local/Microsoft/WinGet/Packages/BrechtSanders.WinLibs.POSIX.UCRT_Microsoft.Winget.Source_8wekyb3d8bbwe/mingw64/bin"
-MSYS_MINGW_WIN="C:/msys64/mingw64"
+# shellcheck source=msys_prefix.sh
+source "$(cd "$(dirname "$0")" && pwd)/msys_prefix.sh"
+MSYS_ROOT="$(aqemu_resolve_msys_root)"
+MSYS_MINGW_WIN="${MSYS_ROOT}/mingw64"
 MSYS_MINGW="/mingw64"
 
-if [[ ! -x "${WINLIBS_BIN}/gcc.exe" ]]; then
-  echo "WinLibs gcc not found at ${WINLIBS_BIN}"
+# Set WINLIBS_BIN to the WinLibs mingw64/bin directory, or let this find the
+# Winget package under LOCALAPPDATA.
+if [[ -z "${WINLIBS_BIN:-}" && -n "${LOCALAPPDATA:-}" ]] && command -v cygpath >/dev/null 2>&1; then
+  _winget="$(cygpath -u "${LOCALAPPDATA}")/Microsoft/WinGet/Packages"
+  if [[ -d "${_winget}" ]]; then
+    _gcc="$(find "${_winget}" -path '*WinLibs*' -name gcc.exe -print -quit 2>/dev/null || true)"
+    if [[ -n "${_gcc}" ]]; then
+      WINLIBS_BIN="$(dirname "${_gcc}")"
+    fi
+  fi
+fi
+if [[ -n "${WINLIBS_BIN:-}" ]]; then
+  WINLIBS_BIN_WIN="$(cygpath -m "${WINLIBS_BIN}" 2>/dev/null || printf '%s' "${WINLIBS_BIN}")"
+fi
+
+if [[ -z "${WINLIBS_BIN:-}" || ! -x "${WINLIBS_BIN}/gcc.exe" ]]; then
+  echo "WinLibs gcc was not found. Set WINLIBS_BIN to its mingw64/bin directory."
   echo "Install via: winget install BrechtSanders.WinLibs.POSIX.UCRT"
   exit 1
 fi
