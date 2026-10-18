@@ -10478,13 +10478,9 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		if( tag.isEmpty() )
 			tag = QStringLiteral( "vm" );
 #ifdef Q_OS_WIN
-		// QEMU treats -chardev socket,path= as a Unix socket. A \\.\pipe\
-		// path fails with "network down" and QEMU exits, so the guest
-		// never starts. Leave the channels off on Windows.
-		Guest_Agent_Socket.clear();
-		Guest_Files_Socket.clear();
+		Guest_Agent_Socket = QStringLiteral( "\\\\.\\pipe\\aqemu-ga-%1" ).arg( tag );
+		Guest_Files_Socket = QStringLiteral( "\\\\.\\pipe\\aqemu-files-%1" ).arg( tag );
 		Q_UNUSED( dir );
-		Q_UNUSED( tag );
 #else
 		Guest_Agent_Socket = QDir( dir ).filePath( QStringLiteral( "ga-%1.sock" ).arg( tag ) );
 		Guest_Files_Socket = QDir( dir ).filePath( QStringLiteral( "files-%1.sock" ).arg( tag ) );
@@ -10493,8 +10489,8 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			QFile::remove( Guest_Agent_Socket );
 			QFile::remove( Guest_Files_Socket );
 		}
-		AQ_Append_Guest_Channels( Args, Guest_Agent_Socket, Guest_Files_Socket );
 #endif
+		AQ_Append_Guest_Channels( Args, Guest_Agent_Socket, Guest_Files_Socket );
 	}
 
 	AQ_Lab_Append_Args( Args, this );

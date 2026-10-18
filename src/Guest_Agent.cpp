@@ -468,15 +468,33 @@ bool AQ_Machine_Supports_Guest_Channels( const QString &machine )
 	return false;
 }
 
+#ifdef Q_OS_WIN
+static QString AQ_Windows_Pipe_Name( const QString &full )
+{
+	const QString prefix = QStringLiteral( "\\\\.\\pipe\\" );
+	if( full.startsWith( prefix, Qt::CaseInsensitive ) )
+		return full.mid( prefix.size() );
+	return full;
+}
+#endif
+
 void AQ_Append_Guest_Channels( QStringList &args, const QString &agent_path, const QString &files_path )
 {
 	if( agent_path.isEmpty() || files_path.isEmpty() || agent_path == files_path )
 		return;
 
+#ifdef Q_OS_WIN
+	// QEMU creates \\.\pipe\<name> and listens without waiting.
+	args << QStringLiteral( "-chardev" )
+	     << QStringLiteral( "pipe,id=aqga,path=%1" ).arg( AQ_Windows_Pipe_Name( agent_path ) );
+	args << QStringLiteral( "-chardev" )
+	     << QStringLiteral( "pipe,id=aqfiles,path=%1" ).arg( AQ_Windows_Pipe_Name( files_path ) );
+#else
 	args << QStringLiteral( "-chardev" )
 	     << QStringLiteral( "socket,id=aqga,path=%1,server=on,wait=off" ).arg( agent_path );
 	args << QStringLiteral( "-chardev" )
 	     << QStringLiteral( "socket,id=aqfiles,path=%1,server=on,wait=off" ).arg( files_path );
+#endif
 	args << QStringLiteral( "-device" ) << QStringLiteral( "virtio-serial-pci,id=aqemu_vserial" );
 	args << QStringLiteral( "-device" )
 	     << QStringLiteral( "virtserialport,bus=aqemu_vserial.0,nr=1,chardev=aqga,name=org.qemu.guest_agent.0" );

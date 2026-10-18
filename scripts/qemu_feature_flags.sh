@@ -18,8 +18,31 @@ aqemu_qemu_require_pkg() {
 
 # Populate global array AQEMU_QEMU_EXTRA_CONFIGURE with --enable-* flags.
 # Call as: aqemu_qemu_feature_flags   then use "${AQEMU_QEMU_EXTRA_CONFIGURE[@]}"
+# Windows named pipes must listen without waiting, or QEMU never starts
+# the guest. Apply third_party/patches before configure.
+aqemu_apply_qemu_patches() {
+	local src="${ROOT}/third_party/qemu"
+	local dir="${ROOT}/third_party/patches"
+	local p
+	[[ -d "${dir}" ]] || return 0
+	[[ -f "${src}/meson.build" || -f "${src}/configure" ]] || return 0
+	shopt -s nullglob
+	for p in "${dir}"/*.patch; do
+		echo "Applying QEMU patch $(basename "${p}")"
+		if patch -d "${src}" -p1 -N --forward --dry-run < "${p}" >/dev/null 2>&1; then
+			patch -d "${src}" -p1 -N --forward < "${p}"
+		elif patch -d "${src}" -p1 -R --dry-run < "${p}" >/dev/null 2>&1; then
+			echo "QEMU patch $(basename "${p}") already applied"
+		else
+			echo "ERROR: QEMU patch $(basename "${p}") did not apply" >&2
+			return 1
+		fi
+	done
+}
+
 aqemu_qemu_feature_flags() {
-	# Upstream QEMU is used as checked out. AQEMU does not patch it.
+	aqemu_apply_qemu_patches
+	# Upstream QEMU is used as checked out, plus third_party/patches.
 	AQEMU_QEMU_EXTRA_CONFIGURE=(
 		--enable-vnc
 		--enable-slirp

@@ -68,7 +68,7 @@ class AQ_Guest_Agent
 /** True for machines that can accept virtio-serial-pci. */
 bool AQ_Machine_Supports_Guest_Channels( const QString &machine );
 
-/** Add the virtio ports. Paths are a private socket or a Windows named pipe. */
+/** Add the virtio ports. Linux uses a Unix socket. Windows uses a named pipe. */
 void AQ_Append_Guest_Channels( QStringList &args, const QString &agent_path, const QString &files_path );
 
 #endif

@@ -1,7 +1,8 @@
 2026-10-18 Chronic Engineering — AQEMU 1.6.0
 
-	* Windows no longer passes a guest-agent pipe to QEMU. That pipe made
-	  QEMU exit with "network down" before the virtual machine started.
+	* The guest agent uses a Unix socket on Linux and a named pipe on
+	  Windows. QEMU listens on that pipe without waiting, so the virtual
+	  machine still starts.
 	* Finishing the first-start wizard opens the main window. Closing that
 	  wizard no longer quits AQEMU. A crash report is written only when
 	  the process crashes, and a normal start does not show a crash dialog.

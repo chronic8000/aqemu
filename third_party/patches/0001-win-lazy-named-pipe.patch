@@ -1,0 +1,153 @@
+diff --git a/chardev/char-pipe.c b/chardev/char-pipe.c
+index 472b3e0801..68dbae8d40 100644
+--- a/chardev/char-pipe.c
++++ b/chardev/char-pipe.c
+@@ -43,9 +43,7 @@ static int win_chr_pipe_init(Chardev *chr, const char *filename,
+                              Error **errp)
+ {
+     WinChardev *s = WIN_CHARDEV(chr);
+-    OVERLAPPED ov;
+     int ret;
+-    DWORD size;
+     char *openname;
+ 
+     s->fpipe = TRUE;
+@@ -61,6 +59,12 @@ static int win_chr_pipe_init(Chardev *chr, const char *filename,
+         goto fail;
+     }
+ 
++    s->hconnect = CreateEvent(NULL, TRUE, FALSE, NULL);
++    if (!s->hconnect) {
++        error_setg(errp, "Failed CreateEvent");
++        goto fail;
++    }
++
+     openname = g_strdup_printf("\\\\.\\pipe\\%s", filename);
+     s->file = CreateNamedPipe(openname,
+                               PIPE_ACCESS_DUPLEX | FILE_FLAG_OVERLAPPED,
+@@ -74,28 +78,25 @@ static int win_chr_pipe_init(Chardev *chr, const char *filename,
+         goto fail;
+     }
+ 
+-    ZeroMemory(&ov, sizeof(ov));
+-    ov.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+-    ret = ConnectNamedPipe(s->file, &ov);
++    /*
++     * Listen without waiting. A client may connect later. Blocking here
++     * prevents the virtual machine from starting.
++     */
++    ZeroMemory(&s->oconnect, sizeof(s->oconnect));
++    s->oconnect.hEvent = s->hconnect;
++    s->pipe_connected = false;
++    ret = ConnectNamedPipe(s->file, &s->oconnect);
+     if (ret) {
+         error_setg(errp, "Failed ConnectNamedPipe");
+         goto fail;
+     }
+-
+-    ret = GetOverlappedResult(s->file, &ov, &size, TRUE);
+-    if (!ret) {
+-        error_setg(errp, "Failed GetOverlappedResult");
+-        if (ov.hEvent) {
+-            CloseHandle(ov.hEvent);
+-            ov.hEvent = NULL;
+-        }
++    ret = GetLastError();
++    if (ret == ERROR_PIPE_CONNECTED) {
++        s->pipe_connected = true;
++    } else if (ret != ERROR_IO_PENDING) {
++        error_setg_win32(errp, ret, "Failed ConnectNamedPipe");
+         goto fail;
+     }
+-
+-    if (ov.hEvent) {
+-        CloseHandle(ov.hEvent);
+-        ov.hEvent = NULL;
+-    }
+     qemu_add_polling_cb(win_chr_pipe_poll, chr);
+     return 0;
+ 
+@@ -112,7 +113,9 @@ static bool pipe_chr_open(Chardev *chr, ChardevBackend *backend, Error **errp)
+         return false;
+     }
+ 
+-    qemu_chr_be_event(chr, CHR_EVENT_OPENED);
++    if (WIN_CHARDEV(chr)->pipe_connected) {
++        qemu_chr_be_event(chr, CHR_EVENT_OPENED);
++    }
+     return true;
+ }
+ 
+diff --git a/chardev/char-win.c b/chardev/char-win.c
+index e194242c9f..1fb2fb7fd6 100644
+--- a/chardev/char-win.c
++++ b/chardev/char-win.c
+@@ -146,9 +146,39 @@ int win_chr_pipe_poll(void *opaque)
+ {
+     Chardev *chr = CHARDEV(opaque);
+     WinChardev *s = WIN_CHARDEV(opaque);
+-    DWORD size;
++    DWORD size, unused, err;
++
++    if (!s->pipe_connected) {
++        if (!GetOverlappedResult(s->file, &s->oconnect, &unused, FALSE)) {
++            if (GetLastError() == ERROR_IO_INCOMPLETE) {
++                return 0;
++            }
++            return 0;
++        }
++        s->pipe_connected = true;
++        qemu_chr_be_event(chr, CHR_EVENT_OPENED);
++    }
++
++    if (!PeekNamedPipe(s->file, NULL, 0, NULL, &size, NULL)) {
++        err = GetLastError();
++        if (err == ERROR_BROKEN_PIPE || err == ERROR_PIPE_NOT_CONNECTED) {
++            DisconnectNamedPipe(s->file);
++            qemu_chr_be_event(chr, CHR_EVENT_CLOSED);
++            s->pipe_connected = false;
++            ResetEvent(s->hconnect);
++            ZeroMemory(&s->oconnect, sizeof(s->oconnect));
++            s->oconnect.hEvent = s->hconnect;
++            if (!ConnectNamedPipe(s->file, &s->oconnect)) {
++                err = GetLastError();
++                if (err == ERROR_PIPE_CONNECTED) {
++                    s->pipe_connected = true;
++                    qemu_chr_be_event(chr, CHR_EVENT_OPENED);
++                }
++            }
++        }
++        return 0;
++    }
+ 
+-    PeekNamedPipe(s->file, NULL, 0, NULL, &size, NULL);
+     if (size > 0) {
+         if (win_chr_read(chr, size)) {
+             return 1;
+@@ -201,6 +231,9 @@ static void char_win_finalize(Object *obj)
+     if (s->hsend) {
+         CloseHandle(s->hsend);
+     }
++    if (s->hconnect) {
++        CloseHandle(s->hconnect);
++    }
+     if (s->hrecv) {
+         CloseHandle(s->hrecv);
+     }
+diff --git a/include/chardev/char-win.h b/include/chardev/char-win.h
+index 485521469c..f408cd9d5b 100644
+--- a/include/chardev/char-win.h
++++ b/include/chardev/char-win.h
+@@ -31,9 +31,10 @@ struct WinChardev {
+     Chardev parent;
+ 
+     bool keep_open; /* console do not close file */
+-    HANDLE file, hrecv, hsend;
+-    OVERLAPPED orecv;
++    HANDLE file, hrecv, hsend, hconnect;
++    OVERLAPPED orecv, oconnect;
+     BOOL fpipe;
++    bool pipe_connected;
+ 
+     /* Protected by the Chardev chr_write_lock.  */
+     OVERLAPPED osend;
