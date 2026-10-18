@@ -16,6 +16,24 @@ _aqemu_script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${_aqemu_script_dir}/msys_prefix.sh"
 export AQEMU_MSYS_ROOT="$(aqemu_resolve_msys_root)"
 
+# MSYS git-remote-https aborts when a MinGW bin directory is first on PATH:
+# Windows loads that directory's OpenSSL DLLs into the MSYS helper.
+# GitHub Actions also injects GIT_CONFIG_* values that the helper rejects.
+aqemu_git_clone() {
+  local url="$1"
+  local dest="$2"
+  echo "Cloning ${url}"
+  (
+    local i
+    unset GIT_CONFIG_COUNT GIT_CONFIG_PARAMETERS GIT_CONFIG_GLOBAL GIT_CONFIG_SYSTEM || true
+    for i in 0 1 2 3 4 5 6 7; do
+      unset "GIT_CONFIG_KEY_${i}" "GIT_CONFIG_VALUE_${i}" || true
+    done
+    export PATH="/usr/bin:${PATH}"
+    git clone --depth 1 "${url}" "${dest}"
+  )
+}
+
 aqemu_is_special_target() {
   local target="${1:-}"
   case "${target}" in
@@ -281,9 +299,13 @@ aqemu_ensure_lzfse() {
     echo "======================================================================"
     echo "  Building lzfse (Apple LZFSE compression library for Inferno)"
     echo "======================================================================"
-    if [[ ! -d "${lzfse_dir}" || ! -f "${lzfse_dir}/CMakeLists.txt" ]]; then
-      echo "Cloning lzfse repository..."
-      git clone --depth 1 https://github.com/lzfse/lzfse.git "${lzfse_dir}"
+    if [[ ! -d "${lzfse_dir}" || ! -f "${lzfse_dir}/src/lzfse_decode.c" ]]; then
+      rm -rf "${lzfse_dir}"
+      aqemu_git_clone "https://github.com/lzfse/lzfse.git" "${lzfse_dir}" || return 1
+    fi
+    if [[ ! -f "${lzfse_dir}/src/lzfse_decode.c" ]]; then
+      echo "ERROR: lzfse source is missing after clone: ${lzfse_dir}" >&2
+      return 1
     fi
 
     mkdir -p "${lzfse_build}" "${lzfse_install}/include" "${lzfse_install}/lib" "${lzfse_install}/lib/pkgconfig"
@@ -308,7 +330,7 @@ aqemu_ensure_lzfse() {
 
     echo "Compiling lzfse static library using ${c_compiler}..."
     (
-      cd "${lzfse_dir}"
+      cd "${lzfse_dir}" || exit 1
       "${c_compiler}" -O3 -fPIC -c \
         src/lzfse_decode.c src/lzfse_decode_base.c src/lzfse_encode.c \
         src/lzfse_encode_base.c src/lzfse_fse.c src/lzvn_decode_base.c \
@@ -316,7 +338,7 @@ aqemu_ensure_lzfse() {
       "${ar_tool}" rcs "${lzfse_install}/lib/liblzfse.a" *.o
       cp -f src/lzfse.h "${lzfse_install}/include/"
       rm -f *.o
-    )
+    ) || return 1
 
     # Generate pkg-config metadata
     cat <<EOF > "${lzfse_install}/lib/pkgconfig/lzfse.pc"
@@ -432,7 +454,7 @@ aqemu_build_applesoc() {
 
   if [[ ! -d "${inferno_src}" || ! -f "${inferno_src}/configure" ]]; then
     echo "Cloning ChefKiss Inferno repository (Apple Silicon / iOS)..."
-    git clone --depth 1 https://github.com/ChefKissInc/Inferno.git "${inferno_src}"
+    aqemu_git_clone "https://github.com/ChefKissInc/Inferno.git" "${inferno_src}" || return 1
   else
     echo "Using existing ChefKiss Inferno source at ${inferno_src}"
   fi
@@ -615,7 +637,7 @@ aqemu_build_reims() {
     reims_src="${reims_dir}"
   else
     echo "Cloning steelbrain reims-vgpu repository..."
-    git clone --depth 1 https://github.com/steelbrain/reims-vgpu.git "${reims_dir}" || true
+    aqemu_git_clone "https://github.com/steelbrain/reims-vgpu.git" "${reims_dir}" || true
     if [[ -d "${reims_dir}" ]]; then
       git -C "${reims_dir}" submodule update --init --depth 1 vendor/qemu || true
     fi

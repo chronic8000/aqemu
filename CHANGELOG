@@ -1,5 +1,8 @@
 2026-10-18 Chronic Engineering — AQEMU 1.6.0
 
+	* The Windows package build clones lzfse with MSYS git. A failed clone
+	  stops the Inferno build instead of compiling an empty directory.
+
 	* MSYS2 and Program Files locations follow MSYSTEM_PREFIX, MSYS2_ROOT,
 	  and the Program Files environment variables. C:\\msys64 is only a
 	  last resort when that directory exists.
