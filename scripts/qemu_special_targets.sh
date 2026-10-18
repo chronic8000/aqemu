@@ -11,6 +11,10 @@
 # qemu-system-aarch64 and qemu-system-x86_64 binaries.
 # ==============================================================================
 set -euo pipefail
+_aqemu_script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=msys_prefix.sh
+source "${_aqemu_script_dir}/msys_prefix.sh"
+export AQEMU_MSYS_ROOT="$(aqemu_resolve_msys_root)"
 
 aqemu_is_special_target() {
   local target="${1:-}"
@@ -35,11 +39,11 @@ aqemu_ensure_meson() {
       MINGW64)    export PATH="$(cygpath -m /mingw64/bin):/mingw64/bin:/usr/bin:${PATH}" ;;
     esac
   elif [[ "${MSYSTEM:-}" == "CLANGARM64" ]]; then
-    export PATH="C:/msys64/clangarm64/bin:C:/msys64/usr/bin:/clangarm64/bin:/usr/bin:${PATH}"
+    export PATH="${AQEMU_MSYS_ROOT}/clangarm64/bin:${AQEMU_MSYS_ROOT}/usr/bin:/clangarm64/bin:/usr/bin:${PATH}"
   elif [[ "${MSYSTEM:-}" == "UCRT64" ]]; then
-    export PATH="C:/msys64/ucrt64/bin:C:/msys64/usr/bin:/ucrt64/bin:/usr/bin:${PATH}"
+    export PATH="${AQEMU_MSYS_ROOT}/ucrt64/bin:${AQEMU_MSYS_ROOT}/usr/bin:/ucrt64/bin:/usr/bin:${PATH}"
   elif [[ "${MSYSTEM:-}" == "MINGW64" ]]; then
-    export PATH="C:/msys64/mingw64/bin:C:/msys64/usr/bin:/mingw64/bin:/usr/bin:${PATH}"
+    export PATH="${AQEMU_MSYS_ROOT}/mingw64/bin:${AQEMU_MSYS_ROOT}/usr/bin:/mingw64/bin:/usr/bin:${PATH}"
   fi
 
   if command -v meson >/dev/null 2>&1; then
@@ -220,11 +224,11 @@ aqemu_ensure_lzfse() {
 
   # Ensure common MSYS2 bin paths are on PATH
   if [[ "${MSYSTEM:-}" == "CLANGARM64" ]]; then
-    export PATH="C:/msys64/clangarm64/bin:C:/msys64/usr/bin:/clangarm64/bin:/usr/bin:${PATH}"
+    export PATH="${AQEMU_MSYS_ROOT}/clangarm64/bin:${AQEMU_MSYS_ROOT}/usr/bin:/clangarm64/bin:/usr/bin:${PATH}"
   elif [[ "${MSYSTEM:-}" == "UCRT64" ]]; then
-    export PATH="C:/msys64/ucrt64/bin:C:/msys64/usr/bin:/ucrt64/bin:/usr/bin:${PATH}"
+    export PATH="${AQEMU_MSYS_ROOT}/ucrt64/bin:${AQEMU_MSYS_ROOT}/usr/bin:/ucrt64/bin:/usr/bin:${PATH}"
   elif [[ "${MSYSTEM:-}" == "MINGW64" ]]; then
-    export PATH="C:/msys64/mingw64/bin:C:/msys64/usr/bin:/mingw64/bin:/usr/bin:${PATH}"
+    export PATH="${AQEMU_MSYS_ROOT}/mingw64/bin:${AQEMU_MSYS_ROOT}/usr/bin:/mingw64/bin:/usr/bin:${PATH}"
   fi
 
   # Determine MSYS2 prefix if applicable
@@ -237,8 +241,8 @@ aqemu_ensure_lzfse() {
     msys_prefix="/ucrt64"
   elif [[ "${MSYSTEM:-}" == "MINGW64" && -d "/mingw64/include" ]]; then
     msys_prefix="/mingw64"
-  elif [[ -d "C:/msys64/clangarm64/include" ]]; then
-    msys_prefix="C:/msys64/clangarm64"
+  elif [[ -d "${AQEMU_MSYS_ROOT}/clangarm64/include" ]]; then
+    msys_prefix="${AQEMU_MSYS_ROOT}/clangarm64"
   fi
 
   # 1. Check if lzfse.h and liblzfse.a / lzfse library already exist
@@ -360,11 +364,11 @@ aqemu_ensure_nettle() {
       MINGW64)    export PATH="$(cygpath -m /mingw64/bin):/mingw64/bin:/usr/bin:${PATH}" ;;
     esac
   elif [[ "${MSYSTEM:-}" == "CLANGARM64" ]]; then
-    export PATH="C:/msys64/clangarm64/bin:C:/msys64/usr/bin:/clangarm64/bin:/usr/bin:${PATH}"
+    export PATH="${AQEMU_MSYS_ROOT}/clangarm64/bin:${AQEMU_MSYS_ROOT}/usr/bin:/clangarm64/bin:/usr/bin:${PATH}"
   elif [[ "${MSYSTEM:-}" == "UCRT64" ]]; then
-    export PATH="C:/msys64/ucrt64/bin:C:/msys64/usr/bin:/ucrt64/bin:/usr/bin:${PATH}"
+    export PATH="${AQEMU_MSYS_ROOT}/ucrt64/bin:${AQEMU_MSYS_ROOT}/usr/bin:/ucrt64/bin:/usr/bin:${PATH}"
   elif [[ "${MSYSTEM:-}" == "MINGW64" ]]; then
-    export PATH="C:/msys64/mingw64/bin:C:/msys64/usr/bin:/mingw64/bin:/usr/bin:${PATH}"
+    export PATH="${AQEMU_MSYS_ROOT}/mingw64/bin:${AQEMU_MSYS_ROOT}/usr/bin:/mingw64/bin:/usr/bin:${PATH}"
   fi
 
   local pkg_tool="${PKG_CONFIG:-pkg-config}"
