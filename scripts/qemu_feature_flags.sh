@@ -20,6 +20,20 @@ aqemu_qemu_require_pkg() {
 # Call as: aqemu_qemu_feature_flags   then use "${AQEMU_QEMU_EXTRA_CONFIGURE[@]}"
 # Windows named pipes must listen without waiting, or QEMU never starts
 # the guest. Apply third_party/patches before configure.
+aqemu_force_lf() {
+	local f="$1"
+	[[ -f "${f}" ]] || return 0
+	# MSYS grep hides carriage returns, so always rewrite the bytes.
+	if command -v python3 >/dev/null 2>&1; then
+		python3 -c 'import pathlib,sys; p=pathlib.Path(sys.argv[1]); b=p.read_bytes().replace(b"\r\n", b"\n").replace(b"\r", b"\n"); p.write_bytes(b)' "${f}"
+	elif command -v python >/dev/null 2>&1; then
+		python -c 'import pathlib,sys; p=pathlib.Path(sys.argv[1]); b=p.read_bytes().replace(b"\r\n", b"\n").replace(b"\r", b"\n"); p.write_bytes(b)' "${f}"
+	else
+		tr -d '\r' < "${f}" > "${f}.lf"
+		mv "${f}.lf" "${f}"
+	fi
+}
+
 aqemu_apply_qemu_patches() {
 	local src="${ROOT}/third_party/qemu"
 	local dir="${ROOT}/third_party/patches"
@@ -29,10 +43,7 @@ aqemu_apply_qemu_patches() {
 	# Git for Windows checks these out with CRLF, and git apply then
 	# rejects a Unix patch even when the text matches.
 	for f in chardev/char-pipe.c chardev/char-win.c include/chardev/char-win.h; do
-		if [[ -f "${src}/${f}" ]] && grep -q $'\r' "${src}/${f}"; then
-			tr -d '\r' < "${src}/${f}" > "${src}/${f}.lf"
-			mv "${src}/${f}.lf" "${src}/${f}"
-		fi
+		aqemu_force_lf "${src}/${f}"
 	done
 	shopt -s nullglob
 	for p in "${dir}"/*.patch; do
