@@ -54,7 +54,7 @@ if (-not $Version) {
             $Version = $raw
         }
     } else {
-        $Version = "1.5.2.0"
+        $Version = "1.6.0.0"
     }
 }
 

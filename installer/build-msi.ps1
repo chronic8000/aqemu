@@ -41,7 +41,7 @@ if (-not $Version) {
     if (Test-Path $versionFile) {
         $Version = (Get-Content $versionFile -Raw).Trim()
     } else {
-        $Version = "1.5.2"
+        $Version = "1.6.0"
     }
 }
 

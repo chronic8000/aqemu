@@ -1,6 +1,6 @@
-# AQEMU 1.5.2 QEMU Lab
+# AQEMU 1.6.0 QEMU Lab
 
-This page is the feature guide for **AQEMU 1.5.2**. Packages built from this tree use `VERSION.txt`, which is `1.5.2` (Store MSIX `1.5.2.0`).
+This page is the feature guide for **AQEMU 1.6.0**. Packages built from this tree use `VERSION.txt`, which is `1.6.0` (Store MSIX `1.6.0.0`).
 
 Older releases stay in the root [`CHANGELOG`](../CHANGELOG). This file does not replace that history.
 
@@ -83,7 +83,7 @@ New wizard profiles cover extra architectures, including PowerNV and s390x, plus
 | Nitro / SEV / TDX | Linux when the host can support them. Hidden on Windows Store builds |
 | Darwin research shell | Imports a firmware directory prepared on a Mac. It is not Inferno and it does not boot SpringBoard |
 
-## Left out of 1.5.2
+## Left out of 1.6.0
 
 These stay skipped: Unicorn, Qiling, WinAFL, Firecracker, crosvm, Xenia, Dolphin, RPCS3, Anbox, Waydroid, Limbo, Xen, dead XNU trees, and Corellium. `vmapple` is a Mac-host note, not a Windows feature. Inferno and Reims are the existing paths, not a second copy.
 
