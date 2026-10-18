@@ -467,12 +467,27 @@ QMainWindow, QDialog {
 	background-color: palette(window);
 	color: palette(window-text);
 }
+/* QDialog color inherits onto QPushButton. On Windows dark mode the button
+   face stays light, so Back/Next/Cancel showed an icon and no text. */
+QPushButton {
+	color: palette(button-text);
+	background-color: palette(button);
+}
+QPushButton:disabled {
+	color: #8d8d8d;
+}
 QLabel {
 	color: palette(window-text);
 	background-color: transparent;
 }
 QLabel:disabled {
 	color: #8d8d8d;
+}
+/* First-start wizard pages are plain QWidgets inside a stack. On Windows
+   dark mode they kept a light fill while inherited text stayed white. */
+QStackedWidget, QStackedWidget > QWidget {
+	background-color: palette(window);
+	color: palette(window-text);
 }
 QTextEdit, QPlainTextEdit, QTextBrowser {
 	background-color: palette(base);

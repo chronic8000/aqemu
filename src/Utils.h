@@ -25,10 +25,10 @@
 #define UTILS_H
 
 #ifndef CURRENT_AQEMU_VERSION
-#define CURRENT_AQEMU_VERSION "1.5.2"
+#define CURRENT_AQEMU_VERSION "1.6.0"
 #endif
 #ifndef CURRENT_AQEMU_RELEASE_DATE
-#define CURRENT_AQEMU_RELEASE_DATE "2026-09-30"
+#define CURRENT_AQEMU_RELEASE_DATE "2026-10-18"
 #endif
 
 #include <functional>
@@ -97,8 +97,19 @@ void AQEMU_Ensure_Writable_User_Paths( QSettings &settings );
 
 /** Microsoft Store / MSIX build. Developer and self-compiled builds are false. */
 bool AQ_Is_Store_Build();
-/** True for C:\\msys64\\... and other MSYS developer prefixes. */
+/** True for an MSYS2 developer tree, on any drive. */
 bool AQ_Path_Is_Msys_Tree( const QString &path );
+/**
+ * MSYS2 roots. MSYSTEM_PREFIX and MSYS2_ROOT win. C:/msys64 is only
+ * used when it exists and nothing else was set.
+ */
+QStringList AQ_Msys_Roots();
+/** Existing MSYS2 bin directories, joined for PATH. */
+QString AQ_Msys_Bin_Path();
+/** Program Files directories from the environment, not a fixed drive. */
+QStringList AQ_Windows_Program_Dirs();
+/** "<Program Files>/qemu" directories. */
+QStringList AQ_Windows_Qemu_Dirs();
 /** Store builds may launch only the QEMU shipped beside aqemu.exe. */
 bool AQ_Store_May_Use_QEMU_Path( const QString &path );
 /**
@@ -162,6 +173,8 @@ QList<QString> Get_Templates_List();
 
 QString Get_FS_Compatible_VM_Name( const QString &name );
 QString Get_Complete_VM_File_Path( const QString &vm_name );
+/** A file next to this VM's .aqemu, or in the default VM folder when the VM has no path yet. */
+QString AQ_File_Beside_VM( const QString &vm_xml_path, const QString &leaf );
 
 QString Get_TR_Size_Suffix( VM::Device_Size suf );
 
@@ -169,6 +182,10 @@ QString Get_Last_Dir_Path( const QString &path );
 
 /** Trim and strip a single layer of surrounding "..." or '...' from a file path. */
 QString AQ_Normalize_File_Path( const QString &path );
+/** A Windows path on Linux, or a Unix absolute path on Windows. */
+bool AQ_Path_Is_Foreign_To_This_Host( const QString &path );
+/** The file is on this computer and can be opened. */
+bool AQ_Path_Usable_On_This_Host( const QString &path );
 
 /**
  * QEMU -drive file= key for a host path. Escapes commas and uses
@@ -272,6 +289,11 @@ QString Find_UEFI_Firmware_VARS_Template( const QString &qemu_binary_path = QStr
 // Copy VARS template into dest_path; returns true on success
 bool Prepare_UEFI_VARS_File( const QString &dest_path, const QString &qemu_binary_path = QString(),
                              const QString &arch = QStringLiteral( "aarch64" ) );
+/** VARS template for this CODE image. A smaller NVRAM file is valid. Empty if none is found. */
+QString AQ_UEFI_VARS_Template_For_Code( const QString &code_path, const QString &qemu_binary_path = QString(),
+                                        const QString &arch = QStringLiteral( "aarch64" ) );
+/** True when CODE and VARS both exist and are non-empty. */
+bool AQ_UEFI_Pair_Ready( const QString &code_path, const QString &vars_path, QString *error );
 
 // Windows 11 ARM helpers (BVM-style UCPD.sys removal + OOBE skip recipes)
 QString Win11_OOBE_Bypass_Guest_Commands();
@@ -290,6 +312,17 @@ bool AQ_Guest_Matches_Host_Architecture( const QString &guest_target );
  * Forces TCG for cross-arch guests and for i386 guests on Windows.
  */
 bool AQ_Should_Prefer_Native_Accelerator( const QString &guest_target );
+
+/**
+ * Windows Hypervisor Platform is usable on this host.
+ * x64: WHvGetCapability says the hypervisor is present.
+ * ARM64: that check, plus WHV_CAPABILITY_FEATURES.Arm64Support
+ * (Windows 11 24H2 build 26100.3915 or later).
+ */
+bool AQ_Host_WHPX_Usable();
+
+/** True when this QEMU binary lists whpx in `-accel help`. Cached. */
+bool AQ_QEMU_Has_WHPX( const QString &qemu_binary );
 
 /**
  * Probe `qemu -display help` (cached). Returns backends like "sdl", "gtk".

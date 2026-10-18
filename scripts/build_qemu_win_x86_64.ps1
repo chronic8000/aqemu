@@ -9,14 +9,14 @@
 .PARAMETER Target
   Target architecture to build (default: "all", or e.g. "x86_64", "aarch64").
 .PARAMETER MsysRoot
-  Path to MSYS2 installation (default: C:\msys64).
+  Path to MSYS2. Empty uses MSYSTEM_PREFIX, then MSYS2_ROOT, then C:\msys64.
 .PARAMETER Prefix
   Installation output directory.
 #>
 [CmdletBinding()]
 param(
     [string] $Target = "all",
-    [string] $MsysRoot = "C:\msys64",
+    [string] $MsysRoot = "",
     [string] $Prefix = ""
 )
 
@@ -27,6 +27,11 @@ if ([string]::IsNullOrWhiteSpace($scriptDir)) {
     $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 }
 $RepoRoot = (Resolve-Path (Join-Path $scriptDir "..")).Path
+if ([string]::IsNullOrWhiteSpace($MsysRoot)) {
+    . (Join-Path $scriptDir "msys_prefix.ps1")
+    $MsysRoot = Get-AqemuMsysRoot
+    if (-not $MsysRoot) { $MsysRoot = "C:\msys64" }
+}
 
 if ([string]::IsNullOrWhiteSpace($Prefix)) {
     $Prefix = Join-Path $RepoRoot "third_party\qemu-install"

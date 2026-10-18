@@ -26,6 +26,7 @@
 #include <QMessageBox>
 #include <QTranslator>
 #include <QFileDialog>
+#include <QApplication>
 
 #include "First_Start_Wizard.h"
 #include "AQ_UI_Style.h"
@@ -38,7 +39,32 @@ First_Start_Wizard::First_Start_Wizard( QWidget *parent )
 	: QDialog( parent )
 {
 	ui.setupUi( this );
+	setObjectName( QStringLiteral( "FirstStartWizard" ) );
+	// Colour only this wizard's fields. A global rule for QLineEdit and
+	// QComboBox makes Qt 5 drop the native border, arrow, and indicator.
+	setStyleSheet( QStringLiteral(
+		"QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox {"
+		" color: palette(text);"
+		" background-color: palette(base);"
+		" border: 1px solid palette(mid);"
+		"}"
+		"QComboBox::drop-down { width: 18px; border-left: 1px solid palette(mid); }"
+		"QComboBox QAbstractItemView {"
+		" color: palette(text);"
+		" background-color: palette(base);"
+		" selection-color: palette(highlighted-text);"
+		" selection-background-color: palette(highlight);"
+		"}" ) );
 	AQ_Cap_Content_Width( this, 720 );
+	ui.All_Pages->setAutoFillBackground( true );
+	for( int i = 0; i < ui.All_Pages->count(); ++i )
+	{
+		if( QWidget *page = ui.All_Pages->widget( i ) )
+		{
+			page->setAutoFillBackground( true );
+			page->setPalette( qApp->palette() );
+		}
+	}
 
 	connect( ui.RB_FS_QEMU_Built_In, SIGNAL(toggled(bool)), this, SLOT(On_FS_QEMU_Source_Toggled(bool)) );
 	connect( ui.RB_FS_QEMU_System, SIGNAL(toggled(bool)), this, SLOT(On_FS_QEMU_Source_Toggled(bool)) );
@@ -53,7 +79,7 @@ First_Start_Wizard::First_Start_Wizard( QWidget *parent )
 	if( has_bundled )
 	{
 		ui.RB_FS_QEMU_Built_In->setChecked( true );
-		ui.Edit_Add_Emulator_Path->setText( QDir::toNativeSeparators( AQ_Get_Bundled_QEMU_Dir() ) );
+		ui.Edit_Add_Emulator_Path->clear();
 	}
 	else if( has_system )
 	{
@@ -172,7 +198,7 @@ void First_Start_Wizard::On_FS_QEMU_Source_Toggled( bool )
 
 	if( ui.RB_FS_QEMU_Built_In->isChecked() && AQ_Has_Bundled_QEMU() )
 	{
-		ui.Edit_Add_Emulator_Path->setText( QDir::toNativeSeparators( AQ_Get_Bundled_QEMU_Dir() ) );
+		ui.Edit_Add_Emulator_Path->clear();
 	}
 	else if( ui.RB_FS_QEMU_System->isChecked() && AQ_Has_System_QEMU() )
 	{
@@ -476,7 +502,10 @@ void First_Start_Wizard::retranslateUi()
 		QString ver = System_Info::Get_Emulator_Version_Label( bDir );
 		if( ver.isEmpty() || ver == QLatin1String( "QEMU" ) )
 			ver = QStringLiteral( "QEMU 11.1.1" );
-		ui.Label_QEMU_Built_In_Path->setText( tr( "Location: %1 (%2)" ).arg( bDir ).arg( ver ) );
+		if( AQEMU_Path_Is_Install_Dir( bDir ) )
+			ui.Label_QEMU_Built_In_Path->setText( tr( "Using QEMU bundled with AQEMU (%1)" ).arg( ver ) );
+		else
+			ui.Label_QEMU_Built_In_Path->setText( tr( "Location: %1 (%2)" ).arg( QDir::toNativeSeparators( bDir ), ver ) );
 	}
 	else
 	{

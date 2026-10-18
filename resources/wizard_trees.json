@@ -962,25 +962,43 @@
       "target": "ppc64",
       "machine": "powernv",
       "ram_mb": 2048,
-      "tip": "PowerNV uses the bundled qemu-system-ppc64. Bring your own firmware and disk."
+      "tip": "PowerNV uses the bundled qemu-system-ppc64. Bring your own firmware and disk.",
+      "boot_fields": [
+        {"id": "bios", "label": "Firmware", "required": true},
+        {"id": "kernel", "label": "Kernel", "required": false}
+      ]
     },
     "s390x Debian": {
       "target": "s390x",
       "machine": "s390-ccw-virtio",
       "ram_mb": 1024,
-      "tip": "s390x uses the bundled qemu-system-s390x. Open firmware and kernels only."
+      "tip": "s390x uses the bundled qemu-system-s390x. Open firmware and kernels only.",
+      "boot_fields": [
+        {"id": "kernel", "label": "Kernel", "required": true},
+        {"id": "initrd", "label": "Initrd", "required": false},
+        {"id": "append", "label": "Kernel arguments", "required": false, "kind": "text"}
+      ]
     },
     "RISC-V virt lab": {
       "target": "riscv64",
       "machine": "virt",
       "ram_mb": 2048,
-      "tip": "RISC-V virt. Open firmware and kernels only."
+      "tip": "RISC-V virt. Open firmware and kernels only.",
+      "boot_fields": [
+        {"id": "bios", "label": "OpenSBI / firmware", "required": true},
+        {"id": "kernel", "label": "Kernel", "required": true},
+        {"id": "initrd", "label": "Initrd", "required": false}
+      ]
     },
     "LoongArch virt lab": {
       "target": "loongarch64",
       "machine": "virt",
       "ram_mb": 2048,
-      "tip": "LoongArch virt. Open firmware and kernels only."
+      "tip": "LoongArch virt. Open firmware and kernels only.",
+      "boot_fields": [
+        {"id": "bios", "label": "Firmware", "required": true},
+        {"id": "kernel", "label": "Kernel", "required": true}
+      ]
     },
     "WoA native Linux": {
       "target": "aarch64",
@@ -998,7 +1016,11 @@
       "target": "i386",
       "machine": "pc",
       "ram_mb": 64,
-      "tip": "Bring your own xemu binary, MCPX, flash BIOS, HDD, DVD, and EEPROM. AQEMU does not ship Microsoft ROMs."
+      "tip": "Bring your own xemu binary, MCPX, flash BIOS, HDD, DVD, and EEPROM. AQEMU does not ship Microsoft ROMs.",
+      "boot_fields": [
+        {"id": "bios", "label": "Flash BIOS", "required": true},
+        {"id": "firmware", "label": "MCPX", "required": true}
+      ]
     },
     "Android (AOSP Emulator)": {
       "target": "x86_64",
@@ -1016,7 +1038,10 @@
       "target": "x86_64",
       "machine": "nitro-enclave",
       "ram_mb": 2048,
-      "tip": "Linux or WSL. Bring your own .eif and vhost-user-vsock helper."
+      "tip": "Linux or WSL. Bring your own .eif and vhost-user-vsock helper.",
+      "boot_fields": [
+        {"id": "kernel", "label": "Enclave image (.eif)", "required": true}
+      ]
     },
     "SEV-SNP Guest": {
       "target": "x86_64",
@@ -1034,7 +1059,10 @@
       "target": "aarch64",
       "machine": "virt",
       "ram_mb": 2048,
-      "tip": "Import a firmware directory prepared on a Mac. This is not Inferno and it does not boot SpringBoard."
+      "tip": "Import a firmware directory prepared on a Mac. This is not Inferno and it does not boot SpringBoard.",
+      "boot_fields": [
+        {"id": "firmware", "label": "Firmware directory", "required": true}
+      ]
     },
     "MS-DOS": {
       "target": "i386",

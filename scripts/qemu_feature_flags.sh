@@ -79,12 +79,10 @@ aqemu_qemu_feature_flags() {
 	# Platform accelerators when available
 	case "$(uname -s 2>/dev/null || echo unknown)" in
 		MINGW*|MSYS*|CYGWIN*|Windows_NT)
-			if [[ "${MSYSTEM:-}" == "CLANGARM64" || "$(uname -m 2>/dev/null)" == "aarch64" ]]; then
-				echo "NOTE: WHPX hypervisor is x86_64-only in QEMU — skipped on Windows on ARM (TCG used)"
-			else
-				AQEMU_QEMU_EXTRA_CONFIGURE+=(--enable-whpx)
-				echo "OK: whpx (Windows Hypervisor Platform)"
-			fi
+			# QEMU 11 compiles WHPX for target/i386 and target/arm. Windows on ARM
+			# must pass --enable-whpx or an ARM guest stays on TCG.
+			AQEMU_QEMU_EXTRA_CONFIGURE+=(--enable-whpx)
+			echo "OK: whpx (Windows Hypervisor Platform, x64 and ARM64 hosts)"
 			;;
 		Linux)
 			AQEMU_QEMU_EXTRA_CONFIGURE+=(--enable-kvm)
@@ -160,6 +158,38 @@ aqemu_qemu_verify_install() {
 		return 1
 	fi
 	echo "VERIFY OK: $bin has -netdev user"
+	case "$(uname -s 2>/dev/null || echo unknown)" in
+		MINGW*|MSYS*|CYGWIN*|Windows_NT)
+			local host_arch expect accel_bin accel_help
+			host_arch="$(uname -m 2>/dev/null || echo unknown)"
+			if [[ "${MSYSTEM:-}" == "CLANGARM64" || "$host_arch" == "aarch64" ]]; then
+				expect="aarch64"
+			else
+				expect="x86_64"
+			fi
+			accel_bin=""
+			for cand in \
+				"${prefix}/bin/qemu-system-${expect}.exe" \
+				"${prefix}/qemu-system-${expect}.exe" \
+				"${prefix}/bin/qemu-system-${expect}" \
+				"${prefix}/qemu-system-${expect}"
+			do
+				if [[ -x "$cand" ]]; then
+					accel_bin="$cand"
+					break
+				fi
+			done
+			if [[ -n "$accel_bin" ]]; then
+				accel_help="$("$accel_bin" -accel help 2>&1 || true)"
+				if ! grep -q whpx <<<"$accel_help"; then
+					echo "ERROR: '$accel_bin' was built without WHPX." >&2
+					echo "$accel_help" >&2
+					return 1
+				fi
+				echo "VERIFY OK: $accel_bin lists accelerator whpx"
+			fi
+			;;
+	esac
 	local n=0
 	n="$(find "${prefix}" -maxdepth 2 -name 'qemu-system-*' -type f 2>/dev/null | wc -l | tr -d ' ')"
 	echo "VERIFY: qemu-system-* count = ${n}"

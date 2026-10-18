@@ -12,7 +12,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>New Storage Device</string>
+   <string>Advanced Properties</string>
   </property>
   <property name="windowIcon">
    <iconset resource="../resources/icons.qrc">
@@ -104,52 +104,52 @@
      </property>
      <item>
       <property name="text">
-       <string>ide</string>
+       <string>IDE</string>
       </property>
      </item>
      <item>
       <property name="text">
-       <string>scsi</string>
+       <string>SCSI</string>
       </property>
      </item>
      <item>
       <property name="text">
-       <string>sd</string>
+       <string>SD</string>
       </property>
      </item>
      <item>
       <property name="text">
-       <string>mtd</string>
+       <string>MTD</string>
       </property>
      </item>
      <item>
       <property name="text">
-       <string>floppy</string>
+       <string>Floppy</string>
       </property>
      </item>
      <item>
       <property name="text">
-       <string>pflash</string>
+       <string>PFlash</string>
       </property>
      </item>
      <item>
       <property name="text">
-       <string>virtio</string>
+       <string>VirtIO block</string>
       </property>
      </item>
      <item>
       <property name="text">
-       <string>virtio-scsi</string>
+       <string>VirtIO SCSI</string>
       </property>
      </item>
      <item>
       <property name="text">
-       <string>nvme</string>
+       <string>NVMe</string>
       </property>
      </item>
      <item>
       <property name="text">
-       <string>ahci</string>
+       <string>AHCI / SATA</string>
       </property>
      </item>
     </widget>
@@ -469,6 +469,16 @@
      </layout>
     </widget>
    </item>
+   <item row="12" column="0" colspan="5">
+    <widget class="QCheckBox" name="CH_SSD">
+     <property name="text">
+      <string>Solid-state disk</string>
+     </property>
+     <property name="toolTip">
+      <string>Tell the guest this disk is an SSD. AHCI and VirtIO SCSI get rotation_rate=1. IDE, plain SCSI, VirtIO block, and NVMe keep their normal bus.</string>
+     </property>
+    </widget>
+   </item>
    <item row="11" column="0" colspan="5">
     <layout class="QHBoxLayout" name="horizontalLayout_2">
      <property name="sizeConstraint">
@@ -499,7 +509,7 @@
    <item row="9" column="0">
     <widget class="QCheckBox" name="CH_Discard">
      <property name="text">
-      <string>&amp;Discard</string>
+      <string>&amp;Discard / Unmap</string>
      </property>
     </widget>
    </item>
@@ -510,12 +520,12 @@
      </property>
      <item>
       <property name="text">
-       <string>on</string>
+       <string>Unmap</string>
       </property>
      </item>
      <item>
       <property name="text">
-       <string>off</string>
+       <string>Off</string>
       </property>
      </item>
     </widget>

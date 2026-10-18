@@ -7,6 +7,9 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# shellcheck source=msys_prefix.sh
+source "$(cd "$(dirname "$0")" && pwd)/msys_prefix.sh"
+MSYS_ROOT="$(aqemu_resolve_msys_root)"
 QEMU_SRC="${ROOT}/third_party/qemu"
 TARGET_ARG="all"
 PREFIX="${ROOT}/third_party/qemu-install"
@@ -23,11 +26,11 @@ fi
 BUILD_DIR="${ROOT}/third_party/qemu-build-win"
 
 export MSYSTEM=MINGW64
-# /usr/bin first so Meson can find msys `diff` (via C:\msys64\usr\bin)
+# /usr/bin first so Meson can find msys `diff`.
 export PATH="/mingw64/bin:/usr/bin:${PATH}"
-# Meson runs under Win32 Python — must use C:/ paths (not /mingw64/...)
-export PKG_CONFIG="C:/msys64/mingw64/bin/pkg-config.exe"
-export PKG_CONFIG_PATH="C:/msys64/mingw64/lib/pkgconfig"
+# Meson runs under Win32 Python — must use Windows paths (not /mingw64/...).
+export PKG_CONFIG="${MSYS_ROOT}/mingw64/bin/pkg-config.exe"
+export PKG_CONFIG_PATH="${MSYS_ROOT}/mingw64/lib/pkgconfig"
 unset PKG_CONFIG_LIBDIR || true
 
 deploy_qemu_dlls() {
@@ -100,7 +103,7 @@ mkdir -p "${BUILD_DIR}" "${PREFIX}"
 cd "${BUILD_DIR}"
 
 # Win32 Meson looks on PATH for `diff`; put MSYS tools on a Windows-style PATH
-export PATH="C:/msys64/mingw64/bin:C:/msys64/usr/bin:/mingw64/bin:/usr/bin:${PATH}"
+export PATH="${MSYS_ROOT}/mingw64/bin:${MSYS_ROOT}/usr/bin:/mingw64/bin:/usr/bin:${PATH}"
 # Ensure `diff` is next to other mingw tools
 if [[ -x /usr/bin/diff.exe && ! -e /mingw64/bin/diff.exe ]]; then
   cp -f /usr/bin/diff.exe /mingw64/bin/diff.exe

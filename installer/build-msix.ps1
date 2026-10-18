@@ -36,6 +36,7 @@ if ([string]::IsNullOrWhiteSpace($scriptDir)) {
 if (-not $RepoRoot) {
     $RepoRoot = (Resolve-Path (Join-Path $scriptDir "..")).Path
 }
+. (Join-Path $RepoRoot "scripts\msys_prefix.ps1")
 if (-not $BuildDir) {
     $BuildDir = Join-Path $RepoRoot "build_win"
 }
@@ -54,7 +55,7 @@ if (-not $Version) {
             $Version = $raw
         }
     } else {
-        $Version = "1.5.2.0"
+        $Version = "1.6.0.0"
     }
 }
 
@@ -224,11 +225,7 @@ if (-not (Test-Path $shareBios)) {
         $shareCandidates += (Join-Path $env:RUNNER_TEMP "msys64\clangarm64\share\qemu")
         $shareCandidates += (Join-Path $env:RUNNER_TEMP "msys64\mingw64\share\qemu")
     }
-    $shareCandidates += @(
-        "C:\msys64\ucrt64\share\qemu",
-        "C:\msys64\clangarm64\share\qemu",
-        "C:\msys64\mingw64\share\qemu"
-    )
+    $shareCandidates += @(Get-AqemuMsysShareDirs)
     if ($env:MSYSTEM_PREFIX) {
         $shareCandidates += (Join-Path $env:MSYSTEM_PREFIX "share\qemu")
         $shareCandidates += (Join-Path $env:MSYSTEM_PREFIX "share")
@@ -302,12 +299,7 @@ if ($env:RUNNER_TEMP) {
         }
     }
 }
-foreach ($cand in @(
-    "C:\msys64\clangarm64\bin",
-    "C:\msys64\ucrt64\bin",
-    "C:\msys64\mingw64\bin",
-    "C:\msys64\clang64\bin"
-)) {
+foreach ($cand in @(Get-AqemuMsysBinDirs)) {
     if ((Test-Path $cand) -and ($binSearchDirs -notcontains $cand)) {
         $binSearchDirs += $cand
     }

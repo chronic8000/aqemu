@@ -75,5 +75,9 @@
         <file alias="wizard_trees.json">wizard_trees.json</file>
         <file alias="bootsplash.bmp">bootsplash.bmp</file>
         <file alias="docs/links.html">docs/links.html</file>
+        <file alias="guest-tools/README.txt">guest-tools/README.txt</file>
+        <file alias="guest-tools/install-linux.sh">guest-tools/install-linux.sh</file>
+        <file alias="guest-tools/aqemu-guest.py">guest-tools/aqemu-guest.py</file>
+        <file alias="guest-tools/aqemu-guest.ps1">guest-tools/aqemu-guest.ps1</file>
     </qresource>
 </RCC>

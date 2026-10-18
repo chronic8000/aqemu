@@ -6,6 +6,9 @@
 #   _build_target_common.sh <TARGET> [PREFIX]
 # ==============================================================================
 set -euo pipefail
+# shellcheck source=../msys_prefix.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../msys_prefix.sh"
+export AQEMU_MSYS_ROOT="$(aqemu_resolve_msys_root)"
 
 TARGET="${1:?Target architecture required (e.g. x86_64, aarch64, applesoc, reims)}"
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -33,25 +36,25 @@ case "${OS}" in
       export PATH="/clangarm64/bin:/usr/bin:${PATH}"
       export CC="clang"
       export CXX="clang++"
-      export PKG_CONFIG="C:/msys64/clangarm64/bin/pkg-config.exe"
-      export PKG_CONFIG_PATH="C:/msys64/clangarm64/lib/pkgconfig"
-      export PATH="C:/msys64/clangarm64/bin:C:/msys64/usr/bin:${PATH}"
+      export PKG_CONFIG="${AQEMU_MSYS_ROOT}/clangarm64/bin/pkg-config.exe"
+      export PKG_CONFIG_PATH="${AQEMU_MSYS_ROOT}/clangarm64/lib/pkgconfig"
+      export PATH="${AQEMU_MSYS_ROOT}/clangarm64/bin:${AQEMU_MSYS_ROOT}/usr/bin:${PATH}"
     elif [[ -d "/ucrt64" ]]; then
       export MSYSTEM=UCRT64
       export PATH="/ucrt64/bin:/usr/bin:${PATH}"
       export CC="gcc"
       export CXX="g++"
-      export PKG_CONFIG="C:/msys64/ucrt64/bin/pkg-config.exe"
-      export PKG_CONFIG_PATH="C:/msys64/ucrt64/lib/pkgconfig"
-      export PATH="C:/msys64/ucrt64/bin:C:/msys64/usr/bin:${PATH}"
+      export PKG_CONFIG="${AQEMU_MSYS_ROOT}/ucrt64/bin/pkg-config.exe"
+      export PKG_CONFIG_PATH="${AQEMU_MSYS_ROOT}/ucrt64/lib/pkgconfig"
+      export PATH="${AQEMU_MSYS_ROOT}/ucrt64/bin:${AQEMU_MSYS_ROOT}/usr/bin:${PATH}"
     else
       export MSYSTEM=MINGW64
       export PATH="/mingw64/bin:/usr/bin:${PATH}"
       export CC="gcc"
       export CXX="g++"
-      export PKG_CONFIG="C:/msys64/mingw64/bin/pkg-config.exe"
-      export PKG_CONFIG_PATH="C:/msys64/mingw64/lib/pkgconfig"
-      export PATH="C:/msys64/mingw64/bin:C:/msys64/usr/bin:${PATH}"
+      export PKG_CONFIG="${AQEMU_MSYS_ROOT}/mingw64/bin/pkg-config.exe"
+      export PKG_CONFIG_PATH="${AQEMU_MSYS_ROOT}/mingw64/lib/pkgconfig"
+      export PATH="${AQEMU_MSYS_ROOT}/mingw64/bin:${AQEMU_MSYS_ROOT}/usr/bin:${PATH}"
     fi
     unset PKG_CONFIG_LIBDIR || true
     ;;

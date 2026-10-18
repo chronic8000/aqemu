@@ -1,3 +1,96 @@
+2026-10-18 Chronic Engineering — AQEMU 1.6.0
+
+	* MSYS2 and Program Files locations follow MSYSTEM_PREFIX, MSYS2_ROOT,
+	  and the Program Files environment variables. C:\\msys64 is only a
+	  last resort when that directory exists.
+	* A crash writes a local report and the next launch can open that folder.
+	  Windows keeps a minidump. Linux keeps a backtrace. Nothing is uploaded.
+	  The Linux report is marked before the backtrace. A second crash
+	  signal ends the process. The x64 Windows build writes a PDB, so
+	  WinDbg can read an Intel or AMD crash dump.
+	* The new-VM guest list starts collapsed.
+	* The README no longer links to a website that is not published.
+	* Windows VirtIO drivers are linked from the README and the Windows 11 wizard.
+	* About Qt is a tab in About AQEMU. The Qt notice is still one click away.
+	* Help → Copy setup for a GitHub issue puts the version, host, and QEMU path on the clipboard.
+	* A Darwin firmware directory from the wizard is passed to QEMU as -L.
+	  The Original Xbox config file is saved only after it is written.
+	  Paths in that file are ordinary TOML strings, so an apostrophe or a
+	  backslash stays a valid path.
+	* Leaving a guest session stops a file copy that is still running, and
+	  the result is not shown for the next virtual machine. A copy from
+	  the guest replaces the saved file only after the whole file arrives,
+	  and a failed replace leaves the previous file in place.
+	* Pasted files and guest tools are written in the user's AQEMU folder.
+	  A shared temp directory that someone else created is not used.
+	  Paste files reads only files copied in the host file manager, shows
+	  those paths, and ignores clipboard text.
+	* The SAN 512n choice uses 512-byte logical and physical sectors.
+	  4Kn still uses 4096 for both.
+	* The boot menu can wait up to 60 seconds. Windows still does not send -boot.
+	* Disk adapters are labelled IDE, VirtIO, NVMe, and AHCI / SATA.
+	  An SSD tick adds rotation_rate=1 on AHCI and VirtIO SCSI.
+	* Convert disk images one at a time or as a batch. An existing file is left alone.
+	* Windows build scripts use MSYSTEM_PREFIX or MSYS2_ROOT before C:/msys64.
+	* The Lab debug tab can add a kernel-debug serial port and copy WinDbg and bcdedit text.
+	* A UEFI virtual machine starts only when CODE and VARS both exist.
+	  VARS is smaller than CODE. Each VM keeps its own VARS copy.
+	* The Microsoft Store build can open the Buy page. Trial text appears when the Store licence API is available.
+	* A new virtual machine is created in its own folder, with the disk beside the .aqemu file.
+	* Hard disk sector sizes are labelled 512n, 512e, and 4Kn, in that order.
+	  Image cluster size no longer says ZFS. Advanced disk properties say
+	  Discard / Unmap. A new disk image starts in the virtual machine folder.
+
+2026-10-17 Chronic Engineering — library, firmware paths, and Windows UI
+
+	* A virtual machine stays in the folder where its .aqemu file was opened.
+	  File → Virtual Machine Scanner adds those files without copying them.
+	* New virtual machines take the first machine, disk, network, sound,
+	  display, and USB choice that the QEMU probe and the board both allow.
+	* A UEFI or NeXT ROM path saved on another computer is not passed to QEMU.
+	  NeXTSTEP shows a ROM field at the bottom of the VM tab.
+	* On Windows the accelerator list says WHPX. If this QEMU build has no
+	  WHPX, the entry stays in the list and is grey. The new-VM wizard uses
+	  the same name.
+	* Show all QEMU options no longer changes the display that was already
+	  chosen. The checkbox sits at the top of the devices page.
+	* The first-run QEMU page does not fill the custom path with a
+	  WindowsApps location. Preferences and the support bundle say
+	  “QEMU bundled with AQEMU” instead of the publisher path.
+	* Back, Next, and Cancel keep readable text in dark mode.
+	* The first-start wizard pages use the window colour. Its fields keep
+	  a border and the text colour, so dark mode is not white on white.
+	  Check boxes and the rest of the application stay native controls.
+	* A kernel entered in the new-VM wizard is started with its initrd.
+	  Paths already typed stay put when the devices page refreshes.
+	  Original Xbox MCPX and flash BIOS are saved for xemu. A Darwin
+	  firmware directory is saved as the Darwin firmware path.
+	* Paste files uses floppy A only when that drive exists. Otherwise
+	  the files go out as a partitioned FAT16 USB disk. The image is
+	  readable only by the user who pasted it, and a copy larger than
+	  512 MB is refused before it is read into memory.
+	* The guest agent listens on a private socket, or a named pipe on
+	  Windows, and only on machines that have PCI. File copies run off
+	  the session window. A guest file that is too large is left out of
+	  the batch instead of stalling the transfer.
+	* GitHub Actions checkout does not persist the job token. The Windows
+	  workflow pins the MSYS2 setup action.
+	* Paste files on the running-VM toolbar, or drop files on the guest
+	  window. Small copies appear as floppy A when that drive exists.
+	  Other copies appear as an AQEMU USB drive. The same path is used
+	  on Linux and Windows.
+	* An ARM guest on Windows ARM uses accel=whpx:tcg and -cpu host when
+	  Windows reports Arm64Support and qemu-system-aarch64 lists whpx.
+	  Otherwise the guest stays on TCG. x86 guests on a Snapdragon host
+	  stay on TCG.
+	* The Windows QEMU build enables WHPX on x64 and on ARM64. QEMU 11
+	  already has the ARM WHPX backend. Inferno stays on TCG.
+	* Ordinary PCI virtual machines open a guest-agent channel and a file
+	  channel.
+	  To guest and From guest copy one file by path once the guest is
+	  running qemu-guest-agent. Guest tools inserts the installer disk.
+	  The helper inside the guest sends files copied there back to AQEMU.
+
 2026-10-03 Chronic Engineering — languages, About, and physical drives
 
 	* French, German, and Ukrainian are listed in the first-start wizard and

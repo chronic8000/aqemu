@@ -183,6 +183,10 @@ class Virtual_Machine: public QObject
 		/** SeaBIOS splash. Default on. The app-wide setting can still hide it. */
 		bool Get_Show_Boot_Logo() const;
 		void Set_Show_Boot_Logo( bool use );
+
+		/** Seconds the firmware boot menu stays open. 0 keeps the short default. */
+		int Get_Boot_Menu_Seconds() const;
+		void Set_Boot_Menu_Seconds( int seconds );
 		
 		const QString &Get_Video_Card() const;
 		void Set_Video_Card( const QString &card );
@@ -770,6 +774,8 @@ class Virtual_Machine: public QObject
 		int Get_Embedded_Spice_Port() const { return Embedded_Spice_Port; }
 		int Get_Embedded_VNC_Port() const { return Embedded_VNC_Port; }
 		int Get_QMP_Port() const { return QMP_Port; }
+		const QString &Get_Guest_Agent_Socket() const { return Guest_Agent_Socket; }
+		const QString &Get_Guest_Files_Socket() const { return Guest_Files_Socket; }
 		/** TCP port for guest serial console (0 = none / not allocated this run). */
 		int Get_Serial_Console_Port() const { return Serial_Console_Port; }
 		class QMP_Client *Get_QMP() const { return QMP; }
@@ -867,6 +873,7 @@ class Virtual_Machine: public QObject
 		QList<VM::Boot_Order> Boot_Order_List; // New boot order
 		bool Show_Boot_Menu; // Enable interactive boot menu
 		bool Show_Boot_Logo; // SeaBIOS AQEMU picture; default on
+		int Boot_Menu_Seconds; // 0 = short default, 1-60 seconds
         QString Video_Card; // std vga, cirus logic
 		QString Display_Resolution; // virtio-gpu EDID: native|auto|WxH
 		QString Mouse_Type; // ps2|usb-tablet|usb-mouse|...
@@ -1084,6 +1091,8 @@ class Virtual_Machine: public QObject
 		int Embedded_VNC_Port;
 		int QMP_Port;
 		int Serial_Console_Port;
+		QString Guest_Agent_Socket;
+		QString Guest_Files_Socket;
 		int QMP_Connect_Attempts;
 		class QMP_Client *QMP;
 		

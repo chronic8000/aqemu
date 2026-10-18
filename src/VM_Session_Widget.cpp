@@ -24,6 +24,7 @@
 #include <QMenu>
 #include <QToolButton>
 #include <QThread>
+#include <QPointer>
 #include <QFontMetrics>
 #include <QLabel>
 #include <QDesktopServices>
@@ -42,9 +43,21 @@
 #include "Apple_SoC_Device_Tools_Window.h"
 #include "Serial_Console_Window.h"
 #include "AQ_UI_Style.h"
+#include "Guest_Files.h"
+#include "Guest_Agent.h"
+#include "Guest_File_Channel.h"
+
+#include <QDragEnterEvent>
+#include <QDropEvent>
+#include <QMimeData>
+#include <QClipboard>
 
 #include <QDir>
+#include <QFileInfo>
 #include <QEventLoop>
+#ifndef Q_OS_WIN
+#include <unistd.h>
+#endif
 #include <QThread>
 #ifdef VNC_DISPLAY
 #include "Embedded_Display/Machine_View.h"
@@ -126,6 +139,11 @@ VM_Session_Widget::VM_Session_Widget( QWidget *parent )
 	, TB_USB( nullptr )
 	, Menu_USB( nullptr )
 	, USB_Enum_Busy( false )
+	, Paste_Serial( 0 )
+	, Guest_Copy_Busy( false )
+	, Guest_Copy_Epoch( 0 )
+	, Guest_Copy_Stop( nullptr )
+	, File_Channel( nullptr )
 	, Apple_SOS_Busy( false )
 	, Apple_SOS_Generation( 0 )
 	, Serial_Win( nullptr )
@@ -161,6 +179,18 @@ VM_Session_Widget::VM_Session_Widget( QWidget *parent )
 	Stack->addWidget( Vnc );
 #endif
 
+	setAcceptDrops( true );
+	Stack->setAcceptDrops( true );
+	Stack->installEventFilter( this );
+	Spice->setAcceptDrops( true );
+	Spice->installEventFilter( this );
+#ifdef VNC_DISPLAY
+	if( Vnc )
+	{
+		Vnc->setAcceptDrops( true );
+		Vnc->installEventFilter( this );
+	}
+#endif
 	Build_Toolbar();
 	Main_Layout->addWidget( Toolbar );
 	Main_Layout->addWidget( Stack, 1 );
@@ -230,6 +260,15 @@ void VM_Session_Widget::Build_Toolbar()
 	Act_Eject_FD0 = Add_Toolbar_Action( QIcon( ":/eject.png" ), tr( "Eject floppy A" ), SLOT(On_Eject_FD0()) );
 	Act_Insert_FD1 = Add_Toolbar_Action( QIcon( ":/fdd.png" ), tr( "Insert floppy B image…" ), SLOT(On_Change_FD1()) );
 	Act_Eject_FD1 = Add_Toolbar_Action( QIcon( ":/eject.png" ), tr( "Eject floppy B" ), SLOT(On_Eject_FD1()) );
+	Toolbar->addSeparator();
+	QAction *paste = Toolbar->addAction( tr( "Paste files" ), this, SLOT(On_Paste_Files()) );
+	paste->setToolTip( tr( "Copy files from the host clipboard into the guest. They appear as floppy A or an AQEMU USB drive." ) );
+	Toolbar->addAction( tr( "To guest" ), this, SLOT(On_Copy_To_Guest_Path()) )
+		->setToolTip( tr( "Copy one host file to a path inside the guest. The guest must be running qemu-guest-agent." ) );
+	Toolbar->addAction( tr( "From guest" ), this, SLOT(On_Copy_From_Guest()) )
+		->setToolTip( tr( "Copy one file from a path inside the guest onto the host. The guest must be running qemu-guest-agent." ) );
+	Toolbar->addAction( tr( "Guest tools" ), this, SLOT(On_Insert_Guest_Tools()) )
+		->setToolTip( tr( "Insert the AQEMU guest tools disk. Run the installer once inside the guest." ) );
 	Toolbar->addSeparator();
 
 	// Apple controls & Restore IPSW (only visible on Apple SoC VMs)
@@ -541,7 +580,353 @@ bool VM_Session_Widget::eventFilter( QObject *obj, QEvent *event )
 	if( Fullscreen_Active && event->type() == QEvent::MouseMove )
 		Handle_Fullscreen_Mouse( static_cast<QMouseEvent *>( event )->globalPos() );
 
+	QWidget *watched = qobject_cast<QWidget *>( obj );
+	const bool ours = watched && ( watched == this || isAncestorOf( watched ) );
+	if( ours && ( event->type() == QEvent::DragEnter || event->type() == QEvent::DragMove ) )
+	{
+		QDropEvent *drop = static_cast<QDropEvent *>( event );
+		if( drop->mimeData() && drop->mimeData()->hasUrls() )
+		{
+			drop->acceptProposedAction();
+			return true;
+		}
+	}
+	if( ours && event->type() == QEvent::Drop )
+	{
+		QDropEvent *drop = static_cast<QDropEvent *>( event );
+		Deliver_Files( AQ_File_Paths_From_Mime( drop->mimeData() ) );
+		drop->acceptProposedAction();
+		return true;
+	}
+
 	return QWidget::eventFilter( obj, event );
+}
+
+void VM_Session_Widget::dragEnterEvent( QDragEnterEvent *event )
+{
+	if( event->mimeData() && event->mimeData()->hasUrls() )
+		event->acceptProposedAction();
+}
+
+void VM_Session_Widget::dropEvent( QDropEvent *event )
+{
+	Deliver_Files( AQ_File_Paths_From_Mime( event->mimeData() ) );
+	event->acceptProposedAction();
+}
+
+namespace {
+
+class Guest_Copy_Thread : public QThread
+{
+	public:
+		QAtomicInt stop;
+		QString socket_path;
+		QString host_path;
+		QString guest_path;
+		bool to_guest;
+		QString error;
+
+	protected:
+		void run() override
+		{
+			AQ_Guest_Agent agent;
+			agent.Set_Cancel( &stop );
+			if( ! agent.Open( socket_path, &error ) )
+				return;
+			if( to_guest )
+				agent.Copy_To_Guest( host_path, guest_path, &error );
+			else
+				agent.Copy_From_Guest( guest_path, host_path, &error );
+		}
+};
+
+}
+
+void VM_Session_Widget::On_Copy_To_Guest_Path()
+{
+	if( ! VM || VM->Get_Guest_Agent_Socket().isEmpty() )
+	{
+		QMessageBox::information( this, tr( "Copy to guest" ),
+			tr( "Start the virtual machine, then try again. This machine type has no guest agent channel." ) );
+		return;
+	}
+	if( Guest_Copy_Busy )
+	{
+		QMessageBox::information( this, tr( "Copy to guest" ),
+			tr( "A file copy is already running." ) );
+		return;
+	}
+	const QString host = QFileDialog::getOpenFileName( this, tr( "Copy to guest" ) );
+	if( host.isEmpty() )
+		return;
+	const QString guest = QInputDialog::getText( this, tr( "Copy to guest" ),
+		tr( "Path inside the guest, including the file name.\n"
+		    "Linux example: /home/user/notes.txt\n"
+		    "Windows example: C:\\\\Users\\\\Public\\\\notes.txt" ),
+		QLineEdit::Normal, QFileInfo( host ).fileName() );
+	if( guest.isEmpty() )
+		return;
+	Start_Guest_Copy( true, host, guest );
+}
+
+void VM_Session_Widget::On_Copy_From_Guest()
+{
+	if( ! VM || VM->Get_Guest_Agent_Socket().isEmpty() )
+	{
+		QMessageBox::information( this, tr( "Copy from guest" ),
+			tr( "Start the virtual machine, then try again. This machine type has no guest agent channel." ) );
+		return;
+	}
+	if( Guest_Copy_Busy )
+	{
+		QMessageBox::information( this, tr( "Copy from guest" ),
+			tr( "A file copy is already running." ) );
+		return;
+	}
+	const QString guest = QInputDialog::getText( this, tr( "Copy from guest" ),
+		tr( "Path inside the guest.\n"
+		    "Linux example: /home/user/notes.txt\n"
+		    "Windows example: C:\\\\Users\\\\Public\\\\notes.txt" ) );
+	if( guest.isEmpty() )
+		return;
+	const QString host = QFileDialog::getSaveFileName( this, tr( "Save guest file" ),
+		QFileInfo( guest ).fileName() );
+	if( host.isEmpty() )
+		return;
+	Start_Guest_Copy( false, host, guest );
+}
+
+void VM_Session_Widget::Start_Guest_Copy( bool to_guest, const QString &host, const QString &guest )
+{
+	Guest_Copy_Thread *job = new Guest_Copy_Thread();
+	job->socket_path = VM->Get_Guest_Agent_Socket();
+	job->host_path = host;
+	job->guest_path = guest;
+	job->to_guest = to_guest;
+	const int epoch = ++Guest_Copy_Epoch;
+	Guest_Copy_Stop = &job->stop;
+	Guest_Copy_Busy = true;
+	QPointer<VM_Session_Widget> self( this );
+	connect( job, &QThread::finished, qApp, [self, job, epoch, to_guest]() {
+		const QString error = job->error;
+		const QString shown = to_guest ? job->guest_path : job->host_path;
+		if( self && self->Guest_Copy_Stop == &job->stop )
+			self->Guest_Copy_Stop = nullptr;
+		job->deleteLater();
+		if( ! self || self->Guest_Copy_Epoch != epoch )
+			return;
+		self->Guest_Copy_Busy = false;
+		if( error == QLatin1String( "The copy was cancelled." ) )
+			return;
+		if( ! error.isEmpty() )
+			QMessageBox::warning( self, to_guest ? self->tr( "Copy to guest" ) : self->tr( "Copy from guest" ), error );
+		else if( to_guest )
+			QMessageBox::information( self, self->tr( "Copy to guest" ),
+				self->tr( "Copied to %1 in the guest." ).arg( shown ) );
+		else
+			QMessageBox::information( self, self->tr( "Copy from guest" ),
+				self->tr( "Saved %1" ).arg( shown ) );
+	} );
+	job->start();
+}
+
+static bool Private_Work_Dir( const QString &name, QString *error )
+{
+	const QString path = QDir( AQEMU_User_Data_Dir() ).filePath( name );
+	const QFileInfo before( path );
+	if( before.exists() && ( before.isSymLink() || ! before.isDir() ) )
+	{
+		if( error )
+			*error = QObject::tr( "The work folder is not private." );
+		return false;
+	}
+	if( ! before.exists() && ! QDir().mkpath( path ) )
+	{
+		if( error )
+			*error = QObject::tr( "Could not create a private folder for the copied files." );
+		return false;
+	}
+	const QFile::Permissions owner = QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner;
+	if( ! QFile::setPermissions( path, owner ) )
+	{
+		if( error )
+			*error = QObject::tr( "Could not keep the work folder private." );
+		return false;
+	}
+	const QFileInfo info( path );
+#ifndef Q_OS_WIN
+	const QFile::Permissions extra = info.permissions() & (
+		QFileDevice::ReadGroup | QFileDevice::WriteGroup | QFileDevice::ExeGroup |
+		QFileDevice::ReadOther | QFileDevice::WriteOther | QFileDevice::ExeOther );
+	if( ! info.isDir() || info.isSymLink() || extra || info.ownerId() != static_cast<uint>( ::getuid() ) )
+	{
+		if( error )
+			*error = QObject::tr( "The work folder is not private." );
+		return false;
+	}
+#else
+	if( ! info.isDir() || info.isSymLink() )
+	{
+		if( error )
+			*error = QObject::tr( "The work folder is not private." );
+		return false;
+	}
+#endif
+	return true;
+}
+
+void VM_Session_Widget::On_Insert_Guest_Tools()
+{
+	QString dir_error;
+	if( ! Private_Work_Dir( QStringLiteral( "guest-tools" ), &dir_error ) )
+	{
+		QMessageBox::warning( this, tr( "Guest tools" ), dir_error );
+		return;
+	}
+	QDir dir( QDir( AQEMU_User_Data_Dir() ).filePath( QStringLiteral( "guest-tools" ) ) );
+	const char *names[] = { "README.txt", "install-linux.sh", "aqemu-guest.py", "aqemu-guest.ps1" };
+	QStringList paths;
+	for( int i = 0; i < 4; ++i )
+	{
+		QFile in( QStringLiteral( ":/guest-tools/" ) + QString::fromLatin1( names[ i ] ) );
+		if( ! in.open( QIODevice::ReadOnly ) )
+		{
+			QMessageBox::warning( this, tr( "Guest tools" ),
+				tr( "The guest tools are missing from this AQEMU build." ) );
+			return;
+		}
+		const QString path = dir.filePath( QString::fromLatin1( names[ i ] ) );
+		QFile out( path );
+		if( ! out.open( QIODevice::WriteOnly | QIODevice::Truncate ) )
+		{
+			QMessageBox::warning( this, tr( "Guest tools" ),
+				tr( "Could not write the guest tools." ) );
+			return;
+		}
+		out.write( in.readAll() );
+		out.close();
+		QFile::setPermissions( path, QFileDevice::ReadOwner | QFileDevice::WriteOwner );
+		paths << path;
+	}
+	Deliver_Files( paths );
+}
+
+static QString Paste_Path_List( const QStringList &paths )
+{
+	const int limit = 12;
+	QStringList shown;
+	for( int i = 0; i < paths.size() && i < limit; ++i )
+		shown << paths.at( i );
+	QString text = shown.join( QStringLiteral( "\n" ) );
+	if( paths.size() > limit )
+		text += QStringLiteral( "\n" ) + QObject::tr( "and %1 more" ).arg( paths.size() - limit );
+	return text;
+}
+
+void VM_Session_Widget::On_Paste_Files()
+{
+	const QClipboard *clip = QGuiApplication::clipboard();
+	const QStringList paths = AQ_File_Paths_From_Mime( clip ? clip->mimeData() : nullptr );
+	if( paths.isEmpty() )
+	{
+		QMessageBox::information( this, tr( "Paste files" ),
+			tr( "Copy files in the host file manager first, or drop them on this window. Text on the clipboard is not used." ) );
+		return;
+	}
+	const QString question = tr( "Copy these host files into the guest?" ) + QStringLiteral( "\n\n" ) + Paste_Path_List( paths );
+	if( QMessageBox::question( this, tr( "Paste files" ), question,
+			QMessageBox::Yes | QMessageBox::No, QMessageBox::No ) != QMessageBox::Yes )
+		return;
+	Deliver_Files( paths );
+}
+
+void VM_Session_Widget::Deliver_Files( const QStringList &paths )
+{
+	if( paths.isEmpty() )
+	{
+		QMessageBox::information( this, tr( "Paste files" ),
+			tr( "Copy files in the host file manager first, or drop them on this window." ) );
+		return;
+	}
+	if( ! VM )
+	{
+		QMessageBox::information( this, tr( "Paste files" ),
+			tr( "Start the virtual machine, then paste the files again." ) );
+		return;
+	}
+	QMP_Client *q = Active_QMP();
+	if( ! q || ! q->Is_Connected() )
+	{
+		QMessageBox::information( this, tr( "Paste files" ),
+			tr( "Wait until the guest display is connected, then paste the files again." ) );
+		return;
+	}
+
+	QString dir_error;
+	if( ! Private_Work_Dir( QStringLiteral( "paste" ), &dir_error ) )
+	{
+		QMessageBox::warning( this, tr( "Paste files" ), dir_error );
+		return;
+	}
+	QDir dir( QDir( AQEMU_User_Data_Dir() ).filePath( QStringLiteral( "paste" ) ) );
+	++Paste_Serial;
+	const QString image = dir.filePath( QStringLiteral( "paste-%1.img" ).arg( Paste_Serial ) );
+	QString error;
+	bool floppy = false;
+	const bool allow_floppy = VM->Get_FD0().Get_Enabled();
+	if( ! AQ_Write_Guest_Fat_Image( image, paths, &floppy, &error, allow_floppy ) )
+	{
+		QMessageBox::warning( this, tr( "Paste files" ), error );
+		return;
+	}
+
+	const QString shown = QDir::fromNativeSeparators( image );
+	if( floppy )
+	{
+		Change_Medium_Id( QStringLiteral( "aqemu-fd0" ), shown );
+		QMessageBox::information( this, tr( "Paste files" ),
+			tr( "Copied these files. In the guest, open floppy drive A." ) + QStringLiteral( "\n\n" ) + Paste_Path_List( paths ) );
+		return;
+	}
+
+	const QString node = QStringLiteral( "aqpaste%1" ).arg( Paste_Serial );
+	QJsonObject file;
+	file.insert( QStringLiteral( "driver" ), QStringLiteral( "file" ) );
+	file.insert( QStringLiteral( "filename" ), shown );
+	QJsonObject raw;
+	raw.insert( QStringLiteral( "driver" ), QStringLiteral( "raw" ) );
+	raw.insert( QStringLiteral( "node-name" ), node );
+	raw.insert( QStringLiteral( "file" ), file );
+	int id = -1;
+	if( ! q->Send_Command( QStringLiteral( "blockdev-add" ), raw, &id ) )
+	{
+		QMessageBox::warning( this, tr( "Paste files" ),
+			tr( "The virtual machine is not accepting commands yet." ) );
+		return;
+	}
+	Paste_Qmp_Ids.insert( id );
+
+	QString bus = USB_Target_Bus();
+	QJsonObject dev;
+	dev.insert( QStringLiteral( "driver" ), QStringLiteral( "usb-storage" ) );
+	dev.insert( QStringLiteral( "id" ), node + QStringLiteral( "dev" ) );
+	dev.insert( QStringLiteral( "drive" ), node );
+	if( bus.isEmpty() )
+	{
+		bus = QStringLiteral( "aqemu_file_xhci.0" );
+		QJsonObject hub;
+		hub.insert( QStringLiteral( "driver" ), QStringLiteral( "qemu-xhci" ) );
+		hub.insert( QStringLiteral( "id" ), QStringLiteral( "aqemu_file_xhci" ) );
+		q->Send_Command( QStringLiteral( "device_add" ), hub );
+	}
+	dev.insert( QStringLiteral( "bus" ), bus );
+	id = -1;
+	q->Send_Command( QStringLiteral( "device_add" ), dev, &id );
+	if( id >= 0 )
+		Paste_Qmp_Ids.insert( id );
+
+	QMessageBox::information( this, tr( "Paste files" ),
+		tr( "Copied these files. In the guest, open the AQEMU USB drive." ) + QStringLiteral( "\n\n" ) + Paste_Path_List( paths ) );
 }
 
 void VM_Session_Widget::On_Toolbar_Hide_Timeout()
@@ -594,6 +979,33 @@ void VM_Session_Widget::Attach_VM( Virtual_Machine *vm, QMP_Client *qmp,
 {
 	VM = vm;
 	QMP = qmp;
+	if( ! File_Channel )
+	{
+		File_Channel = new Guest_File_Channel( this );
+		connect( File_Channel, &Guest_File_Channel::Files_Arrived, this,
+			[this]( const QList<AQ_Guest_File> &files ) {
+				const QString dir = QFileDialog::getExistingDirectory( this, tr( "Save files from the guest" ) );
+				if( dir.isEmpty() )
+					return;
+				for( int i = 0; i < files.size(); ++i )
+				{
+					QFile out( QDir( dir ).filePath( files.at( i ).name ) );
+					if( ! out.open( QIODevice::WriteOnly | QIODevice::Truncate ) )
+						continue;
+					out.write( files.at( i ).data );
+				}
+				QMessageBox::information( this, tr( "Files from the guest" ),
+					tr( "Saved %n file(s) from the guest.", "", files.size() ) );
+			} );
+		connect( File_Channel, &Guest_File_Channel::Channel_Error, this,
+			[this]( const QString &message ) {
+				QMessageBox::warning( this, tr( "Files from the guest" ), message );
+			} );
+	}
+	if( vm && ! vm->Get_Guest_Files_Socket().isEmpty() )
+		File_Channel->Start( vm->Get_Guest_Files_Socket() );
+	else if( File_Channel )
+		File_Channel->Stop();
 	Host = display_host;
 	Spice_Port = spice_port;
 	Vnc_Port = vnc_port;
@@ -794,6 +1206,13 @@ void VM_Session_Widget::Detach()
 	if( Vnc )
 		Vnc->disconnectVNC();
 #endif
+	if( File_Channel )
+		File_Channel->Stop();
+	if( Guest_Copy_Stop )
+		Guest_Copy_Stop->storeRelaxed( 1 );
+	Guest_Copy_Stop = nullptr;
+	++Guest_Copy_Epoch;
+	Guest_Copy_Busy = false;
 	if( Serial_Win )
 	{
 		Serial_Win->Detach();
@@ -1366,6 +1785,19 @@ void VM_Session_Widget::On_QMP_Command_Result( int id, const QString &cmd, bool 
 {
 	Q_UNUSED( cmd );
 	Q_UNUSED( raw_reply );
+
+	if( Paste_Qmp_Ids.contains( id ) )
+	{
+		Paste_Qmp_Ids.remove( id );
+		if( ! ok )
+		{
+			QMessageBox::warning( this, tr( "Paste files" ),
+				error_desc.isEmpty()
+					? tr( "QEMU could not attach the copied files." )
+					: error_desc );
+		}
+		return;
+	}
 
 	if( ! Pending_USB_Ops.contains( id ) )
 		return;

@@ -23,6 +23,7 @@
 #include <QToolButton>
 #include <QThread>
 #include <QPointer>
+#include <QAtomicInt>
 #include <QVariantMap>
 #include <QRegularExpression>
 
@@ -63,6 +64,8 @@ class VM_Session_Widget : public QWidget
 
 	protected:
 		bool eventFilter( QObject *obj, QEvent *event ) override;
+		void dragEnterEvent( QDragEnterEvent *event ) override;
+		void dropEvent( QDropEvent *event ) override;
 		void resizeEvent( QResizeEvent *event ) override;
 		void changeEvent( QEvent *event ) override;
 
@@ -73,6 +76,10 @@ class VM_Session_Widget : public QWidget
 		void On_Eject_FD0();
 		void On_Change_FD1();
 		void On_Eject_FD1();
+		void On_Paste_Files();
+		void On_Copy_To_Guest_Path();
+		void On_Copy_From_Guest();
+		void On_Insert_Guest_Tools();
 		void On_CAD();
 		void On_Shift_F10();
 		void On_Fullscreen();
@@ -154,6 +161,8 @@ class VM_Session_Widget : public QWidget
 		QString USB_Qemu_Device_Id( const QString &instance_key ) const;
 		QString USB_Device_Add_Command( const VM_USB &u, const QString &qemu_id ) const;
 		QString USB_Target_Bus() const;
+		void Deliver_Files( const QStringList &paths );
+		void Start_Guest_Copy( bool to_guest, const QString &host, const QString &guest );
 
 		Virtual_Machine *VM;
 		QMP_Client *QMP;
@@ -203,6 +212,12 @@ class VM_Session_Widget : public QWidget
 			QPointer<QAction> action;
 		};
 		QHash<int, Pending_USB_Op> Pending_USB_Ops;
+		QSet<int> Paste_Qmp_Ids;
+		int Paste_Serial;
+		bool Guest_Copy_Busy;
+		int Guest_Copy_Epoch;
+		QAtomicInt *Guest_Copy_Stop;
+		class Guest_File_Channel *File_Channel;
 		bool USB_Enum_Busy;
 		bool Apple_SOS_Busy;
 		quint64 Apple_SOS_Generation;

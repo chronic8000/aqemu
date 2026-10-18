@@ -3,7 +3,7 @@
 
 aqemu_ver = run_command('cat', files('VERSION.txt'), check : false).stdout().strip()
 if aqemu_ver == ''
-  aqemu_ver = '1.5.2'
+  aqemu_ver = '1.6.0'
 endif
 
 project('aqemu', 'cpp', version : aqemu_ver, default_options : ['cpp_std=c++11', 'warning_level=3'])
@@ -170,6 +170,10 @@ aqemu_sources =    ['src/No_Boot_Device.cpp',
                     'src/Audio_Settings_Window.cpp',
                     'src/Lab_150.cpp',
                     'src/Guest_Capabilities.cpp',
+                    'src/Guest_Boot.cpp',
+                    'src/Guest_Files.cpp',
+                    'src/Guest_Agent.cpp',
+                    'src/Guest_File_Channel.cpp',
                     'src/ISO_Guess.cpp',
                     'src/iOS_Firmware_Tool_Window.cpp',
                     'src/Apple_SoC_Support.cpp',
@@ -179,6 +183,7 @@ aqemu_sources =    ['src/No_Boot_Device.cpp',
                     'src/Apple_SoC_Device_Tools_Window.cpp',
                     'src/Inferno_Companion_Setup.cpp',
                     'src/Storage_Browser_Window.cpp',
+                    'src/VM_Scanner_Window.cpp',
                     'src/Serial_Console_Window.cpp',
                     'src/URL_Fetch.cpp',
                     'src/Remote_Host_Window.cpp',

@@ -13,7 +13,7 @@ IF( EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/VERSION.txt" )
 	STRING( STRIP "${AQEMU_PROJECT_VERSION}" AQEMU_PROJECT_VERSION )
 ENDIF()
 IF( NOT AQEMU_PROJECT_VERSION )
-	SET( AQEMU_PROJECT_VERSION "1.5.2" )
+	SET( AQEMU_PROJECT_VERSION "1.6.0" )
 ENDIF()
 
 PROJECT( AQEMU VERSION ${AQEMU_PROJECT_VERSION} LANGUAGES CXX )
@@ -216,6 +216,7 @@ SET( aqemu_sources
 	src/Folder_Sharing_Widget.cpp
 	src/HDD_Image_Info.cpp
 	src/main.cpp
+	src/Crash_Report.cpp
 	src/Main_Window.cpp
 	src/WSL_Wizard_Window.cpp
 	src/Monitor_Window.cpp
@@ -236,6 +237,10 @@ SET( aqemu_sources
 	src/VM_Devices.cpp
 	src/VM_Wizard_Window.cpp
 	src/Guest_Capabilities.cpp
+	src/Guest_Boot.cpp
+	src/Guest_Files.cpp
+	src/Guest_Agent.cpp
+	src/Guest_File_Channel.cpp
 	src/ISO_Guess.cpp
 	src/iOS_Firmware_Tool_Window.cpp
 	src/Apple_SoC_Support.cpp
@@ -245,6 +250,7 @@ SET( aqemu_sources
 	src/Apple_SoC_Device_Tools_Window.cpp
 	src/Inferno_Companion_Setup.cpp
 	src/Storage_Browser_Window.cpp
+	src/VM_Scanner_Window.cpp
 	src/Serial_Console_Window.cpp
 	src/URL_Fetch.cpp
 	src/Remote_Host_Window.cpp
@@ -398,6 +404,29 @@ ADD_EXECUTABLE( aqemu
 
 target_include_directories(aqemu PUBLIC src/ )
 
+IF( WIN32 AND AQEMU_STORE_BUILD )
+	TARGET_SOURCES( aqemu PRIVATE src/Store_Trial.cpp )
+	FIND_FILE( AQEMU_STORE_WINRT_HEADER Windows.Services.Store.h
+		PATHS
+			"$ENV{WindowsSdkDir}/Include"
+			"$ENV{ProgramFiles\(x86\)}/Windows Kits/10/Include"
+			"$ENV{ProgramW6432}/Windows Kits/10/Include"
+		PATH_SUFFIXES
+			"cppwinrt/winrt"
+			"winrt"
+	)
+	IF( AQEMU_STORE_WINRT_HEADER )
+		GET_FILENAME_COMPONENT( _winrt_dir "${AQEMU_STORE_WINRT_HEADER}" DIRECTORY )
+		GET_FILENAME_COMPONENT( _winrt_parent "${_winrt_dir}" DIRECTORY )
+		TARGET_INCLUDE_DIRECTORIES( aqemu PRIVATE "${_winrt_parent}" )
+		TARGET_COMPILE_DEFINITIONS( aqemu PRIVATE AQEMU_HAVE_STORE_WINRT=1 )
+		SET_SOURCE_FILES_PROPERTIES( src/Store_Trial.cpp PROPERTIES CXX_STANDARD 17 )
+		MESSAGE( STATUS "Microsoft Store licence API: ${AQEMU_STORE_WINRT_HEADER}" )
+	ELSE()
+		MESSAGE( STATUS "Microsoft Store licence API headers were not found. Buy still opens the Store page." )
+	ENDIF()
+ENDIF()
+
 # Require C++-11 standard
 SET_PROPERTY(TARGET aqemu PROPERTY CXX_STANDARD 11)
 SET_PROPERTY(TARGET aqemu PROPERTY CXX_STANDARD_REQUIRED ON)
@@ -418,8 +447,48 @@ SET_PROPERTY( TARGET aqemu_storage_recovery_test PROPERTY CXX_STANDARD 11 )
 SET_PROPERTY( TARGET aqemu_storage_recovery_test PROPERTY CXX_STANDARD_REQUIRED ON )
 TARGET_LINK_LIBRARIES( aqemu_storage_recovery_test Qt5::Core )
 
+ADD_EXECUTABLE( aqemu_guest_boot_test
+	tests/guest_boot_test.cpp
+	src/Guest_Boot.cpp
+	src/Guest_Capabilities.cpp
+	src/QEMU_Probe_Catalog.cpp )
+
+ADD_EXECUTABLE( aqemu_guest_files_test
+	tests/guest_files_test.cpp
+	src/Guest_Files.cpp )
+TARGET_INCLUDE_DIRECTORIES( aqemu_guest_files_test PRIVATE src )
+SET_PROPERTY( TARGET aqemu_guest_files_test PROPERTY CXX_STANDARD 11 )
+SET_PROPERTY( TARGET aqemu_guest_files_test PROPERTY CXX_STANDARD_REQUIRED ON )
+TARGET_LINK_LIBRARIES( aqemu_guest_files_test Qt5::Core Qt5::Gui )
+
+ADD_EXECUTABLE( aqemu_whpx_host_test tests/whpx_host_test.cpp )
+TARGET_INCLUDE_DIRECTORIES( aqemu_whpx_host_test PRIVATE src )
+SET_PROPERTY( TARGET aqemu_whpx_host_test PROPERTY CXX_STANDARD 11 )
+SET_PROPERTY( TARGET aqemu_whpx_host_test PROPERTY CXX_STANDARD_REQUIRED ON )
+
+ADD_EXECUTABLE( aqemu_guest_agent_test
+	tests/guest_agent_test.cpp
+	src/Guest_Agent.cpp )
+TARGET_INCLUDE_DIRECTORIES( aqemu_guest_agent_test PRIVATE src )
+SET_PROPERTY( TARGET aqemu_guest_agent_test PROPERTY CXX_STANDARD 11 )
+SET_PROPERTY( TARGET aqemu_guest_agent_test PROPERTY CXX_STANDARD_REQUIRED ON )
+TARGET_LINK_LIBRARIES( aqemu_guest_agent_test Qt5::Core Qt5::Network )
+TARGET_INCLUDE_DIRECTORIES( aqemu_guest_boot_test PRIVATE src )
+SET_PROPERTY( TARGET aqemu_guest_boot_test PROPERTY CXX_STANDARD 11 )
+SET_PROPERTY( TARGET aqemu_guest_boot_test PROPERTY CXX_STANDARD_REQUIRED ON )
+TARGET_LINK_LIBRARIES( aqemu_guest_boot_test Qt5::Core )
+
 IF( WIN32 )
-	TARGET_LINK_LIBRARIES( aqemu advapi32 ole32 shell32 dsound )
+	TARGET_LINK_LIBRARIES( aqemu advapi32 ole32 shell32 dsound dbghelp )
+	TARGET_COMPILE_OPTIONS( aqemu PRIVATE -g )
+	IF( CMAKE_CXX_COMPILER_ID MATCHES "Clang" )
+		TARGET_COMPILE_OPTIONS( aqemu PRIVATE -gcodeview )
+		SET_PROPERTY( TARGET aqemu APPEND_STRING PROPERTY LINK_FLAGS " -fuse-ld=lld -Wl,--pdb,${CMAKE_BINARY_DIR}/aqemu.pdb" )
+	ENDIF()
+ELSE()
+	SET_PROPERTY( TARGET aqemu APPEND_STRING PROPERTY LINK_FLAGS " -rdynamic" )
+ENDIF()
+IF( WIN32 )
 	IF( AQEMU_ENABLE_CONSOLE )
 		SET_TARGET_PROPERTIES( aqemu PROPERTIES WIN32_EXECUTABLE FALSE )
 		IF( MSVC )
@@ -438,6 +507,37 @@ IF( WIN32 )
 		MESSAGE( STATUS "AQEMU Windows subsystem: WINDOWS (no console window)" )
 	ENDIF()
 ENDIF()
+
+# MSYS2 bin directories. MSYSTEM_PREFIX / MSYS2_ROOT come first.
+# C:/msys64 is only the last resort, and only when that directory exists.
+FUNCTION( aqemu_msys_bin_dirs OUT_VAR )
+	SET( _dirs "" )
+	IF( DEFINED ENV{MSYSTEM_PREFIX} AND EXISTS "$ENV{MSYSTEM_PREFIX}/bin" )
+		LIST( APPEND _dirs "$ENV{MSYSTEM_PREFIX}/bin" )
+	ENDIF()
+	IF( DEFINED ENV{MINGW_PREFIX} AND EXISTS "$ENV{MINGW_PREFIX}/bin" )
+		LIST( APPEND _dirs "$ENV{MINGW_PREFIX}/bin" )
+	ENDIF()
+	SET( _root "" )
+	IF( DEFINED ENV{MSYS2_ROOT} AND NOT "$ENV{MSYS2_ROOT}" STREQUAL "" )
+		SET( _root "$ENV{MSYS2_ROOT}" )
+	ELSEIF( DEFINED ENV{MSYSTEM_PREFIX} AND NOT "$ENV{MSYSTEM_PREFIX}" STREQUAL "" )
+		GET_FILENAME_COMPONENT( _root "$ENV{MSYSTEM_PREFIX}" DIRECTORY )
+	ELSEIF( EXISTS "C:/msys64" )
+		SET( _root "C:/msys64" )
+	ENDIF()
+	IF( _root )
+		FOREACH( _sub clangarm64 clang64 ucrt64 mingw64 )
+			IF( EXISTS "${_root}/${_sub}/bin" )
+				LIST( APPEND _dirs "${_root}/${_sub}/bin" )
+			ENDIF()
+		ENDFOREACH()
+	ENDIF()
+	IF( _dirs )
+		LIST( REMOVE_DUPLICATES _dirs )
+	ENDIF()
+	SET( ${OUT_VAR} "${_dirs}" PARENT_SCOPE )
+ENDFUNCTION()
 
 # Embedded VNC display
 IF( NOT WITHOUT_EMBEDDED_DISPLAY )
@@ -458,7 +558,8 @@ IF( NOT WITHOUT_EMBEDDED_DISPLAY )
 	ENDIF()
 	IF( WIN32 )
 		TARGET_LINK_LIBRARIES( aqemu ws2_32 )
-		FOREACH( _vnc_dir "$ENV{MINGW_PREFIX}/bin" "$ENV{MSYSTEM_PREFIX}/bin" "C:/msys64/clangarm64/bin" "C:/msys64/ucrt64/bin" "C:/msys64/mingw64/bin" )
+		aqemu_msys_bin_dirs( _vnc_dirs )
+		FOREACH( _vnc_dir ${_vnc_dirs} )
 			IF( EXISTS "${_vnc_dir}/libvncclient.dll" )
 				ADD_CUSTOM_COMMAND( TARGET aqemu POST_BUILD
 					COMMAND ${CMAKE_COMMAND} -E copy_if_different "${_vnc_dir}/libvncclient.dll" "$<TARGET_FILE_DIR:aqemu>"
@@ -473,7 +574,7 @@ ENDIF( NOT WITHOUT_EMBEDDED_DISPLAY )
 # Optional spice-client-glib (Qt paints frames; no GtkWidget embed)
 # Windows (WinLibs UCRT): install MSYS2 ucrt64 packages and point pkg-config at them:
 #   pacman -S mingw-w64-ucrt-x86_64-spice-gtk mingw-w64-ucrt-x86_64-pkgconf
-#   set PKG_CONFIG_PATH=C:/msys64/ucrt64/lib/pkgconfig
+#   set PKG_CONFIG_PATH=%MSYSTEM_PREFIX%/lib/pkgconfig
 IF( AQEMU_WITH_SPICE_GTK )
 	FIND_PACKAGE( PkgConfig REQUIRED )
 	# Prefer glib-only module; fall back to spice-client-gtk-3.0 (pulls glib as dep)
@@ -515,16 +616,10 @@ IF( AQEMU_WITH_SPICE_GTK )
 			ENDIF()
 		ENDFOREACH()
 		IF( NOT _spice_bin_dir )
-			IF( EXISTS "$ENV{MINGW_PREFIX}/bin" )
-				SET( _spice_bin_dir "$ENV{MINGW_PREFIX}/bin" )
-			ELSEIF( EXISTS "$ENV{MSYSTEM_PREFIX}/bin" )
-				SET( _spice_bin_dir "$ENV{MSYSTEM_PREFIX}/bin" )
-			ELSEIF( EXISTS "C:/msys64/clangarm64/bin" )
-				SET( _spice_bin_dir "C:/msys64/clangarm64/bin" )
-			ELSEIF( EXISTS "C:/msys64/ucrt64/bin" )
-				SET( _spice_bin_dir "C:/msys64/ucrt64/bin" )
-			ELSEIF( EXISTS "C:/msys64/mingw64/bin" )
-				SET( _spice_bin_dir "C:/msys64/mingw64/bin" )
+			aqemu_msys_bin_dirs( _spice_bins )
+			LIST( LENGTH _spice_bins _spice_bin_count )
+			IF( _spice_bin_count GREATER 0 )
+				LIST( GET _spice_bins 0 _spice_bin_dir )
 			ENDIF()
 		ENDIF()
 		IF( _spice_bin_dir )
@@ -611,7 +706,8 @@ IF( AQEMU_BUNDLE_QEMU )
 		FILE( GLOB _qemu_dlls ${_qemu_dll_globs} )
 		# MSYS2 install leaves runtime DLLs under /clangarm64/bin, /ucrt64/bin, or /mingw64/bin.
 		IF( WIN32 )
-			FOREACH( _cand_msys "C:/msys64/clangarm64/bin" "C:/msys64/ucrt64/bin" "C:/msys64/mingw64/bin" )
+			aqemu_msys_bin_dirs( _msys_bins )
+			FOREACH( _cand_msys ${_msys_bins} )
 				IF( EXISTS "${_cand_msys}" )
 					FILE( GLOB _msys_dlls
 						"${_cand_msys}/libslirp*.dll"

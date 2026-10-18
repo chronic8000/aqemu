@@ -30,6 +30,9 @@
 #include <QCoreApplication>
 #include <QPalette>
 #include <QStandardPaths>
+#include <QTextBrowser>
+#include <QPushButton>
+#include <QVBoxLayout>
 
 #include "Utils.h"
 #include "AQ_UI_Style.h"
@@ -38,6 +41,22 @@
 About_Window::About_Window( QWidget *parent ): QDialog( parent )
 {
 	ui.setupUi( this );
+	QWidget *qt_page = new QWidget( ui.Tabs );
+	QVBoxLayout *qt_lay = new QVBoxLayout( qt_page );
+	QTextBrowser *qt_text = new QTextBrowser( qt_page );
+	qt_text->setOpenExternalLinks( true );
+	qt_text->setHtml( tr(
+		"<p>This program uses Qt %1.</p>"
+		"<p>Qt is a C++ toolkit for cross-platform applications. "
+		"It is available under the GNU Lesser General Public License version 3, "
+		"and under commercial licenses from The Qt Company.</p>"
+		"<p><a href=\"https://www.qt.io/licensing/\">qt.io/licensing</a></p>" )
+		.arg( QLatin1String( qVersion() ) ) );
+	QPushButton *qt_notice = new QPushButton( tr( "Show the Qt notice" ), qt_page );
+	connect( qt_notice, &QPushButton::clicked, qApp, []() { QApplication::aboutQt(); } );
+	qt_lay->addWidget( qt_text );
+	qt_lay->addWidget( qt_notice );
+	ui.Tabs->addTab( qt_page, tr( "About Qt" ) );
 	setStyleSheet( QString() );
 	ui.Widget_Logo_Background->setStyleSheet( QString() );
 	ui.About_Text->setStyleSheet( QString() );

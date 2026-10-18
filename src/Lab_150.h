@@ -1,5 +1,5 @@
 /****************************************************************************
-** AQEMU 1.5.2 lab tools (issues 69 and 70).
+** AQEMU 1.6.0 lab tools (issues 69 and 70).
 ****************************************************************************/
 #ifndef LAB_150_H
 #define LAB_150_H
@@ -17,6 +17,9 @@ QMap<QString, QString> AQ_Lab_Map( const QString &blob );
 QString AQ_Lab_Blob( const QMap<QString, QString> &opt );
 QString AQ_Lab_Get( const Virtual_Machine *vm, const QString &key );
 void AQ_Lab_Set( Virtual_Machine *vm, const QString &key, const QString &value );
+/** Write xemu's TOML. Empty when the file was not created. */
+QString AQ_Lab_Write_Xemu_Config( Virtual_Machine *vm, const QString &mcpx, const QString &bios,
+	const QString &hdd = QString(), const QString &dvd = QString(), const QString &eeprom = QString() );
 
 void AQ_Lab_Append_Args( QStringList &args, Virtual_Machine *vm );
 void AQ_Lab_Adjust_Launch( Virtual_Machine *vm, QString &bin_path, QStringList *args );

@@ -48,6 +48,11 @@ Folder_Sharing_Widget::Folder_Sharing_Widget( QWidget *parent )
 	ui.Folders_List->setViewMode( QListView::ListMode );
 
     connect(this,SIGNAL(Folder_Changed()),this,SLOT(Update_Icons()));
+
+#ifdef Q_OS_WIN
+	ui.TB_Add_Samba_Folder->hide();
+	setToolTip( tr( "Shared folders need a Linux host. On Windows, start the virtual machine and use Paste files on the session toolbar." ) );
+#endif
 }
 
 void Folder_Sharing_Widget::on_actionAdd_Samba_Folder_triggered()
@@ -148,7 +153,7 @@ void Folder_Sharing_Widget::Update_Enabled_Actions()
 						"# "+tr("Linux/BSD guests: the 9p module must be available")+"\n"
 						"mkdir /tmp/shared"+QString::number(fx)+"; mount -t 9p -o trans=virtio shared"+QString::number(fx)+" /tmp/shared"+QString::number(fx)+" \\\n"
 						"                          -o version=9p2000.L,posixacl,cache=mmap\n"
-						"# "+tr("Windows/DOS guests: use Network → user + SMB share instead of virtfs/9p") );
+						"# "+tr("Windows/DOS guests: start the VM and use Paste files. The files appear as a floppy or an AQEMU USB drive.") );
 					
 					//ui.TB_Edit_Folder->setEnabled( true );
 					ui.actionProperties->setEnabled( true );

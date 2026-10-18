@@ -16,9 +16,12 @@ $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
 $Src = Join-Path $Root "third_party\img4lib"
 $Overlay = Join-Path $Root "extras\Inferno\patches\img4lib_vfs_file_win.c"
-$MingwBin = "C:\msys64\ucrt64\bin"
+. (Join-Path $PSScriptRoot "msys_prefix.ps1")
+$MsysRoot = Get-AqemuMsysRoot
+if (-not $MsysRoot) { throw "MSYS2 was not found. Set MSYSTEM_PREFIX or MSYS2_ROOT." }
+$MingwBin = Join-Path $MsysRoot "ucrt64\bin"
 if (-not (Test-Path "$MingwBin\gcc.exe")) {
-	$MingwBin = "C:\msys64\mingw64\bin"
+	$MingwBin = Join-Path $MsysRoot "mingw64\bin"
 }
 if (-not (Test-Path "$MingwBin\gcc.exe")) {
 	throw "Need MSYS2 ucrt64 or mingw64 gcc (with OpenSSL)."
@@ -37,7 +40,7 @@ if (-not (Test-Path (Join-Path $Src ".git"))) {
 
 Copy-Item $Overlay (Join-Path $Src "libvfs\vfs_file.c") -Force
 
-$env:PATH = "$MingwBin;C:\msys64\usr\bin;" + $env:PATH
+$env:PATH = "$MingwBin;$(Join-Path $MsysRoot 'usr\bin');" + $env:PATH
 $Make = Join-Path $MingwBin "mingw32-make.exe"
 if (-not (Test-Path $Make)) { $Make = "make" }
 

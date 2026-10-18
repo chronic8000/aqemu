@@ -8,6 +8,8 @@
 #include "Storage_Recovery.h"
 #include "Utils.h"
 #include "System_Info.h"
+#include "Guest_Boot.h"
+#include "QEMU_Probe_Catalog.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -634,6 +636,40 @@ bool Appliance_Import_Window::Execute_Extraction_And_Conversion()
 	}
 	net.Set_Card_Model( model );
 	vm->Add_Network_Card( net );
+
+	const Guest_Boot_Set boot = AQ_Resolve_Guest_Boot( profile, qemu_target, machine, os_profile );
+	if( boot.probe_loaded )
+	{
+		if( ! boot.machine.isEmpty() )
+			vm->Set_Machine_Type( boot.machine );
+		if( ! boot.cpu.isEmpty() )
+			vm->Set_CPU_Type( boot.cpu );
+		if( ! boot.video.isEmpty() )
+			vm->Set_Video_Card( boot.video );
+		if( ! boot.sound.isEmpty() )
+			Apply_Profile_Sound( vm, boot.sound );
+		if( ! boot.nic.isEmpty() )
+		{
+			QList<VM_Net_Card> cards = vm->Get_Network_Cards();
+			if( ! cards.isEmpty() )
+			{
+				const Architecture_Hardware_Capabilities caps =
+					QEMU_Probe_Catalog::Get_Hardware_Capabilities( qemu_target );
+				const QString current = cards[0].Get_Card_Model();
+				if( current.trimmed().isEmpty() || ! caps.Is_NIC_Supported( current ) )
+				{
+					cards[0].Set_Card_Model( boot.nic );
+					vm->Set_Network_Cards( cards );
+				}
+			}
+		}
+		if( ! boot.audiodev.isEmpty() )
+			vm->Set_Audiodev_Backend( boot.audiodev );
+		if( ! boot.display.isEmpty() )
+			vm->Set_Display_Backend( boot.display );
+		if( ! boot.usb.isEmpty() )
+			vm->Set_Mouse_USB_Controller( boot.usb );
+	}
 
 	auto controller_to_interface = []( const QString &ctrl ) -> VM::Device_Interface {
 		const QString c = ctrl.toLower();

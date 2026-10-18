@@ -93,6 +93,9 @@ class Main_Window: public QMainWindow
         ~Main_Window();
 		/** Add an already-constructed VM to the list UI (takes ownership). */
 		void Add_VM_To_List( Virtual_Machine *vm );
+		/** Load a .aqemu from its own path and remember that path. */
+		enum VM_Scan_Add { VM_Scan_Added = 0, VM_Scan_Skipped, VM_Scan_Failed };
+		VM_Scan_Add Add_Scanned_VM( const QString &aqemu_path, QString *detail );
 		/** Stop any loaded VM whose HDA is disk_path, then kill WSL/Windows orphans. */
 		void Stop_VMs_Holding_Disk( const QString &disk_path );
 
@@ -140,6 +143,7 @@ class Main_Window: public QMainWindow
 		void on_actionPause_triggered();
 		void on_actionReset_triggered();
 		void on_actionLoad_VM_From_File_triggered();
+		void slot_VM_Scanner_triggered();
 		void on_actionSave_As_Template_triggered();
 		void on_actionCopy_triggered();
 		void on_actionManage_Snapshots_triggered();
@@ -154,6 +158,9 @@ class Main_Window: public QMainWindow
 		void slot_Apple_SoC_Device_Tools_triggered();
 		void Maybe_Prompt_WSL_Config_On_Boot();
 		void Build_Apple_SoC_Inferno_Ui();
+		void Build_Next_ROM_Ui();
+		void Update_Next_ROM_Visibility();
+		bool Uses_Next_ROM_UI( const Virtual_Machine *vm ) const;
 		void Apply_Apple_SoC_Fields_To_VM( Virtual_Machine *vm );
 		void Load_Apple_SoC_Fields_From_VM( const Virtual_Machine *vm );
 		void Refresh_Apple_Nand_On_Disk_Label( const Virtual_Machine *vm );
@@ -323,6 +330,8 @@ class Main_Window: public QMainWindow
 		QString Get_Storage_Device_Info_String( const QString &path );
 		
 		bool Load_Virtual_Machines();
+		void Remember_VM_In_Library( const QString &path );
+		void Forget_VM_In_Library( const QString &path );
 		bool Save_Virtual_Machines();
 		
 		QString Get_QEMU_Args();
@@ -362,6 +371,7 @@ class Main_Window: public QMainWindow
 		QList<VM::Boot_Order> Boot_Order_List;
 		bool Show_Boot_Menu;
 		bool Show_Boot_Logo = true;
+		int Boot_Menu_Seconds = 0;
 		
 		HDD_Image_Info* HDA_Info;
 		HDD_Image_Info* HDB_Info;
@@ -398,6 +408,8 @@ class Main_Window: public QMainWindow
 		bool Session_Block_During_Start;
 		bool GPU_Scan_Busy;
 
+		QWidget *Widget_Next_ROM;
+		QLineEdit *Edit_Next_ROM;
 		QLineEdit *Edit_Apple_Trustcache;
 		QLineEdit *Edit_Apple_Ticket;
 		QLineEdit *Edit_Apple_SEP_FW;

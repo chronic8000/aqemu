@@ -372,10 +372,24 @@ QString AQEMU_Service::start(const QString& s)
 
         if(QFileInfo(vm_file).exists())
             success = vm->Load_VM(vm_file);
-        else
+    }
+
+    if( ! success )
+    {
+        const QStringList library = settings.value( QStringLiteral( "VM_Library" ) ).toStringList();
+        for( int i = 0; i < library.size(); ++i )
         {
-            delete vm;
-            return QString("VM \"%1\" could not be started. No such VM found.").arg(s);
+            const QFileInfo info( library.at( i ) );
+            if( ! info.exists() )
+                continue;
+            if( info.fileName().compare( s, Qt::CaseInsensitive ) == 0
+                || info.completeBaseName().compare( s, Qt::CaseInsensitive ) == 0
+                || info.absoluteFilePath().compare( s, Qt::CaseInsensitive ) == 0 )
+            {
+                success = vm->Load_VM( info.absoluteFilePath() );
+                if( success )
+                    break;
+            }
         }
     }
 
@@ -553,16 +567,14 @@ QString AQEMU_Service::command(const QString &vm, const QString &command)
 QString AQEMU_Service::list()
 {
     QSettings settings;
-    QDir vm_dir( QDir::toNativeSeparators(settings.value("VM_Directory", "~").toString()) );
-    QFileInfoList file = vm_dir.entryInfoList( QStringList("*.aqemu"), QDir::Files, QDir::Name );
+    QStringList library = settings.value( QStringLiteral( "VM_Library" ) ).toStringList();
+    if( library.isEmpty() )
+    {
+        const QDir vm_dir( QDir::toNativeSeparators( settings.value( "VM_Directory", "~" ).toString() ) );
+        const QFileInfoList file = vm_dir.entryInfoList( QStringList( "*.aqemu" ), QDir::Files, QDir::Name );
+        for( int ix = 0; ix < file.count(); ++ix )
+            library << file.at( ix ).absoluteFilePath();
+    }
 
-    if( file.count() <= 0 )
-        return "";
-
-    QStringList list;
-    for( int ix = 0; ix < file.count(); ix++ )
-        list << file[ix].filePath();
-
-    //return names of all available machines
-    return list.join("\n");
+    return library.join( QLatin1String( "\n" ) );
 }

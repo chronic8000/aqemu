@@ -268,6 +268,9 @@
          <verstretch>0</verstretch>
         </sizepolicy>
        </property>
+       <property name="toolTip">
+        <string>Create this image as a difference from an existing image. QEMU reads the base file and writes changes into the new file.</string>
+       </property>
        <property name="text">
         <string>Use &amp;Base HDD Image</string>
        </property>
@@ -278,14 +281,14 @@
        <item>
         <widget class="QLabel" name="Label_Cluster_Size">
          <property name="text">
-          <string>Cluster Size / Alignment:</string>
+          <string>Image Cluster Size:</string>
          </property>
         </widget>
        </item>
        <item>
         <widget class="QComboBox" name="CB_Cluster_Size">
          <property name="toolTip">
-          <string>Cluster size for QCOW2 images. 4 KB aligns with 4Kn native sector disks and ZFS record sizes, minimizing write amplification.</string>
+          <string>Cluster size stored inside a QCOW2 image. This is not the guest's sector size.</string>
          </property>
          <item>
           <property name="text">
@@ -294,7 +297,7 @@
          </item>
          <item>
           <property name="text">
-           <string>4 KB (4Kn / ZFS Aligned)</string>
+           <string>4 KB</string>
           </property>
          </item>
          <item>

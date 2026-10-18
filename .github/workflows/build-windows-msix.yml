@@ -32,9 +32,11 @@ jobs:
             msystem: UCRT64
             build_dir: build_win
             qemu_script: win_x86_64
-            cmake_flags: ""
+            cmake_flags: "-DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++"
             packages: >-
               mingw-w64-ucrt-x86_64-toolchain
+              mingw-w64-ucrt-x86_64-clang
+              mingw-w64-ucrt-x86_64-lld
               mingw-w64-ucrt-x86_64-cmake
               mingw-w64-ucrt-x86_64-ninja
               mingw-w64-ucrt-x86_64-pkgconf
@@ -98,6 +100,7 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v7
         with:
+          persist-credentials: false
           submodules: false
           fetch-depth: 1
 
@@ -107,7 +110,7 @@ jobs:
 
       - name: Setup MSYS2 (${{ matrix.msystem }})
         id: msys2
-        uses: msys2/setup-msys2@v2
+        uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e # v2.33.0
         with:
           msystem: ${{ matrix.msystem }}
           update: true
@@ -140,6 +143,25 @@ jobs:
             ${{ matrix.cmake_flags }}
           ninja -C ${{ matrix.build_dir }}
 
+      - name: Split debug symbols (${{ matrix.arch }})
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          symdir="${GITHUB_WORKSPACE}/symbols"
+          mkdir -p "${symdir}"
+          exe="${{ matrix.build_dir }}/aqemu.exe"
+          if [ -f "${exe}.pdb" ]; then
+            mv "${exe}.pdb" "${symdir}/aqemu.pdb"
+          elif [ -f "${{ matrix.build_dir }}/aqemu.pdb" ]; then
+            mv "${{ matrix.build_dir }}/aqemu.pdb" "${symdir}/aqemu.pdb"
+          else
+            echo "aqemu.pdb was not produced. WinDbg needs the Clang CodeView PDB."
+            exit 1
+          fi
+          objcopy --only-keep-debug "${exe}" "${symdir}/aqemu.debug"
+          strip --strip-debug "${exe}"
+          objcopy --add-gnu-debuglink="${symdir}/aqemu.debug" "${exe}"
+
       - name: Package MSIX (${{ matrix.arch }})
         shell: powershell
         run: |
@@ -153,4 +175,11 @@ jobs:
         with:
           name: AQEMU-${{ matrix.target_name }}-msix
           path: installer/out/*.msix
+          if-no-files-found: error
+
+      - name: Upload debug symbols (${{ matrix.arch }})
+        uses: actions/upload-artifact@v7
+        with:
+          name: AQEMU-${{ matrix.target_name }}-symbols
+          path: symbols/**
           if-no-files-found: error

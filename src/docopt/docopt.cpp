@@ -12,6 +12,8 @@
 
 #include "docopt_value.h"
 
+#include <algorithm>
+#include <iterator>
 #include <vector>
 #include <unordered_set>
 #include <unordered_map>

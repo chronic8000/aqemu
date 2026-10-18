@@ -22,7 +22,14 @@
 ****************************************************************************/
 
 #include <QFileDialog>
+#include <QFile>
+#include <QFileInfo>
+#include <QDir>
 #include <QMessageBox>
+#include <QStatusBar>
+#if defined( Q_OS_WIN ) && defined( AQEMU_STORE_BUILD )
+#include "Store_Trial.h"
+#endif
 #include <QInputDialog>
 #include <QTextFrame>
 #include <QTextTableCell>
@@ -116,9 +123,11 @@
 #include "Remote_Host_Window.h"
 #include "AQ_UI_Style.h"
 #include "Utils.h"
+#include "Crash_Report.h"
 #include "QEMU_Probe_Catalog.h"
 #include "Blockdev_Graph_Window.h"
 #include "Appliance_Import_Window.h"
+#include "VM_Scanner_Window.h"
 #include "Storage_Recovery_Window.h"
 #include "Storage_Guest_Tab.h"
 #include "Appliance_Export_Window.h"
@@ -144,6 +153,8 @@ Main_Window::Main_Window( QWidget *parent )
 	, Session_User_Detached( false )
 	, Session_Block_During_Start( false )
 	, GPU_Scan_Busy( false )
+	, Widget_Next_ROM( nullptr )
+	, Edit_Next_ROM( nullptr )
 	, Edit_Apple_Trustcache( nullptr )
 	, Edit_Apple_Ticket( nullptr )
 	, Edit_Apple_SEP_FW( nullptr )
@@ -189,6 +200,7 @@ Main_Window::Main_Window( QWidget *parent )
 	Storage_Tab = new Storage_Guest_Tab( ui.Tabs );
 	ui.Tabs->addTab( Storage_Tab, tr( "Storage" ) );
 	Build_Apple_SoC_Inferno_Ui();
+	Build_Next_ROM_Ui();
 
 	// Make the options body inside Advanced Options scrollable while keeping OK/Cancel fixed at the bottom
 	if( ui_ao.groupBox_options && ui_ao.groupBox_options->parentWidget() )
@@ -436,6 +448,32 @@ Main_Window::Main_Window( QWidget *parent )
 		connect( actGroupStop, &QAction::triggered, this, [this]() { AQ_Lab_Start_Group( VM_List, this, true ); } );
 		ui.menuVM->addAction( actGroupStop );
 
+		QAction *actIssue = new QAction( tr( "Copy setup for a GitHub &issue" ), this );
+		connect( actIssue, &QAction::triggered, this, [this]() {
+			QString qemu = tr( "No virtual machine selected" );
+			if( Virtual_Machine *vm = Get_Current_VM() )
+			{
+				const QString path = vm->Get_Current_Emulator_Binary_Path( vm->Get_Computer_Type() );
+				if( ! path.isEmpty() )
+					qemu = path;
+			}
+			const QString md = QStringLiteral(
+				"| | |\n|--|--|\n| AQEMU | %1 |\n| Qt | %2 |\n| Host | %3 |\n| Architecture | %4 |\n| QEMU | %5 |\n" )
+				.arg( QLatin1String( CURRENT_AQEMU_VERSION ),
+				      QLatin1String( qVersion() ),
+				      QSysInfo::prettyProductName(),
+				      QSysInfo::currentCpuArchitecture(),
+				      qemu );
+			QGuiApplication::clipboard()->setText( md );
+			QMessageBox::information( this, tr( "Copy setup" ),
+				tr( "Setup details are on the clipboard. Paste them into a GitHub issue." ) );
+		} );
+		ui.menuHelp->insertAction( ui.actionQEMU_Help_Browser, actIssue );
+
+		QAction *actCrash = new QAction( tr( "Open crash dumps &folder" ), this );
+		connect( actCrash, &QAction::triggered, this, []() { AQ_Crash_Open_Directory(); } );
+		ui.menuHelp->insertAction( ui.actionQEMU_Help_Browser, actCrash );
+
 		QAction *actBundle = new QAction( tr( "Support &bundle…" ), this );
 		connect( actBundle, &QAction::triggered, this, [this]() { AQ_Lab_Support_Bundle( this, Get_Current_VM() ); } );
 		ui.menuHelp->addAction( actBundle );
@@ -454,6 +492,31 @@ Main_Window::Main_Window( QWidget *parent )
 		QAction *actWsl = new QAction( tr( "&WSL dashboard…" ), this );
 		connect( actWsl, &QAction::triggered, this, [this]() { AQ_Lab_WSL( this ); } );
 		ui.menuHelp->addAction( actWsl );
+#if defined( Q_OS_WIN ) && defined( AQEMU_STORE_BUILD )
+		QAction *actBuy = new QAction( tr( "&Buy AQEMU" ), this );
+		connect( actBuy, &QAction::triggered, this, []() { AQ_Store_Buy(); } );
+		ui.menuHelp->addAction( actBuy );
+		const QString trial = AQ_Store_Status_Text();
+		if( ! trial.isEmpty() && statusBar() )
+			statusBar()->showMessage( trial );
+		if( AQ_Store_Licence_Inactive() )
+		{
+			QMessageBox box( this );
+			box.setIcon( QMessageBox::Information );
+			box.setWindowTitle( tr( "AQEMU trial" ) );
+			box.setText( tr( "Your 7-day trial has ended." ) );
+			box.setInformativeText( tr( "Your virtual machines stay on this computer. You can still open this window and copy them." ) );
+			QPushButton *buy = box.addButton( tr( "Buy AQEMU" ), QMessageBox::AcceptRole );
+			box.addButton( tr( "Continue" ), QMessageBox::RejectRole );
+			QPushButton *quit = box.addButton( tr( "Quit" ), QMessageBox::DestructiveRole );
+			box.exec();
+			if( box.clickedButton() == buy )
+				AQ_Store_Buy();
+			else if( box.clickedButton() == quit )
+				qApp->quit();
+		}
+#endif
+		AQ_Crash_Prompt_If_Pending( this );
 
 		QAction *actConvert = new QAction( tr( "&Convert disk…" ), this );
 		connect( actConvert, &QAction::triggered, this, [this]() { AQ_Lab_Convert( this, Get_Current_VM() ); } );
@@ -589,6 +652,10 @@ Main_Window::Main_Window( QWidget *parent )
 		add( disks, actNbd );
 
 		QMenu *xfer = ui.menuFile->addMenu( tr( "&Import and Export" ) );
+		QAction *actScan = new QAction( tr( "Virtual Machine Scanner…" ), this );
+		actScan->setStatusTip( tr( "Search a folder for .aqemu files and add those virtual machines" ) );
+		connect( actScan, &QAction::triggered, this, &Main_Window::slot_VM_Scanner_triggered );
+		add( xfer, actScan );
 		add( xfer, actImport );
 		add( xfer, actExport );
 		add( xfer, actPackIn );
@@ -2260,6 +2327,7 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
 	tmp_vm->Set_Boot_Order_List( Boot_Order_List );
 	tmp_vm->Set_Show_Boot_Menu( Show_Boot_Menu );
 	tmp_vm->Set_Show_Boot_Logo( Show_Boot_Logo );
+	tmp_vm->Set_Boot_Menu_Seconds( Boot_Menu_Seconds );
 
 	// Audio
 	VM::Sound_Cards snd_card;
@@ -2339,6 +2407,23 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
 	tmp_vm->Use_Modern_Netdev( ui_ao.CH_Modern_Netdev->isChecked() );
 	tmp_vm->Set_UUID( ui_ao.Edit_UUID->text() );
 	tmp_vm->Set_BIOS_File( ui_ao.Edit_BIOS_File->text().trimmed() );
+	if( Uses_Next_ROM_UI( tmp_vm ) && Edit_Next_ROM )
+	{
+		const QString rom = Edit_Next_ROM->text().trimmed();
+		tmp_vm->Set_BIOS_File( rom );
+		if( ui_ao.Edit_BIOS_File && ui_ao.Edit_BIOS_File->text() != rom )
+			ui_ao.Edit_BIOS_File->setText( rom );
+		/* next-cube turns the etherboot ROM checkbox into a second -bios.
+		   Keep that checkbox in step with this field so QEMU gets the path once. */
+		tmp_vm->Set_Use_ROM_File( ! rom.isEmpty() );
+		tmp_vm->Set_ROM_File( rom );
+		ui.CH_ROM_File->blockSignals( true );
+		ui.Edit_ROM_File->blockSignals( true );
+		ui.CH_ROM_File->setChecked( ! rom.isEmpty() );
+		ui.Edit_ROM_File->setText( rom );
+		ui.CH_ROM_File->blockSignals( false );
+		ui.Edit_ROM_File->blockSignals( false );
+	}
 	tmp_vm->Set_Mem_Path( ui_ao.Edit_Mem_Path->text().trimmed() );
 	tmp_vm->Use_Mem_Prealloc( ui_ao.CH_Mem_Prealloc->isChecked() );
 	tmp_vm->Set_Machine_Extra_Props( ui_ao.Edit_Machine_Extra_Props->text() );
@@ -2893,72 +2978,147 @@ bool Main_Window::Save_Settings()
 	else return false;
 }
 
+static QString AQ_Canonical_Path( const QString &path )
+{
+	const QFileInfo info( path );
+	const QString canon = info.canonicalFilePath();
+	return canon.isEmpty() ? info.absoluteFilePath() : canon;
+}
+
+void Main_Window::Remember_VM_In_Library( const QString &path )
+{
+	if( path.trimmed().isEmpty() )
+		return;
+	const QString canon = AQ_Canonical_Path( path );
+	QStringList library = Settings.value( QStringLiteral( "VM_Library" ) ).toStringList();
+	for( int i = 0; i < library.size(); ++i )
+	{
+		if( AQ_Canonical_Path( library.at( i ) ) == canon )
+			return;
+	}
+	library << QFileInfo( path ).absoluteFilePath();
+	Settings.setValue( QStringLiteral( "VM_Library" ), library );
+	Settings.sync();
+}
+
+void Main_Window::Forget_VM_In_Library( const QString &path )
+{
+	if( path.trimmed().isEmpty() )
+		return;
+	const QString canon = AQ_Canonical_Path( path );
+	QStringList library = Settings.value( QStringLiteral( "VM_Library" ) ).toStringList();
+	QStringList kept;
+	for( int i = 0; i < library.size(); ++i )
+	{
+		if( AQ_Canonical_Path( library.at( i ) ) != canon )
+			kept << library.at( i );
+	}
+	if( kept.size() != library.size() )
+	{
+		Settings.setValue( QStringLiteral( "VM_Library" ), kept );
+		Settings.sync();
+	}
+}
+
 bool Main_Window::Load_Virtual_Machines()
 {
-	QDir vm_dir( QDir::toNativeSeparators(Settings.value("VM_Directory", "~").toString()) );
-	QFileInfoList fil = vm_dir.entryInfoList( QStringList("*.aqemu"), QDir::Files, QDir::Name );
-
-	if( fil.count() <= 0 ) return false;
-
-	int real_index = 0;
-	for( int ix = 0; ix < fil.count(); ix++ )
+	QStringList library = Settings.value( QStringLiteral( "VM_Library" ) ).toStringList();
+	if( library.isEmpty() )
 	{
-		// Check Permissions
-		if( ! fil[ix].isWritable() )
+		const QDir vm_dir( QDir::toNativeSeparators( Settings.value( "VM_Directory", "~" ).toString() ) );
+		const QFileInfoList fil = vm_dir.entryInfoList( QStringList( "*.aqemu" ), QDir::Files, QDir::Name );
+		for( int i = 0; i < fil.count(); ++i )
+			library << fil.at( i ).absoluteFilePath();
+		if( ! library.isEmpty() )
+		{
+			Settings.setValue( QStringLiteral( "VM_Library" ), library );
+			Settings.sync();
+		}
+	}
+
+	QStringList missing;
+	QStringList kept;
+	QSet<QString> seen;
+	for( int ix = 0; ix < library.size(); ++ix )
+	{
+		const QString path = library.at( ix );
+		const QString canon = AQ_Canonical_Path( path );
+		if( seen.contains( canon ) )
+			continue;
+		seen.insert( canon );
+
+		if( ! QFile::exists( path ) )
+		{
+			missing << path;
+			continue;
+		}
+
+		kept << QFileInfo( path ).absoluteFilePath();
+
+		const QFileInfo info( path );
+		if( ! info.isWritable() )
 		{
 			AQGraphic_Error( "bool Main_Window::Load_Virtual_Machines()", tr("Error!"),
-							 tr("VM File \"") + fil[ix].filePath() + tr("\" is Read Only!\nCheck Permissions!"), true );
+							 tr("VM File \"") + info.filePath() + tr("\" is Read Only!\nCheck Permissions!"), true );
 		}
 
 		Virtual_Machine *new_vm = new Virtual_Machine();
-
-		if( ! new_vm->Load_VM(fil[ix].filePath()) )
+		if( ! new_vm->Load_VM( info.absoluteFilePath() ) )
 		{
-			--real_index;
+			delete new_vm;
+			continue;
 		}
-		else
+
+		new_vm->Set_UID( QUuid::createUuid().toString() );
+
+		QObject::connect( new_vm, SIGNAL(State_Changed(Virtual_Machine*, VM::VM_State)),
+						  this, SLOT(VM_State_Changed(Virtual_Machine*, VM::VM_State)) );
+
+		QListWidgetItem *item = new QListWidgetItem( new_vm->Get_Machine_Name(), ui.Machines_List );
+		item->setData( 256, new_vm->Get_UID() );
+		item->setData( 257, new_vm->Get_Icon_Path() );
+
+		if( new_vm->Get_State() == VM::VMS_Saved &&
+			Settings.value("Use_Screenshot_for_OS_Logo", "yes").toString() == "yes" )
 		{
-			new_vm->Set_UID( QUuid::createUuid().toString() ); // Create UID
-
-			QObject::connect( new_vm, SIGNAL(State_Changed(Virtual_Machine*, VM::VM_State)),
-							  this, SLOT(VM_State_Changed(Virtual_Machine*, VM::VM_State)) );
-
-			QListWidgetItem *item = new QListWidgetItem( new_vm->Get_Machine_Name(), ui.Machines_List );
-			item->setData( 256, new_vm->Get_UID() );
-			item->setData( 257, new_vm->Get_Icon_Path() );
-
-			// Load OS Logo or OS Screenshot Icon
-			if( new_vm->Get_State() == VM::VMS_Saved &&
-				Settings.value("Use_Screenshot_for_OS_Logo", "yes").toString() == "yes" )
+			if( QFile::exists(new_vm->Get_Screenshot_Path()) )
 			{
-				// Screenshot File Not Found? Use OS Icon.
-				if( QFile::exists(new_vm->Get_Screenshot_Path()) )
-				{
-					item->setIcon( QIcon(new_vm->Get_Screenshot_Path()) );
-					item->setData( 128, new_vm->Get_Screenshot_Path() );
-				}
-				else
-				{
-					item->setIcon( QIcon(new_vm->Get_Icon_Path()) );
-					item->setData( 128, new_vm->Get_Icon_Path() );
-				}
+				item->setIcon( QIcon(new_vm->Get_Screenshot_Path()) );
+				item->setData( 128, new_vm->Get_Screenshot_Path() );
 			}
 			else
 			{
 				item->setIcon( QIcon(new_vm->Get_Icon_Path()) );
 				item->setData( 128, new_vm->Get_Icon_Path() );
 			}
-
-			// Append new VM
-			VM_List << new_vm;
-
+		}
+		else
+		{
+			item->setIcon( QIcon(new_vm->Get_Icon_Path()) );
+			item->setData( 128, new_vm->Get_Icon_Path() );
 		}
 
-		++real_index;
+		VM_List << new_vm;
+	}
+
+	if( kept != library )
+	{
+		Settings.setValue( QStringLiteral( "VM_Library" ), kept );
+		Settings.sync();
+	}
+
+	if( ! missing.isEmpty() )
+	{
+		AQGraphic_Warning( tr( "Missing virtual machines" ),
+			tr( "These VM files are no longer there, so they were removed from the list:\n\n%1" )
+				.arg( missing.join( QLatin1String( "\n" ) ) ) );
 	}
 
 	AQEMU_Startup_Log(
 		QStringLiteral( "VMs loaded: %1" ).arg( VM_List.count() ) );
+
+	if( VM_List.isEmpty() )
+		return false;
 
 	// Set last used vm
 	int cur_row = Settings.value( "Current_VM_Index", 0 ).toInt();
@@ -3231,6 +3391,7 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 	Set_Boot_Order( Boot_Order_List );
 	Show_Boot_Menu = tmp_vm->Get_Show_Boot_Menu();
 	Show_Boot_Logo = tmp_vm->Get_Show_Boot_Logo();
+	Boot_Menu_Seconds = tmp_vm->Get_Boot_Menu_Seconds();
 
 	// Audio Cards
 	if( tmp_vm->Get_Audio_Cards().Audio_sb16 ) ui.CH_sb16->setChecked( true );
@@ -3339,6 +3500,15 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 	ui_ao.CH_Modern_Netdev->setChecked( tmp_vm->Use_Modern_Netdev() );
 	ui_ao.Edit_UUID->setText( tmp_vm->Get_UUID() );
 	ui_ao.Edit_BIOS_File->setText( tmp_vm->Get_BIOS_File() );
+	if( Edit_Next_ROM )
+	{
+		QString rom = tmp_vm->Get_BIOS_File().trimmed();
+		if( rom.isEmpty() && tmp_vm->Get_Use_ROM_File() )
+			rom = tmp_vm->Get_ROM_File().trimmed();
+		Edit_Next_ROM->blockSignals( true );
+		Edit_Next_ROM->setText( rom );
+		Edit_Next_ROM->blockSignals( false );
+	}
 	ui_ao.Edit_Mem_Path->setText( tmp_vm->Get_Mem_Path() );
 	ui_ao.CH_Mem_Prealloc->setChecked( tmp_vm->Use_Mem_Prealloc() );
 	ui_ao.Edit_Machine_Extra_Props->setText( tmp_vm->Get_Machine_Extra_Props() );
@@ -5216,8 +5386,10 @@ bool Main_Window::Boot_Is_Correct( Virtual_Machine *tmp_vm )
 		}
 	}
 
-	// ROM File
-	if( tmp_vm->Get_Use_ROM_File() )
+	// ROM File. A path from the other operating system is not missing media —
+	// the VM tab keeps it so the user can point at a file on this computer.
+	if( tmp_vm->Get_Use_ROM_File() &&
+	    ! AQ_Path_Is_Foreign_To_This_Host( tmp_vm->Get_ROM_File() ) )
 	{
 		if( ! QFile::exists(tmp_vm->Get_ROM_File()) )
 		{
@@ -5484,8 +5656,10 @@ void Main_Window::on_actionDelete_VM_triggered()
 
 	if( mes_ret == QMessageBox::Yes )
 	{
-		if( QFile::remove(cur_vm->Get_VM_XML_File_Path()) )
+		const QString removed_path = cur_vm->Get_VM_XML_File_Path();
+		if( QFile::remove( removed_path ) )
 		{
+			Forget_VM_In_Library( removed_path );
 			QString uid = ui.Machines_List->currentItem()->data( 256 ).toString();
 			ui.Machines_List->takeItem( ui.Machines_List->currentRow() );
 
@@ -5541,6 +5715,7 @@ void Main_Window::on_actionDelete_VM_And_Files_triggered()
 
 	if( del_win.exec() == QDialog::Accepted )
 	{
+		Forget_VM_In_Library( cur_vm->Get_VM_XML_File_Path() );
 		// Delete VM
 		QString uid = ui.Machines_List->currentItem()->data( 256 ).toString();
 		ui.Machines_List->takeItem( ui.Machines_List->currentRow() );
@@ -5626,6 +5801,7 @@ void Main_Window::Add_VM_To_List( Virtual_Machine *vm )
 	// widgets (previous VM's DeviceTree/kernel, wrong RAM) back onto this VM.
 	Update_VM_Ui();
 	vm->Save_VM();
+	Remember_VM_In_Library( vm->Get_VM_XML_File_Path() );
 }
 
 void Main_Window::Stop_VMs_Holding_Disk( const QString &disk_path )
@@ -5686,6 +5862,7 @@ void Main_Window::on_actionAdd_New_VM_triggered()
 void Main_Window::on_actionCreate_HDD_Image_triggered()
 {
 	Create_HDD_Image_Window Create_HDD_Win( this );
+	Create_HDD_Win.Set_Image_File_Name( QDir( AQEMU_Default_VM_Directory() ).filePath( QStringLiteral( "new-disk.qcow2" ) ) );
 
 	Create_HDD_Win.exec();
 }
@@ -5817,27 +5994,7 @@ void Main_Window::on_actionShow_Advanced_Settings_Window_triggered()
 		bool apply_enabled = ui.Button_Apply->isEnabled();
 		bool cancel_enabled = ui.Button_Cancel->isEnabled();
 
-		if( QDir::toNativeSeparators(Settings.value("VM_Directory", "~").toString()) != VM_Folder )
-		{
-            Save_Or_Discard(true);
-
-			// Apply Settings
-			Load_Settings();
-
-			// Clear old vm's
-			VM_List.clear();
-			ui.Machines_List->clear();
-
-			// Load new vm's
-			Load_Virtual_Machines();
-
-			return;
-		}
-		else
-		{
-			// Apply Settings
-			Load_Settings();
-		}
+		Load_Settings();
 
 		// Update Icons
 		for( int ix = 0; ix < VM_List.count(); ++ix )
@@ -6058,8 +6215,8 @@ void Main_Window::on_actionSave_triggered()
 			return;
 		}
 
-		QString img_path = QDir::toNativeSeparators( Settings.value("VM_Directory", "~" ).toString() +
-													 Get_FS_Compatible_VM_Name(cur_vm->Get_Machine_Name()) + "_screenshot" );
+		QString img_path = AQ_File_Beside_VM( cur_vm->Get_VM_XML_File_Path(),
+			Get_FS_Compatible_VM_Name( cur_vm->Get_Machine_Name() ) + QStringLiteral( "_screenshot" ) );
 
 		cur_vm->Take_Screenshot( img_path );
 	}
@@ -6154,6 +6311,75 @@ void Main_Window::on_actionReset_triggered()
     AQEMU_Service::get().call( "reset" , cur_vm );
 }
 
+static bool AQ_VM_File_Looks_Loadable( const QString &path, QString *why )
+{
+	QFile file( path );
+	if( ! file.open( QIODevice::ReadOnly ) )
+	{
+		if( why )
+			*why = QObject::tr( "Cannot read the file." );
+		return false;
+	}
+	const QByteArray head = file.read( 4096 );
+	if( ! head.contains( "<AQEMU" ) && ! head.contains( "<AQEMU_Template" ) )
+	{
+		if( why )
+			*why = QObject::tr( "Not an AQEMU virtual machine file." );
+		return false;
+	}
+	if( ! head.contains( "version=\"0.8\"" ) && ! head.contains( "version=\"0.7.2\"" )
+		&& ! head.contains( "version=\"0.5\"" ) )
+	{
+		if( why )
+			*why = QObject::tr( "This VM file version is not supported." );
+		return false;
+	}
+	return true;
+}
+
+Main_Window::VM_Scan_Add Main_Window::Add_Scanned_VM( const QString &aqemu_path, QString *detail )
+{
+	const QFileInfo src_info( aqemu_path );
+	const QString shown = QDir::toNativeSeparators( src_info.absoluteFilePath() );
+	auto note = [&]( VM_Scan_Add result, const QString &text ) {
+		if( detail )
+			*detail = text;
+		return result;
+	};
+
+	QString why;
+	if( ! AQ_VM_File_Looks_Loadable( aqemu_path, &why ) )
+		return note( VM_Scan_Failed, tr( "Not added: %1 — %2" ).arg( shown, why ) );
+
+	const QString src_canon = AQ_Canonical_Path( aqemu_path );
+	for( int i = 0; i < VM_List.count(); ++i )
+	{
+		if( ! VM_List[i] )
+			continue;
+		if( AQ_Canonical_Path( VM_List[i]->Get_VM_XML_File_Path() ) == src_canon )
+		{
+			return note( VM_Scan_Skipped,
+				tr( "Already open: %1 (%2)" ).arg( VM_List[i]->Get_Machine_Name(), shown ) );
+		}
+	}
+
+	Virtual_Machine *vm = new Virtual_Machine();
+	if( ! vm->Load_VM( src_info.absoluteFilePath() ) )
+	{
+		delete vm;
+		return note( VM_Scan_Failed, tr( "Not added: %1 — could not load this VM file." ).arg( shown ) );
+	}
+
+	Add_VM_To_List( vm );
+	return note( VM_Scan_Added, tr( "Added: %1 (%2)" ).arg( vm->Get_Machine_Name(), shown ) );
+}
+
+void Main_Window::slot_VM_Scanner_triggered()
+{
+	VM_Scanner_Window dialog( this, this );
+	dialog.exec();
+}
+
 void Main_Window::on_actionLoad_VM_From_File_triggered()
 {
 	QString load_path = QFileDialog::getOpenFileName( this, tr("Open AQEMU VM File"),
@@ -6161,39 +6387,29 @@ void Main_Window::on_actionLoad_VM_From_File_triggered()
 													  tr("AQEMU VM (*.aqemu)") );
 
 	if( ! QFile::exists(load_path) ) return;
-	load_path = QDir::toNativeSeparators( load_path );
+	load_path = QFileInfo( load_path ).absoluteFilePath();
 
-	// ok file name valid
-	QFileInfo vm_file( load_path );
-
-	QString new_file_path = QDir::toNativeSeparators( Settings.value("VM_Directory", "~").toString() + vm_file.fileName() );
-
-	if( QFile::exists(new_file_path) )
+	const QString canon = AQ_Canonical_Path( load_path );
+	for( int i = 0; i < VM_List.count(); ++i )
 	{
-		AQGraphic_Warning( tr("Warning"), tr("VM With This Name Already Exists!") );
+		if( VM_List[i] && AQ_Canonical_Path( VM_List[i]->Get_VM_XML_File_Path() ) == canon )
+		{
+			AQGraphic_Warning( tr( "Already open" ),
+				tr( "\"%1\" is already open." ).arg( VM_List[i]->Get_Machine_Name() ) );
+			return;
+		}
+	}
+
+	Virtual_Machine *new_vm = new Virtual_Machine();
+	if( ! new_vm->Load_VM( load_path ) )
+	{
+		delete new_vm;
+		AQGraphic_Warning( tr( "Cannot open VM" ),
+			tr( "Could not load %1." ).arg( QDir::toNativeSeparators( load_path ) ) );
 		return;
 	}
 
-	QFile::copy( load_path, new_file_path );
-
-	Virtual_Machine *new_vm = new Virtual_Machine();
-
-	new_vm->Load_VM( QDir::toNativeSeparators(Settings.value("VM_Directory", "~").toString() + vm_file.fileName()) );
-	new_vm->Set_UID( QUuid::createUuid().toString() ); // Create UID
-
-	VM_List << new_vm;
-
-	connect( new_vm, SIGNAL(State_Changed(Virtual_Machine*, VM::VM_State)),
-			 this, SLOT(VM_State_Changed(Virtual_Machine*, VM::VM_State)) );
-
-	QListWidgetItem *item = new QListWidgetItem( new_vm->Get_Machine_Name(), ui.Machines_List );
-	item->setIcon( QIcon(new_vm->Get_Icon_Path()) );
-	item->setData( 256, new_vm->Get_UID() );
-
-	ui.Machines_List->setCurrentItem( item );
-	//ui.Machines_List->setCurrentRow( ui.Machines_List->count()-1 );
-
-	Update_VM_Ui();
+	Add_VM_To_List( new_vm );
 }
 
 void Main_Window::on_actionCopy_triggered()
@@ -6219,7 +6435,14 @@ void Main_Window::on_actionCopy_triggered()
         auto new_vm = new Virtual_Machine(*Get_Current_VM());
 
 		new_vm->Set_Machine_Name( copy_win.Get_New_VM_Name() );
-		new_vm->Set_VM_XML_File_Path( Get_Complete_VM_File_Path(copy_win.Get_New_VM_Name()) );
+		{
+			const QFileInfo src_info( Get_Current_VM()->Get_VM_XML_File_Path() );
+			const QString base = Get_FS_Compatible_VM_Name( copy_win.Get_New_VM_Name() );
+			QString path = src_info.absoluteDir().filePath( base + QStringLiteral( ".aqemu" ) );
+			for( int n = 0; QFile::exists( path ); ++n )
+				path = src_info.absoluteDir().filePath( base + QLatin1Char( '_' ) + QString::number( n ) + QStringLiteral( ".aqemu" ) );
+			new_vm->Set_VM_XML_File_Path( path );
+		}
 
 		// Copy Disk Images
 		if( copy_win.Get_Copy_Disk_Images() )
@@ -6281,6 +6504,7 @@ void Main_Window::on_actionCopy_triggered()
 		Update_VM_Ui();
 
 		on_Button_Apply_clicked();
+		Remember_VM_In_Library( new_vm->Get_VM_XML_File_Path() );
 	}
 }
 
@@ -7274,6 +7498,82 @@ void Main_Window::Maybe_Prompt_WSL_Config_On_Boot()
 #endif
 }
 
+void Main_Window::Build_Next_ROM_Ui()
+{
+	Widget_Next_ROM = new QWidget( ui.Tab_General );
+	QVBoxLayout *lay = new QVBoxLayout( Widget_Next_ROM );
+	lay->setContentsMargins( 0, 8, 0, 0 );
+
+	QLabel *title = new QLabel( tr( "NeXT ROM" ), Widget_Next_ROM );
+	title->setStyleSheet( QStringLiteral( "font-weight: bold;" ) );
+	lay->addWidget( title );
+
+	QHBoxLayout *row = new QHBoxLayout();
+	row->addWidget( new QLabel( tr( "ROM / BIOS:" ), Widget_Next_ROM ) );
+	Edit_Next_ROM = new QLineEdit( Widget_Next_ROM );
+	Edit_Next_ROM->setPlaceholderText(
+		tr( "Your NeXT ROM, for example Rev_2.5_v66.bin" ) );
+	Edit_Next_ROM->setToolTip( tr(
+		"Board firmware passed to QEMU as -bios. AQEMU does not ship a NeXT ROM.\n"
+		"A path saved on another computer (for example C:\\…) is kept here so you can replace it." ) );
+	row->addWidget( Edit_Next_ROM, 1 );
+	QToolButton *browse = new QToolButton( Widget_Next_ROM );
+	browse->setText( QStringLiteral( "..." ) );
+	browse->setIcon( QIcon( QStringLiteral( ":/open-file.png" ) ) );
+	row->addWidget( browse );
+	lay->addLayout( row );
+
+	QLabel *hint = new QLabel( tr(
+		"NeXTSTEP on the NeXT Cube uses this file. Pick the ROM that is on this computer." ),
+		Widget_Next_ROM );
+	hint->setWordWrap( true );
+	lay->addWidget( hint );
+
+	ui.verticalLayout_2->addWidget( Widget_Next_ROM );
+	Widget_Next_ROM->hide();
+
+	connect( browse, &QToolButton::clicked, this, [this]() {
+		if( ! Edit_Next_ROM )
+			return;
+		const QString f = QFileDialog::getOpenFileName( this, tr( "Select NeXT ROM" ),
+			Get_Last_Dir_Path( Edit_Next_ROM->text() ),
+			tr( "ROM / Firmware (*.bin *.rom *.fd);;All Files (*)" ) );
+		if( f.isEmpty() )
+			return;
+		Edit_Next_ROM->setText( QDir::toNativeSeparators( f ) );
+	} );
+	connect( Edit_Next_ROM, &QLineEdit::textChanged, this, [this]( const QString &text ) {
+		if( ui_ao.Edit_BIOS_File && ui_ao.Edit_BIOS_File->text() != text )
+		{
+			ui_ao.Edit_BIOS_File->blockSignals( true );
+			ui_ao.Edit_BIOS_File->setText( text );
+			ui_ao.Edit_BIOS_File->blockSignals( false );
+		}
+		VM_Changed();
+	} );
+}
+
+bool Main_Window::Uses_Next_ROM_UI( const Virtual_Machine *vm ) const
+{
+	if( ! vm )
+		return false;
+	const QString machine = vm->Get_Machine_Type();
+	const QString name = vm->Get_Machine_Name();
+	if( machine.contains( QLatin1String( "next-cube" ), Qt::CaseInsensitive ) )
+		return true;
+	if( name.contains( QLatin1String( "NeXTSTEP" ), Qt::CaseInsensitive ) ||
+	    name.contains( QLatin1String( "NeXT Cube" ), Qt::CaseInsensitive ) )
+		return true;
+	return false;
+}
+
+void Main_Window::Update_Next_ROM_Visibility()
+{
+	if( ! Widget_Next_ROM )
+		return;
+	Widget_Next_ROM->setVisible( Uses_Next_ROM_UI( Get_Current_VM() ) );
+}
+
 void Main_Window::Build_Apple_SoC_Inferno_Ui()
 {
 	QVBoxLayout *lay = ui.Widget_DeviceTree_Main
@@ -7563,7 +7863,12 @@ void Main_Window::Update_Machine_Accelerators()
 	ui.CB_Machine_Accelerator->blockSignals( true );
 	ui.CB_Machine_Accelerator->clear();
 	ui.CB_Machine_Accelerator->addItem( tr( "TCG" ), QStringLiteral( "tcg" ) );
+#ifdef Q_OS_WIN
+	/* Saved VMs still store "kvm". On Windows that value is WHPX. */
+	ui.CB_Machine_Accelerator->addItem( tr( "WHPX" ), QStringLiteral( "kvm" ) );
+#else
 	ui.CB_Machine_Accelerator->addItem( tr( "KVM" ), QStringLiteral( "kvm" ) );
+#endif
 	ui.CB_Machine_Accelerator->addItem( tr( "XEN" ), QStringLiteral( "xen" ) );
 
 	int restore = 0;
@@ -7633,6 +7938,36 @@ void Main_Window::Enforce_Accel_Honesty()
 			allowed = false;
 		if( id == QLatin1String( "kvm" ) && guest_caps.valid && ! guest_caps.has_kvm )
 			allowed = false;
+#ifdef Q_OS_WIN
+		if( id == QLatin1String( "kvm" ) && model )
+		{
+			if( QStandardItem *whpx_item = model->item( i ) )
+			{
+				QString tip = tr( "Windows Hypervisor Platform. AQEMU saves this as the native accelerator." );
+				if( ! is_native )
+				{
+					tip = tr( "WHPX runs a guest that matches this PC. This guest uses TCG." );
+				}
+				else if( ! AQ_Host_WHPX_Usable() && AQ_Get_Host_CPU_Architecture() == QLatin1String( "aarch64" ) )
+				{
+					tip = tr( "WHPX is not available on this PC. The hypervisor may be off, "
+					          "or this Windows build has no ARM64 support. "
+					          "Windows 11 24H2 build 26100.3915 or later is required. "
+					          "The guest uses TCG." );
+				}
+				else if( ! AQ_Host_WHPX_Usable() )
+				{
+					tip = tr( "WHPX is not available on this PC. Turn on the Windows Hypervisor Platform feature. "
+					          "The guest uses TCG." );
+				}
+				else if( ! allowed )
+				{
+					tip = tr( "WHPX is not in this QEMU build, so the guest uses TCG." );
+				}
+				whpx_item->setToolTip( tip );
+			}
+		}
+#endif
 		if( id == QLatin1String( "tcg" ) && guest_caps.valid && ! guest_caps.has_tcg )
 			allowed = false;
 
@@ -7678,7 +8013,11 @@ void Main_Window::Enforce_Accel_Honesty()
 	{
 		ui.CB_Machine_Accelerator->setEnabled( true );
 		ui.CB_Machine_Accelerator->setToolTip(
-			tr( "Host %1 matches guest %2. On Windows, KVM maps to WHPX/HAX with TCG fallback." )
+#ifdef Q_OS_WIN
+			tr( "Host %1 matches guest %2. WHPX is the native accelerator, with TCG if it cannot start." )
+#else
+			tr( "Host %1 matches guest %2. KVM is the native accelerator, with TCG if it cannot start." )
+#endif
 				.arg( host ).arg( guest ) );
 	}
 
@@ -8001,12 +8340,14 @@ void Main_Window::on_TB_Show_Boot_Settings_Window_clicked()
 	boot_win.setData( Boot_Order_List );
 	boot_win.setUseBootMenu( Show_Boot_Menu );
 	boot_win.setUseBootLogo( Show_Boot_Logo );
+	boot_win.setBootMenuSeconds( Boot_Menu_Seconds );
 
 	if( boot_win.exec() == QDialog::Accepted )
 	{
 		Boot_Order_List = VM::Expand_Boot_Order_List( boot_win.data() );
 		Show_Boot_Menu = boot_win.useBootMenu();
 		Show_Boot_Logo = boot_win.useBootLogo();
+		Boot_Menu_Seconds = boot_win.bootMenuSeconds();
 
 		// Apply data to UI and persist (Set_Boot_Order alone may not emit
 		// currentIndexChanged when the combo index stays the same).
@@ -8372,10 +8713,13 @@ void Main_Window::Update_DeviceTree_Visibility()
 	if( ! vm )
 	{
 		ui.Widget_DeviceTree_Main->setVisible( false );
+		if( Widget_Next_ROM )
+			Widget_Next_ROM->setVisible( false );
 		return;
 	}
 
 	ui.Widget_DeviceTree_Main->setVisible( show );
+	Update_Next_ROM_Visibility();
 	// Keep File → Apple SoC Restore always available (companion + iOS dual-VM flow).
 	if( Act_Apple_SoC_Restore )
 		Act_Apple_SoC_Restore->setVisible( true );
@@ -8785,11 +9129,20 @@ void Main_Window::on_Button_Apply_clicked()
 	connect( cur_vm, SIGNAL(State_Changed(Virtual_Machine*, VM::VM_State)),
 			 this, SLOT(VM_State_Changed(Virtual_Machine*, VM::VM_State)) );
 
-	// save to file
+	// save to file — keep the .aqemu beside itself when the name changes
 	if( ! old_path.isEmpty() )
 	{
-		// Create new file name
-		cur_vm->Set_VM_XML_File_Path( Get_Complete_VM_File_Path(cur_vm->Get_Machine_Name()) );
+		const QFileInfo old_info( old_path );
+		const QString base = Get_FS_Compatible_VM_Name( cur_vm->Get_Machine_Name() );
+		QString new_path = old_info.absoluteDir().filePath( base + QStringLiteral( ".aqemu" ) );
+		if( AQ_Canonical_Path( new_path ) != AQ_Canonical_Path( old_path ) )
+		{
+			for( int n = 0; QFile::exists( new_path ); ++n )
+				new_path = old_info.absoluteDir().filePath( base + QLatin1Char( '_' ) + QString::number( n ) + QStringLiteral( ".aqemu" ) );
+		}
+		else
+			new_path = old_path;
+		cur_vm->Set_VM_XML_File_Path( new_path );
 	}
 
 	if( cur_vm->Save_VM() == false )
@@ -8798,13 +9151,15 @@ void Main_Window::on_Button_Apply_clicked()
 						 tr("Error!"), tr("Cannot Save This VM to File!") );
 		return;
 	}
-	else if( ! old_path.isEmpty() ) // OK New File Saved
+	else if( ! old_path.isEmpty() && AQ_Canonical_Path( old_path ) != AQ_Canonical_Path( cur_vm->Get_VM_XML_File_Path() ) )
 	{
 		if( ! QFile::remove( old_path ) )
 		{
 			AQWarning( "void Main_Window::on_Button_Apply_clicked()",
 					   "Cannot Remove File: \"" + old_path + "\"" );
 		}
+		Forget_VM_In_Library( old_path );
+		Remember_VM_In_Library( cur_vm->Get_VM_XML_File_Path() );
 	}
 
 	// Set VM Name

@@ -41,6 +41,9 @@ class Boot_Device_Window: public QDialog
 
 		bool useBootLogo() const;
 		void setUseBootLogo( bool use );
+
+		int bootMenuSeconds() const;
+		void setBootMenuSeconds( int seconds );
 		
 	private slots:
 		void on_TB_Up_clicked();

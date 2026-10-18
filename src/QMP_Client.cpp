@@ -198,12 +198,14 @@ void QMP_Client::Handle_Line( const QByteArray &line )
 	}
 }
 
-bool QMP_Client::Send_Command( const QString &execute, const QJsonObject &arguments )
+bool QMP_Client::Send_Command( const QString &execute, const QJsonObject &arguments, int *out_id )
 {
 	if( Socket->state() != QAbstractSocket::ConnectedState )
 		return false;
 
 	const int id = Next_Id++;
+	if( out_id )
+		*out_id = id;
 	QJsonObject cmd;
 	cmd.insert( "execute", execute );
 	if( ! arguments.isEmpty() )

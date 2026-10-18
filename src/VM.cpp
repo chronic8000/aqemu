@@ -69,6 +69,7 @@
 
 #include <QProcess>
 #include "VM.h"
+#include "Guest_Agent.h"
 #include "Lab_150.h"
 #include "QMP_Client.h"
 #include "Utils.h"
@@ -93,7 +94,7 @@ public:
 		QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
 		const QString appDir = QDir::toNativeSeparators( QCoreApplication::applicationDirPath() );
 		const QString curPath = env.value( QStringLiteral( "PATH" ), QString() );
-		const QString msysPaths = QStringLiteral( "C:\\msys64\\clangarm64\\bin;C:\\msys64\\ucrt64\\bin;C:\\msys64\\mingw64\\bin" );
+		const QString msysPaths = AQ_Msys_Bin_Path();
 		env.insert( QStringLiteral( "PATH" ), appDir + QLatin1Char( ';' ) + msysPaths + QLatin1Char( ';' ) + curPath );
 		setProcessEnvironment( env );
 #endif
@@ -146,6 +147,8 @@ Virtual_Machine::Virtual_Machine( const Virtual_Machine &vm )
 	Embedded_VNC_Port = 0;
 	QMP_Port = 0;
 	Serial_Console_Port = 0;
+	Guest_Agent_Socket.clear();
+	Guest_Files_Socket.clear();
 	QMP = nullptr;
 	QMP_Connect_Attempts = 0;
 	
@@ -184,6 +187,7 @@ Virtual_Machine::Virtual_Machine( const Virtual_Machine &vm )
 	this->Boot_Order_List = vm.Get_Boot_Order_List();
 	this->Show_Boot_Menu = vm.Get_Show_Boot_Menu();
 	this->Show_Boot_Logo = vm.Get_Show_Boot_Logo();
+	this->Boot_Menu_Seconds = vm.Get_Boot_Menu_Seconds();
     this->Video_Card = vm.Get_Video_Card();
 	this->Display_Resolution = vm.Get_Display_Resolution();
 	this->Mouse_Type = vm.Get_Mouse_Type();
@@ -530,6 +534,7 @@ void Virtual_Machine::Shared_Constructor()
 	
 	Show_Boot_Menu = true;
 	Show_Boot_Logo = true;
+	Boot_Menu_Seconds = 0;
 	
     Video_Card = "";
 	Display_Resolution = "native";
@@ -716,6 +721,8 @@ void Virtual_Machine::Shared_Constructor()
 	Embedded_VNC_Port = 0;
 	QMP_Port = 0;
 	Serial_Console_Port = 0;
+	Guest_Agent_Socket.clear();
+	Guest_Files_Socket.clear();
 	QMP = nullptr;
 	QMP_Connect_Attempts = 0;
 	
@@ -742,6 +749,7 @@ bool Virtual_Machine::operator==( const Virtual_Machine &vm ) const
 		this->Keyboard_Layout == vm.Get_Keyboard_Layout() &&
 		this->Show_Boot_Menu == vm.Get_Show_Boot_Menu() &&
 		this->Show_Boot_Logo == vm.Get_Show_Boot_Logo() &&
+		this->Boot_Menu_Seconds == vm.Get_Boot_Menu_Seconds() &&
         this->Video_Card == vm.Get_Video_Card() &&
 		this->Display_Resolution == vm.Get_Display_Resolution() &&
 		this->Mouse_Type == vm.Get_Mouse_Type() &&
@@ -1041,6 +1049,7 @@ Virtual_Machine &Virtual_Machine::operator=( const Virtual_Machine &vm )
 	Boot_Order_List = vm.Get_Boot_Order_List();
 	Show_Boot_Menu = vm.Get_Show_Boot_Menu();
 	Show_Boot_Logo = vm.Get_Show_Boot_Logo();
+	Boot_Menu_Seconds = vm.Get_Boot_Menu_Seconds();
 	Video_Card = vm.Get_Video_Card();
 	Display_Resolution = vm.Get_Display_Resolution();
 	Mouse_Type = vm.Get_Mouse_Type();
@@ -1509,6 +1518,11 @@ bool Virtual_Machine::Create_VM_File( const QString &file_name, bool template_mo
 	Dom_Element = New_Dom_Document.createElement( "Show_Boot_Logo" );
 	VM_Element.appendChild( Dom_Element );
 	Dom_Text = New_Dom_Document.createTextNode( Show_Boot_Logo ? "true" : "false" );
+	Dom_Element.appendChild( Dom_Text );
+
+	Dom_Element = New_Dom_Document.createElement( "Boot_Menu_Seconds" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( QString::number( Boot_Menu_Seconds ) );
 	Dom_Element.appendChild( Dom_Text );
 	
 	// Video_Card
@@ -4698,6 +4712,15 @@ bool Virtual_Machine::Load_VM( const QString &file_name )
 				const QString logo_text = Child_Element.firstChildElement( "Show_Boot_Logo" ).text().trimmed();
 				Show_Boot_Logo = logo_text.isEmpty() || logo_text == QLatin1String( "true" );
 			}
+			{
+				bool ok = false;
+				int seconds = Child_Element.firstChildElement( "Boot_Menu_Seconds" ).text().toInt( &ok );
+				if( ! ok || seconds < 0 )
+					seconds = 0;
+				if( seconds > 60 )
+					seconds = 60;
+				Boot_Menu_Seconds = seconds;
+			}
 			
 			// Video Card
 			Video_Card = Child_Element.firstChildElement("Video_Card").text();
@@ -6040,6 +6063,7 @@ VM_Native_Storage_Device Virtual_Machine::Load_VM_Native_Storage_Device( const Q
 	
 	// Discard
 	tmp_device.Set_Discard( Second_Element.firstChildElement("Discard").text() == "true" );
+	tmp_device.Set_SSD( Second_Element.firstChildElement("SSD").text() == "true" );
 
 	// Use Block Size
 	tmp_device.Use_Block_Size( Second_Element.firstChildElement("Use_Block_Size").text() == "true" );
@@ -6393,6 +6417,11 @@ void Virtual_Machine::Save_VM_Native_Storage_Device( QDomDocument &New_Dom_Docum
 
 	Sec_Element.appendChild( Dom_Text );
 
+	Sec_Element = New_Dom_Document.createElement( "SSD" );
+	Dom_Element.appendChild( Sec_Element );
+	Dom_Text = New_Dom_Document.createTextNode( device.Get_SSD() ? "true" : "false" );
+	Sec_Element.appendChild( Dom_Text );
+
 	// Use Block Size
 	Sec_Element = New_Dom_Document.createElement( "Use_Block_Size" );
 	Dom_Element.appendChild( Sec_Element );
@@ -6698,14 +6727,26 @@ static QString Build_X86_Boot_Arg( const Virtual_Machine &vm, bool show_menu )
 	// The picture is only drawn when menu=on. splash-time lets the guest continue.
 	const bool menu = show_menu || splash;
 	QString arg = QString( "order=%1,menu=%2" ).arg( letters, menu ? QStringLiteral( "on" ) : QStringLiteral( "off" ) );
-	if( ! splash )
-		return arg;
-
-	QString path = AQ_Ensure_Boot_Splash_File();
-	if( path.isEmpty() )
-		return arg;
-	path.replace( QLatin1String( "," ), QLatin1String( ",," ) );
-	arg += QStringLiteral( ",splash=" ) + path + QStringLiteral( ",splash-time=3000" );
+	int wait_ms = 0;
+	if( menu && vm.Get_Boot_Menu_Seconds() > 0 )
+		wait_ms = vm.Get_Boot_Menu_Seconds() * 1000;
+	else if( splash )
+		wait_ms = 3000;
+	if( splash )
+	{
+		QString path = AQ_Ensure_Boot_Splash_File();
+		if( ! path.isEmpty() )
+		{
+			path.replace( QLatin1String( "," ), QLatin1String( ",," ) );
+			arg += QStringLiteral( ",splash=" ) + path;
+		}
+	}
+	if( wait_ms > 0 )
+	{
+		if( wait_ms > 65535 )
+			wait_ms = 65535;
+		arg += QStringLiteral( ",splash-time=%1" ).arg( wait_ms );
+	}
 	return arg;
 }
 
@@ -7017,6 +7058,24 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		}
 	}
 	
+	// ARM guest on a Windows ARM host: WHPX only when the OS reports Arm64Support
+	// and this qemu-system-aarch64 was built with whpx. Otherwise stay on TCG.
+	bool use_whpx_arm = false;
+#ifdef Q_OS_WIN
+	if( Computer_Type.contains( QLatin1String( "aarch64" ), Qt::CaseInsensitive ) &&
+	    ! AQ_Is_Apple_SoC_VM( this ) &&
+	    AQ_Get_Host_CPU_Architecture() == QLatin1String( "aarch64" ) &&
+	    Machine_Accelerator == VM::KVM &&
+	    ! Force_TCG &&
+	    AQ_Host_WHPX_Usable() )
+	{
+		const QString whpx_bin = Get_Current_Emulator_Binary_Path( Current_Emulator_Devices.System.QEMU_Name );
+		use_whpx_arm = AQ_QEMU_Has_WHPX( whpx_bin );
+	}
+#else
+	Q_UNUSED( use_whpx_arm );
+#endif
+
 	// CPU Model
 	// TCG aarch64 / Win11 ARM: -cpu max,pauth-impdef=on (PAuth without full crypto cost).
 	// KVM on ARM hosts: -cpu host. Bare -cpu max without pauth-impdef is too slow under TCG.
@@ -7032,7 +7091,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 				 Computer_Type.contains( "applesoc", Qt::CaseInsensitive ) )
 		{
 			#ifdef Q_OS_WIN
-			cpu_arg = QStringLiteral( "max,pauth-impdef=on" );
+			cpu_arg = use_whpx_arm ? QStringLiteral( "host" ) : QStringLiteral( "max,pauth-impdef=on" );
 			#else
 			if( Machine_Accelerator == VM::KVM )
 				cpu_arg = QStringLiteral( "host" );
@@ -7097,7 +7156,9 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 				Computer_Type.contains( "aarch64", Qt::CaseInsensitive ) ||
 				Computer_Type.contains( "qemu-system-arm", Qt::CaseInsensitive );
 			#ifdef Q_OS_WIN
-			const bool tcg_guest = aarch64; // WHPX cannot accelerate aarch64 on x86 hosts
+			if( use_whpx_arm )
+				cpu_arg = QStringLiteral( "host" );
+			const bool tcg_guest = aarch64 && ! use_whpx_arm;
 			#else
 			const bool tcg_guest = aarch64 && Machine_Accelerator != VM::KVM;
 			#endif
@@ -7483,18 +7544,26 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			use_separate_tcg_accel = true;
 	}
 	else if( is_virt_arch )
-		use_separate_tcg_accel = true;
+	{
+		// Matching ARM guest on Windows ARM. whpx:tcg lets QEMU drop to TCG
+		// if WHPX refuses to start. Cross-arch guests stay on TCG.
+		if( use_whpx_arm )
+			props << QStringLiteral( "accel=whpx:tcg" );
+		else
+			use_separate_tcg_accel = true;
+	}
 	else if( legacy_force_tcg )
 		// Win95/98: WHPX hangs at splash. XP: WHPX disables SMM ? black text mode.
 		use_separate_tcg_accel = true;
 	else if( ! is_x86_guest || Machine_Accelerator == VM::TCG )
-		// WHPX/HAX only accelerate x86. Also: selecting TCG in the UI must mean TCG
-		// (do not silently map it to whpx:hax:tcg - that is what "KVM" means on Windows).
+		// Selecting TCG in the UI must mean TCG.
 		use_separate_tcg_accel = true;
-	else if( want_native_accel )
+	else if( want_native_accel && AQ_Host_WHPX_Usable() )
 		// Prefer Hyper-V WHPX (or HAX) for x86; fall back to TCG. Pure TCG makes
 		// DOS IDE/ATAPI CD (PIO) feel like a 1x optical drive.
 		props << "accel=whpx:hax:tcg";
+	else if( want_native_accel )
+		use_separate_tcg_accel = true;
 	else if( Machine_Accelerator == VM::XEN )
 		props << "accel=xen:tcg";
 	else
@@ -9588,6 +9657,13 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			else
 				Args << "-append" << Kernel_ComLine;
 		}
+		if( ! Initrd_Path.isEmpty() )
+		{
+			if( Build_QEMU_Args_for_Script_Mode )
+				Args << "-initrd" << "\"" + Initrd_Path + "\"";
+			else
+				Args << "-initrd" << Initrd_Path;
+		}
 	}
 
 	if( AQ_Is_Apple_SoC_VM( this ) )
@@ -9597,26 +9673,24 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			this, Build_QEMU_Args_for_Script_Mode, Launch_Via_WSL, false, nullptr );
 	}
 	
-	// Use ROM File
-	if( Use_ROM_File )
+	// Use ROM File. NeXT Cube firmware is -bios from the VM-tab ROM field
+	// (BIOS_File), so this etherboot checkbox must not add a second -bios.
+	if( Use_ROM_File && ! is_next_cube )
 	{
-		if( QFile::exists(ROM_File) == false &&
-			Build_QEMU_Args_for_Tab_Info == false )
+		if( ! AQ_Path_Usable_On_This_Host( ROM_File ) )
 		{
-			AQGraphic_Warning( tr("Error!"), tr("ROM File doesn't Exists! Can't run emulator!") );
+			if( Build_QEMU_Args_for_Tab_Info == false &&
+			    ! AQ_Path_Is_Foreign_To_This_Host( ROM_File ) )
+			{
+				AQGraphic_Warning( tr("Error!"), tr("ROM File doesn't Exists! Can't run emulator!") );
+			}
 		}
 		else
 		{
-			// next-cube loads board firmware with -bios (not PC option ROM).
-			const bool next_cube_rom =
-				Machine_Type.contains( QLatin1String( "next-cube" ), Qt::CaseInsensitive );
-			const QString rom_flag = next_cube_rom
-				? QStringLiteral( "-bios" )
-				: QStringLiteral( "-option-rom" );
 			if( Build_QEMU_Args_for_Script_Mode )
-				Args << rom_flag << "\"" + ROM_File + "\"";
+				Args << "-option-rom" << "\"" + ROM_File + "\"";
 			else
-				Args << rom_flag << ROM_File;
+				Args << "-option-rom" << ROM_File;
 		}
 	}
 	
@@ -9679,13 +9753,21 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	{
 		QString code_path = UEFI_CODE_File;
 		QString qemu_bin = Get_Current_Emulator_Binary_Path( Computer_Type );
+		QString arch;
+		if( Computer_Type.contains( "aarch64", Qt::CaseInsensitive ) )
+			arch = QStringLiteral( "aarch64" );
+		else if( Computer_Type.contains( "x86_64", Qt::CaseInsensitive ) )
+			arch = QStringLiteral( "x86_64" );
+		/* A VM saved on another computer keeps that machine's firmware path.
+		   Use this install's copy when that file is not here. */
+		if( ! code_path.isEmpty() && ! QFile::exists( code_path ) )
+		{
+			AQDebug( "QStringList Virtual_Machine::Build_QEMU_Args()",
+				QStringLiteral( "UEFI firmware is not on this machine, looking locally: %1" ).arg( code_path ) );
+			code_path.clear();
+		}
 		if( code_path.isEmpty() )
 		{
-			QString arch;
-			if( Computer_Type.contains( "aarch64", Qt::CaseInsensitive ) )
-				arch = QStringLiteral( "aarch64" );
-			else if( Computer_Type.contains( "x86_64", Qt::CaseInsensitive ) )
-				arch = QStringLiteral( "x86_64" );
 			code_path = Find_UEFI_Firmware_CODE( qemu_bin, arch );
 			if( ! code_path.isEmpty() )
 				UEFI_CODE_File = code_path;
@@ -9693,7 +9775,15 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 
 		if( ! code_path.isEmpty() )
 		{
-			if( UEFI_VARS_File.isEmpty() )
+			/* A Windows path like C:\Users\...\OVMF_VARS.fd is one filename on Linux,
+			   so its "directory" is the current folder and looks like it exists. */
+			auto vars_path_on_this_host = []( const QString &path ) -> bool {
+				const QString p = path.trimmed();
+				if( p.isEmpty() || AQ_Path_Is_Foreign_To_This_Host( p ) )
+					return false;
+				return QFile::exists( p ) || QFileInfo( p ).absoluteDir().exists();
+			};
+			if( ! vars_path_on_this_host( UEFI_VARS_File ) )
 			{
 				QString vm_dir = QFileInfo( VM_XML_File_Path ).absolutePath();
 				if( vm_dir.isEmpty() || vm_dir == "." )
@@ -10061,13 +10151,40 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	if( ! Sandbox.trimmed().isEmpty() )
 		Args << "-sandbox" << Sandbox.trimmed();
 
-	// BIOS (SeaBIOS alternative / board firmware)
-	if( ! BIOS_File.trimmed().isEmpty() )
+	// BIOS (SeaBIOS alternative / board firmware).
+	// NeXT Cube: the VM tab stores the ROM here. A path from the other
+	// operating system is not passed through; QEMU would fail to open it.
 	{
-		if( Build_QEMU_Args_for_Script_Mode )
-			Args << "-bios" << "\"" + BIOS_File + "\"";
-		else
-			Args << "-bios" << BIOS_File;
+		QString bios = BIOS_File.trimmed();
+		if( is_next_cube && ! AQ_Path_Usable_On_This_Host( bios ) && Use_ROM_File )
+			bios = ROM_File.trimmed();
+		if( ! bios.isEmpty() )
+		{
+			if( ! AQ_Path_Usable_On_This_Host( bios ) )
+			{
+				if( Build_QEMU_Args_for_Tab_Info == false )
+				{
+					if( is_next_cube )
+					{
+						AQGraphic_Warning( tr( "NeXT ROM" ),
+							tr( "The NeXT ROM saved with this virtual machine is not on this computer:\n%1\n\n"
+							    "Set it at the bottom of the VM tab. AQEMU will start without that path." )
+							.arg( bios ) );
+					}
+					else
+					{
+						AQGraphic_Warning( tr( "BIOS file" ),
+							tr( "The BIOS file saved with this virtual machine is not on this computer:\n%1\n\n"
+							    "AQEMU will start without -bios." )
+							.arg( bios ) );
+					}
+				}
+			}
+			else if( Build_QEMU_Args_for_Script_Mode )
+				Args << "-bios" << "\"" + bios + "\"";
+			else
+				Args << "-bios" << bios;
+		}
 	}
 
 	// SPICE
@@ -10342,6 +10459,39 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		#endif
 	}
 	
+	const bool guest_channels =
+		! Build_QEMU_Args_for_Tab_Info &&
+		! AQ_Is_Apple_SoC_VM( this ) &&
+		AQ_Machine_Supports_Guest_Channels( Machine_Type );
+	if( guest_channels )
+	{
+		const QString dir = QDir( AQEMU_User_Data_Dir() ).filePath( QStringLiteral( "channels" ) );
+		QDir().mkpath( dir );
+		QFile::setPermissions( dir, QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner );
+		QString tag = UID;
+		for( int i = 0; i < tag.size(); ++i )
+		{
+			const QChar c = tag.at( i );
+			if( ! c.isLetterOrNumber() )
+				tag[ i ] = QLatin1Char( '_' );
+		}
+		if( tag.isEmpty() )
+			tag = QStringLiteral( "vm" );
+#ifdef Q_OS_WIN
+		Guest_Agent_Socket = QStringLiteral( "\\\\.\\pipe\\aqemu-ga-%1" ).arg( tag );
+		Guest_Files_Socket = QStringLiteral( "\\\\.\\pipe\\aqemu-files-%1" ).arg( tag );
+#else
+		Guest_Agent_Socket = QDir( dir ).filePath( QStringLiteral( "ga-%1.sock" ).arg( tag ) );
+		Guest_Files_Socket = QDir( dir ).filePath( QStringLiteral( "files-%1.sock" ).arg( tag ) );
+		if( State != VM::VMS_Running && State != VM::VMS_Pause )
+		{
+			QFile::remove( Guest_Agent_Socket );
+			QFile::remove( Guest_Files_Socket );
+		}
+#endif
+		AQ_Append_Guest_Channels( Args, Guest_Agent_Socket, Guest_Files_Socket );
+	}
+
 	AQ_Lab_Append_Args( Args, this );
 
 	// Additional Args...
@@ -10728,8 +10878,10 @@ QStringList Virtual_Machine::Build_Native_Device_Args( VM_Native_Storage_Device 
 		(device.Get_Media() == VM::DM_CD_ROM ? "scsi-cd" : "scsi-hd");
 	    const int boot_idx = Bootindex_For( *this,
 		device.Get_Media() == VM::DM_CD_ROM ? VM::Boot_From_CDROM : VM::Boot_From_HDD );
+	    const QString ssd_opt = ( device.Get_SSD() && devtype == QLatin1String( "scsi-hd" ) )
+		? QStringLiteral( ",rotation_rate=1" ) : QString();
 	    args << "-device" << With_Bootindex(
-		devtype + ",bus=aq-vscsi.0,drive=" + vsname + (devtype == "scsi-hd" ? (block_size_dev_opts + QStringLiteral( ",serial=" ) + serial_token) : QString()), boot_idx );
+		devtype + ",bus=aq-vscsi.0,drive=" + vsname + (devtype == "scsi-hd" ? (block_size_dev_opts + QStringLiteral( ",serial=" ) + serial_token + ssd_opt) : QString()), boot_idx );
 	}
 	else if( device.Get_Interface() == VM::DI_NVMe &&
 			 ( ! device.Use_Media() || device.Get_Media() == VM::DM_Disk ) )
@@ -10752,9 +10904,11 @@ QStringList Virtual_Machine::Build_Native_Device_Args( VM_Native_Storage_Device 
 								: QStringLiteral( "ide-hd" );
 		const int boot_idx = Bootindex_For( *this,
 			device.Get_Media() == VM::DM_CD_ROM ? VM::Boot_From_CDROM : VM::Boot_From_HDD );
+		const QString ssd_opt = ( device.Get_SSD() && devtype == QLatin1String( "ide-hd" ) )
+			? QStringLiteral( ",rotation_rate=1" ) : QString();
 		args << "-device" << With_Bootindex(
 			QStringLiteral( "%1,bus=aqemu_ahci.%2,drive=%3" )
-				.arg( devtype ).arg( unit ).arg( vsname ) + (devtype == "ide-hd" ? (block_size_dev_opts + QStringLiteral( ",serial=" ) + serial_token) : QString()),
+				.arg( devtype ).arg( unit ).arg( vsname ) + (devtype == "ide-hd" ? (block_size_dev_opts + QStringLiteral( ",serial=" ) + serial_token + ssd_opt) : QString()),
 			boot_idx );
 	}
 	else if( device.Get_Interface() == VM::DI_Virtio && (virt_arch_blk || device.Use_Block_Size() || Machine_Name.contains( "TrueNAS", Qt::CaseInsensitive ) || Machine_Name.contains( "FreeNAS", Qt::CaseInsensitive )) &&
@@ -10827,6 +10981,13 @@ QStringList Virtual_Machine::Build_Native_Device_Args( VM_Native_Storage_Device 
 
 QStringList Virtual_Machine::Build_Shared_Folder_Args( VM_Shared_Folder folder, int id, bool Build_QEMU_Args_for_Script_Mode )
 {
+#ifdef Q_OS_WIN
+	Q_UNUSED( folder );
+	Q_UNUSED( id );
+	Q_UNUSED( Build_QEMU_Args_for_Script_Mode );
+	// QEMU on Windows has no virtfs local driver. Copy files from the session toolbar.
+	return QStringList();
+#endif
 	QStringList opt;
 	
     QString path = folder.Get_Folder();
@@ -10917,6 +11078,8 @@ bool Virtual_Machine::Start_impl()
 	// Drop ports from a previous run so we allocate fresh free ones
 	QMP_Port = 0;
 	Serial_Console_Port = 0;
+	Guest_Agent_Socket.clear();
+	Guest_Files_Socket.clear();
 	QMP_Connect_Attempts = 0;
 	Embedded_Spice_Port = 0;
 	Embedded_VNC_Port = 0;
@@ -10976,6 +11139,38 @@ bool Virtual_Machine::Start_impl()
 					    "Select an AMD GPU in the Intel macOS settings." ) );
 				return false;
 			}
+		}
+	}
+
+	if( UEFI && ! AQ_Is_Apple_SoC_VM( this ) )
+	{
+		QString qemu_bin = Get_Current_Emulator_Binary_Path( Computer_Type );
+		QString arch;
+		if( Computer_Type.contains( QLatin1String( "aarch64" ), Qt::CaseInsensitive ) )
+			arch = QStringLiteral( "aarch64" );
+		else if( Computer_Type.contains( QLatin1String( "x86_64" ), Qt::CaseInsensitive ) )
+			arch = QStringLiteral( "x86_64" );
+		if( UEFI_CODE_File.isEmpty() || ! QFile::exists( UEFI_CODE_File ) )
+		{
+			const QString found = Find_UEFI_Firmware_CODE( qemu_bin, arch );
+			if( ! found.isEmpty() )
+				UEFI_CODE_File = found;
+		}
+		if( ! UEFI_VARS_File.isEmpty() && ! QFile::exists( UEFI_VARS_File ) )
+		{
+			const QString tmpl = AQ_UEFI_VARS_Template_For_Code( UEFI_CODE_File, qemu_bin, arch );
+			if( ! tmpl.isEmpty() )
+			{
+				QDir().mkpath( QFileInfo( UEFI_VARS_File ).absolutePath() );
+				QFile::copy( tmpl, UEFI_VARS_File );
+			}
+		}
+		QString fw_err;
+		if( ! AQ_UEFI_Pair_Ready( UEFI_CODE_File, UEFI_VARS_File, &fw_err ) )
+		{
+			AQGraphic_Error( "bool Virtual_Machine::Start()", tr( "UEFI firmware" ), fw_err, false );
+			Start_Snapshot_Tag = "";
+			return false;
 		}
 	}
 
@@ -11345,8 +11540,7 @@ bool Virtual_Machine::Start_impl()
 			if( ! AQ_Is_Store_Build() )
 			{
 #ifdef Q_OS_WIN32
-				search_dirs << QStringLiteral( "C:/Program Files/qemu" )
-				            << QStringLiteral( "C:/Program Files (x86)/qemu" );
+				search_dirs << AQ_Windows_Qemu_Dirs();
 #else
 				search_dirs << QStringLiteral( "/usr/bin" )
 				            << QStringLiteral( "/usr/local/bin" );
@@ -11401,9 +11595,10 @@ bool Virtual_Machine::Start_impl()
 		if( find_name.contains( QLatin1String( "qemu-system-ppc" ), Qt::CaseInsensitive ) &&
 		    ! find_name.contains( QLatin1String( "ppc64" ), Qt::CaseInsensitive ) )
 		{
-			const QStringList ppc_candidates = QStringList()
-				<< QStringLiteral( "C:/Program Files/qemu/qemu-system-ppc.exe" )
-				<< QStringLiteral( "C:/Program Files (x86)/qemu/qemu-system-ppc.exe" );
+			QStringList ppc_candidates;
+			const QStringList qemu_dirs = AQ_Windows_Qemu_Dirs();
+			for( int qi = 0; qi < qemu_dirs.size(); ++qi )
+				ppc_candidates << qemu_dirs.at( qi ) + QStringLiteral( "/qemu-system-ppc.exe" );
 			for( int ci = 0; ci < ppc_candidates.count(); ++ci )
 			{
 				if( QFile::exists( ppc_candidates[ci] ) )
@@ -11700,7 +11895,7 @@ bool Virtual_Machine::Start_impl()
         const QString binDir = QDir::toNativeSeparators( QFileInfo( bin_path ).absolutePath() );
         const QString appDir = QDir::toNativeSeparators( QCoreApplication::applicationDirPath() );
         const QString curPath = env.value( QStringLiteral( "PATH" ), QString() );
-        const QString msysPaths = QStringLiteral( "C:\\msys64\\clangarm64\\bin;C:\\msys64\\ucrt64\\bin;C:\\msys64\\mingw64\\bin" );
+        const QString msysPaths = AQ_Msys_Bin_Path();
         env.insert( QStringLiteral( "PATH" ), binDir + QLatin1Char( ';' ) + appDir + QLatin1Char( ';' ) + msysPaths + QLatin1Char( ';' ) + curPath );
         QEMU_Process->setProcessEnvironment( env );
 #endif
@@ -12071,7 +12266,7 @@ void Virtual_Machine::Save_VM_State( const QString &tag, bool quit )
 	
 	if( Settings.value("Use_Screenshot_for_OS_Logo", "yes").toString() == "yes" )
 	{
-		QString scrn_file = Settings.value( "VM_Directory", "~" ).toString() + Get_FS_Compatible_VM_Name( Machine_Name );
+		QString scrn_file = AQ_File_Beside_VM( VM_XML_File_Path, Get_FS_Compatible_VM_Name( Machine_Name ) );
 		if( Take_Screenshot(scrn_file, 64, 64) ) Screenshot_Path = scrn_file;
 	}
 	
@@ -12980,6 +13175,20 @@ bool Virtual_Machine::Get_Show_Boot_Logo() const
 void Virtual_Machine::Set_Show_Boot_Logo( bool use )
 {
 	Show_Boot_Logo = use;
+}
+
+int Virtual_Machine::Get_Boot_Menu_Seconds() const
+{
+	return Boot_Menu_Seconds;
+}
+
+void Virtual_Machine::Set_Boot_Menu_Seconds( int seconds )
+{
+	if( seconds < 0 )
+		seconds = 0;
+	if( seconds > 60 )
+		seconds = 60;
+	Boot_Menu_Seconds = seconds;
 }
 
 bool Virtual_Machine::Use_Fullscreen_Mode() const
@@ -15021,6 +15230,8 @@ void Virtual_Machine::QEMU_Finished( int exitCode, QProcess::ExitStatus exitStat
 	}
 	QMP_Port = 0;
 	Serial_Console_Port = 0;
+	Guest_Agent_Socket.clear();
+	Guest_Files_Socket.clear();
 	Embedded_Spice_Port = 0;
 	Embedded_VNC_Port = 0;
 }
@@ -15192,8 +15403,8 @@ QString Virtual_Machine::GenerateHTMLInfoText(int info_mode)
     if( Settings.value("Info/Show_Screenshot_in_Save_Mode", "no").toString() == "yes" )
     {
         // Find Full Size Screenshot
-        QString img_path = QDir::toNativeSeparators( Settings.value("VM_Directory", "~").toString() +
-                Get_FS_Compatible_VM_Name(Get_Machine_Name()) + "_screenshot" );
+        QString img_path = AQ_File_Beside_VM( Get_VM_XML_File_Path(),
+                Get_FS_Compatible_VM_Name( Get_Machine_Name() ) + QStringLiteral( "_screenshot" ) );
 
         if( ! QFile::exists(img_path) )
         {

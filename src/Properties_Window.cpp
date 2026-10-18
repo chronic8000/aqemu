@@ -167,9 +167,9 @@ void Properties_Window::Set_HDD( const VM_HDD &hd, const QString &name )
 	if( native.Use_Block_Size() )
 	{
 		if( native.Get_Logical_Block_Size() == 4096 && native.Get_Physical_Block_Size() == 4096 )
-			ui.CB_HDD_Sector_Size->setCurrentIndex( 1 );
-		else if( native.Get_Logical_Block_Size() == 512 && native.Get_Physical_Block_Size() == 4096 )
 			ui.CB_HDD_Sector_Size->setCurrentIndex( 2 );
+		else if( native.Get_Logical_Block_Size() == 512 && native.Get_Physical_Block_Size() == 4096 )
+			ui.CB_HDD_Sector_Size->setCurrentIndex( 1 );
 		else
 			ui.CB_HDD_Sector_Size->setCurrentIndex( 0 );
 	}
@@ -577,9 +577,9 @@ void Properties_Window::on_TB_HDD_Advanced_Settings_clicked()
 		if( native.Use_Block_Size() )
 		{
 			if( native.Get_Logical_Block_Size() == 4096 && native.Get_Physical_Block_Size() == 4096 )
-				ui.CB_HDD_Sector_Size->setCurrentIndex( 1 );
-			else if( native.Get_Logical_Block_Size() == 512 && native.Get_Physical_Block_Size() == 4096 )
 				ui.CB_HDD_Sector_Size->setCurrentIndex( 2 );
+			else if( native.Get_Logical_Block_Size() == 512 && native.Get_Physical_Block_Size() == 4096 )
+				ui.CB_HDD_Sector_Size->setCurrentIndex( 1 );
 			else
 				ui.CB_HDD_Sector_Size->setCurrentIndex( 0 );
 		}
@@ -622,13 +622,13 @@ void Properties_Window::on_Edit_HDD_Image_Path_textChanged()
 void Properties_Window::on_CB_HDD_Sector_Size_currentIndexChanged( int index )
 {
 	VM_Native_Storage_Device tmpDev = PW_HDD.Get_Native_Device();
-	if( index == 1 ) // 4096 / 4Kn
+	if( index == 2 ) // 4Kn
 	{
 		tmpDev.Use_Block_Size( true );
 		tmpDev.Set_Logical_Block_Size( 4096 );
 		tmpDev.Set_Physical_Block_Size( 4096 );
 	}
-	else if( index == 2 ) // 512e
+	else if( index == 1 ) // 512e
 	{
 		tmpDev.Use_Block_Size( true );
 		tmpDev.Set_Logical_Block_Size( 512 );

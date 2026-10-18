@@ -25,6 +25,7 @@
 
 #include <QProgressDialog>
 #include <QThread>
+#include <QStringList>
 #include "ui_Convert_HDD_Image_Window.h"
 #include "HDD_Image_Info.h"
 
@@ -34,8 +35,9 @@ class Convert_HDD_Thread : public QThread
 	
 	public:
 		Convert_HDD_Thread();
-		void Set_Args( const QStringList &args );
+		void Set_Jobs( const QList<QStringList> &jobs );
 		const QString &Get_Error_Message() const;
+		const QString &Get_Log() const;
 		
 	protected:
 		void run();
@@ -45,7 +47,8 @@ class Convert_HDD_Thread : public QThread
 		
 	private:
 		QString Error_Message;
-		QStringList Arguments;
+		QString Log;
+		QList<QStringList> Jobs;
 };
 
 class Convert_HDD_Image_Window: public QDialog
@@ -60,6 +63,8 @@ class Convert_HDD_Image_Window: public QDialog
 		void on_Button_Browse_Output_clicked();
 		void on_CB_Output_Format_currentIndexChanged( const QString &text );
 		void on_Button_Convert_clicked();
+		void on_Button_Add_Images_clicked();
+		void on_Button_Output_Dir_clicked();
 		void Update_Info( bool ok );
 		
 		void Conversion_Done( bool ok );
@@ -74,6 +79,10 @@ class Convert_HDD_Image_Window: public QDialog
 		
 		HDD_Image_Info *HDD_Info;
 		bool Valid_Info;
+		class QListWidget *Batch_List;
+		class QPlainTextEdit *Log_View;
+		class QCheckBox *CH_Beside;
+		class QLineEdit *Edit_Output_Dir;
 };
 
 #endif
