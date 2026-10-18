@@ -864,5 +864,17 @@ Full contributor list: **Help → About → Thanks To**.
 - **AIX `E3403 Bad executable`** → disk is not a QEMU/SLOF-bootable AIX image (common with VMware VMDKs)  
 - **Guest disk locked on Windows** → end stray `qemu-system-*` in Task Manager, restart AQEMU  
 - **Clipboard host↔guest** → real sync needs SPICE + `spice-vdagent` *in the guest*; AIX/SLOF and many vintage guests will not do that  
+- **AQEMU closed unexpectedly** → the report is local. Windows writes `%LOCALAPPDATA%\AQEMU\CrashDumps\`. Linux writes `~/.local/share/AQEMU/crash/`. Help → Open crash dumps folder. Nothing is uploaded. The next launch can copy the system-info table or open a GitHub issue. `aqemu --test-crash` writes one report on purpose.
+- **Full Windows dump** → Windows Error Reporting can save a dump of `aqemu.exe` before a symbolised minidump exists. In an elevated PowerShell:
+
+```
+New-Item -Force -Path "HKLM:\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps\aqemu.exe" | Out-Null
+Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps\aqemu.exe" -Name DumpFolder -Value "$env:LOCALAPPDATA\CrashDumps"
+Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps\aqemu.exe" -Name DumpType -Type DWord -Value 2
+Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps\aqemu.exe" -Name DumpCount -Type DWord -Value 10
+```
+
+  DumpType 2 is a full dump. 1 is a minidump. This does not catch a crash inside `qemu-system-*.exe`. Add the same key for that executable name if the guest process is what died. Each Windows package job also uploads an `AQEMU-*-symbols` artifact (`aqemu.pdb` when Clang writes one, and `aqemu.debug` for gdb).
+- **Full Linux core** → `coredumpctl list aqemu` then `coredumpctl info aqemu`. The in-app file is a backtrace, not a full core.
 
 Questions and patches: [GitHub Issues](https://github.com/chronic8000/aqemu/issues) / PRs welcome.

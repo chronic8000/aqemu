@@ -65,6 +65,7 @@
 
 #include "main.h"
 #include "Service.h"
+#include "Crash_Report.h"
 
 const char USAGE[] =
 R"(Usage: aqemu [options]
@@ -96,6 +97,7 @@ or the name of the VM to specify on which VM to operate.
   Options:
       -h --help          Show this screen.
       --version          Show version.
+      --test-crash       Write a local crash report and exit.
 
   Qt Options:
       --style THEME      Set theme/style.
@@ -172,6 +174,7 @@ static void AQEMU_Qt_Message_Handler( QtMsgType type, const QMessageLogContext &
 
 int AQEMU_Main::main(int argc, char *argv[])
 {
+    AQ_Install_Crash_Handler();
 #if defined(AQEMU_ENABLE_CONSOLE) || defined(DEBUG)
 #ifdef Q_OS_WIN32
     if( _isatty( _fileno( stdout ) ) )
@@ -192,9 +195,12 @@ int AQEMU_Main::main(int argc, char *argv[])
                          true,               // show help if requested
                           qPrintable( version ) );  // version string
     AQEMU_Startup_Log( "docopt ok" );
+    if( args.at( "--test-crash" ).asBool() )
+        AQ_Test_Crash();
 
     // Create QApplication
     application = new AQ_Application( argc, argv );
+    AQ_Install_Crash_Handler();
     AQ_Apply_App_Style( application );
     AQEMU_Startup_Log( "QApplication ok" );
 

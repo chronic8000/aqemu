@@ -141,6 +141,22 @@ jobs:
             ${{ matrix.cmake_flags }}
           ninja -C ${{ matrix.build_dir }}
 
+      - name: Split debug symbols (${{ matrix.arch }})
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          symdir="${GITHUB_WORKSPACE}/symbols"
+          mkdir -p "${symdir}"
+          exe="${{ matrix.build_dir }}/aqemu.exe"
+          if [ -f "${exe}.pdb" ]; then
+            mv "${exe}.pdb" "${symdir}/aqemu.pdb"
+          elif [ -f "${{ matrix.build_dir }}/aqemu.pdb" ]; then
+            mv "${{ matrix.build_dir }}/aqemu.pdb" "${symdir}/aqemu.pdb"
+          fi
+          objcopy --only-keep-debug "${exe}" "${symdir}/aqemu.debug"
+          strip --strip-debug "${exe}"
+          objcopy --add-gnu-debuglink="${symdir}/aqemu.debug" "${exe}"
+
       - name: Package MSIX (${{ matrix.arch }})
         shell: powershell
         run: |
@@ -154,4 +170,11 @@ jobs:
         with:
           name: AQEMU-${{ matrix.target_name }}-msix
           path: installer/out/*.msix
+          if-no-files-found: error
+
+      - name: Upload debug symbols (${{ matrix.arch }})
+        uses: actions/upload-artifact@v7
+        with:
+          name: AQEMU-${{ matrix.target_name }}-symbols
+          path: symbols/**
           if-no-files-found: error

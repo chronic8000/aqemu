@@ -123,6 +123,7 @@
 #include "Remote_Host_Window.h"
 #include "AQ_UI_Style.h"
 #include "Utils.h"
+#include "Crash_Report.h"
 #include "QEMU_Probe_Catalog.h"
 #include "Blockdev_Graph_Window.h"
 #include "Appliance_Import_Window.h"
@@ -469,6 +470,10 @@ Main_Window::Main_Window( QWidget *parent )
 		} );
 		ui.menuHelp->insertAction( ui.actionQEMU_Help_Browser, actIssue );
 
+		QAction *actCrash = new QAction( tr( "Open crash dumps &folder" ), this );
+		connect( actCrash, &QAction::triggered, this, []() { AQ_Crash_Open_Directory(); } );
+		ui.menuHelp->insertAction( ui.actionQEMU_Help_Browser, actCrash );
+
 		QAction *actBundle = new QAction( tr( "Support &bundle…" ), this );
 		connect( actBundle, &QAction::triggered, this, [this]() { AQ_Lab_Support_Bundle( this, Get_Current_VM() ); } );
 		ui.menuHelp->addAction( actBundle );
@@ -511,6 +516,7 @@ Main_Window::Main_Window( QWidget *parent )
 				qApp->quit();
 		}
 #endif
+		AQ_Crash_Prompt_If_Pending( this );
 
 		QAction *actConvert = new QAction( tr( "&Convert disk…" ), this );
 		connect( actConvert, &QAction::triggered, this, [this]() { AQ_Lab_Convert( this, Get_Current_VM() ); } );

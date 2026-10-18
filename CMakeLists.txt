@@ -216,6 +216,7 @@ SET( aqemu_sources
 	src/Folder_Sharing_Widget.cpp
 	src/HDD_Image_Info.cpp
 	src/main.cpp
+	src/Crash_Report.cpp
 	src/Main_Window.cpp
 	src/WSL_Wizard_Window.cpp
 	src/Monitor_Window.cpp
@@ -477,7 +478,16 @@ SET_PROPERTY( TARGET aqemu_guest_boot_test PROPERTY CXX_STANDARD_REQUIRED ON )
 TARGET_LINK_LIBRARIES( aqemu_guest_boot_test Qt5::Core )
 
 IF( WIN32 )
-	TARGET_LINK_LIBRARIES( aqemu advapi32 ole32 shell32 dsound )
+	TARGET_LINK_LIBRARIES( aqemu advapi32 ole32 shell32 dsound dbghelp )
+	TARGET_COMPILE_OPTIONS( aqemu PRIVATE -g )
+	IF( CMAKE_CXX_COMPILER_ID MATCHES "Clang" )
+		TARGET_COMPILE_OPTIONS( aqemu PRIVATE -gcodeview )
+		SET_PROPERTY( TARGET aqemu APPEND_STRING PROPERTY LINK_FLAGS " -Wl,--pdb,${CMAKE_BINARY_DIR}/aqemu.pdb" )
+	ENDIF()
+ELSE()
+	SET_PROPERTY( TARGET aqemu APPEND_STRING PROPERTY LINK_FLAGS " -rdynamic" )
+ENDIF()
+IF( WIN32 )
 	IF( AQEMU_ENABLE_CONSOLE )
 		SET_TARGET_PROPERTIES( aqemu PROPERTIES WIN32_EXECUTABLE FALSE )
 		IF( MSVC )
