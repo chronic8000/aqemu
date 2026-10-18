@@ -178,17 +178,30 @@ static void Crash_Write_All( int fd, const char *data, size_t len )
 	}
 }
 
+/* Returning from SIGSEGV, SIGBUS, or SIGILL restarts the faulting instruction. */
+static void Crash_Abort( int sig )
+{
+	struct sigaction sa;
+	memset( &sa, 0, sizeof( sa ) );
+	sa.sa_handler = SIG_DFL;
+	sigemptyset( &sa.sa_mask );
+	sigaction( sig, &sa, NULL );
+
+	sigset_t set;
+	sigemptyset( &set );
+	sigaddset( &set, sig );
+	sigprocmask( SIG_UNBLOCK, &set, NULL );
+	raise( sig );
+	_exit( 128 + sig );
+}
+
 static void Crash_Signal( int sig, siginfo_t *info, void * )
 {
 	if( g_handling )
-		return;
+		Crash_Abort( sig );
 	g_handling = 1;
 	if( g_dir[ 0 ] == 0 )
-	{
-		signal( sig, SIG_DFL );
-		raise( sig );
-		return;
-	}
+		Crash_Abort( sig );
 
 	char stamp[ 32 ];
 	time_t now = time( NULL );
@@ -210,12 +223,6 @@ static void Crash_Signal( int sig, siginfo_t *info, void * )
 			CURRENT_AQEMU_VERSION, g_qt, sig, fault );
 		if( n > 0 )
 			Crash_Write_All( fd, head, (size_t)n );
-#ifdef __GLIBC__
-		void *frames[ 64 ];
-		const int count = backtrace( frames, 64 );
-		backtrace_symbols_fd( frames, count, fd );
-#endif
-		close( fd );
 	}
 
 	char pending[ 1200 ];
@@ -226,8 +233,18 @@ static void Crash_Signal( int sig, siginfo_t *info, void * )
 		Crash_Write_All( mark, path, strlen( path ) );
 		close( mark );
 	}
-	signal( sig, SIG_DFL );
-	raise( sig );
+
+#ifdef __GLIBC__
+	if( fd >= 0 )
+	{
+		void *frames[ 64 ];
+		const int count = backtrace( frames, 64 );
+		backtrace_symbols_fd( frames, count, fd );
+	}
+#endif
+	if( fd >= 0 )
+		close( fd );
+	Crash_Abort( sig );
 }
 
 static void Crash_Prepare_Dir()
@@ -252,6 +269,10 @@ static void Crash_Prepare_Dir()
 	memset( &sa, 0, sizeof( sa ) );
 	sa.sa_sigaction = Crash_Signal;
 	sigemptyset( &sa.sa_mask );
+	sigaddset( &sa.sa_mask, SIGSEGV );
+	sigaddset( &sa.sa_mask, SIGABRT );
+	sigaddset( &sa.sa_mask, SIGBUS );
+	sigaddset( &sa.sa_mask, SIGILL );
 	sa.sa_flags = SA_SIGINFO;
 	sigaction( SIGSEGV, &sa, NULL );
 	sigaction( SIGABRT, &sa, NULL );
