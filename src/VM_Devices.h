@@ -63,6 +63,19 @@ class VM
             }
         }
 
+        // Windows stores the Hyper-V accelerator as "kvm" and shows it as WHPX.
+        // WSL still runs Linux KVM, so that path keeps the KVM label.
+        static QString Accel_Display_Name( Machine_Accelerator accel, bool via_wsl = false )
+        {
+#ifdef Q_OS_WIN
+            if( accel == KVM && ! via_wsl )
+                return QStringLiteral( "WHPX" );
+#else
+            Q_UNUSED( via_wsl );
+#endif
+            return Accel_To_String( accel ).toUpper();
+        }
+
         static Machine_Accelerator String_To_Accel(QString accel)
         {
             const QString a = accel.toLower().trimmed();

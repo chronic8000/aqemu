@@ -13,6 +13,13 @@ class QSpinBox;
 bool AQ_Is_Apple_SoC_VM( const Virtual_Machine *vm );
 
 /**
+ * IPv4 usb-conn only. checked is false when WSL could not be asked.
+ * Returns whether a TCP listener is up on 127.0.0.1:port inside WSL
+ * (Windows) or on this host (Linux).
+ */
+bool AQ_Apple_SoC_IPv4_USB_Is_Listening( int port, bool *checked = nullptr );
+
+/**
  * Suggested research-kernel boot args for new Inferno VMs (wizard prefill only).
  * Never injected at launch — Kernel command line must come from the MACHINE tab.
  */

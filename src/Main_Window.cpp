@@ -114,6 +114,8 @@
 #include "Audio_Host.h"
 #include <QMap>
 #include "WSL_Wizard_Window.h"
+#include "Serial_Console_Window.h"
+#include "Monitor_Window.h"
 #include "First_Start_Wizard.h"
 #include "Emulator_Control_Window.h"
 #include "Boot_Device_Window.h"
@@ -171,6 +173,11 @@ Main_Window::Main_Window( QWidget *parent )
 	, CH_Apple_KASLR_Off( nullptr )
 	, Btn_Apple_SoC_Restore( nullptr )
 	, Act_Apple_SoC_Restore( nullptr )
+	, Act_Serial_Monitor( nullptr )
+	, Serial_Monitor( nullptr )
+	, Act_QEMU_Monitor( nullptr )
+	, QEMU_Monitor( nullptr )
+	, QEMU_Monitor_VM( nullptr )
 	, Apple_SoC_Restore_Dlg( nullptr )
 	, Tray_Icon( nullptr )
 	, Act_Tray_Show( nullptr )
@@ -265,6 +272,44 @@ Main_Window::Main_Window( QWidget *parent )
 		ui.menuVM->insertSeparator( ui.actionManage_Snapshots );
 		Act_Apple_SoC_Restore = actRestore;
 		Act_Apple_SoC_Restore->setVisible( true );
+	}
+	{
+		Act_Serial_Monitor = new QAction( tr( "Serial &monitor" ), this );
+		Act_Serial_Monitor->setCheckable( true );
+		Act_Serial_Monitor->setChecked(
+			Settings.value( QStringLiteral( "Debug/Serial_Monitor" ), false ).toBool() );
+		Act_Serial_Monitor->setStatusTip( tr(
+			"On the next Start, connect guest COM1 and the firmware debug port to a window. "
+			"Closing that window turns this off." ) );
+		connect( Act_Serial_Monitor, &QAction::toggled, this, [this]( bool on ) {
+			Settings.setValue( QStringLiteral( "Debug/Serial_Monitor" ), on );
+			if( ! on )
+			{
+				if( Serial_Monitor )
+					Serial_Monitor->hide();
+				return;
+			}
+			Virtual_Machine *vm = Get_Current_VM();
+			if( vm && vm->Get_State() == VM::VMS_Running && vm->Get_Serial_Console_Port() > 0 )
+			{
+				Ensure_Serial_Monitor();
+				Serial_Monitor->Attach( vm );
+				Serial_Monitor->show();
+				Serial_Monitor->raise();
+				Serial_Monitor->activateWindow();
+				return;
+			}
+			QMessageBox::information( this, tr( "Serial monitor" ),
+				tr( "Serial output will be captured the next time this VM starts.\n\n"
+				    "Release OVMF often prints nothing. OpenCore and the guest OS show up here "
+				    "when they write to COM1." ) );
+		} );
+		ui.menuVM->insertAction( ui.actionShow_QEMU_Error_Log_Window, Act_Serial_Monitor );
+		Act_QEMU_Monitor = new QAction( tr( "QEMU &monitor" ), this );
+		Act_QEMU_Monitor->setStatusTip( tr(
+			"QEMU command monitor (info cpus, info pci). Separate from the guest serial console." ) );
+		connect( Act_QEMU_Monitor, &QAction::triggered, this, &Main_Window::Show_QEMU_Monitor );
+		ui.menuVM->insertAction( ui.actionShow_QEMU_Error_Log_Window, Act_QEMU_Monitor );
 	}
 	// File → Apply iOS filesystem patches (guest root — required after restore)
 	{
@@ -752,6 +797,8 @@ Main_Window::Main_Window( QWidget *parent )
 		add( ui.menuVM, actReset );
 		add( ui.menuVM, actSave );
 		ui.menuVM->addSeparator();
+		add( ui.menuVM, Act_Serial_Monitor );
+		add( ui.menuVM, Act_QEMU_Monitor );
 
 		QMenu *apple = ui.menuVM->addMenu( tr( "A&pple" ) );
 		add( apple, actIosFw );
@@ -769,6 +816,8 @@ Main_Window::Main_Window( QWidget *parent )
 		add( storage, actSan );
 
 		QMenu *tools = ui.menuVM->addMenu( tr( "&Tools" ) );
+		add( tools, Act_Serial_Monitor );
+		add( tools, Act_QEMU_Monitor );
 		add( tools, actControl );
 		add( tools, actArgs );
 		add( tools, actScript );
@@ -1270,7 +1319,7 @@ void Main_Window::closeEvent( QCloseEvent *event )
 	for( int i = 0; i < VM_List.count(); ++i )
 	{
 		if( VM_List[ i ] )
-			VM_List[ i ]->Kill_Orphan_QEMU_Using_Disks();
+			VM_List[ i ]->Destroy_QEMU();
 	}
 
 	// forced=true: allow quit even if UI→VM sync fails (do not trap the user)
@@ -1698,10 +1747,8 @@ void Main_Window::Connect_Signals()
 			 this, SLOT(on_Button_Win11_Normal_clicked()) );
 	connect( ui.Button_Win11_Repair, SIGNAL(clicked()),
 			 this, SLOT(on_Button_Win11_Repair_clicked()) );
-	connect( ui.TB_Intel_Mac_OpenCore_Browse_Main, SIGNAL(clicked()),
-			 this, SLOT(on_TB_Intel_Mac_OpenCore_Browse_Main_clicked()) );
-	connect( ui.TB_Intel_Mac_Recovery_Browse_Main, SIGNAL(clicked()),
-			 this, SLOT(on_TB_Intel_Mac_Recovery_Browse_Main_clicked()) );
+	// OpenCore / Recovery browse slots are on_* names, so setupUi already
+	// connects them. A second connect opens the file dialog twice.
 	connect( ui.Edit_Intel_Mac_OpenCore_Main, SIGNAL(textEdited(const QString &)),
 			 this, SLOT(VM_Changed()) );
 	connect( ui.Edit_Intel_Mac_Recovery_Main, SIGNAL(textEdited(const QString &)),
@@ -1722,8 +1769,6 @@ void Main_Window::Connect_Signals()
 			 this, SLOT(VM_Changed()) );
 	connect( ui.TB_Intel_Mac_GPU_Refresh, SIGNAL(clicked()),
 			 this, SLOT(on_TB_Intel_Mac_GPU_Refresh_clicked()) );
-	connect( ui.TB_Intel_Mac_GPU_ROM_Browse, SIGNAL(clicked()),
-			 this, SLOT(on_TB_Intel_Mac_GPU_ROM_Browse_clicked()) );
 	connect( ui.CB_Intel_Mac_GPU, SIGNAL(currentIndexChanged(int)),
 			 this, SLOT(on_CB_Intel_Mac_GPU_currentIndexChanged(int)) );
 
@@ -1877,6 +1922,8 @@ void Main_Window::Connect_Signals()
 			 this, SLOT(VM_Changed()) );
 	connect( ui_ao.CH_Launch_Via_WSL, SIGNAL(clicked()),
 			 this, SLOT(Update_Machine_Accelerators()) );
+	connect( ui_ao.CH_Launch_Via_WSL, SIGNAL(clicked()),
+			 this, SLOT(VM_Changed()) );
 
 	// Hardware Virtualization Tab
 
@@ -2656,16 +2703,30 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
 		if( recovery.isEmpty() )
 			recovery = old_vm->Get_Mac_Recovery_Image_Path();
 
-		// WSL launch is opt-in from visible UI only — never sticky-OR old_vm (that forced
-		// accel=kvm on Mac OS X PPC and other TCG guests after one accidental enable).
-		const bool wsl = ui.CH_Intel_Mac_WSL_Main->isChecked() ||
-		                 ui_ao.CH_Launch_Via_WSL->isChecked();
+		// WSL launch is opt-in from the checkbox the user can see. The VM page and
+		// Advanced Options each have a copy; ORing them kept WSL on after the
+		// page box was cleared, because the Advanced Options copy stayed checked.
+		const bool wsl = ui.GB_Intel_MacOS_Settings->isVisible()
+			? ui.CH_Intel_Mac_WSL_Main->isChecked()
+			: old_vm->Use_Launch_Via_WSL();
 
 		tmp_vm->Set_Apple_SMC_OSK( osk );
 		tmp_vm->Set_OpenCore_Boot_Path( oc );
 		tmp_vm->Set_Mac_Recovery_Image_Path( recovery );
 		tmp_vm->Use_Apple_SMC( tmp_vm->Use_Intel_MacOS_Profile() && ! osk.trimmed().isEmpty() );
 		tmp_vm->Use_Launch_Via_WSL( wsl );
+		{
+			const QString accel_row = ui.CB_Machine_Accelerator->currentData( Qt::UserRole ).toString().toLower();
+			if( accel_row == QLatin1String( "whpx" ) )
+				tmp_vm->Use_Launch_Via_WSL( false );
+#ifdef Q_OS_WIN
+			else if( accel_row == QLatin1String( "kvm" ) )
+				tmp_vm->Use_Launch_Via_WSL( true );
+			else if( accel_row == QLatin1String( "tcg" ) &&
+			         AQ_Is_Apple_SoC_VM( tmp_vm ) )
+				tmp_vm->Use_Launch_Via_WSL( false );
+#endif
+		}
 
 		if( ui.GB_Intel_Mac_GPU_Passthrough->isVisible() )
 		{
@@ -2701,7 +2762,12 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
 		// Keep Advanced Options widgets in sync
 		ui_ao.Edit_Apple_SMC_OSK->setText( osk );
 		ui_ao.Edit_OpenCore_Boot_Path->setText( oc );
-		ui_ao.CH_Launch_Via_WSL->setChecked( wsl );
+		ui_ao.CH_Launch_Via_WSL->blockSignals( true );
+		ui_ao.CH_Launch_Via_WSL->setChecked( tmp_vm->Use_Launch_Via_WSL() );
+		ui_ao.CH_Launch_Via_WSL->blockSignals( false );
+		ui.CH_Intel_Mac_WSL_Main->blockSignals( true );
+		ui.CH_Intel_Mac_WSL_Main->setChecked( tmp_vm->Use_Launch_Via_WSL() );
+		ui.CH_Intel_Mac_WSL_Main->blockSignals( false );
 		ui_ao.CH_Intel_MacOS_Profile->setChecked( tmp_vm->Use_Intel_MacOS_Profile() );
 	}
 	if( tmp_vm->Use_Intel_MacOS_Profile() )
@@ -3200,13 +3266,23 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 	}
 
     int found = false;
-	const QString want_accel = VM::Accel_To_String( tmp_vm->Get_Machine_Accelerator() ).toLower();
+	QString want_id = VM::Accel_To_String( tmp_vm->Get_Machine_Accelerator() ).toLower();
+#ifdef Q_OS_WIN
+	// Stored KVM is the WHPX row when this VM starts the Windows QEMU.
+	if( want_id == QLatin1String( "kvm" ) && ! tmp_vm->Use_Launch_Via_WSL() )
+		want_id = QStringLiteral( "whpx" );
+#endif
+	ui_ao.CH_Launch_Via_WSL->blockSignals( true );
+	ui_ao.CH_Launch_Via_WSL->setChecked( tmp_vm->Use_Launch_Via_WSL() );
+	ui_ao.CH_Launch_Via_WSL->blockSignals( false );
+	ui.CH_Intel_Mac_WSL_Main->blockSignals( true );
+	ui.CH_Intel_Mac_WSL_Main->setChecked( tmp_vm->Use_Launch_Via_WSL() );
+	ui.CH_Intel_Mac_WSL_Main->blockSignals( false );
 	ui.CB_Machine_Accelerator->blockSignals( true );
 	for( int ix = 0; ix < ui.CB_Machine_Accelerator->count(); ix++ )
 	{
 		const QString id = ui.CB_Machine_Accelerator->itemData( ix, Qt::UserRole ).toString().toLower();
-		const QString caption = ui.CB_Machine_Accelerator->itemText( ix ).toLower();
-		if( id == want_accel || caption == want_accel )
+		if( id == want_id )
 		{
 			ui.CB_Machine_Accelerator->setCurrentIndex( ix );
             found = true;
@@ -3220,7 +3296,6 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
     }
 	ui.CB_Machine_Accelerator->blockSignals( false );
 
-	Enforce_Accel_Honesty();
 	Update_Computer_Types();
 
 	// Get current VM devices
@@ -3860,13 +3935,17 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 	// x509 Folder
 	ui.Edit_x509verify_Folder->setText( tmp_vm->Get_VNC_x509verify_Folder_Path() );
 
-	// Skip heavy HTML Info rebuild unless that tab is visible.
-	if( update_info_tab && ui.Tabs && ui.Tabs->currentWidget() == ui.Tab_Info )
-		Update_Info_Text();
 	Update_Win11_Lifecycle_Ui();
 	Update_Intel_MacOS_Settings_Ui();
 	Update_DeviceTree_Visibility();
 	Update_Disabled_Controls(); // FIXME
+	// After the Architecture combo matches this VM. An earlier pass used the
+	// previous guest and disabled WHPX for an AArch64 machine.
+	Enforce_Accel_Honesty();
+	// Info is drawn after the combo settles, so a grey KVM row cannot leave
+	// "KVM" on Info while the selection has moved to TCG.
+	if( update_info_tab && ui.Tabs && ui.Tabs->currentWidget() == ui.Tab_Info )
+		Update_Info_Text();
 
 	// CPU count AFTER Update_Disabled_Controls — that rebuilds the combo and used to wipe this to 1.
 	ui.CB_CPU_Count->setEditText( QString::number( tmp_vm->Get_SMP_CPU_Count() ) );
@@ -4112,6 +4191,9 @@ void Main_Window::Update_Disabled_Controls()
 
 	// SPICE
 	SPICE_Widget->setEnabled( curComp.PSO_SPICE );
+	SPICE_Widget->setToolTip( curComp.PSO_SPICE ? QString() :
+		tr( "This QEMU was built without SPICE, so the remote display is unavailable. "
+		    "The spice audio driver needs the same library." ) );
 	SPICE_Widget->Set_PSO_GXL( curComp.PSO_QXL );
 
 	// Obsolete QEMU options
@@ -4204,6 +4286,48 @@ QString Main_Window::Get_Storage_Device_Info_String( const QString &path )
 	return tr("Type: Image     Size: ") + QString::number(size, 'f', 2) + suf;
 }
 
+void Main_Window::Ensure_Serial_Monitor()
+{
+	if( Serial_Monitor )
+		return;
+	Serial_Monitor = new Serial_Console_Window( this );
+	connect( Serial_Monitor, &Serial_Console_Window::User_Closed, this, [this]() {
+		if( Act_Serial_Monitor )
+			Act_Serial_Monitor->setChecked( false );
+	} );
+}
+
+void Main_Window::Show_QEMU_Monitor()
+{
+	Virtual_Machine *vm = Get_Current_VM();
+	if( ! vm || ( vm->Get_State() != VM::VMS_Running && vm->Get_State() != VM::VMS_Pause ) )
+	{
+		QMessageBox::information( this, tr( "QEMU monitor" ),
+			tr( "Start the VM first. This window sends commands to QEMU. "
+			    "The serial console sends keystrokes to the guest." ) );
+		return;
+	}
+	if( ! QEMU_Monitor )
+		QEMU_Monitor = new Monitor_Window( this );
+	if( QEMU_Monitor_VM && QEMU_Monitor_VM != vm )
+	{
+		disconnect( QEMU_Monitor, SIGNAL(Command_Sent(QString)),
+		            QEMU_Monitor_VM, SLOT(Execute_Emu_Ctl_Command(QString)) );
+		disconnect( QEMU_Monitor_VM, SIGNAL(Clean_Console(QString)),
+		            QEMU_Monitor, SLOT(Add_QEMU_Out(QString)) );
+	}
+	QEMU_Monitor_VM = vm;
+	connect( QEMU_Monitor, SIGNAL(Command_Sent(QString)),
+	         vm, SLOT(Execute_Emu_Ctl_Command(QString)),
+	         Qt::UniqueConnection );
+	connect( vm, SIGNAL(Clean_Console(QString)),
+	         QEMU_Monitor, SLOT(Add_QEMU_Out(QString)),
+	         Qt::UniqueConnection );
+	QEMU_Monitor->show();
+	QEMU_Monitor->raise();
+	QEMU_Monitor->activateWindow();
+}
+
 void Main_Window::VM_State_Changed( Virtual_Machine *vm, VM::VM_State s )
 {
 	if( vm == NULL )
@@ -4211,6 +4335,17 @@ void Main_Window::VM_State_Changed( Virtual_Machine *vm, VM::VM_State s )
 		AQError( "void Main_Window::VM_State_Changed( Virtual_Machine *vm, VM::VM_State s )",
 				 "Error: vm == NULL" );
 		return;
+	}
+
+	if( Act_Serial_Monitor && Act_Serial_Monitor->isChecked() &&
+	    ( s == VM::VMS_Running || s == VM::VMS_Pause ) &&
+	    vm->Get_Serial_Console_Port() > 0 )
+	{
+		if( ! Serial_Monitor )
+			Ensure_Serial_Monitor();
+		Serial_Monitor->Attach( vm );
+		Serial_Monitor->show();
+		Serial_Monitor->raise();
 	}
 
 	// Always leave the guest view when this VM stops — even if the list has no
@@ -6904,6 +7039,45 @@ void Main_Window::Refresh_Audiodev_Backends()
 		names = QEMU_Probe_Catalog::Audio_Drivers( arch.isEmpty()
 			? QStringLiteral( "qemu-system-x86_64" ) : arch );
 
+	// Drivers for the process that will actually start. WSL is Linux, so ALSA
+	// stays in that list. A Windows qemu-system never sees it.
+	bool linux_qemu = false;
+#ifdef Q_OS_WIN
+	bool via_wsl = false;
+	if( Virtual_Machine *vm = Get_Current_VM() )
+		via_wsl = vm->Use_Launch_Via_WSL();
+	if( ui_ao.CH_Launch_Via_WSL && ui_ao.CH_Launch_Via_WSL->isChecked() )
+		via_wsl = true;
+	if( ui.CH_Intel_Mac_WSL_Main && ui.CH_Intel_Mac_WSL_Main->isChecked() )
+		via_wsl = true;
+	const bool applesoc = arch.contains( QLatin1String( "applesoc" ), Qt::CaseInsensitive );
+	const bool reims = arch.contains( QLatin1String( "reims" ), Qt::CaseInsensitive );
+	if( applesoc )
+		linux_qemu = true;
+	else if( reims )
+		linux_qemu = via_wsl && ! System_Info::Host_Reims_Prefers_Windows_Binary();
+	else
+		linux_qemu = via_wsl;
+#endif
+	if( linux_qemu )
+	{
+		names = QStringList()
+			<< QStringLiteral( "pa" ) << QStringLiteral( "pipewire" ) << QStringLiteral( "alsa" )
+			<< QStringLiteral( "spice" ) << QStringLiteral( "sdl" ) << QStringLiteral( "oss" )
+			<< QStringLiteral( "jack" ) << QStringLiteral( "wav" ) << QStringLiteral( "none" );
+	}
+	else
+	{
+		QStringList host_names;
+		for( int i = 0; i < names.count(); ++i )
+		{
+			const QString n = names.at( i ).trimmed().toLower();
+			if( AQ_Audio_Host_Can_Use( n ) )
+				host_names << n;
+		}
+		names = host_names;
+	}
+
 	ui.CB_Audiodev_Backend->blockSignals( true );
 	ui.CB_Audiodev_Backend->clear();
 	ui.CB_Audiodev_Backend->addItem( tr( "(global)" ) );
@@ -7193,17 +7367,6 @@ void Main_Window::Computer_Type_Changed()
 		ui.CH_cs4231a->setChecked( false );
 		ui.CH_VirtIO_Sound->setChecked( false );
 		ui.CH_USB_Audio->setChecked( false );
-	}
-	else
-	{
-		// Default to Intel HDA when nothing is selected yet
-		const bool any_sound =
-			ui.CH_sb16->isChecked() || ui.CH_es1370->isChecked() || ui.CH_Adlib->isChecked() ||
-			ui.CH_AC97->isChecked() || ui.CH_GUS->isChecked() || ui.CH_PCSPK->isChecked() ||
-			ui.CH_HDA->isChecked() || ui.CH_cs4231a->isChecked() ||
-			ui.CH_VirtIO_Sound->isChecked() || ui.CH_USB_Audio->isChecked();
-		if( ! any_sound && curComp.Audio_Card_List.Audio_HDA && ui.CH_HDA->isEnabled() )
-			ui.CH_HDA->setChecked( true );
 	}
 
     ui_arch.CB_CPU_Type->blockSignals(false);
@@ -7856,14 +8019,14 @@ void Main_Window::Refresh_Apple_Nand_On_Disk_Label( const Virtual_Machine *vm )
 
 void Main_Window::Update_Machine_Accelerators()
 {
-	const QString keep = ui.CB_Machine_Accelerator->currentData( Qt::UserRole ).toString().toLower();
+	QString keep = ui.CB_Machine_Accelerator->currentData( Qt::UserRole ).toString().toLower();
 
 	ui.CB_Machine_Accelerator->blockSignals( true );
 	ui.CB_Machine_Accelerator->clear();
 	ui.CB_Machine_Accelerator->addItem( tr( "TCG" ), QStringLiteral( "tcg" ) );
 #ifdef Q_OS_WIN
-	/* Saved VMs still store "kvm". On Windows that value is WHPX. */
-	ui.CB_Machine_Accelerator->addItem( tr( "WHPX" ), QStringLiteral( "kvm" ) );
+	ui.CB_Machine_Accelerator->addItem( tr( "WHPX" ), QStringLiteral( "whpx" ) );
+	ui.CB_Machine_Accelerator->addItem( tr( "KVM" ), QStringLiteral( "kvm" ) );
 #else
 	ui.CB_Machine_Accelerator->addItem( tr( "KVM" ), QStringLiteral( "kvm" ) );
 #endif
@@ -7893,8 +8056,26 @@ void Main_Window::Enforce_Accel_Honesty()
 
 	auto *model = qobject_cast<QStandardItemModel *>( ui.CB_Machine_Accelerator->model() );
 	ui.CB_Machine_Accelerator->blockSignals( true );
+	ui.CB_Machine_Accelerator->setEnabled( true );
 
-	// Guest binary unknown (startup / no VM selected): keep all accelerators selectable.
+#ifdef Q_OS_WIN
+	bool has_whpx_row = false;
+	for( int i = 0; i < ui.CB_Machine_Accelerator->count(); ++i )
+	{
+		if( ui.CB_Machine_Accelerator->itemData( i, Qt::UserRole ).toString().toLower() == QLatin1String( "whpx" ) )
+		{
+			has_whpx_row = true;
+			break;
+		}
+	}
+	if( ! has_whpx_row )
+	{
+		ui.CB_Machine_Accelerator->blockSignals( false );
+		Update_Machine_Accelerators();
+		return;
+	}
+#endif
+
 	if( guest.isEmpty() )
 	{
 		for( int i = 0; i < ui.CB_Machine_Accelerator->count(); ++i )
@@ -7912,120 +8093,150 @@ void Main_Window::Enforce_Accel_Honesty()
 		return;
 	}
 
-	const bool is_wsl = ui.CH_Intel_Mac_WSL_Main->isChecked() || ui_ao.CH_Launch_Via_WSL->isChecked();
-	const bool is_native = AQ_Guest_Matches_Host_Architecture( guest ) || is_wsl;
+	QString qemu_bin;
+	bool via_wsl = false;
+	if( Virtual_Machine *vm = Get_Current_VM() )
+	{
+		qemu_bin = vm->Get_Current_Emulator_Binary_Path( guest_bin );
+		if( ui.GB_Intel_MacOS_Settings->isVisible() )
+			via_wsl = ui.CH_Intel_Mac_WSL_Main->isChecked();
+		else
+			via_wsl = vm->Use_Launch_Via_WSL();
+	}
+	const AQ_Accel_Flags avail = AQ_Accelerator_Availability( guest_bin, qemu_bin, via_wsl );
 
 	const Architecture_Hardware_Capabilities guest_caps =
 		QEMU_Probe_Catalog::Get_Hardware_Capabilities( guest_bin );
 
+	const QColor enabled_fg = ui.CB_Machine_Accelerator->palette().color( QPalette::Active, QPalette::Text );
+	const QColor disabled_fg = ui.CB_Machine_Accelerator->palette().color( QPalette::Disabled, QPalette::Text );
+
 	int tcg_index = -1;
+	int whpx_index = -1;
 	int kvm_index = -1;
 	for( int i = 0; i < ui.CB_Machine_Accelerator->count(); ++i )
 	{
 		const QString id = ui.CB_Machine_Accelerator->itemData( i, Qt::UserRole ).toString().toLower();
 		if( id == QLatin1String( "tcg" ) )
 			tcg_index = i;
-		if( id == QLatin1String( "kvm" ) )
+		else if( id == QLatin1String( "whpx" ) )
+			whpx_index = i;
+		else if( id == QLatin1String( "kvm" ) )
 			kvm_index = i;
 
-		const bool native_only =
-			( id == QLatin1String( "kvm" ) || id == QLatin1String( "xen" ) );
-
 		bool allowed = true;
-		if( ! is_native && native_only )
-			allowed = false;
-		if( id == QLatin1String( "kvm" ) && guest_caps.valid && ! guest_caps.has_kvm )
-			allowed = false;
-#ifdef Q_OS_WIN
-		if( id == QLatin1String( "kvm" ) && model )
+		QString tip;
+		QString label;
+		if( id == QLatin1String( "tcg" ) )
 		{
-			if( QStandardItem *whpx_item = model->item( i ) )
+			label = tr( "TCG" );
+			allowed = avail.tcg && ! ( guest_caps.valid && ! guest_caps.has_tcg );
+			tip = tr( "Software emulation. Runs any guest on this PC." );
+		}
+		else if( id == QLatin1String( "whpx" ) )
+		{
+			label = tr( "WHPX" );
+			allowed = avail.whpx;
+			if( guest_bin.contains( QLatin1String( "applesoc" ), Qt::CaseInsensitive ) )
+				tip = tr( "qemu-system-applesoc.exe includes TCG only." );
+			else if( ! AQ_Guest_Matches_Host_Architecture( guest ) )
+				tip = tr( "WHPX runs a guest that matches this %1 PC. This %2 guest uses TCG." ).arg( host ).arg( guest );
+			else if( ! allowed )
+				tip = tr( "WHPX is not available for this guest on this PC." );
+			else
+				tip = tr( "Windows Hypervisor Platform. Choosing it turns Run via WSL off and starts the Windows QEMU." );
+		}
+		else if( id == QLatin1String( "kvm" ) )
+		{
+			label = tr( "KVM" );
+			allowed = avail.kvm;
+			if( ! AQ_Guest_Matches_Host_Architecture( guest ) )
+				tip = tr( "KVM runs a guest that matches this %1 PC. This %2 guest uses TCG." ).arg( host ).arg( guest );
+			else if( ! allowed )
 			{
-				QString tip = tr( "Windows Hypervisor Platform. AQEMU saves this as the native accelerator." );
-				if( ! is_native )
-				{
-					tip = tr( "WHPX runs a guest that matches this PC. This guest uses TCG." );
-				}
-				else if( ! AQ_Host_WHPX_Usable() && AQ_Get_Host_CPU_Architecture() == QLatin1String( "aarch64" ) )
-				{
-					tip = tr( "WHPX is not available on this PC. The hypervisor may be off, "
-					          "or this Windows build has no ARM64 support. "
-					          "Windows 11 24H2 build 26100.3915 or later is required. "
-					          "The guest uses TCG." );
-				}
-				else if( ! AQ_Host_WHPX_Usable() )
-				{
-					tip = tr( "WHPX is not available on this PC. Turn on the Windows Hypervisor Platform feature. "
-					          "The guest uses TCG." );
-				}
-				else if( ! allowed )
-				{
-					tip = tr( "WHPX is not in this QEMU build, so the guest uses TCG." );
-				}
-				whpx_item->setToolTip( tip );
+#ifdef Q_OS_WIN
+				tip = tr( "KVM needs a usable /dev/kvm in WSL. This guest uses TCG until then." );
+#else
+				tip = tr( "KVM needs /dev/kvm on this PC. This guest uses TCG until then." );
+#endif
+			}
+			else
+			{
+#ifdef Q_OS_WIN
+				tip = tr( "Linux KVM inside WSL. Choosing it turns Run via WSL on." );
+#else
+				tip = tr( "Linux KVM. The guest matches this PC and /dev/kvm is usable." );
+#endif
 			}
 		}
-#endif
-		if( id == QLatin1String( "tcg" ) && guest_caps.valid && ! guest_caps.has_tcg )
-			allowed = false;
+		else if( id == QLatin1String( "xen" ) )
+		{
+			label = tr( "XEN" );
+			allowed = avail.xen;
+			tip = allowed
+				? tr( "Xen is present on this PC and the guest matches the host." )
+				: tr( "Xen is not available on this PC for this guest." );
+		}
+
+		if( ! allowed && ! label.isEmpty() )
+			label = tr( "%1 (unavailable)" ).arg( label );
 
 		if( model )
 		{
 			QStandardItem *item = model->item( i );
 			if( ! item )
 				continue;
+			if( ! label.isEmpty() )
+				item->setText( label );
+			item->setToolTip( tip );
 			if( ! allowed )
+			{
 				item->setFlags( item->flags() & ~( Qt::ItemIsEnabled | Qt::ItemIsSelectable ) );
+				item->setForeground( disabled_fg );
+			}
 			else
+			{
 				item->setFlags( Qt::ItemIsEnabled | Qt::ItemIsSelectable );
+				item->setForeground( enabled_fg );
+			}
 		}
 	}
 
-	bool forced_tcg = false;
-	bool accel_index_changed = false;
-	if( is_wsl )
+	ui.CB_Machine_Accelerator->setToolTip(
+		tr( "This PC is %1. This guest is %2. Grey rows cannot run here. Any enabled row can be selected." )
+			.arg( host ).arg( guest ) );
+
+	bool moved = false;
+	if( model )
 	{
-		ui.CB_Machine_Accelerator->setEnabled( false );
-		if( kvm_index >= 0 && ui.CB_Machine_Accelerator->currentIndex() != kvm_index )
+		QStandardItem *cur = model->item( ui.CB_Machine_Accelerator->currentIndex() );
+		if( ! cur || ! ( cur->flags() & Qt::ItemIsEnabled ) )
 		{
-			ui.CB_Machine_Accelerator->setCurrentIndex( kvm_index );
-			accel_index_changed = true;
+			const int order[] = { whpx_index, kvm_index, tcg_index };
+			for( int n = 0; n < 3; ++n )
+			{
+				const int ix = order[n];
+				if( ix < 0 )
+					continue;
+				QStandardItem *item = model->item( ix );
+				if( item && ( item->flags() & Qt::ItemIsEnabled ) &&
+				    ui.CB_Machine_Accelerator->currentIndex() != ix )
+				{
+					ui.CB_Machine_Accelerator->setCurrentIndex( ix );
+					moved = true;
+					break;
+				}
+			}
 		}
-		ui.CB_Machine_Accelerator->setToolTip(
-			tr( "WSL execution selected: native KVM acceleration is enforced inside the WSL VM." ) );
-	}
-	else if( ! is_native )
-	{
-		ui.CB_Machine_Accelerator->setEnabled( true );
-		if( tcg_index >= 0 && ui.CB_Machine_Accelerator->currentIndex() != tcg_index )
-		{
-			ui.CB_Machine_Accelerator->setCurrentIndex( tcg_index );
-			forced_tcg = true;
-		}
-		ui.CB_Machine_Accelerator->setToolTip(
-			tr( "Cross-architecture emulation: host is %1, guest is %2. "
-			    "Native acceleration (KVM / WHPX / HVF) cannot run this guest. Using TCG." )
-				.arg( host ).arg( guest ) );
-	}
-	else
-	{
-		ui.CB_Machine_Accelerator->setEnabled( true );
-		ui.CB_Machine_Accelerator->setToolTip(
-#ifdef Q_OS_WIN
-			tr( "Host %1 matches guest %2. WHPX is the native accelerator, with TCG if it cannot start." )
-#else
-			tr( "Host %1 matches guest %2. KVM is the native accelerator, with TCG if it cannot start." )
-#endif
-				.arg( host ).arg( guest ) );
 	}
 
 	ui.CB_Machine_Accelerator->blockSignals( false );
 	Update_Accelerator_Options();
 
-	// Persist forced accel (WSL→KVM or cross-arch→TCG) so Apply/Cancel don't lose it.
-	if( forced_tcg || accel_index_changed )
+	if( moved )
 		VM_Changed();
 }
+
 
 int Main_Window::Disk_Interface_To_Combo_Index( VM::Device_Interface iface ) const
 {
@@ -8698,6 +8909,44 @@ void Main_Window::Update_Intel_MacOS_Settings_Ui()
 		20, show ? 16 : 0, QSizePolicy::Minimum, show ? QSizePolicy::Fixed : QSizePolicy::Ignored );
 	ui.verticalSpacer_intel_macos->invalidate();
 
+	// Temporary Reims host switch: WSL Linux ELF vs Windows PE beside aqemu.exe.
+	if( ui.CH_Intel_Mac_WSL_Main )
+	{
+		if( is_reims )
+		{
+			const bool windows_reims = System_Info::Host_Reims_Prefers_Windows_Binary();
+			ui.CH_Intel_Mac_WSL_Main->setText( tr(
+				"Run Reims via WSL (uncheck = Windows qemu-system-reims3d.exe)" ) );
+			if( windows_reims )
+			{
+				ui.CH_Intel_Mac_WSL_Main->setChecked( false );
+				ui.CH_Intel_Mac_WSL_Main->setEnabled( false );
+				ui.CH_Intel_Mac_WSL_Main->setToolTip( tr(
+					"This PC is Qualcomm Snapdragon. WSL has no Adreno Vulkan driver, "
+					"so Reims starts qemu-system-reims3d.exe and uses the Windows GPU driver.\n"
+					"Intel and AMD PCs still use the WSL binary." ) );
+			}
+			else
+			{
+				ui.CH_Intel_Mac_WSL_Main->setEnabled( true );
+				ui.CH_Intel_Mac_WSL_Main->setToolTip( tr(
+					"Checked: Linux qemu-system-reims3d inside WSL (Vulkan, or Mesa Dozen on NVIDIA/AMD/Intel).\n"
+					"Unchecked: native Windows qemu-system-reims3d.exe next to AQEMU.\n"
+					"Apply before Start." ) );
+			}
+		}
+		else
+		{
+			ui.CH_Intel_Mac_WSL_Main->setText( tr( "Launch via WSL/KVM" ) );
+			ui.CH_Intel_Mac_WSL_Main->setToolTip( tr(
+				"Run Linux QEMU inside WSL with KVM when available." ) );
+		}
+	}
+	// One checkbox only: the VM page, under OpenCore / OSK. The Advanced
+	// Options copy stays hidden so it cannot override that box on Apply.
+	if( ui_ao.CH_Launch_Via_WSL )
+		ui_ao.CH_Launch_Via_WSL->setVisible( false );
+
 	if( show )
 		Update_Intel_Mac_GPU_Passthrough_Ui();
 	else
@@ -8824,6 +9073,23 @@ void Main_Window::Apply_Intel_Mac_GPU_Passthrough_Ui_From_Cache()
 		}
 
 #ifdef Q_OS_WIN
+		if( System_Info::Host_Reims_Prefers_Windows_Binary() )
+		{
+			ui.Label_Intel_Mac_GPU_Status->setText( tr(
+				"Reims on this Qualcomm/ARM PC uses Windows qemu-system-reims3d.exe "
+				"and the native GPU driver. WSL is not used: it has no Adreno Vulkan ICD.\n"
+				"Windows GPUs: %1.\n"
+				"AQEMU's viewer stays blank (the VM is -vga none; the Reims framebuffer "
+				"is not the VNC surface). Early boot text is on the serial console. "
+				"A native window is off unless Advanced Settings → Reims host window is enabled.\n"
+				"Intel and AMD PCs still launch the Linux binary inside WSL." )
+				.arg( vendors ) );
+			Q_UNUSED( has_wsl_gpu );
+			Q_UNUSED( has_amd );
+			Q_UNUSED( has_nvidia );
+			Q_UNUSED( has_intel );
+			return;
+		}
 		const QString vk = WSL_Probe_Accelerated_Vulkan_GPU(
 			QSettings().value( QStringLiteral( "WSL_Launch/Distro" ), QString() ).toString() );
 		const QStringList vk_all = WSL_List_Accelerated_Vulkan_GPUs(

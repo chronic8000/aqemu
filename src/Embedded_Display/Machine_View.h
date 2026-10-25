@@ -50,6 +50,7 @@ class MachineView : public QScrollArea
 		
 		void Set_VNC_URL( const QString &host, int port );
 		void Set_Scaling( bool s );
+		void Set_Keep_Aspect( bool on );
 		void Set_Fullscreen( bool on );
 		
 		void showSplash( bool show );
@@ -92,6 +93,7 @@ class MachineView : public QScrollArea
 		int VNC_Port;
 		QString VNC_Host;
 		bool Scaling;
+		bool Keep_Aspect;
 		
 		bool splashShown;
 		bool fullscreenEnabled;

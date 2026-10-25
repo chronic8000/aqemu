@@ -78,6 +78,10 @@ public:
     void setStickyMouseGrab(bool on);
     bool stickyMouseGrab() const { return m_stickyMouseGrab; }
 
+    /** Fit the framebuffer inside the widget and center it. iOS uses this so a
+     *  portrait phone is not stretched across a wide session. */
+    void setKeepAspect(bool on);
+
 public Q_SLOTS:
     void scaleResize(int w, int h) override;
 
@@ -94,6 +98,7 @@ private:
     int m_buttonMask;
     bool m_stickyMouseGrab;
     bool m_dragMouseGrab;
+    bool m_keepAspect;
     QMap<unsigned int, bool> m_mods;
     bool m_quitFlag;
     bool m_firstPasswordTry;
@@ -118,6 +123,9 @@ private:
     void keyEventHandler(QKeyEvent *e);
     void unpressModifiers();
     void wheelEventHandler(QWheelEvent *event);
+    QRect aspectDestRect() const;
+    QPoint guestPointFromWidget(const QPoint &widgetPos) const;
+    void applyScaleFactors(int widgetW, int widgetH);
     void mouseEventHandler(QMouseEvent *event);
 
 private Q_SLOTS:

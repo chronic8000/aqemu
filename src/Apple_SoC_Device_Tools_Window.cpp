@@ -18,6 +18,7 @@
 #include <QMessageBox>
 #include <QProcessEnvironment>
 #include <QSettings>
+#include <QStandardPaths>
 #include <QTabWidget>
 #include <QUrl>
 #include <QVBoxLayout>
@@ -110,12 +111,33 @@ QString Companion_Zsign_IPA( const QString &remote_ipa )
 	return QStringLiteral(
 		"echo 'Signing IPA with zsign (adhoc CMS)...'; "
 		"_CERTDIR=$(mktemp -d); "
-		"openssl req -x509 -newkey rsa:2048 -keyout \"$_CERTDIR/key.pem\" "
-		"  -out \"$_CERTDIR/cert.pem\" -days 3650 -nodes "
-		"  -subj '/CN=AQEMU Adhoc/O=AQEMU/C=US' 2>/dev/null; "
-		"openssl pkcs12 -export -out \"$_CERTDIR/cert.p12\" "
+		/* A lone self-signed leaf has no CA in the p12. This zsign then looks
+		   up the issuer hash in its embedded Apple WWDR list and aborts with
+		   "Unknown issuer hash". A local CA that actually issued the leaf is
+		   stored in the p12 so GenerateCMS embeds that chain instead. */
+		"if ! openssl req -x509 -newkey rsa:2048 -quiet "
+		"  -keyout \"$_CERTDIR/ca.key\" -out \"$_CERTDIR/ca.pem\" "
+		"  -days 3650 -nodes "
+		"  -subj '/CN=AQEMU Adhoc CA/O=AQEMU/C=US' "
+		"  -addext 'basicConstraints=critical,CA:TRUE' "
+		"  -addext 'keyUsage=critical,keyCertSign,cRLSign'; then "
+		"  rm -rf \"$_CERTDIR\"; echo ERROR: could not create the adhoc CA.; exit 1; "
+		"fi; "
+		"if ! openssl req -newkey rsa:2048 -nodes -quiet "
+		"  -keyout \"$_CERTDIR/key.pem\" -out \"$_CERTDIR/leaf.csr\" "
+		"  -subj '/CN=AQEMU Adhoc/O=AQEMU/C=US'; then "
+		"  rm -rf \"$_CERTDIR\"; echo ERROR: could not create the adhoc leaf key.; exit 1; "
+		"fi; "
+		"if ! openssl x509 -req -in \"$_CERTDIR/leaf.csr\" "
+		"  -CA \"$_CERTDIR/ca.pem\" -CAkey \"$_CERTDIR/ca.key\" -CAcreateserial "
+		"  -out \"$_CERTDIR/cert.pem\" -days 3650; then "
+		"  rm -rf \"$_CERTDIR\"; echo ERROR: could not sign the adhoc leaf.; exit 1; "
+		"fi; "
+		"if ! openssl pkcs12 -export -out \"$_CERTDIR/cert.p12\" "
 		"  -inkey \"$_CERTDIR/key.pem\" -in \"$_CERTDIR/cert.pem\" "
-		"  -passout pass:aqemu 2>/dev/null; "
+		"  -certfile \"$_CERTDIR/ca.pem\" -passout pass:aqemu; then "
+		"  rm -rf \"$_CERTDIR\"; echo ERROR: could not pack the adhoc p12.; exit 1; "
+		"fi; "
 		"cat > \"$_CERTDIR/fake.mobileprovision\" << 'PROVEOF'\n"
 		"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
 		"<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n"
@@ -133,10 +155,21 @@ QString Companion_Zsign_IPA( const QString &remote_ipa )
 		"  <key>Version</key><integer>1</integer>\n"
 		"</dict></plist>\n"
 		"PROVEOF\n"
+		/* zsign reads TeamIdentifier from a CMS-signed profile. A raw plist
+		   makes d2i_CMS_bio fail and prints "Can't find TeamId!". */
+		"if ! openssl cms -sign -binary "
+		"  -in \"$_CERTDIR/fake.mobileprovision\" "
+		"  -signer \"$_CERTDIR/cert.pem\" -inkey \"$_CERTDIR/key.pem\" "
+		"  -nodetach -outform DER -out \"$_CERTDIR/fake.mobileprovision.cms\"; then "
+		"  rm -rf \"$_CERTDIR\"; "
+		"  echo ERROR: could not CMS-sign the adhoc profile.; exit 1; "
+		"fi; "
+		"mv \"$_CERTDIR/fake.mobileprovision.cms\" \"$_CERTDIR/fake.mobileprovision\"; "
 		"_ZS_OUT=$(mktemp /tmp/aqemu-signed-XXXXXX.ipa); "
-		"if ! zsign -k \"$_CERTDIR/cert.p12\" -p aqemu "
+		"echo 'Re-packing without extra compression so the archive can finish.'; "
+		"if ! zsign -c \"$_CERTDIR/cert.pem\" -k \"$_CERTDIR/cert.p12\" -p aqemu "
 		"  -m \"$_CERTDIR/fake.mobileprovision\" "
-		"  -o \"$_ZS_OUT\" -z 9 '%1' 2>&1; then "
+		"  -o \"$_ZS_OUT\" -z 0 '%1' 2>&1; then "
 		"  rm -f \"$_ZS_OUT\"; rm -rf \"$_CERTDIR\"; "
 		"  echo ERROR: zsign failed.; exit 1; "
 		"fi; "
@@ -407,13 +440,25 @@ QString Apple_SoC_Device_Tools_Window::SSH_Base() const
 		"GUEST='%2'; "
 		"PORT='%3'; "
 		"if ! command -v sshpass >/dev/null 2>&1; then "
-		"  sudo -n apt-get install -y sshpass 2>/dev/null || true; "
+		"  sudo -n apt-get install -y sshpass >/dev/null 2>&1 || true; "
 		"fi; "
 		"SSH_OPTS=(-o StrictHostKeyChecking=accept-new "
 		"-o UserKnownHostsFile=\"$HOME/.aqemu-companion-known_hosts\" "
+		"-o PreferredAuthentications=password -o PubkeyAuthentication=no "
+		"-o NumberOfPasswordPrompts=1 "
 		"-o ConnectTimeout=8 -o LogLevel=ERROR); "
-		"ssh_do() { sshpass -e ssh -p \"$PORT\" \"${SSH_OPTS[@]}\" \"$GUEST@127.0.0.1\" \"$@\"; }; "
-		"scp_do() { sshpass -e scp -P \"$PORT\" \"${SSH_OPTS[@]}\" \"$@\"; }; " )
+		"if command -v sshpass >/dev/null 2>&1; then "
+		"  ssh_do() { sshpass -e ssh -p \"$PORT\" \"${SSH_OPTS[@]}\" \"$GUEST@127.0.0.1\" \"$@\"; }; "
+		"  scp_do() { sshpass -e scp -P \"$PORT\" \"${SSH_OPTS[@]}\" \"$@\"; }; "
+		"else "
+		"  echo 'sshpass is not installed in WSL; using SSH_ASKPASS.'; "
+		"  AQ_ASK=$(mktemp); "
+		"  printf '%s\\n' '#!/bin/sh' 'printf %%s \"$SSHPASS\"' > \"$AQ_ASK\"; "
+		"  chmod 700 \"$AQ_ASK\"; "
+		"  export SSH_ASKPASS=\"$AQ_ASK\" SSH_ASKPASS_REQUIRE=force DISPLAY=\"${DISPLAY:-:0}\"; "
+		"  ssh_do() { setsid -w ssh -p \"$PORT\" \"${SSH_OPTS[@]}\" \"$GUEST@127.0.0.1\" \"$@\"; }; "
+		"  scp_do() { setsid -w scp -P \"$PORT\" \"${SSH_OPTS[@]}\" \"$@\"; }; "
+		"fi; " )
 		.arg( Shell_Quote( Edit_SSH_Password->text() ),
 		      Shell_Quote( guest ),
 		      Shell_Quote( port ) );
@@ -517,9 +562,39 @@ void Apple_SoC_Device_Tools_Window::Run_Install_IPA()
 
 void Apple_SoC_Device_Tools_Window::Run_Screenshot()
 {
+	QString pictures = QStandardPaths::writableLocation( QStandardPaths::PicturesLocation );
+	if( pictures.isEmpty() )
+		pictures = QDir::homePath();
+	const QString local = QFileDialog::getSaveFileName(
+		this, tr( "Save iPhone screenshot" ),
+		QDir( pictures ).filePath( QStringLiteral( "aqemu-ios.png" ) ),
+		tr( "PNG image (*.png);;All (*)" ) );
+	if( local.isEmpty() )
+		return;
+
+	const QFileInfo dest( local );
+	QDir().mkpath( dest.absolutePath() );
+	const QString wsl_dest = Windows_Path_To_WSL( dest.absoluteFilePath() );
+	const QString shown = QDir::toNativeSeparators( dest.absoluteFilePath() );
+
+	// idevicescreenshot writes on the companion. scp_do runs in WSL and
+	// drops the PNG on the Windows path (/mnt/c/...), then the companion copy is removed.
 	Start_Companion_SSH(
-		"ssh_do 'idevicescreenshot /tmp/aqemu-ios.png 2>&1'; "
-		"echo DONE - file on companion: /tmp/aqemu-ios.png" );
+		QStringLiteral(
+			"echo '=== idevicescreenshot ==='; "
+			"ssh_do 'idevicescreenshot /tmp/aqemu-ios.png'; "
+			"if ! ssh_do 'test -s /tmp/aqemu-ios.png'; then "
+			"  echo 'ERROR: no screenshot file on the companion.'; "
+			"  echo 'screenshotr needs a Developer disk image mounted on the phone.'; "
+			"  exit 1; "
+			"fi; "
+			"echo 'Copying screenshot to this PC...'; "
+			"scp_do \"$GUEST@127.0.0.1:/tmp/aqemu-ios.png\" '%1' || { "
+			"  echo 'ERROR: SSH copy to this PC failed.'; exit 1; }; "
+			"ssh_do 'rm -f /tmp/aqemu-ios.png' || true; "
+			"if [ ! -s '%1' ]; then echo 'ERROR: saved file is empty.'; exit 1; fi; "
+			"echo 'DONE - saved on this PC: %2'" )
+			.arg( Shell_Quote( wsl_dest ), Shell_Quote( shown ) ) );
 }
 
 void Apple_SoC_Device_Tools_Window::Run_Network_Diagnose()

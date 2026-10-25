@@ -1,5 +1,6 @@
 name: Build Windows MSIX (x86_64 & ARM64)
 
+# Push builds are off. Windows ARM64 and x64 are built on the Snapdragon laptop.
 on:
   workflow_dispatch:
     inputs:
@@ -8,15 +9,6 @@ on:
         required: false
         type: boolean
         default: false
-  push:
-    branches:
-      - master
-    paths-ignore:
-      - 'docs/**'
-      - '**.md'
-      - '.gitignore'
-      - 'scripts/build_qemu_linux_*.sh'
-      - 'scripts/build_qemu_pi5.sh'
 
 jobs:
   build-msix:
@@ -48,6 +40,7 @@ jobs:
               mingw-w64-ucrt-x86_64-glib2
               mingw-w64-ucrt-x86_64-pixman
               mingw-w64-ucrt-x86_64-libslirp
+              mingw-w64-ucrt-x86_64-spice
               mingw-w64-ucrt-x86_64-libusb
               mingw-w64-ucrt-x86_64-usbredir
               mingw-w64-ucrt-x86_64-curl
@@ -57,6 +50,13 @@ jobs:
               mingw-w64-ucrt-x86_64-nettle
               mingw-w64-ucrt-x86_64-gmp
               mingw-w64-ucrt-x86_64-dtc
+              mingw-w64-ucrt-x86_64-libpng
+              mingw-w64-ucrt-x86_64-libjpeg-turbo
+              mingw-w64-ucrt-x86_64-lzo2
+              mingw-w64-ucrt-x86_64-bzip2
+              mingw-w64-ucrt-x86_64-snappy
+              mingw-w64-ucrt-x86_64-libssh
+              mingw-w64-ucrt-x86_64-libnfs
               git
               diffutils
 
@@ -80,6 +80,7 @@ jobs:
               mingw-w64-clang-aarch64-glib2
               mingw-w64-clang-aarch64-pixman
               mingw-w64-clang-aarch64-libslirp
+              mingw-w64-clang-aarch64-spice
               mingw-w64-clang-aarch64-libusb
               mingw-w64-clang-aarch64-usbredir
               mingw-w64-clang-aarch64-curl
@@ -89,6 +90,13 @@ jobs:
               mingw-w64-clang-aarch64-nettle
               mingw-w64-clang-aarch64-gmp
               mingw-w64-clang-aarch64-dtc
+              mingw-w64-clang-aarch64-libpng
+              mingw-w64-clang-aarch64-libjpeg-turbo
+              mingw-w64-clang-aarch64-lzo2
+              mingw-w64-clang-aarch64-bzip2
+              mingw-w64-clang-aarch64-snappy
+              mingw-w64-clang-aarch64-libssh
+              mingw-w64-clang-aarch64-libnfs
               git
               diffutils
 

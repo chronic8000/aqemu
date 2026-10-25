@@ -1508,7 +1508,7 @@
                  <item>
                   <widget class="QComboBox" name="CB_Audiodev_Backend">
                    <property name="toolTip">
-                    <string>Per-VM host audio backend for -audiodev. “(global)” uses the driver this QEMU actually compiled in. The list is that binary’s -audiodev help. The Windows package has no SDL driver; playback uses spice. DirectSound is not offered on Windows ARM.</string>
+                    <string>Host playback for this VM. Windows x64 uses DirectSound. Windows ARM has no safe speaker driver in this QEMU, so the card stays quiet instead of failing the launch. Linux, including WSL, uses ALSA when that system has it. Spice is used only when the launch also passes -spice.</string>
                    </property>
                    <item>
                     <property name="text">

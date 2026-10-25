@@ -426,6 +426,13 @@ class Main_Window: public QMainWindow
 		QCheckBox *CH_Apple_KASLR_Off;
 		QPushButton *Btn_Apple_SoC_Restore;
 		QAction *Act_Apple_SoC_Restore;
+		QAction *Act_Serial_Monitor;
+		class Serial_Console_Window *Serial_Monitor;
+		QAction *Act_QEMU_Monitor;
+		class Monitor_Window *QEMU_Monitor;
+		Virtual_Machine *QEMU_Monitor_VM;
+		void Show_QEMU_Monitor();
+		void Ensure_Serial_Monitor();
 		class Apple_SoC_Restore_Window *Apple_SoC_Restore_Dlg;
 
 		QSystemTrayIcon *Tray_Icon;

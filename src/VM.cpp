@@ -110,6 +110,67 @@ protected:
 };
 }
 
+#ifdef Q_OS_WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+
+// One job for every QEMU / wsl.exe this process starts. The handle stays open
+// until AQEMU itself exits, including TerminateProcess, and Windows then kills
+// every process still in the job.
+static HANDLE AQ_Qemu_Lifetime_Job()
+{
+	static HANDLE job = nullptr;
+	if( job )
+		return job;
+	job = CreateJobObjectW( nullptr, nullptr );
+	if( ! job || job == INVALID_HANDLE_VALUE )
+	{
+		job = nullptr;
+		return nullptr;
+	}
+	JOBOBJECT_EXTENDED_LIMIT_INFORMATION info;
+	ZeroMemory( &info, sizeof( info ) );
+	info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+	if( ! SetInformationJobObject( job, JobObjectExtendedLimitInformation, &info, sizeof( info ) ) )
+	{
+		CloseHandle( job );
+		job = nullptr;
+	}
+	return job;
+}
+
+static void AQ_Bind_Qemu_Lifetime( QProcess *proc )
+{
+	if( ! proc || proc->state() == QProcess::NotRunning )
+		return;
+	HANDLE job = AQ_Qemu_Lifetime_Job();
+	if( ! job )
+		return;
+	const DWORD pid = static_cast<DWORD>( proc->processId() );
+	if( pid == 0 )
+		return;
+	HANDLE ph = OpenProcess( PROCESS_SET_QUOTA | PROCESS_TERMINATE, FALSE, pid );
+	if( ! ph )
+		return;
+	if( ! AssignProcessToJobObject( job, ph ) )
+	{
+		AQWarning( "AQ_Bind_Qemu_Lifetime",
+		           QStringLiteral( "Could not tie QEMU to AQEMU exit (error %1)" )
+		               .arg( GetLastError() ) );
+	}
+	CloseHandle( ph );
+}
+#else
+static void AQ_Bind_Qemu_Lifetime( QProcess * )
+{
+}
+#endif
+
 using namespace TinyXML2QDomWrapper;
 
 // VM Class -----------------------------------------------------------------
@@ -6493,6 +6554,27 @@ bool Virtual_Machine::Save_VM( const QString &file_name )
 	return Create_VM_File( file_name, false );
 }
 
+// The IPSW companion must be Inferno's x86_64 QEMU. Stock qemu-system-x86_64
+// has no usb-tcp-remote, so the iPhone never sees a USB host and never
+// shows the trust dialog.
+static bool AQ_VM_Is_Inferno_USB_Companion( const Virtual_Machine *vm )
+{
+	if( ! vm || AQ_Is_Apple_SoC_VM( vm ) )
+		return false;
+	const QString name = vm->Get_Machine_Name();
+	if( name.contains( QLatin1String( "IPSW Restore Companion" ), Qt::CaseInsensitive ) ||
+	    name.contains( QLatin1String( "Inferno Companion" ), Qt::CaseInsensitive ) )
+		return true;
+	for( int i = 0; i < vm->Get_Network_Redirections_Count(); ++i )
+	{
+		const VM_Redirection &r = vm->Get_Network_Redirection( i );
+		if( r.Get_Protocol().compare( QLatin1String( "tcp" ), Qt::CaseInsensitive ) == 0 &&
+		    r.Get_Host_Port() == 32222 && r.Get_Guest_Port() == 22 )
+			return true;
+	}
+	return false;
+}
+
 static int Get_Emulator_Monitor_Base_Port()
 {
 	QSettings settings;
@@ -6749,6 +6831,31 @@ static QString Build_X86_Boot_Arg( const Virtual_Machine &vm, bool show_menu )
 	}
 	return arg;
 }
+
+#ifdef Q_OS_WIN
+static void AQ_Replace_Audiodev_Argument( QStringList *args, const QString &body )
+{
+	if( ! args )
+		return;
+	const QString repl = body.trimmed();
+	if( repl.isEmpty() )
+		return;
+	for( int i = 0; i + 1 < args->size(); ++i )
+	{
+		QString tok = args->at( i ).trimmed();
+		if( tok.startsWith( QLatin1Char( '"' ) ) && tok.endsWith( QLatin1Char( '"' ) ) && tok.size() >= 2 )
+			tok = tok.mid( 1, tok.size() - 2 );
+		if( tok != QLatin1String( "-audiodev" ) )
+			continue;
+		const QString old = args->at( i + 1 );
+		if( old.startsWith( QLatin1Char( '"' ) ) && old.endsWith( QLatin1Char( '"' ) ) )
+			( *args )[ i + 1 ] = QLatin1Char( '"' ) + repl + QLatin1Char( '"' );
+		else
+			( *args )[ i + 1 ] = repl;
+		return;
+	}
+}
+#endif
 
 QStringList Virtual_Machine::Build_QEMU_Args()
 {
@@ -7058,26 +7165,28 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		}
 	}
 	
-	// ARM guest on a Windows ARM host: WHPX only when the OS reports Arm64Support
-	// and this qemu-system-aarch64 was built with whpx. Otherwise stay on TCG.
+	const QString accel_bin = Get_Current_Emulator_Binary_Path( Current_Emulator_Devices.System.QEMU_Name );
+	const AQ_Accel_Flags accel_avail = AQ_Accelerator_Availability( Computer_Type, accel_bin, Launch_Via_WSL );
 	bool use_whpx_arm = false;
 #ifdef Q_OS_WIN
-	if( Computer_Type.contains( QLatin1String( "aarch64" ), Qt::CaseInsensitive ) &&
+	const bool arm_family_guest =
+		Computer_Type.contains( QLatin1String( "aarch64" ), Qt::CaseInsensitive ) ||
+		Computer_Type.contains( QLatin1String( "qemu-system-arm" ), Qt::CaseInsensitive );
+	use_whpx_arm = arm_family_guest &&
 	    ! AQ_Is_Apple_SoC_VM( this ) &&
-	    AQ_Get_Host_CPU_Architecture() == QLatin1String( "aarch64" ) &&
-	    Machine_Accelerator == VM::KVM &&
+	    ! Launch_Via_WSL &&
 	    ! Force_TCG &&
-	    AQ_Host_WHPX_Usable() )
-	{
-		const QString whpx_bin = Get_Current_Emulator_Binary_Path( Current_Emulator_Devices.System.QEMU_Name );
-		use_whpx_arm = AQ_QEMU_Has_WHPX( whpx_bin );
-	}
+	    Machine_Accelerator == VM::KVM &&
+	    accel_avail.whpx;
 #else
 	Q_UNUSED( use_whpx_arm );
+	Q_UNUSED( accel_avail );
 #endif
 
 	// CPU Model
 	// TCG aarch64 / Win11 ARM: -cpu max,pauth-impdef=on (PAuth without full crypto cost).
+	// WHPX on Windows ARM: -cpu max. -cpu host on Insider WHPX-ARM has been tied to
+	// host crashes. cortex-a76 is not in QEMU's WHPX CPU list (TCG only).
 	// KVM on ARM hosts: -cpu host. Bare -cpu max without pauth-impdef is too slow under TCG.
 	// Win95/98 (Force_TCG): period CPU - modern "max"/"host" hangs at splash under WHPX/TCG.
 	{
@@ -7091,7 +7200,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 				 Computer_Type.contains( "applesoc", Qt::CaseInsensitive ) )
 		{
 			#ifdef Q_OS_WIN
-			cpu_arg = use_whpx_arm ? QStringLiteral( "host" ) : QStringLiteral( "max,pauth-impdef=on" );
+			cpu_arg = use_whpx_arm ? QStringLiteral( "max" ) : QStringLiteral( "max,pauth-impdef=on" );
 			#else
 			if( Machine_Accelerator == VM::KVM )
 				cpu_arg = QStringLiteral( "host" );
@@ -7135,14 +7244,20 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			QStringList feats;
 			feats << base;
 			feats << QStringLiteral( "vendor=GenuineIntel" );
+			/*
+			 * macOS resets in the first seconds of XNU if the TSC is not
+			 * invariant. On TCG the counter is scaled to this rate.
+			 */
+			feats << QStringLiteral( "+invtsc" );
+			feats << QStringLiteral( "tsc-frequency=2000000000" );
 			#ifdef Q_OS_WIN
 			if( Launch_Via_WSL )
 			{
 				const QString distro = Settings.value( QStringLiteral( "WSL_Launch/Distro" ), QString() ).toString();
-				if( WSL_Has_KVM( distro, false ) )
+				if( WSL_Has_KVM( distro, false ) &&
+				    AQ_Guest_Matches_Host_Architecture( Computer_Type ) )
 				{
 					feats << QStringLiteral( "kvm=on" );
-					feats << QStringLiteral( "+invtsc" );
 					feats << QStringLiteral( "vmware-cpuid-freq=on" );
 				}
 			}
@@ -7157,7 +7272,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 				Computer_Type.contains( "qemu-system-arm", Qt::CaseInsensitive );
 			#ifdef Q_OS_WIN
 			if( use_whpx_arm )
-				cpu_arg = QStringLiteral( "host" );
+				cpu_arg = QStringLiteral( "max" );
 			const bool tcg_guest = aarch64 && ! use_whpx_arm;
 			#else
 			const bool tcg_guest = aarch64 && Machine_Accelerator != VM::KVM;
@@ -7186,22 +7301,19 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	
 	if( need_audiodev )
 	{
-		QString forced_backend;
-		#ifdef Q_OS_WIN
-		if( Launch_Via_WSL )
-		{
-			const QString distro = Settings.value( QStringLiteral( "WSL_Launch/Distro" ), QString() ).toString();
-			const QString linux_qemu = Settings.value( QStringLiteral( "WSL_Launch/Qemu_Binary" ),
-				QStringLiteral( "qemu-system-x86_64" ) ).toString();
-			const QString preferred = Settings.value( QStringLiteral( "WSL_Launch/Audio_Backend" ),
-				QString() ).toString();
-			forced_backend = WSL_Pick_Audio_Backend( distro, linux_qemu, preferred );
-		}
-		#endif
+		// Spice audio is legal only together with -spice. Windows embedded
+		// display is VNC and does not pass -spice. Linux embedded does.
+		const QString disp_now = Display_Backend.trimmed().toLower();
+		const bool spice_audio =
+#ifdef Q_OS_WIN
+			! embedded_session &&
+#endif
+			( embedded_session || SPICE.Use_SPICE() || disp_now == QLatin1String( "spice-app" ) );
+		const QString forced_backend;
 		const QString bin = Get_Current_Emulator_Binary_Path( Current_Emulator_Devices.System.QEMU_Name );
 		const QString audiodev_arg = AQ_Audio_Build_Audiodev(
 			Audio_Use_Host_Defaults, Audio_Options, Audiodev_Backend, Audiodev_Timer_Period,
-			bin, forced_backend );
+			bin, forced_backend, spice_audio );
 		Args << "-audiodev" << audiodev_arg;
 		
 		if( Audio_Card.Audio_VirtIO )
@@ -7365,10 +7477,14 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		if( effective_video == "reims-vgpu-pci" || is_reims_vgpu )
 		{
 			Args << "-vga" << "none";
+			// This Windows qemu-system-reims3d.exe has reims-vgpu-pci. apple-gfx-pci
+			// realizes during startup and never reaches the VNC or serial listeners.
+			const QString reims_pci = QStringLiteral( "reims-vgpu-pci" );
 			bool have_reims = false;
 			for( int ai = 0; ai < Args.size(); ++ai )
 			{
-				if( Args.at( ai ).contains( QLatin1String( "reims-vgpu-pci" ), Qt::CaseInsensitive ) )
+				if( Args.at( ai ).contains( QLatin1String( "reims-vgpu-pci" ), Qt::CaseInsensitive ) ||
+				    Args.at( ai ).contains( QLatin1String( "apple-gfx-pci" ), Qt::CaseInsensitive ) )
 				{
 					have_reims = true;
 					break;
@@ -7380,7 +7496,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 				// (OpenCore has no built-in driver for 0x106B:0xEEEE without it).
 				Args << "-device"
 				     << QStringLiteral( "pci-bridge,chassis_nr=5,id=aqemu_reims_br,bus=pcie.0,addr=0x1e" );
-				QString reims_dev = QStringLiteral( "reims-vgpu-pci,id=reimsvgpu,bus=aqemu_reims_br,addr=0x0" );
+				QString reims_dev = reims_pci + QStringLiteral( ",id=reimsvgpu,bus=aqemu_reims_br,addr=0x0" );
 				const QString gop_rom = AQ_Find_Reims_GOP_ROM();
 				if( ! gop_rom.isEmpty() )
 				{
@@ -7495,6 +7611,23 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	// Machine + accelerator.
 	// thread=multi is an -accel property, NOT a -machine property
 	// (putting it on -machine causes: Property 'virt-*.thread' not found).
+	//
+	// Reims apple-gfx on Linux/WSL needs guest RAM as a shared memfd (host
+	// page size, no hugetlb) so the library can remap guest pages. Windows
+	// PE uses anonymous RAM (memfd is a Linux backend).
+	const bool reims_shared_ram =
+		is_reims_vgpu && Memory_Size > 0 &&
+		!( Use_NUMA_Flag && NUMA_Nodes >= 2 )
+#ifdef Q_OS_WIN
+		&& Launch_Via_WSL
+#endif
+		;
+	if( reims_shared_ram )
+	{
+		Args << QStringLiteral( "-object" )
+		     << ( QStringLiteral( "memory-backend-memfd,id=aqemu_reims_ram,share=on,size=" )
+		          + QString::number( Memory_Size ) + QLatin1Char( 'M' ) );
+	}
 	Args << "-machine";
 	QStringList props;
 	const bool apple_soc = AQ_Is_Apple_SoC_VM( this );
@@ -7507,80 +7640,72 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		if( ! effective_machine.isEmpty() )
 			props << effective_machine;
 
-		// GICv3 + ITS + highmem for modern aarch64 guests (Win11 ARM / Linux virt).
+		// GICv3 for modern aarch64 guests (Win11 ARM / Linux virt).
 		// Explicit gic-version=3 (not max) so TCG on x86 never silently falls back to GICv2.
+		// WHPX cannot instantiate a GICv3 ITS ("ITS not supported on WHPX").
+		// msi=gicv2m is the MSI controller QEMU uses for WHPX. highmem=on stays off
+		// on that path: it is not part of QEMU's WHPX default and has been tied to
+		// host crashes on Insider ARM builds.
 		if( is_virt_arch &&
 			( Computer_Type.contains( "aarch64", Qt::CaseInsensitive ) ||
 			  Computer_Type.contains( "qemu-system-arm", Qt::CaseInsensitive ) ) &&
 			effective_machine.contains( QLatin1String( "virt" ), Qt::CaseInsensitive ) )
 		{
+			const bool whpx_virt =
+#ifdef Q_OS_WIN
+				Machine_Accelerator == VM::KVM && ! Launch_Via_WSL && accel_avail.whpx;
+#else
+				false;
+#endif
 			props << QStringLiteral( "gic-version=3" );
-			props << QStringLiteral( "highmem=on" );
-			props << QStringLiteral( "its=on" );
+			if( whpx_virt )
+				props << QStringLiteral( "msi=gicv2m" );
+			else
+			{
+				props << QStringLiteral( "highmem=on" );
+				props << QStringLiteral( "its=on" );
+			}
 		}
+		if( reims_shared_ram )
+			props << QStringLiteral( "memory-backend=aqemu_reims_ram" );
 	}
 
 	bool use_separate_tcg_accel = false;
 	bool legacy_force_tcg = Force_TCG && ! is_virt_arch;
-	const bool is_x86_guest =
-		Computer_Type.contains( QLatin1String( "x86_64" ), Qt::CaseInsensitive ) ||
-		Computer_Type.contains( QLatin1String( "reimsvgpu" ), Qt::CaseInsensitive ) ||
-		Computer_Type.contains( QLatin1String( "i386" ), Qt::CaseInsensitive );
-	// UI "TCG" / Force_TCG / cross-arch must win. Never upgrade TCG?KVM/WHPX silently,
-	// and never force KVM just because Launch_Via_WSL is set (PPC/ARM on x86 WSL).
-	const bool want_native_accel =
-		( Machine_Accelerator == VM::KVM ) && ! legacy_force_tcg && is_x86_guest && ! apple_soc;
 	#ifdef Q_OS_WIN
-	if( apple_soc )
-		use_separate_tcg_accel = true; // Inferno is TCG on x86 hosts (even under WSL)
-	else if( Launch_Via_WSL && ! is_virt_arch )
-	{
-		// Linux QEMU inside WSL: KVM only when the UI asked for KVM, guest is x86,
-		// and /dev/kvm is writable. Otherwise honor TCG (e.g. Mac OS X PPC).
-		const QString distro = Settings.value( QStringLiteral( "WSL_Launch/Distro" ), QString() ).toString();
-		if( want_native_accel && WSL_Has_KVM( distro, false ) )
-			props << "accel=kvm";
-		else
-			use_separate_tcg_accel = true;
-	}
-	else if( is_virt_arch )
-	{
-		// Matching ARM guest on Windows ARM. whpx:tcg lets QEMU drop to TCG
-		// if WHPX refuses to start. Cross-arch guests stay on TCG.
-		if( use_whpx_arm )
-			props << QStringLiteral( "accel=whpx:tcg" );
-		else
-			use_separate_tcg_accel = true;
-	}
+	// The Machine combo is the accelerator that is launched.
+	// WHPX is stored as KVM with Launch_Via_WSL off.
+	// qemu-system-applesoc.exe includes TCG only. KVM is the WSL ELF.
+	if( apple_soc && Machine_Accelerator == VM::KVM && Launch_Via_WSL )
+		props << QStringLiteral( "accel=kvm" );
+	else if( apple_soc )
+		use_separate_tcg_accel = true;
 	else if( legacy_force_tcg )
-		// Win95/98: WHPX hangs at splash. XP: WHPX disables SMM ? black text mode.
 		use_separate_tcg_accel = true;
-	else if( ! is_x86_guest || Machine_Accelerator == VM::TCG )
-		// Selecting TCG in the UI must mean TCG.
-		use_separate_tcg_accel = true;
-	else if( want_native_accel && AQ_Host_WHPX_Usable() )
-		// Prefer Hyper-V WHPX (or HAX) for x86; fall back to TCG. Pure TCG makes
-		// DOS IDE/ATAPI CD (PIO) feel like a 1x optical drive.
-		props << "accel=whpx:hax:tcg";
-	else if( want_native_accel )
-		use_separate_tcg_accel = true;
-	else if( Machine_Accelerator == VM::XEN )
-		props << "accel=xen:tcg";
+	else if( Machine_Accelerator == VM::KVM && Launch_Via_WSL && accel_avail.kvm )
+		props << QStringLiteral( "accel=kvm" );
+	else if( Machine_Accelerator == VM::KVM && ! Launch_Via_WSL && accel_avail.whpx )
+		props << ( is_virt_arch ? QStringLiteral( "accel=whpx" ) : QStringLiteral( "accel=whpx:hax:tcg" ) );
+	else if( Machine_Accelerator == VM::XEN && accel_avail.xen )
+		props << QStringLiteral( "accel=xen:tcg" );
 	else
-		props << "accel="+VM::Accel_To_String( Machine_Accelerator );
+		use_separate_tcg_accel = true;
 	#else
 	if( apple_soc )
-		use_separate_tcg_accel = true; // Inferno is cross-arch TCG on x86 Linux hosts too
+	{
+		if( Machine_Accelerator == VM::KVM && accel_avail.kvm )
+			props << QStringLiteral( "accel=kvm:tcg" );
+		else
+			use_separate_tcg_accel = true;
+	}
 	else if( legacy_force_tcg || Machine_Accelerator == VM::TCG )
 		use_separate_tcg_accel = true;
-	else if( want_native_accel )
-		props << "accel=kvm:tcg";
-	else if( Machine_Accelerator == VM::XEN )
-		props << "accel=xen:tcg";
-	else if( is_virt_arch )
-		use_separate_tcg_accel = true;
+	else if( Machine_Accelerator == VM::KVM && accel_avail.kvm )
+		props << QStringLiteral( "accel=kvm:tcg" );
+	else if( Machine_Accelerator == VM::XEN && accel_avail.xen )
+		props << QStringLiteral( "accel=xen:tcg" );
 	else
-		props << "accel="+VM::Accel_To_String( Machine_Accelerator );
+		use_separate_tcg_accel = true;
 	#endif
 
 	if( Current_Emulator_Devices.PSO_KVM_Shadow_Memory && KVM_Shadow_Memory )
@@ -7589,11 +7714,27 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	if( ! Machine_Extra_Props.trimmed().isEmpty() )
 	{
 		const QStringList extra = Machine_Extra_Props.split( QLatin1Char( ',' ), QString::SkipEmptyParts );
+		const bool whpx_virt =
+#ifdef Q_OS_WIN
+			is_virt_arch &&
+			( Computer_Type.contains( QLatin1String( "aarch64" ), Qt::CaseInsensitive ) ||
+			  Computer_Type.contains( QLatin1String( "qemu-system-arm" ), Qt::CaseInsensitive ) ) &&
+			effective_machine.contains( QLatin1String( "virt" ), Qt::CaseInsensitive ) &&
+			Machine_Accelerator == VM::KVM && ! Launch_Via_WSL && accel_avail.whpx;
+#else
+			false;
+#endif
 		for( int ei = 0; ei < extra.count(); ++ei )
 		{
 			const QString p = extra[ei].trimmed();
-			if( ! p.isEmpty() )
-				props << p;
+			if( p.isEmpty() )
+				continue;
+			if( whpx_virt &&
+			    ( p.startsWith( QLatin1String( "its=" ), Qt::CaseInsensitive ) ||
+			      p.startsWith( QLatin1String( "highmem=" ), Qt::CaseInsensitive ) ||
+			      p.compare( QLatin1String( "msi=its" ), Qt::CaseInsensitive ) == 0 ) )
+				continue;
+			props << p;
 		}
 	}
 
@@ -7650,7 +7791,8 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	
 	// Memory
 	Args << "-m" << QString::number( Memory_Size, 10 );
-	if( ! Mem_Path.trimmed().isEmpty() )
+	// Reims memfd is the machine RAM; -mem-path / hugetlb would break apple-gfx.
+	if( ! reims_shared_ram && ! Mem_Path.trimmed().isEmpty() )
 	{
 		if( Build_QEMU_Args_for_Script_Mode )
 			Args << "-mem-path" << "\"" + Mem_Path + "\"";
@@ -7662,7 +7804,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	if( ! UUID.trimmed().isEmpty() )
 		Args << "-uuid" << UUID.trimmed();
 
-	// NUMA (equal split of -m across nodes). virtiofs needs share=on backends.
+	// NUMA (equal split of -m across nodes). virtiofs and Reims need share=on memfd.
 	bool virtiofs_share = false;
 #ifndef Q_OS_WIN
 	{
@@ -7678,23 +7820,29 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		}
 	}
 #endif
+	const bool need_shared_memfd = virtiofs_share ||
+		( is_reims_vgpu
+#ifdef Q_OS_WIN
+		  && Launch_Via_WSL
+#endif
+		);
 	if( Use_NUMA_Flag && NUMA_Nodes >= 2 && Memory_Size > 0 )
 	{
 		const int nodes = qMin( NUMA_Nodes, 8 );
 		const int per = Memory_Size / nodes;
 		int rem = Memory_Size - ( per * nodes );
-		const bool memdev = Use_NUMA_Memdev_Flag || virtiofs_share;
+		const bool memdev = Use_NUMA_Memdev_Flag || need_shared_memfd;
 		for( int ni = 0; ni < nodes; ++ni )
 		{
 			int mb = per + ( ni == 0 ? rem : 0 );
 			if( memdev )
 			{
 				const QString mid = QStringLiteral( "aqmem%1" ).arg( ni );
-				const QString kind = virtiofs_share
+				const QString kind = need_shared_memfd
 					? QStringLiteral( "memory-backend-memfd" )
 					: QStringLiteral( "memory-backend-ram" );
 				QString spec = QStringLiteral( "%1,id=%2,size=%3M" ).arg( kind, mid ).arg( mb );
-				if( virtiofs_share )
+				if( need_shared_memfd )
 					spec += QStringLiteral( ",share=on" );
 				Args << "-object" << spec;
 				Args << "-numa" << QStringLiteral( "node,nodeid=%1,memdev=%2" ).arg( ni ).arg( mid );
@@ -7985,7 +8133,21 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		{
 			const QString lower = oc_file.toLower();
 			const bool oc_iso = lower.endsWith( QLatin1String( ".iso" ) );
-			if( oc_iso && ! Build_QEMU_Args_for_Tab_Info && QFile::exists( oc_file ) )
+			const bool is_reims_oc =
+				Computer_Type.contains( QLatin1String( "reimsvgpu" ), Qt::CaseInsensitive );
+			// LongQT / Reims "OpenCore-vN.iso" files are often a GPT disk (EFI PART
+			// at LBA 1) or an Apple partition map, not ISO 9660. Attaching those
+			// as a CD hides the ESP, so OVMF reports the SATA DVD/HDD as Not Found.
+			bool disk_opencore = false;
+			if( QFile::exists( oc_file ) )
+			{
+				QFile gpt( oc_file );
+				if( gpt.open( QIODevice::ReadOnly ) && gpt.seek( 512 ) )
+					disk_opencore = ( gpt.read( 8 ) == QByteArrayLiteral( "EFI PART" ) );
+				if( ! disk_opencore )
+					disk_opencore = AQ_Is_Apple_Partition_Map_Image( oc_file );
+			}
+			if( oc_iso && ! disk_opencore && ! Build_QEMU_Args_for_Tab_Info && QFile::exists( oc_file ) )
 			{
 				QString dest = oc_file;
 				dest.chop( 4 );
@@ -8016,8 +8178,6 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 				{
 					// Reims + embedded VNC: "native" often patches OpenCore to 4K/5K and
 					// yields a black early framebuffer. Cap native (and extreme modes).
-					const bool is_reims_oc =
-						Computer_Type.contains( QLatin1String( "reimsvgpu" ), Qt::CaseInsensitive );
 					if( is_reims_oc )
 					{
 						if( res_mode.compare( QLatin1String( "native" ), Qt::CaseInsensitive ) == 0 )
@@ -8066,7 +8226,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			    ( lower.endsWith( QLatin1String( ".qcow2" ) ) || lower.endsWith( QLatin1String( ".qcow" ) ) ) )
 				oc_fmt = QStringLiteral( "qcow2" );
 
-			const bool as_cd = oc_iso && ! mac_oc_has_partition_dxe;
+			const bool as_cd = oc_iso && ! mac_oc_has_partition_dxe && ! disk_opencore;
 			if( ! as_cd )
 				mac_oc_has_partition_dxe = true; // disk OpenCore (patched BOOT.img) can see APM
 			QString drive = AQ_Qemu_Drive_File_Key( oc_file );
@@ -8152,6 +8312,19 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		{
 			QString drive = AQ_Qemu_Drive_File_Key( HDA.Get_File_Name() );
 			drive += QStringLiteral( ",if=none,id=SystemDisk,media=disk" );
+			// macOS_HDA.img is often qcow2 with a .img name (Reims and plain
+			// Intel mac). Without format=qcow2 OVMF sees the container header.
+			if( QFile::exists( HDA.Get_File_Name() ) )
+			{
+				QFile qcow( HDA.Get_File_Name() );
+				if( qcow.open( QIODevice::ReadOnly ) )
+				{
+					const QByteArray mag = qcow.read( 4 );
+					if( mag.size() == 4 && mag.at( 0 ) == 'Q' && mag.at( 1 ) == 'F' &&
+					    mag.at( 2 ) == 'I' && quint8( mag.at( 3 ) ) == 0xfb )
+						drive += QStringLiteral( ",format=qcow2" );
+				}
+			}
 			const QStringList mac_ahci_args = StorageArgs.filter( QStringLiteral( "aqemu_mac_ahci" ) );
 			if( mac_ahci_args.isEmpty() )
 				StorageArgs << "-device" << "ich9-ahci,id=aqemu_mac_ahci";
@@ -9040,8 +9213,11 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			Args << "-net" << ( "user," + smb_part );
 	}
 	
-	// Ports Tabs - allocate a TCP serial for the session console without mutating saved config
+	// Ports Tabs. The debug serial monitor is off unless VM → Serial monitor is checked.
 	Serial_Console_Port = 0;
+	QSettings serial_dbg;
+	const bool serial_monitor =
+		serial_dbg.value( QStringLiteral( "Debug/Serial_Monitor" ), false ).toBool();
 	QList<VM_Port> serial_for_args = Serial_Ports;
 	{
 		bool have_tcp_serial = false;
@@ -9080,7 +9256,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 				break;
 			}
 		}
-		if( ! have_tcp_serial )
+		if( ! have_tcp_serial && serial_monitor )
 		{
 			// OS ephemeral probe (0) guarantees an unbound port outside Hyper-V dynamic exclusion ranges
 			quint16 sport = Find_Free_TCP_Port( 0 );
@@ -9132,6 +9308,9 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 							.section( QLatin1Char( ',' ), 0, 0 );
 						cdev = QStringLiteral( "socket,id=" ) + cid + QStringLiteral( ",host=" )
 						       + host + QStringLiteral( ",port=" ) + port + QStringLiteral( ",server=on,wait=off" );
+						// COM1 and OVMF's isa-debugcon (port 0x402) share this socket.
+						if( serial_monitor && port.toInt() == Serial_Console_Port )
+							cdev += QStringLiteral( ",mux=on" );
 					}
 					break;
 				case VM::PR_unix:
@@ -9270,6 +9449,29 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			default:
 				break;
 		}
+	}
+
+	// OVMF writes its debug log to I/O port 0x402, not COM1. Mux it onto the
+	// serial-monitor socket so one window shows both.
+	if( serial_monitor && Serial_Console_Port > 0 )
+	{
+		QString dbg_id;
+		const QString port_tag = QStringLiteral( "port=" ) + QString::number( Serial_Console_Port );
+		for( int ai = 0; ai + 1 < Args.size(); ++ai )
+		{
+			if( Args.at( ai ) != QLatin1String( "-chardev" ) )
+				continue;
+			if( ! Args.at( ai + 1 ).contains( port_tag ) )
+				continue;
+			const int id_at = Args.at( ai + 1 ).indexOf( QLatin1String( "id=" ) );
+			if( id_at < 0 )
+				continue;
+			dbg_id = Args.at( ai + 1 ).mid( id_at + 3 ).section( QLatin1Char( ',' ), 0, 0 );
+			break;
+		}
+		if( ! dbg_id.isEmpty() )
+			Args << QStringLiteral( "-device" )
+			     << QStringLiteral( "isa-debugcon,iobase=0x402,chardev=%1" ).arg( dbg_id );
 	}
 	
 	// parallel port
@@ -9749,6 +9951,11 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	// UEFI dual pflash (AAVMF / EDK2) — for Windows 11 ARM / aarch64 virt / x86 OVMF.
 	// Inferno Apple SoC already uses SEP pflash (sep_nvram / sep_ssc) on unit 0/1;
 	// stacking edk2-aarch64-code.fd causes: "drive with bus=0, unit=0 exists".
+	// WHPX AArch64 without firmware has taken this host down. Require AAVMF.
+#ifdef Q_OS_WIN
+	if( use_whpx_arm && ! UEFI )
+		UEFI = true;
+#endif
 	if( UEFI && ! AQ_Is_Apple_SoC_VM( this ) )
 	{
 		QString code_path = UEFI_CODE_File;
@@ -9853,6 +10060,30 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			}
 		}
 	}
+#ifdef Q_OS_WIN
+	if( use_whpx_arm )
+	{
+		bool have_fw = false;
+		for( int ai = 0; ai < Args.count(); ++ai )
+		{
+			const QString &arg = Args.at( ai );
+			if( arg.contains( QLatin1String( "pflash" ), Qt::CaseInsensitive ) ||
+			    arg == QLatin1String( "-bios" ) )
+			{
+				have_fw = true;
+				break;
+			}
+		}
+		if( ! have_fw )
+		{
+			AQGraphic_Error( "QStringList Virtual_Machine::Build_QEMU_Args()",
+				tr( "WHPX needs firmware" ),
+				tr( "WHPX on this ARM PC needs the AAVMF firmware image. The VM was not started." ),
+				false );
+			return QStringList();
+		}
+	}
+#endif
 
 	// Apple SMC (Intel macOS) - only emit OSK if the user supplied one (never invent a key)
 	if( Intel_MacOS_Profile && Use_Apple_SMC_Flag && ! Apple_SMC_OSK.trimmed().isEmpty() )
@@ -10462,7 +10693,15 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	const bool guest_channels =
 		! Build_QEMU_Args_for_Tab_Info &&
 		! AQ_Is_Apple_SoC_VM( this ) &&
-		AQ_Machine_Supports_Guest_Channels( Machine_Type );
+		AQ_Machine_Supports_Guest_Channels( Machine_Type )
+#ifdef Q_OS_WIN
+		// This qemu-system-reims3d.exe blocks inside ConnectNamedPipe before
+		// it opens -vnc and -serial. AQEMU connects those pipes only after the
+		// display is up, so the VM never finishes starting. Skip them here.
+		&& ! ( ! Launch_Via_WSL &&
+		       Computer_Type.contains( QLatin1String( "reimsvgpu" ), Qt::CaseInsensitive ) )
+#endif
+		;
 	if( guest_channels )
 	{
 		const QString dir = QDir( AQEMU_User_Data_Dir() ).filePath( QStringLiteral( "channels" ) );
@@ -11203,29 +11442,79 @@ bool Virtual_Machine::Start_impl()
 	}
 
 	#ifdef Q_OS_WIN32
-	// Prefer WSL/KVM for Intel macOS when enabled globally or on this VM.
-	// Reims vGPU always requires Linux qemu-system-reims3d (Windows PE has no reims-vgpu-pci).
+	// Windows QEMU is the first start for every guest. WSL is the fallback
+	// when that exe is missing, and only after the user agrees. KVM is the
+	// explicit Linux row. Reims still follows the host GPU.
 	{
 		QSettings s;
-		const bool global_wsl = s.value( QStringLiteral( "WSL_Launch/Enabled" ), false ).toBool();
 		const bool is_reims =
 			Computer_Type.contains( QLatin1String( "reimsvgpu" ), Qt::CaseInsensitive );
 		const bool is_applesoc = AQ_Is_Apple_SoC_VM( this );
-		if( is_reims || is_applesoc )
-			Launch_Via_WSL = true;
+		// qemu-system-applesoc.exe is the Windows iOS binary, and it is TCG only.
+		// KVM stays on the Linux ELF only when /dev/kvm actually works.
+		if( is_applesoc &&
+		    ! ( Machine_Accelerator == VM::KVM && WSL_Has_KVM() ) )
+		{
+			Machine_Accelerator = VM::TCG;
+			Launch_Via_WSL = false;
+		}
 		if( is_reims )
 		{
 			// UI may still show "std"; product path is always reims-vgpu-pci
 			// (see https://reims-vgpu.com / steelbrain/reims-vgpu).
 			if( Video_Card.trimmed().compare( QLatin1String( "reims-vgpu-pci" ), Qt::CaseInsensitive ) != 0 )
 				Video_Card = QStringLiteral( "reims-vgpu-pci" );
+			// Snapdragon WSL has no Adreno Vulkan ICD (only llvmpipe / Dozen).
+			// The Windows PE talks to the native driver. Intel/AMD/NVIDIA stay on WSL.
+			if( ! System_Info::Host_GPU_Was_Scanned() )
+				System_Info::Update_Host_GPU();
+			if( System_Info::Host_Reims_Prefers_Windows_Binary() )
+			{
+				Launch_Via_WSL = false;
+				AQDebug( "bool Virtual_Machine::Start_impl()",
+				         QStringLiteral( "Reims: Qualcomm/ARM host, using Windows qemu-system-reims3d.exe" ) );
+			}
 		}
-		if( Launch_Via_WSL || ( Intel_MacOS_Profile && global_wsl ) )
+		// A present Windows exe wins. KVM keeps WSL. The companion stays on
+		// the Linux Inferno binary because stock Windows QEMU has no usb-tcp-remote.
+		const bool explicit_kvm = ( Machine_Accelerator == VM::KVM );
+		const bool inferno_companion = AQ_VM_Is_Inferno_USB_Companion( this );
+		if( ! is_reims && ! inferno_companion && ! explicit_kvm )
 		{
-			const QString distro = s.value( QStringLiteral( "WSL_Launch/Distro" ), QString() ).toString();
-			const QString wslUser = s.value( QStringLiteral( "WSL_Launch/Username" ), QString() ).toString();
+			QString win_name = Current_Emulator_Devices.System.QEMU_Name;
+			if( win_name.isEmpty() )
+				win_name = Computer_Type;
+			win_name = AQ_Canonical_QEMU_Binary_Name( win_name );
+			const QString win_exe = Get_Current_Emulator_Binary_Path( win_name );
+			const bool win_ok = ! win_exe.isEmpty() && QFileInfo( win_exe ).isExecutable();
+			if( win_ok )
+				Launch_Via_WSL = false;
+			else
+			{
+				const auto use_wsl = QMessageBox::question(
+					nullptr,
+					tr( "Windows QEMU" ),
+					tr( "Windows QEMU (%1) is not installed for this VM.\n\n"
+					    "Start it with WSL instead?" )
+						.arg( win_name.isEmpty() ? Computer_Type : win_name ),
+					QMessageBox::Yes | QMessageBox::No,
+					QMessageBox::Yes );
+				if( use_wsl != QMessageBox::Yes )
+				{
+					Start_Snapshot_Tag = "";
+					Start_Cancelled_By_User = true;
+					return false;
+				}
+				Launch_Via_WSL = true;
+			}
+		}
+		const bool want_wsl = Launch_Via_WSL;
+		if( want_wsl )
+		{
+			QString distro = s.value( QStringLiteral( "WSL_Launch/Distro" ), QString() ).toString().trimmed();
+			QString wslUser = s.value( QStringLiteral( "WSL_Launch/Username" ), QString() ).toString().trimmed();
 			if( ( is_reims || is_applesoc || Launch_Via_WSL ) &&
-			    ( distro.trimmed().isEmpty() || wslUser.trimmed().isEmpty() ||
+			    ( distro.isEmpty() || wslUser.isEmpty() ||
 			      ! WSL_Is_Valid_Username( wslUser ) ) )
 			{
 				WSL_Wizard_Window wizard;
@@ -11236,14 +11525,32 @@ bool Virtual_Machine::Start_impl()
 					Start_Snapshot_Tag = "";
 					return false;
 				}
+				// The wizard is the distro the user just picked. Copy into that
+				// one, not whatever WSL would use when -d is omitted.
+				distro = wizard.Get_Distro().trimmed();
+				wslUser = wizard.Get_Username().trimmed();
+			}
+			if( ( is_reims || is_applesoc ) && distro.isEmpty() )
+			{
+				AQGraphic_Error( "bool Virtual_Machine::Start()", tr( "Error!" ),
+					tr( "Choose a WSL distro. AQEMU copies the Linux macOS and iOS "
+					    "QEMU binaries into the distro you select." ), false );
+				Start_Snapshot_Tag = "";
+				return false;
 			}
 			// Fresh probe on start - a prior cold-start timeout must not stick.
 			WSL_Clear_Probe_Cache();
 			if( WSL_Is_Available( true ) )
 			{
 				Launch_Via_WSL = true;
+				// iOS and macOS both run a Linux QEMU inside the distro selected above.
+				if( is_reims || is_applesoc )
+				{
+					WSL_Install_Bundled_Qemu( distro, QStringLiteral( "/usr/local/bin/qemu-system-reims3d" ) );
+					WSL_Install_Bundled_Qemu( distro, QStringLiteral( "/usr/local/bin/qemu-system-applesoc" ) );
+				}
 				// Fix /dev/kvm permissions automatically (wsl -u root); no user commands.
-				if( ! WSL_Ensure_KVM_Access( s.value( QStringLiteral( "WSL_Launch/Distro" ), QString() ).toString() ) )
+				if( ! WSL_Ensure_KVM_Access( distro ) )
 				{
 					AQWarning( "Virtual_Machine::Start_impl()",
 						"WSL /dev/kvm still not writable after automatic fix - using TCG" );
@@ -11281,8 +11588,7 @@ bool Virtual_Machine::Start_impl()
 						s.setValue( QStringLiteral( "Reims/Shown_WSLg_Window_Hint_v2" ), true );
 					}
 					QString vk_status;
-					const QString distro_now = s.value( QStringLiteral( "WSL_Launch/Distro" ), QString() ).toString();
-					if( ! WSL_Ensure_Reims_Vulkan_Stack( distro_now, &vk_status, false ) )
+					if( ! WSL_Ensure_Reims_Vulkan_Stack( distro, &vk_status, false ) )
 					{
 						AQWarning( "Virtual_Machine::Start_impl()", vk_status );
 						const auto ans = QMessageBox::warning(
@@ -11305,20 +11611,19 @@ bool Virtual_Machine::Start_impl()
 					}
 				}
 			}
-			else if( is_reims || is_applesoc )
+			else if( is_applesoc )
 			{
 				AQGraphic_Error( "bool Virtual_Machine::Start()", tr( "Error!" ),
-					is_applesoc
-						? tr( "Apple SoC / Inferno requires WSL with the Linux binary "
-						      "qemu-system-applesoc.\n\n"
-						      "Windows PE cannot use UNIX sockets for the companion USB remote "
-						      "needed by idevicerestore." )
-						: tr( "Reims vGPU requires WSL with the Linux binary "
-						      "/usr/local/bin/qemu-system-reims3d.\n\n"
-						      "The Windows qemu-system-reimsvgpu.exe build does not expose "
-						      "reims-vgpu-pci and cannot accelerate Metal/Vulkan." ), false );
+					tr( "Windows QEMU for this VM is not installed, and WSL is not available.\n\n"
+					    "Install qemu-system-applesoc.exe next to AQEMU, or start WSL and try again." ), false );
 				Start_Snapshot_Tag = "";
 				return false;
+			}
+			else if( is_reims )
+			{
+				AQGraphic_Warning( tr( "WSL / Reims" ),
+					tr( "WSL is not available. Falling back to Windows qemu-system-reims3d.exe." ) );
+				Launch_Via_WSL = false;
 			}
 			else if( Launch_Via_WSL )
 			{
@@ -11479,7 +11784,12 @@ bool Virtual_Machine::Start_impl()
     if( Settings.value("QEMU_AUDIO/Use_Default_Driver", "yes").toString() == "no" )
     {
         QStringList tmp_env = QProcess::systemEnvironment();
-        tmp_env << "QEMU_AUDIO_DRV=" + Settings.value("QEMU_AUDIO/QEMU_AUDIO_DRV", "alsa").toString();
+        const QString saved_drv = Settings.value( "QEMU_AUDIO/QEMU_AUDIO_DRV", QString() ).toString();
+        QString audio_system = Current_Emulator_Devices.System.QEMU_Name;
+        if( audio_system.isEmpty() )
+            audio_system = Computer_Type;
+        const QString audio_bin = Get_Current_Emulator_Binary_Path( audio_system );
+        tmp_env << "QEMU_AUDIO_DRV=" + AQ_Pick_Host_Audio_Backend( audio_bin, saved_drv );
         QEMU_Process->setEnvironment( tmp_env );
     }
 
@@ -11497,6 +11807,8 @@ bool Virtual_Machine::Start_impl()
             QString bin_name = tmp_list.takeAt( 0 );
             QEMU_Process->setWorkingDirectory( AQ_QEMU_Process_Work_Dir() );
             QEMU_Process->start( bin_name, tmp_list );
+            if( QEMU_Process->waitForStarted( 15000 ) )
+                AQ_Bind_Qemu_Lifetime( QEMU_Process );
         }
     }
     else
@@ -11507,6 +11819,39 @@ bool Virtual_Machine::Start_impl()
         if( find_name.isEmpty() ) find_name = Computer_Type;
         find_name = AQ_Canonical_QEMU_Binary_Name( find_name );
         QString bin_path = Get_Current_Emulator_Binary_Path( find_name );
+#ifdef Q_OS_WIN32
+		// Temporary Reims Windows PE path: prefer the reims3d.exe next to AQEMU.
+		if( ! Launch_Via_WSL &&
+		    Computer_Type.contains( QLatin1String( "reimsvgpu" ), Qt::CaseInsensitive ) )
+		{
+			const QString app = QDir::cleanPath( QCoreApplication::applicationDirPath() );
+			const QStringList win_reims = QStringList()
+				<< ( app + QStringLiteral( "/qemu-system-reims3d.exe" ) )
+				<< ( app + QStringLiteral( "/qemu-system-reimsvgpu.exe" ) )
+				<< ( app + QStringLiteral( "/qemu-system-reims.exe" ) )
+				<< ( AQ_Get_Bundled_QEMU_Dir() + QStringLiteral( "/qemu-system-reims3d.exe" ) )
+				<< ( AQ_Get_Bundled_QEMU_Dir() + QStringLiteral( "/qemu-system-reimsvgpu.exe" ) );
+			for( int ri = 0; ri < win_reims.size(); ++ri )
+			{
+				if( QFileInfo( win_reims.at( ri ) ).isExecutable() )
+				{
+					bin_path = QDir::cleanPath( win_reims.at( ri ) );
+					AQDebug( "bool Virtual_Machine::Start_impl()",
+					         QStringLiteral( "Reims Windows PE: %1" ).arg( bin_path ) );
+					break;
+				}
+			}
+			if( bin_path.isEmpty() || ! QFileInfo( bin_path ).isExecutable() )
+			{
+				AQGraphic_Error( "bool Virtual_Machine::Start()", tr( "Error!" ),
+					tr( "Windows Reims binary not found.\n\n"
+					    "Place qemu-system-reims3d.exe next to aqemu.exe, or check "
+					    "“Run Reims via WSL” to use the Linux ELF instead." ), false );
+				Start_Snapshot_Tag = "";
+				return false;
+			}
+		}
+#endif
 
 		// Developer builds may follow PATH. The Store build must not: MSYS on PATH
 		// is a different QEMU from the one in the package.
@@ -11634,93 +11979,40 @@ bool Virtual_Machine::Start_impl()
 
 			QString linux_qemu = s.value( QStringLiteral( "WSL_Launch/Qemu_Binary" ),
 			                              QStringLiteral( "qemu-system-x86_64" ) ).toString();
-			// Prefer matching guest arch binary name when possible
-			if( Computer_Type.contains( QLatin1String( "ppc" ), Qt::CaseInsensitive ) )
-				linux_qemu = QStringLiteral( "qemu-system-ppc" );
-			else if( Computer_Type.contains( QLatin1String( "aarch64" ), Qt::CaseInsensitive ) )
-				linux_qemu = QStringLiteral( "qemu-system-aarch64" );
-			else if( Computer_Type.contains( QLatin1String( "reimsvgpu" ), Qt::CaseInsensitive ) )
+			const bool inferno_usb_companion = AQ_VM_Is_Inferno_USB_Companion( this );
+			// The machine's system emulator is the binary name (qemu-system-sparc, …).
+			if( Computer_Type.startsWith( QLatin1String( "qemu-system-" ) ) )
+			{
+				linux_qemu = Computer_Type;
+				if( linux_qemu.endsWith( QLatin1String( ".exe" ), Qt::CaseInsensitive ) )
+					linux_qemu.chop( 4 );
+			}
+			if( Computer_Type.contains( QLatin1String( "reimsvgpu" ), Qt::CaseInsensitive ) )
 			{
 				// Always use the Linux Reims ELF. The Windows qemu-system-reimsvgpu.exe
 				// is a mislabeled x86_64 build without reims-vgpu-pci / metal2vulkan.
 				linux_qemu = QStringLiteral( "/usr/local/bin/qemu-system-reims3d" );
 
-				// Optional: sync a host-side Linux ELF into WSL (never a Windows .exe).
-				QString host_linux_bin = QDir( QCoreApplication::applicationDirPath() )
-				                             .filePath( QStringLiteral( "qemu-system-reims3d" ) );
-				if( ! QFile::exists( host_linux_bin ) )
-					host_linux_bin = AQ_Get_Bundled_QEMU_Dir() + QStringLiteral( "/qemu-system-reims3d" );
-
-				if( QFile::exists( host_linux_bin ) &&
-				    ! host_linux_bin.endsWith( QLatin1String( ".exe" ), Qt::CaseInsensitive ) )
+				// The MSIX ships the Linux ELF under wsl/<arch>/. First start copies it in.
+				if( WSL_Install_Bundled_Qemu( distro, linux_qemu ) )
 				{
-					const QString wsl_src = Windows_Path_To_WSL( host_linux_bin );
-					// Reject paths that could break shell/argv assumptions (defense in depth).
-					const bool path_ok = wsl_src.startsWith( QLatin1String( "/mnt/" ) ) &&
-						! wsl_src.contains( QLatin1Char( '"' ) ) &&
-						! wsl_src.contains( QLatin1Char( '\'' ) ) &&
-						! wsl_src.contains( QLatin1Char( '`' ) ) &&
-						! wsl_src.contains( QLatin1Char( '$' ) ) &&
-						! wsl_src.contains( QLatin1Char( '\n' ) ) &&
-						! wsl_src.contains( QLatin1Char( '\\' ) );
-					if( ! path_ok )
-					{
-						AQWarning( "bool Virtual_Machine::Start()",
-						           QString( "Skipping Reims3D sync - unsafe WSL path: %1" ).arg( wsl_src ) );
-					}
-					else
-					{
-						AQDebug( "bool Virtual_Machine::Start()",
-						         QString( "Syncing host Linux Reims3D into WSL: %1 -> /usr/local/bin/qemu-system-reims3d" )
-						             .arg( host_linux_bin ) );
-
-						auto run_wsl_root = [&]( const QStringList &cmd ) -> bool
-						{
-							QStringList args;
-							if( ! distro.trimmed().isEmpty() )
-								args << QStringLiteral( "-d" ) << distro.trimmed();
-							args << QStringLiteral( "-u" ) << QStringLiteral( "root" )
-							     << QStringLiteral( "-e" );
-							args << cmd;
-							QProcess p;
-							p.start( QStringLiteral( "wsl.exe" ), args );
-							if( ! p.waitForFinished( 15000 ) )
-							{
-								p.kill();
-								p.waitForFinished( 1000 );
-								return false;
-							}
-							return p.exitStatus() == QProcess::NormalExit && p.exitCode() == 0;
-						};
-
-						// Never interpolate the path into sh -c - pass as argv to cp/chmod.
-						const bool copied = run_wsl_root( QStringList()
-							<< QStringLiteral( "cp" ) << QStringLiteral( "-f" )
-							<< wsl_src
-							<< QStringLiteral( "/usr/local/bin/qemu-system-reims3d" ) );
-						const bool chmodded = copied && run_wsl_root( QStringList()
-							<< QStringLiteral( "chmod" ) << QStringLiteral( "+x" )
-							<< QStringLiteral( "/usr/local/bin/qemu-system-reims3d" ) );
-						// Optional firmware symlinks - fixed script, no user-controlled path.
-						if( chmodded )
-						{
-							run_wsl_root( QStringList()
-								<< QStringLiteral( "sh" ) << QStringLiteral( "-c" )
-								<< QStringLiteral(
-									"mkdir -p /usr/local/bin /usr/share/qemu; "
-									"if [ -d /usr/share/seabios ] && [ ! -f /usr/share/qemu/vgabios-stdvga.bin ]; then "
-									"  ln -sf /usr/share/seabios/vgabios-stdvga.bin /usr/share/qemu/vgabios-stdvga.bin; "
-									"fi; "
-									"if [ -d /usr/share/seabios ] && [ ! -f /usr/share/qemu/kvmvapic.bin ]; then "
-									"  ln -sf /usr/share/seabios/kvmvapic.bin /usr/share/qemu/kvmvapic.bin; "
-									"fi" ) );
-						}
-						else
-						{
-							AQWarning( "bool Virtual_Machine::Start()",
-							           QStringLiteral( "Failed to sync qemu-system-reims3d into WSL via argv cp/chmod" ) );
-						}
-					}
+					QStringList fw_args;
+					if( ! distro.trimmed().isEmpty() )
+						fw_args << QStringLiteral( "-d" ) << distro.trimmed();
+					fw_args << QStringLiteral( "-u" ) << QStringLiteral( "root" )
+					        << QStringLiteral( "-e" )
+					        << QStringLiteral( "sh" ) << QStringLiteral( "-c" )
+					        << QStringLiteral(
+						"mkdir -p /usr/local/bin /usr/share/qemu; "
+						"if [ -d /usr/share/seabios ] && [ ! -f /usr/share/qemu/vgabios-stdvga.bin ]; then "
+						"  ln -sf /usr/share/seabios/vgabios-stdvga.bin /usr/share/qemu/vgabios-stdvga.bin; "
+						"fi; "
+						"if [ -d /usr/share/seabios ] && [ ! -f /usr/share/qemu/kvmvapic.bin ]; then "
+						"  ln -sf /usr/share/seabios/kvmvapic.bin /usr/share/qemu/kvmvapic.bin; "
+						"fi" );
+					QProcess fw;
+					fw.start( QStringLiteral( "wsl.exe" ), fw_args );
+					fw.waitForFinished( 15000 );
 				}
 
 				// Require the Linux Reims binary inside WSL before launch.
@@ -11735,10 +12027,12 @@ bool Virtual_Machine::Start_impl()
 					if( ! test_proc.waitForFinished( 10000 ) || test_proc.exitCode() != 0 )
 					{
 						AQGraphic_Error( "bool Virtual_Machine::Start()", tr( "Error!" ),
-							tr( "Linux Reims binary not found or not executable in WSL:\n%1\n\n"
-							    "Build or install qemu-system-reims3d inside your WSL distro "
-							    "(typically /usr/local/bin/qemu-system-reims3d)." )
-								.arg( linux_qemu ), false );
+							tr( "AQEMU could not put its Linux Reims binary into the WSL distro "
+							    "you selected (%1).\n\n"
+							    "It copies wsl/<cpu>/qemu-system-reims3d from the app into "
+							    "/usr/local/bin when a macOS VM starts. That file is not in "
+							    "this package yet." )
+								.arg( distro.isEmpty() ? tr( "default distro" ) : distro ), false );
 						Start_Snapshot_Tag = "";
 						return false;
 					}
@@ -11747,6 +12041,9 @@ bool Virtual_Machine::Start_impl()
 			else if( AQ_Is_Apple_SoC_VM( this ) )
 			{
 				linux_qemu = AQ_Apple_SoC_WSL_Qemu_Binary();
+				// Bundled path is fixed. A custom Advanced Settings path is left as the user set it.
+				if( linux_qemu == QLatin1String( "/usr/local/bin/qemu-system-applesoc" ) )
+					WSL_Install_Bundled_Qemu( distro, linux_qemu );
 				QStringList test_args;
 				if( ! distro.trimmed().isEmpty() )
 					test_args << QStringLiteral( "-d" ) << distro.trimmed();
@@ -11774,26 +12071,126 @@ bool Virtual_Machine::Start_impl()
 							      "Install ChefKiss Inferno qemu-system-applesoc into your WSL distro, "
 							      "or set an absolute path under Advanced Settings -> Apple SoC binary in WSL." )
 								.arg( linux_qemu )
-							: tr( "Linux Inferno binary not found or not executable in WSL:\n%1\n\n"
-							      "Install qemu-system-applesoc into your WSL distro "
-							      "(default /usr/local/bin/qemu-system-applesoc)." )
-								.arg( linux_qemu ), false );
+							: tr( "AQEMU could not put its Linux Apple SoC binary into the WSL distro "
+							      "you selected (%1).\n\n"
+							      "It copies wsl/<cpu>/qemu-system-applesoc from the app into "
+							      "/usr/local/bin when an iOS VM starts. That file is not in "
+							      "this package yet." )
+								.arg( distro.isEmpty() ? tr( "default distro" ) : distro ), false );
 					AQError( "bool Virtual_Machine::Start_impl()",
 					         QStringLiteral( "WSL Inferno binary missing: %1" ).arg( linux_qemu ) );
 					Start_Snapshot_Tag = "";
 					return false;
 				}
 			}
+			else
+			{
+				QString seek = linux_qemu;
+				if( inferno_usb_companion )
+					seek = QStringLiteral( "qemu-system-x86_64-inferno" );
+				const QString found = WSL_Find_System_Binary( distro, seek );
+				if( found.isEmpty() && inferno_usb_companion )
+				{
+					AQGraphic_Error( "bool Virtual_Machine::Start()", tr( "Error!" ),
+						tr( "The iPhone USB link needs Inferno's Linux QEMU "
+						    "(qemu-system-x86_64-inferno).\n\n"
+						    "Stock qemu-system-x86_64 has no usb-tcp-remote device, so the "
+						    "phone never sees a USB host and never asks to trust this computer.\n\n"
+						    "That binary is not in this WSL distro yet." ), false );
+					Start_Snapshot_Tag = "";
+					return false;
+				}
+				if( found.isEmpty() )
+				{
+					AQWarning( "bool Virtual_Machine::Start()",
+					           QStringLiteral( "WSL has no %1. Starting the Windows QEMU %2 instead." )
+					               .arg( linux_qemu, bin_path ) );
+					goto start_bundled_qemu;
+				}
+				linux_qemu = found;
+			}
 
 			QStringList qemu_args = this->Build_QEMU_Args();
+			{
+				// Linux QEMU. ALSA is valid. A later fallback to the Windows
+				// exe calls Build_QEMU_Args again and does not keep this string.
+				QString preferred = Audiodev_Backend.trimmed();
+				if( preferred.isEmpty() )
+					preferred = s.value( QStringLiteral( "WSL_Launch/Audio_Backend" ), QString() ).toString();
+				bool spice_on_cmd = false;
+				for( int si = 0; si < qemu_args.size(); ++si )
+				{
+					QString tok = qemu_args.at( si ).trimmed();
+					if( tok.startsWith( QLatin1Char( '"' ) ) && tok.endsWith( QLatin1Char( '"' ) ) && tok.size() >= 2 )
+						tok = tok.mid( 1, tok.size() - 2 );
+					if( tok == QLatin1String( "-spice" ) )
+					{
+						spice_on_cmd = true;
+						break;
+					}
+				}
+				if( ! spice_on_cmd && preferred.trimmed().compare( QLatin1String( "spice" ), Qt::CaseInsensitive ) == 0 )
+					preferred.clear();
+				const QString linux_drv = WSL_Pick_Audio_Backend( distro, linux_qemu, preferred, spice_on_cmd );
+				if( ! linux_drv.isEmpty() )
+				{
+					const QString body = AQ_Audio_Build_Audiodev(
+						Audio_Use_Host_Defaults, Audio_Options, Audiodev_Backend,
+						Audiodev_Timer_Period, QString(), linux_drv, spice_on_cmd );
+					AQ_Replace_Audiodev_Argument( &qemu_args, body );
+				}
+			}
 			AQ_Lab_Adjust_Launch( this, linux_qemu, &qemu_args );
+			if( inferno_usb_companion &&
+			    linux_qemu.contains( QLatin1String( "qemu-system-x86_64-inferno" ) ) )
+			{
+				bool have_remote = false;
+				bool have_ehci = false;
+				bool have_usb = false;
+				for( int ai = 0; ai < qemu_args.size(); ++ai )
+				{
+					const QString arg = qemu_args.at( ai );
+					if( arg == QLatin1String( "-usb" ) )
+						have_usb = true;
+					if( arg.contains( QLatin1String( "usb-tcp-remote" ) ) )
+						have_remote = true;
+					if( arg.contains( QLatin1String( "usb-ehci" ) ) )
+						have_ehci = true;
+				}
+				if( ! have_remote )
+				{
+					if( ! have_usb )
+						qemu_args << QStringLiteral( "-usb" );
+					if( ! have_ehci )
+						qemu_args << QStringLiteral( "-device" )
+						          << QStringLiteral( "usb-ehci,id=ehci" );
+					QString type = Get_Apple_USB_Conn_Type().trimmed();
+					if( type.isEmpty() )
+						type = QStringLiteral( "ipv4" );
+					QString addr = Get_Apple_USB_Conn_Addr().trimmed();
+					if( addr.isEmpty() )
+						addr = QStringLiteral( "127.0.0.1" );
+					int port = Get_Apple_USB_Conn_Port();
+					if( port <= 0 )
+						port = 8030;
+					QString remote = QStringLiteral( "usb-tcp-remote,bus=ehci.0,conn-type=%1" ).arg( type );
+					if( type == QLatin1String( "unix" ) )
+						remote += QStringLiteral( ",conn-addr=%1" ).arg( addr );
+					else
+						remote += QStringLiteral( ",conn-addr=%1,conn-port=%2" ).arg( addr ).arg( port );
+					qemu_args << QStringLiteral( "-device" ) << remote;
+					AQDebug( "bool Virtual_Machine::Start()",
+					         QStringLiteral( "Companion USB bridge: %1" ).arg( remote ) );
+				}
+			}
 			if( Computer_Type.contains( QLatin1String( "reimsvgpu" ), Qt::CaseInsensitive ) )
 			{
 				// Ensure the Linux Reims device is present (do not skip when other -device args exist).
 				bool have_reims = false;
 				for( int ai = 0; ai < qemu_args.size(); ++ai )
 				{
-					if( qemu_args.at( ai ).contains( QLatin1String( "reims-vgpu-pci" ), Qt::CaseInsensitive ) )
+					if( qemu_args.at( ai ).contains( QLatin1String( "reims-vgpu-pci" ), Qt::CaseInsensitive ) ||
+					    qemu_args.at( ai ).contains( QLatin1String( "apple-gfx-pci" ), Qt::CaseInsensitive ) )
 					{
 						have_reims = true;
 						break;
@@ -11852,6 +12249,10 @@ bool Virtual_Machine::Start_impl()
 			// Ensure script-mode quoting cannot leak into argv launch
 			Build_QEMU_Args_for_Script_Mode = false;
 			QStringList wsl_args = Build_WSL_Launch_Args( distro, linux_qemu, qemu_args );
+			// Guest channels become Unix sockets inside WSL. The Windows named
+			// pipe names stored earlier are not usable from this host process.
+			Guest_Agent_Socket.clear();
+			Guest_Files_Socket.clear();
 			AQDebug( "bool Virtual_Machine::Start()",
 			         QString( "Starting via WSL: wsl.exe %1" ).arg( wsl_args.join( " " ) ) );
 			QEMU_Process->start( QStringLiteral( "wsl.exe" ), wsl_args );
@@ -11863,11 +12264,13 @@ bool Virtual_Machine::Start_impl()
 				Start_Snapshot_Tag = "";
 				return false;
 			}
+			AQ_Bind_Qemu_Lifetime( QEMU_Process );
 			AQ_Lab_After_Start( this, QEMU_Process );
 		}
 		else
 #endif
 		{
+		start_bundled_qemu:
 		AQ_Lab_Adjust_Launch( this, bin_path, nullptr );
 		if( ! QFile::exists(bin_path) )
         {
@@ -11887,6 +12290,11 @@ bool Virtual_Machine::Start_impl()
         }
 
         QStringList qemu_args = this->Build_QEMU_Args();
+        if( qemu_args.isEmpty() )
+        {
+            Start_Snapshot_Tag = "";
+            return false;
+        }
         AQ_Lab_Adjust_Launch( this, bin_path, &qemu_args );
         AQWarning( "bool Virtual_Machine::Start()",
                  QString( "Starting: \"%1\" %2" ).arg( bin_path, qemu_args.join( " " ) ) );
@@ -11898,6 +12306,18 @@ bool Virtual_Machine::Start_impl()
         const QString curPath = env.value( QStringLiteral( "PATH" ), QString() );
         const QString msysPaths = AQ_Msys_Bin_Path();
         env.insert( QStringLiteral( "PATH" ), binDir + QLatin1Char( ';' ) + appDir + QLatin1Char( ';' ) + msysPaths + QLatin1Char( ';' ) + curPath );
+        if( Computer_Type.contains( QLatin1String( "reimsvgpu" ), Qt::CaseInsensitive ) )
+        {
+            // -vga none means AQEMU's VNC widget never receives a framebuffer.
+            // The Windows binary presents through its own Vulkan window.
+            // This exe reads REIMS_VGPU_LOG / TRACE / STATS. It does not read
+            // REIMS_VGPU_BACKEND or RUST_LOG.
+            env.insert( QStringLiteral( "REIMS_VGPU_WINDOW" ), QStringLiteral( "1" ) );
+            env.insert( QStringLiteral( "REIMS_VGPU_LOG" ), QStringLiteral( "1" ) );
+            env.insert( QStringLiteral( "REIMS_VGPU_TRACE" ), QStringLiteral( "1" ) );
+            env.insert( QStringLiteral( "REIMS_VGPU_STATS" ), QStringLiteral( "1" ) );
+            QFile::remove( QDir( AQEMU_User_Data_Dir() ).filePath( QStringLiteral( "reims-vgpu.log" ) ) );
+        }
         QEMU_Process->setProcessEnvironment( env );
 #endif
         QEMU_Process->setWorkingDirectory( AQ_QEMU_Process_Work_Dir() );
@@ -11910,6 +12330,7 @@ bool Virtual_Machine::Start_impl()
 			Start_Snapshot_Tag = "";
 			return false;
 		}
+		AQ_Bind_Qemu_Lifetime( QEMU_Process );
 		AQ_Lab_After_Start( this, QEMU_Process );
 		}
 		}
@@ -12073,6 +12494,18 @@ void Virtual_Machine::Force_Kill_QEMU_Hard()
 	// State / session exit come from QEMU_Finished when the process actually dies.
 }
 
+void Virtual_Machine::Destroy_QEMU()
+{
+	User_Requested_Power_Off = true;
+	AQ_Lab_Stop_Companions( this );
+	if( QEMU_Process && QEMU_Process->state() != QProcess::NotRunning )
+	{
+		QEMU_Process->kill();
+		QEMU_Process->waitForFinished( 4000 );
+	}
+	Kill_Orphan_QEMU_Using_Disks();
+}
+
 void Virtual_Machine::Kill_Orphan_QEMU_Using_Disks()
 {
 	// Collect disk paths this VM uses so we can kill stray qemu processes
@@ -12105,7 +12538,22 @@ void Virtual_Machine::Kill_Orphan_QEMU_Using_Disks()
 		return;
 
 #ifdef Q_OS_WIN32
-	// PowerShell: find qemu-system-* whose CommandLine mentions any of our disks
+	QStringList basenames;
+	QStringList escaped_bases;
+	for( const QString &d : disks )
+	{
+		const QString base = QFileInfo( d ).fileName();
+		if( base.isEmpty() || basenames.contains( base ) )
+			continue;
+		basenames << base;
+		QString e = base;
+		e.replace( '\'', "''" );
+		escaped_bases << e;
+	}
+
+	// PowerShell: Windows qemu-system-*.exe, and wsl.exe clients whose command
+	// line names one of this VM's disks. Killing wsl.exe does not kill the
+	// Linux qemu (it is reparented to init), so that sweep is below.
 	QStringList escaped;
 	for( const QString &d : disks )
 	{
@@ -12116,65 +12564,58 @@ void Virtual_Machine::Kill_Orphan_QEMU_Using_Disks()
 
 	const QString ps =
 		"$disks=@('" + escaped.join( "','" ) + "');"
-		"Get-CimInstance Win32_Process -Filter \"Name like 'qemu-system%'\" | ForEach-Object {"
+		"$names=@('" + escaped_bases.join( "','" ) + "');"
+		"Get-CimInstance Win32_Process | Where-Object { $_.Name -like 'qemu-system*' -or $_.Name -eq 'wsl.exe' } | ForEach-Object {"
 		"  $cl=$_.CommandLine; if(-not $cl){return};"
-		"  foreach($d in $disks){ if($cl -like ('*'+$d+'*')){ Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue; break } }"
+		"  $hit=$false;"
+		"  foreach($d in $disks){ if($d -and $cl -like ('*'+$d+'*')){ $hit=$true; break } }"
+		"  if(-not $hit){ foreach($b in $names){ if($b -and $cl -like ('*'+$b+'*')){ $hit=$true; break } } }"
+		"  if($hit){ Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"
 		"}";
 
 	QProcess killer;
 	killer.start( "powershell", QStringList() << "-NoProfile" << "-Command" << ps );
-	killer.waitForFinished( 2500 );
+	killer.waitForFinished( 8000 );
 	if( killer.exitCode() != 0 )
 	{
 		AQWarning( "Virtual_Machine::Kill_Orphan_QEMU_Using_Disks()",
 		           "Orphan QEMU cleanup returned " + QString::number( killer.exitCode() ) );
 	}
 
-	// Launch-via-WSL: Linux qemu-system often survives after wsl.exe / AQEMU die.
-	// Always try WSL cleanup on Windows when WSL is available  orphans may remain
-	// even if this VM's Launch_Via_WSL flag was flipped off later.
-	// Match on file basenames (paths differ: C:\ vs /mnt/c/).
-	QStringList basenames;
-	for( const QString &d : disks )
-	{
-		const QString base = QFileInfo( d ).fileName();
-		if( base.isEmpty() )
-			continue;
-		if( ! basenames.contains( base ) )
-			basenames << base;
-	}
 	if( basenames.isEmpty() || ! WSL_Is_Available( false ) )
 		return;
 
-	QString hit_checks;
-	for( const QString &b : basenames )
+	const QString script = QDir( QDir::tempPath() ).filePath( QStringLiteral( "aqemu-kill-qemu.py" ) );
 	{
-		QString q = b;
-		q.replace( QLatin1Char( '\'' ), QLatin1String( "'\\''" ) );
-		hit_checks += QStringLiteral(
-			"echo \"$cmd\" | grep -Fq -- '%1' && hit=1; " ).arg( q );
+		QFile py( script );
+		if( py.open( QIODevice::WriteOnly | QIODevice::Truncate ) )
+		{
+			py.write(
+				"import os, signal, sys\n"
+				"needles = [n.encode() for n in sys.argv[1:] if n]\n"
+				"for name in os.listdir('/proc'):\n"
+				"    if not name.isdigit():\n"
+				"        continue\n"
+				"    pid = int(name)\n"
+				"    if pid <= 1 or pid == os.getpid():\n"
+				"        continue\n"
+				"    try:\n"
+				"        cmd = open('/proc/%s/cmdline' % name, 'rb').read().replace(b'\\0', b' ')\n"
+				"    except OSError:\n"
+				"        continue\n"
+				"    if b'qemu-system' not in cmd:\n"
+				"        continue\n"
+				"    if needles and not any(n in cmd for n in needles):\n"
+				"        continue\n"
+				"    try:\n"
+				"        os.kill(pid, signal.SIGKILL)\n"
+				"    except OSError:\n"
+				"        pass\n" );
+		}
 	}
-	const QString sh =
-		QStringLiteral(
-			"pids=$(pgrep -f 'qemu-system' 2>/dev/null || true); "
-			"for p in $pids; do "
-			"  cmd=$(tr '\\0' ' ' </proc/$p/cmdline 2>/dev/null || true); "
-			"  hit=0; "
-			"  %1 "
-			"  [ \"$hit\" = 1 ] || continue; "
-			"  kill -TERM \"$p\" 2>/dev/null || true; "
-			"done; "
-			"sleep 1.2; "
-			"pids=$(pgrep -f 'qemu-system' 2>/dev/null || true); "
-			"for p in $pids; do "
-			"  cmd=$(tr '\\0' ' ' </proc/$p/cmdline 2>/dev/null || true); "
-			"  hit=0; "
-			"  %1 "
-			"  [ \"$hit\" = 1 ] || continue; "
-			"  kill -KILL \"$p\" 2>/dev/null || true; "
-			"done; "
-			"sleep 0.8" )
-			.arg( hit_checks );
+	const QString wsl_script = Windows_Path_To_WSL( QDir::toNativeSeparators( script ) );
+	if( wsl_script.isEmpty() )
+		return;
 
 	QSettings wsl_set;
 	const QString distro = wsl_set.value( QStringLiteral( "WSL_Launch/Distro" ),
@@ -12182,14 +12623,21 @@ void Virtual_Machine::Kill_Orphan_QEMU_Using_Disks()
 	QStringList wsl_args;
 	if( ! distro.isEmpty() )
 		wsl_args << QStringLiteral( "-d" ) << distro;
-	wsl_args << QStringLiteral( "--" )
-	         << QStringLiteral( "bash" )
-	         << QStringLiteral( "-lc" )
-	         << sh;
+	wsl_args << QStringLiteral( "-u" ) << QStringLiteral( "root" )
+	         << QStringLiteral( "-e" )
+	         << QStringLiteral( "python3" )
+	         << wsl_script
+	         << basenames;
 
 	QProcess wsl_killer;
 	wsl_killer.start( QStringLiteral( "wsl.exe" ), wsl_args );
-	wsl_killer.waitForFinished( 8000 );
+	if( ! wsl_killer.waitForFinished( 15000 ) )
+	{
+		wsl_killer.kill();
+		wsl_killer.waitForFinished( 2000 );
+		AQWarning( "Virtual_Machine::Kill_Orphan_QEMU_Using_Disks()",
+		           QStringLiteral( "WSL QEMU cleanup timed out" ) );
+	}
 #elif defined(Q_OS_UNIX) && !defined(Q_OS_DARWIN)
 	for( const QString &d : disks )
 	{
@@ -14920,6 +15368,16 @@ void Virtual_Machine::Parse_StdErr()
 	QString convOutput = QEMU_Process->readAllStandardError();
 	QEMU_Stderr_History.append( convOutput );
 	Append_Apple_SoC_QEMU_Log( convOutput );
+	if( ! convOutput.isEmpty() &&
+	    Computer_Type.contains( QLatin1String( "reimsvgpu" ), Qt::CaseInsensitive ) )
+	{
+		QFile reims_log( QDir( AQEMU_User_Data_Dir() ).filePath( QStringLiteral( "reims-vgpu.log" ) ) );
+		if( reims_log.open( QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text ) )
+		{
+			QTextStream out( &reims_log );
+			out << convOutput;
+		}
+	}
 
 	emit Clean_Console( convOutput );
 	emit Ready_StdErr( convOutput );
@@ -15147,13 +15605,74 @@ void Virtual_Machine::QEMU_Finished( int exitCode, QProcess::ExitStatus exitStat
 			}
 			else
 			{
-				summary = tr(
-					"Apple SoC / iOS QEMU stopped (exit %1).\n\n"
-					"Usual causes: companion USB remote not up, guest/SEP panic, "
-					"or restore waiting on idevicerestore.\n\n"
-					"Full log:\n%2" )
-					.arg( exitCode )
-					.arg( log_path );
+				const bool loader_only =
+					apple_out.contains( QLatin1String( "Memory Size:" ), Qt::CaseInsensitive ) &&
+					apple_out.contains( QLatin1String( "Boot Mode: 0" ), Qt::CaseInsensitive ) &&
+					! apple_out.contains( QLatin1String( "panic" ), Qt::CaseInsensitive );
+				bool ended_at_loader = false;
+				if( loader_only )
+				{
+					const QStringList lines = apple_out.split( QLatin1Char( '\n' ) );
+					for( int li = lines.size() - 1; li >= 0; --li )
+					{
+						const QString line = lines.at( li ).trimmed();
+						if( line.isEmpty() )
+							continue;
+						ended_at_loader = line.contains( QLatin1String( "Memory Size:" ),
+						                                 Qt::CaseInsensitive );
+						break;
+					}
+				}
+				if( ended_at_loader )
+				{
+					const QString usb_type = Get_Apple_USB_Conn_Type().trimmed().toLower();
+					QString usb_line;
+					if( usb_type.isEmpty() || usb_type == QLatin1String( "ipv4" ) )
+					{
+						const int usb_port = Get_Apple_USB_Conn_Port() > 0
+							? Get_Apple_USB_Conn_Port() : 8030;
+						QString usb_addr = Get_Apple_USB_Conn_Addr().trimmed();
+						if( usb_addr.isEmpty() )
+							usb_addr = QStringLiteral( "127.0.0.1" );
+						bool usb_checked = false;
+						const bool usb_up = AQ_Apple_SoC_IPv4_USB_Is_Listening( usb_port, &usb_checked );
+						if( ! usb_checked )
+						{
+							usb_line = tr( "The USB listener on %1:%2 could not be checked." )
+								.arg( usb_addr ).arg( usb_port );
+						}
+						else if( ! usb_up )
+						{
+							usb_line = tr( "Nothing is listening on %1:%2. Power On the companion first." )
+								.arg( usb_addr ).arg( usb_port );
+						}
+						else
+						{
+							usb_line = tr( "Something is listening on %1:%2. The loader still exited before the kernel printed anything." )
+								.arg( usb_addr ).arg( usb_port );
+						}
+					}
+					else
+					{
+						usb_line = tr( "USB mode is %1. The loader still exited before the kernel printed anything." )
+							.arg( usb_type );
+					}
+					summary = tr(
+						"The Inferno loader exited 0 before the kernel printed anything.\n\n"
+						"%1\n\n"
+						"Full log:\n%2" )
+						.arg( usb_line, log_path );
+				}
+				else
+				{
+					summary = tr(
+						"Apple SoC / iOS QEMU stopped (exit %1).\n\n"
+						"Usual causes: companion USB remote not up, guest/SEP panic, "
+						"or restore waiting on idevicerestore.\n\n"
+						"Full log:\n%2" )
+						.arg( exitCode )
+						.arg( log_path );
+				}
 			}
 
 			AQError( exitStatus == QProcess::CrashExit ? "QEMU Crashed!"
@@ -15537,7 +16056,9 @@ QString Virtual_Machine::GenerateHTMLInfoText(int info_mode)
 
             cell = table->cellAt( table->rows()-1, 2 );
             cell_cursor = cell.firstCursorPosition();
-            cell_cursor.insertText( VM::Accel_To_String(Get_Machine_Accelerator()).toUpper(), format );
+            cell_cursor.insertText(
+                VM::Accel_Display_Name( Get_Machine_Accelerator(), Launch_Via_WSL ),
+                format );
             table->insertRows( table->rows(), 1 );
         }
 

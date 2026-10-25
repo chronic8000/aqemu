@@ -10,6 +10,7 @@
 
 #include "Guest_Capabilities.h"
 #include "QEMU_Probe_Catalog.h"
+#include "Utils.h"
 
 namespace {
 
@@ -97,14 +98,21 @@ QString Pick_USB( const QString &os, const QStringList &controllers, bool probe_
 QString Pick_Host_Audio( const QStringList &drivers, bool probe_loaded )
 {
 	QStringList prefer;
+	QStringList usable;
 #ifdef Q_OS_WIN
-	prefer << QStringLiteral( "dsound" ) << QStringLiteral( "spice" ) << QStringLiteral( "sdl" );
+	prefer << QStringLiteral( "dsound" ) << QStringLiteral( "sdl" ) << QStringLiteral( "none" );
 #else
-	prefer << QStringLiteral( "pa" ) << QStringLiteral( "pipewire" ) << QStringLiteral( "alsa" )
+	prefer << QStringLiteral( "alsa" ) << QStringLiteral( "pa" ) << QStringLiteral( "pipewire" )
 	       << QStringLiteral( "sdl" ) << QStringLiteral( "spice" );
 #endif
 	prefer << QStringLiteral( "none" );
-	return Pick( prefer, drivers, probe_loaded );
+	for( int i = 0; i < drivers.count(); ++i )
+	{
+		const QString n = drivers.at( i ).trimmed().toLower();
+		if( AQ_Audio_Host_Can_Use( n ) )
+			usable << n;
+	}
+	return Pick( prefer, usable, probe_loaded );
 }
 
 QString Pick_Display( const QStringList &backends, bool probe_loaded )

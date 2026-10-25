@@ -28,6 +28,7 @@
 #include <QFileInfo>
 #include <QDir>
 #include <QCoreApplication>
+#include <QSysInfo>
 #include <QTextStream>
 #include <QJsonDocument>
 #include <QJsonArray>
@@ -3995,6 +3996,8 @@ QString System_Info::Vendor_Name_From_ID( const QString &vendor_id )
 		return QStringLiteral( "NVIDIA" );
 	if( v == QLatin1String( "8086" ) || v == QLatin1String( "0x8086" ) )
 		return QStringLiteral( "Intel" );
+	if( v == QLatin1String( "17cb" ) || v == QLatin1String( "0x17cb" ) )
+		return QStringLiteral( "Qualcomm" );
 	return QStringLiteral( "Other" );
 }
 
@@ -4078,6 +4081,32 @@ bool System_Info::Has_Intel_Display_GPU()
 	return false;
 }
 
+bool System_Info::Has_Qualcomm_Display_GPU()
+{
+	const QList<Host_GPU> &list = All_Host_GPU;
+	for( int i = 0; i < list.count(); ++i )
+	{
+		if( list[i].Is_Display && list[i].Vendor == QLatin1String( "Qualcomm" ) )
+			return true;
+	}
+	return false;
+}
+
+bool System_Info::Host_Reims_Prefers_Windows_Binary()
+{
+#ifdef Q_OS_WIN32
+	// Intel, AMD, and NVIDIA keep the WSL/Dozen path. Those hosts have a
+	// usable Vulkan ICD inside WSL; Snapdragon does not.
+	if( Has_AMD_Display_GPU() || Has_NVIDIA_Display_GPU() || Has_Intel_Display_GPU() )
+		return false;
+	if( Has_Qualcomm_Display_GPU() )
+		return true;
+	return QSysInfo::currentCpuArchitecture().startsWith( QLatin1String( "arm" ), Qt::CaseInsensitive );
+#else
+	return false;
+#endif
+}
+
 bool System_Info::Has_Reims_Candidate_GPU()
 {
 	return Has_AMD_Display_GPU() || Has_NVIDIA_Display_GPU() || Has_Intel_Display_GPU();
@@ -4098,6 +4127,8 @@ QString System_Info::Host_Display_GPU_Vendors_Summary()
 		vendors << QStringLiteral( "NVIDIA" );
 	if( Has_Intel_Display_GPU() )
 		vendors << QStringLiteral( "Intel" );
+	if( Has_Qualcomm_Display_GPU() )
+		vendors << QStringLiteral( "Qualcomm" );
 	if( vendors.isEmpty() )
 	{
 		const QList<Host_GPU> &list = All_Host_GPU;
@@ -4302,6 +4333,8 @@ bool System_Info::Scan_Host_GPU_Windows( QList<Host_GPU> &list )
 				gpu.Vendor = QStringLiteral( "NVIDIA" );
 			else if( nl.contains( "intel" ) )
 				gpu.Vendor = QStringLiteral( "Intel" );
+			else if( nl.contains( "qualcomm" ) || nl.contains( "adreno" ) )
+				gpu.Vendor = QStringLiteral( "Qualcomm" );
 		}
 		list << gpu;
 	}

@@ -1,0 +1,103 @@
+diff --git a/Makefile.am b/Makefile.am
+index bc1e08b..423673d 100644
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -1,5 +1,11 @@
+ # Generic definitions
++# The utils/ tools include poll.h directly. MinGW has no poll.h; the
++# library itself uses win32/win32_compat.h. QEMU only needs the library.
++if TARGET_OS_IS_WIN32
++SUBDIRS = lib doc
++else
+ SUBDIRS = lib doc utils
++endif
+ if BUILD_TEST_TOOL
+ SUBDIRS += test-tool
+ endif
+diff --git a/include/iscsi-multithreading.h b/include/iscsi-multithreading.h
+index 4c691c4..03e4a30 100644
+--- a/include/iscsi-multithreading.h
++++ b/include/iscsi-multithreading.h
+@@ -23,6 +23,17 @@
+ #include "config.h"
+ #endif
+ 
++
++/* MinGW has winpthreads, so configure defines HAVE_PTHREAD as well as
++   WIN32. The Win32 thread types use HANDLE, and the mutex code uses
++   pthread, but each include lives in a branch the other one skips. */
++#ifdef WIN32
++#include <winsock2.h>
++#include <windows.h>
++#endif
++#ifdef HAVE_PTHREAD
++#include <pthread.h>
++#endif
+ #ifdef __cplusplus
+ extern "C" {
+ #endif
+diff --git a/lib/Makefile.am b/lib/Makefile.am
+index e016bf1..c0d884b 100644
+--- a/lib/Makefile.am
++++ b/lib/Makefile.am
+@@ -21,8 +21,13 @@ if HAVE_LINUX_ISER
+ libiscsipriv_la_SOURCES += iser.c
+ endif
+ 
++libiscsipriv_la_LIBADD =
++if HAVE_PTHREAD
++libiscsipriv_la_LIBADD += -lpthread
++endif
++
+ if HAVE_LINUX_ISER
+-libiscsipriv_la_LIBADD = -libverbs -lrdmacm -lpthread
++libiscsipriv_la_LIBADD += -libverbs -lrdmacm
+ endif
+ 
+ libiscsipriv_la_LDFLAGS = -no-undefined
+diff --git a/lib/multithreading.c b/lib/multithreading.c
+index 2449f80..6d74c95 100644
+--- a/lib/multithreading.c
++++ b/lib/multithreading.c
+@@ -96,8 +96,8 @@ static DWORD WINAPI service_thread_init(LPVOID lpParam)
+ 
+ int iscsi_mt_service_thread_start(struct iscsi_context* iscsi)
+ {
+-    iscsi->iscsii->service_thread = CreateThread(NULL, 1024*1024, service_thread_init, iscsi, 0, NULL);
+-    if (iscsi->iscsii->service_thread == NULL) {
++    iscsi->service_thread = CreateThread(NULL, 1024*1024, service_thread_init, iscsi, 0, NULL);
++    if (iscsi->service_thread == NULL) {
+         iscsi_set_error(iscsi, "Failed to start service thread");
+         return -1;
+     }
+@@ -110,7 +110,7 @@ int iscsi_mt_service_thread_start(struct iscsi_context* iscsi)
+ void iscsi_mt_service_thread_stop(struct iscsi_context* iscsi)
+ {
+     iscsi->multithreading_enabled = 0;
+-    while (WaitForSingleObject(iscsi->iscsii->service_thread, INFINITE) != WAIT_OBJECT_0);
++    while (WaitForSingleObject(iscsi->service_thread, INFINITE) != WAIT_OBJECT_0);
+ }
+ 
+ int iscsi_mt_sem_init(libiscsi_sem_t* sem, int value)
+diff --git a/lib/socket.c b/lib/socket.c
+index 7c0a169..69cece4 100644
+--- a/lib/socket.c
++++ b/lib/socket.c
+@@ -150,7 +150,7 @@ iscsi_add_to_outqueue(struct iscsi_context *iscsi, struct iscsi_pdu *pdu)
+  finished:
+         iscsi_mt_spin_unlock(&iscsi->iscsi_lock);
+         
+-#if defined(HAVE_MULTITHREADING) && defined(HAVE_PTHREAD)
++#if defined(HAVE_MULTITHREADING) && defined(HAVE_PTHREAD) && !defined(WIN32)
+         if(iscsi->multithreading_enabled) {
+                 if (current == NULL && pdu == iscsi->outqueue) {
+                         pthread_kill(iscsi->service_thread, SIGUSR1);
+@@ -160,7 +160,7 @@ iscsi_add_to_outqueue(struct iscsi_context *iscsi, struct iscsi_pdu *pdu)
+                 if (iscsi->outqueue == pdu) {
+                         iscsi->drv->service(iscsi, POLLOUT);
+                 }
+-#if defined(HAVE_MULTITHREADING) && defined(HAVE_PTHREAD)
++#if defined(HAVE_MULTITHREADING) && defined(HAVE_PTHREAD) && !defined(WIN32)
+         }
+ #endif
+ 

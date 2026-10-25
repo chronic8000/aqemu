@@ -1,137 +1,63 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-  Build AQEMU for Windows x86_64 (Intel / AMD 64-bit).
-
-.DESCRIPTION
-  Builds native x64 Windows binaries using WinLibs UCRT or MSYS2 MinGW64/UCRT64.
-  Supports creating MSIX packages via -BuildMsix.
+  Build x86_64 AQEMU from the MSYS2 UCRT64 environment.
 
 .PARAMETER MsysRoot
-  Path to MSYS2. Empty uses MSYSTEM_PREFIX, then MSYS2_ROOT, then C:\msys64.
-.PARAMETER QtDir
-  Path to Qt 5 MinGW build (optional if using MSYS2 Qt).
-.PARAMETER BuildDir
-  Output build directory (default: build_win).
+  MSYS2 install root. Empty uses the active shell, then the registered MSYS2 install.
 .PARAMETER BuildMsix
-  If set, packages the built x64 payload into an MSIX for Windows / Store.
+  Package the x64 build with installer/build-msix.ps1.
 .PARAMETER SkipSpice
-  Disable embedded SPICE display client.
+  Do not enable the SPICE client even when the library is installed.
+.PARAMETER InstallDeps
+  Install the UCRT64 toolchain and Qt packages before building.
 #>
 [CmdletBinding()]
 param(
     [string] $MsysRoot = "",
-    [string] $QtDir = "",
-    [string] $BuildDir = "build_win",
     [switch] $BuildMsix,
-    [switch] $SkipSpice
+    [switch] $SkipSpice,
+    [switch] $InstallDeps
 )
 
 $ErrorActionPreference = "Stop"
-
 $scriptDir = $PSScriptRoot
 if ([string]::IsNullOrWhiteSpace($scriptDir)) {
     $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 }
 $RepoRoot = (Resolve-Path (Join-Path $scriptDir "..")).Path
+. (Join-Path $scriptDir "msys_prefix.ps1")
 if ([string]::IsNullOrWhiteSpace($MsysRoot)) {
-    . (Join-Path $scriptDir "msys_prefix.ps1")
-    $MsysRoot = Get-AqemuMsysRoot
-    if (-not $MsysRoot) { $MsysRoot = "C:\msys64" }
+    $MsysRoot = Get-AqemuMsysRoot -Environment "ucrt64"
 }
-$FullBuildDir = Join-Path $RepoRoot $BuildDir
-
-Write-Host "============================================================" -ForegroundColor Cyan
-Write-Host "  AQEMU - Windows x86_64 (64-bit) Build Script              " -ForegroundColor Cyan
-Write-Host "============================================================" -ForegroundColor Cyan
-Write-Host "Repository Root: $RepoRoot"
-Write-Host "Build Directory: $FullBuildDir"
-
-# Probe MSYS2 ucrt64 or mingw64
-$msysUcrtBin = Join-Path $MsysRoot "ucrt64\bin"
-$msysMingwBin = Join-Path $MsysRoot "mingw64\bin"
-
-if (Test-Path $msysUcrtBin) {
-    $env:PATH = "$msysUcrtBin;$MsysRoot\usr\bin;$env:PATH"
-    $env:PKG_CONFIG_PATH = (Join-Path $MsysRoot "ucrt64\lib\pkgconfig")
-    Write-Host "Using MSYS2 UCRT64 toolchain from $msysUcrtBin" -ForegroundColor Green
-} elseif (Test-Path $msysMingwBin) {
-    $env:PATH = "$msysMingwBin;$MsysRoot\usr\bin;$env:PATH"
-    $env:PKG_CONFIG_PATH = (Join-Path $MsysRoot "mingw64\lib\pkgconfig")
-    Write-Host "Using MSYS2 MinGW64 toolchain from $msysMingwBin" -ForegroundColor Green
+if (-not $MsysRoot) {
+    Write-Error "MSYS2 was not found. Install it, or set MSYS2_ROOT to the install directory."
+}
+$bash = Join-Path $MsysRoot "usr\bin\bash.exe"
+if (-not (Test-Path -LiteralPath $bash)) {
+    Write-Error "MSYS2 bash is not at $bash"
 }
 
-# Check for cmake and ninja
-$cmakeCmd = Get-Command "cmake" -ErrorAction SilentlyContinue
-$ninjaCmd = Get-Command "ninja" -ErrorAction SilentlyContinue
-
-if (-not $cmakeCmd) {
-    Write-Error "cmake is not found on PATH."
-}
-if (-not $ninjaCmd) {
-    Write-Error "ninja is not found on PATH."
+$prefixBin = Join-Path $MsysRoot "ucrt64\bin"
+if (-not $InstallDeps) {
+    $haveCc = Test-Path -LiteralPath (Join-Path $prefixBin "cc.exe")
+    $haveQt = Test-Path -LiteralPath (Join-Path $prefixBin "Qt5Core.dll")
+    if (-not ($haveCc -and $haveQt)) { $InstallDeps = $true }
 }
 
-if (-not (Test-Path $FullBuildDir)) {
-    New-Item -ItemType Directory -Path $FullBuildDir -Force | Out-Null
-}
+$env:MSYSTEM = "UCRT64"
+$env:CHERE_INVOKING = "1"
+if ($SkipSpice) { $env:AQEMU_SKIP_SPICE = "1" } else { Remove-Item Env:AQEMU_SKIP_SPICE -ErrorAction SilentlyContinue }
 
-$cmakeArgs = @(
-    "-G", "Ninja",
-    "-B", $FullBuildDir,
-    "-S", $RepoRoot,
-    "-DCMAKE_BUILD_TYPE=Release"
-)
-
-if ($QtDir -and (Test-Path $QtDir)) {
-    $cmakeArgs += "-DCMAKE_PREFIX_PATH=$QtDir"
-}
-
-if (-not $SkipSpice) {
-    $cmakeArgs += "-DAQEMU_WITH_SPICE_GTK=ON"
-}
-
-$qemuInstall = Join-Path $RepoRoot "third_party\qemu-install"
-if (Test-Path (Join-Path $qemuInstall "bin")) {
-    $cmakeArgs += "-DAQEMU_BUNDLE_QEMU=ON"
-    $cmakeArgs += "-DAQEMU_QEMU_PREFIX=$qemuInstall"
-    Write-Host "Bundling QEMU binaries from $qemuInstall" -ForegroundColor Green
-}
-
-Write-Host "`nRunning CMake configuration..." -ForegroundColor Cyan
-& cmake.exe @cmakeArgs
-if ($LASTEXITCODE -ne 0) {
-    Write-Error "CMake configuration failed."
-}
-
-Write-Host "`nCompiling AQEMU executable..." -ForegroundColor Cyan
-& ninja.exe -C $FullBuildDir
-if ($LASTEXITCODE -ne 0) {
-    Write-Error "Ninja compilation failed."
-}
-
-$targetExe = Join-Path $FullBuildDir "aqemu.exe"
-if (-not (Test-Path $targetExe)) {
-    Write-Error "Build finished but aqemu.exe was not found at $targetExe."
-}
-
-Write-Host "`n=== Build Succeeded! ===" -ForegroundColor Green
-Write-Host "Executable: $targetExe"
-
-# Deploy Qt dependencies
-$wdq = Get-Command "windeployqt" -ErrorAction SilentlyContinue
-if ($wdq) {
-    Write-Host "Deploying Qt runtime libraries with windeployqt..." -ForegroundColor Cyan
-    & $wdq.Path --no-translations --compiler-runtime $targetExe
-}
+$unixRoot = (& $bash -lc "cygpath -u '$($RepoRoot.Replace('\','/'))'").Trim()
+$depArg = ""
+if ($InstallDeps) { $depArg = " --deps" }
+Write-Host "x86_64 build using MSYSTEM=$env:MSYSTEM root=$MsysRoot"
+& $bash -lc "cd '$unixRoot' && ./scripts/build_aqemu_win64.sh$depArg"
+if ($LASTEXITCODE -ne 0) { Write-Error "x86_64 build failed with exit code $LASTEXITCODE" }
 
 if ($BuildMsix) {
-    Write-Host "`n=== Packaging into MSIX ===" -ForegroundColor Cyan
     $msixScript = Join-Path $RepoRoot "installer\build-msix.ps1"
-    if (Test-Path $msixScript) {
-        & powershell -NoProfile -ExecutionPolicy Bypass -File $msixScript -Architecture "x64" -BuildDir $FullBuildDir
-    }
+    $buildDir = Join-Path $RepoRoot "build_win"
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $msixScript -Architecture "x64" -BuildDir $buildDir
 }
-
-Write-Host "`nTo run AQEMU:" -ForegroundColor Green
-Write-Host "  & `"$targetExe`""

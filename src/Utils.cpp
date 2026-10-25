@@ -65,6 +65,7 @@ HANDLE Console_HANDLE = GetStdHandle( STD_OUTPUT_HANDLE );
 #include "WHPX_Host.h"
 #include "Audio_Host.h"
 #include "System_Info.h"
+#include "WSL_Launch.h"
 
 static uint Messages_Index = 0;
 
@@ -950,10 +951,14 @@ QString AQ_Get_Default_QEMU_Dir()
 QString AQ_Find_Reims_GOP_ROM()
 {
 	const QString app = QDir::cleanPath( QCoreApplication::applicationDirPath() );
+	// The Reims build installs the UEFI GOP as ReimsVgpu.rom (PCI option ROM).
 	const QStringList candidates = QStringList()
 		<< ( app + QStringLiteral( "/share/reims-vgpu-gop.rom" ) )
+		<< ( app + QStringLiteral( "/share/ReimsVgpu.rom" ) )
 		<< ( app + QStringLiteral( "/resources/reims-vgpu-gop.rom" ) )
+		<< ( app + QStringLiteral( "/resources/ReimsVgpu.rom" ) )
 		<< ( app + QStringLiteral( "/reims-vgpu-gop.rom" ) )
+		<< ( app + QStringLiteral( "/ReimsVgpu.rom" ) )
 		<< ( app + QStringLiteral( "/../resources/reims-vgpu-gop.rom" ) );
 	for( const QString &c : candidates )
 	{
@@ -1515,17 +1520,22 @@ QString AQ_Qemu_Drive_File_Key( const QString &path )
 	return QStringLiteral( "file=%1" ).arg( p );
 }
 
-static bool AQ_Audio_Host_Ready( const QString &driver )
+bool AQ_Audio_Host_Can_Use( const QString &driver )
 {
 	const QString d = driver.trimmed().toLower();
 #if defined(Q_OS_WIN)
+	// These are Linux (or other-OS) host drivers. The Windows qemu-system
+	// rejects them. WSL is a separate Linux process and does not use this check.
+	if( d == QLatin1String( "alsa" ) || d == QLatin1String( "oss" )
+	    || d == QLatin1String( "pa" ) || d == QLatin1String( "pipewire" )
+	    || d == QLatin1String( "jack" ) || d == QLatin1String( "sndio" )
+	    || d == QLatin1String( "coreaudio" ) )
+		return false;
 	// This QEMU's DirectSound backend access-violates on Windows ARM
 	// (exit 0xC0000005). SDL is compiled out of the Store package.
 #if defined(_M_ARM64) || defined(__aarch64__)
 	if( d == QLatin1String( "dsound" ) || d == QLatin1String( "sdl" ) )
 		return false;
-#else
-	Q_UNUSED( d );
 #endif
 	return true;
 #elif defined(Q_OS_DARWIN)
@@ -1535,16 +1545,20 @@ static bool AQ_Audio_Host_Ready( const QString &driver )
 	const QString runtime = QString::fromLocal8Bit( qgetenv( "XDG_RUNTIME_DIR" ) );
 	if( d == QLatin1String( "pa" ) )
 	{
-		if( ! QStandardPaths::findExecutable( QStringLiteral( "pactl" ) ).isEmpty() )
-			return true;
+		// pactl on PATH is not a running server. QEMU fails if the socket is down.
 		return ! runtime.isEmpty() && QFile::exists( runtime + QStringLiteral( "/pulse/native" ) );
 	}
 	if( d == QLatin1String( "pipewire" ) )
 	{
-		if( ! QStandardPaths::findExecutable( QStringLiteral( "pw-cli" ) ).isEmpty()
-		    || ! QStandardPaths::findExecutable( QStringLiteral( "wpctl" ) ).isEmpty() )
-			return true;
-		return ! runtime.isEmpty() && QFile::exists( runtime + QStringLiteral( "/pipewire-0" ) );
+		// Compiled into QEMU is not enough. This is the error "can't load
+		// config client.conf" followed by "Could not create PipeWire context".
+		const QString home = QDir::homePath();
+		const bool conf = QFile::exists( QStringLiteral( "/usr/share/pipewire/client.conf" ) )
+			|| QFile::exists( QStringLiteral( "/etc/pipewire/client.conf" ) )
+			|| QFile::exists( home + QStringLiteral( "/.config/pipewire/client.conf" ) );
+		const bool sock = ! runtime.isEmpty()
+			&& QFile::exists( runtime + QStringLiteral( "/pipewire-0" ) );
+		return conf && sock;
 	}
 	if( d == QLatin1String( "alsa" ) )
 		return QDir( QStringLiteral( "/dev/snd" ) ).exists()
@@ -1558,19 +1572,15 @@ static bool AQ_Audio_Host_Ready( const QString &driver )
 static QStringList AQ_Audio_Backend_Priority()
 {
 #ifdef Q_OS_WIN
-	// spice is compiled into the Store QEMU and plays through the embedded
-	// viewer. sdl is not. dsound is listed by QEMU but crashes on Windows ARM.
-	return QStringList()
-		<< QStringLiteral( "spice" )
-		<< QStringLiteral( "pa" )
-		<< QStringLiteral( "pipewire" )
-		<< QStringLiteral( "alsa" )
-		<< QStringLiteral( "sdl" )
-		<< QStringLiteral( "dsound" )
-		<< QStringLiteral( "oss" )
-		<< QStringLiteral( "wav" )
-		<< QStringLiteral( "dbus" )
-		<< QStringLiteral( "none" );
+	// Speakers. Spice is not here: it is legal only when the launch also
+	// passes -spice, and the picker adds it in that case. DirectSound
+	// crashes this QEMU on Windows ARM. SDL is not in that build.
+	QStringList order;
+#if !defined(_M_ARM64) && !defined(__aarch64__)
+	order << QStringLiteral( "dsound" ) << QStringLiteral( "sdl" );
+#endif
+	order << QStringLiteral( "none" );
+	return order;
 #elif defined(Q_OS_DARWIN)
 	return QStringList()
 		<< QStringLiteral( "coreaudio" )
@@ -1581,10 +1591,12 @@ static QStringList AQ_Audio_Backend_Priority()
 		<< QStringLiteral( "wav" )
 		<< QStringLiteral( "none" );
 #else
+	// ALSA is the Linux host driver. Pulse and PipeWire come first only when
+	// AQ_Audio_Host_Can_Use says that session is actually running them.
 	return QStringList()
+		<< QStringLiteral( "alsa" )
 		<< QStringLiteral( "pa" )
 		<< QStringLiteral( "pipewire" )
-		<< QStringLiteral( "alsa" )
 		<< QStringLiteral( "sdl" )
 		<< QStringLiteral( "spice" )
 		<< QStringLiteral( "oss" )
@@ -1593,25 +1605,36 @@ static QStringList AQ_Audio_Backend_Priority()
 #endif
 }
 
-QString AQ_Pick_Host_Audio_Backend( const QString &qemu_binary, const QString &preferred )
+QString AQ_Pick_Host_Audio_Backend( const QString &qemu_binary, const QString &preferred, bool allow_spice )
 {
 	const QStringList supported = AQ_Audio_Backend_Names( qemu_binary );
 	const QString pref = preferred.trimmed().toLower();
+	auto accept = [ &supported, allow_spice ]( const QString &driver ) -> bool
+	{
+		if( ! allow_spice && driver == QLatin1String( "spice" ) )
+			return false;
+		return supported.contains( driver ) && AQ_Audio_Host_Can_Use( driver );
+	};
 
-	if( ! pref.isEmpty() && supported.contains( pref ) && AQ_Audio_Host_Ready( pref ) )
+	if( ! pref.isEmpty() && accept( pref ) )
 		return pref;
 
-	const QStringList priority = AQ_Audio_Backend_Priority();
+	QStringList priority = AQ_Audio_Backend_Priority();
+	if( allow_spice )
+	{
+		const int none_at = priority.indexOf( QStringLiteral( "none" ) );
+		priority.insert( none_at < 0 ? priority.count() : none_at, QStringLiteral( "spice" ) );
+	}
 	for( int i = 0; i < priority.count(); ++i )
 	{
 		const QString driver = priority.at( i );
-		if( supported.contains( driver ) && AQ_Audio_Host_Ready( driver ) )
+		if( accept( driver ) )
 			return driver;
 	}
 
 	for( int i = 0; i < supported.count(); ++i )
 	{
-		if( AQ_Audio_Host_Ready( supported.at( i ) ) )
+		if( accept( supported.at( i ) ) )
 			return supported.at( i );
 	}
 
@@ -2690,39 +2713,165 @@ bool AQ_Host_WHPX_Usable()
 #endif
 }
 
-bool AQ_QEMU_Has_WHPX( const QString &qemu_binary )
+static QStringList AQ_QEMU_List_Accels( const QString &qemu_binary )
 {
-	static QHash<QString, bool> cache;
+	static QHash<QString, QStringList> cache;
 	const QString key = QDir::toNativeSeparators( qemu_binary );
 	if( key.isEmpty() || ! QFile::exists( key ) )
-		return false;
+		return QStringList();
 	if( cache.contains( key ) )
 		return cache.value( key );
 
 	QProcess probe;
 	probe.setProcessChannelMode( QProcess::MergedChannels );
 	probe.start( key, QStringList() << QStringLiteral( "-accel" ) << QStringLiteral( "help" ) );
-	bool listed = false;
+	QStringList found;
 	if( probe.waitForFinished( 5000 ) )
-		listed = QString::fromLocal8Bit( probe.readAll() ).contains( QLatin1String( "whpx" ), Qt::CaseInsensitive );
+	{
+		const QString out = QString::fromLocal8Bit( probe.readAll() );
+		const QStringList lines = out.split( QRegularExpression( QStringLiteral( "[\\r\\n]+" ) ),
+		                                     QString::SkipEmptyParts );
+		for( int i = 0; i < lines.count(); ++i )
+		{
+			const QString token = lines.at( i ).trimmed().toLower();
+			if( token == QLatin1String( "tcg" ) || token == QLatin1String( "whpx" ) ||
+			    token == QLatin1String( "kvm" ) || token == QLatin1String( "xen" ) ||
+			    token == QLatin1String( "hax" ) || token == QLatin1String( "hvf" ) )
+				found << token;
+		}
+		if( found.isEmpty() )
+		{
+			if( out.contains( QRegularExpression( QStringLiteral( "\\btcg\\b" ), QRegularExpression::CaseInsensitiveOption ) ) )
+				found << QStringLiteral( "tcg" );
+			if( out.contains( QRegularExpression( QStringLiteral( "\\bwhpx\\b" ), QRegularExpression::CaseInsensitiveOption ) ) )
+				found << QStringLiteral( "whpx" );
+			if( out.contains( QRegularExpression( QStringLiteral( "\\bkvm\\b" ), QRegularExpression::CaseInsensitiveOption ) ) )
+				found << QStringLiteral( "kvm" );
+			if( out.contains( QRegularExpression( QStringLiteral( "\\bxen\\b" ), QRegularExpression::CaseInsensitiveOption ) ) )
+				found << QStringLiteral( "xen" );
+		}
+	}
 	else
 		probe.kill();
-	cache.insert( key, listed );
-	return listed;
+	cache.insert( key, found );
+	return found;
+}
+
+static bool AQ_Host_KVM_Usable()
+{
+#if defined(Q_OS_UNIX) && !defined(Q_OS_WIN)
+	return access( "/dev/kvm", R_OK | W_OK ) == 0;
+#else
+	return false;
+#endif
+}
+
+static bool AQ_Host_Xen_Present()
+{
+#ifdef Q_OS_LINUX
+	return QFile::exists( QStringLiteral( "/dev/xen/evtchn" ) ) ||
+	       QFile::exists( QStringLiteral( "/proc/xen/capabilities" ) );
+#else
+	return false;
+#endif
+}
+
+bool AQ_QEMU_Has_WHPX( const QString &qemu_binary )
+{
+	return AQ_QEMU_List_Accels( qemu_binary ).contains( QStringLiteral( "whpx" ) );
+}
+
+AQ_Accel_Flags AQ_Accelerator_Availability( const QString &guest_qemu_name,
+                                            const QString &qemu_binary,
+                                            bool via_wsl )
+{
+	AQ_Accel_Flags flags;
+	const QString raw = guest_qemu_name.trimmed().toLower();
+	const bool apple_soc = raw.contains( QLatin1String( "applesoc" ) );
+	const QString guest = AQ_Normalize_CPU_Architecture( guest_qemu_name );
+	const bool family = AQ_Guest_Matches_Host_Architecture( guest );
+	const bool tcg_only_binary =
+		guest == QLatin1String( "i386" ) || guest == QLatin1String( "arm" );
+	const QStringList accels = AQ_QEMU_List_Accels( qemu_binary );
+	const bool probed = ! qemu_binary.trimmed().isEmpty() &&
+	                    QFile::exists( qemu_binary ) && ! accels.isEmpty();
+
+	flags.tcg = probed ? accels.contains( QStringLiteral( "tcg" ) ) : true;
+
+	// via_wsl is the process that will start: Linux/WSL QEMU, or the Windows QEMU.
+#ifdef Q_OS_WIN
+	if( via_wsl )
+	{
+		flags.whpx = false;
+		if( family && ! tcg_only_binary )
+			flags.kvm = WSL_Has_KVM();
+	}
+	else if( family && ! tcg_only_binary && AQ_Host_WHPX_Usable() )
+	{
+		if( probed )
+			flags.whpx = accels.contains( QStringLiteral( "whpx" ) );
+		else
+			flags.whpx = ( guest == QLatin1String( "x86_64" ) ||
+			               guest == QLatin1String( "aarch64" ) );
+	}
+#else
+	Q_UNUSED( via_wsl );
+	if( family && ! tcg_only_binary )
+		flags.kvm = AQ_Host_KVM_Usable();
+#endif
+
+	flags.xen = ! apple_soc && family && AQ_Host_Xen_Present();
+	if( probed && ! accels.contains( QStringLiteral( "xen" ) ) )
+		flags.xen = false;
+	return flags;
+}
+
+QString AQ_Resolve_Accel_Id( const QString &stored_id,
+                             const QString &guest_qemu_name,
+                             const QString &qemu_binary,
+                             bool via_wsl )
+{
+	const AQ_Accel_Flags flags =
+		AQ_Accelerator_Availability( guest_qemu_name, qemu_binary, via_wsl );
+	const QString id = stored_id.trimmed().toLower();
+	if( id == QLatin1String( "tcg" ) || id.isEmpty() )
+	{
+		if( flags.tcg )
+			return QStringLiteral( "tcg" );
+	}
+	else if( id == QLatin1String( "whpx" ) )
+	{
+		if( flags.whpx )
+			return QStringLiteral( "whpx" );
+	}
+	else if( id == QLatin1String( "kvm" ) )
+	{
+		if( flags.kvm )
+			return QStringLiteral( "kvm" );
+	}
+	else if( id == QLatin1String( "xen" ) )
+	{
+		if( flags.xen )
+			return QStringLiteral( "xen" );
+	}
+
+	if( flags.whpx )
+		return QStringLiteral( "whpx" );
+	if( flags.kvm )
+		return QStringLiteral( "kvm" );
+	return QStringLiteral( "tcg" );
+}
+
+bool AQ_Native_Accel_Selectable( const QString &guest_qemu_name, const QString &qemu_binary, bool via_wsl )
+{
+	const AQ_Accel_Flags flags = AQ_Accelerator_Availability( guest_qemu_name, qemu_binary, via_wsl );
+	return flags.whpx || flags.kvm;
 }
 
 bool AQ_Should_Prefer_Native_Accelerator( const QString &guest_target )
 {
-	const QString guest = AQ_Normalize_CPU_Architecture( guest_target );
-	if( ! AQ_Guest_Matches_Host_Architecture( guest ) )
-		return false;
-
-	// WHPX on Windows is unreliable for 32-bit x86 guests — prefer TCG
-#ifdef Q_OS_WIN32
-	if( guest == QLatin1String( "i386" ) )
-		return false;
-#endif
-	return true;
+	const AQ_Accel_Flags flags = AQ_Accelerator_Availability( guest_target, QString(), false );
+	return flags.whpx || flags.kvm;
 }
 
 QStringList AQ_QEMU_List_Display_Backends( const QString &qemu_binary )

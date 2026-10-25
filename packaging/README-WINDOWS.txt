@@ -1,4 +1,4 @@
-AQEMU 1.6.0 — Windows portable (x64)
+AQEMU 1.6.5.0 — Windows portable (x64)
 ====================================
 
 Updated build: 2026-10-18 (version read from VERSION.txt).
@@ -9,7 +9,7 @@ Please file bugs:
 Run:  aqemu.exe
 
 This zip includes:
-  - AQEMU 1.6.0 (Qt5 + embedded SPICE)
+  - AQEMU 1.6.5.0 (Qt5 + embedded SPICE)
   - QEMU 11.0.2 (full softmmu set + qemu-img)
   - UEFI/BIOS firmware under share/
   - OpenPartitionDxe.efi (Intel macOS OpenCore prep)

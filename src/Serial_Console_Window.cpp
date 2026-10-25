@@ -15,6 +15,8 @@
 #include <QKeyEvent>
 #include <QTimer>
 #include <QTextCursor>
+#include <QGuiApplication>
+#include <QClipboard>
 
 Serial_Console_Window::Serial_Console_Window( QWidget *parent )
 	: QDialog( parent )
@@ -28,7 +30,8 @@ Serial_Console_Window::Serial_Console_Window( QWidget *parent )
 
 	QVBoxLayout *lay = new QVBoxLayout( this );
 	lay->addWidget( new QLabel( tr(
-		"Guest serial (COM1) — not the QEMU monitor. Useful for Linux/BSD installers and headless boards." ) ) );
+		"Guest COM1 and the firmware debug port (0x402). Text typed here is sent to the guest. "
+		"QEMU commands such as info pci go in VM → QEMU monitor." ) ) );
 
 	Out = new QPlainTextEdit();
 	Out->setReadOnly( true );
@@ -40,13 +43,21 @@ Serial_Console_Window::Serial_Console_Window( QWidget *parent )
 	In->setPlaceholderText( tr( "Type and press Enter (Ctrl+Enter sends raw line)" ) );
 	QPushButton *send = new QPushButton( tr( "Send" ) );
 	QPushButton *conn = new QPushButton( tr( "Connect" ) );
+	QPushButton *copy = new QPushButton( tr( "Copy" ) );
+	QPushButton *clear = new QPushButton( tr( "Clear" ) );
 	row->addWidget( In, 1 );
 	row->addWidget( send );
 	row->addWidget( conn );
+	row->addWidget( copy );
+	row->addWidget( clear );
 	lay->addLayout( row );
 
 	connect( send, &QPushButton::clicked, this, &Serial_Console_Window::Send_Line );
 	connect( conn, &QPushButton::clicked, this, &Serial_Console_Window::Connect_Now );
+	connect( copy, &QPushButton::clicked, this, [this]() {
+		QGuiApplication::clipboard()->setText( Out->toPlainText() );
+	} );
+	connect( clear, &QPushButton::clicked, Out, &QPlainTextEdit::clear );
 	connect( In, &QLineEdit::returnPressed, this, &Serial_Console_Window::Send_Line );
 	connect( Sock, &QTcpSocket::readyRead, this, &Serial_Console_Window::On_Ready_Read );
 	connect( Sock, &QTcpSocket::connected, this, &Serial_Console_Window::On_Connected );
@@ -92,17 +103,100 @@ void Serial_Console_Window::Connect_Now()
 		Out->appendPlainText( tr( "[AQEMU] Serial port not allocated." ) );
 		return;
 	}
+	Ansi_Pending.clear();
 	if( Sock->state() == QAbstractSocket::ConnectedState )
 		return;
 	Out->appendPlainText( tr( "[AQEMU] Connecting to %1:%2 …" ).arg( Host ).arg( Port ) );
 	Sock->connectToHost( Host, Port );
 }
 
+QString Serial_Console_Window::Strip_Terminal( const QByteArray &chunk )
+{
+	// OVMF paints its console with cursor and clear sequences. This window is a
+	// log, so those codes are dropped instead of being shown as garbage.
+	Ansi_Pending.append( chunk );
+	QByteArray out;
+	int i = 0;
+	const int n = Ansi_Pending.size();
+	while( i < n )
+	{
+		const unsigned char c = static_cast<unsigned char>( Ansi_Pending.at( i ) );
+		if( c == 0x1B )
+		{
+			if( i + 1 >= n )
+				break;
+			const unsigned char next = static_cast<unsigned char>( Ansi_Pending.at( i + 1 ) );
+			if( next == '[' )
+			{
+				int j = i + 2;
+				bool done = false;
+				while( j < n )
+				{
+					const unsigned char d = static_cast<unsigned char>( Ansi_Pending.at( j ) );
+					++j;
+					if( d >= 0x40 && d <= 0x7E )
+					{
+						done = true;
+						break;
+					}
+					if( d < 0x20 || d > 0x3F )
+					{
+						done = true;
+						--j;
+						break;
+					}
+				}
+				if( ! done )
+					break;
+				i = j;
+				continue;
+			}
+			if( next == ']' )
+			{
+				int j = i + 2;
+				bool done = false;
+				while( j < n )
+				{
+					const unsigned char d = static_cast<unsigned char>( Ansi_Pending.at( j ) );
+					if( d == 0x07 )
+					{
+						++j;
+						done = true;
+						break;
+					}
+					if( d == 0x1B && j + 1 < n && Ansi_Pending.at( j + 1 ) == '\\' )
+					{
+						j += 2;
+						done = true;
+						break;
+					}
+					++j;
+				}
+				if( ! done )
+					break;
+				i = j;
+				continue;
+			}
+			i += 2;
+			continue;
+		}
+		if( c == '\n' || c == '\t' || c >= 0x20 )
+			out.append( static_cast<char>( c ) );
+		++i;
+	}
+	Ansi_Pending.remove( 0, i );
+	if( Ansi_Pending.size() > 128 )
+		Ansi_Pending.clear();
+	return QString::fromLatin1( out );
+}
+
 void Serial_Console_Window::On_Ready_Read()
 {
-	const QByteArray data = Sock->readAll();
+	const QString text = Strip_Terminal( Sock->readAll() );
+	if( text.isEmpty() )
+		return;
 	Out->moveCursor( QTextCursor::End );
-	Out->insertPlainText( QString::fromLocal8Bit( data ) );
+	Out->insertPlainText( text );
 	Out->moveCursor( QTextCursor::End );
 }
 
@@ -151,6 +245,8 @@ bool Serial_Console_Window::eventFilter( QObject *obj, QEvent *event )
 
 void Serial_Console_Window::closeEvent( QCloseEvent *event )
 {
-	// Keep socket; user may reopen. Just hide.
+	// Closing the window turns the monitor off. The next start does not
+	// open it again until VM → Serial monitor is enabled.
+	emit User_Closed();
 	event->accept();
 }

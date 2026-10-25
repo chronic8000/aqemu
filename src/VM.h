@@ -65,6 +65,8 @@ class Virtual_Machine: public QObject
 
 		/** Kill stray qemu-system (Windows + WSL) still holding this VM's disks. */
 		void Kill_Orphan_QEMU_Using_Disks();
+		/** Kill this VM's QEMU immediately, including a WSL guest that outlived wsl.exe. */
+		void Destroy_QEMU();
 
 		// Constructors...
 		Virtual_Machine();

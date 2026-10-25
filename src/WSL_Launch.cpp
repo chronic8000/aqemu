@@ -7,9 +7,12 @@
 #include "System_Info.h"
 #include "WSL_Secure_Credentials.h"
 
+#include <QCoreApplication>
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
 #include <QProcess>
+#include <QStandardPaths>
 #include <QRegularExpression>
 #include <QDateTime>
 #include <QMutex>
@@ -501,6 +504,44 @@ static QString Escape_Qemu_Option_Commas( QString val )
 	return val.replace( QLatin1Char( ',' ), QLatin1String( ",," ) );
 }
 
+// Windows builds use -chardev pipe,id=...,path=<name>. Linux QEMU in WSL needs a
+// Unix domain socket instead; a bare pipe name is not a FIFO on the Linux side.
+static QString Rewrite_Windows_Pipe_Chardev( const QString &opt )
+{
+	QString id;
+	QString path;
+	const QStringList parts = Split_Qemu_Option_Commas( opt );
+	for( int i = 0; i < parts.size(); ++i )
+	{
+		const QString &part = parts.at( i );
+		const int eq = part.indexOf( QLatin1Char( '=' ) );
+		if( eq <= 0 )
+			continue;
+		const QString key = part.left( eq ).trimmed().toLower();
+		QString val = part.mid( eq + 1 );
+		if( key == QLatin1String( "id" ) )
+			id = val;
+		else if( key == QLatin1String( "path" ) )
+			path = val;
+	}
+	if( id.isEmpty() || path.isEmpty() )
+		return opt;
+
+	const QString prefix = QStringLiteral( "\\\\.\\pipe\\" );
+	if( path.startsWith( prefix, Qt::CaseInsensitive ) )
+		path = path.mid( prefix.size() );
+	path.replace( QLatin1Char( '\\' ), QLatin1Char( '/' ) );
+	if( path.contains( QLatin1Char( '/' ) ) )
+		path = path.section( QLatin1Char( '/' ), -1 );
+	if( path.isEmpty() )
+		return opt;
+
+	// Unique per AQEMU process so a previous crash does not leave a stale sock.
+	return QStringLiteral( "socket,id=%1,path=/tmp/%2-%3.sock,server=on,wait=off" )
+		.arg( id, path )
+		.arg( QCoreApplication::applicationPid() );
+}
+
 static QString Rewrite_Drive_File_Option( const QString &opt )
 {
 	// Rewrite file= / file.filename= / Inferno machine path props inside -drive / -machine
@@ -581,7 +622,14 @@ QStringList Rewrite_Args_For_WSL( const QStringList &win_args )
 			if( i + 1 < win_args.size() )
 			{
 				++i;
-				out << Rewrite_Drive_File_Option( win_args.at( i ) );
+				const QString opt = win_args.at( i );
+				// Windows guest-agent channels are named pipes. Linux QEMU needs
+				// Unix sockets under /tmp when the same args run inside WSL.
+				if( a == QLatin1String( "-chardev" ) &&
+				    opt.startsWith( QLatin1String( "pipe," ) ) )
+					out << Rewrite_Windows_Pipe_Chardev( opt );
+				else
+					out << Rewrite_Drive_File_Option( opt );
 			}
 			continue;
 		}
@@ -600,6 +648,37 @@ QStringList Rewrite_Args_For_WSL( const QStringList &win_args )
 	return out;
 }
 
+QString WSL_Find_System_Binary( const QString &distro, const QString &binary_name )
+{
+	QString name = binary_name.trimmed();
+	if( name.endsWith( QLatin1String( ".exe" ), Qt::CaseInsensitive ) )
+		name.chop( 4 );
+	if( ! name.startsWith( QLatin1String( "qemu-system-" ) ) ||
+	    name.contains( QLatin1Char( '/' ) ) || name.contains( QLatin1Char( ' ' ) ) )
+		return QString();
+
+	QStringList args = Distro_Args( distro.trimmed() );
+	args << QStringLiteral( "-e" )
+	     << QStringLiteral( "sh" )
+	     << QStringLiteral( "-c" )
+	     << QStringLiteral(
+		    "name=$1; "
+		    "for c in \"$HOME/aqemu-wsl-qemu/bin/$name\" /usr/local/bin/$name /usr/bin/$name; do "
+		    "  if [ -x \"$c\" ]; then printf '%s\\n' \"$c\"; exit 0; fi; "
+		    "done; "
+		    "command -v -- \"$name\"" )
+	     << QStringLiteral( "sh" )
+	     << name;
+
+	QString out;
+	if( ! Run_WSL( args, 15000, &out ) )
+		return QString();
+	const QString path = out.trimmed().split( QRegularExpression( QStringLiteral( "[\\r\\n]+" ) ) ).value( 0 ).trimmed();
+	if( path.isEmpty() || path.contains( QLatin1Char( ' ' ) ) )
+		return QString();
+	return path;
+}
+
 QStringList Build_WSL_Launch_Args( const QString &distro,
                                    const QString &linux_qemu_binary,
                                    const QStringList &qemu_args )
@@ -616,6 +695,12 @@ QStringList Build_WSL_Launch_Args( const QString &distro,
 	// goes through bash -c, which breaks OSK strings containing '(c)' and
 	// paths with spaces.
 	args << QStringLiteral( "-e" );
+	// qemu ignores SIGHUP. When wsl.exe exits, the WSL relay dies and this
+	// process is reparented to init unless it asked to be killed with its parent.
+	args << QStringLiteral( "setpriv" )
+	     << QStringLiteral( "--pdeathsig" )
+	     << QStringLiteral( "KILL" )
+	     << QStringLiteral( "--" );
 
 	const QString qemu_bin = linux_qemu_binary.isEmpty()
 		? QStringLiteral( "qemu-system-x86_64" )
@@ -999,9 +1084,58 @@ QStringList WSL_Vulkan_Launch_Env( const QString &distro )
 	return env;
 }
 
+static QStringList WSL_Linux_Audio_Ready( const QString &distro )
+{
+	static QMutex mutex;
+	static QString cached_key;
+	static QStringList cached;
+	static qint64 cached_ms = 0;
+
+	const QString key = distro.trimmed();
+	{
+		QMutexLocker lock( &mutex );
+		if( cached_key == key && Cache_Fresh( cached_ms, ! cached.isEmpty() ) )
+			return cached;
+	}
+
+	// Linux inside the distro. ALSA is valid. PipeWire counts only when
+	// client.conf exists and the session socket is there.
+	QStringList args = Distro_Args( distro );
+	args << QStringLiteral( "--" ) << QStringLiteral( "bash" ) << QStringLiteral( "-lc" )
+	     << QStringLiteral(
+		"rt=\"${XDG_RUNTIME_DIR:-/run/user/$(id -u)}\"; "
+		"if [ -d /dev/snd ] || command -v aplay >/dev/null 2>&1; then echo alsa; fi; "
+		"if [ -S \"$rt/pulse/native\" ]; then echo pa; fi; "
+		"if [ -S \"$rt/pipewire-0\" ] && "
+		"{ [ -f /usr/share/pipewire/client.conf ] || [ -f /etc/pipewire/client.conf ] "
+		"|| [ -f \"$HOME/.config/pipewire/client.conf\" ]; }; then echo pipewire; fi; "
+		"if [ -e /dev/dsp ]; then echo oss; fi" );
+
+	QString out;
+	Run_WSL( args, kWslTimeoutMs, &out );
+	QStringList found;
+	const QStringList lines = out.split( QRegularExpression( QStringLiteral( "[\\r\\n]+" ) ),
+		QString::SkipEmptyParts );
+	for( const QString &line : lines )
+	{
+		const QString t = line.trimmed().toLower();
+		if( ( t == QLatin1String( "alsa" ) || t == QLatin1String( "pa" )
+		      || t == QLatin1String( "pipewire" ) || t == QLatin1String( "oss" ) )
+		    && ! found.contains( t ) )
+			found << t;
+	}
+
+	QMutexLocker lock( &mutex );
+	cached_key = key;
+	cached = found;
+	cached_ms = QDateTime::currentMSecsSinceEpoch();
+	return found;
+}
+
 QString WSL_Pick_Audio_Backend( const QString &distro,
                                 const QString &linux_qemu_binary,
-                                const QString &preferred )
+                                const QString &preferred,
+                                bool allow_spice )
 {
 	static QMutex mutex;
 	static QString cached_key;
@@ -1066,22 +1200,296 @@ QString WSL_Pick_Audio_Backend( const QString &distro,
 		cached_ms = QDateTime::currentMSecsSinceEpoch();
 	}
 
-	auto supported = [ &drivers ]( const QString &name ) -> bool
+	const QStringList ready = WSL_Linux_Audio_Ready( distro );
+	auto usable = [ &drivers, &ready, allow_spice ]( const QString &name ) -> bool
 	{
-		return drivers.contains( name, Qt::CaseInsensitive );
+		if( ! drivers.contains( name, Qt::CaseInsensitive ) )
+			return false;
+		if( ! allow_spice && name == QLatin1String( "spice" ) )
+			return false;
+		// These need a Linux host runtime. spice, wav and none do not.
+		if( name == QLatin1String( "alsa" ) || name == QLatin1String( "pa" )
+		    || name == QLatin1String( "pipewire" ) || name == QLatin1String( "oss" )
+		    || name == QLatin1String( "jack" ) || name == QLatin1String( "sndio" ) )
+			return ready.contains( name, Qt::CaseInsensitive );
+		return true;
 	};
 
 	const QString pref = preferred.trimmed().toLower();
-	if( ! pref.isEmpty() && supported( pref ) )
+	if( ! pref.isEmpty() && usable( pref ) )
 		return pref;
 
-	static const char *kOrder[] = { "alsa", "spice", "oss", "sdl", "pipewire", "pa", "wav", "none" };
+	// Linux QEMU. ALSA first. Pulse, then PipeWire, only when that session
+	// is actually running them. Windows qemu-system never reaches this.
+	static const char *kOrder[] = { "alsa", "pa", "pipewire", "spice", "sdl", "oss", "wav", "none" };
 	for( const char *cand : kOrder )
 	{
-		if( supported( QString::fromLatin1( cand ) ) )
+		if( usable( QString::fromLatin1( cand ) ) )
 			return QString::fromLatin1( cand );
 	}
 	return QStringLiteral( "none" );
+}
+
+static bool WSL_Run_Argv( const QString &distro, const QStringList &cmd, int timeout_ms )
+{
+	QStringList args;
+	const QString d = distro.trimmed();
+	if( ! d.isEmpty() )
+		args << QStringLiteral( "-d" ) << d;
+	args << QStringLiteral( "-u" ) << QStringLiteral( "root" )
+	     << QStringLiteral( "-e" );
+	args << cmd;
+	QProcess p;
+	p.start( QStringLiteral( "wsl.exe" ), args );
+	if( ! p.waitForFinished( timeout_ms ) )
+	{
+		p.kill();
+		p.waitForFinished( 1000 );
+		return false;
+	}
+	return p.exitStatus() == QProcess::NormalExit && p.exitCode() == 0;
+}
+
+static bool WSL_File_Is_Elf( const QString &path )
+{
+	QFile f( path );
+	if( ! f.open( QIODevice::ReadOnly ) )
+		return false;
+	const QByteArray mag = f.read( 4 );
+	return mag.size() == 4
+		&& quint8( mag.at( 0 ) ) == 0x7f
+		&& mag.at( 1 ) == 'E'
+		&& mag.at( 2 ) == 'L'
+		&& mag.at( 3 ) == 'F';
+}
+
+static QString WSL_Distro_Arch( const QString &distro )
+{
+	QStringList args;
+	const QString d = distro.trimmed();
+	if( ! d.isEmpty() )
+		args << QStringLiteral( "-d" ) << d;
+	args << QStringLiteral( "-e" ) << QStringLiteral( "uname" ) << QStringLiteral( "-m" );
+	QProcess p;
+	p.start( QStringLiteral( "wsl.exe" ), args );
+	if( ! p.waitForFinished( 15000 ) )
+	{
+		p.kill();
+		p.waitForFinished( 1000 );
+		return QString();
+	}
+	QString arch = QString::fromUtf8( p.readAllStandardOutput() ).trimmed().toLower();
+	if( arch == QLatin1String( "arm64" ) )
+		arch = QStringLiteral( "aarch64" );
+	else if( arch == QLatin1String( "amd64" ) )
+		arch = QStringLiteral( "x86_64" );
+	return arch;
+}
+
+static QString WSL_Find_Bundled_Elf( const QString &leaf, const QString &arch )
+{
+	QStringList roots;
+	const QString app_dir = QCoreApplication::applicationDirPath();
+	if( ! app_dir.isEmpty() )
+		roots << app_dir;
+	const QString bundled = AQ_Get_Bundled_QEMU_Dir();
+	if( ! bundled.isEmpty() && bundled != app_dir )
+		roots << bundled;
+
+	for( const QString &root : roots )
+	{
+		QStringList candidates;
+		if( ! arch.isEmpty() )
+			candidates << QDir( root ).filePath( QStringLiteral( "wsl/%1/%2" ).arg( arch, leaf ) );
+		candidates << QDir( root ).filePath( leaf );
+		for( const QString &cand : candidates )
+		{
+			if( cand.endsWith( QLatin1String( ".exe" ), Qt::CaseInsensitive ) )
+				continue;
+			if( WSL_File_Is_Elf( cand ) )
+				return cand;
+		}
+	}
+	return QString();
+}
+
+static bool WSL_Wsl_Path_Is_Safe( const QString &wsl_src )
+{
+	return wsl_src.startsWith( QLatin1String( "/mnt/" ) )
+		&& ! wsl_src.contains( QLatin1Char( '"' ) )
+		&& ! wsl_src.contains( QLatin1Char( '\'' ) )
+		&& ! wsl_src.contains( QLatin1Char( '`' ) )
+		&& ! wsl_src.contains( QLatin1Char( '$' ) )
+		&& ! wsl_src.contains( QLatin1Char( '\n' ) )
+		&& ! wsl_src.contains( QLatin1Char( '\\' ) );
+}
+
+// Inferno aborts if this PNG is missing. It is resolved next to the Linux
+// binary (/usr/local/share/icons/...), not from QEMU -L.
+static void WSL_Install_Apple_Boot_Splash( const QString &distro, const QString &arch )
+{
+	const QString dest = QStringLiteral(
+		"/usr/local/share/icons/hicolor/512x512/apps/CKQEMUBootSplash@2x.png" );
+	if( WSL_Run_Argv( distro,
+			QStringList() << QStringLiteral( "test" ) << QStringLiteral( "-f" ) << dest,
+			15000 ) )
+		return;
+
+	const QString rel = QStringLiteral( "share/icons/hicolor/512x512/apps/CKQEMUBootSplash@2x.png" );
+	QStringList candidates;
+	const QString app_dir = QCoreApplication::applicationDirPath();
+	if( ! app_dir.isEmpty() )
+	{
+		candidates << QDir( app_dir ).filePath( rel );
+		if( ! arch.isEmpty() )
+			candidates << QDir( app_dir ).filePath( QStringLiteral( "wsl/%1/%2" ).arg( arch, rel ) );
+	}
+	const QString bundled = AQ_Get_Bundled_QEMU_Dir();
+	if( ! bundled.isEmpty() && bundled != app_dir )
+		candidates << QDir( bundled ).filePath( rel );
+
+	QString host;
+	for( const QString &cand : candidates )
+	{
+		if( QFile::exists( cand ) )
+		{
+			host = cand;
+			break;
+		}
+	}
+	if( host.isEmpty() )
+	{
+		AQWarning( "WSL_Install_Apple_Boot_Splash",
+		           QStringLiteral( "Boot splash PNG is not in this package" ) );
+		return;
+	}
+
+	QString stage = host;
+	if( host.contains( QLatin1String( "WindowsApps" ), Qt::CaseInsensitive ) )
+	{
+		const QString base = QStandardPaths::writableLocation( QStandardPaths::AppLocalDataLocation );
+		QDir().mkpath( base + QStringLiteral( "/wsl" ) );
+		stage = QDir( base ).filePath( QStringLiteral( "wsl/CKQEMUBootSplash@2x.png" ) );
+		QFile::remove( stage );
+		if( ! QFile::copy( host, stage ) )
+		{
+			AQWarning( "WSL_Install_Apple_Boot_Splash",
+			           QStringLiteral( "Could not stage the boot splash out of the package" ) );
+			return;
+		}
+	}
+
+	const QString wsl_src = Windows_Path_To_WSL( stage );
+	if( ! WSL_Wsl_Path_Is_Safe( wsl_src ) )
+	{
+		AQWarning( "WSL_Install_Apple_Boot_Splash",
+		           QStringLiteral( "Unsafe WSL path for %1" ).arg( wsl_src ) );
+		return;
+	}
+	if( ! WSL_Run_Argv( distro,
+			QStringList() << QStringLiteral( "mkdir" ) << QStringLiteral( "-p" )
+			              << QStringLiteral( "/usr/local/share/icons/hicolor/512x512/apps" ),
+			15000 ) )
+		return;
+	if( ! WSL_Run_Argv( distro,
+			QStringList() << QStringLiteral( "cp" ) << QStringLiteral( "-f" ) << wsl_src << dest,
+			60000 ) )
+	{
+		AQWarning( "WSL_Install_Apple_Boot_Splash",
+		           QStringLiteral( "Failed to copy the Apple SoC boot splash into WSL" ) );
+	}
+}
+
+bool WSL_Install_Bundled_Qemu( const QString &distro, const QString &wsl_dest )
+{
+	const QString dest = wsl_dest.trimmed();
+	if( dest != QLatin1String( "/usr/local/bin/qemu-system-reims3d" )
+		&& dest != QLatin1String( "/usr/local/bin/qemu-system-applesoc" ) )
+	{
+		AQWarning( "WSL_Install_Bundled_Qemu",
+		           QStringLiteral( "Refusing to install an unexpected WSL QEMU path" ) );
+		return false;
+	}
+	const QString leaf = dest.section( QLatin1Char( '/' ), -1 );
+	const QString arch = WSL_Distro_Arch( distro );
+	const QString host = WSL_Find_Bundled_Elf( leaf, arch );
+	if( host.isEmpty() )
+	{
+		// Keep a previously installed ELF if this package has no bundle.
+		if( WSL_Run_Argv( distro,
+				QStringList() << QStringLiteral( "test" ) << QStringLiteral( "-x" ) << dest,
+				15000 ) )
+		{
+			if( dest.endsWith( QLatin1String( "qemu-system-applesoc" ) ) )
+				WSL_Install_Apple_Boot_Splash( distro, arch );
+			return true;
+		}
+		AQWarning( "WSL_Install_Bundled_Qemu",
+		           QStringLiteral( "No bundled Linux ELF for %1 (%2)" ).arg( leaf, arch ) );
+		return false;
+	}
+
+	// Store package lives under WindowsApps (WSL cannot read it) — stage first.
+	QString stage = host;
+	if( host.contains( QLatin1String( "WindowsApps" ), Qt::CaseInsensitive ) )
+	{
+		const QString base = QStandardPaths::writableLocation( QStandardPaths::AppLocalDataLocation );
+		QDir().mkpath( base + QStringLiteral( "/wsl" ) );
+		stage = QDir( base ).filePath( QStringLiteral( "wsl/" ) + leaf );
+		QFile::remove( stage );
+		if( ! QFile::copy( host, stage ) )
+		{
+			AQWarning( "WSL_Install_Bundled_Qemu",
+			           QStringLiteral( "Could not stage %1 out of the package" ).arg( host ) );
+			return false;
+		}
+	}
+
+	const QString wsl_src = Windows_Path_To_WSL( stage );
+	if( ! WSL_Wsl_Path_Is_Safe( wsl_src ) )
+	{
+		AQWarning( "WSL_Install_Bundled_Qemu",
+		           QStringLiteral( "Unsafe WSL path for %1" ).arg( wsl_src ) );
+		return false;
+	}
+
+	// Skip copy only when an identical-size ELF is already installed.
+	const qint64 host_size = QFileInfo( stage ).size();
+	const QString same_size_test = QStringLiteral(
+		"test -x \"%1\" && test \"$(wc -c < \"%1\")\" -eq %2" )
+		.arg( dest )
+		.arg( host_size );
+	if( host_size > 0 && WSL_Run_Argv( distro,
+			QStringList() << QStringLiteral( "sh" ) << QStringLiteral( "-c" ) << same_size_test,
+			15000 ) )
+	{
+		if( dest.endsWith( QLatin1String( "qemu-system-applesoc" ) ) )
+			WSL_Install_Apple_Boot_Splash( distro, arch );
+		return true;
+	}
+
+	AQDebug( "WSL_Install_Bundled_Qemu",
+	         QStringLiteral( "Installing %1 -> %2" ).arg( stage, dest ) );
+	// Prefer wsl -u root: /usr/local/bin is often root-owned after a prior install.
+	const QString install_script = QStringLiteral(
+		"mkdir -p /usr/local/bin && cp -f \"%1\" \"%2\" && chmod 755 \"%2\"" )
+		.arg( wsl_src, dest );
+	bool installed = WSL_Run_Privileged_Script( distro, install_script, 300000 );
+	if( ! installed )
+	{
+		installed = WSL_Run_Argv( distro,
+			QStringList() << QStringLiteral( "sh" ) << QStringLiteral( "-c" ) << install_script,
+			300000 );
+	}
+	if( ! installed )
+	{
+		AQWarning( "WSL_Install_Bundled_Qemu",
+		           QStringLiteral( "Failed to install %1 into WSL" ).arg( leaf ) );
+		return false;
+	}
+	if( dest.endsWith( QLatin1String( "qemu-system-applesoc" ) ) )
+		WSL_Install_Apple_Boot_Splash( distro, arch );
+	return true;
 }
 
 #else // ! Q_OS_WIN
@@ -1096,12 +1504,13 @@ bool WSL_Is_Valid_Username( const QString & ) { return false; }
 QStringList WSL_Get_Installed_Distros() { return QStringList(); }
 QString WSL_Get_Distro_Default_User( const QString & ) { return QString(); }
 QString Windows_Path_To_WSL( const QString &windows_path ) { return windows_path; }
+bool WSL_Install_Bundled_Qemu( const QString &, const QString & ) { return false; }
 QStringList Rewrite_Args_For_WSL( const QStringList &win_args ) { return win_args; }
 QStringList Build_WSL_Launch_Args( const QString &, const QString &, const QStringList &qemu_args )
 {
 	return qemu_args;
 }
-QString WSL_Pick_Audio_Backend( const QString &, const QString &, const QString & )
+QString WSL_Pick_Audio_Backend( const QString &, const QString &, const QString &, bool )
 {
 	return QStringLiteral( "pa" );
 }

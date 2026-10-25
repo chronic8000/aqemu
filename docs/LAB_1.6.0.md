@@ -1,6 +1,6 @@
 # AQEMU 1.6.0 QEMU Lab
 
-This page is the feature guide for **AQEMU 1.6.0**. Packages built from this tree use `VERSION.txt`, which is `1.6.0` (Store MSIX `1.6.0.0`).
+This page is the feature guide for **AQEMU 1.6.0**. Packages built from this tree use `VERSION.txt`, which is `1.6.5.0` (Store MSIX `1.6.5.0`).
 
 Older releases stay in the root [`CHANGELOG`](../CHANGELOG). This file does not replace that history.
 

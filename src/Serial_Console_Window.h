@@ -19,6 +19,9 @@ class Serial_Console_Window : public QDialog
 		void Attach( Virtual_Machine *vm );
 		void Detach();
 
+	signals:
+		void User_Closed();
+
 	private slots:
 		void Connect_Now();
 		void On_Ready_Read();
@@ -38,6 +41,8 @@ class Serial_Console_Window : public QDialog
 		QLineEdit *In;
 		QString Host;
 		quint16 Port;
+		QByteArray Ansi_Pending;
+		QString Strip_Terminal( const QByteArray &chunk );
 };
 
 #endif

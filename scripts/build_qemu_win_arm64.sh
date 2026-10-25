@@ -46,33 +46,25 @@ deploy_qemu_dlls() {
   [[ -d "${bin_dir}" ]] || bin_dir="${prefix}"
   echo "=== Deploying QEMU runtime DLLs into ${bin_dir} ==="
 
-  local new_copied=0
-  for bin in "${bin_dir}"/*.exe; do
-    [[ -f "$bin" ]] || continue
-    while read -r dep; do
-      if [[ -f "$dep" && ! -f "${bin_dir}/$(basename "$dep")" ]]; then
-        cp -f "$dep" "${bin_dir}/"
-        new_copied=$((new_copied + 1))
-      fi
-    done < <(ldd "$bin" 2>/dev/null | grep -i '/clangarm64/bin/' | awk '{print $3}' | sort -u)
-  done
-  echo "Deployed $new_copied primary runtime DLLs to ${bin_dir}"
-
-  # Secondary pass: inspect copied DLLs using static objdump headers (avoids Windows loader lock / ldd hang on DLLs)
-  local sys_bin="/clangarm64/bin"
-  local secondary_copied=0
-  for dll in "${bin_dir}"/*.dll; do
-    [[ -f "$dll" ]] || continue
-    for dep_name in $(objdump -p "$dll" 2>/dev/null | grep -i 'DLL Name:' | awk '{print $3}'); do
-      if [[ -f "${sys_bin}/${dep_name}" && ! -f "${bin_dir}/${dep_name}" ]]; then
-        cp -f "${sys_bin}/${dep_name}" "${bin_dir}/"
-        secondary_copied=$((secondary_copied + 1))
-      fi
+  local sys_bin="${local_msys_bin}"
+  local copied=0
+  local pass
+  for pass in 1 2 3 4; do
+    local added=0
+    for bin in "${bin_dir}"/*.exe "${bin_dir}"/*.dll; do
+      [[ -f "$bin" ]] || continue
+      local dep_name
+      for dep_name in $("${sys_bin}/objdump" -p "$bin" 2>/dev/null | awk '/DLL Name:/{ print $3 }'); do
+        if [[ -f "${sys_bin}/${dep_name}" && ! -f "${bin_dir}/${dep_name}" ]]; then
+          cp -f "${sys_bin}/${dep_name}" "${bin_dir}/"
+          added=$((added + 1))
+        fi
+      done
     done
+    copied=$((copied + added))
+    [[ "${added}" -eq 0 ]] && break
   done
-  if [[ $secondary_copied -gt 0 ]]; then
-    echo "Deployed $secondary_copied secondary runtime DLLs to ${bin_dir}"
-  fi
+  echo "Deployed ${copied} runtime DLLs to ${bin_dir}"
 
   # If AQEMU build_woa directory exists, synchronize QEMU executables and runtime DLLs into it
   if [[ -d "${ROOT}/build_woa" ]]; then
@@ -99,11 +91,28 @@ QEMU_BUILD_DEPS=(
   mingw-w64-clang-aarch64-glib2
   mingw-w64-clang-aarch64-pixman
   mingw-w64-clang-aarch64-libslirp
+  mingw-w64-clang-aarch64-spice
+  mingw-w64-clang-aarch64-libusb
+  mingw-w64-clang-aarch64-usbredir
+  mingw-w64-clang-aarch64-curl
+  mingw-w64-clang-aarch64-zstd
+  mingw-w64-clang-aarch64-brotli
+  mingw-w64-clang-aarch64-gnutls
+  mingw-w64-clang-aarch64-nettle
+  mingw-w64-clang-aarch64-gmp
+  mingw-w64-clang-aarch64-libpng
+  mingw-w64-clang-aarch64-libjpeg-turbo
+  mingw-w64-clang-aarch64-lzo2
+  mingw-w64-clang-aarch64-bzip2
+  mingw-w64-clang-aarch64-snappy
+  mingw-w64-clang-aarch64-libssh
+  mingw-w64-clang-aarch64-libnfs
   mingw-w64-clang-aarch64-ninja
   mingw-w64-clang-aarch64-zlib
   mingw-w64-clang-aarch64-meson
   mingw-w64-clang-aarch64-python
   mingw-w64-clang-aarch64-dtc
+  mingw-w64-clang-aarch64-rust
 )
 for dep in "${QEMU_BUILD_DEPS[@]}"; do
   if ! pacman -Q "$dep" >/dev/null 2>&1; then
@@ -125,6 +134,11 @@ fi
 
 mkdir -p "${BUILD_DIR}" "${PREFIX}"
 cd "${BUILD_DIR}"
+
+# libiscsi is not an MSYS2 package. Build it into this MinGW prefix first.
+# shellcheck source=build_libiscsi_mingw.sh
+source "${ROOT}/scripts/build_libiscsi_mingw.sh"
+aqemu_build_libiscsi
 
 # Feature flags
 # shellcheck source=qemu_feature_flags.sh
@@ -182,10 +196,15 @@ for exe in "${PREFIX}"/*.exe; do
   fi
 done
 
-# Build special targets when building 'all'
-if [[ "${TARGET_ARG}" == "all" || "${TARGET_ARG}" == "ALL" ]]; then
+# Build special targets when building 'all'.
+# AQEMU_SKIP_SPECIAL_TARGETS=1 rebuilds every upstream softmmu target
+# and leaves the existing Reims and Inferno binaries alone.
+if [[ "${AQEMU_SKIP_SPECIAL_TARGETS:-0}" != "1" && ( "${TARGET_ARG}" == "all" || "${TARGET_ARG}" == "ALL" ) ]]; then
   echo "=== Building special target: applesoc (ChefKiss Inferno) ==="
   aqemu_build_applesoc "${PREFIX}" "${JOBS}" || echo "WARN: applesoc build failed"
+
+  echo "=== Building special target: reims (steelbrain Reims vGPU) ==="
+  aqemu_build_reims "${PREFIX}" "${JOBS}" || echo "WARN: reims build failed"
 fi
 
 # Ensure applesoc executables in root (if any) are also in PREFIX/bin

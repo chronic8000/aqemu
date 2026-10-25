@@ -42,7 +42,7 @@ aqemu_apply_qemu_patches() {
 	[[ -f "${src}/meson.build" || -f "${src}/configure" ]] || return 0
 	# Git for Windows checks these out with CRLF, and git apply then
 	# rejects a Unix patch even when the text matches.
-	for f in chardev/char-pipe.c chardev/char-win.c include/chardev/char-win.h; do
+	for f in chardev/char-pipe.c chardev/char-win.c include/chardev/char-win.h scripts/symlink-install-tree.py block/iscsi.c; do
 		aqemu_force_lf "${src}/${f}"
 	done
 	shopt -s nullglob
@@ -87,41 +87,78 @@ aqemu_qemu_feature_flags() {
 		return 1
 	fi
 
-	# SPICE server: enable when available.
+	# SPICE server is required. It provides -spice and the spice audiodev.
+	# Every softmmu target uses these flags, so a missing library must fail
+	# the build instead of shipping a QEMU that rejects -audiodev spice.
 	if "$PKG_CONFIG" --exists spice-server 2>/dev/null; then
 		AQEMU_QEMU_EXTRA_CONFIGURE+=(--enable-spice)
 		echo "OK: spice-server ($($PKG_CONFIG --modversion spice-server 2>/dev/null || true))"
 	else
-		echo "WARN: spice-server pkg-config module not found — building without SPICE server (VNC embedded display remains available)"
+		echo "ERROR: pkg-config module 'spice-server' not found." >&2
+		echo "Install: pacman -S mingw-w64-ucrt-x86_64-spice (Windows x64) / pacman -S mingw-w64-clang-aarch64-spice (WoA) / apt install libspice-server-dev (Linux)" >&2
+		return 1
 	fi
 
-	# Optional but enable when present (every target benefits).
-	# Map QEMU --enable-* name -> pkg-config module name(s).
-	_aqemu_try_enable() {
+	# These are required on every softmmu target. A missing library fails
+	# the build instead of shipping a QEMU that drops the feature.
+	# flag is the configure name (--enable-<flag>). Remaining args are
+	# pkg-config modules, any one of which is enough.
+	_aqemu_require_enable() {
 		local flag="$1"; shift
 		local pc
 		for pc in "$@"; do
 			if "$PKG_CONFIG" --exists "$pc" 2>/dev/null; then
 				AQEMU_QEMU_EXTRA_CONFIGURE+=(--enable-"$flag")
-				echo "OK: $flag ($pc)"
+				echo "OK: $flag ($pc $($PKG_CONFIG --modversion "$pc" 2>/dev/null || true))"
 				return 0
 			fi
 		done
-		echo "WARN: $flag not found (tried: $*) — skipped"
+		echo "ERROR: required QEMU feature '$flag' is missing." >&2
+		echo "pkg-config tried: $*" >&2
+		echo "Install the matching mingw-w64-clang-aarch64-* (WoA) or mingw-w64-ucrt-x86_64-* (Windows x64) package." >&2
 		return 1
 	}
-	_aqemu_try_enable curl libcurl
-	_aqemu_try_enable libusb libusb-1.0
-	# QEMU configure flag is usb-redir (with hyphen)
-	if "$PKG_CONFIG" --exists libusbredirparser-0.5 2>/dev/null || \
-	   "$PKG_CONFIG" --exists libusbredirhost 2>/dev/null; then
-		AQEMU_QEMU_EXTRA_CONFIGURE+=(--enable-usb-redir)
-		echo "OK: usb-redir"
+	_aqemu_require_enable curl libcurl || return 1
+	_aqemu_require_enable libusb libusb-1.0 || return 1
+	_aqemu_require_enable usb-redir libusbredirparser-0.5 libusbredirhost || return 1
+	_aqemu_require_enable gnutls gnutls || return 1
+	_aqemu_require_enable nettle nettle || return 1
+	_aqemu_require_enable zstd libzstd || return 1
+	_aqemu_require_enable png libpng || return 1
+	_aqemu_require_enable vnc-jpeg libjpeg || return 1
+	_aqemu_require_enable libssh libssh || return 1
+	_aqemu_require_enable libnfs libnfs || return 1
+	# Built from source by scripts/build_libiscsi_mingw.sh. MSYS2 has no package.
+	_aqemu_require_enable libiscsi libiscsi || return 1
+	# lzo, snappy, and bzip2 have no pkg-config module. QEMU finds the library.
+	if [[ -f "${PKG_CONFIG_PATH%%:*}/../include/lzo/lzo1x.h" || -f /clangarm64/include/lzo/lzo1x.h || -f /ucrt64/include/lzo/lzo1x.h ]]; then
+		AQEMU_QEMU_EXTRA_CONFIGURE+=(--enable-lzo)
+		echo "OK: lzo"
 	else
-		echo "WARN: usbredir not found — skipped"
+		echo "ERROR: lzo headers not found (lzo/lzo1x.h)." >&2
+		return 1
 	fi
-	_aqemu_try_enable gnutls gnutls
-	_aqemu_try_enable zstd libzstd
+	if [[ -f "${PKG_CONFIG_PATH%%:*}/../include/snappy-c.h" || -f /clangarm64/include/snappy-c.h || -f /ucrt64/include/snappy-c.h ]]; then
+		AQEMU_QEMU_EXTRA_CONFIGURE+=(--enable-snappy)
+		echo "OK: snappy"
+	else
+		echo "ERROR: snappy headers not found (snappy-c.h)." >&2
+		return 1
+	fi
+	if [[ -f "${PKG_CONFIG_PATH%%:*}/../include/bzlib.h" || -f /clangarm64/include/bzlib.h || -f /ucrt64/include/bzlib.h ]]; then
+		AQEMU_QEMU_EXTRA_CONFIGURE+=(--enable-bzip2)
+		echo "OK: bzip2"
+	else
+		echo "ERROR: bzip2 headers not found (bzlib.h)." >&2
+		return 1
+	fi
+	if "$PKG_CONFIG" --exists libfdt 2>/dev/null; then
+		AQEMU_QEMU_EXTRA_CONFIGURE+=(--enable-fdt=system)
+		echo "OK: fdt (libfdt $($PKG_CONFIG --modversion libfdt 2>/dev/null || true))"
+	else
+		echo "ERROR: pkg-config module 'libfdt' not found. Install dtc." >&2
+		return 1
+	fi
 
 	# Platform accelerators when available
 	case "$(uname -s 2>/dev/null || echo unknown)" in
@@ -205,6 +242,22 @@ aqemu_qemu_verify_install() {
 		return 1
 	fi
 	echo "VERIFY OK: $bin has -netdev user"
+	local qbin audio_help missing_spice=0
+	while IFS= read -r qbin; do
+		[[ -n "$qbin" && -x "$qbin" ]] || continue
+		case "$(basename "$qbin")" in
+			*reims*|*applesoc*|*inferno*) continue ;;
+		esac
+		audio_help="$("$qbin" -audiodev help 2>&1 || true)"
+		if ! grep -qE '(^|[[:space:]])spice($|[[:space:]])' <<<"$audio_help"; then
+			echo "ERROR: '$qbin' is missing audiodev 'spice'. Rebuild with spice-server (--enable-spice)." >&2
+			missing_spice=1
+		fi
+	done < <(find "${prefix}" -maxdepth 2 -name 'qemu-system-*' -type f 2>/dev/null)
+	if [[ "$missing_spice" -ne 0 ]]; then
+		return 1
+	fi
+	echo "VERIFY OK: every qemu-system-* under ${prefix} has -audiodev spice"
 	case "$(uname -s 2>/dev/null || echo unknown)" in
 		MINGW*|MSYS*|CYGWIN*|Windows_NT)
 			local host_arch expect accel_bin accel_help

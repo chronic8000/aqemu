@@ -71,6 +71,20 @@ QStringList WSL_Get_Installed_Distros();
 QString WSL_Get_Distro_Default_User( const QString &distro );
 
 QString Windows_Path_To_WSL( const QString &windows_path );
+
+/**
+ * Copy the Linux QEMU ELF shipped beside AQEMU into WSL.
+ * wsl_dest must be /usr/local/bin/qemu-system-reims3d or
+ * /usr/local/bin/qemu-system-applesoc. The file is chosen from
+ * wsl/<uname -m>/ under the app directory so the MSIX can carry both
+ * architectures. Returns true when that path is executable afterwards.
+ */
+bool WSL_Install_Bundled_Qemu( const QString &distro, const QString &wsl_dest );
+/**
+ * Absolute path of a Linux qemu-system-* inside WSL, or empty if it is not installed.
+ * Looks in ~/aqemu-wsl-qemu/bin, /usr/local/bin, /usr/bin, then PATH.
+ */
+QString WSL_Find_System_Binary( const QString &distro, const QString &binary_name );
 /** Rewrite file=/firmware paths in a QEMU arg list for Linux inside WSL. */
 QStringList Rewrite_Args_For_WSL( const QStringList &win_args );
 /** Build wsl.exe argv: optional -d distro, optional -u user, -e, linux_qemu, rewritten qemu args. */
@@ -79,11 +93,15 @@ QStringList Build_WSL_Launch_Args( const QString &distro,
                                    const QStringList &qemu_args );
 
 /**
- * Pick a host -audiodev backend that the Linux QEMU inside WSL actually supports.
- * Probes `qemu-system-… -audiodev help` (cached). Prefer: preferred, then alsa, spice, oss, wav, none.
+ * Pick a host -audiodev backend for the Linux QEMU inside WSL.
+ * ALSA is valid there. PipeWire is used only when that distro has client.conf
+ * and a running socket. A driver merely compiled into QEMU is not selected.
+ * Probes `qemu-system-… -audiodev help` (cached). Prefer: a ready preferred
+ * name, then alsa, pa, pipewire, spice, wav, none.
  */
 QString WSL_Pick_Audio_Backend( const QString &distro = QString(),
                                 const QString &linux_qemu_binary = QString(),
-                                const QString &preferred = QString() );
+                                const QString &preferred = QString(),
+                                bool allow_spice = true );
 
 #endif

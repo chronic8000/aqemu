@@ -1,0 +1,16 @@
+--- a/block/iscsi.c
++++ b/block/iscsi.c
+@@ -26,6 +26,10 @@
+ #include "qemu/osdep.h"
+ 
+-#include <poll.h>
+-#include <math.h>
+-#include <arpa/inet.h>
++/* MinGW has no poll.h or arpa/inet.h. This file does not call poll
++   or the arpa helpers; libiscsi and winsock cover the Windows side. */
++#if !defined(_WIN32)
++#include <poll.h>
++#include <arpa/inet.h>
++#endif
++#include <math.h>
+ #include "system/system.h"

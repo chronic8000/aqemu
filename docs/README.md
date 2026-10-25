@@ -11,7 +11,7 @@ The product overview stays in the root [`README.md`](../README.md). Release hist
 | [VIRT_MANAGER_COMPARISON.md](VIRT_MANAGER_COMPARISON.md) | Where AQEMU differs from virt-manager |
 | [intel-macos-gpu.md](intel-macos-gpu.md) | Intel macOS GPU notes. You supply the media |
 | [TOBIMENSCH_ISSUE_TRIAGE.md](TOBIMENSCH_ISSUE_TRIAGE.md) | Status of the old tobimensch/aqemu issue list |
-| [../installer/README.md](../installer/README.md) | MSI and MSIX packaging. Version comes from `VERSION.txt` (1.6.0) |
+| [../installer/README.md](../installer/README.md) | MSI and MSIX packaging. Version comes from `VERSION.txt` (1.6.5.0) |
 | [../packaging/README-WINDOWS.txt](../packaging/README-WINDOWS.txt) | Text shipped with the Windows portable zip |
 | [../extras/xemu/README.txt](../extras/xemu/README.txt) | Original Xbox: bring your own xemu and firmware |
 | [../extras/Inferno/iOS_Installation.md](../extras/Inferno/iOS_Installation.md) | Inferno iOS install notes |

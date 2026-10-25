@@ -55,7 +55,7 @@ if (-not $Version) {
             $Version = $raw
         }
     } else {
-        $Version = "1.6.0.0"
+        $Version = "1.6.5.0"
     }
 }
 
@@ -199,6 +199,23 @@ foreach ($qp in $qemuPrefixCandidates) {
                 if (-not (Test-Path $dest)) {
                     Copy-Item $_.FullName $dest -Force
                 }
+            }
+        }
+    }
+}
+
+# Linux ELFs used inside WSL (Reims and Apple SoC). The Windows .exe builds
+# cannot launch those guests. Layout path: wsl\<uname -m>\qemu-system-*
+$wslSrc = Join-Path $RepoRoot "third_party\wsl-qemu"
+if (Test-Path -LiteralPath $wslSrc) {
+    Get-ChildItem -LiteralPath $wslSrc -Directory | ForEach-Object {
+        $destDir = Join-Path $layoutDir ("wsl\" + $_.Name)
+        New-Item -ItemType Directory -Force -Path $destDir | Out-Null
+        foreach ($name in @("qemu-system-reims3d", "qemu-system-applesoc")) {
+            $src = Join-Path $_.FullName $name
+            if (Test-Path -LiteralPath $src) {
+                Copy-Item -LiteralPath $src -Destination (Join-Path $destDir $name) -Force
+                Write-Host "Staged Linux WSL QEMU $($_.Name)/$name"
             }
         }
     }
