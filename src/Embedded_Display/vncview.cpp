@@ -24,6 +24,7 @@
 #include "vncview.h"
 #include "krdc_debug.h"
 #include "Guest_Display_View.h"
+#include "AQ_UI_Style.h"
 
 #include <QApplication>
 #include <QCoreApplication>
@@ -61,6 +62,7 @@ VncView::VncView(QWidget *parent, const QUrl &url, KConfigGroup configGroup)
         m_buttonMask(0),
         m_stickyMouseGrab(false),
         m_dragMouseGrab(false),
+        m_keepAspect(false),
         m_quitFlag(false),
         m_firstPasswordTry(true),
         m_dontSendClipboard(false),
@@ -147,6 +149,72 @@ QSize VncView::minimumSizeHint() const
     return QSize(1, 1);
 }
 
+static QColor AQ_Phone_Bar_Color()
+{
+    // Same window color as the rest of AQEMU, so the side bars follow dark mode.
+    return AQ_Chrome_Is_Light() ? QColor( 255, 255, 255 ) : QColor( 32, 32, 32 );
+}
+
+QRect VncView::aspectDestRect() const
+{
+    if( ! m_keepAspect || width() <= 0 || height() <= 0 )
+        return rect();
+
+    const int fw = m_frame.isNull() ? 1 : qMax( 1, m_frame.width() );
+    const int fh = m_frame.isNull() ? 1 : qMax( 1, m_frame.height() );
+    const qreal scale = qMin( qreal( width() ) / qreal( fw ), qreal( height() ) / qreal( fh ) );
+    const int dw = qMax( 1, qRound( fw * scale ) );
+    const int dh = qMax( 1, qRound( fh * scale ) );
+    return QRect( ( width() - dw ) / 2, ( height() - dh ) / 2, dw, dh );
+}
+
+QPoint VncView::guestPointFromWidget( const QPoint &widgetPos ) const
+{
+    const int fw = m_frame.isNull() ? 1024 : qMax( 1, m_frame.width() );
+    const int fh = m_frame.isNull() ? 768 : qMax( 1, m_frame.height() );
+    const QRect dest = ( m_scale && m_keepAspect ) ? aspectDestRect() : rect();
+    int gx = 0;
+    int gy = 0;
+    if( m_scale && dest.width() > 0 && dest.height() > 0 )
+    {
+        gx = qRound( ( widgetPos.x() - dest.x() ) * (qreal) fw / (qreal) dest.width() );
+        gy = qRound( ( widgetPos.y() - dest.y() ) * (qreal) fh / (qreal) dest.height() );
+    }
+    else
+    {
+        gx = qRound( widgetPos.x() / m_horizontalFactor );
+        gy = qRound( widgetPos.y() / m_verticalFactor );
+    }
+    return QPoint( qBound( 0, gx, fw - 1 ), qBound( 0, gy, fh - 1 ) );
+}
+
+void VncView::applyScaleFactors( int widgetW, int widgetH )
+{
+    const int fw = m_frame.isNull() ? 1024 : qMax( 1, m_frame.width() );
+    const int fh = m_frame.isNull() ? 768 : qMax( 1, m_frame.height() );
+    if( m_keepAspect && widgetW > 0 && widgetH > 0 )
+    {
+        const qreal scale = qMin( qreal( widgetW ) / qreal( fw ), qreal( widgetH ) / qreal( fh ) );
+        m_horizontalFactor = scale;
+        m_verticalFactor = scale;
+        return;
+    }
+    m_horizontalFactor = (qreal) widgetW / (qreal) fw;
+    m_verticalFactor = (qreal) widgetH / (qreal) fh;
+}
+
+void VncView::setKeepAspect( bool on )
+{
+    m_keepAspect = on;
+    const QColor bar = on ? AQ_Phone_Bar_Color() : QColor( Qt::black );
+    QPalette pal = palette();
+    pal.setColor( QPalette::Window, bar );
+    setPalette( pal );
+    if( m_scale && width() > 0 && height() > 0 )
+        applyScaleFactors( width(), height() );
+    update();
+}
+
 void VncView::scaleResize(int w, int h)
 {
     RemoteView::scaleResize(w, h);
@@ -164,12 +232,7 @@ void VncView::scaleResize(int w, int h)
             }
         }
 
-        const int fw = m_frame.isNull() ? 1024 : qMax(1, m_frame.width());
-        const int fh = m_frame.isNull() ? 768 : qMax(1, m_frame.height());
-
-        // Stretched mode: always stretch to fill the entire canvas
-        m_horizontalFactor = (qreal) w / (qreal) fw;
-        m_verticalFactor = (qreal) h / (qreal) fh;
+        applyScaleFactors( w, h );
 
         m_lastScaleParentSize = QSize( w, h );
         m_lastScaleFrameSize = m_frame.size();
@@ -582,8 +645,16 @@ void VncView::paintEvent(QPaintEvent *event)
 
     if( m_scale )
     {
-        // Always stretch to fill the full widget canvas
-        painter.drawImage( rect(), m_frame, m_frame.rect() );
+        if( m_keepAspect )
+        {
+            const QRect dest = aspectDestRect();
+            painter.fillRect( rect(), AQ_Phone_Bar_Color() );
+            painter.drawImage( dest, m_frame, m_frame.rect() );
+        }
+        else
+        {
+            painter.drawImage( rect(), m_frame, m_frame.rect() );
+        }
     }
     else
     {
@@ -600,10 +671,7 @@ void VncView::resizeEvent(QResizeEvent *event)
 {
     RemoteView::resizeEvent(event);
     if (m_scale && !m_frame.isNull() && width() > 0 && height() > 0) {
-        const int fw = qMax(1, m_frame.width());
-        const int fh = qMax(1, m_frame.height());
-        m_horizontalFactor = (qreal) width() / (qreal) fw;
-        m_verticalFactor = (qreal) height() / (qreal) fh;
+        applyScaleFactors( width(), height() );
         m_lastScaleParentSize = size();
         m_lastScaleFrameSize = m_frame.size();
     }
@@ -699,23 +767,19 @@ void VncView::mouseEventHandler(QMouseEvent *e)
         }
     }
 
-    // Absolute VNC: calculate guest coordinates from stretched widget coordinates
-    const int fw = m_frame.isNull() ? 1024 : m_frame.width();
-    const int fh = m_frame.isNull() ? 768 : m_frame.height();
-
-    int gx = 0;
-    int gy = 0;
-    if (m_scale && width() > 0 && height() > 0) {
-        gx = qRound(e->x() * (qreal) fw / (qreal) width());
-        gy = qRound(e->y() * (qreal) fh / (qreal) height());
-    } else {
-        gx = qRound(e->x() / m_horizontalFactor);
-        gy = qRound(e->y() / m_verticalFactor);
+    // Absolute VNC. Portrait iOS is letterboxed, so the pointer maps through
+    // the phone rectangle rather than the full window.
+    if( m_keepAspect && m_scale )
+    {
+        const QRect dest = aspectDestRect();
+        const bool inside = dest.contains( e->pos() );
+        const bool buttons = ( m_buttonMask != 0 )
+            || ( e->buttons() & ( Qt::LeftButton | Qt::MidButton | Qt::RightButton ) );
+        if( ! inside && ! buttons && e->type() == QEvent::MouseButtonPress )
+            return;
     }
-    gx = qBound(0, gx, fw - 1);
-    gy = qBound(0, gy, fh - 1);
-
-    vncThread.mouseEvent(gx, gy, m_buttonMask);
+    const QPoint guest = guestPointFromWidget( e->pos() );
+    vncThread.mouseEvent( guest.x(), guest.y(), m_buttonMask );
 }
 
 void VncView::setStickyMouseGrab(bool on)
@@ -746,11 +810,10 @@ void VncView::wheelEventHandler(QWheelEvent *event)
     else
         eb |= 0x8;
 
-    const int x = qRound(event->x() / m_horizontalFactor);
-    const int y = qRound(event->y() / m_verticalFactor);
+    const QPoint guest = guestPointFromWidget( event->pos() );
 
-    vncThread.mouseEvent(x, y, eb | m_buttonMask);
-    vncThread.mouseEvent(x, y, m_buttonMask);
+    vncThread.mouseEvent( guest.x(), guest.y(), eb | m_buttonMask );
+    vncThread.mouseEvent( guest.x(), guest.y(), m_buttonMask );
 }
 
 #ifdef LIBSSH_FOUND

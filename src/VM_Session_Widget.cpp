@@ -1156,7 +1156,9 @@ void VM_Session_Widget::Try_Connect_Display()
 			.arg( Host ).arg( Vnc_Port ) );
 		Stack->setCurrentWidget( Vnc );
 		Vnc->Set_VNC_URL( Host, Vnc_Port );
-		// Scale to fit; deep-copied frames + nearest-neighbor paint handle text mode.
+		// iOS stays portrait inside the session, with bars on the sides.
+		// Other guests still stretch to the window.
+		Vnc->Set_Keep_Aspect( AQ_Is_Apple_SoC_VM( VM ) );
 		Vnc->Set_Scaling( true );
 		Vnc->initView();
 		connect( Vnc, SIGNAL(Connected()), this, SLOT(On_Display_Connected()), Qt::UniqueConnection );

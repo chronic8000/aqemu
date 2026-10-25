@@ -18,6 +18,60 @@
 
 #include <cstring>
 
+bool AQ_Apple_SoC_IPv4_USB_Is_Listening( int port, bool *checked )
+{
+	if( checked )
+		*checked = false;
+	if( port <= 0 || port > 65535 )
+		return false;
+
+	const QString script = QStringLiteral(
+		"p=%1; "
+		"if command -v ss >/dev/null 2>&1; then "
+		"  ss -H -ltn sport = :\"$p\" 2>/dev/null | grep -q . && exit 0; "
+		"fi; "
+		"exit 1" ).arg( port );
+
+#ifdef Q_OS_WIN
+	QSettings s;
+	const QString distro = s.value( QStringLiteral( "WSL_Launch/Distro" ) ).toString().trimmed();
+	QStringList args;
+	if( ! distro.isEmpty() )
+		args << QStringLiteral( "-d" ) << distro;
+	args << QStringLiteral( "-e" ) << QStringLiteral( "sh" ) << QStringLiteral( "-c" ) << script;
+	QProcess proc;
+	proc.setProcessChannelMode( QProcess::MergedChannels );
+	proc.start( QStringLiteral( "wsl.exe" ), args );
+	if( ! proc.waitForFinished( 8000 ) )
+	{
+		proc.kill();
+		proc.waitForFinished( 1000 );
+		return false;
+	}
+	if( proc.exitStatus() != QProcess::NormalExit )
+		return false;
+	if( checked )
+		*checked = true;
+	return proc.exitCode() == 0;
+#else
+	QProcess proc;
+	proc.setProcessChannelMode( QProcess::MergedChannels );
+	proc.start( QStringLiteral( "sh" ),
+	            QStringList() << QStringLiteral( "-c" ) << script );
+	if( ! proc.waitForFinished( 3000 ) )
+	{
+		proc.kill();
+		proc.waitForFinished( 1000 );
+		return false;
+	}
+	if( proc.exitStatus() != QProcess::NormalExit )
+		return false;
+	if( checked )
+		*checked = true;
+	return proc.exitCode() == 0;
+#endif
+}
+
 bool AQ_Is_Apple_SoC_VM( const Virtual_Machine *vm )
 {
 	if( ! vm )

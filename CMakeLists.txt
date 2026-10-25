@@ -13,7 +13,7 @@ IF( EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/VERSION.txt" )
 	STRING( STRIP "${AQEMU_PROJECT_VERSION}" AQEMU_PROJECT_VERSION )
 ENDIF()
 IF( NOT AQEMU_PROJECT_VERSION )
-	SET( AQEMU_PROJECT_VERSION "1.6.0" )
+	SET( AQEMU_PROJECT_VERSION "1.6.5.0" )
 ENDIF()
 
 PROJECT( AQEMU VERSION ${AQEMU_PROJECT_VERSION} LANGUAGES CXX )
@@ -727,6 +727,25 @@ IF( AQEMU_BUNDLE_QEMU )
 		MESSAGE( STATUS "Will copy ${_qemu_bin_count} QEMU binary(ies) from ${_qemu_bin_dir} next to aqemu" )
 	ENDIF()
 ENDIF( AQEMU_BUNDLE_QEMU )
+
+# Linux Reims and Apple SoC ELFs. First launch copies wsl/<arch>/ into the user's WSL.
+IF( WIN32 AND EXISTS "${CMAKE_SOURCE_DIR}/third_party/wsl-qemu" )
+	FILE( GLOB _wsl_elfs
+		"${CMAKE_SOURCE_DIR}/third_party/wsl-qemu/*/qemu-system-reims3d"
+		"${CMAKE_SOURCE_DIR}/third_party/wsl-qemu/*/qemu-system-applesoc"
+	)
+	FOREACH( _elf ${_wsl_elfs} )
+		GET_FILENAME_COMPONENT( _wsl_arch "${_elf}" DIRECTORY )
+		GET_FILENAME_COMPONENT( _wsl_arch "${_wsl_arch}" NAME )
+		GET_FILENAME_COMPONENT( _wsl_name "${_elf}" NAME )
+		ADD_CUSTOM_COMMAND( TARGET aqemu POST_BUILD
+			COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:aqemu>/wsl/${_wsl_arch}"
+			COMMAND ${CMAKE_COMMAND} -E copy_if_different
+				"${_elf}" "$<TARGET_FILE_DIR:aqemu>/wsl/${_wsl_arch}/${_wsl_name}"
+			COMMENT "Bundle Linux WSL QEMU ${_wsl_arch}/${_wsl_name}"
+		)
+	ENDFOREACH()
+ENDIF()
 
 # OpenPartitionDxe.efi — LongQT OpenCore ISO enables it in config but omits the file.
 IF( EXISTS "${CMAKE_SOURCE_DIR}/third_party/opencore/OpenPartitionDxe.efi" )

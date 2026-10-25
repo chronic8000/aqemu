@@ -21,7 +21,8 @@ WSL_Wizard_Window::WSL_Wizard_Window( QWidget *parent )
 	QVBoxLayout *mainLay = new QVBoxLayout( this );
 
 	QLabel *intro = new QLabel( tr(
-		"AQEMU needs your WSL configuration to start VMs. "
+		"Pick the WSL distro this VM will run in. "
+		"AQEMU copies its Linux macOS and iOS QEMU binaries into that distro when you start. "
 		"Username is saved in settings; password is optional and can be stored "
 		"securely in Windows Credential Manager." ) );
 	intro->setWordWrap( true );
@@ -99,6 +100,11 @@ void WSL_Wizard_Window::on_CB_Distro_currentIndexChanged( int index )
 
 void WSL_Wizard_Window::on_Btn_Ok_clicked()
 {
+	if( Get_Distro().isEmpty() )
+	{
+		AQGraphic_Warning( tr("Warning"), tr("Choose the WSL distro AQEMU should copy the Linux QEMU binaries into.") );
+		return;
+	}
 	if( Edit_User->text().trimmed().isEmpty() )
 	{
 		AQGraphic_Warning( tr("Warning"), tr("WSL Username is required!") );

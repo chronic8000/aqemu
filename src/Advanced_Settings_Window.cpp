@@ -276,13 +276,15 @@ Advanced_Settings_Window::Advanced_Settings_Window( QWidget *parent )
 		wslLay->addLayout( vkLay );
 
 		CH_WSL_Reims_Host_Window = new QCheckBox( tr(
-			"Reims WSLg host window (experimental — can crash QEMU on Dozen/NVIDIA)" ) );
+			"Reims host window (experimental — can crash QEMU on Dozen/NVIDIA WSLg)" ) );
 		CH_WSL_Reims_Host_Window->setChecked(
 			Settings.value( "WSL_Launch/Reims_Host_Window", false ).toBool() );
 		CH_WSL_Reims_Host_Window->setToolTip( tr(
-			"Sets REIMS_VGPU_WINDOW=1 so Reims opens a winit Vulkan window under WSLg.\n"
-			"On current Mesa Dozen + NVIDIA WSLg stacks, vkCreateDevice often segfaults "
-			"and kills the VM. Leave unchecked for stable embedded VNC/GOP boot." ) );
+			"Sets REIMS_VGPU_WINDOW=1.\n"
+			"On Qualcomm this asks the Windows qemu-system-reims3d.exe for a native Vulkan window.\n"
+			"On Intel/AMD/NVIDIA WSL it is a WSLg window. Mesa Dozen on NVIDIA WSLg often "
+			"segfaults inside vkCreateDevice. Leave unchecked unless you are testing present. "
+			"AQEMU's embedded viewer stays blank either way (-vga none)." ) );
 		wslLay->addWidget( CH_WSL_Reims_Host_Window );
 
 		QHBoxLayout *binLay = new QHBoxLayout();
@@ -524,12 +526,21 @@ Advanced_Settings_Window::Advanced_Settings_Window( QWidget *parent )
 	// QEMU_AUDIO
 	ui.CH_Audio_Default->setChecked( Settings.value("QEMU_AUDIO/Use_Default_Driver", "yes").toString() == "no" );
 	
-	// QEMU_AUDIO_DRV
-	const QString host_drv = Settings.value( "QEMU_AUDIO/QEMU_AUDIO_DRV", "alsa" ).toString();
+	// QEMU_AUDIO_DRV. Windows does not default to alsa. Linux still does
+	// when Pulse and PipeWire are not there.
+	for( int i = ui.CB_Host_Sound_System->count() - 1; i >= 0; --i )
+	{
+		if( ! AQ_Audio_Host_Can_Use( ui.CB_Host_Sound_System->itemText( i ) ) )
+			ui.CB_Host_Sound_System->removeItem( i );
+	}
+	QString host_drv = Settings.value( "QEMU_AUDIO/QEMU_AUDIO_DRV", QString() ).toString().trimmed();
+	if( ! AQ_Audio_Host_Can_Use( host_drv ) )
+		host_drv = AQ_Pick_Host_Audio_Backend(
+			AQ_Bundled_QEMU_Binary( QStringLiteral( "qemu-system-x86_64" ) ), QString() );
 	const int host_drv_ix = ui.CB_Host_Sound_System->findText( host_drv );
 	if( host_drv_ix >= 0 )
 		ui.CB_Host_Sound_System->setCurrentIndex( host_drv_ix );
-	else if( ! host_drv.isEmpty() )
+	else if( ! host_drv.isEmpty() && AQ_Audio_Host_Can_Use( host_drv ) )
 		ui.CB_Host_Sound_System->setEditText( host_drv );
 	
 	// Tab USB
@@ -1053,8 +1064,12 @@ void Advanced_Settings_Window::done(int r)
 	    else
 		    Settings.setValue( "QEMU_AUDIO/Use_Default_Driver", "yes" );
 	
-	    // QEMU_AUDIO_DRV
-	    Settings.setValue( "QEMU_AUDIO/QEMU_AUDIO_DRV", ui.CB_Host_Sound_System->currentText() );
+	    // QEMU_AUDIO_DRV. A stored Linux name is not written back on Windows.
+	    QString host_drv_save = ui.CB_Host_Sound_System->currentText().trimmed();
+	    if( ! AQ_Audio_Host_Can_Use( host_drv_save ) )
+		    host_drv_save = AQ_Pick_Host_Audio_Backend(
+			    AQ_Bundled_QEMU_Binary( QStringLiteral( "qemu-system-x86_64" ) ), QString() );
+	    Settings.setValue( "QEMU_AUDIO/QEMU_AUDIO_DRV", host_drv_save );
 	
 	// First VNC Port for Embedded Display
 	    Settings.setValue( "First_VNC_Port", QString::number(ui.SB_First_VNC_Port->value()) );

@@ -27,6 +27,10 @@
 #include <QListWidget>
 #include <QPalette>
 #include <QColor>
+#include <QStyleFactory>
+#include <QLineEdit>
+#include <QComboBox>
+#include <QAbstractSpinBox>
 #include <QTextEdit>
 #include <QPlainTextEdit>
 #include <QTextDocument>
@@ -237,12 +241,17 @@ static bool AQ_Os_Prefers_Dark( const QApplication *app )
 	return AQ_Color_Is_Dark( app->palette().color( QPalette::Window ) );
 }
 
+static const QColor AQ_Field_Bg_Dark( 43, 43, 43 );
+static const QColor AQ_Field_Fg_Dark( 240, 240, 240 );
+static const QColor AQ_Field_Bg_Light( 255, 255, 255 );
+static const QColor AQ_Field_Fg_Light( 32, 32, 32 );
+
 static void AQ_Install_Dark_Palette( QApplication *app )
 {
 	QPalette pal = app->palette();
 	const QColor window( 32, 32, 32 );
-	const QColor base( 43, 43, 43 );
-	const QColor text( 240, 240, 240 );
+	const QColor base = AQ_Field_Bg_Dark;
+	const QColor text = AQ_Field_Fg_Dark;
 	const QColor disabled( 140, 140, 140 );
 	QColor highlight = pal.color( QPalette::Highlight );
 	if( highlight.lightness() > 180 || highlight.lightness() < 40 )
@@ -269,7 +278,41 @@ static void AQ_Install_Dark_Palette( QApplication *app )
 	pal.setColor( QPalette::Disabled, QPalette::Text, disabled );
 	pal.setColor( QPalette::Disabled, QPalette::WindowText, disabled );
 	pal.setColor( QPalette::Disabled, QPalette::ButtonText, disabled );
+	pal.setColor( QPalette::Disabled, QPalette::Base, QColor( 38, 38, 38 ) );
+#if QT_VERSION >= QT_VERSION_CHECK( 5, 12, 0 )
+	pal.setColor( QPalette::PlaceholderText, QColor( 170, 170, 170 ) );
+#endif
 	app->setPalette( pal );
+}
+
+static void AQ_Install_Light_Palette( QApplication *app )
+{
+	QPalette pal = app->palette();
+	const QColor white = AQ_Field_Bg_Light;
+	const QColor ink = AQ_Field_Fg_Light;
+	pal.setColor( QPalette::Window, white );
+	pal.setColor( QPalette::Base, white );
+	pal.setColor( QPalette::AlternateBase, QColor( 248, 248, 248 ) );
+	pal.setColor( QPalette::WindowText, ink );
+	pal.setColor( QPalette::Text, ink );
+	pal.setColor( QPalette::ButtonText, ink );
+	pal.setColor( QPalette::Button, QColor( 240, 240, 240 ) );
+#if QT_VERSION >= QT_VERSION_CHECK( 5, 12, 0 )
+	pal.setColor( QPalette::PlaceholderText, QColor( 120, 120, 120 ) );
+#endif
+	app->setPalette( pal );
+}
+
+static QString s_light_style_name;
+
+static void AQ_Use_Style( QApplication *app, const QString &name )
+{
+	if( ! app || name.isEmpty() )
+		return;
+	if( app->style() && app->style()->objectName().compare( name, Qt::CaseInsensitive ) == 0 )
+		return;
+	if( QStyle *style = QStyleFactory::create( name ) )
+		app->setStyle( style );
 }
 
 static void AQ_Refresh_Page_Surfaces()
@@ -379,12 +422,26 @@ static void AQ_Polish_Window( QWidget *window )
 	window->setProperty( "aq_theme_generation", s_theme_generation );
 
 	const QPalette pal = QApplication::palette();
+	const QColor field_bg = s_chrome_is_light ? AQ_Field_Bg_Light : AQ_Field_Bg_Dark;
+	const QColor field_fg = s_chrome_is_light ? AQ_Field_Fg_Light : AQ_Field_Fg_Dark;
+	const auto paint_field = [&]( QWidget *field ) {
+		if( ! field )
+			return;
+		QPalette field_pal = pal;
+		field_pal.setColor( QPalette::Base, field_bg );
+		field_pal.setColor( QPalette::Text, field_fg );
+		field_pal.setColor( QPalette::Window, field_bg );
+		field_pal.setColor( QPalette::WindowText, field_fg );
+		field->setPalette( field_pal );
+		field->setAutoFillBackground( true );
+	};
+
 	const auto edits = window->findChildren<QTextEdit *>();
 	for( QTextEdit *edit : edits )
 	{
 		if( ! edit || AQ_Stylesheet_Owns_Color( edit->styleSheet() ) )
 			continue;
-		edit->setPalette( pal );
+		paint_field( edit );
 		AQ_Recolor_Default_Text( edit->document() );
 	}
 	const auto plains = window->findChildren<QPlainTextEdit *>();
@@ -392,7 +449,28 @@ static void AQ_Polish_Window( QWidget *window )
 	{
 		if( ! edit || AQ_Stylesheet_Owns_Color( edit->styleSheet() ) )
 			continue;
-		edit->setPalette( pal );
+		paint_field( edit );
+	}
+	const auto lines = window->findChildren<QLineEdit *>();
+	for( QLineEdit *edit : lines )
+	{
+		if( ! edit || AQ_Stylesheet_Owns_Color( edit->styleSheet() ) )
+			continue;
+		paint_field( edit );
+	}
+	const auto combos = window->findChildren<QComboBox *>();
+	for( QComboBox *box : combos )
+	{
+		if( ! box || AQ_Stylesheet_Owns_Color( box->styleSheet() ) )
+			continue;
+		paint_field( box );
+	}
+	const auto spins = window->findChildren<QAbstractSpinBox *>();
+	for( QAbstractSpinBox *spin : spins )
+	{
+		if( ! spin || AQ_Stylesheet_Owns_Color( spin->styleSheet() ) )
+			continue;
+		paint_field( spin );
 	}
 }
 
@@ -436,33 +514,40 @@ void AQ_Apply_App_Style( QApplication *app )
 	s_chrome_is_light = want_light;
 	++s_theme_generation;
 
+	if( s_light_style_name.isEmpty() && app->style() )
+		s_light_style_name = app->style()->objectName();
+
 	if( want_light )
 	{
-		// Light chrome: white page background (Windows palette(window) is grey).
-		QPalette pal = app->palette();
-		const QColor white( 255, 255, 255 );
-		if( pal.color( QPalette::Window ) != white || pal.color( QPalette::Base ) != white )
-		{
-			pal.setColor( QPalette::Window, white );
-			pal.setColor( QPalette::Base, white );
-			pal.setColor( QPalette::AlternateBase, QColor( 248, 248, 248 ) );
-			app->setPalette( pal );
-		}
+		AQ_Use_Style( app, s_light_style_name.isEmpty()
+			? QStringLiteral( "windowsvista" ) : s_light_style_name );
 	}
-	else if( ! AQ_Color_Is_Dark( app->palette().color( QPalette::Window ) ) )
+	else
 	{
-		// OS is dark but Qt still handed us a light palette (Windows).
-		AQ_Install_Dark_Palette( app );
+		// The Windows style keeps line edits, spin boxes, and group-box
+		// interiors white. Dark chrome then paints near-white text into
+		// those fields. Fusion follows the palette for those controls.
+		AQ_Use_Style( app, QStringLiteral( "Fusion" ) );
 	}
+
+	// setStyleSheet() installs QStyleSheetStyle, and setStyle() replaces the
+	// application palette with that style's standard (light) palette. Input
+	// colours below are literal so they do not follow that reset. The dark
+	// or light palette is installed again after the stylesheet.
 
 	// CRITICAL (Qt 5 + Windows HiDPI): never put padding / min-height / border-radius
 	// on QComboBox, QLineEdit, QSpinBox, QPushButton, QCheckBox, QRadioButton, or
 	// QToolButton in a global stylesheet. Those rules shrink the content rect and
-	// clip glyphs mid-letter. Keep chrome-only styling; leave form controls native.
+	// clip glyphs mid-letter. Colour, background, and a 1px border are fine.
 	//
 	// QMenuBar::item must set background and border. Styling QMenuBar alone makes
 	// Qt draw each title (File, VM, Help) as a bordered button on every platform.
-	app->setStyleSheet( QStringLiteral( R"(
+	const QString field_fg = ( want_light ? AQ_Field_Fg_Light : AQ_Field_Fg_Dark ).name();
+	const QString field_bg = ( want_light ? AQ_Field_Bg_Light : AQ_Field_Bg_Dark ).name();
+	const QString field_border = want_light
+		? QStringLiteral( "#c0c0c0" ) : QStringLiteral( "#5a5a5a" );
+
+	app->setStyleSheet( QString( R"(
 QMainWindow, QDialog {
 	background-color: palette(window);
 	color: palette(window-text);
@@ -489,11 +574,35 @@ QStackedWidget, QStackedWidget > QWidget {
 	background-color: palette(window);
 	color: palette(window-text);
 }
-QTextEdit, QPlainTextEdit, QTextBrowser {
-	background-color: palette(base);
-	color: palette(text);
-	selection-background-color: palette(highlight);
-	selection-color: palette(highlighted-text);
+QWidget QTextEdit, QWidget QPlainTextEdit, QWidget QTextBrowser {
+	background-color: %2;
+	color: %1;
+	selection-background-color: #0078d7;
+	selection-color: #ffffff;
+}
+/* Colour and a 1px border only. Padding, min-height, and border-radius on
+   these controls clip glyphs on Qt 5 HiDPI.
+   Descendant selectors beat QStackedWidget > QWidget, which otherwise
+   paints the page colour over the field. */
+QWidget QLineEdit, QWidget QAbstractSpinBox, QWidget QComboBox {
+	color: %1;
+	background-color: %2;
+	border: 1px solid %3;
+	selection-color: #ffffff;
+	selection-background-color: #0078d7;
+}
+QComboBox::drop-down {
+	width: 18px;
+	border-left: 1px solid %3;
+}
+QComboBox QAbstractItemView {
+	color: %1;
+	background-color: %2;
+	selection-color: #ffffff;
+	selection-background-color: #0078d7;
+}
+QComboBox QAbstractItemView::item:disabled {
+	color: #8d8d8d;
 }
 
 QGroupBox {
@@ -596,7 +705,15 @@ QToolTip {
 	background: palette(tool-tip-base);
 	color: palette(tool-tip-text);
 }
-)" ) );
+)" ).arg( field_fg, field_bg, field_border ) );
+
+	// setStyle() inside setStyleSheet() restores a light standard palette.
+	// Put the chrome palette back so labels, lists, and group boxes match
+	// the literal field colours above.
+	if( want_light )
+		AQ_Install_Light_Palette( app );
+	else
+		AQ_Install_Dark_Palette( app );
 
 	static bool filter_installed = false;
 	if( ! filter_installed )

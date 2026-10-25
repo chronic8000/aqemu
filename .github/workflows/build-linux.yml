@@ -1,5 +1,6 @@
 name: Build Linux Packages (x86_64 & ARM64 / Pi 5)
 
+# Push builds are off. Packages are built on a local machine.
 on:
   workflow_dispatch:
     inputs:
@@ -8,15 +9,6 @@ on:
         required: false
         type: boolean
         default: false
-  push:
-    branches:
-      - master
-    paths-ignore:
-      - 'docs/**'
-      - '**.md'
-      - '.gitignore'
-      - 'installer/**'
-      - 'scripts/build_qemu_win_*.sh'
 
 jobs:
   build-linux:

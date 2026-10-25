@@ -887,6 +887,9 @@
       </item>
       <item row="5" column="0" colspan="2">
        <widget class="QCheckBox" name="CH_Launch_Via_WSL">
+        <property name="visible">
+         <bool>false</bool>
+        </property>
         <property name="toolTip">
          <string>Run Linux QEMU inside WSL with KVM. Requires WSL localhost forwarding for SPICE/QMP.</string>
         </property>

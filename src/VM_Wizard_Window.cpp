@@ -2525,7 +2525,14 @@ void VM_Wizard_Window::Apply_Guest_Hardware_To_New_VM()
 				New_VM->Set_Memory_Size( 8192 );
 			New_VM->Set_SMP_CPU_Count( 4 );
 			New_VM->Set_Video_Card( QStringLiteral( "reims-vgpu-pci" ) );
-			New_VM->Use_Launch_Via_WSL( true ); // Windows PE lacks reims-vgpu-pci
+#ifdef Q_OS_WIN32
+			if( ! System_Info::Host_GPU_Was_Scanned() )
+				System_Info::Update_Host_GPU();
+			// Snapdragon: Windows PE. Intel/AMD/NVIDIA: WSL Vulkan/Dozen.
+			New_VM->Use_Launch_Via_WSL( ! System_Info::Host_Reims_Prefers_Windows_Binary() );
+#else
+			New_VM->Use_Launch_Via_WSL( true );
+#endif
 			New_VM->Set_Display_Window_Mode( QStringLiteral( "embedded" ) );
 		}
 
@@ -2986,57 +2993,53 @@ void VM_Wizard_Window::Prefer_Accelerator_For_Target( const QString &target )
 {
 	const QString host = AQ_Get_Host_CPU_Architecture();
 	const QString guest = AQ_Normalize_CPU_Architecture( target );
-	const bool prefer_native = AQ_Should_Prefer_Native_Accelerator( target );
+	QString qemu_name = target;
+	if( ! qemu_name.startsWith( QLatin1String( "qemu-system-" ) ) && ! qemu_name.isEmpty() )
+		qemu_name = QStringLiteral( "qemu-system-" ) + target;
+	QString qemu_bin;
+	{
+		Emulator emul = Get_Default_Emulator();
+		qemu_bin = emul.Get_Binary_Files().value( qemu_name );
+	}
+	const AQ_Accel_Flags native = AQ_Accelerator_Availability( target, qemu_bin, false );
+	const AQ_Accel_Flags wsl = AQ_Accelerator_Availability( target, qemu_bin, true );
+	const bool whpx = native.whpx;
+	const bool kvm = native.kvm || wsl.kvm;
 
-	if( prefer_native )
+	ui.RB_Emulator_QEMU->setText( tr( "&TCG (software emulation)" ) );
+#ifdef Q_OS_WIN
+	if( whpx )
+		ui.RB_Emulator_KVM->setText( tr( "&WHPX (native acceleration)" ) );
+	else
+		ui.RB_Emulator_KVM->setText( tr( "&KVM (native acceleration)" ) );
+#else
+	ui.RB_Emulator_KVM->setText( tr( "&KVM (native acceleration)" ) );
+#endif
+
+	const Guest_Capabilities caps = Current_Guest_Capabilities();
+	const bool suggest_native = ( whpx || kvm ) && ! caps.force_tcg;
+	if( suggest_native )
 		ui.RB_Emulator_KVM->setChecked( true );
 	else
 		ui.RB_Emulator_QEMU->setChecked( true );
 
-#ifdef Q_OS_WIN32
-	ui.RB_Emulator_KVM->setText( tr( "&WHPX (native acceleration)" ) );
-#else
-	ui.RB_Emulator_KVM->setText( tr( "&KVM (native acceleration)" ) );
-#endif
-	ui.RB_Emulator_QEMU->setText( tr( "&TCG (software emulation)" ) );
-
 	QString tip;
-	if( prefer_native )
-	{
-		tip = tr( "Host CPU is %1; guest target is %2 — using native acceleration." )
+	if( whpx )
+		tip = tr( "This PC is %1 and this guest is %2. WHPX and TCG can both be selected." )
 			.arg( host ).arg( guest.isEmpty() ? target : guest );
-	}
-	else if( AQ_Guest_Matches_Host_Architecture( target ) && guest == QLatin1String( "i386" ) )
-	{
-#ifdef Q_OS_WIN32
-		tip = tr( "Host is %1 but 32-bit x86 guests on Windows are more reliable with TCG "
-		          "(WHPX often hangs). You can still try WHPX if you prefer." )
-			.arg( host );
-#else
-		tip = tr( "Host is %1. 32-bit x86 guests use TCG unless you choose KVM." )
-			.arg( host );
-#endif
-	}
+	else if( kvm )
+		tip = tr( "This PC is %1 and this guest is %2. KVM and TCG can both be selected." )
+			.arg( host ).arg( guest.isEmpty() ? target : guest );
 	else
-	{
-		tip = tr( "Host CPU is %1; guest target is %2 — architectures do not match, "
-		          "so TCG (software translation) is required." )
+		tip = tr( "This PC is %1 and this guest is %2. Only TCG can run this guest." )
 			.arg( host ).arg( guest.isEmpty() ? target : guest );
-	}
+	if( caps.force_tcg && ! caps.summary.isEmpty() )
+		tip = caps.summary;
+
 	ui.RB_Emulator_KVM->setToolTip( tip );
 	ui.RB_Emulator_QEMU->setToolTip( tip );
-
-	const Guest_Capabilities caps = Current_Guest_Capabilities();
-	if( caps.force_tcg )
-	{
-		ui.RB_Emulator_QEMU->setChecked( true );
-		ui.RB_Emulator_KVM->setEnabled( false );
-		ui.RB_Emulator_KVM->setToolTip( caps.summary );
-	}
-	else
-	{
-		ui.RB_Emulator_KVM->setEnabled( caps.allow_kvm_whpx );
-	}
+	ui.RB_Emulator_QEMU->setEnabled( native.tcg || wsl.tcg );
+	ui.RB_Emulator_KVM->setEnabled( whpx || kvm );
 }
 
 Guest_Capabilities VM_Wizard_Window::Current_Guest_Capabilities() const
@@ -6232,7 +6235,13 @@ void VM_Wizard_Window::applyTemplate()
 	if( ui.RB_VM_Template->isChecked() )
 	{
 		if( ui.RB_Emulator_KVM->isChecked() )
+		{
 			New_VM->Set_Machine_Accelerator(VM::KVM);
+#ifdef Q_OS_WIN
+			const bool whpx_label = ui.RB_Emulator_KVM->text().contains( QLatin1String( "WHPX" ), Qt::CaseInsensitive );
+			New_VM->Use_Launch_Via_WSL( ! whpx_label );
+#endif
+		}
 		else
 			New_VM->Set_Machine_Accelerator(VM::TCG);
 			
@@ -6242,7 +6251,13 @@ void VM_Wizard_Window::applyTemplate()
 	else
 	{
 		if( ui.RB_Emulator_KVM->isChecked() )
+		{
 			New_VM->Set_Machine_Accelerator(VM::KVM);
+#ifdef Q_OS_WIN
+			const bool whpx_label = ui.RB_Emulator_KVM->text().contains( QLatin1String( "WHPX" ), Qt::CaseInsensitive );
+			New_VM->Use_Launch_Via_WSL( ! whpx_label );
+#endif
+		}
 		else
 			New_VM->Set_Machine_Accelerator(VM::TCG);
 

@@ -51,9 +51,16 @@ third_party/img4lib/
 third_party/qemu-build/
 third_party/qemu-build-win/
 third_party/qemu-install/
+third_party/qemu-install-arm64/
+third_party/qemu-install-x64/
+third_party/wsl-qemu/
+third_party/qemu-build-win-arm64/
+third_party/qemu-build-win-x86_64/
 third_party/inferno*/
 third_party/reims*/
 third_party/lzfse*/
+third_party/libiscsi/
+third_party/libiscsi-build-*/
 
 # Local OSX-KVM clone + Apple recovery images (fetch with fetch-macOS-v2.py)
 scripts/OSX-KVM/
@@ -79,4 +86,10 @@ third_party/bvm-ref.sh
 
 # Built binary in build tree (DLLs may still be staged for packaging)
 build_win/aqemu.exe
+
+# Local credentials (the real token lives in %USERPROFILE%\.aqemu\)
+github_pat.txt
+*.pat
+.env
+.env.*
 

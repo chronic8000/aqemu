@@ -109,6 +109,12 @@ class System_Info
 		static bool Has_AMD_Display_GPU();
 		static bool Has_NVIDIA_Display_GPU();
 		static bool Has_Intel_Display_GPU();
+		static bool Has_Qualcomm_Display_GPU();
+		/**
+		 * Snapdragon / Adreno Windows: WSL has no native Vulkan ICD, so Reims
+		 * uses qemu-system-reims3d.exe. Intel, AMD, and NVIDIA stay on WSL.
+		 */
+		static bool Host_Reims_Prefers_Windows_Binary();
 		/** Windows/Linux host has a discrete/iGPU candidate (AMD/NVIDIA/Intel). */
 		static bool Has_Reims_Candidate_GPU();
 		/** AMD or NVIDIA display GPU — legacy helper; prefer Has_Reims_Candidate_GPU. */

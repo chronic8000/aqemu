@@ -23,6 +23,8 @@
 #include <QCloseEvent>
 #include <QSettings>
 #include <QFontDialog>
+#include <QGuiApplication>
+#include <QClipboard>
 
 #include "Monitor_Window.h"
 
@@ -45,6 +47,11 @@ void Monitor_Window::on_Button_Run_clicked()
 	ui.Edit_Monitor_Out->append( "<b>" + ui.CB_Com_Line->currentText() + "</b>\n" );
 	emit Command_Sent( ui.CB_Com_Line->currentText() );
 	ui.CB_Com_Line->clearEditText();
+}
+
+void Monitor_Window::on_Button_Copy_clicked()
+{
+	QGuiApplication::clipboard()->setText( ui.Edit_Monitor_Out->toPlainText() );
 }
 
 void Monitor_Window::on_Button_Font_clicked()

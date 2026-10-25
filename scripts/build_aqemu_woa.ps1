@@ -1,151 +1,63 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-  Build AQEMU for Windows on ARM (WoA) / Snapdragon X Elite & Snapdragon 8cx laptops.
-
-.DESCRIPTION
-  Builds native ARM64 Windows binaries using MSYS2 CLANGARM64 or LLVM-MinGW.
-  Supports creating native Store MSIX packages via -BuildMsix.
+  Build native ARM64 AQEMU from the MSYS2 CLANGARM64 environment.
 
 .PARAMETER MsysRoot
-  Path to MSYS2. Empty uses MSYSTEM_PREFIX, then MSYS2_ROOT, then C:\msys64.
-.PARAMETER BuildDir
-  Output build directory (default: build_woa).
+  MSYS2 install root. Empty uses the active shell, then the registered MSYS2 install.
 .PARAMETER BuildMsix
-  If set, packages the built ARM64 payload into an MSIX for Windows on ARM / Store.
+  Package the ARM64 build with installer/build-msix.ps1.
 .PARAMETER SkipSpice
-  Disable embedded SPICE display client.
+  Do not enable the SPICE client even when the library is installed.
+.PARAMETER InstallDeps
+  Install the CLANGARM64 toolchain and Qt packages before building.
 #>
 [CmdletBinding()]
 param(
     [string] $MsysRoot = "",
-    [string] $BuildDir = "build_woa",
     [switch] $BuildMsix,
-    [switch] $SkipSpice
+    [switch] $SkipSpice,
+    [switch] $InstallDeps
 )
 
 $ErrorActionPreference = "Stop"
-
 $scriptDir = $PSScriptRoot
 if ([string]::IsNullOrWhiteSpace($scriptDir)) {
     $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 }
 $RepoRoot = (Resolve-Path (Join-Path $scriptDir "..")).Path
+. (Join-Path $scriptDir "msys_prefix.ps1")
 if ([string]::IsNullOrWhiteSpace($MsysRoot)) {
-    . (Join-Path $scriptDir "msys_prefix.ps1")
-    $MsysRoot = Get-AqemuMsysRoot
-    if (-not $MsysRoot) { $MsysRoot = "C:\msys64" }
+    $MsysRoot = Get-AqemuMsysRoot -Environment "clangarm64"
 }
-$FullBuildDir = Join-Path $RepoRoot $BuildDir
-
-Write-Host "============================================================" -ForegroundColor Cyan
-Write-Host "  AQEMU - Windows on ARM (WoA / Snapdragon) Build Script    " -ForegroundColor Cyan
-Write-Host "============================================================" -ForegroundColor Cyan
-Write-Host "Host Architecture: $env:PROCESSOR_ARCHITECTURE"
-Write-Host "Repository Root:   $RepoRoot"
-Write-Host "Build Directory:   $FullBuildDir"
-
-# Verify MSYS2 CLANGARM64 environment
-$clangarm64Bin = Join-Path $MsysRoot "clangarm64\bin"
-$clangarm64Pkg = Join-Path $MsysRoot "clangarm64\lib\pkgconfig"
-
-if (-not (Test-Path $clangarm64Bin)) {
-    Write-Warning "Could not find MSYS2 CLANGARM64 environment at $clangarm64Bin"
-    Write-Host "To set up native Windows on ARM builds in MSYS2 on your Snapdragon laptop:" -ForegroundColor Yellow
-    Write-Host "  1. Install MSYS2 from https://www.msys2.org/"
-    Write-Host "  2. Open the 'MSYS2 CLANGARM64' terminal"
-    Write-Host "  3. Run:"
-    Write-Host "     ./scripts/build_aqemu_woa.sh --deps"
-    Write-Host "     (or: pacman -S --needed mingw-w64-clang-aarch64-toolchain \"
-    Write-Host "            mingw-w64-clang-aarch64-qt5-base mingw-w64-clang-aarch64-cmake \"
-    Write-Host "            mingw-w64-clang-aarch64-ninja mingw-w64-clang-aarch64-pkgconf \"
-    Write-Host "            mingw-w64-clang-aarch64-spice-gtk mingw-w64-clang-aarch64-libvncserver \"
-    Write-Host "            mingw-w64-clang-aarch64-libslirp mingw-w64-clang-aarch64-libusb \"
-    Write-Host "            mingw-w64-clang-aarch64-gobject-introspection)"
-    Write-Host ""
+if (-not $MsysRoot) {
+    Write-Error "MSYS2 was not found. Install it, or set MSYS2_ROOT to the install directory."
+}
+$bash = Join-Path $MsysRoot "usr\bin\bash.exe"
+if (-not (Test-Path -LiteralPath $bash)) {
+    Write-Error "MSYS2 bash is not at $bash"
 }
 
-# Add CLANGARM64 tools to PATH for this session
-if (Test-Path $clangarm64Bin) {
-    $env:PATH = "$clangarm64Bin;$MsysRoot\usr\bin;$env:PATH"
-    $env:PKG_CONFIG_PATH = $clangarm64Pkg
-    Write-Host "Using CLANGARM64 toolchain from $clangarm64Bin" -ForegroundColor Green
+$prefixBin = Join-Path $MsysRoot "clangarm64\bin"
+if (-not $InstallDeps) {
+    $haveCc = Test-Path -LiteralPath (Join-Path $prefixBin "cc.exe")
+    $haveQt = Test-Path -LiteralPath (Join-Path $prefixBin "Qt5Core.dll")
+    if (-not ($haveCc -and $haveQt)) { $InstallDeps = $true }
 }
 
-# Check for cmake and ninja
-$cmakeCmd = Get-Command "cmake" -ErrorAction SilentlyContinue
-$ninjaCmd = Get-Command "ninja" -ErrorAction SilentlyContinue
+$env:MSYSTEM = "CLANGARM64"
+$env:CHERE_INVOKING = "1"
+if ($SkipSpice) { $env:AQEMU_SKIP_SPICE = "1" } else { Remove-Item Env:AQEMU_SKIP_SPICE -ErrorAction SilentlyContinue }
 
-if (-not $cmakeCmd) {
-    Write-Error "cmake is not found on PATH. Ensure MSYS2 CLANGARM64 or CMake ARM64 is installed."
-}
-if (-not $ninjaCmd) {
-    Write-Error "ninja is not found on PATH. Install ninja in MSYS2 (pacman -S mingw-w64-clang-aarch64-ninja)."
-}
+$unixRoot = (& $bash -lc "cygpath -u '$($RepoRoot.Replace('\','/'))'").Trim()
+$depArg = ""
+if ($InstallDeps) { $depArg = " --deps" }
+Write-Host "ARM64 build using MSYSTEM=$env:MSYSTEM root=$MsysRoot"
+& $bash -lc "cd '$unixRoot' && ./scripts/build_aqemu_woa.sh$depArg"
+if ($LASTEXITCODE -ne 0) { Write-Error "ARM64 build failed with exit code $LASTEXITCODE" }
 
-if (-not (Test-Path $FullBuildDir)) {
-    New-Item -ItemType Directory -Path $FullBuildDir -Force | Out-Null
-}
-
-$cmakeArgs = @(
-    "-G", "Ninja",
-    "-B", $FullBuildDir,
-    "-S", $RepoRoot,
-    "-DCMAKE_BUILD_TYPE=Release",
-    "-DWIN_ARM64_OPTIMIZATIONS=ON"
-)
-
-if (-not $SkipSpice) {
-    $cmakeArgs += "-DAQEMU_WITH_SPICE_GTK=ON"
-} else {
-    Write-Host "SPICE client disabled by -SkipSpice"
-}
-
-# If QEMU ARM64 bundle prefix exists, enable bundling
-$qemuInstall = Join-Path $RepoRoot "third_party\qemu-install"
-if (Test-Path (Join-Path $qemuInstall "bin")) {
-    $cmakeArgs += "-DAQEMU_BUNDLE_QEMU=ON"
-    $cmakeArgs += "-DAQEMU_QEMU_PREFIX=$qemuInstall"
-    Write-Host "Bundling QEMU binaries from $qemuInstall" -ForegroundColor Green
-}
-
-Write-Host "`nRunning CMake configuration..." -ForegroundColor Cyan
-& cmake.exe @cmakeArgs
-if ($LASTEXITCODE -ne 0) {
-    Write-Error "CMake configuration failed."
-}
-
-Write-Host "`nCompiling native ARM64 AQEMU executable..." -ForegroundColor Cyan
-& ninja.exe -C $FullBuildDir
-if ($LASTEXITCODE -ne 0) {
-    Write-Error "Ninja compilation failed."
-}
-
-$targetExe = Join-Path $FullBuildDir "aqemu.exe"
-if (-not (Test-Path $targetExe)) {
-    Write-Error "Build finished but aqemu.exe was not found at $targetExe."
-}
-
-Write-Host "`n=== WoA Build Succeeded! ===" -ForegroundColor Green
-Write-Host "Executable: $targetExe"
-
-# Automatically run windeployqt if available to gather Qt ARM64 plugins/DLLs
-$wdq = Get-Command "windeployqt" -ErrorAction SilentlyContinue
-if ($wdq) {
-    Write-Host "Deploying Qt runtime libraries with windeployqt..." -ForegroundColor Cyan
-    & $wdq.Path --no-translations --compiler-runtime $targetExe
-}
-
-# Build MSIX package if requested
 if ($BuildMsix) {
-    Write-Host "`n=== Packaging into Windows on ARM MSIX ===" -ForegroundColor Cyan
     $msixScript = Join-Path $RepoRoot "installer\build-msix.ps1"
-    if (Test-Path $msixScript) {
-        & powershell -NoProfile -ExecutionPolicy Bypass -File $msixScript -Architecture "arm64" -BuildDir $FullBuildDir
-    } else {
-        Write-Warning "Could not find $msixScript"
-    }
+    $buildDir = Join-Path $RepoRoot "build_woa"
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $msixScript -Architecture "arm64" -BuildDir $buildDir
 }
-
-Write-Host "`nTo run AQEMU on your Snapdragon PC:" -ForegroundColor Green
-Write-Host "  & `"$targetExe`""

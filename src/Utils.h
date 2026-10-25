@@ -25,7 +25,7 @@
 #define UTILS_H
 
 #ifndef CURRENT_AQEMU_VERSION
-#define CURRENT_AQEMU_VERSION "1.6.0"
+#define CURRENT_AQEMU_VERSION "1.6.5.0"
 #endif
 #ifndef CURRENT_AQEMU_RELEASE_DATE
 #define CURRENT_AQEMU_RELEASE_DATE "2026-10-18"
@@ -194,15 +194,25 @@ bool AQ_Path_Usable_On_This_Host( const QString &path );
 QString AQ_Qemu_Drive_File_Key( const QString &path );
 
 /**
+ * True when this operating system can run the named QEMU host driver.
+ * Linux-only names (alsa, oss, pa, pipewire, jack, sndio, coreaudio) are
+ * false on Windows. DirectSound and SDL are false on Windows ARM.
+ * A Linux process, including QEMU inside WSL, is not this check.
+ */
+bool AQ_Audio_Host_Can_Use( const QString &driver );
+
+/**
  * Probe this QEMU binary's -audiodev help and the host sound servers.
  * preferred is used when that binary lists it and the host can run it.
  * Otherwise the first driver in the platform order that both sides accept.
- * The bundled Windows QEMU has no SDL driver. Windows playback uses spice
- * (the embedded viewer). DirectSound is not offered on Windows ARM: that
- * backend access-violates in this QEMU build. Linux (including Pi and ARM)
- * prefers pa/pipewire/alsa, then spice.
+ * Windows x86_64: DirectSound, then SDL. Windows ARM64 has no safe
+ * speaker driver in this QEMU (DirectSound crashes, SDL is not built).
+ * Spice is used only when the same launch passes -spice.
+ * Linux x86_64 and ARM64, including WSL: ALSA. Pulse or PipeWire only
+ * when that session is running.
  */
-QString AQ_Pick_Host_Audio_Backend( const QString &qemu_binary, const QString &preferred = QString() );
+QString AQ_Pick_Host_Audio_Backend( const QString &qemu_binary, const QString &preferred = QString(),
+                                    bool allow_spice = true );
 
 /** True if s looks like a real AppleSMC OSK (not network/Proxmox junk). */
 bool AQ_Is_Plausible_Apple_SMC_OSK( const QString &osk );
@@ -308,8 +318,39 @@ QString AQ_Get_Host_CPU_Architecture();
 /** True when guest QEMU target can use host native accel (KVM/WHPX/HVF). */
 bool AQ_Guest_Matches_Host_Architecture( const QString &guest_target );
 /**
- * Prefer KVM (maps to WHPX on Windows) when guest matches host.
- * Forces TCG for cross-arch guests and for i386 guests on Windows.
+ * Which accelerators can run this guest on the process that will start.
+ * via_wsl true means the Linux/WSL QEMU. via_wsl false on Windows means
+ * the Windows QEMU. qemu-system-applesoc.exe includes TCG only.
+ * KVM is the Linux or WSL row when /dev/kvm is usable.
+ * whpx: Windows process, matching 64-bit family, binary accepts whpx.
+ * qemu-system-i386 and qemu-system-arm stay TCG.
+ * kvm: Linux, or a real WSL start, matching family, /dev/kvm usable.
+ */
+struct AQ_Accel_Flags
+{
+	bool tcg = true;
+	bool whpx = false;
+	bool kvm = false;
+	bool xen = false;
+};
+
+AQ_Accel_Flags AQ_Accelerator_Availability( const QString &guest_qemu_name,
+                                            const QString &qemu_binary,
+                                            bool via_wsl );
+
+/**
+ * Accel row that can start: "whpx", "kvm", "xen", or "tcg".
+ * A usable stored TCG stays TCG. An unusable stored row becomes the
+ * first of whpx, kvm, tcg that this launch can run.
+ */
+QString AQ_Resolve_Accel_Id( const QString &stored_id,
+                             const QString &guest_qemu_name,
+                             const QString &qemu_binary,
+                             bool via_wsl );
+
+/**
+ * Prefer the first available of WHPX, then KVM, else TCG.
+ * A cross-architecture guest prefers TCG.
  */
 bool AQ_Should_Prefer_Native_Accelerator( const QString &guest_target );
 
@@ -323,6 +364,12 @@ bool AQ_Host_WHPX_Usable();
 
 /** True when this QEMU binary lists whpx in `-accel help`. Cached. */
 bool AQ_QEMU_Has_WHPX( const QString &qemu_binary );
+
+/**
+ * True when the native accelerator for this launch path can be selected.
+ * Windows without WSL: WHPX. Windows with WSL, and Linux: KVM.
+ */
+bool AQ_Native_Accel_Selectable( const QString &guest_qemu_name, const QString &qemu_binary, bool via_wsl );
 
 /**
  * Probe `qemu -display help` (cached). Returns backends like "sdl", "gtk".

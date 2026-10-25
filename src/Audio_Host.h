@@ -56,7 +56,8 @@ QString AQ_Audio_Build_Audiodev(
 	const QString &legacy_backend,
 	int legacy_timer_us,
 	const QString &qemu_binary,
-	const QString &forced_backend );
+	const QString &forced_backend,
+	bool allow_spice );
 
 /** True when -machine TYPE,help advertises pcspk-audiodev. */
 bool AQ_Audio_Machine_Has_Pcspk_Property( const QString &qemu_binary, const QString &machine );

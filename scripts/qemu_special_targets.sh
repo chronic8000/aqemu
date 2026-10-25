@@ -234,6 +234,42 @@ aqemu_ensure_cargo() {
   return 1
 }
 
+# True when this compiler's objdump can read the static archive. An archive
+# built by the other MinGW toolchain (ARM64 vs x86_64) is the wrong format.
+aqemu_cc_reads_archive() {
+  local cc="$1"
+  local archive="$2"
+  local objdump
+  [[ -f "${archive}" ]] || return 1
+  objdump="$("${cc}" -print-prog-name=objdump 2>/dev/null || true)"
+  if [[ -z "${objdump}" || "${objdump}" == "objdump" ]]; then
+    objdump="objdump"
+  fi
+  local dump host
+  dump="$("${objdump}" -f "${archive}" 2>/dev/null || true)"
+  [[ -n "${dump}" ]] || return 1
+  host="$("${cc}" -dumpmachine 2>/dev/null || true)"
+  if [[ "${host}" == aarch64* || "${host}" == arm64* ]]; then
+    [[ "${dump}" == *aarch64* ]]
+  elif [[ "${host}" == *x86_64* || "${host}" == *amd64* ]]; then
+    [[ "${dump}" == *x86-64* || "${dump}" == *x86_64* ]]
+  fi
+}
+
+# Meson on an ARM64 Windows PC records the machine CPU even when the
+# compiler is the x86_64 MinGW toolchain. A blank --cross-prefix keeps the
+# unprefixed gcc/ar names and still writes the requested host CPU.
+aqemu_mingw_host_cpu_args() {
+  case "${MSYSTEM:-}" in
+    UCRT64|MINGW64|CLANG64)
+      printf '%s\n' --cross-prefix= --cpu=x86_64
+      ;;
+    CLANGARM64)
+      printf '%s\n' --cross-prefix= --cpu=aarch64
+      ;;
+  esac
+}
+
 aqemu_ensure_lzfse() {
   local root="$1"
   local lzfse_dir="${root}/third_party/lzfse"
@@ -263,22 +299,38 @@ aqemu_ensure_lzfse() {
     msys_prefix="${AQEMU_MSYS_ROOT}/clangarm64"
   fi
 
-  # 1. Check if lzfse.h and liblzfse.a / lzfse library already exist
-  local found_h=0
-  for inc_dir in \
-    "${msys_prefix}/include" \
-    /clangarm64/include \
-    /ucrt64/include \
-    /mingw64/include \
-    /usr/include \
-    /usr/local/include \
-    "${lzfse_install}/include"; do
-    if [[ -n "${inc_dir}" && -f "${inc_dir}/lzfse.h" ]]; then
-      echo "Found lzfse.h in ${inc_dir}"
-      found_h=1
-      break
+  local c_compiler="${CC:-}"
+  if [[ -z "${c_compiler}" ]]; then
+    if command -v gcc >/dev/null 2>&1; then
+      c_compiler="gcc"
+    elif command -v clang >/dev/null 2>&1; then
+      c_compiler="clang"
+    else
+      c_compiler="cc"
     fi
-  done
+  fi
+
+  # A header or archive from another toolchain (clangarm64 vs ucrt64) still
+  # "exists", and an empty -llzfse link succeeds without pulling objects in.
+  # Inferno's real link then fails with "could not link liblzfse".
+  local found_h=0
+  local lzfse_archive="${lzfse_install}/lib/liblzfse.a"
+  if aqemu_cc_reads_archive "${c_compiler}" "${lzfse_archive}"; then
+    for inc_dir in \
+      "${lzfse_install}/include" \
+      "${msys_prefix}/include" \
+      /usr/include \
+      /usr/local/include; do
+      if [[ -n "${inc_dir}" && -f "${inc_dir}/lzfse.h" ]]; then
+        echo "Found lzfse.h in ${inc_dir} for $(${c_compiler} -dumpmachine 2>/dev/null || echo "${c_compiler}")"
+        found_h=1
+        break
+      fi
+    done
+  else
+    echo "liblzfse is missing or was built for a different compiler; rebuilding"
+    rm -f "${lzfse_archive}"
+  fi
 
   # 2. Try system package manager if missing on Linux
   if [[ ${found_h} -eq 0 ]]; then
@@ -310,18 +362,11 @@ aqemu_ensure_lzfse() {
 
     mkdir -p "${lzfse_build}" "${lzfse_install}/include" "${lzfse_install}/lib" "${lzfse_install}/lib/pkgconfig"
 
-    local c_compiler="${CC:-}"
-    if [[ -z "${c_compiler}" ]]; then
-      if command -v clang >/dev/null 2>&1; then
-        c_compiler="clang"
-      elif command -v gcc >/dev/null 2>&1; then
-        c_compiler="gcc"
-      else
-        c_compiler="cc"
-      fi
+    local ar_tool
+    ar_tool="$("${c_compiler}" -print-prog-name=ar 2>/dev/null || true)"
+    if [[ -z "${ar_tool}" ]]; then
+      ar_tool="ar"
     fi
-
-    local ar_tool="ar"
     if command -v llvm-ar >/dev/null 2>&1; then
       ar_tool="llvm-ar"
     elif command -v ar >/dev/null 2>&1; then
@@ -448,8 +493,14 @@ aqemu_build_applesoc() {
   aqemu_ensure_nettle "${root}"
 
   local inferno_src="${root}/third_party/inferno"
-  local inferno_build="${root}/third_party/inferno-build"
-  local inferno_stage="${root}/third_party/inferno-stage"
+  # Keep each host toolchain's tree. An x86_64 configure left in the ARM64
+  # directory makes the next ninja regenerate the wrong compiler.
+  local inferno_host="x86_64"
+  if [[ "${MSYSTEM:-}" == "CLANGARM64" ]]; then
+    inferno_host="aarch64"
+  fi
+  local inferno_build="${root}/third_party/inferno-build-${inferno_host}"
+  local inferno_stage="${root}/third_party/inferno-stage-${inferno_host}"
   local lzfse_install="${root}/third_party/lzfse-install"
 
   if [[ ! -d "${inferno_src}" || ! -f "${inferno_src}/configure" ]]; then
@@ -490,7 +541,10 @@ if \"version: '>=3.10'\" in content:
 " || true
   fi
 
-  rm -rf "${inferno_stage}"
+  # A previous ARM64 configure in this directory makes ninja regenerate
+  # that tree after an x86_64 configure failure, which is the symlink and
+  # "no aarch64 binary" errors.
+  rm -rf "${inferno_stage}" "${inferno_build}"
   mkdir -p "${inferno_build}" "${inferno_stage}" "${prefix}/bin"
   cd "${inferno_build}"
 
@@ -534,6 +588,11 @@ if \"version: '>=3.10'\" in content:
   if [[ "${MSYSTEM:-}" == "CLANGARM64" ]]; then
     inferno_cflags="${inferno_cflags} -fno-vectorize -fno-slp-vectorize"
   fi
+  local host_arg
+  while IFS= read -r host_arg; do
+    [[ -n "${host_arg}" ]] && conf_args+=("${host_arg}")
+  done < <(aqemu_mingw_host_cpu_args)
+
   conf_args+=(
     --disable-whpx
     --enable-lzfse
@@ -542,23 +601,41 @@ if \"version: '>=3.10'\" in content:
     --extra-ldflags="${lzfse_lib_flag} -lhogweed -lnettle -lgmp"
   )
 
+  # clangarm64 has no windmc. Inferno's Windows guest agent still runs
+  # windmc while Meson is loading, and the ucrt64 copy is a tool, not a
+  # target binary.
+  if [[ "${MSYSTEM:-}" == "CLANGARM64" && -x /ucrt64/bin/windmc.exe ]]; then
+    export PATH="${PATH}:/ucrt64/bin"
+  fi
+
   echo "Configuring ChefKiss Inferno..."
-  "${inferno_src}/configure" "${conf_args[@]}"
+  "${inferno_src}/configure" "${conf_args[@]}" || return 1
 
   echo "Compiling ChefKiss Inferno with ${jobs} parallel jobs..."
   ninja -C "${inferno_build}" -j"${jobs}"
   ninja -C "${inferno_build}" install
 
-  # Copy built 64-bit binary to prefix/bin as qemu-system-applesoc, qemu-system-inferno, qemu-system-aarch64-inferno
+  # The guest binary is qemu-system-aarch64 even when the host is x86_64.
+  # Install copies it into the stage prefix; a Windows install that only
+  # filled the build tree is still a successful compile.
   local bin_64=""
-  if [[ -f "${inferno_stage}/bin/qemu-system-aarch64.exe" ]]; then
-    bin_64="${inferno_stage}/bin/qemu-system-aarch64.exe"
-  elif [[ -f "${inferno_stage}/bin/qemu-system-aarch64" ]]; then
-    bin_64="${inferno_stage}/bin/qemu-system-aarch64"
-  elif [[ -f "${inferno_stage}/qemu-system-aarch64.exe" ]]; then
-    bin_64="${inferno_stage}/qemu-system-aarch64.exe"
-  elif [[ -f "${inferno_stage}/qemu-system-aarch64" ]]; then
-    bin_64="${inferno_stage}/qemu-system-aarch64"
+  local candidate
+  for candidate in \
+    "${inferno_stage}/bin/qemu-system-aarch64.exe" \
+    "${inferno_stage}/bin/qemu-system-aarch64" \
+    "${inferno_stage}/qemu-system-aarch64.exe" \
+    "${inferno_stage}/qemu-system-aarch64" \
+    "${inferno_build}/qemu-system-aarch64.exe" \
+    "${inferno_build}/qemu-system-aarch64" \
+    "${inferno_build}/aarch64-softmmu/qemu-system-aarch64.exe" \
+    "${inferno_build}/aarch64-softmmu/qemu-system-aarch64"; do
+    if [[ -f "${candidate}" ]]; then
+      bin_64="${candidate}"
+      break
+    fi
+  done
+  if [[ -z "${bin_64}" ]]; then
+    bin_64="$(find "${inferno_stage}" "${inferno_build}" \( -name 'qemu-system-aarch64.exe' -o -name 'qemu-system-aarch64' \) -type f 2>/dev/null | head -1 || true)"
   fi
 
   if [[ -n "${bin_64}" ]]; then
@@ -602,6 +679,55 @@ if \"version: '>=3.10'\" in content:
   echo "ChefKiss Inferno (qemu-system-applesoc) build completed successfully!"
 }
 
+# Give Windows the queue-family helper that metal2vulkan defines only inside
+# its Unix dma-buf module. The calls in texture rebind stay in the shared code.
+aqemu_patch_metal2vulkan_windows() {
+  local cargo_home="${CARGO_HOME:-}"
+  if [[ -z "${cargo_home}" ]]; then
+    if [[ -n "${USERPROFILE:-}" ]]; then
+      cargo_home="${USERPROFILE}/.cargo"
+    else
+      cargo_home="${HOME}/.cargo"
+    fi
+  fi
+  local py="python3"
+  if ! command -v python3 >/dev/null 2>&1; then
+    py="python"
+  fi
+  local checkout texture
+  shopt -s nullglob
+  for checkout in "${cargo_home}/git/checkouts"/metal2vulkan-*/720ef1c; do
+    texture="${checkout}/crates/metal2vulkan-runtime/src/texture.rs"
+    [[ -f "${texture}" ]] || continue
+    "${py}" -c '
+import pathlib, sys
+p = pathlib.Path(sys.argv[1])
+text = p.read_text(encoding="utf-8")
+if "fn foreign_acquirer" in text and "not(unix)" in text:
+    sys.exit(0)
+needle = "impl Device {\n"
+at = text.find(needle)
+if at < 0:
+    sys.exit("metal2vulkan texture.rs has no impl Device")
+insert = """impl Device {
+    // AQEMU_WIN_FOREIGN_ACQUIRER: Unix dma_buf.rs is not built on Windows.
+    #[cfg(not(unix))]
+    pub(super) fn foreign_acquirer(&self) -> u32 {
+        match &self.shared().queue_families[..] {
+            [family] => *family,
+            _ => vk::QUEUE_FAMILY_IGNORED,
+        }
+    }
+
+"""
+text = text[:at] + insert + text[at + len(needle):]
+p.write_text(text, encoding="utf-8", newline="\n")
+print("Patched", p)
+' "${texture}"
+  done
+  shopt -u nullglob
+}
+
 aqemu_build_reims() {
   local prefix="${1:?Install prefix required}"
   local jobs="${2:-$(nproc 2>/dev/null || echo 4)}"
@@ -627,8 +753,12 @@ aqemu_build_reims() {
   esac
 
   local reims_dir="${root}/third_party/reims-vgpu"
-  local reims_build="${root}/third_party/reims-build"
-  local reims_stage="${root}/third_party/reims-stage"
+  local reims_host="x86_64"
+  if [[ "${MSYSTEM:-}" == "CLANGARM64" ]]; then
+    reims_host="aarch64"
+  fi
+  local reims_build="${root}/third_party/reims-build-${reims_host}"
+  local reims_stage="${root}/third_party/reims-stage-${reims_host}"
 
   local reims_src=""
   if [[ -f "${reims_dir}/vendor/qemu/configure" ]]; then
@@ -653,8 +783,8 @@ aqemu_build_reims() {
     return 0
   fi
 
-  # On aarch64 / ARM64, patch *const i8 -> *const std::ffi::c_char in Rust crates
-  if [[ "$(uname -m 2>/dev/null)" == "aarch64" || "$(uname -m 2>/dev/null)" == "arm64" ]]; then
+  # MSYS uname stays x86_64 under Prism. The ARM64 toolchain is CLANGARM64.
+  if [[ "${MSYSTEM:-}" == "CLANGARM64" ]]; then
     for rust_file in \
       "${reims_dir}/crates/reims-vgpu-vulkan/src/device.rs" \
       "${reims_dir}/crates/reims-vgpu/src/backend/vulkan/caps/push_descriptor.rs"; do
@@ -664,7 +794,7 @@ aqemu_build_reims() {
     done
   fi
 
-  rm -rf "${reims_stage}"
+  rm -rf "${reims_stage}" "${reims_build}"
   mkdir -p "${reims_build}" "${reims_stage}" "${prefix}/bin"
   cd "${reims_build}"
 
@@ -677,11 +807,87 @@ aqemu_build_reims() {
     fi
   fi
 
+  # vendor/qemu dropped -Dreims_vgpu_backend. The Vulkan or Metal choice is
+  # the library `cargo xtask dist --platform` builds; QEMU then takes that
+  # tree through pkg-config and --enable-pvg.
+  local reims_platform="${REIMS_VGPU_BACKEND}"
+  # A separate tree per host. The x86_64 archive must not be replaced by the
+  # aarch64 one, and pkg-config must be handed the archive this compiler can link.
+  local reims_dist="${reims_dir}/target/dist-${reims_platform}-${reims_host}"
+  # metal2vulkan keeps Device::foreign_acquirer in its Unix-only dma-buf module.
+  # Windows still type-checks the rebind calls, so the checkout needs the same
+  # method outside that module. Re-applied on every build; cargo checkouts are
+  # not part of this tree.
+  aqemu_patch_metal2vulkan_windows
+
+  echo "Building reims-vgpu library (platform ${reims_platform})..."
+  # cargo xtask dist runs `make` and `clang` as Windows programs. MSYS only
+  # has mingw32-make, and the EFI ROM's clang/lld live in the clangarm64
+  # toolchain even when QEMU itself is built with ucrt64 gcc.
+  local reims_tool_dir="${root}/third_party/.bin"
+  mkdir -p "${reims_tool_dir}"
+  local host_bin="/ucrt64/bin"
+  local host_cc="gcc.exe"
+  local host_cxx="g++.exe"
+  if [[ "${MSYSTEM:-}" == "CLANGARM64" ]]; then
+    host_bin="/clangarm64/bin"
+    host_cc="clang.exe"
+    host_cxx="clang++.exe"
+    if ! pacman -Q mingw-w64-clang-aarch64-rust >/dev/null 2>&1; then
+      pacman -S --needed --noconfirm mingw-w64-clang-aarch64-rust
+    fi
+  fi
+  # third_party/.bin/make.exe may be the other toolchain's make. An ARM64
+  # xtask that starts an x64 make, with clangarm64's DLLs first on PATH, dies
+  # with STATUS_INVALID_IMAGE_FORMAT. Use this host's mingw32-make.
+  local host_make="${host_bin}/mingw32-make.exe"
+  if [[ -x "${host_make}" ]]; then
+    cp -f "${host_make}" "${reims_tool_dir}/make.exe"
+  fi
+  if command -v cygpath >/dev/null 2>&1; then
+    export PATH="$(cygpath -m "${host_bin}"):$(cygpath -m "${reims_tool_dir}"):$(cygpath -m /usr/bin):${PATH}"
+    export MAKE="$(cygpath -m "${host_make}")"
+    export CC="$(cygpath -m "${host_bin}/${host_cc}")"
+    export CXX="$(cygpath -m "${host_bin}/${host_cxx}")"
+    export EFI_CC="$(cygpath -m /clangarm64/bin/clang.exe)"
+    export LD="$(cygpath -m /clangarm64/bin/lld-link.exe)"
+    export OBJCOPY="$(cygpath -m /clangarm64/bin/llvm-objcopy.exe)"
+    # SDL's CMake probe nests past MAX_PATH when Cargo's target dir is the
+    # long sandbox path. A short directory keeps the aarch64 build writable.
+    if [[ "${MSYSTEM:-}" == "CLANGARM64" ]]; then
+      export CARGO_TARGET_DIR="$(cygpath -m "${root}/../rvg-a64")"
+      mkdir -p "${CARGO_TARGET_DIR}"
+      # The guest pointer code emits ldsetal. Windows's aarch64 baseline
+      # does not enable LSE; this host's Snapdragon does.
+      export RUSTFLAGS="${RUSTFLAGS:-} -C target-feature=+lse,+rcpc"
+    fi
+    if [[ -n "${CARGO_TARGET_DIR:-}" ]]; then
+      rm -rf "${CARGO_TARGET_DIR}/release/build"/sdl3-sys-*
+    fi
+  fi
+  (
+    cd "${reims_dir}"
+    cargo xtask dist --platform "${reims_platform}" --out "${reims_dist}"
+  ) || return 1
+  # ucrt64 pkg-config.exe is a Windows program. It does not search MSYS /c/... paths,
+  # and it splits PKG_CONFIG_PATH on ';' because ':' is the drive separator.
+  local reims_pc="${reims_dist}/lib/pkgconfig"
+  local pc_sep=":"
+  if command -v cygpath >/dev/null 2>&1; then
+    reims_pc="$(cygpath -m "${reims_pc}")"
+    pc_sep=";"
+  fi
+  export PKG_CONFIG_PATH="${reims_pc}${pc_sep}${PKG_CONFIG_PATH:-}"
+
   local conf_args=(
     --prefix="${reims_stage}"
     --target-list="x86_64-softmmu"
-    -Dreims_vgpu_backend="${REIMS_VGPU_BACKEND}"
+    --enable-pvg
   )
+  local host_arg
+  while IFS= read -r host_arg; do
+    [[ -n "${host_arg}" ]] && conf_args+=("${host_arg}")
+  done < <(aqemu_mingw_host_cpu_args)
 
   if [[ -n "${CC:-}" ]]; then
     conf_args+=(--cc="${CC}")
@@ -696,13 +902,13 @@ aqemu_build_reims() {
   echo "Configuring steelbrain Reims vGPU..."
   if ! "${reims_src}/configure" "${conf_args[@]}"; then
     echo "WARN: steelbrain Reims vGPU configure failed — skipping optional Reims target"
-    return 0
+    return 1
   fi
 
   echo "Compiling steelbrain Reims vGPU with ${jobs} parallel jobs..."
   if ! ninja -C "${reims_build}" -j"${jobs}"; then
     echo "WARN: steelbrain Reims vGPU compilation failed — skipping optional Reims target"
-    return 0
+    return 1
   fi
   ninja -C "${reims_build}" install || true
 

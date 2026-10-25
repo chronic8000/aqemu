@@ -103,17 +103,32 @@ static QString AQ_Audio_Help_Text( const QString &qemu_binary, const QStringList
 	return out;
 }
 
+static bool AQ_Audio_Driver_Accepted( const QString &qemu_binary, const QString &driver )
+{
+	const QString d = driver.trimmed().toLower();
+	if( d.isEmpty() || d == QLatin1String( "none" ) )
+		return true;
+	static QMap<QString, bool> cache;
+	const QString key = qemu_binary + QLatin1Char( '|' ) + d;
+	if( cache.contains( key ) )
+		return cache.value( key );
+
+	const QString help = AQ_Audio_Help_Text( qemu_binary,
+		QStringList() << QStringLiteral( "-audiodev" ) << ( d + QStringLiteral( ",help" ) ) );
+	const QString low = help.toLower();
+	const bool rejected = help.trimmed().isEmpty()
+		|| low.contains( QLatin1String( "does not accept" ) )
+		|| low.contains( QLatin1String( "invalid parameter" ) );
+	cache.insert( key, ! rejected );
+	return ! rejected;
+}
+
 static bool AQ_Audio_Offer_Driver( const QString &driver )
 {
 	const QString d = driver.trimmed().toLower();
 	if( d.isEmpty() )
 		return false;
-#if defined(Q_OS_WIN) && ( defined(_M_ARM64) || defined(__aarch64__) )
-	// DirectSound access-violates on Windows ARM. SDL is not in this QEMU.
-	if( d == QLatin1String( "dsound" ) || d == QLatin1String( "sdl" ) )
-		return false;
-#endif
-	return true;
+	return AQ_Audio_Host_Can_Use( d );
 }
 
 QStringList AQ_Audio_Backend_Names( const QString &qemu_binary )
@@ -144,7 +159,8 @@ QStringList AQ_Audio_Backend_Names( const QString &qemu_binary )
 	QStringList offered;
 	for( int i = 0; i < found.count(); ++i )
 	{
-		if( AQ_Audio_Offer_Driver( found.at( i ) ) )
+		if( AQ_Audio_Offer_Driver( found.at( i ) ) &&
+		    AQ_Audio_Driver_Accepted( qemu, found.at( i ) ) )
 			offered << found.at( i );
 	}
 	offered.removeDuplicates();
@@ -307,7 +323,7 @@ AQ_Audio_Profile AQ_Audio_Host_Load()
 		const bool custom = root.value( QStringLiteral( "QEMU_AUDIO/Use_Default_Driver" ), QStringLiteral( "yes" ) )
 			.toString() == QLatin1String( "no" );
 		const QString old = root.value( QStringLiteral( "QEMU_AUDIO/QEMU_AUDIO_DRV" ) ).toString().trimmed();
-		if( custom && ! old.isEmpty() )
+		if( custom && AQ_Audio_Host_Can_Use( old ) )
 			p.backend = old;
 		p.set_option( QStringLiteral( "in.voices" ), QStringLiteral( "0" ) );
 		AQ_Audio_Host_Save( p );
@@ -335,7 +351,8 @@ QString AQ_Audio_Build_Audiodev(
 	const QString &legacy_backend,
 	int legacy_timer_us,
 	const QString &qemu_binary,
-	const QString &forced_backend )
+	const QString &forced_backend,
+	bool allow_spice )
 {
 	AQ_Audio_Profile p = use_host_defaults ? AQ_Audio_Host_Load() : AQ_Audio_Profile();
 	if( ! use_host_defaults )
@@ -344,17 +361,28 @@ QString AQ_Audio_Build_Audiodev(
 		p.backend = p.opt.value( QStringLiteral( "backend" ) ).trimmed();
 		p.opt.remove( QStringLiteral( "backend" ) );
 	}
-	if( ! forced_backend.trimmed().isEmpty() )
-		p.backend = forced_backend.trimmed();
+	// forced_backend is the driver for a process that is not this host.
+	// The WSL launch uses it so the Linux QEMU can take ALSA. Spice is
+	// refused unless this launch also passes -spice.
+	const QString forced = forced_backend.trimmed();
+	if( ! forced.isEmpty() && ( allow_spice || forced.toLower() != QLatin1String( "spice" ) ) )
+		p.backend = forced;
 	else if( p.backend.trimmed().isEmpty() )
 		p.backend = legacy_backend.trimmed();
 	p.backend = p.backend.trimmed().toLower();
-	// Global and per-VM choices are preferences. The binary and the host decide
-	// what is actually emitted, so Pulse on a Pi QEMU without pa becomes spice.
-	if( forced_backend.trimmed().isEmpty() )
-		p.backend = AQ_Pick_Host_Audio_Backend( qemu_binary, p.backend );
+	if( ! allow_spice && p.backend == QLatin1String( "spice" ) )
+		p.backend.clear();
+	if( forced.isEmpty() || ( ! allow_spice && forced.toLower() == QLatin1String( "spice" ) ) )
+		p.backend = AQ_Pick_Host_Audio_Backend( qemu_binary, p.backend, allow_spice );
 	if( legacy_timer_us > 0 && ! p.opt.contains( QStringLiteral( "timer-period" ) ) )
 		p.set_option( QStringLiteral( "timer-period" ), QString::number( legacy_timer_us ) );
+
+	// in.voices / out.voices exist only on the spice driver.
+	if( p.backend != QLatin1String( "spice" ) )
+	{
+		p.opt.remove( QStringLiteral( "in.voices" ) );
+		p.opt.remove( QStringLiteral( "out.voices" ) );
+	}
 
 	const bool gated = ( p.backend == QLatin1String( "dsound" ) || p.backend == QLatin1String( "sdl" ) );
 	if( gated && ! AQ_Audio_Backend_Has_Dev( qemu_binary, p.backend ) )

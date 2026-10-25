@@ -36,6 +36,7 @@
 #include "Machine_View.h"
 #include "VM.h"
 #include "Service.h"
+#include "AQ_UI_Style.h"
 
 MachineView::MachineView( QWidget *parent, Virtual_Machine* cur_vm ) : QScrollArea( parent )
 {
@@ -55,8 +56,10 @@ MachineView::MachineView( QWidget *parent, Virtual_Machine* cur_vm ) : QScrollAr
 	setContentsMargins( 0, 0, 0, 0 );
 	if( viewport() )
 		viewport()->setContentsMargins( 0, 0, 0, 0 );
-	// Session / embed mode: scale guest to stretch and fill window canvas
+	// Session / embed mode: scale guest to fill the window. iOS opts into
+	// aspect-fit separately so the phone stays portrait.
 	Scaling = true;
+	Keep_Aspect = false;
 	Reinit_Timer = new QTimer( this );
 	VNC_Connected = false;
 	Init_Count = 0;
@@ -112,6 +115,25 @@ void MachineView::Set_Scaling( bool s )
 					 maximumViewportSize().height() );
 	else
 		newViewSize( -1, -1 );
+}
+
+void MachineView::Set_Keep_Aspect( bool on )
+{
+	Keep_Aspect = on;
+	const QColor bar = on
+		? ( AQ_Chrome_Is_Light() ? QColor( 255, 255, 255 ) : QColor( 32, 32, 32 ) )
+		: QColor( Qt::black );
+	QPalette p = palette();
+	p.setColor( QPalette::Window, bar );
+	setPalette( p );
+	if( viewport() )
+	{
+		QPalette vp = viewport()->palette();
+		vp.setColor( QPalette::Window, bar );
+		viewport()->setPalette( vp );
+	}
+	if( View )
+		View->setKeepAspect( on );
 }
 
 void MachineView::Set_Fullscreen( bool on )
@@ -176,6 +198,7 @@ void MachineView::initView()
 	url.setPort( VNC_Port );
 	
 	View = new VncView( this, url );
+	View->setKeepAspect( Keep_Aspect );
 	View->enableScaling( Scaling );
 	View->start();
 	showSplash( false );
