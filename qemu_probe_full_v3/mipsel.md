@@ -1,8 +1,8 @@
 # QEMU Complete Architecture capability map: `mipsel`
 
 - **Architecture Target:** `mipsel`
-- **Binary Executable:** `C:\Users\chron\CURSOR-PROJECTS\aqemu\build_win\qemu-system-mipsel.exe`
-- **Probed At:** 2026-07-31T08:33:01.500731
+- **Binary Executable:** `C:\Users\chron\CURSOR-PROJECTS\AQEMU\aqemu\third_party\qemu-install-arm64\bin\qemu-system-mipsel.exe`
+- **Probed At:** 2026-10-25T21:37:43.784055
 - **Fallback Machine Used for Context:** `malta`
 
 > **INSTRUCTIONS FOR CURSOR AI:** This document contains the verified whitelist of supported flags, boards, CPUs, devices, storage drivers, audio backends, and display renderers for `qemu-system-{arch}`. Use this data as the absolute ground truth to construct and validate VM configuration parameters.
@@ -49,6 +49,7 @@ name "pci-bridge", bus PCI, desc "Standard PCI Bridge"
 name "pci-bridge-seat", bus PCI, desc "Standard PCI Bridge (multiseat)"
 name "usb-host", bus usb-bus
 name "usb-hub", bus usb-bus
+
 USB devices:
 name "ich9-usb-ehci1", bus PCI
 name "ich9-usb-ehci2", bus PCI
@@ -64,6 +65,7 @@ name "piix3-usb-uhci", bus PCI
 name "piix4-usb-uhci", bus PCI
 name "qemu-xhci", bus PCI
 name "usb-ehci", bus PCI
+
 Storage devices:
 name "am53c974", bus PCI, desc "AMD Am53c974 PCscsi-PCI SCSI adapter"
 name "dc390", bus PCI, desc "Tekram DC-390 SCSI adapter"
@@ -102,6 +104,7 @@ name "virtio-scsi-device", bus virtio-bus
 name "virtio-scsi-pci", bus PCI, alias "virtio-scsi"
 name "virtio-scsi-pci-non-transitional", bus PCI
 name "virtio-scsi-pci-transitional", bus PCI
+
 Network devices:
 name "e1000", bus PCI, alias "e1000-82540em", desc "Intel Gigabit Ethernet"
 name "e1000-82544gc", bus PCI, desc "Intel Gigabit Ethernet"
@@ -130,6 +133,7 @@ name "virtio-net-pci", bus PCI, alias "virtio-net"
 name "virtio-net-pci-non-transitional", bus PCI
 name "virtio-net-pci-transitional", bus PCI
 name "vmxnet3", bus PCI, desc "VMWare Paravirtualized Ethernet v3"
+
 Input devices:
 name "ccid-card-emulated", bus ccid-bus, desc "emulated smartcard"
 name "ccid-card-passthru", bus ccid-bus, desc "passthrough smartcard"
@@ -162,6 +166,7 @@ name "virtio-serial-pci-transitional", bus PCI
 name "virtio-tablet-device", bus virtio-bus
 name "virtio-tablet-pci", bus PCI, alias "virtio-tablet"
 name "virtserialport", bus virtio-serial-bus
+
 Display devices:
 name "ati-vga", bus PCI
 name "bochs-display", bus PCI
@@ -171,6 +176,7 @@ name "VGA", bus PCI
 name "virtio-gpu-device", bus virtio-bus
 name "virtio-gpu-pci", bus PCI, alias "virtio-gpu"
 name "vmware-svga", bus PCI
+
 Sound devices:
 name "AC97", bus PCI, alias "ac97", desc "Intel 82801AA AC97 Audio"
 name "adlib", bus ISA, desc "Yamaha YM3812 (OPL2)"
@@ -186,6 +192,7 @@ name "sb16", bus ISA, desc "Creative Sound Blaster 16"
 name "usb-audio", bus usb-bus
 name "virtio-sound-device", bus virtio-bus
 name "virtio-sound-pci", bus PCI, alias "virtio-sound", desc "Virtio Sound"
+
 Misc devices:
 name "acpi-erst", bus PCI, desc "ACPI Error Record Serialization Table (ERST) device"
 name "ctucan_pci", bus PCI, desc "CTU CAN PCI"
@@ -215,9 +222,11 @@ name "virtio-rng-device", bus virtio-bus
 name "virtio-rng-pci", bus PCI, alias "virtio-rng"
 name "virtio-rng-pci-non-transitional", bus PCI
 name "virtio-rng-pci-transitional", bus PCI
+
 Watchdog devices:
 name "i6300esb", bus PCI, desc "Intel 6300ESB"
 name "ib700", bus ISA, desc "iBASE 700"
+
 Uncategorized devices:
 name "ufs-lu", bus ufs-bus, desc "Virtual UFS logical unit"
 ```
@@ -226,8 +235,8 @@ Total items listed: 176
 ## 4. Storage Image Formats (`-drive format=help`)
 
 ```text
-Supported formats: blkdebug blklogwrites blkreplay blkverify bochs cloop compress copy-before-write copy-on-read dmg file ftp ftps host_device http https luks nbd null-aio null-co parallels preallocate qcow qcow2 qed quorum raw replication snapshot-access throttle vdi vhdx vmdk vpc vvfat
-Supported formats (read-only): blkdebug blklogwrites blkreplay blkverify bochs cloop compress copy-before-write copy-on-read dmg file ftp ftps host_device http https luks nbd null-aio null-co parallels preallocate qcow qcow2 qed quorum raw replication snapshot-access throttle vdi vhdx vmdk vpc vvfat
+Supported formats: blkdebug blklogwrites blkreplay blkverify bochs cloop compress copy-before-write copy-on-read dmg file ftp ftps host_device http https iscsi iser luks nbd nfs null-aio null-co parallels preallocate qcow qcow2 qed quorum raw replication snapshot-access ssh throttle vdi vhdx vmdk vpc vvfat
+Supported formats (read-only): blkdebug blklogwrites blkreplay blkverify bochs cloop compress copy-before-write copy-on-read dmg file ftp ftps host_device http https iscsi iser luks nbd nfs null-aio null-co parallels preallocate qcow qcow2 qed quorum raw replication snapshot-access ssh throttle vdi vhdx vmdk vpc vvfat
 ```
 Total items listed: 2
 
@@ -248,7 +257,7 @@ Total items listed: 8
 ## 6. Character Device Backends (`-chardev help`)
 
 ```text
-Available chardev backend types:
+Available chardev backend types: 
   console
   null
   msmouse
@@ -277,14 +286,16 @@ Total items listed: 21
 ```text
 Available display backend types:
 none
+egl-headless
 curses
 spice-app
 dbus
+
 Some display backends support suboptions, which can be set with
    -display backend,option=value,option=value...
 For a short list of the suboptions for each display, see the top-level -help output; more detail is in the documentation.
 ```
-Total items listed: 8
+Total items listed: 9
 
 ## 8. Audio Drivers (`-audiodev help`)
 

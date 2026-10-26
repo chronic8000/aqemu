@@ -1490,23 +1490,29 @@ bool Is_Video_Card_Allowed( Video_Arch_Family fam, const QString &raw_name )
 	{
 		case VAF_X86:
 			return name == "std" || name == "cirrus" || name == "vmware" ||
+			       name == "vmware-svga" ||
 			       name == "qxl" || name == "virtio" || name == "virtio-vga-gl" ||
 			       name == "xenfb" || name == "none";
 		case VAF_VIRT:
 			return name == "virtio-gpu-pci" || name == "virtio-gpu-gl-pci" ||
-			       name == "ramfb" || name == "std" || name == "cirrus" || name == "none";
+			       name == "ramfb" || name == "std" || name == "cirrus" ||
+			       name == "vmware" || name == "vmware-svga" || name == "none";
 		case VAF_SPARC:
-			return name == "cg3" || name == "tcx" || name == "std" || name == "none";
+			return name == "cg3" || name == "tcx" || name == "std" ||
+			       name == "vmware" || name == "vmware-svga" || name == "none";
 		case VAF_PPC:
-			return name == "std" || name == "vmware" || name == "none";
+			return name == "std" || name == "vmware" || name == "vmware-svga" || name == "none";
 		case VAF_MIPS:
-			return name == "std" || name == "vmware" || name == "none";
+			return name == "std" || name == "vmware" || name == "vmware-svga" || name == "none";
 		case VAF_M68K:
-			return name == "none" || name == "nubus-macfb";
+			return name == "none" || name == "nubus-macfb" ||
+			       name == "vmware" || name == "vmware-svga";
 		case VAF_S390:
-			return name == "virtio-gpu-pci" || name == "none";
+			return name == "virtio-gpu-pci" || name == "vmware" ||
+			       name == "vmware-svga" || name == "none";
 		default:
 			return name == "std" || name == "cirrus" || name == "vmware" ||
+			       name == "vmware-svga" ||
 			       name == "qxl" || name == "virtio" || name == "none";
 	}
 }
@@ -1606,13 +1612,13 @@ QString Map_Cross_Arch_Video( Video_Arch_Family fam, const QString &name,
 	}
 	else if( fam == VAF_VIRT )
 	{
-		if( n == "std" || n == "cirrus" || n == "vmware" || n == "qxl" ||
+		if( n == "std" || n == "cirrus" || n == "qxl" ||
 		    n == "virtio" || n == "xenfb" || n == "cg3" || n == "tcx" )
 			return "virtio-gpu-pci";
 	}
 	else if( fam == VAF_SPARC )
 	{
-		if( n == "cirrus" || n == "vmware" || n == "qxl" || n == "virtio" ||
+		if( n == "cirrus" || n == "qxl" || n == "virtio" ||
 		    n == "virtio-gpu-pci" || n == "virtio-gpu-gl-pci" || n == "ramfb" )
 			return "cg3";
 	}
@@ -1779,78 +1785,53 @@ VM::Device_Interface System_Info::Sanitize_Disk_Bus( const QString &computer_typ
 void System_Info::Filter_Video_Card_List( Available_Devices &dev )
 {
 	const QString sys = dev.System.QEMU_Name;
-	// Reims architecture: the product GPU is only reims-vgpu-pci (not cirrus/std
-	// from the incomplete Windows PE probe catalog).
-	if( sys.contains( QLatin1String( "reimsvgpu" ), Qt::CaseInsensitive ) ||
-	    sys.contains( QLatin1String( "reims3d" ), Qt::CaseInsensitive ) )
-	{
-		dev.Video_Card_List.clear();
-		dev.Video_Card_List << Device_Map(
-			QObject::tr( "Reims vGPU (AppleParavirtGPU / Metal→Vulkan)" ),
-			QStringLiteral( "reims-vgpu-pci" ) );
-		return;
-	}
-
-	// Inferno Apple SoC: onboard display pipe only — never offer PC VGA (cirrus/std).
-	if( sys.contains( QLatin1String( "applesoc" ), Qt::CaseInsensitive ) )
-	{
-		dev.Video_Card_List.clear();
-		dev.Video_Card_List << Device_Map(
-			QObject::tr( "Onboard (Inferno display pipe)" ),
-			QString() );
-		return;
-	}
-
 	const Video_Arch_Family fam = Get_Video_Arch_Family( sys );
+	QList<Device_Map> source = dev.Video_Card_List;
+	if( source.isEmpty() )
+		source = Default_Video_List_For_Family( fam );
+
 	QList<Device_Map> filtered;
-
-	if( dev.Video_Card_List.isEmpty() )
+	for( int i = 0; i < source.count(); ++i )
 	{
-		dev.Video_Card_List = Default_Video_List_For_Family( fam );
-	}
-
-	for( int i = 0; i < dev.Video_Card_List.count(); ++i )
-	{
-		const QString qemu_name = Normalize_Video_Alias( dev.Video_Card_List[i].QEMU_Name );
+		const QString qemu_name = source[i].QEMU_Name.trimmed();
 		if( qemu_name.isEmpty() )
 			continue;
-		// reims-vgpu-pci belongs on the Reims target, not as a casual -vga pick on x86_64.
-		if( qemu_name == QLatin1String( "reims-vgpu-pci" ) &&
+		// reims-vgpu-pci belongs on the Reims targets, not on stock x86_64.
+		if( qemu_name.compare( QLatin1String( "reims-vgpu-pci" ), Qt::CaseInsensitive ) == 0 &&
 		    ! sys.contains( QLatin1String( "reims" ), Qt::CaseInsensitive ) )
 			continue;
-		if( Is_Video_Card_Allowed( fam, qemu_name ) )
-		{
-			Device_Map entry = dev.Video_Card_List[i];
-			entry.QEMU_Name = qemu_name;
-			if( ! List_Has_Video( filtered, qemu_name ) )
-				filtered << entry;
-		}
+		if( ! List_Has_Video( filtered, qemu_name ) )
+			filtered << source[i];
 	}
 
-	if( fam == VAF_VIRT )
-	{
-		// Expose all detected display options, ensuring standard ones like std, cirrus, and none are kept
-		QList<Device_Map> virt_list = filtered;
-		if( ! List_Has_Video( virt_list, "virtio-gpu-pci" ) )
-		{
-			virt_list = Default_Video_List_For_Family( VAF_VIRT );
-		}
-
-		filtered.clear();
-		for( int i = 0; i < virt_list.count(); ++i )
-		{
-			const QString n = virt_list[i].QEMU_Name;
-			if( n == "virtio-gpu-gl-pci" )
-				continue;
-			if( ! List_Has_Video( filtered, n ) )
-				filtered << virt_list[i];
-		}
-		if( List_Has_Video( virt_list, "virtio-gpu-gl-pci" ) )
-			filtered.insert( 1, Device_Map( QObject::tr("VirtIO GPU GL (PCI)"), "virtio-gpu-gl-pci" ) );
-	}
-	else if( filtered.isEmpty() )
-	{
+	if( filtered.isEmpty() )
 		filtered = Default_Video_List_For_Family( fam );
+
+	if( sys.contains( QLatin1String( "reims" ), Qt::CaseInsensitive ) &&
+	    ! List_Has_Video( filtered, QStringLiteral( "reims-vgpu-pci" ) ) )
+	{
+		filtered.prepend( Device_Map(
+			QObject::tr( "Reims vGPU (AppleParavirtGPU / Metal→Vulkan)" ),
+			QStringLiteral( "reims-vgpu-pci" ) ) );
+	}
+
+	if( sys.contains( QLatin1String( "applesoc" ), Qt::CaseInsensitive ) )
+	{
+		bool have_onboard = false;
+		for( int i = 0; i < filtered.count(); ++i )
+		{
+			if( filtered[i].QEMU_Name.isEmpty() )
+			{
+				have_onboard = true;
+				break;
+			}
+		}
+		if( ! have_onboard )
+		{
+			filtered.prepend( Device_Map(
+				QObject::tr( "Onboard (Inferno display pipe)" ),
+				QString() ) );
+		}
 	}
 
 	if( ! List_Has_Video( filtered, "none" ) )
@@ -1880,13 +1861,21 @@ bool System_Info::Uses_Device_Based_Video( const QString &computer_type )
 QString System_Info::Sanitize_Video_Card( const QString &computer_type, const QString &video_card,
                                           const QString &machine_type )
 {
-	if( computer_type.contains( QLatin1String( "reimsvgpu" ), Qt::CaseInsensitive ) ||
-	    computer_type.contains( QLatin1String( "reims3d" ), Qt::CaseInsensitive ) )
-		return QStringLiteral( "reims-vgpu-pci" );
+	if( computer_type.contains( QLatin1String( "reims" ), Qt::CaseInsensitive ) )
+	{
+		if( video_card.trimmed().isEmpty() )
+			return QStringLiteral( "reims-vgpu-pci" );
+		return video_card.trimmed();
+	}
 
-	// ChefKiss Inferno (t8030/s8000) has onboard display — never emit PC -vga/-device std.
+	// Empty Apple SoC video keeps the onboard pipe. A probe device the user
+	// picked is left alone.
 	if( computer_type.contains( QLatin1String( "applesoc" ), Qt::CaseInsensitive ) )
-		return QString();
+	{
+		if( video_card.trimmed().isEmpty() || video_card.trimmed() == QLatin1String( "std" ) )
+			return QString();
+		return video_card.trimmed();
+	}
 
 	const Video_Arch_Family fam = Get_Video_Arch_Family( computer_type );
 	QString name = Normalize_Video_Alias( video_card );
@@ -1907,8 +1896,7 @@ QString System_Info::Sanitize_Video_Card( const QString &computer_type, const QS
 	if( fam == VAF_VIRT || m.contains( QLatin1String( "virt" ) ) )
 	{
 		if( name == QLatin1String( "std" ) || name == QLatin1String( "cirrus" ) ||
-		    name == QLatin1String( "qxl" ) || name == QLatin1String( "vmware" ) ||
-		    name == QLatin1String( "vmware-svga" ) || name == QLatin1String( "virtio" ) ||
+		    name == QLatin1String( "qxl" ) || name == QLatin1String( "virtio" ) ||
 		    name == QLatin1String( "virtio-vga" ) )
 		{
 			return QStringLiteral( "virtio-gpu-pci" );
@@ -1936,18 +1924,9 @@ void System_Info::Normalize_Virt_Arch_Devices( Available_Devices &dev )
 	const Architecture_Hardware_Capabilities arch_caps =
 		QEMU_Probe_Catalog::Get_Hardware_Capabilities( bin );
 
-	if( arch_caps.valid && ! arch_caps.has_sound )
+	if( arch_caps.valid )
 	{
-		audio.Audio_sb16 = false;
-		audio.Audio_es1370 = false;
-		audio.Audio_Adlib = false;
-		audio.Audio_PC_Speaker = false;
-		audio.Audio_GUS = false;
-		audio.Audio_AC97 = false;
-		audio.Audio_HDA = false;
-		audio.Audio_cs4231a = false;
-		audio.Audio_VirtIO = false;
-		audio.Audio_USB = false;
+		audio = arch_caps.supported_sound_cards;
 	}
 	else
 	{
@@ -2000,19 +1979,21 @@ void System_Info::Normalize_Virt_Arch_Devices( Available_Devices &dev )
 			break;
 		}
 	}
-	if( ! has_virt )
+	if( ! has_virt && dev.Machine_List.isEmpty() )
 		dev.Machine_List.prepend( Device_Map( QObject::tr("Generic Virtual Machine (virt)"), "virt" ) );
 	
 	bool has_max = false;
 	for( int i = 0; i < dev.CPU_List.count(); ++i )
 		if( dev.CPU_List[i].QEMU_Name == "max" ) { has_max = true; break; }
-	if( ! has_max )
+	if( ! has_max && dev.CPU_List.isEmpty() )
 		dev.CPU_List.prepend( Device_Map( QObject::tr("Max CPU"), "max" ) );
 }
 
 Available_Devices System_Info::Get_Emulator_Info( const QString &path, bool *ok,
 												 VM::Emulator_Version version, const QString &internalName )
 {
+	QEMU_Probe_Catalog::Use_Binary_Path( path );
+
 	if( ! QFile::exists(path) )
 	{
 		AQError( "Available_Devices System_Info::Get_Emulator_Info( const QString &path, bool *ok,"

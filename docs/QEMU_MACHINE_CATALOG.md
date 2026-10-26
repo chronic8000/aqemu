@@ -1,9 +1,9 @@
 # AQEMU New VM Wizard — Human-Readable Catalog
 
-Generated: `2026-09-28T18:03:03Z`  
-QEMU: `/home/chronic/.local/bin`  
+Generated: `2026-10-25T21:36:29Z`  
+QEMU: `third_party\qemu-install-arm64\bin`  
 System binaries found: **37**  
-Machine definitions probed: **1175** (internal)
+Machine definitions probed: **1173** (internal)
 
 UI lists use **friendly names only**. QEMU IDs are backend mappings.
 
@@ -854,7 +854,6 @@ Every non-versioned machine, shown by friendly name. Obscure `virt-9.2` aliases 
 - **Empty Machine (none)** (s390x)
 - **Empty Machine (none)** (x86)
 - **Empty Machine (none)** (x86-64)
-- **Experimental remote machine** (ARM64 / AArch64)
 - **Eyetech AmigaOne/Mai Logic Teron** (PowerPC 32)
 - **Eyetech AmigaOne/Mai Logic Teron** (PowerPC 64)
 - **Facebook Bletchley BMC (Cortex-A7)** (ARM)
@@ -925,7 +924,6 @@ Every non-versioned machine, shown by friendly name. Obscure `virt-9.2` aliases 
 - **mpc8544ds** (PowerPC 32)
 - **mpc8544ds** (PowerPC 64)
 - **NeXT Cube** (m68k)
-- **Nitro Enclave** (ARM64 / AArch64)
 - **Nuvoton NPCM750 Evaluation Board (Cortex-A9)** (ARM)
 - **Nuvoton NPCM750 Evaluation Board (Cortex-A9)** (ARM64 / AArch64)
 - **Nuvoton NPCM845 Evaluation Board (Cortex-A35)** (ARM64 / AArch64)
@@ -1061,40 +1059,6 @@ Every non-versioned machine, shown by friendly name. Obscure `virt-9.2` aliases 
 
 Not for the wizard UI. Use only when debugging mappings.
 
-### qemu-system-aarch64
-
-- `xlnx-versal-virt` → AMD Versal Virtual development board
-- `amd-versal-virt` → AMD Versal Virtual development board
-- `amd-versal2-virt` → AMD Versal Gen 2 Virtual development board
-- `ast1030-evb` → Aspeed AST1030 MiniBMC (Cortex-M4)
-- `ast1060-evb` → Aspeed AST1060 Platform Root of Trust (Cortex-M4)
-- `ast2500-evb` → Aspeed AST2500 EVB (ARM1176)
-- `ast2600-evb` → Aspeed AST2600 EVB (Cortex-A7)
-- `ast2700a1-evb` → Aspeed AST2700 A1 EVB (Cortex-A35)
-- `ast2700-evb` → Aspeed AST2700 A2 EVB (Cortex-A35)
-- `ast2700a2-evb` → Aspeed AST2700 A2 EVB (Cortex-A35)
-- `ast2700fc` → ast2700 full core support
-- `b-l475e-iot01a` → B-L475E-IOT01A Discovery Kit (Cortex-M4)
-- `bletchley-bmc` → Facebook Bletchley BMC (Cortex-A7)
-- `bpim2u` → Bananapi M2U (Cortex-A7)
-- `canon-a1100` → Canon PowerShot A1100 IS (ARM946)
-- `catalina-bmc` → Facebook Catalina BMC (Cortex-A7)
-- `collie` → Sharp SL-5500 (Collie) PDA (SA-1110)
-- `cubieboard` → cubietech cubieboard (Cortex-A8)
-- `emcraft-sf2` → SmartFusion2 SOM kit from Emcraft (M2S010)
-- `fby35-bmc` → Facebook fby35 BMC (Cortex-A7)
-- `fby35` → Meta Platforms fby35 (deprecated)
-- `fp5280g2-bmc` → Inspur FP5280G2 BMC (ARM1176) (deprecated)
-- `fuji-bmc` → Facebook Fuji BMC (Cortex-A7)
-- `g220a-bmc` → Bytedance G220A BMC (ARM1176)
-- `gb200nvl-bmc` → Nvidia GB200NVL BMC (Cortex-A7)
-- `imx25-pdk` → ARM i.MX25 PDK board (ARM926)
-- `imx8mp-evk` → NXP i.MX 8M Plus EVK Board
-- `integratorcp` → ARM Integrator/CP (ARM926EJ-S)
-- `kudo-bmc` → Kudo BMC (Cortex-A9)
-- `kzm` → ARM KZM Emulation Baseboard (ARM1136)
-- …and 65 more (see JSON)
-
 ### qemu-system-aarch64-inferno
 
 - `ast1030-evb` → Aspeed AST1030 MiniBMC (Cortex-M4)
@@ -1128,6 +1092,40 @@ Not for the wizard UI. Use only when debugging mappings.
 - `lm3s6965evb` → Stellaris LM3S6965EVB (Cortex-M3)
 - `lm3s811evb` → Stellaris LM3S811EVB (Cortex-M3)
 - …and 65 more (see JSON)
+
+### qemu-system-aarch64
+
+- `xlnx-versal-virt` → AMD Versal Virtual development board
+- `amd-versal-virt` → AMD Versal Virtual development board
+- `amd-versal2-virt` → AMD Versal Gen 2 Virtual development board
+- `ast1030-evb` → Aspeed AST1030 MiniBMC (Cortex-M4)
+- `ast1060-evb` → Aspeed AST1060 Platform Root of Trust (Cortex-M4)
+- `ast2500-evb` → Aspeed AST2500 EVB (ARM1176)
+- `ast2600-evb` → Aspeed AST2600 EVB (Cortex-A7)
+- `ast2700a1-evb` → Aspeed AST2700 A1 EVB (Cortex-A35)
+- `ast2700-evb` → Aspeed AST2700 A2 EVB (Cortex-A35)
+- `ast2700a2-evb` → Aspeed AST2700 A2 EVB (Cortex-A35)
+- `ast2700fc` → ast2700 full core support
+- `b-l475e-iot01a` → B-L475E-IOT01A Discovery Kit (Cortex-M4)
+- `bletchley-bmc` → Facebook Bletchley BMC (Cortex-A7)
+- `bpim2u` → Bananapi M2U (Cortex-A7)
+- `canon-a1100` → Canon PowerShot A1100 IS (ARM946)
+- `catalina-bmc` → Facebook Catalina BMC (Cortex-A7)
+- `collie` → Sharp SL-5500 (Collie) PDA (SA-1110)
+- `cubieboard` → cubietech cubieboard (Cortex-A8)
+- `emcraft-sf2` → SmartFusion2 SOM kit from Emcraft (M2S010)
+- `fby35-bmc` → Facebook fby35 BMC (Cortex-A7)
+- `fby35` → Meta Platforms fby35 (deprecated)
+- `fp5280g2-bmc` → Inspur FP5280G2 BMC (ARM1176) (deprecated)
+- `fuji-bmc` → Facebook Fuji BMC (Cortex-A7)
+- `g220a-bmc` → Bytedance G220A BMC (ARM1176)
+- `gb200nvl-bmc` → Nvidia GB200NVL BMC (Cortex-A7)
+- `imx25-pdk` → ARM i.MX25 PDK board (ARM926)
+- `imx8mp-evk` → NXP i.MX 8M Plus EVK Board
+- `integratorcp` → ARM Integrator/CP (ARM926EJ-S)
+- `kudo-bmc` → Kudo BMC (Cortex-A9)
+- `kzm` → ARM KZM Emulation Baseboard (ARM1136)
+- …and 63 more (see JSON)
 
 ### qemu-system-alpha
 
@@ -1202,40 +1200,6 @@ Not for the wizard UI. Use only when debugging mappings.
 - `mori-bmc` → Mori BMC (Cortex-A9)
 - …and 50 more (see JSON)
 
-### qemu-system-arm
-
-- `ast1030-evb` → Aspeed AST1030 MiniBMC (Cortex-M4)
-- `ast1060-evb` → Aspeed AST1060 Platform Root of Trust (Cortex-M4)
-- `ast2500-evb` → Aspeed AST2500 EVB (ARM1176)
-- `ast2600-evb` → Aspeed AST2600 EVB (Cortex-A7)
-- `b-l475e-iot01a` → B-L475E-IOT01A Discovery Kit (Cortex-M4)
-- `bletchley-bmc` → Facebook Bletchley BMC (Cortex-A7)
-- `bpim2u` → Bananapi M2U (Cortex-A7)
-- `canon-a1100` → Canon PowerShot A1100 IS (ARM946)
-- `catalina-bmc` → Facebook Catalina BMC (Cortex-A7)
-- `collie` → Sharp SL-5500 (Collie) PDA (SA-1110)
-- `cubieboard` → cubietech cubieboard (Cortex-A8)
-- `emcraft-sf2` → SmartFusion2 SOM kit from Emcraft (M2S010)
-- `fby35-bmc` → Facebook fby35 BMC (Cortex-A7)
-- `fby35` → Meta Platforms fby35 (deprecated)
-- `fp5280g2-bmc` → Inspur FP5280G2 BMC (ARM1176) (deprecated)
-- `fuji-bmc` → Facebook Fuji BMC (Cortex-A7)
-- `g220a-bmc` → Bytedance G220A BMC (ARM1176)
-- `gb200nvl-bmc` → Nvidia GB200NVL BMC (Cortex-A7)
-- `imx25-pdk` → ARM i.MX25 PDK board (ARM926)
-- `integratorcp` → ARM Integrator/CP (ARM926EJ-S)
-- `kudo-bmc` → Kudo BMC (Cortex-A9)
-- `kzm` → ARM KZM Emulation Baseboard (ARM1136)
-- `lm3s6965evb` → Stellaris LM3S6965EVB (Cortex-M3)
-- `lm3s811evb` → Stellaris LM3S811EVB (Cortex-M3)
-- `max78000fthr` → MAX78000FTHR Board (Cortex-M4 / (Unimplemented) RISC-V)
-- `mcimx6ul-evk` → Freescale i.MX6UL Evaluation Kit (Cortex-A7)
-- `mcimx7d-sabre` → Freescale i.MX7 DUAL SABRE (Cortex-A7)
-- `microbit` → BBC micro:bit (Cortex-M0)
-- `mori-bmc` → Mori BMC (Cortex-A9)
-- `mps2-an385` → ARM MPS2 with AN385 FPGA image for Cortex-M3
-- …and 49 more (see JSON)
-
 ### qemu-system-arm-inferno
 
 - `ast1030-evb` → Aspeed AST1030 MiniBMC (Cortex-M4)
@@ -1269,6 +1233,40 @@ Not for the wizard UI. Use only when debugging mappings.
 - `midway` → Calxeda Midway (ECX-2000) (deprecated)
 - `mori-bmc` → Mori BMC (Cortex-A9)
 - …and 50 more (see JSON)
+
+### qemu-system-arm
+
+- `ast1030-evb` → Aspeed AST1030 MiniBMC (Cortex-M4)
+- `ast1060-evb` → Aspeed AST1060 Platform Root of Trust (Cortex-M4)
+- `ast2500-evb` → Aspeed AST2500 EVB (ARM1176)
+- `ast2600-evb` → Aspeed AST2600 EVB (Cortex-A7)
+- `b-l475e-iot01a` → B-L475E-IOT01A Discovery Kit (Cortex-M4)
+- `bletchley-bmc` → Facebook Bletchley BMC (Cortex-A7)
+- `bpim2u` → Bananapi M2U (Cortex-A7)
+- `canon-a1100` → Canon PowerShot A1100 IS (ARM946)
+- `catalina-bmc` → Facebook Catalina BMC (Cortex-A7)
+- `collie` → Sharp SL-5500 (Collie) PDA (SA-1110)
+- `cubieboard` → cubietech cubieboard (Cortex-A8)
+- `emcraft-sf2` → SmartFusion2 SOM kit from Emcraft (M2S010)
+- `fby35-bmc` → Facebook fby35 BMC (Cortex-A7)
+- `fby35` → Meta Platforms fby35 (deprecated)
+- `fp5280g2-bmc` → Inspur FP5280G2 BMC (ARM1176) (deprecated)
+- `fuji-bmc` → Facebook Fuji BMC (Cortex-A7)
+- `g220a-bmc` → Bytedance G220A BMC (ARM1176)
+- `gb200nvl-bmc` → Nvidia GB200NVL BMC (Cortex-A7)
+- `imx25-pdk` → ARM i.MX25 PDK board (ARM926)
+- `integratorcp` → ARM Integrator/CP (ARM926EJ-S)
+- `kudo-bmc` → Kudo BMC (Cortex-A9)
+- `kzm` → ARM KZM Emulation Baseboard (ARM1136)
+- `lm3s6965evb` → Stellaris LM3S6965EVB (Cortex-M3)
+- `lm3s811evb` → Stellaris LM3S811EVB (Cortex-M3)
+- `max78000fthr` → MAX78000FTHR Board (Cortex-M4 / (Unimplemented) RISC-V)
+- `mcimx6ul-evk` → Freescale i.MX6UL Evaluation Kit (Cortex-A7)
+- `mcimx7d-sabre` → Freescale i.MX7 DUAL SABRE (Cortex-A7)
+- `microbit` → BBC micro:bit (Cortex-M0)
+- `mori-bmc` → Mori BMC (Cortex-A9)
+- `mps2-an385` → ARM MPS2 with AN385 FPGA image for Cortex-M3
+- …and 49 more (see JSON)
 
 ### qemu-system-avr
 
@@ -1516,7 +1514,7 @@ Not for the wizard UI. Use only when debugging mappings.
 - `none` → Empty Machine (none)
 - `tricore_testboard` → a minimal TriCore board
 
-### qemu-system-x86_64
+### qemu-system-x86_64-reims
 
 - `microvm` → MicroVM
 - `pc` → PC (i440FX)
@@ -1524,7 +1522,7 @@ Not for the wizard UI. Use only when debugging mappings.
 - `isapc` → Legacy ISA PC
 - `none` → Empty Machine (none)
 
-### qemu-system-x86_64-reims
+### qemu-system-x86_64
 
 - `microvm` → MicroVM
 - `pc` → PC (i440FX)

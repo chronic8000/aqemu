@@ -100,6 +100,24 @@ class QEMU_Probe_Catalog
 		/** Directory containing {arch}.json probes, or empty if not found. */
 		static QString Probe_Directory();
 
+		/**
+		 * Catalog folder for the QEMU prefix that will launch.
+		 * qemu-install-arm64 uses qemu_probe_full_v3. The x64 prefix uses
+		 * qemu_probe_full_v3_x64. An empty hint uses Probe_Directory().
+		 */
+		static QString Probe_Directory_For( const QString &qemu_binary_or_hint );
+
+		/** Remember which qemu-system binary the next catalog load belongs to. */
+		static void Use_Binary_Path( const QString &qemu_binary );
+
+		/**
+		 * Property text from {stem}.properties.json ("devices" or "machines").
+		 * Empty when that help has not been probed.
+		 */
+		static QString Property_Help( const QString &computer_type_or_binary,
+		                              const QString &kind,
+		                              const QString &name );
+
 		/** Map "qemu-system-ppc" / "ppc" / caption text → probe stem ("ppc"). */
 		static QString Architecture_Key( const QString &computer_type_or_binary );
 

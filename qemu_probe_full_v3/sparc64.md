@@ -1,8 +1,8 @@
 # QEMU Complete Architecture capability map: `sparc64`
 
 - **Architecture Target:** `sparc64`
-- **Binary Executable:** `C:\Users\chron\CURSOR-PROJECTS\aqemu\build_win\qemu-system-sparc64.exe`
-- **Probed At:** 2026-07-31T08:33:09.894790
+- **Binary Executable:** `C:\Users\chron\CURSOR-PROJECTS\AQEMU\aqemu\third_party\qemu-install-arm64\bin\qemu-system-sparc64.exe`
+- **Probed At:** 2026-10-25T21:37:55.681714
 - **Fallback Machine Used for Context:** `sun4u`
 
 > **INSTRUCTIONS FOR CURSOR AI:** This document contains the verified whitelist of supported flags, boards, CPUs, devices, storage drivers, audio backends, and display renderers for `qemu-system-{arch}`. Use this data as the absolute ground truth to construct and validate VM configuration parameters.
@@ -22,25 +22,25 @@ Total items listed: 5
 
 ```text
 Available CPU types:
- Fujitsu-Sparc64      (IU 0004000200000000 FPU 00000000 MMU 00000000 NWINS 4)
- Fujitsu-Sparc64-III  (IU 0004000300000000 FPU 00000000 MMU 00000000 NWINS 5)
- Fujitsu-Sparc64-IV   (IU 0004000400000000 FPU 00000000 MMU 00000000 NWINS 8)
- Fujitsu-Sparc64-V    (IU 0004000551000000 FPU 00000000 MMU 00000000 NWINS 8)
- TI-UltraSparc-I      (IU 0017001040000000 FPU 00000000 MMU 00000000 NWINS 8)
- TI-UltraSparc-II     (IU 0017001120000000 FPU 00000000 MMU 00000000 NWINS 8)
- TI-UltraSparc-IIi    (IU 0017001291000000 FPU 00000000 MMU 00000000 NWINS 8)
- TI-UltraSparc-IIe    (IU 0017001314000000 FPU 00000000 MMU 00000000 NWINS 8)
- Sun-UltraSparc-III   (IU 003e001434000000 FPU 00000000 MMU 00000000 NWINS 8)
- Sun-UltraSparc-III-Cu (IU 003e001541000000 FPU 00000000 MMU 00000001 NWINS 8)
- Sun-UltraSparc-IIIi  (IU 003e001634000000 FPU 00000000 MMU 00000000 NWINS 8)
- Sun-UltraSparc-IV    (IU 003e001831000000 FPU 00000000 MMU 00000002 NWINS 8)
- Sun-UltraSparc-IV-plus (IU 003e001922000000 FPU 00000000 MMU 00000000 NWINS 8) +cmt
- Sun-UltraSparc-IIIi-plus (IU 003e002200000000 FPU 00000000 MMU 00000001 NWINS 8)
- Sun-UltraSparc-T1    (IU 003e002302000000 FPU 00000000 MMU 00000003 NWINS 8) +hypv +cmt +gl
- Sun-UltraSparc-T2    (IU 003e002402000000 FPU 00000000 MMU 00000003 NWINS 8) +hypv +cmt +gl
- NEC-UltraSparc-I     (IU 0022001040000000 FPU 00000000 MMU 00000000 NWINS 8)
-Default CPU feature flags (use '-' to remove): vis1 vis2
-Available CPU feature flags (use '+' to add): float128 hypv cmt gl fmaf vis3 ima vis4
+ Fujitsu-Sparc64      (IU 0004000200000000 FPU 00000000 MMU 00000000 NWINS 4) 
+ Fujitsu-Sparc64-III  (IU 0004000300000000 FPU 00000000 MMU 00000000 NWINS 5) 
+ Fujitsu-Sparc64-IV   (IU 0004000400000000 FPU 00000000 MMU 00000000 NWINS 8) 
+ Fujitsu-Sparc64-V    (IU 0004000551000000 FPU 00000000 MMU 00000000 NWINS 8) 
+ TI-UltraSparc-I      (IU 0017001040000000 FPU 00000000 MMU 00000000 NWINS 8) 
+ TI-UltraSparc-II     (IU 0017001120000000 FPU 00000000 MMU 00000000 NWINS 8) 
+ TI-UltraSparc-IIi    (IU 0017001291000000 FPU 00000000 MMU 00000000 NWINS 8) 
+ TI-UltraSparc-IIe    (IU 0017001314000000 FPU 00000000 MMU 00000000 NWINS 8) 
+ Sun-UltraSparc-III   (IU 003e001434000000 FPU 00000000 MMU 00000000 NWINS 8) 
+ Sun-UltraSparc-III-Cu (IU 003e001541000000 FPU 00000000 MMU 00000001 NWINS 8) 
+ Sun-UltraSparc-IIIi  (IU 003e001634000000 FPU 00000000 MMU 00000000 NWINS 8) 
+ Sun-UltraSparc-IV    (IU 003e001831000000 FPU 00000000 MMU 00000002 NWINS 8) 
+ Sun-UltraSparc-IV-plus (IU 003e001922000000 FPU 00000000 MMU 00000000 NWINS 8) +cmt 
+ Sun-UltraSparc-IIIi-plus (IU 003e002200000000 FPU 00000000 MMU 00000001 NWINS 8) 
+ Sun-UltraSparc-T1    (IU 003e002302000000 FPU 00000000 MMU 00000003 NWINS 8) +hypv +cmt +gl 
+ Sun-UltraSparc-T2    (IU 003e002402000000 FPU 00000000 MMU 00000003 NWINS 8) +hypv +cmt +gl 
+ NEC-UltraSparc-I     (IU 0022001040000000 FPU 00000000 MMU 00000000 NWINS 8) 
+Default CPU feature flags (use '-' to remove): vis1 vis2 
+Available CPU feature flags (use '+' to add): float128 hypv cmt gl fmaf vis3 ima vis4 
 Numerical features (use '=' to set): iu_version fpu_version mmu_version nwindows
 ```
 Total items listed: 21
@@ -54,6 +54,7 @@ name "pci-bridge", bus PCI, desc "Standard PCI Bridge"
 name "pci-bridge-seat", bus PCI, desc "Standard PCI Bridge (multiseat)"
 name "usb-host", bus usb-bus
 name "usb-hub", bus usb-bus
+
 USB devices:
 name "ich9-usb-ehci1", bus PCI
 name "ich9-usb-ehci2", bus PCI
@@ -69,6 +70,7 @@ name "piix3-usb-uhci", bus PCI
 name "piix4-usb-uhci", bus PCI
 name "qemu-xhci", bus PCI
 name "usb-ehci", bus PCI
+
 Storage devices:
 name "am53c974", bus PCI, desc "AMD Am53c974 PCscsi-PCI SCSI adapter"
 name "cmd646-ide", bus PCI
@@ -106,6 +108,7 @@ name "virtio-scsi-device", bus virtio-bus
 name "virtio-scsi-pci", bus PCI, alias "virtio-scsi"
 name "virtio-scsi-pci-non-transitional", bus PCI
 name "virtio-scsi-pci-transitional", bus PCI
+
 Network devices:
 name "e1000", bus PCI, alias "e1000-82540em", desc "Intel Gigabit Ethernet"
 name "e1000-82544gc", bus PCI, desc "Intel Gigabit Ethernet"
@@ -135,6 +138,7 @@ name "virtio-net-pci", bus PCI, alias "virtio-net"
 name "virtio-net-pci-non-transitional", bus PCI
 name "virtio-net-pci-transitional", bus PCI
 name "vmxnet3", bus PCI, desc "VMWare Paravirtualized Ethernet v3"
+
 Input devices:
 name "ccid-card-emulated", bus ccid-bus, desc "emulated smartcard"
 name "ccid-card-passthru", bus ccid-bus, desc "passthrough smartcard"
@@ -167,6 +171,7 @@ name "virtio-serial-pci-transitional", bus PCI
 name "virtio-tablet-device", bus virtio-bus
 name "virtio-tablet-pci", bus PCI, alias "virtio-tablet"
 name "virtserialport", bus virtio-serial-bus
+
 Display devices:
 name "ati-vga", bus PCI
 name "bochs-display", bus PCI
@@ -175,6 +180,7 @@ name "secondary-vga", bus PCI
 name "VGA", bus PCI
 name "virtio-gpu-device", bus virtio-bus
 name "virtio-gpu-pci", bus PCI, alias "virtio-gpu"
+
 Sound devices:
 name "AC97", bus PCI, alias "ac97", desc "Intel 82801AA AC97 Audio"
 name "adlib", bus ISA, desc "Yamaha YM3812 (OPL2)"
@@ -190,6 +196,7 @@ name "sb16", bus ISA, desc "Creative Sound Blaster 16"
 name "usb-audio", bus usb-bus
 name "virtio-sound-device", bus virtio-bus
 name "virtio-sound-pci", bus PCI, alias "virtio-sound", desc "Virtio Sound"
+
 Misc devices:
 name "ctucan_pci", bus PCI, desc "CTU CAN PCI"
 name "i2c-ddc", bus i2c-bus
@@ -217,9 +224,11 @@ name "virtio-rng-device", bus virtio-bus
 name "virtio-rng-pci", bus PCI, alias "virtio-rng"
 name "virtio-rng-pci-non-transitional", bus PCI
 name "virtio-rng-pci-transitional", bus PCI
+
 Watchdog devices:
 name "i6300esb", bus PCI, desc "Intel 6300ESB"
 name "ib700", bus ISA, desc "iBASE 700"
+
 Uncategorized devices:
 name "ebus", bus PCI
 name "isa-m48t59", bus ISA
@@ -230,8 +239,8 @@ Total items listed: 176
 ## 4. Storage Image Formats (`-drive format=help`)
 
 ```text
-Supported formats: blkdebug blklogwrites blkreplay blkverify bochs cloop compress copy-before-write copy-on-read dmg file ftp ftps host_device http https luks nbd null-aio null-co parallels preallocate qcow qcow2 qed quorum raw replication snapshot-access throttle vdi vhdx vmdk vpc vvfat
-Supported formats (read-only): blkdebug blklogwrites blkreplay blkverify bochs cloop compress copy-before-write copy-on-read dmg file ftp ftps host_device http https luks nbd null-aio null-co parallels preallocate qcow qcow2 qed quorum raw replication snapshot-access throttle vdi vhdx vmdk vpc vvfat
+Supported formats: blkdebug blklogwrites blkreplay blkverify bochs cloop compress copy-before-write copy-on-read dmg file ftp ftps host_device http https iscsi iser luks nbd nfs null-aio null-co parallels preallocate qcow qcow2 qed quorum raw replication snapshot-access ssh throttle vdi vhdx vmdk vpc vvfat
+Supported formats (read-only): blkdebug blklogwrites blkreplay blkverify bochs cloop compress copy-before-write copy-on-read dmg file ftp ftps host_device http https iscsi iser luks nbd nfs null-aio null-co parallels preallocate qcow qcow2 qed quorum raw replication snapshot-access ssh throttle vdi vhdx vmdk vpc vvfat
 ```
 Total items listed: 2
 
@@ -252,7 +261,7 @@ Total items listed: 8
 ## 6. Character Device Backends (`-chardev help`)
 
 ```text
-Available chardev backend types:
+Available chardev backend types: 
   console
   msmouse
   null
@@ -281,14 +290,16 @@ Total items listed: 21
 ```text
 Available display backend types:
 none
+egl-headless
 curses
 spice-app
 dbus
+
 Some display backends support suboptions, which can be set with
    -display backend,option=value,option=value...
 For a short list of the suboptions for each display, see the top-level -help output; more detail is in the documentation.
 ```
-Total items listed: 8
+Total items listed: 9
 
 ## 8. Audio Drivers (`-audiodev help`)
 

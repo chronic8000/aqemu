@@ -1,7 +1,7 @@
 {
-  "binary": "C:\\Users\\chron\\CURSOR-PROJECTS\\aqemu\\build_win\\qemu-system-m68k.exe",
+  "binary": "C:\\Users\\chron\\CURSOR-PROJECTS\\AQEMU\\aqemu\\third_party\\qemu-install-arm64\\bin\\qemu-system-m68k.exe",
   "architecture": "m68k",
-  "probed_at": "2026-07-31T08:32:59.756669",
+  "probed_at": "2026-10-25T21:37:40.120185",
   "fallback_machine": "q800",
   "machines": [
     "Supported machines are:",
@@ -90,11 +90,11 @@
     "user"
   ],
   "drive_formats": [
-    "Supported formats: blkdebug blklogwrites blkreplay blkverify bochs cloop compress copy-before-write copy-on-read dmg file ftp ftps host_device http https luks nbd null-aio null-co parallels preallocate qcow qcow2 qed quorum raw replication snapshot-access throttle vdi vhdx vmdk vpc vvfat",
-    "Supported formats (read-only): blkdebug blklogwrites blkreplay blkverify bochs cloop compress copy-before-write copy-on-read dmg file ftp ftps host_device http https luks nbd null-aio null-co parallels preallocate qcow qcow2 qed quorum raw replication snapshot-access throttle vdi vhdx vmdk vpc vvfat"
+    "Supported formats: blkdebug blklogwrites blkreplay blkverify bochs cloop compress copy-before-write copy-on-read dmg file ftp ftps host_device http https iscsi iser luks nbd nfs null-aio null-co parallels preallocate qcow qcow2 qed quorum raw replication snapshot-access ssh throttle vdi vhdx vmdk vpc vvfat",
+    "Supported formats (read-only): blkdebug blklogwrites blkreplay blkverify bochs cloop compress copy-before-write copy-on-read dmg file ftp ftps host_device http https iscsi iser luks nbd nfs null-aio null-co parallels preallocate qcow qcow2 qed quorum raw replication snapshot-access ssh throttle vdi vhdx vmdk vpc vvfat"
   ],
   "chardev_backends": [
-    "Available chardev backend types:",
+    "Available chardev backend types: ",
     "  file",
     "  spicevmc",
     "  pipe",
@@ -119,6 +119,7 @@
   "display_backends": [
     "Available display backend types:",
     "none",
+    "egl-headless",
     "curses",
     "spice-app",
     "dbus",
@@ -170,9 +171,9 @@
     "devices": "\nStorage devices:\nname \"scsi-cd\", bus SCSI, desc \"virtual SCSI CD-ROM\"\nname \"scsi-hd\", bus SCSI, desc \"virtual SCSI disk\"\nname \"swim-drive\", bus swim-bus, desc \"virtual SWIM drive\"\nname \"virtio-blk-device\", bus virtio-bus, alias \"virtio-blk\"\nname \"virtio-scsi-device\", bus virtio-bus, alias \"virtio-scsi\"\n\nNetwork devices:\nname \"virtio-net-device\", bus virtio-bus, alias \"virtio-net\"\n\nInput devices:\nname \"adb-keyboard\", bus apple-desktop-bus\nname \"adb-mouse\", bus apple-desktop-bus\nname \"virtconsole\", bus virtio-serial-bus\nname \"virtio-keyboard-device\", bus virtio-bus, alias \"virtio-keyboard\"\nname \"virtio-mouse-device\", bus virtio-bus, alias \"virtio-mouse\"\nname \"virtio-multitouch-device\", bus virtio-bus\nname \"virtio-serial-device\", bus virtio-bus, alias \"virtio-serial\"\nname \"virtio-tablet-device\", bus virtio-bus, alias \"virtio-tablet\"\nname \"virtserialport\", bus virtio-serial-bus\n\nDisplay devices:\nname \"nubus-macfb\", bus nubus-bus, desc \"Nubus Macintosh framebuffer\"\nname \"virtio-gpu-device\", bus virtio-bus, alias \"virtio-gpu\"\n\nSound devices:\nname \"virtio-sound-device\", bus virtio-bus, alias \"virtio-sound\"\n\nMisc devices:\nname \"loader\", desc \"Generic Loader\"\nname \"uefi-vars-sysbus\", bus System\nname \"uefi-vars-x64\", bus System\nname \"virtio-balloon-device\", bus virtio-bus, alias \"virtio-balloon\"\nname \"virtio-crypto-device\", bus virtio-bus\nname \"virtio-rng-device\", bus virtio-bus, alias \"virtio-rng\"\n\nUncategorized devices:\nname \"nubus-virtio-mmio\", bus nubus-bus\n",
     "accelerators": "Accelerators supported in QEMU binary:\ntcg\n",
     "netdev": "Available netdev backend types:\nsocket\nstream\ndgram\nhubport\ntap\npasst\nuser\n",
-    "drive_formats": "Supported formats: blkdebug blklogwrites blkreplay blkverify bochs cloop compress copy-before-write copy-on-read dmg file ftp ftps host_device http https luks nbd null-aio null-co parallels preallocate qcow qcow2 qed quorum raw replication snapshot-access throttle vdi vhdx vmdk vpc vvfat\nSupported formats (read-only): blkdebug blklogwrites blkreplay blkverify bochs cloop compress copy-before-write copy-on-read dmg file ftp ftps host_device http https luks nbd null-aio null-co parallels preallocate qcow qcow2 qed quorum raw replication snapshot-access throttle vdi vhdx vmdk vpc vvfat\n",
+    "drive_formats": "Supported formats: blkdebug blklogwrites blkreplay blkverify bochs cloop compress copy-before-write copy-on-read dmg file ftp ftps host_device http https iscsi iser luks nbd nfs null-aio null-co parallels preallocate qcow qcow2 qed quorum raw replication snapshot-access ssh throttle vdi vhdx vmdk vpc vvfat\nSupported formats (read-only): blkdebug blklogwrites blkreplay blkverify bochs cloop compress copy-before-write copy-on-read dmg file ftp ftps host_device http https iscsi iser luks nbd nfs null-aio null-co parallels preallocate qcow qcow2 qed quorum raw replication snapshot-access ssh throttle vdi vhdx vmdk vpc vvfat\n",
     "chardev_backends": "Available chardev backend types: \n  file\n  spicevmc\n  pipe\n  console\n  msmouse\n  testdev\n  wctablet\n  hub\n  qemu-vdagent\n  null\n  stdio\n  memory\n  socket\n  serial\n  dbus\n  spiceport\n  vc\n  ringbuf\n  udp\n  mux\n",
-    "display": "Available display backend types:\nnone\ncurses\nspice-app\ndbus\n\nSome display backends support suboptions, which can be set with\n   -display backend,option=value,option=value...\nFor a short list of the suboptions for each display, see the top-level -help output; more detail is in the documentation.\n",
+    "display": "Available display backend types:\nnone\negl-headless\ncurses\nspice-app\ndbus\n\nSome display backends support suboptions, which can be set with\n   -display backend,option=value,option=value...\nFor a short list of the suboptions for each display, see the top-level -help output; more detail is in the documentation.\n",
     "audio": "Available audio drivers:\nnone\ndbus\ndsound\nspice\nwav\n",
     "objects": "List of user creatable objects:\n  authz-list\n  authz-list-file\n  authz-simple\n  colo-compare\n  cryptodev-backend\n  cryptodev-backend-builtin\n  dbus-display\n  dbus-vmstate\n  filter-buffer\n  filter-dump\n  filter-mirror\n  filter-redirector\n  filter-replay\n  filter-rewriter\n  input-barrier\n  iothread\n  main-loop\n  memory-backend-ram\n  qtest\n  rng-builtin\n  rng-egd\n  secret\n  throttle-group\n  tls-cipher-suites\n  tls-creds-anon\n  tls-creds-psk\n  tls-creds-x509\n"
   }

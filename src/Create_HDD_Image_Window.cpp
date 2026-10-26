@@ -25,6 +25,7 @@
 
 #include "Utils.h"
 #include "VM_Devices.h"
+#include "QEMU_Probe_Catalog.h"
 #include "Create_HDD_Image_Window.h"
 
 Create_HDD_Image_Window::Create_HDD_Image_Window( QWidget *parent )
@@ -34,7 +35,9 @@ Create_HDD_Image_Window::Create_HDD_Image_Window( QWidget *parent )
 
 	// Populate formats from live qemu-img (qemu-doc §3.7)
 	ui.CB_Format->clear();
-	const QStringList formats = Probe_QEMU_IMG_Formats();
+	QStringList formats = Probe_QEMU_IMG_Formats();
+	if( formats.isEmpty() )
+		formats = QEMU_Probe_Catalog::Section_Tokens( QStringLiteral( "x86_64" ), QStringLiteral( "drive_formats" ) );
 	if( ! formats.isEmpty() )
 		ui.CB_Format->addItems( formats );
 	else

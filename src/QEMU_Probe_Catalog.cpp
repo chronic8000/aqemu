@@ -110,6 +110,166 @@ QStringList Candidate_Probe_Dirs()
 	return dirs;
 }
 
+QString g_binary_hint;
+
+QStringList Catalog_Folder_Candidates( const QString &folder_name )
+{
+	QStringList dirs;
+	const QString app = QCoreApplication::applicationDirPath();
+	const QStringList bases = QStringList()
+		<< app
+		<< QDir( app ).absoluteFilePath( QStringLiteral( ".." ) )
+		<< QDir( app ).absoluteFilePath( QStringLiteral( "../.." ) )
+		<< QDir( app ).absoluteFilePath( QStringLiteral( "../../.." ) );
+	for( int i = 0; i < bases.count(); ++i )
+		dirs << QDir::cleanPath( bases.at( i ) + QLatin1Char( '/' ) + folder_name );
+	dirs.removeDuplicates();
+	return dirs;
+}
+
+QString First_Catalog_Dir( const QStringList &dirs )
+{
+	for( int i = 0; i < dirs.count(); ++i )
+	{
+		QDir d( dirs.at( i ) );
+		if( d.exists( QStringLiteral( "x86_64.json" ) ) || d.exists( QStringLiteral( "aarch64.json" ) ) )
+			return d.absolutePath();
+	}
+	return QString();
+}
+
+void Fill_Device_Group( const QString &section, const Device_Map &entry, Available_Devices &out )
+{
+	const QString low = section.toLower();
+	if( low.startsWith( QLatin1String( "storage" ) ) )
+		Append_Unique( out.Storage_Device_List, entry );
+	else if( low.startsWith( QLatin1String( "sound" ) ) )
+		Append_Unique( out.Sound_Device_List, entry );
+	else if( low.startsWith( QLatin1String( "usb" ) ) )
+		Append_Unique( out.USB_Device_List, entry );
+	else if( low.startsWith( QLatin1String( "input" ) ) )
+		Append_Unique( out.Input_Device_List, entry );
+	else if( low.startsWith( QLatin1String( "controller" ) ) )
+		Append_Unique( out.Controller_Device_List, entry );
+	else if( low.startsWith( QLatin1String( "misc" ) ) )
+		Append_Unique( out.Misc_Device_List, entry );
+	else if( low.startsWith( QLatin1String( "watchdog" ) ) )
+		Append_Unique( out.Watchdog_Device_List, entry );
+	else if( low.startsWith( QLatin1String( "cpu" ) ) )
+		Append_Unique( out.CPU_Device_List, entry );
+	else if( ! section.trimmed().isEmpty() )
+		Append_Unique( out.Other_Device_List, entry );
+}
+
+void Parse_Grouped_Devices( const QStringList &lines, Available_Devices &out )
+{
+	QString section;
+	QRegExp rx_name( "name\\s+\"([^\"]+)\"" );
+	QRegExp rx_desc( "desc\\s+\"([^\"]+)\"" );
+	for( int i = 0; i < lines.count(); ++i )
+	{
+		const QString line = lines.at( i );
+		const QString t = line.trimmed();
+		if( t.endsWith( QLatin1String( "devices:" ), Qt::CaseInsensitive ) )
+		{
+			section = t;
+			continue;
+		}
+		if( rx_name.indexIn( line ) < 0 )
+			continue;
+		const QString name = rx_name.cap( 1 );
+		QString desc;
+		if( rx_desc.indexIn( line ) >= 0 )
+			desc = rx_desc.cap( 1 );
+		Fill_Device_Group( section, Device_Map( Pretty_Caption( name, desc ), name ), out );
+	}
+}
+
+QStringList Bare_Tokens( const QStringList &lines )
+{
+	QStringList out;
+	for( int i = 0; i < lines.count(); ++i )
+	{
+		const QString t = lines.at( i ).trimmed();
+		if( t.isEmpty() || t.contains( QLatin1Char( ' ' ) ) )
+			continue;
+		if( t.endsWith( QLatin1Char( ':' ) ) )
+			continue;
+		out << t;
+	}
+	out.removeDuplicates();
+	return out;
+}
+
+QStringList Format_Tokens( const QStringList &lines )
+{
+	QStringList out;
+	for( int i = 0; i < lines.count(); ++i )
+	{
+		QString t = lines.at( i ).trimmed();
+		const int colon = t.indexOf( QLatin1Char( ':' ) );
+		if( colon >= 0 )
+			t = t.mid( colon + 1 ).trimmed();
+		if( t.startsWith( QLatin1Char( '(' ) ) )
+			continue;
+		const QStringList words = t.split( QRegExp( QStringLiteral( "\\s+" ) ), QString::SkipEmptyParts );
+		for( int w = 0; w < words.count(); ++w )
+		{
+			const QString tok = words.at( w ).trimmed();
+			if( tok.isEmpty() || tok.startsWith( QLatin1Char( '(' ) ) )
+				continue;
+			out << tok;
+		}
+	}
+	out.removeDuplicates();
+	return out;
+}
+
+void Set_Binary_Hint( const QString &path )
+{
+	g_binary_hint = path;
+}
+
+QString Binary_Hint()
+{
+	return g_binary_hint;
+}
+
+QString Resolve_Catalog_Dir( const QString &hint )
+{
+	const QString n = QDir::fromNativeSeparators( hint ).toLower();
+	const bool x64 = n.contains( QLatin1String( "qemu_probe_full_v3_x64" ) )
+		|| ( n.contains( QLatin1String( "qemu-install" ) )
+		     && ! n.contains( QLatin1String( "arm64" ) ) );
+	if( x64 )
+	{
+		const QString d = First_Catalog_Dir( Catalog_Folder_Candidates( QStringLiteral( "qemu_probe_full_v3_x64" ) ) );
+		if( ! d.isEmpty() )
+			return d;
+	}
+	const QString arm = First_Catalog_Dir( Catalog_Folder_Candidates( QStringLiteral( "qemu_probe_full_v3" ) ) );
+	if( ! arm.isEmpty() )
+		return arm;
+	return QString();
+}
+
+QString Catalog_Dir_For( const QString &computer_type_or_binary, const QString &key )
+{
+	QString hint = Binary_Hint();
+	if( computer_type_or_binary.contains( QLatin1Char( '/' ) )
+	    || computer_type_or_binary.contains( QLatin1Char( '\\' ) ) )
+		hint = computer_type_or_binary;
+	QString dir = hint.isEmpty() ? QString() : Resolve_Catalog_Dir( hint );
+	if( dir.isEmpty() || ! QFile::exists( QDir( dir ).filePath( key + QStringLiteral( ".json" ) ) ) )
+	{
+		const QString fallback = QEMU_Probe_Catalog::Probe_Directory();
+		if( ! fallback.isEmpty()
+		    && QFile::exists( QDir( fallback ).filePath( key + QStringLiteral( ".json" ) ) ) )
+			return fallback;
+	}
+	return dir;
+}
+
 QStringList Json_String_List( const QJsonObject &obj, const char *key )
 {
 	QStringList out;
@@ -134,6 +294,37 @@ QString QEMU_Probe_Catalog::Probe_Directory()
 			return d.absolutePath();
 	}
 	return QString();
+}
+
+void QEMU_Probe_Catalog::Use_Binary_Path( const QString &qemu_binary )
+{
+	Set_Binary_Hint( qemu_binary );
+}
+
+QString QEMU_Probe_Catalog::Probe_Directory_For( const QString &qemu_binary_or_hint )
+{
+	const QString dir = Resolve_Catalog_Dir( qemu_binary_or_hint );
+	return dir.isEmpty() ? Probe_Directory() : dir;
+}
+
+QString QEMU_Probe_Catalog::Property_Help( const QString &computer_type_or_binary,
+                                           const QString &kind,
+                                           const QString &name )
+{
+	const QString key = Architecture_Key( computer_type_or_binary );
+	if( key.isEmpty() || name.trimmed().isEmpty() )
+		return QString();
+	const QString dir = Catalog_Dir_For( computer_type_or_binary, key );
+	if( dir.isEmpty() )
+		return QString();
+	QFile f( QDir( dir ).filePath( key + QStringLiteral( ".properties.json" ) ) );
+	if( ! f.open( QIODevice::ReadOnly ) )
+		return QString();
+	const QJsonDocument doc = QJsonDocument::fromJson( f.readAll() );
+	if( ! doc.isObject() )
+		return QString();
+	const QString bucket = kind.trimmed().isEmpty() ? QStringLiteral( "devices" ) : kind.trimmed();
+	return doc.object().value( bucket ).toObject().value( name.trimmed() ).toString();
 }
 
 QString QEMU_Probe_Catalog::Architecture_Key( const QString &computer_type_or_binary )
@@ -163,10 +354,8 @@ QString QEMU_Probe_Catalog::Architecture_Key( const QString &computer_type_or_bi
 	else if( s.startsWith( "qemu-" ) )
 		s = s.mid( QString( "qemu-" ).size() );
 
-	if( s == "applesoc32" || s == "inferno" || s == "aarch64-inferno" || s == "arm-inferno" )
-		s = "applesoc";
-	else if( s == "reims" || s == "reims3d" || s == "x86_64-reims" )
-		s = "reimsvgpu";
+	// Each qemu-system-*.exe keeps its own catalog. applesoc32, inferno, and
+	// the Reims binaries do not share one machine list.
 
 	// Strip trailing noise from captions like "aarch64 (softmmu)"
 	const int sp = s.indexOf( ' ' );
@@ -182,11 +371,12 @@ QStringList QEMU_Probe_Catalog::Audio_Drivers( const QString &computer_type_or_b
 	const QString key = Architecture_Key( computer_type_or_binary );
 	if( key.isEmpty() )
 		return QStringList();
-	if( cache.contains( key ) )
-		return cache.value( key );
+	const QString dir = Catalog_Dir_For( computer_type_or_binary, key );
+	const QString cache_key = dir + QLatin1Char( '\n' ) + key;
+	if( cache.contains( cache_key ) )
+		return cache.value( cache_key );
 
 	QStringList out;
-	const QString dir = Probe_Directory();
 	if( ! dir.isEmpty() )
 	{
 		QFile f( QDir( dir ).filePath( key + QStringLiteral( ".json" ) ) );
@@ -208,7 +398,7 @@ QStringList QEMU_Probe_Catalog::Audio_Drivers( const QString &computer_type_or_b
 		}
 	}
 	out.removeDuplicates();
-	cache.insert( key, out );
+	cache.insert( cache_key, out );
 	return out;
 }
 
@@ -217,7 +407,7 @@ static QJsonObject Load_Probe_Root( const QString &computer_type_or_binary )
 	const QString key = QEMU_Probe_Catalog::Architecture_Key( computer_type_or_binary );
 	if( key.isEmpty() )
 		return QJsonObject();
-	const QString dir = QEMU_Probe_Catalog::Probe_Directory();
+	const QString dir = Catalog_Dir_For( computer_type_or_binary, key );
 	if( dir.isEmpty() )
 		return QJsonObject();
 	QFile f( QDir( dir ).filePath( key + QStringLiteral( ".json" ) ) );
@@ -231,7 +421,9 @@ QStringList QEMU_Probe_Catalog::Section_Tokens( const QString &computer_type_or_
                                                 const QString &json_key )
 {
 	static QMap<QString, QStringList> cache;
-	const QString key = Architecture_Key( computer_type_or_binary ) + QLatin1Char( '\n' ) + json_key;
+	const QString stem = Architecture_Key( computer_type_or_binary );
+	const QString key = Catalog_Dir_For( computer_type_or_binary, stem )
+		+ QLatin1Char( '\n' ) + stem + QLatin1Char( '\n' ) + json_key;
 	if( cache.contains( key ) )
 		return cache.value( key );
 
@@ -308,10 +500,10 @@ Architecture_Hardware_Capabilities QEMU_Probe_Catalog::Get_Hardware_Capabilities
 	if( key.isEmpty() )
 		return Architecture_Hardware_Capabilities();
 
-	if( s_cache.contains( key ) )
-		return s_cache.value( key );
-
-	const QString dir = Probe_Directory();
+	const QString dir = Catalog_Dir_For( computer_type_or_binary, key );
+	const QString cache_key = dir + QLatin1Char( '\n' ) + key;
+	if( s_cache.contains( cache_key ) )
+		return s_cache.value( cache_key );
 	if( dir.isEmpty() )
 		return Architecture_Hardware_Capabilities();
 
@@ -387,7 +579,7 @@ Architecture_Hardware_Capabilities QEMU_Probe_Catalog::Get_Hardware_Capabilities
 	caps.has_tcg = accels.contains( "tcg", Qt::CaseInsensitive );
 	caps.has_kvm = accels.contains( "kvm", Qt::CaseInsensitive ) || accels.contains( "whpx", Qt::CaseInsensitive );
 
-	s_cache.insert( key, caps );
+	s_cache.insert( cache_key, caps );
 	return caps;
 }
 
@@ -542,7 +734,7 @@ bool QEMU_Probe_Catalog::Load_Architecture( const QString &computer_type_or_bina
 	if( key.isEmpty() )
 		return false;
 
-	const QString dir = Probe_Directory();
+	const QString dir = Catalog_Dir_For( computer_type_or_binary, key );
 	if( dir.isEmpty() )
 		return false;
 
@@ -589,6 +781,25 @@ bool QEMU_Probe_Catalog::Load_Architecture( const QString &computer_type_or_bina
 	{
 		ad.Audio_Card_List = VM::Sound_Cards();
 	}
+
+	const QStringList device_lines = Json_String_List( root, "devices" );
+	Parse_Grouped_Devices( device_lines, ad );
+
+	const QStringList object_lines = Json_String_List( root, "object_types" );
+	for( int oi = 0; oi < object_lines.count(); ++oi )
+	{
+		const QString name = object_lines.at( oi ).trimmed();
+		if( name.isEmpty() || name.contains( QLatin1Char( ' ' ) ) || name.endsWith( QLatin1Char( ':' ) ) )
+			continue;
+		Append_Unique( ad.Object_Type_List, Device_Map( name, name ) );
+	}
+
+	ad.Netdev_Backends = Bare_Tokens( Json_String_List( root, "netdev" ) );
+	ad.Drive_Formats = Format_Tokens( Json_String_List( root, "drive_formats" ) );
+	ad.Chardev_Backends = Bare_Tokens( Json_String_List( root, "chardev_backends" ) );
+	ad.Display_Backends = Bare_Tokens( Json_String_List( root, "display_backends" ) );
+	ad.Audio_Backends = Bare_Tokens( Json_String_List( root, "audio_backends" ) );
+	ad.Accelerators = Bare_Tokens( Json_String_List( root, "accelerators" ) );
 
 	if( ad.Machine_List.isEmpty() && ad.CPU_List.isEmpty() )
 		return false;
@@ -672,6 +883,38 @@ bool QEMU_Probe_Catalog::Merge_Into( Available_Devices &dev )
 		dev.Network_Card_List = probe.Network_Card_List;
 	if( ! probe.Video_Card_List.isEmpty() )
 		dev.Video_Card_List = probe.Video_Card_List;
+	if( ! probe.Storage_Device_List.isEmpty() )
+		dev.Storage_Device_List = probe.Storage_Device_List;
+	if( ! probe.Sound_Device_List.isEmpty() )
+		dev.Sound_Device_List = probe.Sound_Device_List;
+	if( ! probe.USB_Device_List.isEmpty() )
+		dev.USB_Device_List = probe.USB_Device_List;
+	if( ! probe.Input_Device_List.isEmpty() )
+		dev.Input_Device_List = probe.Input_Device_List;
+	if( ! probe.Controller_Device_List.isEmpty() )
+		dev.Controller_Device_List = probe.Controller_Device_List;
+	if( ! probe.Misc_Device_List.isEmpty() )
+		dev.Misc_Device_List = probe.Misc_Device_List;
+	if( ! probe.Watchdog_Device_List.isEmpty() )
+		dev.Watchdog_Device_List = probe.Watchdog_Device_List;
+	if( ! probe.CPU_Device_List.isEmpty() )
+		dev.CPU_Device_List = probe.CPU_Device_List;
+	if( ! probe.Other_Device_List.isEmpty() )
+		dev.Other_Device_List = probe.Other_Device_List;
+	if( ! probe.Object_Type_List.isEmpty() )
+		dev.Object_Type_List = probe.Object_Type_List;
+	if( ! probe.Netdev_Backends.isEmpty() )
+		dev.Netdev_Backends = probe.Netdev_Backends;
+	if( ! probe.Drive_Formats.isEmpty() )
+		dev.Drive_Formats = probe.Drive_Formats;
+	if( ! probe.Chardev_Backends.isEmpty() )
+		dev.Chardev_Backends = probe.Chardev_Backends;
+	if( ! probe.Display_Backends.isEmpty() )
+		dev.Display_Backends = probe.Display_Backends;
+	if( ! probe.Audio_Backends.isEmpty() )
+		dev.Audio_Backends = probe.Audio_Backends;
+	if( ! probe.Accelerators.isEmpty() )
+		dev.Accelerators = probe.Accelerators;
 
 	dev.Audio_Card_List.Audio_sb16 =
 		dev.Audio_Card_List.Audio_sb16 || probe.Audio_Card_List.Audio_sb16;

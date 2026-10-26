@@ -25,6 +25,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QFileInfoList>
+#include "QEMU_Probe_Catalog.h"
 #include <QDateTime>
 #include <QMessageBox>
 #include <QApplication>
@@ -2792,9 +2793,21 @@ AQ_Accel_Flags AQ_Accelerator_Availability( const QString &guest_qemu_name,
 	const bool family = AQ_Guest_Matches_Host_Architecture( guest );
 	const bool tcg_only_binary =
 		guest == QLatin1String( "i386" ) || guest == QLatin1String( "arm" );
-	const QStringList accels = AQ_QEMU_List_Accels( qemu_binary );
-	const bool probed = ! qemu_binary.trimmed().isEmpty() &&
-	                    QFile::exists( qemu_binary ) && ! accels.isEmpty();
+	QStringList accels = AQ_QEMU_List_Accels( qemu_binary );
+	bool probed = ! qemu_binary.trimmed().isEmpty() &&
+	              QFile::exists( qemu_binary ) && ! accels.isEmpty();
+	if( ! probed )
+	{
+		if( ! qemu_binary.trimmed().isEmpty() )
+			QEMU_Probe_Catalog::Use_Binary_Path( qemu_binary );
+		const QStringList catalog = QEMU_Probe_Catalog::Section_Tokens(
+			guest_qemu_name, QStringLiteral( "accelerators" ) );
+		if( ! catalog.isEmpty() )
+		{
+			accels = catalog;
+			probed = true;
+		}
+	}
 
 	flags.tcg = probed ? accels.contains( QStringLiteral( "tcg" ) ) : true;
 
@@ -2810,9 +2823,6 @@ AQ_Accel_Flags AQ_Accelerator_Availability( const QString &guest_qemu_name,
 	{
 		if( probed )
 			flags.whpx = accels.contains( QStringLiteral( "whpx" ) );
-		else
-			flags.whpx = ( guest == QLatin1String( "x86_64" ) ||
-			               guest == QLatin1String( "aarch64" ) );
 	}
 #else
 	Q_UNUSED( via_wsl );

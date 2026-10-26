@@ -33,6 +33,8 @@
 #include <QTextStream>
 #include <QDateTime>
 #include <QMessageBox>
+#include <QLineEdit>
+#include <QApplication>
 #include <QPushButton>
 #include <QSettings>
 #include <QUuid>
@@ -7432,10 +7434,9 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 
 	if( is_virt_arch )
 	{
-		// virt machine rejects legacy ISA/PCI VGA framebuffers (-vga std/cirrus/qxl/vmware)
+		// virt rejects -vga std/cirrus/qxl. vmware-svga is a PCI device and stays.
 		if( effective_video == "std" || effective_video == "cirrus" ||
-		    effective_video == "qxl" || effective_video == "vmware" ||
-		    effective_video == "vmware-svga" || effective_video == "virtio-vga" ||
+		    effective_video == "qxl" || effective_video == "virtio-vga" ||
 		    effective_video == "virtio" )
 		{
 			effective_video = QStringLiteral( "virtio-gpu-pci" );
@@ -7471,6 +7472,24 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	if( is_apple_soc_video )
 	{
 		// Intentionally emit no -vga / -device <video>.
+	}
+	else if( effective_video == QLatin1String( "vmware" ) ||
+	         effective_video == QLatin1String( "vmware-svga" ) ||
+	         ( Intel_MacOS_Profile && effective_video == QLatin1String( "std" ) ) )
+	{
+		const bool gpu_passthrough =
+			Intel_MacOS_Profile && GPU_Passthrough && ! GPU_PCI_Address.trimmed().isEmpty();
+		Args << "-vga" << "none";
+		if( ! gpu_passthrough )
+		{
+			int vram_mb = 64;
+			int rw = 0, rh = 0;
+			if( AQ_Resolve_Display_Size( Display_Resolution, &rw, &rh ) &&
+			    ( rw * rh ) >= ( 2560 * 1440 ) )
+				vram_mb = 256;
+			Args << "-device"
+			     << QStringLiteral( "vmware-svga,id=video0,vgamem_mb=%1" ).arg( vram_mb );
+		}
 	}
 	else if( device_based_video )
 	{
@@ -7588,21 +7607,6 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		{
 			// Real AMD dGPU via VFIO - no emulated VGA.
 			Args << "-vga" << "none";
-		}
-		else if( Intel_MacOS_Profile &&
-		         ( effective_video == QLatin1String( "vmware" ) ||
-		           effective_video == QLatin1String( "vmware-svga" ) ||
-		           effective_video == QLatin1String( "std" ) ) )
-		{
-			// std VGA tops out ~2560x1440. vmware-svga + large VRAM unlocks 4K modes.
-			// Guest mode list comes from OpenCore Resolution (patched below), not xres/yres.
-			int vram_mb = 128;
-			int rw = 0, rh = 0;
-			if( AQ_Resolve_Display_Size( Display_Resolution, &rw, &rh ) &&
-			    ( rw * rh ) >= ( 2560 * 1440 ) )
-				vram_mb = 256;
-			Args << "-vga" << "none";
-			Args << "-device" << QStringLiteral( "vmware-svga,vgamem_mb=%1" ).arg( vram_mb );
 		}
 		else
 			Args << "-vga" << effective_video;
@@ -11439,6 +11443,57 @@ bool Virtual_Machine::Start_impl()
 			Start_Snapshot_Tag = "";
 			return false;
 		}
+		bool boot_args_changed = false;
+		QString boot_err;
+		const QString nvram = QDir( image_dir ).filePath( QStringLiteral( "nvram" ) );
+		if( ! AQ_Apple_SoC_Ensure_Amfi_Boot_Args( nvram, &boot_args_changed, &boot_err ) )
+		{
+			AQDebug( "bool Virtual_Machine::Start_impl()",
+				QStringLiteral( "AMFI boot-args not written: %1" ).arg( boot_err ) );
+		}
+		// Inferno's "Boot Args" line is -append (Kernel command line).
+		// cs_enforcement_disable panics this kernel ("can't has cs_enforcement_disable").
+		{
+			const QString keep = QStringLiteral( "amfi_get_out_of_my_way=1" );
+			const QString drop = QStringLiteral( "cs_enforcement_disable=1" );
+			const QString old_line = Get_Kernel_ComLine();
+			QString line = old_line;
+			bool comline_changed = false;
+			if( line.contains( drop ) )
+			{
+				line.replace( drop, QString() );
+				line = line.simplified();
+				comline_changed = true;
+			}
+			if( ! line.contains( keep ) )
+			{
+				if( ! line.isEmpty() && ! line.endsWith( QLatin1Char( ' ' ) ) )
+					line += QLatin1Char( ' ' );
+				line += keep;
+				comline_changed = true;
+			}
+			if( comline_changed )
+			{
+				Set_Kernel_ComLine( line );
+				Save_VM();
+				const QList<QLineEdit *> edits = QApplication::topLevelWidgets().isEmpty()
+					? QList<QLineEdit *>()
+					: QApplication::instance()->findChildren<QLineEdit *>();
+				for( QLineEdit *edit : edits )
+				{
+					if( ! edit )
+						continue;
+					const QString name = edit->objectName();
+					if( name != QLatin1String( "Edit_App_Kernel_Args" ) &&
+					    name != QLatin1String( "Edit_Linux_Command_Line" ) )
+						continue;
+					if( edit->text() == old_line )
+						edit->setText( line );
+				}
+				AQDebug( "bool Virtual_Machine::Start_impl()",
+					QStringLiteral( "Apple SoC -append now: %1" ).arg( line ) );
+			}
+		}
 	}
 
 	#ifdef Q_OS_WIN32
@@ -11450,13 +11505,19 @@ bool Virtual_Machine::Start_impl()
 		const bool is_reims =
 			Computer_Type.contains( QLatin1String( "reimsvgpu" ), Qt::CaseInsensitive );
 		const bool is_applesoc = AQ_Is_Apple_SoC_VM( this );
-		// qemu-system-applesoc.exe is the Windows iOS binary, and it is TCG only.
-		// KVM stays on the Linux ELF only when /dev/kvm actually works.
+		// qemu-system-applesoc.exe is TCG only. KVM stays on the Linux ELF
+		// only when /dev/kvm actually works.
+		// A USB remote (IPv4 127.0.0.1:8030 or a UNIX socket) is the companion's
+		// usb-tcp-remote, and that socket lives inside WSL. The Windows exe
+		// dials Windows localhost, the phone never enumerates, and iOS never
+		// shows the USB network notification. That launch stays in WSL, still TCG.
+		const bool applesoc_usb_bridge =
+			is_applesoc && ! Get_Apple_USB_Conn_Type().trimmed().isEmpty();
 		if( is_applesoc &&
 		    ! ( Machine_Accelerator == VM::KVM && WSL_Has_KVM() ) )
 		{
 			Machine_Accelerator = VM::TCG;
-			Launch_Via_WSL = false;
+			Launch_Via_WSL = applesoc_usb_bridge;
 		}
 		if( is_reims )
 		{
@@ -11479,7 +11540,7 @@ bool Virtual_Machine::Start_impl()
 		// the Linux Inferno binary because stock Windows QEMU has no usb-tcp-remote.
 		const bool explicit_kvm = ( Machine_Accelerator == VM::KVM );
 		const bool inferno_companion = AQ_VM_Is_Inferno_USB_Companion( this );
-		if( ! is_reims && ! inferno_companion && ! explicit_kvm )
+		if( ! is_reims && ! inferno_companion && ! explicit_kvm && ! applesoc_usb_bridge )
 		{
 			QString win_name = Current_Emulator_Devices.System.QEMU_Name;
 			if( win_name.isEmpty() )

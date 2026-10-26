@@ -310,7 +310,10 @@ class Main_Window: public QMainWindow
 		void Update_Recent_Floppy_Images_List();
         void Computer_Type_Changed();
         void Refresh_Audiodev_Backends();
+        void Refresh_Display_Backends();
+        void Open_Hardware_Browser();
         void Enforce_Accel_Honesty();
+	void Sync_Accelerator_From_Combo();
 	void Enforce_Disk_Bus_Honesty();
 	int Disk_Interface_To_Combo_Index( VM::Device_Interface iface ) const;
 	VM::Device_Interface Combo_Index_To_Disk_Interface( int index ) const;

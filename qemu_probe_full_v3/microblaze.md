@@ -1,8 +1,8 @@
 # QEMU Complete Architecture capability map: `microblaze`
 
 - **Architecture Target:** `microblaze`
-- **Binary Executable:** `C:\Users\chron\CURSOR-PROJECTS\aqemu\build_win\qemu-system-microblaze.exe`
-- **Probed At:** 2026-07-31T08:33:00.077878
+- **Binary Executable:** `C:\Users\chron\CURSOR-PROJECTS\AQEMU\aqemu\third_party\qemu-install-arm64\bin\qemu-system-microblaze.exe`
+- **Probed At:** 2026-10-25T21:37:40.804091
 - **Fallback Machine Used for Context:** `none`
 
 > **INSTRUCTIONS FOR CURSOR AI:** This document contains the verified whitelist of supported flags, boards, CPUs, devices, storage drivers, audio backends, and display renderers for `qemu-system-{arch}`. Use this data as the absolute ground truth to construct and validate VM configuration parameters.
@@ -29,6 +29,7 @@ Total items listed: 2
 ## 3. Supported Devices & Busses (`-device help`)
 
 ```text
+
 Storage devices:
 name "160s33b", bus SSI, desc "Serial Flash"
 name "25csm04", bus SSI, desc "Serial Flash"
@@ -167,6 +168,7 @@ name "w25x32", bus SSI, desc "Serial Flash"
 name "w25x40", bus SSI, desc "Serial Flash"
 name "w25x64", bus SSI, desc "Serial Flash"
 name "w25x80", bus SSI, desc "Serial Flash"
+
 Misc devices:
 name "guest-loader", desc "Guest Loader"
 name "loader", desc "Generic Loader"
@@ -178,8 +180,8 @@ Total items listed: 143
 ## 4. Storage Image Formats (`-drive format=help`)
 
 ```text
-Supported formats: blkdebug blklogwrites blkreplay blkverify bochs cloop compress copy-before-write copy-on-read dmg file ftp ftps host_device http https luks nbd null-aio null-co parallels preallocate qcow qcow2 qed quorum raw replication snapshot-access throttle vdi vhdx vmdk vpc vvfat
-Supported formats (read-only): blkdebug blklogwrites blkreplay blkverify bochs cloop compress copy-before-write copy-on-read dmg file ftp ftps host_device http https luks nbd null-aio null-co parallels preallocate qcow qcow2 qed quorum raw replication snapshot-access throttle vdi vhdx vmdk vpc vvfat
+Supported formats: blkdebug blklogwrites blkreplay blkverify bochs cloop compress copy-before-write copy-on-read dmg file ftp ftps host_device http https iscsi iser luks nbd nfs null-aio null-co parallels preallocate qcow qcow2 qed quorum raw replication snapshot-access ssh throttle vdi vhdx vmdk vpc vvfat
+Supported formats (read-only): blkdebug blklogwrites blkreplay blkverify bochs cloop compress copy-before-write copy-on-read dmg file ftp ftps host_device http https iscsi iser luks nbd nfs null-aio null-co parallels preallocate qcow qcow2 qed quorum raw replication snapshot-access ssh throttle vdi vhdx vmdk vpc vvfat
 ```
 Total items listed: 2
 
@@ -200,7 +202,7 @@ Total items listed: 8
 ## 6. Character Device Backends (`-chardev help`)
 
 ```text
-Available chardev backend types:
+Available chardev backend types: 
   console
   null
   msmouse
@@ -229,14 +231,16 @@ Total items listed: 21
 ```text
 Available display backend types:
 none
+egl-headless
 curses
 spice-app
 dbus
+
 Some display backends support suboptions, which can be set with
    -display backend,option=value,option=value...
 For a short list of the suboptions for each display, see the top-level -help output; more detail is in the documentation.
 ```
-Total items listed: 8
+Total items listed: 9
 
 ## 8. Audio Drivers (`-audiodev help`)
 

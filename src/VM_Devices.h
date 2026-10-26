@@ -451,6 +451,24 @@ class Available_Devices
 		
 		// QEMU Video Cards
 		QList<Device_Map> Video_Card_List;
+
+		// Remaining -device help groups from qemu_probe_full_v3 for this executable.
+		QList<Device_Map> Storage_Device_List;
+		QList<Device_Map> Sound_Device_List;
+		QList<Device_Map> USB_Device_List;
+		QList<Device_Map> Input_Device_List;
+		QList<Device_Map> Controller_Device_List;
+		QList<Device_Map> Misc_Device_List;
+		QList<Device_Map> Watchdog_Device_List;
+		QList<Device_Map> CPU_Device_List;
+		QList<Device_Map> Other_Device_List;
+		QList<Device_Map> Object_Type_List;
+		QStringList Netdev_Backends;
+		QStringList Drive_Formats;
+		QStringList Chardev_Backends;
+		QStringList Display_Backends;
+		QStringList Audio_Backends;
+		QStringList Accelerators;
 		
 		// Platform Specific Options
 		unsigned short PSO_SMP_Count;

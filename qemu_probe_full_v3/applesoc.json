@@ -1,7 +1,7 @@
 {
-  "binary": "qemu-system-applesoc.exe",
+  "binary": "C:\\Users\\chron\\CURSOR-PROJECTS\\AQEMU\\aqemu\\third_party\\qemu-install-arm64\\bin\\qemu-system-applesoc.exe",
   "architecture": "applesoc",
-  "probed_at": "2026-07-31T07:49:22.960945",
+  "probed_at": "2026-10-25T21:37:31.775040",
   "fallback_machine": "t8030",
   "machines": [
     "Supported machines are:",
@@ -543,8 +543,7 @@
     "Supported formats (read-only): blkdebug blklogwrites blkreplay blkverify bochs cloop compress copy-before-write copy-on-read dmg file ftp ftps host_device http https luks nbd null-aio null-co parallels preallocate qcow qcow2 qed quorum raw replication snapshot-access throttle vdi vhdx vmdk vpc vvfat"
   ],
   "chardev_backends": [
-    "Available chardev backend types:",
-    "  spiceport",
+    "Available chardev backend types: ",
     "  msmouse",
     "  memory",
     "  socket",
@@ -560,7 +559,6 @@
     "  qemu-vdagent",
     "  wctablet",
     "  vc",
-    "  spicevmc",
     "  null",
     "  pipe",
     "  stdio"
@@ -568,11 +566,8 @@
   "display_backends": [
     "Available display backend types:",
     "none",
-    "gtk",
-    "sdl",
     "egl-headless",
     "curses",
-    "spice-app",
     "dbus",
     "Some display backends support suboptions, which can be set with",
     "   -display backend,option=value,option=value...",
@@ -583,8 +578,6 @@
     "none",
     "dbus",
     "dsound",
-    "sdl",
-    "spice",
     "wav"
   ],
   "object_types": [
@@ -626,9 +619,9 @@
     "accelerators": "Accelerators supported in QEMU binary:\ntcg\n",
     "netdev": "Available netdev backend types:\nsocket\nstream\ndgram\nhubport\ntap\npasst\nuser\n",
     "drive_formats": "Supported formats: blkdebug blklogwrites blkreplay blkverify bochs cloop compress copy-before-write copy-on-read dmg file ftp ftps host_device http https luks nbd null-aio null-co parallels preallocate qcow qcow2 qed quorum raw replication snapshot-access throttle vdi vhdx vmdk vpc vvfat\nSupported formats (read-only): blkdebug blklogwrites blkreplay blkverify bochs cloop compress copy-before-write copy-on-read dmg file ftp ftps host_device http https luks nbd null-aio null-co parallels preallocate qcow qcow2 qed quorum raw replication snapshot-access throttle vdi vhdx vmdk vpc vvfat\n",
-    "chardev_backends": "Available chardev backend types: \n  spiceport\n  msmouse\n  memory\n  socket\n  console\n  serial\n  mux\n  file\n  dbus\n  ringbuf\n  udp\n  testdev\n  hub\n  qemu-vdagent\n  wctablet\n  vc\n  spicevmc\n  null\n  pipe\n  stdio\n",
-    "display": "Available display backend types:\nnone\ngtk\nsdl\negl-headless\ncurses\nspice-app\ndbus\n\nSome display backends support suboptions, which can be set with\n   -display backend,option=value,option=value...\nFor a short list of the suboptions for each display, see the top-level -help output; more detail is in the documentation.\n",
-    "audio": "Available audio drivers:\nnone\ndbus\ndsound\nsdl\nspice\nwav\n",
+    "chardev_backends": "Available chardev backend types: \n  msmouse\n  memory\n  socket\n  console\n  serial\n  mux\n  file\n  dbus\n  ringbuf\n  udp\n  testdev\n  hub\n  qemu-vdagent\n  wctablet\n  vc\n  null\n  pipe\n  stdio\n",
+    "display": "Available display backend types:\nnone\negl-headless\ncurses\ndbus\n\nSome display backends support suboptions, which can be set with\n   -display backend,option=value,option=value...\nFor a short list of the suboptions for each display, see the top-level -help output; more detail is in the documentation.\n",
+    "audio": "Available audio drivers:\nnone\ndbus\ndsound\nwav\n",
     "objects": "List of user creatable objects:\n  acpi-generic-initiator\n  acpi-generic-port\n  authz-list\n  authz-list-file\n  authz-simple\n  can-bus\n  colo-compare\n  cryptodev-backend\n  cryptodev-backend-builtin\n  dbus-display\n  dbus-vmstate\n  filter-buffer\n  filter-dump\n  filter-mirror\n  filter-redirector\n  filter-replay\n  filter-rewriter\n  input-barrier\n  iothread\n  main-loop\n  memory-backend-ram\n  rng-builtin\n  rng-egd\n  secret\n  throttle-group\n  tls-cipher-suites\n  tls-creds-anon\n  tls-creds-psk\n  tls-creds-x509\n"
   }
 }

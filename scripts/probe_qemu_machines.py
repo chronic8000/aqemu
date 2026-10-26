@@ -319,6 +319,7 @@ def run_help(binary: Path, args: List[str], timeout: float = 20.0) -> Tuple[int,
             [str(binary)] + args,
             capture_output=True, text=True, encoding="utf-8", errors="replace",
             timeout=timeout, check=False,
+            cwd=str(binary.parent),
         )
         out = (proc.stdout or "") + (("\n" + proc.stderr) if proc.stderr else "")
         return proc.returncode, out

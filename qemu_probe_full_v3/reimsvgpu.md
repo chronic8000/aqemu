@@ -1,14 +1,11 @@
 # QEMU Complete Architecture capability map: `reimsvgpu`
 
-- **Architecture Target:** `reimsvgpu` (AQEMU label)
-- **Binary Executable:** `qemu-system-reimsvgpu.exe` (local Windows probe — **incomplete**; no `reims-vgpu-pci`)
-- **Real acceleration path:** Linux `qemu-system-reims3d` under WSL (not this PE)
-- **Probed At:** 2026-07-31T08:33:05.000335
+- **Architecture Target:** `reimsvgpu`
+- **Binary Executable:** `C:\Users\chron\CURSOR-PROJECTS\AQEMU\aqemu\third_party\qemu-install-arm64\bin\qemu-system-reimsvgpu.exe`
+- **Probed At:** 2026-10-25T21:37:49.347280
 - **Fallback Machine Used for Context:** `none`
 
-> **NOTE:** Treat this Windows PE probe as non-authoritative for Reims graphics. Production launches must use WSL `qemu-system-reims3d`.
-
-> **INSTRUCTIONS FOR CURSOR AI:** This document contains a probe snapshot. Prefer live `-device help` / `-machine help` from the binary you ship; do not assume `reims-vgpu-pci` exists on the Windows helper.
+> **INSTRUCTIONS FOR CURSOR AI:** This document contains the verified whitelist of supported flags, boards, CPUs, devices, storage drivers, audio backends, and display renderers for `qemu-system-{arch}`. Use this data as the absolute ground truth to construct and validate VM configuration parameters.
 
 ## 1. Supported Machines (`-machine help`)
 
@@ -18,7 +15,7 @@ microvm              microvm (i386)
 pc-i440fx-9.2        Standard PC (i440FX + PIIX, 1996)
 pc-i440fx-9.1        Standard PC (i440FX + PIIX, 1996)
 pc-i440fx-9.0        Standard PC (i440FX + PIIX, 1996)
-pc-i440fx-8.2        Standard PC (i440FX + PIIX, 1996)
+pc-i440fx-8.2        Standard PC (i440FX + PIIX, 1996) (deprecated)
 pc-i440fx-8.1        Standard PC (i440FX + PIIX, 1996) (deprecated)
 pc-i440fx-8.0        Standard PC (i440FX + PIIX, 1996) (deprecated)
 pc-i440fx-7.2        Standard PC (i440FX + PIIX, 1996) (deprecated)
@@ -27,9 +24,9 @@ pc-i440fx-7.0        Standard PC (i440FX + PIIX, 1996) (deprecated)
 pc-i440fx-6.2        Standard PC (i440FX + PIIX, 1996) (deprecated)
 pc-i440fx-6.1        Standard PC (i440FX + PIIX, 1996) (deprecated)
 pc-i440fx-6.0        Standard PC (i440FX + PIIX, 1996) (deprecated)
-pc-i440fx-5.2        Standard PC (i440FX + PIIX, 1996) (deprecated)
-pc                   Standard PC (i440FX + PIIX, 1996) (alias of pc-i440fx-11.1)
-pc-i440fx-11.1       Standard PC (i440FX + PIIX, 1996) (default)
+pc                   Standard PC (i440FX + PIIX, 1996) (alias of pc-i440fx-11.2)
+pc-i440fx-11.2       Standard PC (i440FX + PIIX, 1996) (default)
+pc-i440fx-11.1       Standard PC (i440FX + PIIX, 1996)
 pc-i440fx-11.0       Standard PC (i440FX + PIIX, 1996)
 pc-i440fx-10.2       Standard PC (i440FX + PIIX, 1996)
 pc-i440fx-10.1       Standard PC (i440FX + PIIX, 1996)
@@ -37,7 +34,7 @@ pc-i440fx-10.0       Standard PC (i440FX + PIIX, 1996)
 pc-q35-9.2           Standard PC (Q35 + ICH9, 2009)
 pc-q35-9.1           Standard PC (Q35 + ICH9, 2009)
 pc-q35-9.0           Standard PC (Q35 + ICH9, 2009)
-pc-q35-8.2           Standard PC (Q35 + ICH9, 2009)
+pc-q35-8.2           Standard PC (Q35 + ICH9, 2009) (deprecated)
 pc-q35-8.1           Standard PC (Q35 + ICH9, 2009) (deprecated)
 pc-q35-8.0           Standard PC (Q35 + ICH9, 2009) (deprecated)
 pc-q35-7.2           Standard PC (Q35 + ICH9, 2009) (deprecated)
@@ -46,8 +43,8 @@ pc-q35-7.0           Standard PC (Q35 + ICH9, 2009) (deprecated)
 pc-q35-6.2           Standard PC (Q35 + ICH9, 2009) (deprecated)
 pc-q35-6.1           Standard PC (Q35 + ICH9, 2009) (deprecated)
 pc-q35-6.0           Standard PC (Q35 + ICH9, 2009) (deprecated)
-pc-q35-5.2           Standard PC (Q35 + ICH9, 2009) (deprecated)
-q35                  Standard PC (Q35 + ICH9, 2009) (alias of pc-q35-11.1)
+q35                  Standard PC (Q35 + ICH9, 2009) (alias of pc-q35-11.2)
+pc-q35-11.2          Standard PC (Q35 + ICH9, 2009)
 pc-q35-11.1          Standard PC (Q35 + ICH9, 2009)
 pc-q35-11.0          Standard PC (Q35 + ICH9, 2009)
 pc-q35-10.2          Standard PC (Q35 + ICH9, 2009)
@@ -63,7 +60,7 @@ Total items listed: 42
 ```text
 Available CPUs:
   486                   (alias configured by machine type)
-  486-v1
+  486-v1                
   Broadwell             (alias configured by machine type)
   Broadwell-IBRS        (alias of Broadwell-v3)
   Broadwell-noTSX       (alias of Broadwell-v2)
@@ -237,11 +234,11 @@ Available CPUs:
   n270                  (alias configured by machine type)
   n270-v1               Intel(R) Atom(TM) CPU N270   @ 1.60GHz
   pentium               (alias configured by machine type)
-  pentium-v1
+  pentium-v1            
   pentium2              (alias configured by machine type)
-  pentium2-v1
+  pentium2-v1           
   pentium3              (alias configured by machine type)
-  pentium3-v1
+  pentium3-v1           
   phenom                (alias configured by machine type)
   phenom-v1             AMD Phenom(tm) 9550 Quad-Core Processor
   qemu32                (alias configured by machine type)
@@ -249,8 +246,8 @@ Available CPUs:
   qemu64                (alias configured by machine type)
   qemu64-v1             QEMU Virtual CPU version 2.5+
   base                  base CPU model type with no features enabled
-  host                  processor with all supported host features
   max                   Enables all features supported by the accelerator in the current host
+
 Recognized CPUID flags:
   3dnow 3dnowext 3dnowprefetch abm ace2 ace2-en acpi adx aes amd-no-ssb
   amd-psfd amd-ssbd amd-stibp amx-avx512 amx-bf16 amx-bf16-alias
@@ -320,7 +317,7 @@ Recognized CPUID flags:
   xgetbv1 xop xsave xsavec xsaveerptr xsaveopt xsaves xstore xstore-en xtpr
   zero-fcs-fds
 ```
-Total items listed: 258
+Total items listed: 257
 
 ## 3. Supported Devices & Busses (`-device help`)
 
@@ -342,6 +339,7 @@ name "usb-host", bus usb-bus
 name "usb-hub", bus usb-bus
 name "x3130-upstream", bus PCI, desc "TI X3130 Upstream Port of PCI Express Switch"
 name "xio3130-downstream", bus PCI, desc "TI X3130 Downstream Port of PCI Express Switch"
+
 USB devices:
 name "ich9-usb-ehci1", bus PCI
 name "ich9-usb-ehci2", bus PCI
@@ -357,6 +355,7 @@ name "piix3-usb-uhci", bus PCI
 name "piix4-usb-uhci", bus PCI
 name "qemu-xhci", bus PCI
 name "usb-ehci", bus PCI
+
 Storage devices:
 name "am53c974", bus PCI, desc "AMD Am53c974 PCscsi-PCI SCSI adapter"
 name "cxl-type3", bus PCI, desc "CXL Memory Device (Type 3)"
@@ -399,6 +398,7 @@ name "virtio-scsi-device", bus virtio-bus
 name "virtio-scsi-pci", bus PCI, alias "virtio-scsi"
 name "virtio-scsi-pci-non-transitional", bus PCI
 name "virtio-scsi-pci-transitional", bus PCI
+
 Network devices:
 name "e1000", bus PCI, alias "e1000-82540em", desc "Intel Gigabit Ethernet"
 name "e1000-82544gc", bus PCI, desc "Intel Gigabit Ethernet"
@@ -430,6 +430,7 @@ name "virtio-net-pci", bus PCI, alias "virtio-net"
 name "virtio-net-pci-non-transitional", bus PCI
 name "virtio-net-pci-transitional", bus PCI
 name "vmxnet3", bus PCI, desc "VMWare Paravirtualized Ethernet v3"
+
 Input devices:
 name "ccid-card-emulated", bus ccid-bus, desc "emulated smartcard"
 name "ccid-card-passthru", bus ccid-bus, desc "passthrough smartcard"
@@ -447,6 +448,7 @@ name "usb-kbd", bus usb-bus
 name "usb-mouse", bus usb-bus
 name "usb-serial", bus usb-bus
 name "usb-tablet", bus usb-bus
+name "usb-vmapple-tablet", bus usb-bus, desc "USB tablet of Virtualization.framework's macOS guests"
 name "usb-wacom-tablet", bus usb-bus, desc "QEMU PenPartner Tablet"
 name "virtconsole", bus virtio-serial-bus
 name "virtio-keyboard-device", bus virtio-bus
@@ -463,21 +465,23 @@ name "virtio-tablet-device", bus virtio-bus
 name "virtio-tablet-pci", bus PCI, alias "virtio-tablet"
 name "virtserialport", bus virtio-serial-bus
 name "vmmouse", bus ISA
+
 Display devices:
+name "apple-gfx-pci", bus PCI, desc "macOS Paravirtualized Graphics PCI Display Controller"
 name "ati-vga", bus PCI
 name "bochs-display", bus PCI
 name "cirrus-vga", bus PCI, desc "Cirrus CLGD 54xx VGA"
 name "isa-cirrus-vga", bus ISA
 name "isa-vga", bus ISA
-name "qxl", bus PCI, desc "Spice QXL GPU (secondary)"
-name "qxl-vga", bus PCI, desc "Spice QXL GPU (primary, vga compatible)"
 name "ramfb", bus System, desc "ram framebuffer standalone device"
+name "reims-vgpu-pci", bus PCI, desc "macOS Paravirtualized Graphics PCI Display Controller"
 name "secondary-vga", bus PCI
 name "VGA", bus PCI
 name "virtio-gpu-device", bus virtio-bus
 name "virtio-gpu-pci", bus PCI, alias "virtio-gpu"
 name "virtio-vga", bus PCI
 name "vmware-svga", bus PCI
+
 Sound devices:
 name "AC97", bus PCI, alias "ac97", desc "Intel 82801AA AC97 Audio"
 name "adlib", bus ISA, desc "Yamaha YM3812 (OPL2)"
@@ -493,6 +497,7 @@ name "sb16", bus ISA, desc "Creative Sound Blaster 16"
 name "usb-audio", bus usb-bus
 name "virtio-sound-device", bus virtio-bus
 name "virtio-sound-pci", bus PCI, alias "virtio-sound", desc "Virtio Sound"
+
 Misc devices:
 name "acpi-erst", bus PCI, desc "ACPI Error Record Serialization Table (ERST) device"
 name "amd-iommu", bus System, desc "AMD IOMMU (AMD-Vi) DMA Remapping device"
@@ -538,6 +543,7 @@ name "virtio-rtc-pci", bus PCI
 name "vmclock"
 name "vmcoreinfo"
 name "vmgenid"
+
 CPU devices:
 name "486-v1-x86_64-cpu"
 name "486-x86_64-cpu"
@@ -626,7 +632,6 @@ name "Haswell-v2-x86_64-cpu"
 name "Haswell-v3-x86_64-cpu"
 name "Haswell-v4-x86_64-cpu"
 name "Haswell-x86_64-cpu"
-name "host-x86_64-cpu"
 name "Icelake-Server-noTSX-x86_64-cpu"
 name "Icelake-Server-v1-x86_64-cpu"
 name "Icelake-Server-v2-x86_64-cpu"
@@ -728,9 +733,11 @@ name "YongFeng-v1-x86_64-cpu"
 name "YongFeng-v2-x86_64-cpu"
 name "YongFeng-v3-x86_64-cpu"
 name "YongFeng-x86_64-cpu"
+
 Watchdog devices:
 name "i6300esb", bus PCI, desc "Intel 6300ESB"
 name "ib700", bus ISA, desc "iBASE 700"
+
 Uncategorized devices:
 name "cxl-switch-mailbox-cci", bus PCI, desc "CXL Switch Mailbox CCI"
 name "ipmi-bmc-extern"
@@ -769,9 +776,8 @@ Total items listed: 7
 ## 6. Character Device Backends (`-chardev help`)
 
 ```text
-Available chardev backend types:
+Available chardev backend types: 
   ringbuf
-  spicevmc
   mux
   pipe
   qemu-vdagent
@@ -780,7 +786,6 @@ Available chardev backend types:
   msmouse
   console
   socket
-  spiceport
   vc
   dbus
   memory
@@ -791,24 +796,22 @@ Available chardev backend types:
   stdio
   testdev
 ```
-Total items listed: 21
+Total items listed: 19
 
 ## 7. Display Backends (`-display help`)
 
 ```text
 Available display backend types:
 none
-gtk
-sdl
 egl-headless
 curses
-spice-app
 dbus
+
 Some display backends support suboptions, which can be set with
    -display backend,option=value,option=value...
 For a short list of the suboptions for each display, see the top-level -help output; more detail is in the documentation.
 ```
-Total items listed: 11
+Total items listed: 8
 
 ## 8. Audio Drivers (`-audiodev help`)
 
@@ -817,20 +820,17 @@ Available audio drivers:
 none
 dbus
 dsound
-sdl
-spice
 wav
 ```
-Total items listed: 7
+Total items listed: 5
 
 ## 9. Accelerators (`-accel help`)
 
 ```text
 Accelerators supported in QEMU binary:
 tcg
-whpx
 ```
-Total items listed: 3
+Total items listed: 2
 
 ## 10. User Objects (`-object help`)
 

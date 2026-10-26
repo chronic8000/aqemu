@@ -224,6 +224,157 @@ QString AQ_Apple_SoC_QEMU_Log_Path( const Virtual_Machine *vm )
 	return QDir( AQ_Apple_SoC_Image_Dir( vm ) ).filePath( QStringLiteral( "qemu-boot.log" ) );
 }
 
+static quint32 NVRAM_Adler32( const uchar *buf, int len )
+{
+	const quint32 base = 65521;
+	quint32 s1 = 1;
+	quint32 s2 = 0;
+	for( int i = 0; i < len; ++i )
+	{
+		s1 += buf[ i ];
+		if( s1 >= base )
+			s1 -= base;
+		s2 += s1;
+		if( s2 >= base )
+			s2 -= base;
+	}
+	return ( s2 << 16 ) | s1;
+}
+
+bool AQ_Apple_SoC_Ensure_Amfi_Boot_Args( const QString &nvram_path,
+                                         bool *changed,
+                                         QString *error_out )
+{
+	if( changed )
+		*changed = false;
+
+	auto fail = [ & ]( const QString &msg ) {
+		if( error_out )
+			*error_out = msg;
+		return false;
+	};
+
+	QFile f( nvram_path );
+	if( ! f.exists() )
+		return fail( QStringLiteral( "nvram image is missing." ) );
+	if( ! f.open( QIODevice::ReadOnly ) )
+		return fail( QStringLiteral( "could not read the nvram image." ) );
+	QByteArray img = f.readAll();
+	f.close();
+
+	const int bank = 8192;
+	if( img.size() < bank || static_cast<uchar>( img.at( 0 ) ) != 0x5A )
+		return fail( QStringLiteral( "nvram image is not an Apple CHRP bank." ) );
+	if( static_cast<uchar>( img.at( 0x20 ) ) != 0x70 )
+		return fail( QStringLiteral( "nvram image has no common partition." ) );
+	if( img.mid( 0x24, 6 ) != QByteArray( "common" ) )
+		return fail( QStringLiteral( "nvram common partition name is unexpected." ) );
+
+	const int blocks = static_cast<uchar>( img.at( 0x22 ) )
+		| ( static_cast<uchar>( img.at( 0x23 ) ) << 8 );
+	const int part_bytes = blocks * 16;
+	const int part_off = 0x20;
+	const int data_off = part_off + 16;
+	const int part_end = part_off + part_bytes;
+	if( blocks < 2 || part_end > bank || data_off >= part_end )
+		return fail( QStringLiteral( "nvram common partition does not fit the bank." ) );
+
+	const QByteArray flag1( "amfi_get_out_of_my_way=1" );
+	// This kernel panics with "can't has cs_enforcement_disable" if that
+	// boot-arg is present. amfi_get_out_of_my_way is the one it accepts.
+	const QByteArray banned( "cs_enforcement_disable=1" );
+	int rec = data_off;
+	int boot_at = -1;
+	int boot_end = -1;
+	while( rec < part_end && img.at( rec ) != '\0' )
+	{
+		int end = rec;
+		while( end < part_end && img.at( end ) != '\0' )
+			++end;
+		if( end >= part_end )
+			break;
+		if( img.mid( rec, end - rec ).startsWith( "boot-args=" ) )
+		{
+			boot_at = rec;
+			boot_end = end;
+			break;
+		}
+		rec = end + 1;
+	}
+	if( boot_at < 0 )
+		return fail( QStringLiteral( "nvram common partition has no boot-args variable." ) );
+
+	QByteArray value = img.mid( boot_at + int( strlen( "boot-args=" ) ),
+		boot_end - ( boot_at + int( strlen( "boot-args=" ) ) ) );
+	QByteArray next;
+	bool has_amfi = false;
+	for( const QByteArray &part : value.split( ' ' ) )
+	{
+		if( part.isEmpty() || part == banned )
+			continue;
+		if( part == flag1 )
+			has_amfi = true;
+		if( ! next.isEmpty() )
+			next.append( ' ' );
+		next.append( part );
+	}
+	if( ! has_amfi )
+	{
+		if( ! next.isEmpty() )
+			next.append( ' ' );
+		next.append( flag1 );
+	}
+	if( next == value )
+		return true;
+	value = next;
+
+	QByteArray neu = QByteArray( "boot-args=" ) + value;
+	neu.append( '\0' );
+	const int old_len = ( boot_end - boot_at ) + 1;
+	const int delta = neu.size() - old_len;
+	if( delta > 0 && ( part_end - ( boot_end + 1 ) ) < delta )
+		return fail( QStringLiteral( "nvram common partition has no room for boot-args." ) );
+
+	char *raw = img.data();
+	if( delta > 0 )
+	{
+		const int tail = part_end - ( boot_end + 1 ) - delta;
+		memmove( raw + boot_end + 1 + delta,
+			raw + boot_end + 1,
+			size_t( tail ) );
+	}
+	else if( delta < 0 )
+	{
+		const int tail = part_end - ( boot_end + 1 );
+		memmove( raw + boot_at + neu.size(),
+			raw + boot_end + 1,
+			size_t( tail ) );
+		memset( raw + part_end + delta, 0, size_t( -delta ) );
+	}
+	memcpy( raw + boot_at, neu.constData(), size_t( neu.size() ) );
+
+	const quint32 sum = NVRAM_Adler32(
+		reinterpret_cast<const uchar *>( img.constData() + 0x14 ), bank - 0x14 );
+	img[ 16 ] = char( sum & 0xff );
+	img[ 17 ] = char( ( sum >> 8 ) & 0xff );
+	img[ 18 ] = char( ( sum >> 16 ) & 0xff );
+	img[ 19 ] = char( ( sum >> 24 ) & 0xff );
+
+	if( ! f.open( QIODevice::WriteOnly ) )
+		return fail( QStringLiteral( "could not write the nvram image. Power Off iOS and try again." ) );
+	if( f.write( img ) != img.size() )
+	{
+		f.close();
+		return fail( QStringLiteral( "short write on the nvram image." ) );
+	}
+	f.close();
+	if( changed )
+		*changed = true;
+	AQDebug( "AQ_Apple_SoC_Ensure_Amfi_Boot_Args",
+		QStringLiteral( "boot-args=%1" ).arg( QString::fromLatin1( value ) ) );
+	return true;
+}
+
 static bool Ensure_Raw_Image( const QString &path, qint64 size_bytes, QString *error_out )
 {
 	QFileInfo fi( path );

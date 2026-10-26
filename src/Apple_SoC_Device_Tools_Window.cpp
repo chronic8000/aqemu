@@ -1,5 +1,6 @@
 #include "Apple_SoC_Device_Tools_Window.h"
 
+#include "Apple_SoC_FS_Patch_Window.h"
 #include "Apple_SoC_Support.h"
 #include "Utils.h"
 #include "VM.h"
@@ -59,127 +60,30 @@ QString Companion_Ensure_Ideviceinstaller()
 }
 
 
-/** Ensure zsign is available on the companion — builds from pinned source if needed. */
-QString Companion_Ensure_Zsign()
+// MODE=3 is CDC ethernet (guest internet). ideviceinstaller needs MODE=1.
+// Drop-ins are removed in pairs so a leftover restore file cannot win.
+QString Companion_Usbmux_Mode( int mode, const QString &password_quoted )
 {
-	// Pin to a known commit (matches ZSIGN_VERSION from prior successful companion builds).
-	// No releases/latest binary download — that URL is mutable and unsigned.
+	const bool ethernet = ( mode == 3 );
+	const QString write = ethernet
+		? QStringLiteral(
+			"rm -f /etc/systemd/system/usbmuxd.service.d/aqemu-restore-mode1.conf; "
+			"printf '%s\\n' '[Service]' 'Environment=USBMUXD_DEFAULT_DEVICE_MODE=3' "
+			"> /etc/systemd/system/usbmuxd.service.d/aqemu-mode3.conf" )
+		: QStringLiteral(
+			"rm -f /etc/systemd/system/usbmuxd.service.d/aqemu-mode3.conf; "
+			"printf '%s\\n' '[Service]' 'Environment=USBMUXD_DEFAULT_DEVICE_MODE=1' "
+			"> /etc/systemd/system/usbmuxd.service.d/aqemu-restore-mode1.conf" );
 	return QStringLiteral(
-		"if ! command -v zsign >/dev/null 2>&1; then "
-		"  sudo -n apt-get install -y -qq zsign 2>/dev/null || true; "
-		"fi; "
-		"if ! command -v zsign >/dev/null 2>&1; then "
-		"  echo 'zsign not found - building from pinned source (one-time, ~60s)...'; "
-		"  sudo -n apt-get install -y -qq git make g++ libssl-dev libminizip-dev 2>/dev/null || "
-		"    sudo apt-get install -y -qq git make g++ libssl-dev libminizip-dev 2>/dev/null || true; "
-		"  _ZS=$(mktemp -d); "
-		"  git init \"$_ZS/zsign\" >/dev/null 2>&1; "
-		"  git -C \"$_ZS/zsign\" remote add origin https://github.com/zhlynn/zsign.git; "
-		"  if ! git -C \"$_ZS/zsign\" fetch --depth 1 origin e803f87 2>&1; then "
-		"    echo ERROR: could not fetch pinned zsign commit e803f87.; "
-		"    rm -rf \"$_ZS\"; exit 127; "
-		"  fi; "
-		"  git -C \"$_ZS/zsign\" checkout --detach FETCH_HEAD >/dev/null 2>&1; "
-		"  cd \"$_ZS/zsign/build/linux\" 2>/dev/null || { echo ERROR: zsign source layout unexpected; rm -rf \"$_ZS\"; exit 127; }; "
-		"  make -j$(nproc) 2>&1 | grep -vE '^(In file|\\^|note:)' || true; "
-		"  _ZS_BIN=$(find \"$_ZS/zsign\" -name zsign -type f -perm /111 2>/dev/null | head -1); "
-		"  if [ -n \"$_ZS_BIN\" ]; then "
-		"    sudo mv \"$_ZS_BIN\" /usr/local/bin/zsign && echo 'zsign installed'; "
-		"  else "
-		"    echo ERROR: zsign build failed.; "
-		"    cd / && rm -rf \"$_ZS\"; "
-		"    exit 127; "
-		"  fi; "
-		"  cd / && rm -rf \"$_ZS\"; "
-		"fi; "
-		"if ! command -v zsign >/dev/null 2>&1; then "
-		"  echo ERROR: zsign could not be installed on companion.; "
-		"  echo 'Please install zsign manually: https://github.com/zhlynn/zsign'; "
-		"  exit 127; "
-		"fi; " );
-}
-
-/**
- * Adhoc-sign an IPA with zsign, producing a proper CMS blob that installd accepts.
- * zsign generates a self-signed certificate + CMS structure, unlike ldid which only
- * writes hash data without a CMS wrapper. installd on iOS 14 requires the CMS blob.
- * Exits non-zero if signing fails so ideviceinstaller is not run on an unsigned IPA.
- */
-QString Companion_Zsign_IPA( const QString &remote_ipa )
-{
-	const QString q = Shell_Quote( remote_ipa );
-	return QStringLiteral(
-		"echo 'Signing IPA with zsign (adhoc CMS)...'; "
-		"_CERTDIR=$(mktemp -d); "
-		/* A lone self-signed leaf has no CA in the p12. This zsign then looks
-		   up the issuer hash in its embedded Apple WWDR list and aborts with
-		   "Unknown issuer hash". A local CA that actually issued the leaf is
-		   stored in the p12 so GenerateCMS embeds that chain instead. */
-		"if ! openssl req -x509 -newkey rsa:2048 -quiet "
-		"  -keyout \"$_CERTDIR/ca.key\" -out \"$_CERTDIR/ca.pem\" "
-		"  -days 3650 -nodes "
-		"  -subj '/CN=AQEMU Adhoc CA/O=AQEMU/C=US' "
-		"  -addext 'basicConstraints=critical,CA:TRUE' "
-		"  -addext 'keyUsage=critical,keyCertSign,cRLSign'; then "
-		"  rm -rf \"$_CERTDIR\"; echo ERROR: could not create the adhoc CA.; exit 1; "
-		"fi; "
-		"if ! openssl req -newkey rsa:2048 -nodes -quiet "
-		"  -keyout \"$_CERTDIR/key.pem\" -out \"$_CERTDIR/leaf.csr\" "
-		"  -subj '/CN=AQEMU Adhoc/O=AQEMU/C=US'; then "
-		"  rm -rf \"$_CERTDIR\"; echo ERROR: could not create the adhoc leaf key.; exit 1; "
-		"fi; "
-		"if ! openssl x509 -req -in \"$_CERTDIR/leaf.csr\" "
-		"  -CA \"$_CERTDIR/ca.pem\" -CAkey \"$_CERTDIR/ca.key\" -CAcreateserial "
-		"  -out \"$_CERTDIR/cert.pem\" -days 3650; then "
-		"  rm -rf \"$_CERTDIR\"; echo ERROR: could not sign the adhoc leaf.; exit 1; "
-		"fi; "
-		"if ! openssl pkcs12 -export -out \"$_CERTDIR/cert.p12\" "
-		"  -inkey \"$_CERTDIR/key.pem\" -in \"$_CERTDIR/cert.pem\" "
-		"  -certfile \"$_CERTDIR/ca.pem\" -passout pass:aqemu; then "
-		"  rm -rf \"$_CERTDIR\"; echo ERROR: could not pack the adhoc p12.; exit 1; "
-		"fi; "
-		"cat > \"$_CERTDIR/fake.mobileprovision\" << 'PROVEOF'\n"
-		"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
-		"<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n"
-		"<plist version=\"1.0\"><dict>\n"
-		"  <key>AppIDName</key><string>AQEMU Adhoc</string>\n"
-		"  <key>ApplicationIdentifierPrefix</key><array><string>AQEMUADHOC</string></array>\n"
-		"  <key>TeamIdentifier</key><array><string>AQEMUADHOC</string></array>\n"
-		"  <key>Entitlements</key><dict>\n"
-		"    <key>application-identifier</key><string>AQEMUADHOC.*</string>\n"
-		"    <key>get-task-allow</key><true/>\n"
-		"  </dict>\n"
-		"  <key>ExpirationDate</key><date>2099-01-01T00:00:00Z</date>\n"
-		"  <key>Name</key><string>AQEMU Adhoc Profile</string>\n"
-		"  <key>UUID</key><string>AQEMU000-0000-0000-0000-AQEMU0000000</string>\n"
-		"  <key>Version</key><integer>1</integer>\n"
-		"</dict></plist>\n"
-		"PROVEOF\n"
-		/* zsign reads TeamIdentifier from a CMS-signed profile. A raw plist
-		   makes d2i_CMS_bio fail and prints "Can't find TeamId!". */
-		"if ! openssl cms -sign -binary "
-		"  -in \"$_CERTDIR/fake.mobileprovision\" "
-		"  -signer \"$_CERTDIR/cert.pem\" -inkey \"$_CERTDIR/key.pem\" "
-		"  -nodetach -outform DER -out \"$_CERTDIR/fake.mobileprovision.cms\"; then "
-		"  rm -rf \"$_CERTDIR\"; "
-		"  echo ERROR: could not CMS-sign the adhoc profile.; exit 1; "
-		"fi; "
-		"mv \"$_CERTDIR/fake.mobileprovision.cms\" \"$_CERTDIR/fake.mobileprovision\"; "
-		"_ZS_OUT=$(mktemp /tmp/aqemu-signed-XXXXXX.ipa); "
-		"echo 'Re-packing without extra compression so the archive can finish.'; "
-		"if ! zsign -c \"$_CERTDIR/cert.pem\" -k \"$_CERTDIR/cert.p12\" -p aqemu "
-		"  -m \"$_CERTDIR/fake.mobileprovision\" "
-		"  -o \"$_ZS_OUT\" -z 0 '%1' 2>&1; then "
-		"  rm -f \"$_ZS_OUT\"; rm -rf \"$_CERTDIR\"; "
-		"  echo ERROR: zsign failed.; exit 1; "
-		"fi; "
-		"if [ ! -s \"$_ZS_OUT\" ]; then "
-		"  rm -f \"$_ZS_OUT\"; rm -rf \"$_CERTDIR\"; "
-		"  echo ERROR: zsign produced empty output.; exit 1; "
-		"fi; "
-		"mv \"$_ZS_OUT\" '%1'; "
-		"rm -rf \"$_CERTDIR\"; "
-		"echo 'zsign complete.'; " ).arg( q );
+		"echo '%1' | sudo -S -p '' bash -c \""
+		"mkdir -p /etc/systemd/system/usbmuxd.service.d && %2\"; "
+		"echo '%1' | sudo -S -p '' systemctl daemon-reload; "
+		"echo '%1' | sudo -S -p '' systemctl restart usbmuxd "
+		"  || echo '%1' | sudo -S -p '' service usbmuxd restart; "
+		"sleep 2; "
+		"echo usbmuxd_active=$(systemctl is-active usbmuxd 2>/dev/null || echo unknown); "
+		"grep -R USBMUXD_DEFAULT_DEVICE_MODE /etc/systemd/system/usbmuxd.service.d 2>/dev/null || true; " )
+		.arg( password_quoted, write );
 }
 
 } // namespace
@@ -253,7 +157,7 @@ Apple_SoC_Device_Tools_Window::Apple_SoC_Device_Tools_Window( Virtual_Machine *v
 		"<ol>"
 		"<li><code>usbmuxd</code> with <code>USBMUXD_DEFAULT_DEVICE_MODE=3</code></li>"
 		"<li>NetworkManager <b>Shared</b> on USB/NCM ethernet (not the companion's main NIC)</li>"
-		"<li>Checks <code>idevice_id</code> can see the iPhone guest</li>"
+		"<li>Shares that USB ethernet. <code>idevice_id</code> stays empty in this mode</li>"
 		"</ol>"
 		"<p>Then open Safari / App Store on the guest. "
 		"(ChefKiss <a href=\"https://github.com/ChefKissInc/Inferno/discussions/192\">#192</a>)</p>" ) );
@@ -308,22 +212,17 @@ Apple_SoC_Device_Tools_Window::Apple_SoC_Device_Tools_Window( Virtual_Machine *v
 	devBtns->addStretch();
 	devLay->addLayout( devBtns );
 
-	Chk_Sign_IPA = new QCheckBox( tr( "Adhoc-sign IPA before install (zsign) — required for unsigned / sideloaded IPAs" ) );
-	Chk_Sign_IPA->setChecked( true );
-	Chk_Sign_IPA->setToolTip( tr(
-		"Uses zsign on the companion to re-sign the IPA with a self-signed adhoc certificate.\n"
-		"zsign produces a proper CMS/PKCS7 code signature that installd accepts on iOS 14.\n"
-		"Unlike ldid, zsign generates the full CMS blob required by MICodeSigningVerifier.\n"
-		"zsign is auto-built on the companion on first use (~60 seconds, one-time).\n"
-		"Required for IPAs without a valid Apple code signature (e.g. UTM, emulators, custom builds).\n"
-		"Safe to leave on — already-signed App Store IPAs are handled transparently." ) );
-	devLay->addWidget( Chk_Sign_IPA );
+	Chk_Sign_IPA = new QCheckBox( tr( "Ad hoc sign IPA before install" ), dev );
+	Chk_Sign_IPA->setChecked( false );
+	Chk_Sign_IPA->setVisible( false );
 
 	QLabel *lblDevInfo = new QLabel( tr(
-		"IPA install uses <code>ideviceinstaller</code> on the companion "
-		"(auto-tries <code>apt install ideviceinstaller</code> if missing). "
-		"Signing uses <code>zsign</code> (built from source on first use, ~60s). "
-		"Enable guest internet first if the device is not listed." ) );
+		"Install IPA copies the app onto the iOS disk and does not call installd. "
+		"Power Off iOS first. The IPA keeps its own signature and entitlements. "
+		"The next Power On passes "
+		"<code>amfi_get_out_of_my_way=1</code> "
+		"on the kernel command line, which is the Boot Args line in the serial log. "
+		"The first install builds a helper VM and copies the root image, so it takes a while." ) );
 	lblDevInfo->setWordWrap( true );
 	devLay->addWidget( lblDevInfo );
 	devLay->addStretch();
@@ -511,18 +410,45 @@ bool Apple_SoC_Device_Tools_Window::Start_Companion_SSH( const QString &remote_c
 
 void Apple_SoC_Device_Tools_Window::Run_Device_Info()
 {
+	const QString pw = Shell_Quote( Edit_SSH_Password->text() );
+	// Internet mode hides the phone from idevice_id. Ask for lockdown first.
+	const QString remote =
+		Companion_Usbmux_Mode( 1, pw ) +
+		QStringLiteral(
+			"echo '=== Wait for idevice (MODE=1) ==='; "
+			"ok=0; "
+			"for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do "
+			"  if idevice_id -l 2>/dev/null | grep -q .; then ok=1; break; fi; "
+			"  echo waiting_for_device $i; sleep 2; "
+			"done; "
+			"echo '=== idevice_id ==='; "
+			"idevice_id -l 2>&1 || true; "
+			"echo '=== ideviceinfo (short) ==='; "
+			"if [ \"$ok\" != 1 ]; then "
+			"  echo 'ERROR: No device found. Power On iOS with USB 127.0.0.1:8030.'; "
+			"  exit 1; "
+			"fi; "
+			"ideviceinfo -s 2>/dev/null || ideviceinfo | head -80; " );
 	Start_Companion_SSH(
-		"echo '=== idevice_id ==='; "
-		"ssh_do 'idevice_id -l || true'; "
-		"echo '=== ideviceinfo (short) ==='; "
-		"ssh_do 'ideviceinfo -s 2>/dev/null || ideviceinfo | head -80'; "
-		"echo DONE" );
+		QStringLiteral( "ssh_do '%1'; echo DONE" ).arg( Shell_Quote( remote ) ) );
 }
 
 void Apple_SoC_Device_Tools_Window::Run_List_Apps()
 {
-	// Remote script must stay ASCII (ellipsis becomes mojibake through WSL).
+	const QString pw = Shell_Quote( Edit_SSH_Password->text() );
 	const QString remote =
+		Companion_Usbmux_Mode( 1, pw ) +
+		QStringLiteral(
+			"echo '=== Wait for idevice (MODE=1) ==='; "
+			"ok=0; "
+			"for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do "
+			"  if idevice_id -l 2>/dev/null | grep -q .; then ok=1; break; fi; "
+			"  echo waiting_for_device $i; sleep 2; "
+			"done; "
+			"if [ \"$ok\" != 1 ]; then "
+			"  echo 'ERROR: No device found. Power On iOS with USB 127.0.0.1:8030.'; "
+			"  exit 1; "
+			"fi; " ) +
 		Companion_Ensure_Ideviceinstaller() +
 		QStringLiteral( "ideviceinstaller -l" );
 	Start_Companion_SSH(
@@ -536,28 +462,75 @@ void Apple_SoC_Device_Tools_Window::Run_Install_IPA()
 		QString(), tr( "iOS apps (*.ipa);;All (*)" ) );
 	if( ipa.isEmpty() )
 		return;
-	const QString wsl = Windows_Path_To_WSL( QFileInfo( ipa ).absoluteFilePath() );
-	const QString remote_path = QStringLiteral( "/tmp/aqemu-install.ipa" );
-
-	QString remote = Companion_Ensure_Ideviceinstaller();
-	if( Chk_Sign_IPA && Chk_Sign_IPA->isChecked() )
+	if( ! VM || ! AQ_Is_Apple_SoC_VM( VM ) )
 	{
-		remote += Companion_Ensure_Zsign();
-		remote += Companion_Zsign_IPA( remote_path );
+		QMessageBox::warning( this, tr( "Install IPA" ),
+			tr( "Open Device Tools from an Apple SoC VM." ) );
+		return;
 	}
-	remote += QStringLiteral( "echo 'Uploading ipa to running uphone'; "
-	                          "ideviceinstaller -i " ) + remote_path;
+	const VM::VM_State st = VM->Get_State();
+	if( st == VM::VMS_Running || st == VM::VMS_Pause || st == VM::VMS_Saved )
+	{
+		QMessageBox::warning( this, tr( "Install IPA" ),
+			tr( "Power Off iOS first. The root disk cannot be changed while the guest is running." ) );
+		return;
+	}
+	const QString root = AQ_Apple_SoC_Image_Dir( VM ) + QStringLiteral( "/root" );
+	if( ! QFileInfo::exists( root ) )
+	{
+		QMessageBox::warning( this, tr( "Install IPA" ),
+			tr( "iOS root image was not found:\n%1" ).arg( QDir::toNativeSeparators( root ) ) );
+		return;
+	}
+	const QString extras = AQ_Inferno_Extras_Dir();
+	const QString script_win = extras + QStringLiteral( "/install-app-wsl.sh" );
+	if( extras.isEmpty() || ! QFile::exists( script_win ) )
+	{
+		QMessageBox::warning( this, tr( "Install IPA" ),
+			tr( "Could not find extras/Inferno/install-app-wsl.sh next to aqemu.exe." ) );
+		return;
+	}
+	if( Process->state() != QProcess::NotRunning )
+	{
+		QMessageBox::information( this, tr( "Busy" ), tr( "A command is already running." ) );
+		return;
+	}
 
-	Start_Companion_SSH(
-		QStringLiteral(
-			"echo Uploading IPA...; "
-			"scp_do '%1' \"$GUEST@127.0.0.1:%2\" || exit 1; "
-			"echo Running ideviceinstaller...; "
-			"ssh_do '%3'; "
-			"echo DONE" )
-			.arg( Shell_Quote( wsl ),
-			      remote_path,
-			      Shell_Quote( remote ) ) );
+#ifdef Q_OS_WIN
+	QString distro, user;
+	if( ! Ensure_WSL_Creds( &distro, &user ) )
+		return;
+
+	auto shell_quote = []( QString s ) {
+		return s.replace( QLatin1Char( '\'' ), QStringLiteral( "'\\''" ) );
+	};
+	const QString bash = QStringLiteral(
+		"set -e; "
+		"SCRIPT='%1'; "
+		"sed -i 's/\\r$//' \"$SCRIPT\" 2>/dev/null || true; "
+		"export ROOT_IMG='%2'; "
+		"export IPA='%3'; "
+		"bash \"$SCRIPT\"" )
+		.arg( shell_quote( Windows_Path_To_WSL( script_win ) ),
+		      shell_quote( Windows_Path_To_WSL( root ) ),
+		      shell_quote( Windows_Path_To_WSL( QFileInfo( ipa ).absoluteFilePath() ) ) );
+
+	Text_Log->clear();
+	Append_Log( tr( "Copying the app onto the iOS root. installd is not used." ) );
+	Append_Log( tr( "The IPA's own signature and entitlements are kept." ) );
+	Append_Log( tr( "ROOT_IMG=%1" ).arg( Windows_Path_To_WSL( root ) ) );
+	Label_Status->setText( tr( "Installing onto the guest disk..." ) );
+	Process->setProgram( QStringLiteral( "wsl.exe" ) );
+	Process->setArguments( WSL_Bash_Args( distro, user, bash ) );
+	Process->setProcessChannelMode( QProcess::MergedChannels );
+	Process->start();
+	if( ! Process->waitForStarted( 8000 ) )
+		Label_Status->setText( tr( "Failed to start wsl.exe" ) );
+#else
+	QMessageBox::information( this, tr( "Host OS" ),
+		tr( "Copying an IPA onto the iOS root is wired for Windows + WSL.\n"
+		    "On Linux run extras/Inferno/install-app-wsl.sh with ROOT_IMG and IPA set." ) );
+#endif
 }
 
 void Apple_SoC_Device_Tools_Window::Run_Screenshot()
@@ -623,88 +596,96 @@ void Apple_SoC_Device_Tools_Window::Enable_Guest_Internet()
 	}
 
 	const QString pw = Shell_Quote( Edit_SSH_Password->text() );
-	// ASCII-only remote script. Companion must already see the iOS USB device.
+	// ASCII-only remote script. Companion must already see the iOS USB ethernet.
+	// MODE=3 is NCM. idevice_id stays empty on purpose; the phone is enx*.
+	// An existing nmcli profile is deleted. modify on that profile times out.
 	const QString remote =
 		QStringLiteral(
 			"set +e; "
-			"echo '=== 1) usbmuxd MODE=3 ==='; "
-			"echo '%1' | sudo -S -p '' bash -c \""
-			"mkdir -p /etc/systemd/system/usbmuxd.service.d && "
-			"printf '%s\\n' '[Service]' 'Environment=USBMUXD_DEFAULT_DEVICE_MODE=3' "
-			"> /etc/systemd/system/usbmuxd.service.d/aqemu-mode3.conf\"; "
-			"echo '%1' | sudo -S -p '' systemctl daemon-reload; "
-			"echo '%1' | sudo -S -p '' systemctl restart usbmuxd "
-			"  || echo '%1' | sudo -S -p '' service usbmuxd restart; "
-			"sleep 2; "
-			"echo '=== 2) Wait for idevice ==='; "
+			"echo '=== 1) usbmuxd MODE=3 ==='; " )
+		+ Companion_Usbmux_Mode( 3, pw )
+		+ QStringLiteral(
+			"echo '=== 2) USB ethernet ==='; "
+			"echo 'MODE=3 does not list the phone in idevice_id.'; "
+			"echo 'Leaving the USB device connected. A reset drops enxdeadbeef2212.'; "
+			"echo '%1' | sudo -S -p '' bash -c '"
+			"for dev in /sys/bus/usb/devices/[0-9]*; do "
+			"  [ \"$(cat \"$dev/idVendor\" 2>/dev/null)\" = 05ac ] || continue; "
+			"  echo 1 > \"$dev/authorized\"; "
+			"  echo allowed $(cat \"$dev/idVendor\"):$(cat \"$dev/idProduct\"); "
+			"done'; "
 			"ok=0; "
-			"for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do "
-			"  if idevice_id -l 2>/dev/null | grep -q .; then ok=1; break; fi; "
-			"  echo waiting_for_device $i; sleep 2; "
+			"for i in 1 2 3 4 5 6 7 8 9 10; do "
+			"  if ip -o link show 2>/dev/null | grep -q enx; then ok=1; break; fi; "
+			"  echo waiting_for_usb_ethernet $i; sleep 2; "
 			"done; "
-			"idevice_id -l 2>&1; "
+			"ip -br link; "
 			"if [ \"$ok\" != 1 ]; then "
-			"  echo WARN: no idevice yet. Power On iOS with USB 127.0.0.1:8030, then retry.; "
+			"  echo 'ERROR: no enx USB ethernet. Power On iOS with USB 127.0.0.1:8030 and retry.'; "
+			"  echo 'Do not reset the Apple USB device. That removes this interface.'; "
+			"  exit 3; "
 			"fi; "
-			"echo '=== 3) Share non-primary ethernet (nmcli) ==='; "
-			"if ! command -v nmcli >/dev/null 2>&1; then "
-			"  echo ERROR: nmcli missing. Install NetworkManager on companion.; exit 2; "
+			"echo '=== 3) Share USB ethernet ==='; "
+			"echo 'This interface cannot report carrier, and NetworkManager times out on it.'; "
+			"echo 'Sharing with ip, iptables, and dnsmasq instead.'; "
+			"if ! command -v dnsmasq >/dev/null 2>&1 || ! command -v iptables >/dev/null 2>&1; then "
+			"  echo '%1' | sudo -S -p '' apt-get update -qq || true; "
+			"  echo '%1' | sudo -S -p '' apt-get install -y dnsmasq iptables || true; "
 			"fi; "
-			/* Ubuntu Server marks ethernet strictly unmanaged; allow USB (enx*) only. */
-			"echo '%1' | sudo -S -p '' bash -c \""
-			"mkdir -p /etc/NetworkManager/conf.d && "
-			"printf '%s\\n' "
-			"'[keyfile]' "
-			"'unmanaged-devices=*,except:type:wifi,except:type:wwan,"
-			"except:type:ethernet' "
-			"> /etc/NetworkManager/conf.d/10-globally-managed-devices.conf && "
-			"printf '%s\\n' "
-			"'[device]' "
-			"'match-device=interface-name:enx*' "
-			"'managed=true' "
-			"> /etc/NetworkManager/conf.d/99-aqemu-usb-ethernet.conf\"; "
-			"echo '%1' | sudo -S -p '' systemctl reload NetworkManager "
-			"  || echo '%1' | sudo -S -p '' systemctl restart NetworkManager; "
-			"sleep 2; "
+			"if ! command -v dnsmasq >/dev/null 2>&1; then "
+			"  echo ERROR: dnsmasq is not installed on the companion.; exit 2; "
+			"fi; "
 			"PRIMARY=$(ip route 2>/dev/null | awk '/default/{print $5; exit}'); "
 			"echo primary_iface=$PRIMARY; "
+			"echo '%1' | sudo -S -p '' sysctl -w net.ipv4.ip_forward=1; "
 			"shared=0; "
-			"IFACES=$(nmcli -t -f DEVICE,TYPE device 2>/dev/null | awk -F: '$2==\"ethernet\"{print $1}'); "
-			"if [ -z \"$IFACES\" ]; then "
-			"  IFACES=$(ip -o link show 2>/dev/null | awk -F': ' '{print $2}' | "
-			"    grep -E '^(enx|usb)' || true); "
-			"fi; "
+			"IFACES=$(ip -o link show 2>/dev/null | awk -F': ' '{print $2}' | "
+			"  sed 's/@.*//' | grep -E '^(enx|usb)' || true); "
 			"for d in $IFACES; do "
 			"  [ -z \"$d\" ] && continue; "
 			"  [ \"$d\" = lo ] && continue; "
 			"  [ -n \"$PRIMARY\" ] && [ \"$d\" = \"$PRIMARY\" ] && continue; "
 			"  echo Sharing_iface $d; "
-			"  echo '%1' | sudo -S -p '' nmcli device set \"$d\" managed yes; "
-			"  echo '%1' | sudo -S -p '' nmcli device set \"$d\" autoconnect yes; "
-			"  CON=aqemu-share-$d; "
-			"  if ! nmcli -t -f NAME connection show 2>/dev/null | grep -Fx \"$CON\" >/dev/null; then "
-			"    echo '%1' | sudo -S -p '' nmcli connection add type ethernet ifname \"$d\" "
-			"      con-name \"$CON\" connection.interface-name \"$d\" "
-			"      ipv4.method shared ipv6.method ignore autoconnect yes; "
-			"  else "
-			"    echo '%1' | sudo -S -p '' nmcli connection modify \"$CON\" "
-			"      connection.interface-name \"$d\" "
-			"      ipv4.method shared ipv6.method ignore autoconnect yes; "
+			"  echo '%1' | sudo -S -p '' ip link set \"$d\" up || true; "
+			"  echo '%1' | sudo -S -p '' ip addr replace 10.42.0.1/24 dev \"$d\" || "
+			"    echo \"ERROR: could not address $d\"; "
+			"  if [ -n \"$PRIMARY\" ]; then "
+			"    echo '%1' | sudo -S -p '' iptables -t nat -C POSTROUTING -o \"$PRIMARY\" -j MASQUERADE "
+			"      2>/dev/null || echo '%1' | sudo -S -p '' iptables -t nat -A POSTROUTING "
+			"      -o \"$PRIMARY\" -j MASQUERADE; "
+			"    echo '%1' | sudo -S -p '' iptables -C FORWARD -i \"$d\" -o \"$PRIMARY\" -j ACCEPT "
+			"      2>/dev/null || echo '%1' | sudo -S -p '' iptables -A FORWARD -i \"$d\" "
+			"      -o \"$PRIMARY\" -j ACCEPT; "
+			"    echo '%1' | sudo -S -p '' iptables -C FORWARD -i \"$PRIMARY\" -o \"$d\" "
+			"      -m state --state RELATED,ESTABLISHED -j ACCEPT 2>/dev/null || "
+			"      echo '%1' | sudo -S -p '' iptables -A FORWARD -i \"$PRIMARY\" -o \"$d\" "
+			"      -m state --state RELATED,ESTABLISHED -j ACCEPT; "
 			"  fi; "
-			"  echo '%1' | sudo -S -p '' nmcli connection up \"$CON\" ifname \"$d\" "
-			"    || echo '%1' | sudo -S -p '' nmcli device connect \"$d\"; "
-			"  nmcli -t -f DEVICE,STATE,CONNECTION device | grep -F \"$d\" || true; "
+			"  if [ -f /run/aqemu-dnsmasq-$d.pid ]; then "
+			"    echo '%1' | sudo -S -p '' kill \"$(cat /run/aqemu-dnsmasq-$d.pid)\" 2>/dev/null || true; "
+			"  fi; "
+			"  echo '%1' | sudo -S -p '' dnsmasq --conf-file=/dev/null --interface=\"$d\" "
+			"    --bind-interfaces --except-interface=lo "
+			"    --dhcp-range=10.42.0.10,10.42.0.100,12h "
+			"    --dhcp-option=option:router,10.42.0.1 "
+			"    --dhcp-option=option:dns-server,10.42.0.1 "
+			"    --pid-file=/run/aqemu-dnsmasq-$d.pid "
+			"    --log-facility=/tmp/aqemu-dnsmasq-$d.log || echo \"ERROR: dnsmasq failed on $d\"; "
 			"  shared=1; "
 			"done; "
 			"if [ \"$shared\" != 1 ]; then "
-			"  echo No secondary ethernet yet. Boot iOS, wait for USB NCM, click Enable again.; "
-			"  nmcli -t -f DEVICE,TYPE,STATE,CONNECTION device; "
+			"  echo 'No USB ethernet interface to share.'; "
 			"  ip -br link; "
 			"  exit 3; "
 			"fi; "
-			"echo '=== 4) idevice recheck ==='; "
-			"idevice_id -l 2>&1; "
-			"echo DONE - try Safari or App Store on the guest." )
+			"echo '=== 4) share recheck ==='; "
+			"ip -br link; "
+			"ip -4 addr show | grep -E 'enx|usb' || true; "
+			"echo 'Gateway on the companion is 10.42.0.1.'; "
+			"if ip -br link | grep -E '^(enx|usb)' | grep -q NO-CARRIER; then "
+			"  echo 'The USB link still has no carrier, so the phone may not request DHCP yet.'; "
+			"fi; "
+			"echo 'idevice_id stays empty in MODE=3. IPA install switches back to MODE=1.'; " )
 			.arg( pw );
 
 	Start_Companion_SSH(

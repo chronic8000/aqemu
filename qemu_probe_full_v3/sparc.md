@@ -1,8 +1,8 @@
 # QEMU Complete Architecture capability map: `sparc`
 
 - **Architecture Target:** `sparc`
-- **Binary Executable:** `C:\Users\chron\CURSOR-PROJECTS\aqemu\build_win\qemu-system-sparc.exe`
-- **Probed At:** 2026-07-31T08:33:09.565044
+- **Binary Executable:** `C:\Users\chron\CURSOR-PROJECTS\AQEMU\aqemu\third_party\qemu-install-arm64\bin\qemu-system-sparc.exe`
+- **Probed At:** 2026-10-25T21:37:54.956570
 - **Fallback Machine Used for Context:** `SS-5`
 
 > **INSTRUCTIONS FOR CURSOR AI:** This document contains the verified whitelist of supported flags, boards, CPUs, devices, storage drivers, audio backends, and display renderers for `qemu-system-{arch}`. Use this data as the absolute ground truth to construct and validate VM configuration parameters.
@@ -29,21 +29,21 @@ Total items listed: 12
 
 ```text
 Available CPU types:
- Fujitsu-MB86904      (IU 04000000 FPU 00080000 MMU 04000000 NWINS 8)
- Fujitsu-MB86907      (IU 05000000 FPU 00080000 MMU 05000000 NWINS 8)
- TI-MicroSparc-I      (IU 41000000 FPU 00080000 MMU 41000000 NWINS 7) -fsmuld
- TI-MicroSparc-II     (IU 42000000 FPU 00080000 MMU 02000000 NWINS 8)
- TI-MicroSparc-IIep   (IU 42000000 FPU 00080000 MMU 04000000 NWINS 8)
- TI-SuperSparc-40     (IU 41000000 FPU 00000000 MMU 00000800 NWINS 8)
- TI-SuperSparc-50     (IU 40000000 FPU 00000000 MMU 01000800 NWINS 8)
- TI-SuperSparc-51     (IU 40000000 FPU 00000000 MMU 01000000 NWINS 8)
- TI-SuperSparc-60     (IU 40000000 FPU 00000000 MMU 01000800 NWINS 8)
- TI-SuperSparc-61     (IU 44000000 FPU 00000000 MMU 01000000 NWINS 8)
- TI-SuperSparc-II     (IU 40000000 FPU 00000000 MMU 08000000 NWINS 8)
- LEON2                (IU f2000000 FPU 00080000 MMU f2000000 NWINS 8)
- LEON3                (IU f3000000 FPU 00080000 MMU f3000000 NWINS 8)
-Default CPU feature flags (use '-' to remove): mul div fsmuld
-Available CPU feature flags (use '+' to add): float128
+ Fujitsu-MB86904      (IU 04000000 FPU 00080000 MMU 04000000 NWINS 8) 
+ Fujitsu-MB86907      (IU 05000000 FPU 00080000 MMU 05000000 NWINS 8) 
+ TI-MicroSparc-I      (IU 41000000 FPU 00080000 MMU 41000000 NWINS 7) -fsmuld 
+ TI-MicroSparc-II     (IU 42000000 FPU 00080000 MMU 02000000 NWINS 8) 
+ TI-MicroSparc-IIep   (IU 42000000 FPU 00080000 MMU 04000000 NWINS 8) 
+ TI-SuperSparc-40     (IU 41000000 FPU 00000000 MMU 00000800 NWINS 8) 
+ TI-SuperSparc-50     (IU 40000000 FPU 00000000 MMU 01000800 NWINS 8) 
+ TI-SuperSparc-51     (IU 40000000 FPU 00000000 MMU 01000000 NWINS 8) 
+ TI-SuperSparc-60     (IU 40000000 FPU 00000000 MMU 01000800 NWINS 8) 
+ TI-SuperSparc-61     (IU 44000000 FPU 00000000 MMU 01000000 NWINS 8) 
+ TI-SuperSparc-II     (IU 40000000 FPU 00000000 MMU 08000000 NWINS 8) 
+ LEON2                (IU f2000000 FPU 00080000 MMU f2000000 NWINS 8) 
+ LEON3                (IU f3000000 FPU 00080000 MMU f3000000 NWINS 8) 
+Default CPU feature flags (use '-' to remove): mul div fsmuld 
+Available CPU feature flags (use '+' to add): float128 
 Numerical features (use '=' to set): iu_version fpu_version mmu_version nwindows
 ```
 Total items listed: 17
@@ -51,10 +51,12 @@ Total items listed: 17
 ## 3. Supported Devices & Busses (`-device help`)
 
 ```text
+
 Storage devices:
 name "floppy", bus floppy-bus, desc "virtual floppy drive"
 name "scsi-cd", bus SCSI, desc "virtual SCSI CD-ROM"
 name "scsi-hd", bus SCSI, desc "virtual SCSI disk"
+
 Misc devices:
 name "loader", desc "Generic Loader"
 name "uefi-vars-sysbus", bus System
@@ -65,8 +67,8 @@ Total items listed: 8
 ## 4. Storage Image Formats (`-drive format=help`)
 
 ```text
-Supported formats: blkdebug blklogwrites blkreplay blkverify bochs cloop compress copy-before-write copy-on-read dmg file ftp ftps host_device http https luks nbd null-aio null-co parallels preallocate qcow qcow2 qed quorum raw replication snapshot-access throttle vdi vhdx vmdk vpc vvfat
-Supported formats (read-only): blkdebug blklogwrites blkreplay blkverify bochs cloop compress copy-before-write copy-on-read dmg file ftp ftps host_device http https luks nbd null-aio null-co parallels preallocate qcow qcow2 qed quorum raw replication snapshot-access throttle vdi vhdx vmdk vpc vvfat
+Supported formats: blkdebug blklogwrites blkreplay blkverify bochs cloop compress copy-before-write copy-on-read dmg file ftp ftps host_device http https iscsi iser luks nbd nfs null-aio null-co parallels preallocate qcow qcow2 qed quorum raw replication snapshot-access ssh throttle vdi vhdx vmdk vpc vvfat
+Supported formats (read-only): blkdebug blklogwrites blkreplay blkverify bochs cloop compress copy-before-write copy-on-read dmg file ftp ftps host_device http https iscsi iser luks nbd nfs null-aio null-co parallels preallocate qcow qcow2 qed quorum raw replication snapshot-access ssh throttle vdi vhdx vmdk vpc vvfat
 ```
 Total items listed: 2
 
@@ -87,7 +89,7 @@ Total items listed: 8
 ## 6. Character Device Backends (`-chardev help`)
 
 ```text
-Available chardev backend types:
+Available chardev backend types: 
   file
   spicevmc
   pipe
@@ -116,14 +118,16 @@ Total items listed: 21
 ```text
 Available display backend types:
 none
+egl-headless
 curses
 spice-app
 dbus
+
 Some display backends support suboptions, which can be set with
    -display backend,option=value,option=value...
 For a short list of the suboptions for each display, see the top-level -help output; more detail is in the documentation.
 ```
-Total items listed: 8
+Total items listed: 9
 
 ## 8. Audio Drivers (`-audiodev help`)
 

@@ -1,7 +1,7 @@
 {
-  "binary": "C:\\Users\\chron\\CURSOR-PROJECTS\\aqemu\\build_win\\qemu-system-sparc.exe",
+  "binary": "C:\\Users\\chron\\CURSOR-PROJECTS\\AQEMU\\aqemu\\third_party\\qemu-install-arm64\\bin\\qemu-system-sparc.exe",
   "architecture": "sparc",
-  "probed_at": "2026-07-31T08:33:09.565044",
+  "probed_at": "2026-10-25T21:37:54.956570",
   "fallback_machine": "SS-5",
   "machines": [
     "Supported machines are:",
@@ -19,21 +19,21 @@
   ],
   "cpus": [
     "Available CPU types:",
-    " Fujitsu-MB86904      (IU 04000000 FPU 00080000 MMU 04000000 NWINS 8)",
-    " Fujitsu-MB86907      (IU 05000000 FPU 00080000 MMU 05000000 NWINS 8)",
-    " TI-MicroSparc-I      (IU 41000000 FPU 00080000 MMU 41000000 NWINS 7) -fsmuld",
-    " TI-MicroSparc-II     (IU 42000000 FPU 00080000 MMU 02000000 NWINS 8)",
-    " TI-MicroSparc-IIep   (IU 42000000 FPU 00080000 MMU 04000000 NWINS 8)",
-    " TI-SuperSparc-40     (IU 41000000 FPU 00000000 MMU 00000800 NWINS 8)",
-    " TI-SuperSparc-50     (IU 40000000 FPU 00000000 MMU 01000800 NWINS 8)",
-    " TI-SuperSparc-51     (IU 40000000 FPU 00000000 MMU 01000000 NWINS 8)",
-    " TI-SuperSparc-60     (IU 40000000 FPU 00000000 MMU 01000800 NWINS 8)",
-    " TI-SuperSparc-61     (IU 44000000 FPU 00000000 MMU 01000000 NWINS 8)",
-    " TI-SuperSparc-II     (IU 40000000 FPU 00000000 MMU 08000000 NWINS 8)",
-    " LEON2                (IU f2000000 FPU 00080000 MMU f2000000 NWINS 8)",
-    " LEON3                (IU f3000000 FPU 00080000 MMU f3000000 NWINS 8)",
-    "Default CPU feature flags (use '-' to remove): mul div fsmuld",
-    "Available CPU feature flags (use '+' to add): float128",
+    " Fujitsu-MB86904      (IU 04000000 FPU 00080000 MMU 04000000 NWINS 8) ",
+    " Fujitsu-MB86907      (IU 05000000 FPU 00080000 MMU 05000000 NWINS 8) ",
+    " TI-MicroSparc-I      (IU 41000000 FPU 00080000 MMU 41000000 NWINS 7) -fsmuld ",
+    " TI-MicroSparc-II     (IU 42000000 FPU 00080000 MMU 02000000 NWINS 8) ",
+    " TI-MicroSparc-IIep   (IU 42000000 FPU 00080000 MMU 04000000 NWINS 8) ",
+    " TI-SuperSparc-40     (IU 41000000 FPU 00000000 MMU 00000800 NWINS 8) ",
+    " TI-SuperSparc-50     (IU 40000000 FPU 00000000 MMU 01000800 NWINS 8) ",
+    " TI-SuperSparc-51     (IU 40000000 FPU 00000000 MMU 01000000 NWINS 8) ",
+    " TI-SuperSparc-60     (IU 40000000 FPU 00000000 MMU 01000800 NWINS 8) ",
+    " TI-SuperSparc-61     (IU 44000000 FPU 00000000 MMU 01000000 NWINS 8) ",
+    " TI-SuperSparc-II     (IU 40000000 FPU 00000000 MMU 08000000 NWINS 8) ",
+    " LEON2                (IU f2000000 FPU 00080000 MMU f2000000 NWINS 8) ",
+    " LEON3                (IU f3000000 FPU 00080000 MMU f3000000 NWINS 8) ",
+    "Default CPU feature flags (use '-' to remove): mul div fsmuld ",
+    "Available CPU feature flags (use '+' to add): float128 ",
     "Numerical features (use '=' to set): iu_version fpu_version mmu_version nwindows"
   ],
   "devices": [
@@ -61,11 +61,11 @@
     "user"
   ],
   "drive_formats": [
-    "Supported formats: blkdebug blklogwrites blkreplay blkverify bochs cloop compress copy-before-write copy-on-read dmg file ftp ftps host_device http https luks nbd null-aio null-co parallels preallocate qcow qcow2 qed quorum raw replication snapshot-access throttle vdi vhdx vmdk vpc vvfat",
-    "Supported formats (read-only): blkdebug blklogwrites blkreplay blkverify bochs cloop compress copy-before-write copy-on-read dmg file ftp ftps host_device http https luks nbd null-aio null-co parallels preallocate qcow qcow2 qed quorum raw replication snapshot-access throttle vdi vhdx vmdk vpc vvfat"
+    "Supported formats: blkdebug blklogwrites blkreplay blkverify bochs cloop compress copy-before-write copy-on-read dmg file ftp ftps host_device http https iscsi iser luks nbd nfs null-aio null-co parallels preallocate qcow qcow2 qed quorum raw replication snapshot-access ssh throttle vdi vhdx vmdk vpc vvfat",
+    "Supported formats (read-only): blkdebug blklogwrites blkreplay blkverify bochs cloop compress copy-before-write copy-on-read dmg file ftp ftps host_device http https iscsi iser luks nbd nfs null-aio null-co parallels preallocate qcow qcow2 qed quorum raw replication snapshot-access ssh throttle vdi vhdx vmdk vpc vvfat"
   ],
   "chardev_backends": [
-    "Available chardev backend types:",
+    "Available chardev backend types: ",
     "  file",
     "  spicevmc",
     "  pipe",
@@ -90,6 +90,7 @@
   "display_backends": [
     "Available display backend types:",
     "none",
+    "egl-headless",
     "curses",
     "spice-app",
     "dbus",
@@ -141,9 +142,9 @@
     "devices": "\nStorage devices:\nname \"floppy\", bus floppy-bus, desc \"virtual floppy drive\"\nname \"scsi-cd\", bus SCSI, desc \"virtual SCSI CD-ROM\"\nname \"scsi-hd\", bus SCSI, desc \"virtual SCSI disk\"\n\nMisc devices:\nname \"loader\", desc \"Generic Loader\"\nname \"uefi-vars-sysbus\", bus System\nname \"uefi-vars-x64\", bus System\n",
     "accelerators": "Accelerators supported in QEMU binary:\ntcg\n",
     "netdev": "Available netdev backend types:\nsocket\nstream\ndgram\nhubport\ntap\npasst\nuser\n",
-    "drive_formats": "Supported formats: blkdebug blklogwrites blkreplay blkverify bochs cloop compress copy-before-write copy-on-read dmg file ftp ftps host_device http https luks nbd null-aio null-co parallels preallocate qcow qcow2 qed quorum raw replication snapshot-access throttle vdi vhdx vmdk vpc vvfat\nSupported formats (read-only): blkdebug blklogwrites blkreplay blkverify bochs cloop compress copy-before-write copy-on-read dmg file ftp ftps host_device http https luks nbd null-aio null-co parallels preallocate qcow qcow2 qed quorum raw replication snapshot-access throttle vdi vhdx vmdk vpc vvfat\n",
+    "drive_formats": "Supported formats: blkdebug blklogwrites blkreplay blkverify bochs cloop compress copy-before-write copy-on-read dmg file ftp ftps host_device http https iscsi iser luks nbd nfs null-aio null-co parallels preallocate qcow qcow2 qed quorum raw replication snapshot-access ssh throttle vdi vhdx vmdk vpc vvfat\nSupported formats (read-only): blkdebug blklogwrites blkreplay blkverify bochs cloop compress copy-before-write copy-on-read dmg file ftp ftps host_device http https iscsi iser luks nbd nfs null-aio null-co parallels preallocate qcow qcow2 qed quorum raw replication snapshot-access ssh throttle vdi vhdx vmdk vpc vvfat\n",
     "chardev_backends": "Available chardev backend types: \n  file\n  spicevmc\n  pipe\n  console\n  msmouse\n  testdev\n  wctablet\n  hub\n  null\n  qemu-vdagent\n  stdio\n  vc\n  memory\n  socket\n  serial\n  dbus\n  spiceport\n  ringbuf\n  udp\n  mux\n",
-    "display": "Available display backend types:\nnone\ncurses\nspice-app\ndbus\n\nSome display backends support suboptions, which can be set with\n   -display backend,option=value,option=value...\nFor a short list of the suboptions for each display, see the top-level -help output; more detail is in the documentation.\n",
+    "display": "Available display backend types:\nnone\negl-headless\ncurses\nspice-app\ndbus\n\nSome display backends support suboptions, which can be set with\n   -display backend,option=value,option=value...\nFor a short list of the suboptions for each display, see the top-level -help output; more detail is in the documentation.\n",
     "audio": "Available audio drivers:\nnone\ndbus\ndsound\nspice\nwav\n",
     "objects": "List of user creatable objects:\n  authz-list\n  authz-list-file\n  authz-simple\n  colo-compare\n  cryptodev-backend\n  cryptodev-backend-builtin\n  dbus-display\n  dbus-vmstate\n  filter-buffer\n  filter-dump\n  filter-mirror\n  filter-redirector\n  filter-replay\n  filter-rewriter\n  input-barrier\n  iothread\n  main-loop\n  memory-backend-ram\n  qtest\n  rng-builtin\n  rng-egd\n  secret\n  throttle-group\n  tls-cipher-suites\n  tls-creds-anon\n  tls-creds-psk\n  tls-creds-x509\n"
   }

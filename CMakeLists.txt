@@ -232,6 +232,7 @@ SET( aqemu_sources
 	src/SPICE_Settings_Widget.cpp
 	src/System_Info.cpp
 	src/QEMU_Probe_Catalog.cpp
+	src/QEMU_Hardware_Browser.cpp
 	src/Utils.cpp
 	src/VM.cpp
 	src/VM_Devices.cpp
@@ -813,6 +814,9 @@ ADD_CUSTOM_COMMAND( TARGET aqemu POST_BUILD
 	COMMAND ${CMAKE_COMMAND} -E copy_if_different
 		"${CMAKE_SOURCE_DIR}/extras/Inferno/apply-launchd-only-wsl.sh"
 		"$<TARGET_FILE_DIR:aqemu>/extras/Inferno/apply-launchd-only-wsl.sh"
+	COMMAND ${CMAKE_COMMAND} -E copy_if_different
+		"${CMAKE_SOURCE_DIR}/extras/Inferno/install-app-wsl.sh"
+		"$<TARGET_FILE_DIR:aqemu>/extras/Inferno/install-app-wsl.sh"
 	COMMAND ${CMAKE_COMMAND} -E copy_if_different
 		"${CMAKE_SOURCE_DIR}/extras/Inferno/README.txt"
 		"$<TARGET_FILE_DIR:aqemu>/extras/Inferno/README.txt"

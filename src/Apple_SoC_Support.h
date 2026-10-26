@@ -26,6 +26,16 @@ bool AQ_Apple_SoC_IPv4_USB_Is_Listening( int port, bool *checked = nullptr );
 QString AQ_Apple_SoC_Suggested_Append();
 
 /**
+ * Put development AMFI boot-args into an Inferno nvram image.
+ * t8030 has no boot-args machine property; iOS reads them from this file
+ * on the next boot. No-op when both flags are already present.
+ * Returns false when the image is missing or not an Apple CHRP nvram bank.
+ */
+bool AQ_Apple_SoC_Ensure_Amfi_Boot_Args( const QString &nvram_path,
+                                         bool *changed = nullptr,
+                                         QString *error_out = nullptr );
+
+/**
  * Per-VM directory for Inferno raw images (sep_nvram, root, …).
  * Never the shared VM_Directory root — that would collide across guests.
  */

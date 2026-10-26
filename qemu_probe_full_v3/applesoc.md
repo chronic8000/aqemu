@@ -1,11 +1,11 @@
 # QEMU Complete Architecture capability map: `applesoc`
 
 - **Architecture Target:** `applesoc`
-- **Binary Executable:** `qemu-system-applesoc.exe` (local Windows probe path redacted)
-- **Probed At:** 2026-07-31T07:49:22.960945
+- **Binary Executable:** `C:\Users\chron\CURSOR-PROJECTS\AQEMU\aqemu\third_party\qemu-install-arm64\bin\qemu-system-applesoc.exe`
+- **Probed At:** 2026-10-25T21:37:31.775040
 - **Fallback Machine Used for Context:** `t8030`
 
-> **INSTRUCTIONS FOR CURSOR AI:** Prefer live `-machine help` from the applesoc binary you ship. AQEMU UI currently presets `t8030` / `s8000` only.
+> **INSTRUCTIONS FOR CURSOR AI:** This document contains the verified whitelist of supported flags, boards, CPUs, devices, storage drivers, audio backends, and display renderers for `qemu-system-{arch}`. Use this data as the absolute ground truth to construct and validate VM configuration parameters.
 
 ## 1. Supported Machines (`-machine help`)
 
@@ -192,6 +192,7 @@ name "usb-host", bus usb-bus
 name "usb-hub", bus usb-bus
 name "x3130-upstream", bus PCI, desc "TI X3130 Upstream Port of PCI Express Switch"
 name "xio3130-downstream", bus PCI, desc "TI X3130 Downstream Port of PCI Express Switch"
+
 USB devices:
 name "dwc2-usb-device", bus usb-bus
 name "dwc3-usb-device", bus usb-bus
@@ -210,6 +211,7 @@ name "piix4-usb-uhci", bus PCI
 name "qemu-xhci", bus PCI
 name "usb-ehci", bus PCI
 name "usb-tcp-remote", bus usb-bus, desc "QEMU USB Passthrough Device"
+
 Storage devices:
 name "160s33b", bus SSI, desc "Serial Flash"
 name "25csm04", bus SSI, desc "Serial Flash"
@@ -382,6 +384,7 @@ name "w25x32", bus SSI, desc "Serial Flash"
 name "w25x40", bus SSI, desc "Serial Flash"
 name "w25x64", bus SSI, desc "Serial Flash"
 name "w25x80", bus SSI, desc "Serial Flash"
+
 Network devices:
 name "e1000", bus PCI, alias "e1000-82540em", desc "Intel Gigabit Ethernet"
 name "e1000-82544gc", bus PCI, desc "Intel Gigabit Ethernet"
@@ -412,6 +415,7 @@ name "virtio-net-pci", bus PCI, alias "virtio-net"
 name "virtio-net-pci-non-transitional", bus PCI
 name "virtio-net-pci-transitional", bus PCI
 name "vmxnet3", bus PCI, desc "VMWare Paravirtualized Ethernet v3"
+
 Input devices:
 name "ccid-card-emulated", bus ccid-bus, desc "emulated smartcard"
 name "ccid-card-passthru", bus ccid-bus, desc "passthrough smartcard"
@@ -441,6 +445,7 @@ name "virtio-serial-pci-transitional", bus PCI
 name "virtio-tablet-device", bus virtio-bus
 name "virtio-tablet-pci", bus PCI, alias "virtio-tablet"
 name "virtserialport", bus virtio-serial-bus
+
 Display devices:
 name "ati-vga", bus PCI
 name "bochs-display", bus PCI
@@ -453,6 +458,7 @@ name "ssd0323", bus SSI
 name "VGA", bus PCI
 name "virtio-gpu-device", bus virtio-bus
 name "virtio-gpu-pci", bus PCI, alias "virtio-gpu"
+
 Sound devices:
 name "AC97", bus PCI, alias "ac97", desc "Intel 82801AA AC97 Audio"
 name "ES1370", bus PCI, alias "es1370", desc "ENSONIQ AudioPCI ES1370"
@@ -464,6 +470,7 @@ name "intel-hda", bus PCI, desc "Intel HD Audio Controller (ich6)"
 name "usb-audio", bus usb-bus
 name "virtio-sound-device", bus virtio-bus
 name "virtio-sound-pci", bus PCI, alias "virtio-sound", desc "Virtio Sound"
+
 Misc devices:
 name "acpi-erst", bus PCI, desc "ACPI Error Record Serialization Table (ERST) device"
 name "adm1266", bus i2c-bus, desc "Analog Devices ADM1266 Hot Swap controller"
@@ -526,8 +533,10 @@ name "virtio-rng-pci-non-transitional", bus PCI
 name "virtio-rng-pci-transitional", bus PCI
 name "vmcoreinfo"
 name "wm8750", bus i2c-bus
+
 Watchdog devices:
 name "i6300esb", bus PCI, desc "Intel 6300ESB"
+
 Uncategorized devices:
 name "arm-smmuv3", bus System
 name "cfam", bus fsi.bus, desc "FSI Slave"
@@ -565,8 +574,7 @@ Total items listed: 8
 ## 6. Character Device Backends (`-chardev help`)
 
 ```text
-Available chardev backend types:
-  spiceport
+Available chardev backend types: 
   msmouse
   memory
   socket
@@ -582,29 +590,26 @@ Available chardev backend types:
   qemu-vdagent
   wctablet
   vc
-  spicevmc
   null
   pipe
   stdio
 ```
-Total items listed: 21
+Total items listed: 19
 
 ## 7. Display Backends (`-display help`)
 
 ```text
 Available display backend types:
 none
-gtk
-sdl
 egl-headless
 curses
-spice-app
 dbus
+
 Some display backends support suboptions, which can be set with
    -display backend,option=value,option=value...
 For a short list of the suboptions for each display, see the top-level -help output; more detail is in the documentation.
 ```
-Total items listed: 11
+Total items listed: 8
 
 ## 8. Audio Drivers (`-audiodev help`)
 
@@ -613,11 +618,9 @@ Available audio drivers:
 none
 dbus
 dsound
-sdl
-spice
 wav
 ```
-Total items listed: 7
+Total items listed: 5
 
 ## 9. Accelerators (`-accel help`)
 

@@ -1,7 +1,7 @@
 {
-  "binary": "C:\\Users\\chron\\CURSOR-PROJECTS\\aqemu\\build_win\\qemu-system-rx.exe",
+  "binary": "C:\\Users\\chron\\CURSOR-PROJECTS\\AQEMU\\aqemu\\third_party\\qemu-install-arm64\\bin\\qemu-system-rx.exe",
   "architecture": "rx",
-  "probed_at": "2026-07-31T08:33:08.053044",
+  "probed_at": "2026-10-25T21:37:51.738702",
   "fallback_machine": "none",
   "machines": [
     "Supported machines are:",
@@ -38,11 +38,11 @@
     "user"
   ],
   "drive_formats": [
-    "Supported formats: blkdebug blklogwrites blkreplay blkverify bochs cloop compress copy-before-write copy-on-read dmg file ftp ftps host_device http https luks nbd null-aio null-co parallels preallocate qcow qcow2 qed quorum raw replication snapshot-access throttle vdi vhdx vmdk vpc vvfat",
-    "Supported formats (read-only): blkdebug blklogwrites blkreplay blkverify bochs cloop compress copy-before-write copy-on-read dmg file ftp ftps host_device http https luks nbd null-aio null-co parallels preallocate qcow qcow2 qed quorum raw replication snapshot-access throttle vdi vhdx vmdk vpc vvfat"
+    "Supported formats: blkdebug blklogwrites blkreplay blkverify bochs cloop compress copy-before-write copy-on-read dmg file ftp ftps host_device http https iscsi iser luks nbd nfs null-aio null-co parallels preallocate qcow qcow2 qed quorum raw replication snapshot-access ssh throttle vdi vhdx vmdk vpc vvfat",
+    "Supported formats (read-only): blkdebug blklogwrites blkreplay blkverify bochs cloop compress copy-before-write copy-on-read dmg file ftp ftps host_device http https iscsi iser luks nbd nfs null-aio null-co parallels preallocate qcow qcow2 qed quorum raw replication snapshot-access ssh throttle vdi vhdx vmdk vpc vvfat"
   ],
   "chardev_backends": [
-    "Available chardev backend types:",
+    "Available chardev backend types: ",
     "  file",
     "  spicevmc",
     "  pipe",
@@ -67,6 +67,7 @@
   "display_backends": [
     "Available display backend types:",
     "none",
+    "egl-headless",
     "curses",
     "spice-app",
     "dbus",
@@ -118,9 +119,9 @@
     "devices": "\nMisc devices:\nname \"guest-loader\", desc \"Guest Loader\"\nname \"loader\", desc \"Generic Loader\"\nname \"uefi-vars-sysbus\", bus System\nname \"uefi-vars-x64\", bus System\n\nUncategorized devices:\nname \"r5f562n7-mcu\"\nname \"r5f562n8-mcu\"\n",
     "accelerators": "Accelerators supported in QEMU binary:\ntcg\n",
     "netdev": "Available netdev backend types:\nsocket\nstream\ndgram\nhubport\ntap\npasst\nuser\n",
-    "drive_formats": "Supported formats: blkdebug blklogwrites blkreplay blkverify bochs cloop compress copy-before-write copy-on-read dmg file ftp ftps host_device http https luks nbd null-aio null-co parallels preallocate qcow qcow2 qed quorum raw replication snapshot-access throttle vdi vhdx vmdk vpc vvfat\nSupported formats (read-only): blkdebug blklogwrites blkreplay blkverify bochs cloop compress copy-before-write copy-on-read dmg file ftp ftps host_device http https luks nbd null-aio null-co parallels preallocate qcow qcow2 qed quorum raw replication snapshot-access throttle vdi vhdx vmdk vpc vvfat\n",
+    "drive_formats": "Supported formats: blkdebug blklogwrites blkreplay blkverify bochs cloop compress copy-before-write copy-on-read dmg file ftp ftps host_device http https iscsi iser luks nbd nfs null-aio null-co parallels preallocate qcow qcow2 qed quorum raw replication snapshot-access ssh throttle vdi vhdx vmdk vpc vvfat\nSupported formats (read-only): blkdebug blklogwrites blkreplay blkverify bochs cloop compress copy-before-write copy-on-read dmg file ftp ftps host_device http https iscsi iser luks nbd nfs null-aio null-co parallels preallocate qcow qcow2 qed quorum raw replication snapshot-access ssh throttle vdi vhdx vmdk vpc vvfat\n",
     "chardev_backends": "Available chardev backend types: \n  file\n  spicevmc\n  pipe\n  console\n  msmouse\n  testdev\n  wctablet\n  hub\n  qemu-vdagent\n  null\n  stdio\n  vc\n  memory\n  socket\n  serial\n  dbus\n  spiceport\n  ringbuf\n  udp\n  mux\n",
-    "display": "Available display backend types:\nnone\ncurses\nspice-app\ndbus\n\nSome display backends support suboptions, which can be set with\n   -display backend,option=value,option=value...\nFor a short list of the suboptions for each display, see the top-level -help output; more detail is in the documentation.\n",
+    "display": "Available display backend types:\nnone\negl-headless\ncurses\nspice-app\ndbus\n\nSome display backends support suboptions, which can be set with\n   -display backend,option=value,option=value...\nFor a short list of the suboptions for each display, see the top-level -help output; more detail is in the documentation.\n",
     "audio": "Available audio drivers:\nnone\ndbus\ndsound\nspice\nwav\n",
     "objects": "List of user creatable objects:\n  authz-list\n  authz-list-file\n  authz-simple\n  colo-compare\n  cryptodev-backend\n  cryptodev-backend-builtin\n  dbus-display\n  dbus-vmstate\n  filter-buffer\n  filter-dump\n  filter-mirror\n  filter-redirector\n  filter-replay\n  filter-rewriter\n  input-barrier\n  iothread\n  main-loop\n  memory-backend-ram\n  qtest\n  rng-builtin\n  rng-egd\n  secret\n  throttle-group\n  tls-cipher-suites\n  tls-creds-anon\n  tls-creds-psk\n  tls-creds-x509\n"
   }

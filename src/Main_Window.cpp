@@ -127,6 +127,7 @@
 #include "Utils.h"
 #include "Crash_Report.h"
 #include "QEMU_Probe_Catalog.h"
+#include "QEMU_Hardware_Browser.h"
 #include "Blockdev_Graph_Window.h"
 #include "Appliance_Import_Window.h"
 #include "VM_Scanner_Window.h"
@@ -922,6 +923,17 @@ Main_Window::Main_Window( QWidget *parent )
 	fixComboElide( ui.CB_Machine_Type_Main );
 	fixComboElide( ui.CB_CPU_Type_Main );
 	fixComboElide( ui.CB_Video_Card );
+	if( ui.CB_Video_Card && ui.CB_Video_Card->parentWidget() && ui.CB_Video_Card->parentWidget()->layout() )
+	{
+		QPushButton *hw = new QPushButton( tr( "All QEMU hardware..." ), ui.CB_Video_Card->parentWidget() );
+		hw->setToolTip( tr( "Every device, object, and backend this qemu-system binary probed." ) );
+		QBoxLayout *box = qobject_cast<QBoxLayout *>( ui.CB_Video_Card->parentWidget()->layout() );
+		if( box )
+			box->insertWidget( box->indexOf( ui.CB_Video_Card ) + 1, hw );
+		else
+			ui.CB_Video_Card->parentWidget()->layout()->addWidget( hw );
+		connect( hw, &QPushButton::clicked, this, &Main_Window::Open_Hardware_Browser );
+	}
 	fixComboElide( ui.CB_Display_Resolution );
 	fixComboElide( ui.CB_Mouse_Pointer_Mode );
 	fixComboElide( ui.CB_Mouse_Type );
@@ -2863,9 +2875,7 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
 	else if( ui.RB_Display_Native->isChecked() )
 	{
 		tmp_vm->Set_Display_Window_Mode( QStringLiteral( "native" ) );
-		const int bi = ui.CB_Display_Backend->currentIndex();
-		static const char *backends[] = { "", "sdl", "gtk", "none", "curses", "egl-headless" };
-		tmp_vm->Set_Display_Backend( bi >= 0 && bi < 6 ? QString::fromLatin1( backends[bi] ) : QString() );
+		tmp_vm->Set_Display_Backend( ui.CB_Display_Backend->currentData().toString() );
 	}
 	else
 	{
@@ -3439,7 +3449,8 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 
 	const bool reims_only_gpu =
 		tmp_vm->Get_Computer_Type().contains( QLatin1String( "reimsvgpu" ), Qt::CaseInsensitive );
-	ui.CB_Video_Card->setEnabled( ! reims_only_gpu && ui.CB_Video_Card->count() > 1 );
+	Q_UNUSED( reims_only_gpu );
+	ui.CB_Video_Card->setEnabled( ui.CB_Video_Card->count() > 1 );
 
 	Apply_Display_Resolution_To_Ui( tmp_vm->Get_Display_Resolution() );
 	Update_Display_Resolution_Enabled();
@@ -3799,13 +3810,10 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 		ui.RB_Display_Embedded->blockSignals( false );
 		ui.RB_Display_Native->blockSignals( false );
 		ui.RB_Display_Nographic->blockSignals( false );
-		int bi = 0;
-		if( db == QLatin1String( "sdl" ) ) bi = 1;
-		else if( db == QLatin1String( "gtk" ) ) bi = 2;
-		else if( db == QLatin1String( "none" ) ) bi = 3;
-		else if( db == QLatin1String( "curses" ) ) bi = 4;
-		else if( db == QLatin1String( "egl-headless" ) ) bi = 5;
-		ui.CB_Display_Backend->setCurrentIndex( bi );
+		Refresh_Display_Backends();
+		const int bi = ui.CB_Display_Backend->findData( db );
+		if( bi >= 0 )
+			ui.CB_Display_Backend->setCurrentIndex( bi );
 		Update_Display_Window_Mode_Hint();
 	}
 
@@ -3970,6 +3978,34 @@ void Main_Window::Update_VM_Port_Number()
 	}
 }
 
+void Main_Window::Sync_Accelerator_From_Combo()
+{
+	Virtual_Machine *vm = Get_Current_VM();
+	if( ! vm || ui.CB_Machine_Accelerator->count() <= 0 )
+		return;
+
+	const QString id = ui.CB_Machine_Accelerator->currentData( Qt::UserRole ).toString().trimmed().toLower();
+	if( id.isEmpty() )
+		return;
+
+	const VM::Machine_Accelerator accel = VM::String_To_Accel( id );
+	bool wsl = vm->Use_Launch_Via_WSL();
+#ifdef Q_OS_WIN
+	if( id == QLatin1String( "whpx" ) )
+		wsl = false;
+	else if( id == QLatin1String( "kvm" ) )
+		wsl = true;
+	else if( id == QLatin1String( "tcg" ) && AQ_Is_Apple_SoC_VM( vm ) )
+		wsl = false;
+#endif
+	if( vm->Get_Machine_Accelerator() == accel && vm->Use_Launch_Via_WSL() == wsl )
+		return;
+
+	vm->Set_Machine_Accelerator( accel );
+	vm->Use_Launch_Via_WSL( wsl );
+	vm->Save_VM();
+}
+
 void Main_Window::Update_Info_Text( int info_mode )
 {
 	Virtual_Machine *tmp_vm = Get_Current_VM();
@@ -3980,6 +4016,9 @@ void Main_Window::Update_Info_Text( int info_mode )
 				 "Cannot Find VM!" );
 		return;
 	}
+
+	if( info_mode == 0 )
+		Sync_Accelerator_From_Combo();
 
     ui.VM_Information_Text->setHtml(tmp_vm->GenerateHTMLInfoText(info_mode));
 }
@@ -7066,18 +7105,6 @@ void Main_Window::Refresh_Audiodev_Backends()
 			<< QStringLiteral( "spice" ) << QStringLiteral( "sdl" ) << QStringLiteral( "oss" )
 			<< QStringLiteral( "jack" ) << QStringLiteral( "wav" ) << QStringLiteral( "none" );
 	}
-	else
-	{
-		QStringList host_names;
-		for( int i = 0; i < names.count(); ++i )
-		{
-			const QString n = names.at( i ).trimmed().toLower();
-			if( AQ_Audio_Host_Can_Use( n ) )
-				host_names << n;
-		}
-		names = host_names;
-	}
-
 	ui.CB_Audiodev_Backend->blockSignals( true );
 	ui.CB_Audiodev_Backend->clear();
 	ui.CB_Audiodev_Backend->addItem( tr( "(global)" ) );
@@ -7087,10 +7114,80 @@ void Main_Window::Refresh_Audiodev_Backends()
 		if( n.isEmpty() || ui.CB_Audiodev_Backend->findText( n ) >= 0 )
 			continue;
 		ui.CB_Audiodev_Backend->addItem( n );
+		if( ! linux_qemu && ! AQ_Audio_Host_Can_Use( n ) )
+		{
+			QStandardItemModel *model = qobject_cast<QStandardItemModel *>( ui.CB_Audiodev_Backend->model() );
+			if( model )
+			{
+				QStandardItem *item = model->item( ui.CB_Audiodev_Backend->count() - 1 );
+				if( item )
+				{
+					item->setFlags( item->flags() & ~Qt::ItemIsEnabled );
+					item->setToolTip( tr( "This QEMU binary lists %1. This PC cannot use it." ).arg( n ) );
+				}
+			}
+		}
 	}
 	const int ix = ui.CB_Audiodev_Backend->findText( keep );
 	ui.CB_Audiodev_Backend->setCurrentIndex( ix >= 0 ? ix : 0 );
 	ui.CB_Audiodev_Backend->blockSignals( false );
+}
+
+void Main_Window::Refresh_Display_Backends()
+{
+	if( ! ui.CB_Display_Backend )
+		return;
+
+	QString arch = ui.CB_Computer_Type ? ui.CB_Computer_Type->currentData().toString() : QString();
+	if( arch.isEmpty() )
+	{
+		if( Virtual_Machine *vm = Get_Current_VM() )
+			arch = vm->Get_Computer_Type();
+	}
+	arch = AQ_Canonical_QEMU_Binary_Name( arch );
+
+	QString bin;
+	if( Virtual_Machine *vm = Get_Current_VM() )
+		bin = vm->Get_Current_Emulator_Binary_Path( arch );
+	if( ! bin.isEmpty() )
+		QEMU_Probe_Catalog::Use_Binary_Path( bin );
+
+	Available_Devices ad;
+	QStringList names;
+	if( QEMU_Probe_Catalog::Load_Architecture( arch.isEmpty() ? QStringLiteral( "x86_64" ) : arch, ad ) )
+		names = ad.Display_Backends;
+	if( names.isEmpty() )
+	{
+		names << QStringLiteral( "sdl" ) << QStringLiteral( "gtk" ) << QStringLiteral( "none" )
+		      << QStringLiteral( "curses" ) << QStringLiteral( "egl-headless" );
+	}
+
+	const QString keep = ui.CB_Display_Backend->currentData().toString();
+	ui.CB_Display_Backend->blockSignals( true );
+	ui.CB_Display_Backend->clear();
+	ui.CB_Display_Backend->addItem( tr( "default (auto sdl/gtk)" ), QString() );
+	for( int i = 0; i < names.count(); ++i )
+	{
+		const QString n = names.at( i ).trimmed().toLower();
+		if( n.isEmpty() || ui.CB_Display_Backend->findData( n ) >= 0 )
+			continue;
+		ui.CB_Display_Backend->addItem( n, n );
+	}
+	const int ix = ui.CB_Display_Backend->findData( keep );
+	ui.CB_Display_Backend->setCurrentIndex( ix >= 0 ? ix : 0 );
+	ui.CB_Display_Backend->blockSignals( false );
+}
+
+void Main_Window::Open_Hardware_Browser()
+{
+	Virtual_Machine *vm = Get_Current_VM();
+	if( ! vm )
+		return;
+	if( ! QEMU_Hardware_Browser::Edit( this, vm, vm->Get_Computer_Type() ) )
+		return;
+	if( ui_ao.Edit_Additional_Args )
+		ui_ao.Edit_Additional_Args->setPlainText( vm->Get_Additional_Args() );
+	VM_Changed();
 }
 
 void Main_Window::on_CB_Computer_Type_currentIndexChanged( int index )
@@ -8232,6 +8329,9 @@ void Main_Window::Enforce_Accel_Honesty()
 
 	ui.CB_Machine_Accelerator->blockSignals( false );
 	Update_Accelerator_Options();
+	// The combo is what the user sees. Write it onto the VM before Info is
+	// drawn, or Info keeps the saved KVM row after this snap to TCG.
+	Sync_Accelerator_From_Combo();
 
 	if( moved )
 		VM_Changed();

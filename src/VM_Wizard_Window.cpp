@@ -82,6 +82,7 @@
 #include "System_Info.h"
 #include "VM_Devices.h"
 #include "QEMU_Probe_Catalog.h"
+#include "QEMU_Hardware_Browser.h"
 #include "Guest_Capabilities.h"
 #include "ISO_Guess.h"
 #include "URL_Fetch.h"
@@ -1380,6 +1381,7 @@ bool VM_Wizard_Window::Ensure_Emulator_Ready()
 			if( it.value().isEmpty() || ! QFile::exists( it.value() ) )
 				continue;
 			Available_Devices ad;
+			QEMU_Probe_Catalog::Use_Binary_Path( it.value() );
 			if( QEMU_Probe_Catalog::Load_Architecture( it.key(), ad ) )
 			{
 				All_Systems[ it.key() ] = ad;
@@ -1398,6 +1400,7 @@ bool VM_Wizard_Window::Ensure_Emulator_Ready()
 					ad.CPU_List.append( Device_Map( tr( "host" ), "host" ) );
 					ad.Video_Card_List.append( Device_Map( tr( "virtio-gpu-pci" ), "virtio-gpu-pci" ) );
 					ad.Video_Card_List.append( Device_Map( tr( "ramfb" ), "ramfb" ) );
+					ad.Video_Card_List.append( Device_Map( tr( "VMware SVGA" ), "vmware-svga" ) );
 					ad.Network_Card_List.append( Device_Map( tr( "virtio-net-pci" ), "virtio-net-pci" ) );
 					ad.Network_Card_List.append( Device_Map( tr( "e1000" ), "e1000" ) );
 				}
@@ -1410,6 +1413,7 @@ bool VM_Wizard_Window::Ensure_Emulator_Ready()
 					ad.CPU_List.append( Device_Map( tr( "host" ), "host" ) );
 					ad.Video_Card_List.append( Device_Map( tr( "virtio-vga" ), "virtio-vga" ) );
 					ad.Video_Card_List.append( Device_Map( tr( "qxl-vga" ), "qxl-vga" ) );
+					ad.Video_Card_List.append( Device_Map( tr( "VMware SVGA" ), "vmware-svga" ) );
 					ad.Network_Card_List.append( Device_Map( tr( "virtio-net-pci" ), "virtio-net-pci" ) );
 					ad.Network_Card_List.append( Device_Map( tr( "e1000" ), "e1000" ) );
 				}
@@ -3074,6 +3078,15 @@ void VM_Wizard_Window::Build_Devices_Page()
 		Refresh_Devices_Page();
 	} );
 
+	QPushButton *hw = new QPushButton( tr( "All QEMU hardware..." ), Devices_Page );
+	hw->setToolTip( tr( "Every device, object, and backend this qemu-system binary probed." ) );
+	lay->addWidget( hw );
+	connect( hw, &QPushButton::clicked, this, [this]() {
+		if( ! New_VM )
+			return;
+		QEMU_Hardware_Browser::Edit( this, New_VM, Selected_Target );
+	} );
+
 	auto add_row = [&]( const QString &label, QComboBox **combo ) {
 		QHBoxLayout *row = new QHBoxLayout();
 		QLabel *l = new QLabel( label );
@@ -3231,37 +3244,37 @@ void VM_Wizard_Window::Refresh_Devices_Page()
 				if( list[i].id == QLatin1String( id ) ) return;
 			Guest_Named_Option o; o.id = QString::fromUtf8( id ); o.caption = tr( cap ); list << o;
 		};
-		append_disk( "ide", "IDE" );
-		if( caps.allow_virtio_disk || is_pcish )
+		auto probe_has = [&]( const QList<Device_Map> &list, const char *fragment ) {
+			const QString frag = QString::fromLatin1( fragment );
+			for( int i = 0; i < list.count(); ++i )
+				if( list[i].QEMU_Name.contains( frag, Qt::CaseInsensitive ) )
+					return true;
+			return false;
+		};
+		if( Current_Devices )
 		{
-			append_disk( "virtio", "VirtIO disk" );
-			append_disk( "virtio-scsi", "VirtIO-SCSI" );
-			append_disk( "sata", "AHCI / SATA" );
-			append_disk( "nvme", "NVMe" );
-		}
-		append_disk( "scsi", "SCSI" );
-		if( caps.allow_virtio_net || is_pcish )
-			append_named( nics, "virtio-net-pci", "VirtIO network" );
-		if( is_pcish )
-		{
-			append_named( nics, "e1000", "Intel e1000" );
-			append_named( nics, "rtl8139", "RTL8139" );
-			append_named( nics, "ne2k_pci", "NE2000 PCI" );
-			append_named( nics, "pcnet", "PCNet" );
-			append_named( sounds, "sb16", "Sound Blaster 16" );
-			append_named( sounds, "sb16_adlib_pcspk", "SB16 + AdLib + PC Speaker" );
-			append_named( sounds, "ac97", "AC97" );
-			append_named( sounds, "hda", "Intel HDA" );
-			append_named( videos, "std", "Standard VGA" );
-			append_named( videos, "cirrus", "Cirrus VGA" );
+			if( probe_has( Current_Devices->Storage_Device_List, "ide-hd" ) )
+				append_disk( "ide", "IDE" );
+			if( probe_has( Current_Devices->Storage_Device_List, "virtio-blk" ) )
+				append_disk( "virtio", "VirtIO disk" );
+			if( probe_has( Current_Devices->Storage_Device_List, "virtio-scsi" ) )
+				append_disk( "virtio-scsi", "VirtIO-SCSI" );
+			if( probe_has( Current_Devices->Storage_Device_List, "ahci" ) )
+				append_disk( "sata", "AHCI / SATA" );
+			if( probe_has( Current_Devices->Storage_Device_List, "nvme" ) )
+				append_disk( "nvme", "NVMe" );
+			if( probe_has( Current_Devices->Storage_Device_List, "scsi-hd" )
+			    || probe_has( Current_Devices->Storage_Device_List, "lsi53c895a" ) )
+				append_disk( "scsi", "SCSI" );
+			for( int i = 0; i < Current_Devices->Sound_Device_List.count(); ++i )
+			{
+				const Device_Map &m = Current_Devices->Sound_Device_List[i];
+				append_named( sounds, m.QEMU_Name.toUtf8().constData(),
+				              m.Caption.toUtf8().constData() );
+			}
 		}
 		append_named( sounds, "none", "No sound" );
-		if( caps.allow_virtio_gpu || is_pcish )
-		{
-			append_named( videos, "virtio", "VirtIO-GPU" );
-			append_named( videos, "qxl", "QXL" );
-		}
-		append_named( videos, "VGA", "VGA" );
+		Q_UNUSED( is_pcish );
 		if( Current_Devices )
 		{
 			for( int i = 0; i < Current_Devices->Network_Card_List.count(); ++i )
