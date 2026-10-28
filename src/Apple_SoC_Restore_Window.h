@@ -24,6 +24,7 @@ private slots:
 	void Browse_Companion_Disk();
 	void Create_Companion_Helper();
 	void Refresh_Companion_Snippet();
+	void Start_USB_Host();
 	void Start_Companion_WSL();
 	void Stop_Companion_WSL();
 	void Run_Diagnose_WSL();

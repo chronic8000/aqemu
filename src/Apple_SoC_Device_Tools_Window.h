@@ -38,8 +38,7 @@ private:
 	bool Ensure_WSL_Creds( QString *distro_out, QString *user_out );
 	QStringList WSL_Bash_Args( const QString &distro, const QString &user,
 	                           const QString &script ) const;
-	bool Start_Companion_SSH( const QString &remote_cmd );
-	QString SSH_Base() const;
+	bool Start_On_Host( int mode, const QString &script );
 
 	Virtual_Machine *VM;
 	QLineEdit *Edit_SSH_User;

@@ -1,0 +1,12 @@
+--- !tapi-tbd
+tbd-version: 4
+targets: [ arm64-ios ]
+install-name: '/usr/lib/libSystem.B.dylib'
+current-version: 0
+compatibility-version: 0
+exports:
+  - targets: [ arm64-ios ]
+    symbols: [ _dlopen, _dlsym, _sleep, _notify_post, _proc_listpids,
+               _proc_pidpath, _kill, _access, _open, _read, _write,
+               _close, _fsync, _dyld_stub_binder ]
+...

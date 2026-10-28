@@ -72,6 +72,66 @@ bool AQ_Apple_SoC_IPv4_USB_Is_Listening( int port, bool *checked )
 #endif
 }
 
+void AQ_Ensure_Apple_USB_Host()
+{
+	const QString extras = AQ_Inferno_Extras_Dir();
+	const QString script = extras + QStringLiteral( "/ios-host.sh" );
+	if( extras.isEmpty() || ! QFileInfo::exists( script ) )
+	{
+		AQDebug( "AQ_Ensure_Apple_USB_Host",
+			QStringLiteral( "ios-host.sh is not next to aqemu.exe" ) );
+		return;
+	}
+	auto quote = []( QString s ) {
+		s.replace( QLatin1Char( '\'' ), QStringLiteral( "'\\''" ) );
+		return QLatin1Char( '\'' ) + s + QLatin1Char( '\'' );
+	};
+#ifdef Q_OS_WIN
+	const QString script_wsl = Windows_Path_To_WSL( script );
+	const QString bash = QStringLiteral(
+		"sed -i 's/\\r$//' %1 2>/dev/null || true; bash %1 ensure" )
+		.arg( quote( script_wsl ) );
+	QSettings s;
+	const QString distro = s.value( QStringLiteral( "WSL_Launch/Distro" ) ).toString().trimmed();
+	QStringList args;
+	if( ! distro.isEmpty() )
+		args << QStringLiteral( "-d" ) << distro;
+	args << QStringLiteral( "-u" ) << QStringLiteral( "root" )
+	     << QStringLiteral( "-e" ) << QStringLiteral( "bash" )
+	     << QStringLiteral( "--noprofile" ) << QStringLiteral( "--norc" )
+	     << QStringLiteral( "-c" ) << bash;
+	QProcess proc;
+	proc.setProcessChannelMode( QProcess::MergedChannels );
+	proc.start( QStringLiteral( "wsl.exe" ), args );
+	if( ! proc.waitForFinished( 25000 ) )
+	{
+		proc.kill();
+		proc.waitForFinished( 1000 );
+		AQDebug( "AQ_Ensure_Apple_USB_Host",
+			QStringLiteral( "USB bridge start timed out" ) );
+		return;
+	}
+	const QString out = QString::fromUtf8( proc.readAll() );
+	AQDebug( "AQ_Ensure_Apple_USB_Host", out.trimmed() );
+#else
+	const QString bash = QStringLiteral(
+		"sed -i 's/\\r$//' %1 2>/dev/null || true; bash %1 ensure" )
+		.arg( quote( script ) );
+	QProcess proc;
+	proc.setProcessChannelMode( QProcess::MergedChannels );
+	proc.start( QStringLiteral( "bash" ),
+		QStringList() << QStringLiteral( "-c" ) << bash );
+	if( ! proc.waitForFinished( 25000 ) )
+	{
+		proc.kill();
+		proc.waitForFinished( 1000 );
+		return;
+	}
+	AQDebug( "AQ_Ensure_Apple_USB_Host",
+		QString::fromUtf8( proc.readAll() ).trimmed() );
+#endif
+}
+
 bool AQ_Is_Apple_SoC_VM( const Virtual_Machine *vm )
 {
 	if( ! vm )

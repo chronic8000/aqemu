@@ -1,0 +1,11 @@
+prefix=/mnt/c/Users/chron/CURSOR-PROJECTS/AQEMU/aqemu/extras/Inferno/host-tools/aarch64
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: libplist++
+Description: C++ binding for libplist
+Version: 2.7.0-13-g18e5b22
+Libs: -L${libdir} -lplist++-2.0
+Cflags: -I${includedir}
+Requires.private: libplist-2.0 >= 2.7.0-13-g18e5b22

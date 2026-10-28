@@ -818,6 +818,22 @@ ADD_CUSTOM_COMMAND( TARGET aqemu POST_BUILD
 		"${CMAKE_SOURCE_DIR}/extras/Inferno/install-app-wsl.sh"
 		"$<TARGET_FILE_DIR:aqemu>/extras/Inferno/install-app-wsl.sh"
 	COMMAND ${CMAKE_COMMAND} -E copy_if_different
+		"${CMAKE_SOURCE_DIR}/extras/Inferno/ios-host.sh"
+		"$<TARGET_FILE_DIR:aqemu>/extras/Inferno/ios-host.sh"
+	COMMAND ${CMAKE_COMMAND} -E copy_if_different
+		"${CMAKE_SOURCE_DIR}/extras/Inferno/ios-restore.sh"
+		"$<TARGET_FILE_DIR:aqemu>/extras/Inferno/ios-restore.sh"
+	COMMAND ${CMAKE_COMMAND}
+		-DSRC=${CMAKE_SOURCE_DIR}/extras/Inferno/host-tools
+		-DDST=$<TARGET_FILE_DIR:aqemu>/extras/Inferno/host-tools
+		-P ${CMAKE_SOURCE_DIR}/extras/Inferno/copy-host-tools.cmake
+	COMMAND ${CMAKE_COMMAND} -E copy_if_different
+		"${CMAKE_SOURCE_DIR}/extras/Inferno/aqemu-register"
+		"$<TARGET_FILE_DIR:aqemu>/extras/Inferno/aqemu-register"
+	COMMAND ${CMAKE_COMMAND} -E copy_if_different
+		"${CMAKE_SOURCE_DIR}/extras/Inferno/com.aqemu.register.plist"
+		"$<TARGET_FILE_DIR:aqemu>/extras/Inferno/com.aqemu.register.plist"
+	COMMAND ${CMAKE_COMMAND} -E copy_if_different
 		"${CMAKE_SOURCE_DIR}/extras/Inferno/README.txt"
 		"$<TARGET_FILE_DIR:aqemu>/extras/Inferno/README.txt"
 	COMMAND ${CMAKE_COMMAND} -E copy_if_different

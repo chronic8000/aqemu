@@ -11496,6 +11496,13 @@ bool Virtual_Machine::Start_impl()
 		}
 	}
 
+	#ifndef Q_OS_WIN32
+	// Linux runs the iPhone USB host on this machine. The bridge listens on
+	// 127.0.0.1:8030 and vhci-hcd presents the phone to usbmuxd.
+	if( AQ_Is_Apple_SoC_VM( this ) && ! Get_Apple_USB_Conn_Type().trimmed().isEmpty() )
+		AQ_Ensure_Apple_USB_Host();
+	#endif
+
 	#ifdef Q_OS_WIN32
 	// Windows QEMU is the first start for every guest. WSL is the fallback
 	// when that exe is missing, and only after the user agrees. KVM is the
@@ -11507,12 +11514,13 @@ bool Virtual_Machine::Start_impl()
 		const bool is_applesoc = AQ_Is_Apple_SoC_VM( this );
 		// qemu-system-applesoc.exe is TCG only. KVM stays on the Linux ELF
 		// only when /dev/kvm actually works.
-		// A USB remote (IPv4 127.0.0.1:8030 or a UNIX socket) is the companion's
-		// usb-tcp-remote, and that socket lives inside WSL. The Windows exe
-		// dials Windows localhost, the phone never enumerates, and iOS never
-		// shows the USB network notification. That launch stays in WSL, still TCG.
+		// A USB remote (IPv4 127.0.0.1:8030 or a UNIX socket) is the WSL USB
+		// bridge (aqemu-usb-bridge + vhci-hcd). The Windows exe dials Windows
+		// localhost, so this launch stays in WSL, still TCG.
 		const bool applesoc_usb_bridge =
 			is_applesoc && ! Get_Apple_USB_Conn_Type().trimmed().isEmpty();
+		if( applesoc_usb_bridge )
+			AQ_Ensure_Apple_USB_Host();
 		if( is_applesoc &&
 		    ! ( Machine_Accelerator == VM::KVM && WSL_Has_KVM() ) )
 		{

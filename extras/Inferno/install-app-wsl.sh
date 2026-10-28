@@ -4,15 +4,27 @@
 # Inferno already patches the kernel to bypass code-signature checks, and Power On
 # adds amfi_get_out_of_my_way=1 to -append (the Boot Args line).
 # cs_enforcement_disable panics this kernel ("can't has cs_enforcement_disable").
+# SpringBoard does not notice a bundle that was only copied into /Applications.
+# aqemu-register runs on the next boot, registers the bundle, and restarts
+# SpringBoard once so the icon appears.
 #
 # Required:
 #   ROOT_IMG   Guest *_inferno/root raw image. iOS must be powered off.
-#   IPA        Path to the .ipa. Its existing signature and entitlements are kept.
 # Optional:
+#   IPA        Path to the .ipa. Its existing signature and entitlements are kept.
 #   WORK       Scratch dir (default: $HOME/aqemu-inferno-app-install)
+#   REGISTER_ONLY=1  Do not extract or recopy an IPA. Register what is already there.
+#   INPLACE=1        Modify ROOT_IMG directly instead of copying it aside and back.
 set -euo pipefail
 
-if [[ -z "${ROOT_IMG:-}" || -z "${IPA:-}" ]]; then
+REGISTER_ONLY="${REGISTER_ONLY:-0}"
+INPLACE="${INPLACE:-0}"
+
+if [[ -z "${ROOT_IMG:-}" ]]; then
+  echo "ERROR: ROOT_IMG must be set"
+  exit 1
+fi
+if [[ "$REGISTER_ONLY" != "1" && -z "${IPA:-}" ]]; then
   echo "ERROR: ROOT_IMG and IPA must both be set"
   exit 1
 fi
@@ -25,7 +37,7 @@ if [[ ! -f "$ROOT_REAL" ]]; then
   echo "ERROR: root image not found: $ROOT_IMG (resolved: $ROOT_REAL)"
   exit 1
 fi
-if [[ ! -f "$IPA" ]]; then
+if [[ "$REGISTER_ONLY" != "1" && ! -f "$IPA" ]]; then
   echo "ERROR: IPA not found: $IPA"
   exit 1
 fi
@@ -60,13 +72,26 @@ cd "$WORK"
 echo "=== AQEMU install app onto iOS root ==="
 echo "ROOT_IMG=$ROOT_IMG"
 echo "ROOT_REAL=$ROOT_REAL"
-echo "IPA=$IPA"
+echo "IPA=${IPA:-}"
+echo "REGISTER_ONLY=$REGISTER_ONLY"
+echo "INPLACE=$INPLACE"
 echo "WORK=$WORK"
 
-echo "=== Extract IPA (signature and entitlements kept) ==="
-rm -rf "$APP_DIR"
-mkdir -p "$APP_DIR"
-python3 - "$IPA" "$APP_DIR" <<'PY'
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ ! -f "$SCRIPT_DIR/aqemu-register" || ! -f "$SCRIPT_DIR/com.aqemu.register.plist" ]]; then
+  echo "ERROR: $SCRIPT_DIR/aqemu-register is missing. Run build-aqemu-register.py first."
+  exit 1
+fi
+
+if [[ "$REGISTER_ONLY" == "1" ]]; then
+  echo "=== Register apps already on the iOS root ==="
+  rm -rf "$APP_DIR"
+  mkdir -p "$APP_DIR"
+else
+  echo "=== Extract IPA (signature and entitlements kept) ==="
+  rm -rf "$APP_DIR"
+  mkdir -p "$APP_DIR"
+  python3 - "$IPA" "$APP_DIR" <<'PY'
 import os, stat, sys, zipfile
 from pathlib import Path
 ipa, dest_root = sys.argv[1], Path(sys.argv[2])
@@ -106,7 +131,10 @@ with zipfile.ZipFile(ipa) as z:
             os.chmod(dest, bits)
 print("extracted", dest_root)
 PY
-find "$APP_DIR/Payload" -maxdepth 1 -name '*.app' -type d -print
+  find "$APP_DIR/Payload" -maxdepth 1 -name '*.app' -type d -print
+fi
+cp -f "$SCRIPT_DIR/aqemu-register" "$APP_DIR/aqemu-register"
+cp -f "$SCRIPT_DIR/com.aqemu.register.plist" "$APP_DIR/com.aqemu.register.plist"
 
 echo "=== Cloud image ==="
 if [[ ! -f "$CLOUD_IMG" ]] || [[ "$(stat -c%s "$CLOUD_IMG")" -lt 100000000 ]]; then
@@ -114,13 +142,23 @@ if [[ ! -f "$CLOUD_IMG" ]] || [[ "$(stat -c%s "$CLOUD_IMG")" -lt 100000000 ]]; t
     https://cloud-images.ubuntu.com/minimal/releases/noble/release/ubuntu-24.04-minimal-cloudimg-amd64.img
   mv -f "$CLOUD_IMG.partial" "$CLOUD_IMG"
 fi
-rm -f "$RUNTIME_IMG"
-qemu-img convert -O qcow2 "$CLOUD_IMG" "$RUNTIME_IMG"
-qemu-img resize "$RUNTIME_IMG" 12G
+if [[ -f "$RUNTIME_IMG" && "$(stat -c%s "$RUNTIME_IMG")" -gt 500000000 ]]; then
+  echo "Reusing helper disk $RUNTIME_IMG"
+else
+  rm -f "$RUNTIME_IMG"
+  qemu-img convert -O qcow2 "$CLOUD_IMG" "$RUNTIME_IMG"
+  qemu-img resize "$RUNTIME_IMG" 12G
+fi
 
-echo "=== Root working copy (16 GB class image; this takes several minutes) ==="
-cp -f "$ROOT_REAL" "$ROOT_WORK"
-ls -lh "$ROOT_WORK"
+if [[ "$INPLACE" == "1" ]]; then
+  ROOT_WORK="$ROOT_REAL"
+  echo "=== Modifying root image in place ==="
+  ls -lh "$ROOT_WORK"
+else
+  echo "=== Root working copy (16 GB class image; this takes several minutes) ==="
+  cp -f "$ROOT_REAL" "$ROOT_WORK"
+  ls -lh "$ROOT_WORK"
+fi
 
 echo "=== Guest install script ==="
 cat > "$PAYLOAD_DIR/do-install.sh" <<'EOS'
@@ -141,8 +179,8 @@ if ! mount -t 9p -o trans=virtio,version=9p2000.L,msize=104857600 appsrc /mnt/sr
   dmesg | tail -40
   exit 6
 fi
-echo "=== IPA contents ==="
-find /mnt/src/Payload -maxdepth 1 -mindepth 1 -print
+echo "=== Share contents ==="
+find /mnt/src -maxdepth 2 -mindepth 1 -print
 
 ROOT_DEV=""
 BEST=0
@@ -159,9 +197,13 @@ done
 echo "ROOT_DEV=$ROOT_DEV"
 
 export DEBIAN_FRONTEND=noninteractive
-apt-get update -qq
-apt-get install -y -qq build-essential git "linux-headers-$(uname -r)" python3 gdisk fdisk || \
-  apt-get install -y -qq build-essential git linux-headers-generic python3 gdisk fdisk
+if [[ -d "/lib/modules/$(uname -r)/build" ]] && command -v gcc >/dev/null && command -v git >/dev/null; then
+  echo "Build tools already installed"
+else
+  apt-get update -qq
+  apt-get install -y -qq build-essential git "linux-headers-$(uname -r)" python3 gdisk fdisk || \
+    apt-get install -y -qq build-essential git linux-headers-generic python3 gdisk fdisk
+fi
 
 cd /tmp
 rm -rf linux-apfs-rw
@@ -219,15 +261,12 @@ echo "SYS=$SYS"
 mkdir -p "$SYS/Applications"
 echo "Applications: $(ls -ld "$SYS/Applications" || true)"
 
-shopt -s nullglob
-apps=(/mnt/src/Payload/*.app)
-[[ ${#apps[@]} -gt 0 ]] || { echo "ERROR: no .app in Payload"; exit 5; }
-for app in "${apps[@]}"; do
-  name="$(basename "$app")"
-  dest="$SYS/Applications/$name"
-  echo "Installing $name -> $dest"
-  rm -rf "$dest"
-  cp -a "$app" "$dest"
+fix_app() {
+  local dest="$1"
+  [[ -d "$dest" ]] || return 0
+  chown -hR 0:80 "$dest" || true
+  find "$dest" -type d -exec chmod 755 {} +
+  find "$dest" -type f -exec chmod a+r {} +
   while IFS= read -r -d '' bin; do
     sig=$(od -An -t x1 -N 4 "$bin" | tr -d ' \n')
     if [[ "$sig" == "cffaedfe" || "$sig" == "cefaedfe" || "$sig" == "feedfacf" || "$sig" == "feedface" ]]; then
@@ -236,7 +275,50 @@ for app in "${apps[@]}"; do
   done < <(find "$dest" -type f -print0)
   du -sh "$dest" || true
   ls -ld "$dest"
+}
+
+shopt -s nullglob
+apps=(/mnt/src/Payload/*.app)
+if [[ ${#apps[@]} -eq 0 && ! -f /mnt/src/aqemu-register ]]; then
+  echo "ERROR: no .app in Payload and no registrar"
+  exit 5
+fi
+for app in "${apps[@]}"; do
+  name="$(basename "$app")"
+  dest="$SYS/Applications/$name"
+  echo "Installing $name -> $dest"
+  rm -rf "$dest"
+  cp -a "$app" "$dest"
+  fix_app "$dest"
 done
+if [[ -d "$SYS/Applications/UTM SE.app" ]]; then
+  fix_app "$SYS/Applications/UTM SE.app"
+fi
+
+if [[ ! -f /mnt/src/aqemu-register || ! -f /mnt/src/com.aqemu.register.plist ]]; then
+  echo "ERROR: registrar files missing from the share"
+  exit 7
+fi
+install -m 755 -o 0 -g 0 /mnt/src/aqemu-register "$SYS/usr/libexec/aqemu-register"
+install -m 644 -o 0 -g 0 /mnt/src/com.aqemu.register.plist "$SYS/System/Library/LaunchDaemons/com.aqemu.register.plist"
+list="$SYS/usr/libexec/aqemu-register.list"
+: > "$list"
+if [[ ${#apps[@]} -gt 0 ]]; then
+  for app in "${apps[@]}"; do
+    printf '/Applications/%s\n' "$(basename "$app")" >> "$list"
+  done
+elif [[ -d "$SYS/Applications/UTM SE.app" ]]; then
+  printf '/Applications/UTM SE.app\n' >> "$list"
+fi
+chown 0:0 "$list"
+chmod 644 "$list"
+echo "=== registrar ==="
+ls -l "$SYS/usr/libexec/aqemu-register" "$SYS/System/Library/LaunchDaemons/com.aqemu.register.plist" "$list"
+cat "$list"
+if [[ ! -s "$list" ]]; then
+  echo "ERROR: nothing to register"
+  exit 8
+fi
 
 sync
 umount /mnt/ios || umount -l /mnt/ios
@@ -290,7 +372,7 @@ qemu-system-x86_64 \
   -smp 4 \
   -drive file="$RUNTIME_IMG",if=none,id=os,format=qcow2,cache=writeback,discard=unmap \
   -device virtio-blk-pci,drive=os,bootindex=1 \
-  -drive file="$ROOT_WORK",if=none,id=iosroot,format=raw,cache=unsafe \
+  -drive file="$ROOT_WORK",if=none,id=iosroot,format=raw,cache=writeback \
   -device virtio-blk-pci,drive=iosroot,physical_block_size=4096,logical_block_size=4096 \
   -drive file="$SEED_ISO",if=none,id=cidata,format=raw,readonly=on \
   -device virtio-blk-pci,drive=cidata \
@@ -310,11 +392,15 @@ MTOOLS_SKIP_CHECK=1 mcopy -n -i "$PAYLOAD_IMG" ::SUCCESS "$PAYLOAD_DIR/SUCCESS" 
 MTOOLS_SKIP_CHECK=1 mcopy -n -i "$PAYLOAD_IMG" ::do-install.log "$PAYLOAD_DIR/do-install.log" 2>/dev/null || true
 
 if [[ -f "$PAYLOAD_DIR/SUCCESS" ]]; then
-  echo "=== Writing root image back ==="
-  cp -f "$ROOT_WORK" "$ROOT_REAL"
-  sync
-  echo "App installed on $ROOT_REAL"
-  echo "Power On iOS. The icon appears after SpringBoard starts."
+  if [[ "$INPLACE" == "1" ]]; then
+    echo "Root image updated in place: $ROOT_REAL"
+  else
+    echo "=== Writing root image back ==="
+    cp -f "$ROOT_WORK" "$ROOT_REAL"
+    sync
+    echo "App installed on $ROOT_REAL"
+  fi
+  echo "Power On iOS. The icon appears after SpringBoard restarts."
   echo "Boot Args in the serial log must include amfi_get_out_of_my_way=1."
   echo SUCCESS
   exit 0

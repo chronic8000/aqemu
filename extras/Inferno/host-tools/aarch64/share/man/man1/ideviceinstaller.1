@@ -1,0 +1,139 @@
+.TH "ideviceinstaller" 1
+.SH NAME
+ideviceinstaller \- Manage apps on iOS devices.
+.SH SYNOPSIS
+.B ideviceinstaller
+[OPTIONS]
+
+.SH DESCRIPTION
+
+Allows to enumerate, install, upgrade, and uninstall apps on iOS devices.
+
+.SH COMMANDS
+.TP
+.B list
+List installed apps on the device. Options:
+.RS
+.TP
+.B \-\-user
+List user apps only (apps installed by the user).
+.B This is the default.
+.TP
+.B \-\-system
+List system apps only (apps available from the system firmware).
+.TP
+.B \-\-all
+List all types of apps.
+.TP
+.B \-\-xml
+Print output as XML Property List.
+.TP
+.B \-a, \-\-attribute ATTR
+Specify attribute to return. This argument can be passed multiple times. If omitted and \f[B]\-\-xml\f[] is *not* specified, the default attributes \f[B]CFBundleIdentifier\f[], \f[B]CFBundleShortVersionString\f[], and \f[B]CFBundleDisplayName\f[] will be used. The attributes can be found in the app's Info.plist, but also some extra attributes exist. Some examples:
+.RS
+.TP
+\f[B]StaticDiskUsage\f[]   disk usage of installed app
+.TP
+\f[B]DynamicDiskUsage\f[]  app user data disk usage
+.TP
+\f[B]Path\f[]              app installation location
+.TP
+\f[B]SignerIdentity\f[]    code signing identity
+.TP
+NOTE: It is suggested to always add CFBundleIdentifier to allow unique identification of the apps.
+.RE
+.TP
+.B \-b, \-\-bundle\-identifier BUNDLEID
+Only query given bundle identifier. This argument can be passed multiple times.
+.RE
+.TP
+.B install PATH
+Install app from a package file specified by PATH. PATH can also be a .ipcc
+file for carrier bundle installation or a .app directory for developer
+app installation.
+.RS
+.TP
+.B \-s, \-\-sinf PATH
+Pass an external SINF file located at PATH.
+.TP
+.B \-m, \-\-metadata PATH
+Pass an external iTunesMetadata file located at PATH.
+.RE
+
+.TP
+.B uninstall BUNDLEID
+Uninstall app specified by BUNDLEID.
+
+.TP
+.B upgrade PATH
+Upgrade app from a package file specified by PATH.
+
+.SH LEGACY COMMANDS
+The following commands are non-functional with iOS 7 or later.
+.TP
+.B archive BUNDLEID
+Archive app specified by BUNDLEID. Options:
+.RS
+.TP
+.B \-\-uninstall
+Uninstall the package after making an archive
+.TP
+.B \-\-app_only
+Archive application data only
+.TP
+.B \-\-docs_only
+Archive documents (user data) only
+.TP
+.B \-\-copy=PATH
+Copy the app archive to directory PATH when done
+.TP
+.B \-\-remove
+Only valid when copy=PATH is used: remove after copy
+.RE
+
+.TP
+.B restore BUNDLEID
+Restore archived app specified by BUNDLEID.
+
+.TP
+.B list-archives
+List archived apps on the device. Options:
+.RS
+.TP
+.B \-\-xml
+Print output as XML Property List.
+.RE
+
+.TP
+.B remove-archive BUNDLEID
+Remove app archive specified by BUNDLEID.
+
+.SH OPTIONS
+.TP
+.B \-u, \-\-udid UDID
+Target specific device by UDID.
+.TP
+.B \-n, \-\-network
+Connect to network device.
+.TP
+.B \-w, \-\-notify-wait
+Wait for app installed/uninstalled notification before reporting success of operation.
+.TP
+.B \-h, \-\-help
+Print usage information.
+.TP
+.B \-d, \-\-debug
+Enable communication debugging.
+.TP
+.B \-v, \-\-version
+Print version information.
+
+.SH AUTHORS
+Nikias Bassen
+
+Martin Szulecki
+
+.SH ON THE WEB
+https://libimobiledevice.org
+
+https://github.com/libimobiledevice/ideviceinstaller

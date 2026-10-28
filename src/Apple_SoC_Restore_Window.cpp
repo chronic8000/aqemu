@@ -80,7 +80,7 @@ Apple_SoC_Restore_Window::Apple_SoC_Restore_Window( Virtual_Machine *vm, QWidget
 	, CB_Nand_Size( nullptr )
 	, SB_Nand_Size( nullptr )
 {
-	setWindowTitle( tr( "Apple SoC Restore (Inferno companion)" ) );
+	setWindowTitle( tr( "Apple SoC Restore" ) );
 
 	QVBoxLayout *root_lay = new QVBoxLayout( this );
 	root_lay->setContentsMargins( 8, 8, 8, 8 );
@@ -100,18 +100,14 @@ Apple_SoC_Restore_Window::Apple_SoC_Restore_Window( Virtual_Machine *vm, QWidget
 	lay->setSizeConstraint( QLayout::SetMinimumSize );
 
 	QLabel *intro = new QLabel( tr(
-		"<p><b>IPSW restore (ChefKiss Inferno) — two guests at once</b></p>"
+		"<p><b>IPSW restore (ChefKiss Inferno)</b></p>"
 		"<ol>"
-		"<li><b>Start companion</b> here (Inferno + <code>usb-tcp-remote</code> + your "
-		"<code>companion.qcow2</code>). Do <b>not</b> also Power On the Ubuntu companion "
-		"in the AQEMU list — same disk, one lock.</li>"
-		"<li>Leave this window open <i>or</i> close it — companion now keeps running "
-		"detached in WSL. SSH: <code>ssh -p 32222 USER@127.0.0.1</code>.</li>"
-		"<li>In AQEMU, Power On <b>iOS (ARM64)</b> with USB remote "
-		"<code>ipv4 127.0.0.1:8030</code> (same as below).</li>"
-		"<li>Enter companion SSH user/password below, then "
-		"<b>Restore IPSW via SSH</b> — AQEMU uploads the IPSW and runs "
-		"<code>idevicerestore</code> inside the companion (no manual scp).</li>"
+		"<li><b>Start USB bridge</b> below, or just Power On iOS. AQEMU starts the bridge "
+		"for this PC's CPU (x86_64 or ARM64) inside WSL on Windows, and on the host on Linux.</li>"
+		"<li>Power On <b>iOS (ARM64)</b> with USB remote "
+		"<code>ipv4 127.0.0.1:8030</code>.</li>"
+		"<li><b>Restore IPSW</b> runs <code>idevicerestore</code> on that same machine. "
+		"The IPSW stays where you picked it. No companion virtual machine and no SSH.</li>"
 		"</ol>"
 		"<p>Docs: "
 		"<a href=\"https://chefkiss.dev/guides/inferno/companion-setup/\">Companion setup</a> · "
@@ -164,35 +160,18 @@ Apple_SoC_Restore_Window::Apple_SoC_Restore_Window( Virtual_Machine *vm, QWidget
 
 	{
 		QSettings s;
-		Edit_Companion_Disk = new QLineEdit(
+		Edit_Companion_Disk = new QLineEdit( this );
+		Edit_Companion_Disk->setText(
 			s.value( QStringLiteral( "Apple_SoC_Restore/Companion_Disk" ) ).toString() );
-		Edit_Companion_Disk->setPlaceholderText(
-			tr( "Required: Linux disk image for companion VM (.qcow2 / .img / .raw)" ) );
-		QPushButton *btnDisk = new QPushButton( tr( "Browse…" ) );
-		connect( btnDisk, &QPushButton::clicked, this, &Apple_SoC_Restore_Window::Browse_Companion_Disk );
-		QPushButton *btnCreate = new QPushButton( tr( "Create…" ) );
-		btnCreate->setToolTip( tr(
-			"Download Ubuntu Server ISO, create companion.qcow2, and show setup steps.\n"
-			"(Same helper as New VM → Apple → iPhone IPSW Restore Companion.)" ) );
-		connect( btnCreate, &QPushButton::clicked, this, &Apple_SoC_Restore_Window::Create_Companion_Helper );
-		QHBoxLayout *diskLay = new QHBoxLayout();
-		diskLay->addWidget( Edit_Companion_Disk, 1 );
-		diskLay->addWidget( btnDisk );
-		diskLay->addWidget( btnCreate );
-		form->addRow( tr( "Companion disk:" ), diskLay );
-	}
-
-	{
-		QSettings s;
-		Edit_SSH_User = new QLineEdit(
+		Edit_Companion_Disk->hide();
+		Edit_SSH_User = new QLineEdit( this );
+		Edit_SSH_User->setText(
 			s.value( QStringLiteral( "Apple_SoC_Restore/SSH_User" ),
 				QStringLiteral( "bob" ) ).toString() );
-		Edit_SSH_User->setPlaceholderText( tr( "Linux user in companion (e.g. bob)" ) );
-		Edit_SSH_Password = new QLineEdit();
+		Edit_SSH_User->hide();
+		Edit_SSH_Password = new QLineEdit( this );
 		Edit_SSH_Password->setEchoMode( QLineEdit::Password );
-		Edit_SSH_Password->setPlaceholderText( tr( "SSH / sudo password for that user" ) );
-		form->addRow( tr( "Companion SSH user:" ), Edit_SSH_User );
-		form->addRow( tr( "Companion SSH password:" ), Edit_SSH_Password );
+		Edit_SSH_Password->hide();
 	}
 
 	CB_Conn_Type = new QComboBox();
@@ -269,7 +248,7 @@ Apple_SoC_Restore_Window::Apple_SoC_Restore_Window( Virtual_Machine *vm, QWidget
 	Text_Companion->setLineWrapMode( QTextEdit::WidgetWidth );
 	Text_Companion->setMinimumHeight( AQ_Px( 65, this ) );
 	Text_Companion->setMaximumHeight( AQ_Px( 100, this ) );
-	lay->addWidget( new QLabel( tr( "Companion QEMU (Linux guest + usb-tcp-remote; start BEFORE iOS):" ) ) );
+	lay->addWidget( new QLabel( tr( "USB bridge (start BEFORE iOS, or Power On does it):" ) ) );
 	lay->addWidget( Text_Companion );
 
 	// Group buttons logically into two rows so they never force excessive dialog width
@@ -278,12 +257,12 @@ Apple_SoC_Restore_Window::Apple_SoC_Restore_Window( Virtual_Machine *vm, QWidget
 		QApplication::clipboard()->setText( Text_Companion->toPlainText() );
 		QMessageBox::information( this, tr( "Copied" ), tr( "Companion command copied." ) );
 	} );
-	QPushButton *btnCompanion = new QPushButton( tr( "Start companion in WSL" ) );
+	QPushButton *btnCompanion = new QPushButton( tr( "Start USB bridge" ) );
 	btnCompanion->setToolTip(
-		tr( "Boots companion Linux with usb-tcp-remote (detached). SSH: localhost:32222" ) );
-	connect( btnCompanion, &QPushButton::clicked, this, &Apple_SoC_Restore_Window::Start_Companion_WSL );
-	QPushButton *btnStopCompanion = new QPushButton( tr( "Stop companion" ) );
-	btnStopCompanion->setToolTip( tr( "Stop the detached Inferno companion in WSL" ) );
+		tr( "Listens on 127.0.0.1:8030 and attaches the iPhone to this PC's USB stack." ) );
+	connect( btnCompanion, &QPushButton::clicked, this, &Apple_SoC_Restore_Window::Start_USB_Host );
+	QPushButton *btnStopCompanion = new QPushButton( tr( "Stop USB bridge" ) );
+	btnStopCompanion->setToolTip( tr( "Stop the USB bridge and usbmuxd on this PC" ) );
 	connect( btnStopCompanion, &QPushButton::clicked, this, &Apple_SoC_Restore_Window::Stop_Companion_WSL );
 	QPushButton *btnDiag = new QPushButton( tr( "Diagnose USB bridge" ) );
 	connect( btnDiag, &QPushButton::clicked, this, &Apple_SoC_Restore_Window::Run_Diagnose_WSL );
@@ -296,7 +275,7 @@ Apple_SoC_Restore_Window::Apple_SoC_Restore_Window( Virtual_Machine *vm, QWidget
 	companion_btns->addStretch( 1 );
 	lay->addLayout( companion_btns );
 
-	QPushButton *btnRestore = new QPushButton( tr( "Restore IPSW via SSH…" ) );
+	QPushButton *btnRestore = new QPushButton( tr( "Restore IPSW…" ) );
 	btnRestore->setToolTip( tr(
 		"Upload the IPSW into the companion over SSH and run idevicerestore there" ) );
 	connect( btnRestore, &QPushButton::clicked, this, &Apple_SoC_Restore_Window::Run_IDeviceRestore );
@@ -682,6 +661,47 @@ void Apple_SoC_Restore_Window::Refresh_Companion_Snippet()
 	}
 }
 
+void Apple_SoC_Restore_Window::Start_USB_Host()
+{
+	const QString extras = AQ_Inferno_Extras_Dir();
+	const QString host = extras + QStringLiteral( "/ios-host.sh" );
+	if( extras.isEmpty() || ! QFile::exists( host ) )
+	{
+		QMessageBox::warning( this, tr( "USB bridge" ),
+			tr( "Could not find extras/Inferno/ios-host.sh next to aqemu.exe." ) );
+		return;
+	}
+	auto quote = []( QString s ) {
+		s.replace( QLatin1Char( '\'' ), QStringLiteral( "'\\''" ) );
+		return QLatin1Char( '\'' ) + s + QLatin1Char( '\'' );
+	};
+#ifdef Q_OS_WIN
+	QString distro, user;
+	if( ! Ensure_WSL_Creds( &distro, &user ) )
+		return;
+	Q_UNUSED( user );
+	const QString bash = QStringLiteral(
+		"sed -i 's/\\r$//' %1 2>/dev/null || true; bash %1 ensure; echo bridge_exit=$?" )
+		.arg( quote( Windows_Path_To_WSL( host ) ) );
+	if( Companion_Process->state() != QProcess::NotRunning )
+		Companion_Process->kill();
+	Append_Log( tr( "Starting the USB bridge in WSL...\n" ) );
+	Companion_Process->setProcessChannelMode( QProcess::MergedChannels );
+	Companion_Process->start( QStringLiteral( "wsl.exe" ),
+		WSL_Bash_Args( distro, QStringLiteral( "root" ), bash ) );
+#else
+	const QString bash = QStringLiteral(
+		"sed -i 's/\\r$//' %1 2>/dev/null || true; bash %1 ensure; echo bridge_exit=$?" )
+		.arg( quote( host ) );
+	if( Companion_Process->state() != QProcess::NotRunning )
+		Companion_Process->kill();
+	Append_Log( tr( "Starting the USB bridge...\n" ) );
+	Companion_Process->setProcessChannelMode( QProcess::MergedChannels );
+	Companion_Process->start( QStringLiteral( "bash" ),
+		QStringList() << QStringLiteral( "-c" ) << bash );
+#endif
+}
+
 void Apple_SoC_Restore_Window::Start_Companion_WSL()
 {
 	Refresh_Companion_Snippet();
@@ -1026,13 +1046,15 @@ void Apple_SoC_Restore_Window::Stop_Companion_WSL()
 		"kill_inferno_companions -TERM; "
 		"sleep 1; "
 		"kill_inferno_companions -KILL; "
-		"echo 'Companion stop requested.'" );
-	const QStringList args = WSL_Bash_Args( distro, user, script );
-	Append_Log( QStringLiteral( "Stop companion:\nwsl.exe %1\n" ).arg( args.join( QLatin1Char( ' ' ) ) ) );
+		"pkill -x aqemu-usb-bridge 2>/dev/null || true; "
+		"pkill -x usbmuxd 2>/dev/null || true; "
+		"echo 'USB bridge stop requested.'" );
+	const QStringList args = WSL_Bash_Args( distro, QStringLiteral( "root" ), script );
+	Append_Log( QStringLiteral( "Stop USB bridge:\nwsl.exe %1\n" ).arg( args.join( QLatin1Char( ' ' ) ) ) );
 	Companion_Process->start( QStringLiteral( "wsl.exe" ), args );
 #else
-	QMessageBox::information( this, tr( "Companion" ),
-		tr( "Stop the Inferno companion QEMU process in a terminal." ) );
+	QMessageBox::information( this, tr( "USB bridge" ),
+		tr( "Stop aqemu-usb-bridge from a root shell, or run: sudo pkill -x aqemu-usb-bridge" ) );
 #endif
 }
 
@@ -1053,7 +1075,7 @@ void Apple_SoC_Restore_Window::Run_Diagnose_WSL()
 	const int port = Conn_Port();
 
 	QString script = QStringLiteral(
-		"echo '=== Inferno USB bridge diagnose ==='; "
+		"echo '=== USB bridge diagnose ==='; "
 		"echo; " );
 
 	if( type == QLatin1String( "unix" ) )
@@ -1114,8 +1136,6 @@ void Apple_SoC_Restore_Window::Run_Diagnose_WSL()
 void Apple_SoC_Restore_Window::Run_IDeviceRestore()
 {
 	const QString ipsw = Edit_IPSW->text().trimmed();
-	const QString ssh_user = Edit_SSH_User ? Edit_SSH_User->text().trimmed() : QString();
-	const QString ssh_pass = Edit_SSH_Password ? Edit_SSH_Password->text() : QString();
 	Sync_Conn_To_VM();
 
 	if( ipsw.isEmpty() || ! QFile::exists( ipsw ) )
@@ -1124,36 +1144,38 @@ void Apple_SoC_Restore_Window::Run_IDeviceRestore()
 			tr( "Select a valid IPSW (or restore .zip) file first." ) );
 		return;
 	}
-	if( ssh_user.isEmpty() || ssh_pass.isEmpty() )
+
+	if( QMessageBox::question( this, tr( "Restore IPSW" ),
+			tr( "idevicerestore will use this file:\n\n%1\n\n"
+			    "Power On iOS with USB remote 127.0.0.1:8030 when the log says so. "
+			    "The tools run on this PC (WSL on Windows, native on Linux)." )
+				.arg( QDir::toNativeSeparators( ipsw ) ),
+			QMessageBox::Ok | QMessageBox::Cancel, QMessageBox::Ok ) != QMessageBox::Ok )
+		return;
+
+	QString ticket;
+	if( VM )
 	{
-		QMessageBox::warning( this, tr( "Companion SSH" ),
-			tr( "Enter the companion Linux SSH username and password.\n"
-			    "AQEMU mounts the IPSW folder into the companion (9p) and runs idevicerestore there." ) );
+		ticket = VM->Get_Apple_Ticket_Path().trimmed();
+		if( ticket.isEmpty() || ! QFile::exists( ticket ) || QFileInfo( ticket ).size() <= 100 )
+			ticket.clear();
+	}
+
+	const QString extras = AQ_Inferno_Extras_Dir();
+	const QString host = extras + QStringLiteral( "/ios-host.sh" );
+	const QString restore = extras + QStringLiteral( "/ios-restore.sh" );
+	if( extras.isEmpty() || ! QFile::exists( host ) || ! QFile::exists( restore ) )
+	{
+		QMessageBox::warning( this, tr( "Restore" ),
+			tr( "Could not find extras/Inferno/ios-host.sh next to aqemu.exe." ) );
 		return;
 	}
-
+	if( Process->state() != QProcess::NotRunning )
 	{
-		const QString base = QFileInfo( ipsw ).fileName();
-		QString extra;
-		if( base.contains( QLatin1String( "18A5351d" ), Qt::CaseInsensitive ) )
-		{
-			extra = tr(
-				"\n\nThis filename is iOS 14.0 beta 5 (18A5351d). "
-				"If Firmware Tool tickets and SEP .new.img4 were made from 18A373 (GM), "
-				"restore will die after NORData with -256. "
-				"Stop companion, browse to the matching IPSW, Start companion, then Restore." );
-		}
-		if( QMessageBox::question( this, tr( "Restore IPSW" ),
-			tr( "idevicerestore will use this file (must match tickets + SEP pack):\n\n%1\n\n"
-			    "If companion was started earlier with a different IPSW folder, "
-			    "Stop companion and Start companion first so the 9p share is restaged." )
-				.arg( QDir::toNativeSeparators( ipsw ) ) + extra,
-			QMessageBox::Ok | QMessageBox::Cancel, QMessageBox::Ok ) != QMessageBox::Ok )
-			return;
+		QMessageBox::information( this, tr( "Busy" ),
+			tr( "Another restore/diagnose command is still running." ) );
+		return;
 	}
-
-	QSettings s;
-	s.setValue( QStringLiteral( "Apple_SoC_Restore/SSH_User" ), ssh_user );
 
 #ifdef Q_OS_WIN
 	QString distro, user;
@@ -1163,386 +1185,36 @@ void Apple_SoC_Restore_Window::Run_IDeviceRestore()
 			tr( "WSL distro and username are required." ) );
 		return;
 	}
-
-	if( Process->state() != QProcess::NotRunning )
-	{
-		QMessageBox::information( this, tr( "Busy" ),
-			tr( "Another restore/diagnose command is still running." ) );
-		return;
-	}
-
-	QTemporaryFile script_file(
-		QDir::temp().filePath( QStringLiteral( "aqemu-restore-XXXXXX.sh" ) ) );
-	script_file.setAutoRemove( false );
-	if( ! script_file.open() )
-	{
-		QMessageBox::warning( this, tr( "Restore" ),
-			tr( "Could not write temporary restore script." ) );
-		return;
-	}
-
-	auto find_inferno_extra = []( const QString &name ) -> QString {
-		QString cpath = AQ_Inferno_Extras_Dir() + QLatin1Char( '/' ) + name;
-		if( QFileInfo::exists( cpath ) )
-			return QFileInfo( cpath ).absoluteFilePath();
-		QDir d( QCoreApplication::applicationDirPath() );
-		for( int i = 0; i < 8; ++i )
-		{
-			const QString t = d.filePath( QStringLiteral( "extras/Inferno/" ) + name );
-			if( QFileInfo::exists( t ) )
-				return QFileInfo( t ).absoluteFilePath();
-			if( ! d.cdUp() )
-				break;
-		}
-		return QString();
-	};
-	QString cfs_wsl;
-	{
-		const QString cpath = find_inferno_extra(
-			QStringLiteral( "force_create_fs_partitions.c" ) );
-		if( ! cpath.isEmpty() )
-			cfs_wsl = Windows_Path_To_WSL( cpath );
-	}
-	QString cfs_py_wsl;
-	{
-		const QString ppath = find_inferno_extra(
-			QStringLiteral( "patch_idevicerestore_cfs.py" ) );
-		if( ! ppath.isEmpty() )
-			cfs_py_wsl = Windows_Path_To_WSL( ppath );
-	}
-	QString cfs_sh_wsl;
-	{
-		const QString spath = find_inferno_extra(
-			QStringLiteral( "build_force_cfs.sh" ) );
-		if( ! spath.isEmpty() )
-			cfs_sh_wsl = Windows_Path_To_WSL( spath );
-	}
-
-	const QByteArray body = QStringLiteral(
-		"#!/usr/bin/env bash\n"
-		"set -euo pipefail\n"
-		"if ! command -v sshpass >/dev/null 2>&1; then\n"
-		"  echo 'Installing sshpass in WSL (once)...'\n"
-		"  sudo -n apt-get install -y sshpass 2>/dev/null \\\n"
-		"    || apt-get install -y sshpass 2>/dev/null \\\n"
-		"    || { echo 'Install sshpass in WSL: sudo apt install sshpass'; exit 127; }\n"
-		"fi\n"
-		"if [ -z \"${SSHPASS:-}\" ]; then\n"
-		"  echo 'SSHPASS was not passed into WSL (WSLENV).'; exit 127\n"
-		"fi\n"
-		"export SSHPASS\n"
-		"SSH_OPTS=(-o StrictHostKeyChecking=accept-new "
-		"-o UserKnownHostsFile=\"$HOME/.aqemu-companion-known_hosts\" "
-		"-o PreferredAuthentications=password -o PubkeyAuthentication=no "
-		"-o NumberOfPasswordPrompts=1 -o ConnectTimeout=15 "
-		"-o LogLevel=ERROR)\n"
-		"GUEST=%1\n"
-		"CFS_C=%2\n"
-		"CFS_PY=%3\n"
-		"CFS_SH=%4\n"
-		"ssh_do() { sshpass -e ssh -p 32222 \"${SSH_OPTS[@]}\" \"$GUEST@127.0.0.1\" \"$@\"; }\n"
-		// Companion image was patched with NOPASSWD for bob. Use only sudo -n and
-		// single-quoted remote commands. Never embed passwords / printf %% formats in
-		// the remote argv (bash treats bare %% as job control: \"fg: no job control\").
-		"echo 'Waiting for companion SSH on 127.0.0.1:32222...'\n"
-		"ssh_ok=0\n"
-		"for i in $(seq 1 40); do\n"
-		"  if ssh_do 'echo SSH_OK' 2>/tmp/aqemu-ssh-err; then ssh_ok=1; break; fi\n"
-		"  echo \"  SSH not ready yet ($i/40)...\"; tail -n 2 /tmp/aqemu-ssh-err 2>/dev/null || true\n"
-		"  sleep 5\n"
-		"done\n"
-		"[ \"$ssh_ok\" = 1 ] || { echo 'Cannot SSH to companion after waiting.'; exit 1; }\n"
-		"echo 'Checking companion disk space...'\n"
-		"ssh_do 'df -h / /tmp /dev/shm 2>/dev/null || df -h' || true\n"
-		"echo 'Checking passwordless sudo...'\n"
-		"ssh_do 'sudo -n true' || {\n"
-		"  echo 'Companion needs passwordless sudo for bob (disk patch missing).'; exit 1; }\n"
-		"echo 'Freeing companion disk + fixing lockdown dirs (before USB wait)...'\n"
-		"ssh_do 'sudo -n bash -c \""
-		"journalctl --vacuum-size=8M >/dev/null 2>&1 || true; "
-		"apt-get clean >/dev/null 2>&1 || true; "
-		"rm -rf /var/cache/apt/archives/* /tmp/idevicerestore* /tmp/ipsw* 2>/dev/null || true; "
-		"mkdir -p /var/lib/lockdown; chmod 777 /var/lib/lockdown; "
-		"df -h /\"' || true\n"
-		"echo 'Mounting IPSW 9p share inside companion...'\n"
-		"ssh_do 'sudo -n mkdir -p /mnt/aqemu_ipsw'\n"
-		"ssh_do 'mountpoint -q /mnt/aqemu_ipsw' 2>/dev/null || "
-		"ssh_do 'sudo -n mount -t 9p -o trans=virtio,version=9p2000.L aqemu_ipsw /mnt/aqemu_ipsw' || "
-		"ssh_do 'sudo -n mount -t 9p -o trans=virtio aqemu_ipsw /mnt/aqemu_ipsw'\n"
-		"ssh_do 'mountpoint -q /mnt/aqemu_ipsw' || {\n"
-		"  echo '9p mount failed. Is companion started with IPSW virtfs?'; exit 1; }\n"
-		// Literal single-quoted remote path only. Do NOT use printf %%q here: Qt .arg()
-		// has left '%%q' unconverted before, so the guest ran `test -f %q` and failed
-		// even when aqemu-restore-current.ipsw was clearly listed on the mount.
-		"ssh_do 'test -e /mnt/aqemu_ipsw/aqemu-restore-current.ipsw' || {\n"
-		"  echo 'IPSW not on 9p mount at: /mnt/aqemu_ipsw/aqemu-restore-current.ipsw'\n"
-		"  echo 'Stop companion, Start again with IPSW selected (stages the hardlink).'\n"
-		"  echo 'Mount contents mentioning iPhone/Restore/aqemu-restore:'\n"
-		"  ssh_do 'ls -la /mnt/aqemu_ipsw 2>/dev/null | grep -iE \"iphone|restore|aqemu-restore\" | head -30' || true\n"
-		"  exit 3; }\n"
-		"echo 'Using shared IPSW: /mnt/aqemu_ipsw/aqemu-restore-current.ipsw'\n"
-		// Inferno reports HardwareModel N104DEV; stock libirecovery only knows N104AP.
-		// ChefKiss patch rewrites DEV→AP (logs \"INFO: model is …\"). Without it:
-		// \"Unable to discover device type\" after serial is seen.
-		"echo 'Checking idevicerestore ChefKiss patch (DEV→AP)...'\n"
-		"ssh_do 'command -v idevicerestore >/dev/null' || {\n"
-		"  echo 'idevicerestore not found in companion PATH.'; exit 1; }\n"
-		"if ! ssh_do 'strings \"$(command -v idevicerestore)\" 2>/dev/null | grep -Fq \"INFO: model is\"'; then\n"
-		"  echo\n"
-		"  echo 'FATAL: companion idevicerestore is missing the ChefKiss Inferno patch.'\n"
-		"  echo 'Inferno reports model N104DEV; unpatched builds cannot map it →'\n"
-		"  echo '  \"Unable to discover device type\" (after serial INFERNO_…).'\n"
-		"  echo 'Fix inside companion (once):'\n"
-		"  echo '  cd ~/idevicerestore  # or re-clone libimobiledevice/idevicerestore'\n"
-		"  echo '  curl -fsSL -o ../idevicerestore.patch '\n"
-		"  echo '    https://chefkiss.dev/Extras/Inferno/idevicerestore.patch'\n"
-		"  echo '  git apply ../idevicerestore.patch   # or use #119 ASR patch if this fails'\n"
-		"  echo '  PKG_CONFIG_PATH=/usr/local/lib/pkgconfig ./autogen.sh && make -j\"$(nproc)\" && sudo make install'\n"
-		"  echo 'Also need a real root_ticket.der (not the 2-byte placeholder) for -T.'\n"
-		"  exit 4\n"
-		"fi\n"
-		"echo 'idevicerestore looks ChefKiss-patched (INFO: model is present).'\n"
-		"echo 'Pinning companion idevicerestore to ChefKiss-era 74e3bd9 if needed (once)...'\n"
-		"if [ -n \"$CFS_PY\" ] && [ -f \"$CFS_PY\" ]; then\n"
-		"  sshpass -e scp -P 32222 \"${SSH_OPTS[@]}\" \"$CFS_PY\" "
-		"\"$GUEST@127.0.0.1:/tmp/aqemu_patch_idr_cfs.py\" || true\n"
-		"  ssh_do 'sed -i \"s/\\r$//\" /tmp/aqemu_patch_idr_cfs.py 2>/dev/null' || true\n"
-		"  ssh_do 'sudo -n /usr/bin/python3 /tmp/aqemu_patch_idr_cfs.py --force /usr/local/bin/idevicerestore' || {\n"
-		"    echo 'FATAL: could not pin idevicerestore to 74e3bd9 (git/autotools/network).'\n"
-		"    echo 'Working Inferno restores use 74e3bd9; 45145e9 sends CFS=false (GPT 78).'\n"
-		"    exit 5; }\n"
-		"else\n"
-		"  echo 'FATAL: patch_idevicerestore_cfs.py not next to aqemu extras/Inferno';\n"
-		"  exit 5\n"
-		"fi\n"
-		"ssh_do 'ldd /usr/local/bin/idevicerestore 2>/dev/null | head -20' || true\n"
-		"rm -f /tmp/aqemu_force_cfs.c\n"
-		"if [ -n \"$CFS_C\" ] && [ -f \"$CFS_C\" ]; then\n"
-		"  cp \"$CFS_C\" /tmp/aqemu_force_cfs.c\n"
-		"  echo \"Using USB plist helper source: $CFS_C\"\n"
-		"else\n"
-		"  echo 'WARNING: force_create_fs_partitions.c not found (checked extras/Inferno next to aqemu.exe and source tree).'\n"
-		"fi\n"
-		"cat > /tmp/aqemu-idr-wrap.sh << 'WEOF'\n"
-		"#!/bin/bash\n"
-		"export LD_LIBRARY_PATH=/usr/local/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}\n"
-		"unset LD_PRELOAD\n"
-		"echo \"AQEMU wrap: vanilla idevicerestore (no LD_PRELOAD)\"\n"
-		"echo \"AQEMU wrap argv: $*\"\n"
-		"exec /usr/local/bin/idevicerestore --erase --restore-mode \"$@\"\n"
-		"WEOF\n"
-		"WRAP_OK=0\n"
-		"if [ -f /tmp/aqemu_force_cfs.c ]; then\n"
-		"  if [ -n \"$CFS_SH\" ] && [ -f \"$CFS_SH\" ]; then\n"
-		"    sed -i 's/\\r$//' \"$CFS_SH\" 2>/dev/null || true\n"
-		"    sshpass -e scp -P 32222 \"${SSH_OPTS[@]}\" /tmp/aqemu_force_cfs.c /tmp/aqemu-idr-wrap.sh \"$CFS_SH\" "
-		"\"$GUEST@127.0.0.1:/tmp/\" || true\n"
-		"  else\n"
-		"    sshpass -e scp -P 32222 \"${SSH_OPTS[@]}\" /tmp/aqemu_force_cfs.c /tmp/aqemu-idr-wrap.sh "
-		"\"$GUEST@127.0.0.1:/tmp/\" || true\n"
-		"  fi\n"
-		"  ssh_do 'sed -i \"s/\\r$//\" /tmp/build_force_cfs.sh /tmp/aqemu_force_cfs.c "
-		"/tmp/aqemu-idr-wrap.sh /tmp/aqemu_patch_idr_cfs.py 2>/dev/null' || true\n"
-		"  if ssh_do 'sudo -n bash /tmp/build_force_cfs.sh /tmp/aqemu_force_cfs.c /usr/local/lib/aqemu_force_cfs.so'; then\n"
-		"    echo 'USB plist helper refreshed (.so; idevicerestore was not rebuilt).'\n"
-		"  else\n"
-		"    echo 'WARNING: could not compile helper into /usr/local/lib (need cc/gcc + sudo).'\n"
-		"  fi\n"
-		"  if ssh_do 'test -s /usr/local/lib/aqemu_force_cfs.so'; then\n"
-		"    ssh_do 'sudo -n cp /tmp/aqemu-idr-wrap.sh /usr/local/bin/aqemu-idr-wrap.sh && "
-		"    sudo -n chmod 755 /usr/local/bin/aqemu-idr-wrap.sh' && WRAP_OK=1\n"
-		"  fi\n"
-		"else\n"
-		"  echo 'WARNING: skipped USB plist helper (source .c missing); ramrod may keep CreateFilesystemPartitions=false.'\n"
-		"fi\n"
-		// MODE=3 is CDC Ethernet (Device Tools reverse-tether). Restore needs
-		// usbmux MODE=1. Restart mux NOW, before iOS USB appears.
-		"echo 'Ensuring companion usbmuxd (MODE=1 for restore, not Device Tools MODE=3)...'\n"
-		"ssh_do 'sudo -n bash -c \""
-		"mkdir -p /etc/systemd/system/usbmuxd.service.d; "
-		"rm -f /etc/systemd/system/usbmuxd.service.d/aqemu-mode3.conf; "
-		"echo [Service] > /etc/systemd/system/usbmuxd.service.d/aqemu-restore-mode1.conf; "
-		"echo Environment=USBMUXD_DEFAULT_DEVICE_MODE=1 >> /etc/systemd/system/usbmuxd.service.d/aqemu-restore-mode1.conf; "
-		"systemctl daemon-reload >/dev/null 2>&1 || true; "
-		"systemctl restart usbmuxd >/dev/null 2>&1 || systemctl start usbmuxd >/dev/null 2>&1 || true; "
-		"sleep 1; "
-		"if ! pgrep -x usbmuxd >/dev/null; then "
-		"  MUX=/usr/sbin/usbmuxd; "
-		"  [ -x /usr/local/sbin/usbmuxd ] && MUX=/usr/local/sbin/usbmuxd; "
-		"  echo systemd usbmuxd missing - starting $MUX; "
-		"  USBMUXD_DEFAULT_DEVICE_MODE=1 $MUX -U usbmux >/tmp/aqemu-usbmuxd.log 2>&1 || "
-		"  USBMUXD_DEFAULT_DEVICE_MODE=1 $MUX -U root >/tmp/aqemu-usbmuxd.log 2>&1 || true; "
-		"  sleep 1; "
-		"fi; "
-		"echo --- usbmuxd ---; "
-		"pgrep -a usbmuxd || echo NONE; "
-		"ls -l /var/run/usbmuxd 2>/dev/null || echo no /var/run/usbmuxd socket; "
-		"systemctl is-active usbmuxd 2>/dev/null || true\"' || true\n"
-		"check_8030() {\n"
-		// Modern ss prints ESTAB (not ESTABLISHED); match either.
-		"  ss -tnp 2>/dev/null | grep -E ':8030\\b' | grep -iE 'estab' || true\n"
-		"}\n"
-		"echo\n"
-		"echo '=== USB bridge (WSL host :8030) ==='\n"
-		"(ss -ltnp 2>/dev/null || true) | grep -E ':8030\\b' || "
-		"  echo 'WARNING: nothing listening on 8030 (Start companion first)'\n"
-		"EST=$(check_8030)\n"
-		"if [ -n \"$EST\" ]; then\n"
-		"  echo \"TCP ESTABLISHED on :8030 already: $EST\"\n"
-		"else\n"
-		"  echo 'No ESTABLISHED on :8030 yet (iOS not connected - that is OK, Power On iOS now).'\n"
-		"fi\n"
-		"echo\n"
-		"echo 'Power On the iOS guest NOW (companion SSH is up). Waiting for USB...'\n"
-		"echo 'IMPORTANT: iOS only waits ~120s for restore once the Apple logo appears.'\n"
-		"echo 'lsusb Apple + usbmuxd is enough. idevice_id can still be empty for a moment.'\n"
-		"DEV=\n"
-		"for i in $(seq 1 70); do\n"
-		"  LS=$(ssh_do 'lsusb 2>/dev/null' || true)\n"
-		"  EST=$(check_8030)\n"
-		"  if echo \"$LS\" | grep -qiE 'Apple|05ac:'; then\n"
-		"    echo \"lsusb Apple device seen (try $i):\"\n"
-		"    echo \"$LS\" | grep -iE 'Apple|05ac:' || true\n"
-		"    if [ -n \"$EST\" ]; then echo \"TCP ESTABLISHED on :8030: $EST\"; fi\n"
-		"    echo 'Waiting 3s for usbmuxd to claim the device...'\n"
-		"    sleep 3\n"
-		"    ssh_do 'echo --- after USB ---; pgrep -a usbmuxd || echo NONE; "
-		"ls -l /var/run/usbmuxd 2>/dev/null || echo no socket; "
-		"idevice_id -l; irecovery -q 2>&1 | head -12' || true\n"
-		"    DEV=$(ssh_do 'idevice_id -l 2>/dev/null | head -1' || true)\n"
-		"    if [ -z \"$DEV\" ]; then\n"
-		"      echo 'idevice_id still empty; starting idevicerestore anyway (it waits 10s for mux/recovery).'\n"
-		"      DEV='00008030-1122334455667788'\n"
-		"    fi\n"
-		"    break\n"
-		"  fi\n"
-		"  if [ -n \"$EST\" ]; then echo \"TCP ESTABLISHED on :8030 (waiting for companion lsusb): $EST\"; fi\n"
-		"  echo \"  ($i/70) waiting for USB (lsusb Apple)...\"\n"
-		"  sleep 2\n"
-		"done\n"
-		"if [ -z \"$DEV\" ]; then\n"
-		"  echo\n"
-		"  echo 'Still no Apple USB after waiting (lsusb had no 05ac).'\n"
-		"  echo 'Order: Start companion -> wait for SSH -> Power On iOS -> Restore quickly.'\n"
-		"  ssh_do 'lsusb; idevice_id -l; irecovery -q 2>&1 | head -20' || true\n"
-		"  exit 2\n"
-		"fi\n"
-		"echo \"Device: $DEV\"\n"
-		// Inferno UDID is like 00008030-1122334455667788; ECID is after the last '-'.
-		// Use bash param expansion only - never printf '%%s' (Qt .arg leaves %% broken).
-		"ECID_HEX=${DEV##*-}; "
-		"ECID_ARG=; "
-		"if [ -n \"$ECID_HEX\" ] && [ \"$ECID_HEX\" != \"$DEV\" ]; then "
-		"  ECID_ARG=\"-i 0x$ECID_HEX\"; "
-		"else "
-		"  ECID_ARG='-i 0x1122334455667788'; "
-		"fi; "
-		"TICKET_ARG=; "
-		"ssh_do 'test -s /mnt/aqemu_ipsw/aqemu-restore-ticket.der' 2>/dev/null && "
-		"TICKET_ARG='-T /mnt/aqemu_ipsw/aqemu-restore-ticket.der'; "
-		"echo \"ECID: ${ECID_ARG:-none}  ticket: ${TICKET_ARG:-none}\"\n"
-		"EST=$(check_8030)\n"
-		"if [ -n \"$EST\" ]; then echo \"Pre-restore bridge ESTABLISHED: $EST\"; "
-		"else echo 'Pre-restore bridge: no ESTABLISHED on :8030 (check iOS USB remote config)'; fi\n"
-		"echo 'Starting idevicerestore NOW (Inferno ~120s window)...'\n"
-		"if [ \"$WRAP_OK\" = 1 ]; then\n"
-		"  IDR_CMD='/usr/local/bin/aqemu-idr-wrap.sh'\n"
-		"else\n"
-		"  IDR_CMD='idevicerestore'\n"
-		"fi\n"
-		"echo \"Running: sudo -n $IDR_CMD --debug -e --erase --restore-mode -y $ECID_ARG $TICKET_ARG IPSW\"\n"
-		"ok=0\n"
-		"for attempt in 1 2; do\n"
-		"  echo \"=== idevicerestore attempt $attempt/2 ===\"\n"
-		"  if [ \"$attempt\" != 1 ]; then\n"
-		"    echo 'Retry discovery. Do not restart usbmuxd (that drops USB-TCP).'\n"
-		"    ssh_do 'pgrep -x usbmuxd >/dev/null || sudo -n systemctl start usbmuxd' || true\n"
-		"    sleep 1\n"
-		"  fi\n"
-		"  set +e\n"
-		"  set +o pipefail\n"
-		"  sshpass -e ssh -t -p 32222 \"${SSH_OPTS[@]}\" \"$GUEST@127.0.0.1\" "
-		"\"sudo -n $IDR_CMD --debug -e --erase --restore-mode -y "
-		"$ECID_ARG $TICKET_ARG /mnt/aqemu_ipsw/aqemu-restore-current.ipsw\" "
-		"2>&1 | tee /tmp/aqemu-idr-last.log\n"
-		"  idr_ec=${PIPESTATUS[0]}\n"
-		"  set -e\n"
-		"  set -o pipefail\n"
-		"  if [ \"$idr_ec\" = 0 ]; then ok=1; break; fi\n"
-		"  if grep -qiE 'invalid GPT header|Missing data volume|FAILURE:7[58]|FAILURE:47|failed to create APFS Filesystem|format_media' "
-		"/tmp/aqemu-idr-last.log; then\n"
-		"    echo\n"
-		"    echo 'Stopped retries: ramrod storage/format.'\n"
-		"    echo '78 invalid header = zeros. 78 GPT format = empty GPT, need APFS Data volume.'\n"
-		"    echo '75 = APFS partition without Data. Power Off, Power On (formats Data volume).'\n"
-		"    echo '47 format_media / newfs_apfs Resource busy = Update ramdisk (CFS=false).'\n"
-		"    echo '  MACHINE Restore ramdisk must be CustomerRamDisk (e.g. 038-44135), not Update (038-44087).'\n"
-		"    echo '  Trustcache must match that ramdisk. Then Power Off iOS and Restore again.'\n"
-		"    ssh_do 'echo --- /tmp/aqemu-cfs.log ---; cat /tmp/aqemu-cfs.log 2>/dev/null | tail -50' || true\n"
-		"    break\n"
-		"  fi\n"
-		"  echo \"attempt $attempt failed - USB recheck:\"\n"
-		"  ssh_do 'lsusb | grep -iE \"Apple|05ac\" || true; idevice_id -l || true' || true\n"
-		"  sleep 3\n"
-		"done\n"
-		"if [ \"$ok\" != 1 ]; then\n"
-		"  echo\n"
-		"  echo 'idevicerestore failed.'\n"
-		"  echo 'If log said \"Unable to discover device type\" after serial INFERNO_*:'\n"
-		"  echo '  companion idevicerestore lacks ChefKiss N104DEV→AP patch.'\n"
-		"  echo '  https://chefkiss.dev/Extras/Inferno/idevicerestore.patch'\n"
-		"  echo 'If log said \"invalid GPT header\" or \"Storage with GPT format\" (78) or \"Missing data volume\" (75):'\n"
-		"  echo '  Update-path ramrod needs an APFS Data volume. Power Off, Power On, Restore.'\n"
-		"  echo 'If log reached \"Done sending NORData\" then \"Could not read data (-256)\":'\n"
-		"  echo '  USB bridge dropped mid-restore (common). After partial restore you MUST:'\n"
-		"  echo '  1) Power Off iOS guest completely'\n"
-		"  echo '  2) Delete NVMe images: <VM>.aqemu folder -> *_inferno\\ (root, firmware, ...)'\n"
-		"  echo '     Or run: extras/Inferno/wipe-ios-nvme.ps1 -VmXml \"path\\\\iOS_ARM64_.aqemu\"'\n"
-		"  echo '  3) Stop companion -> Start companion -> Power On iOS -> Restore again'\n"
-		"  echo '  (issue #119 ASR retry patch helps later ASR failures, not this NORData drop)'\n"
-		"  echo 'Checklist:'\n"
-		"  echo '  - Companion SSH up BEFORE Power On iOS'\n"
-		"  echo '  - ss shows ESTABLISHED on 127.0.0.1:8030 before idevicerestore starts'\n"
-		"  echo '  - Click Restore within ~120s of Apple logo / empty bar'\n"
-		"  echo '  - Patched idevicerestore (must log INFO: model is N104DEV)'\n"
-		"  echo '  - Real root_ticket.der via -T (not empty placeholder)'\n"
-		"  exit 1\n"
-		"fi\n"
-		"echo 'idevicerestore finished.'\n" )
-		.arg( Shell_Single_Quote( ssh_user ),
-		      Shell_Single_Quote( cfs_wsl ),
-		      Shell_Single_Quote( cfs_py_wsl ),
-		      Shell_Single_Quote( cfs_sh_wsl ) )
-		.toUtf8();
-
-	script_file.write( body );
-	script_file.flush();
-	const QString win_script = script_file.fileName();
-	script_file.close();
-	const QString wsl_script = Windows_Path_To_WSL( win_script );
-
-	QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
-	env.insert( QStringLiteral( "SSHPASS" ), ssh_pass );
-	QString wslenv = env.value( QStringLiteral( "WSLENV" ) );
-	if( ! wslenv.isEmpty() && ! wslenv.endsWith( QLatin1Char( ':' ) ) )
-		wslenv += QLatin1Char( ':' );
-	if( ! wslenv.contains( QStringLiteral( "SSHPASS" ) ) )
-		wslenv += QStringLiteral( "SSHPASS/u" );
-	env.insert( QStringLiteral( "WSLENV" ), wslenv );
-
-	const QString launcher = QStringLiteral(
-		"bash %1; ec=$?; rm -f %1; exit $ec" )
-		.arg( Shell_Single_Quote( wsl_script ) );
-	const QStringList args = WSL_Bash_Args( distro, user, launcher );
-	Append_Log( QStringLiteral(
-		"Restore via companion SSH (9p IPSW share + idevicerestore)…\n" ) );
-	Process->setProcessEnvironment( env );
-	Process->start( QStringLiteral( "wsl.exe" ), args );
+	Q_UNUSED( user );
+	const QString bash = QStringLiteral(
+		"sed -i 's/\\r$//' %1 %2 2>/dev/null || true; "
+		"export IPSW=%3; export TICKET=%4; "
+		"bash %1 1 -- bash %2" )
+		.arg( Shell_Single_Quote( Windows_Path_To_WSL( host ) ),
+		      Shell_Single_Quote( Windows_Path_To_WSL( restore ) ),
+		      Shell_Single_Quote( Windows_Path_To_WSL( QFileInfo( ipsw ).absoluteFilePath() ) ),
+		      Shell_Single_Quote( ticket.isEmpty()
+			      ? QString()
+			      : Windows_Path_To_WSL( QFileInfo( ticket ).absoluteFilePath() ) ) );
+	Append_Log( tr( "Restore on this PC via WSL (USB bridge + idevicerestore)...\n" ) );
+	Process->setProcessChannelMode( QProcess::MergedChannels );
+	Process->start( QStringLiteral( "wsl.exe" ),
+		WSL_Bash_Args( distro, QStringLiteral( "root" ), bash ) );
 #else
-	Q_UNUSED( ssh_user );
-	Q_UNUSED( ssh_pass );
-	QMessageBox::information( this, tr( "Restore" ),
-		tr( "Automated companion SSH restore is implemented for the Windows/WSL path." ) );
+	const QString bash = QStringLiteral(
+		"sed -i 's/\\r$//' %1 %2 2>/dev/null || true; "
+		"export IPSW=%3; export TICKET=%4; "
+		"bash %1 1 -- bash %2" )
+		.arg( Shell_Single_Quote( host ),
+		      Shell_Single_Quote( restore ),
+		      Shell_Single_Quote( QFileInfo( ipsw ).absoluteFilePath() ),
+		      Shell_Single_Quote( ticket.isEmpty()
+			      ? QString()
+			      : QFileInfo( ticket ).absoluteFilePath() ) );
+	Append_Log( tr( "Restore on this PC (USB bridge + idevicerestore)...\n" ) );
+	Process->setProcessChannelMode( QProcess::MergedChannels );
+	Process->start( QStringLiteral( "bash" ),
+		QStringList() << QStringLiteral( "-c" ) << bash );
 #endif
 }
 

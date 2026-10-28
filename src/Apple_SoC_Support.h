@@ -105,6 +105,13 @@ QString AQ_Build_Apple_SoC_Machine_Props( const Virtual_Machine *vm, bool via_ws
 QString AQ_Apple_SoC_WSL_Qemu_Binary();
 
 /**
+ * Start the in-process USB host (vhci bridge on 127.0.0.1:8030) for this
+ * machine's architecture. Windows runs it as root inside WSL. Linux runs it
+ * on the host. Safe to call when the bridge is already listening.
+ */
+void AQ_Ensure_Apple_USB_Host();
+
+/**
  * Drop -machine / -append from Additional Args for Apple SoC VMs — those are owned by
  * the Inferno profile builders (legacy recipes often duplicated them).
  */

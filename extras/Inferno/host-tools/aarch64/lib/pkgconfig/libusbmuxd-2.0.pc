@@ -1,0 +1,11 @@
+prefix=/mnt/c/Users/chron/CURSOR-PROJECTS/AQEMU/aqemu/extras/Inferno/host-tools/aarch64
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: libusbmuxd
+Description: A library to communicate with the usbmux daemon
+Version: 2.1.1-2-g93eb168
+Libs: -L${libdir} -lusbmuxd-2.0
+Cflags: -I${includedir}
+Requires.private: libplist-2.0 >= 2.2.0 libimobiledevice-glue-1.0 >= 1.2.0

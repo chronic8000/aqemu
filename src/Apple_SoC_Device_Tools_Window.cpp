@@ -24,6 +24,7 @@
 #include <QUrl>
 #include <QVBoxLayout>
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
 #include <QRegularExpression>
 #include <QCoreApplication>
@@ -33,57 +34,6 @@ namespace {
 QString Shell_Quote( QString s )
 {
 	return s.replace( QLatin1Char( '\'' ), QStringLiteral( "'\\''" ) );
-}
-
-/** Commands run on the companion (inside ssh_do). ASCII-only. */
-QString Companion_Ensure_Ideviceinstaller()
-{
-	return QStringLiteral(
-		"if ! command -v ideviceinstaller >/dev/null 2>&1 && "
-		"[ ! -x /usr/local/bin/ideviceinstaller ]; then "
-		"  echo trying apt install ideviceinstaller...; "
-		"  sudo -n apt-get update -qq 2>/dev/null; "
-		"  sudo -n apt-get install -y ideviceinstaller 2>/dev/null "
-		"    || sudo apt-get install -y ideviceinstaller 2>/dev/null "
-		"    || true; "
-		"fi; "
-		"if [ -x /usr/local/bin/ideviceinstaller ]; then "
-		"  export PATH=/usr/local/bin:$PATH; "
-		"fi; "
-		"if ! command -v ideviceinstaller >/dev/null 2>&1; then "
-		"  echo ERROR: ideviceinstaller not found on companion.; "
-		"  echo Install with: sudo apt-get install -y ideviceinstaller; "
-		"  echo Or build https://github.com/libimobiledevice/ideviceinstaller "
-		"into /usr/local/bin next to your other idevice tools.; "
-		"  exit 127; "
-		"fi; " );
-}
-
-
-// MODE=3 is CDC ethernet (guest internet). ideviceinstaller needs MODE=1.
-// Drop-ins are removed in pairs so a leftover restore file cannot win.
-QString Companion_Usbmux_Mode( int mode, const QString &password_quoted )
-{
-	const bool ethernet = ( mode == 3 );
-	const QString write = ethernet
-		? QStringLiteral(
-			"rm -f /etc/systemd/system/usbmuxd.service.d/aqemu-restore-mode1.conf; "
-			"printf '%s\\n' '[Service]' 'Environment=USBMUXD_DEFAULT_DEVICE_MODE=3' "
-			"> /etc/systemd/system/usbmuxd.service.d/aqemu-mode3.conf" )
-		: QStringLiteral(
-			"rm -f /etc/systemd/system/usbmuxd.service.d/aqemu-mode3.conf; "
-			"printf '%s\\n' '[Service]' 'Environment=USBMUXD_DEFAULT_DEVICE_MODE=1' "
-			"> /etc/systemd/system/usbmuxd.service.d/aqemu-restore-mode1.conf" );
-	return QStringLiteral(
-		"echo '%1' | sudo -S -p '' bash -c \""
-		"mkdir -p /etc/systemd/system/usbmuxd.service.d && %2\"; "
-		"echo '%1' | sudo -S -p '' systemctl daemon-reload; "
-		"echo '%1' | sudo -S -p '' systemctl restart usbmuxd "
-		"  || echo '%1' | sudo -S -p '' service usbmuxd restart; "
-		"sleep 2; "
-		"echo usbmuxd_active=$(systemctl is-active usbmuxd 2>/dev/null || echo unknown); "
-		"grep -R USBMUXD_DEFAULT_DEVICE_MODE /etc/systemd/system/usbmuxd.service.d 2>/dev/null || true; " )
-		.arg( password_quoted, write );
 }
 
 } // namespace
@@ -126,26 +76,17 @@ Apple_SoC_Device_Tools_Window::Apple_SoC_Device_Tools_Window( Virtual_Machine *v
 	lay->setSizeConstraint( QLayout::SetMinimumSize );
 
 	QLabel *intro = new QLabel( tr(
-		"<b>Guest internet</b> is reverse-tether via the Ubuntu companion USB bridge "
-		"(not the AQEMU Network tab / user-mode NIC). "
-		"Start companion + iOS with USB remote <code>127.0.0.1:8030</code>, "
-		"then use <b>Enable guest internet</b> below." ) );
+		"<b>Guest internet</b> is reverse-tether through the USB bridge on this PC "
+		"(WSL on Windows, native on Linux). "
+		"Power On iOS with USB remote <code>127.0.0.1:8030</code>. "
+		"AQEMU picks the x86_64 or ARM64 tools for this machine and starts "
+		"<code>usbmuxd</code> itself. No companion virtual machine." ) );
 	intro->setWordWrap( true );
 	lay->addWidget( intro );
 
-	QSettings s;
-	auto *form = new QFormLayout();
-	form->setFieldGrowthPolicy( QFormLayout::ExpandingFieldsGrow );
-	Edit_SSH_User = new QLineEdit(
-		s.value( QStringLiteral( "Apple_SoC_Restore/SSH_User" ), QString() ).toString() );
-	Edit_SSH_Password = new QLineEdit();
-	Edit_SSH_Password->setEchoMode( QLineEdit::Password );
-	Edit_SSH_Password->setPlaceholderText( tr( "SSH password (also used for sudo on companion)" ) );
-	Edit_SSH_Port = new QLineEdit( QStringLiteral( "32222" ) );
-	form->addRow( tr( "Companion SSH user:" ), Edit_SSH_User );
-	form->addRow( tr( "Companion SSH password:" ), Edit_SSH_Password );
-	form->addRow( tr( "SSH port:" ), Edit_SSH_Port );
-	lay->addLayout( form );
+	Edit_SSH_User = nullptr;
+	Edit_SSH_Password = nullptr;
+	Edit_SSH_Port = nullptr;
 
 	Tabs = new QTabWidget( this );
 
@@ -153,11 +94,11 @@ Apple_SoC_Device_Tools_Window::Apple_SoC_Device_Tools_Window( Virtual_Machine *v
 	auto *net = new QWidget();
 	auto *netLay = new QVBoxLayout( net );
 	QLabel *lblNet = new QLabel( tr(
-		"<p>This configures the <b>companion</b> for reverse-tether:</p>"
+		"<p>This shares this PC's network with iOS over the USB bridge:</p>"
 		"<ol>"
-		"<li><code>usbmuxd</code> with <code>USBMUXD_DEFAULT_DEVICE_MODE=3</code></li>"
-		"<li>NetworkManager <b>Shared</b> on USB/NCM ethernet (not the companion's main NIC)</li>"
-		"<li>Shares that USB ethernet. <code>idevice_id</code> stays empty in this mode</li>"
+		"<li><code>usbmuxd</code> with <code>USBMUXD_DEFAULT_DEVICE_MODE=3</code> (CDC ethernet)</li>"
+		"<li>Address <code>10.42.0.1</code> on the USB ethernet interface</li>"
+		"<li>NAT and DHCP on that interface. <code>idevice_id</code> stays empty in this mode</li>"
 		"</ol>"
 		"<p>Then open Safari / App Store on the guest. "
 		"(ChefKiss <a href=\"https://github.com/ChefKissInc/Inferno/discussions/192\">#192</a>)</p>" ) );
@@ -231,7 +172,7 @@ Apple_SoC_Device_Tools_Window::Apple_SoC_Device_Tools_Window( Virtual_Machine *v
 	lay->addWidget( Tabs );
 
 	Label_Status = new QLabel( tr(
-		"Idle - companion must be running with SSH. Enter the same password as Apple SoC Restore." ) );
+		"Idle. Power On iOS with USB 127.0.0.1:8030. Tools run in WSL on Windows, and natively on Linux." ) );
 	Label_Status->setWordWrap( true );
 	lay->addWidget( Label_Status );
 
@@ -329,70 +270,44 @@ QStringList Apple_SoC_Device_Tools_Window::WSL_Bash_Args( const QString &distro,
 	return args;
 }
 
-QString Apple_SoC_Device_Tools_Window::SSH_Base() const
-{
-	const QString guest = Edit_SSH_User->text().trimmed();
-	const QString port = Edit_SSH_Port->text().trimmed().isEmpty()
-		? QStringLiteral( "32222" ) : Edit_SSH_Port->text().trimmed();
-	return QStringLiteral(
-		"export SSHPASS='%1'; "
-		"GUEST='%2'; "
-		"PORT='%3'; "
-		"if ! command -v sshpass >/dev/null 2>&1; then "
-		"  sudo -n apt-get install -y sshpass >/dev/null 2>&1 || true; "
-		"fi; "
-		"SSH_OPTS=(-o StrictHostKeyChecking=accept-new "
-		"-o UserKnownHostsFile=\"$HOME/.aqemu-companion-known_hosts\" "
-		"-o PreferredAuthentications=password -o PubkeyAuthentication=no "
-		"-o NumberOfPasswordPrompts=1 "
-		"-o ConnectTimeout=8 -o LogLevel=ERROR); "
-		"if command -v sshpass >/dev/null 2>&1; then "
-		"  ssh_do() { sshpass -e ssh -p \"$PORT\" \"${SSH_OPTS[@]}\" \"$GUEST@127.0.0.1\" \"$@\"; }; "
-		"  scp_do() { sshpass -e scp -P \"$PORT\" \"${SSH_OPTS[@]}\" \"$@\"; }; "
-		"else "
-		"  echo 'sshpass is not installed in WSL; using SSH_ASKPASS.'; "
-		"  AQ_ASK=$(mktemp); "
-		"  printf '%s\\n' '#!/bin/sh' 'printf %%s \"$SSHPASS\"' > \"$AQ_ASK\"; "
-		"  chmod 700 \"$AQ_ASK\"; "
-		"  export SSH_ASKPASS=\"$AQ_ASK\" SSH_ASKPASS_REQUIRE=force DISPLAY=\"${DISPLAY:-:0}\"; "
-		"  ssh_do() { setsid -w ssh -p \"$PORT\" \"${SSH_OPTS[@]}\" \"$GUEST@127.0.0.1\" \"$@\"; }; "
-		"  scp_do() { setsid -w scp -P \"$PORT\" \"${SSH_OPTS[@]}\" \"$@\"; }; "
-		"fi; " )
-		.arg( Shell_Quote( Edit_SSH_Password->text() ),
-		      Shell_Quote( guest ),
-		      Shell_Quote( port ) );
-}
-
-bool Apple_SoC_Device_Tools_Window::Start_Companion_SSH( const QString &remote_cmd )
+bool Apple_SoC_Device_Tools_Window::Start_On_Host( int mode, const QString &script )
 {
 	if( Process->state() != QProcess::NotRunning )
 	{
 		QMessageBox::information( this, tr( "Busy" ), tr( "A command is already running." ) );
 		return false;
 	}
-	if( Edit_SSH_User->text().trimmed().isEmpty() || Edit_SSH_Password->text().isEmpty() )
+	const QString extras = AQ_Inferno_Extras_Dir();
+	const QString host = extras + QStringLiteral( "/ios-host.sh" );
+	if( extras.isEmpty() || ! QFile::exists( host ) )
 	{
-		QMessageBox::warning( this, tr( "SSH" ),
-			tr( "Enter companion SSH user and password (same as Apple SoC Restore)." ) );
+		QMessageBox::warning( this, tr( "iOS tools" ),
+			tr( "Could not find extras/Inferno/ios-host.sh next to aqemu.exe." ) );
 		return false;
 	}
+
+	auto quote = []( QString s ) {
+		s.replace( QLatin1Char( '\'' ), QStringLiteral( "'\\''" ) );
+		return QLatin1Char( '\'' ) + s + QLatin1Char( '\'' );
+	};
+	const QString inner = quote( script );
+	const QString mode_s = QString::number( mode );
 
 #ifdef Q_OS_WIN
 	QString distro, user;
 	if( ! Ensure_WSL_Creds( &distro, &user ) )
 		return false;
-
-	QSettings s;
-	s.setValue( QStringLiteral( "Apple_SoC_Restore/SSH_User" ), Edit_SSH_User->text().trimmed() );
-
-	const QString bash = SSH_Base() + remote_cmd;
+	Q_UNUSED( user );
+	const QString host_wsl = Windows_Path_To_WSL( host );
+	const QString bash = QStringLiteral(
+		"sed -i 's/\\r$//' %1 2>/dev/null || true; "
+		"bash %1 %2 -- bash -c %3" )
+		.arg( quote( host_wsl ), mode_s, inner );
 	Text_Log->clear();
-	Label_Status->setText( tr( "Running on companion via WSL SSH..." ) );
+	Label_Status->setText( tr( "Running on this PC's WSL (native CPU)..." ) );
 	Process->setProgram( QStringLiteral( "wsl.exe" ) );
-	Process->setArguments( WSL_Bash_Args( distro, user, bash ) );
+	Process->setArguments( WSL_Bash_Args( distro, QStringLiteral( "root" ), bash ) );
 	Process->setProcessChannelMode( QProcess::MergedChannels );
-	QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
-	Process->setProcessEnvironment( env );
 	Process->start();
 	if( ! Process->waitForStarted( 8000 ) )
 	{
@@ -401,59 +316,65 @@ bool Apple_SoC_Device_Tools_Window::Start_Companion_SSH( const QString &remote_c
 	}
 	return true;
 #else
-	Q_UNUSED( remote_cmd );
-	QMessageBox::information( this, tr( "Host OS" ),
-		tr( "Device Tools SSH helper is currently wired for Windows + WSL." ) );
-	return false;
+	const QString bash = QStringLiteral(
+		"sed -i 's/\\r$//' %1 2>/dev/null || true; "
+		"bash %1 %2 -- bash -c %3" )
+		.arg( quote( host ), mode_s, inner );
+	Text_Log->clear();
+	Label_Status->setText( tr( "Running on this PC..." ) );
+	Process->setProgram( QStringLiteral( "bash" ) );
+	Process->setArguments( QStringList() << QStringLiteral( "-c" ) << bash );
+	Process->setProcessChannelMode( QProcess::MergedChannels );
+	Process->start();
+	if( ! Process->waitForStarted( 8000 ) )
+	{
+		Label_Status->setText( tr( "Failed to start bash" ) );
+		return false;
+	}
+	return true;
 #endif
 }
 
 void Apple_SoC_Device_Tools_Window::Run_Device_Info()
 {
-	const QString pw = Shell_Quote( Edit_SSH_Password->text() );
-	// Internet mode hides the phone from idevice_id. Ask for lockdown first.
-	const QString remote =
-		Companion_Usbmux_Mode( 1, pw ) +
-		QStringLiteral(
-			"echo '=== Wait for idevice (MODE=1) ==='; "
-			"ok=0; "
-			"for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do "
-			"  if idevice_id -l 2>/dev/null | grep -q .; then ok=1; break; fi; "
-			"  echo waiting_for_device $i; sleep 2; "
-			"done; "
-			"echo '=== idevice_id ==='; "
-			"idevice_id -l 2>&1 || true; "
-			"echo '=== ideviceinfo (short) ==='; "
-			"if [ \"$ok\" != 1 ]; then "
-			"  echo 'ERROR: No device found. Power On iOS with USB 127.0.0.1:8030.'; "
-			"  exit 1; "
-			"fi; "
-			"ideviceinfo -s 2>/dev/null || ideviceinfo | head -80; " );
-	Start_Companion_SSH(
-		QStringLiteral( "ssh_do '%1'; echo DONE" ).arg( Shell_Quote( remote ) ) );
+	// MODE=1 is lockdown. MODE=3 hides the phone from idevice_id.
+	Start_On_Host( 1, QStringLiteral(
+		"echo '=== Wait for idevice (MODE=1) ==='; "
+		"ok=0; "
+		"for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do "
+		"  if idevice_id -l 2>/dev/null | grep -q .; then ok=1; break; fi; "
+		"  echo waiting_for_device $i; sleep 2; "
+		"done; "
+		"echo '=== idevice_id ==='; "
+		"idevice_id -l 2>&1 || true; "
+		"echo '=== ideviceinfo (short) ==='; "
+		"if [ \"$ok\" != 1 ]; then "
+		"  echo 'ERROR: No device found. Power On iOS with USB 127.0.0.1:8030.'; "
+		"  exit 1; "
+		"fi; "
+		"ideviceinfo -s 2>/dev/null || ideviceinfo | head -80; "
+		"echo DONE" ) );
 }
 
 void Apple_SoC_Device_Tools_Window::Run_List_Apps()
 {
-	const QString pw = Shell_Quote( Edit_SSH_Password->text() );
-	const QString remote =
-		Companion_Usbmux_Mode( 1, pw ) +
-		QStringLiteral(
-			"echo '=== Wait for idevice (MODE=1) ==='; "
-			"ok=0; "
-			"for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do "
-			"  if idevice_id -l 2>/dev/null | grep -q .; then ok=1; break; fi; "
-			"  echo waiting_for_device $i; sleep 2; "
-			"done; "
-			"if [ \"$ok\" != 1 ]; then "
-			"  echo 'ERROR: No device found. Power On iOS with USB 127.0.0.1:8030.'; "
-			"  exit 1; "
-			"fi; " ) +
-		Companion_Ensure_Ideviceinstaller() +
-		QStringLiteral( "ideviceinstaller -l" );
-	Start_Companion_SSH(
-		QStringLiteral( "ssh_do '%1'; echo DONE" )
-			.arg( Shell_Quote( remote ) ) );
+	Start_On_Host( 1, QStringLiteral(
+		"echo '=== Wait for idevice (MODE=1) ==='; "
+		"ok=0; "
+		"for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do "
+		"  if idevice_id -l 2>/dev/null | grep -q .; then ok=1; break; fi; "
+		"  echo waiting_for_device $i; sleep 2; "
+		"done; "
+		"if [ \"$ok\" != 1 ]; then "
+		"  echo 'ERROR: No device found. Power On iOS with USB 127.0.0.1:8030.'; "
+		"  exit 1; "
+		"fi; "
+		"if ! command -v ideviceinstaller >/dev/null 2>&1; then "
+		"  echo 'ERROR: ideviceinstaller is not in this build of the host tools.'; "
+		"  exit 127; "
+		"fi; "
+		"ideviceinstaller -l; "
+		"echo DONE" ) );
 }
 
 void Apple_SoC_Device_Tools_Window::Run_Install_IPA()
@@ -527,9 +448,28 @@ void Apple_SoC_Device_Tools_Window::Run_Install_IPA()
 	if( ! Process->waitForStarted( 8000 ) )
 		Label_Status->setText( tr( "Failed to start wsl.exe" ) );
 #else
-	QMessageBox::information( this, tr( "Host OS" ),
-		tr( "Copying an IPA onto the iOS root is wired for Windows + WSL.\n"
-		    "On Linux run extras/Inferno/install-app-wsl.sh with ROOT_IMG and IPA set." ) );
+	auto shell_quote = []( QString s ) {
+		return s.replace( QLatin1Char( '\'' ), QStringLiteral( "'\\''" ) );
+	};
+	const QString bash = QStringLiteral(
+		"set -e; "
+		"SCRIPT='%1'; "
+		"sed -i 's/\\r$//' \"$SCRIPT\" 2>/dev/null || true; "
+		"export ROOT_IMG='%2'; "
+		"export IPA='%3'; "
+		"bash \"$SCRIPT\"" )
+		.arg( shell_quote( script_win ),
+		      shell_quote( root ),
+		      shell_quote( QFileInfo( ipa ).absoluteFilePath() ) );
+	Text_Log->clear();
+	Append_Log( tr( "Copying the app onto the iOS root. installd is not used." ) );
+	Label_Status->setText( tr( "Installing onto the guest disk..." ) );
+	Process->setProgram( QStringLiteral( "bash" ) );
+	Process->setArguments( QStringList() << QStringLiteral( "-c" ) << bash );
+	Process->setProcessChannelMode( QProcess::MergedChannels );
+	Process->start();
+	if( ! Process->waitForStarted( 8000 ) )
+		Label_Status->setText( tr( "Failed to start bash" ) );
 #endif
 }
 
@@ -547,150 +487,110 @@ void Apple_SoC_Device_Tools_Window::Run_Screenshot()
 
 	const QFileInfo dest( local );
 	QDir().mkpath( dest.absolutePath() );
-	const QString wsl_dest = Windows_Path_To_WSL( dest.absoluteFilePath() );
+#ifdef Q_OS_WIN
+	const QString out_path = Windows_Path_To_WSL( dest.absoluteFilePath() );
+#else
+	const QString out_path = dest.absoluteFilePath();
+#endif
 	const QString shown = QDir::toNativeSeparators( dest.absoluteFilePath() );
 
-	// idevicescreenshot writes on the companion. scp_do runs in WSL and
-	// drops the PNG on the Windows path (/mnt/c/...), then the companion copy is removed.
-	Start_Companion_SSH(
-		QStringLiteral(
-			"echo '=== idevicescreenshot ==='; "
-			"ssh_do 'idevicescreenshot /tmp/aqemu-ios.png'; "
-			"if ! ssh_do 'test -s /tmp/aqemu-ios.png'; then "
-			"  echo 'ERROR: no screenshot file on the companion.'; "
-			"  echo 'screenshotr needs a Developer disk image mounted on the phone.'; "
-			"  exit 1; "
-			"fi; "
-			"echo 'Copying screenshot to this PC...'; "
-			"scp_do \"$GUEST@127.0.0.1:/tmp/aqemu-ios.png\" '%1' || { "
-			"  echo 'ERROR: SSH copy to this PC failed.'; exit 1; }; "
-			"ssh_do 'rm -f /tmp/aqemu-ios.png' || true; "
-			"if [ ! -s '%1' ]; then echo 'ERROR: saved file is empty.'; exit 1; fi; "
-			"echo 'DONE - saved on this PC: %2'" )
-			.arg( Shell_Quote( wsl_dest ), Shell_Quote( shown ) ) );
+	Start_On_Host( 1, QStringLiteral(
+		"echo '=== idevicescreenshot ==='; "
+		"idevicescreenshot %1; "
+		"if [ ! -s %1 ]; then "
+		"  echo 'ERROR: no screenshot file.'; "
+		"  echo 'screenshotr needs a Developer disk image mounted on the phone.'; "
+		"  exit 1; "
+		"fi; "
+		"echo 'DONE - saved: %2'" )
+		.arg( Shell_Quote( out_path ), Shell_Quote( shown ) ) );
 }
 
 void Apple_SoC_Device_Tools_Window::Run_Network_Diagnose()
 {
-	Start_Companion_SSH(
+	Start_On_Host( 1, QStringLiteral(
+		"echo '=== arch ==='; uname -m; "
+		"echo '=== listener 8030 ==='; "
+		"ss -ltnp 'sport = :8030' 2>/dev/null || netstat -ltn 2>/dev/null | grep 8030 || true; "
 		"echo '=== lsusb (Apple) ==='; "
-		"ssh_do 'lsusb 2>/dev/null | grep -i apple || lsusb || true'; "
+		"lsusb 2>/dev/null | grep -i apple || lsusb || true; "
 		"echo '=== idevice_id ==='; "
-		"ssh_do 'idevice_id -l 2>&1 || true'; "
+		"idevice_id -l 2>&1 || true; "
 		"echo '=== usbmuxd ==='; "
-		"ssh_do 'systemctl is-active usbmuxd 2>/dev/null; "
-		"ps aux | grep -i usbmuxd | grep -v grep || true'; "
+		"pgrep -a usbmuxd || echo NONE; "
 		"echo '=== USB net ifaces ==='; "
-		"ssh_do 'nmcli -t -f DEVICE,TYPE,STATE,CONNECTION device 2>/dev/null || ip -br link'; "
-		"echo DONE" );
+		"ip -br link; "
+		"echo DONE" ) );
 }
 
 void Apple_SoC_Device_Tools_Window::Enable_Guest_Internet()
 {
-	if( Edit_SSH_User->text().trimmed().isEmpty() || Edit_SSH_Password->text().isEmpty() )
-	{
-		QMessageBox::warning( this, tr( "SSH" ),
-			tr( "Enter companion SSH user and password first "
-			    "(same as Apple SoC Restore)." ) );
-		return;
-	}
-
-	const QString pw = Shell_Quote( Edit_SSH_Password->text() );
-	// ASCII-only remote script. Companion must already see the iOS USB ethernet.
-	// MODE=3 is NCM. idevice_id stays empty on purpose; the phone is enx*.
-	// An existing nmcli profile is deleted. modify on that profile times out.
-	const QString remote =
-		QStringLiteral(
-			"set +e; "
-			"echo '=== 1) usbmuxd MODE=3 ==='; " )
-		+ Companion_Usbmux_Mode( 3, pw )
-		+ QStringLiteral(
-			"echo '=== 2) USB ethernet ==='; "
-			"echo 'MODE=3 does not list the phone in idevice_id.'; "
-			"echo 'Leaving the USB device connected. A reset drops enxdeadbeef2212.'; "
-			"echo '%1' | sudo -S -p '' bash -c '"
-			"for dev in /sys/bus/usb/devices/[0-9]*; do "
-			"  [ \"$(cat \"$dev/idVendor\" 2>/dev/null)\" = 05ac ] || continue; "
-			"  echo 1 > \"$dev/authorized\"; "
-			"  echo allowed $(cat \"$dev/idVendor\"):$(cat \"$dev/idProduct\"); "
-			"done'; "
-			"ok=0; "
-			"for i in 1 2 3 4 5 6 7 8 9 10; do "
-			"  if ip -o link show 2>/dev/null | grep -q enx; then ok=1; break; fi; "
-			"  echo waiting_for_usb_ethernet $i; sleep 2; "
-			"done; "
-			"ip -br link; "
-			"if [ \"$ok\" != 1 ]; then "
-			"  echo 'ERROR: no enx USB ethernet. Power On iOS with USB 127.0.0.1:8030 and retry.'; "
-			"  echo 'Do not reset the Apple USB device. That removes this interface.'; "
-			"  exit 3; "
-			"fi; "
-			"echo '=== 3) Share USB ethernet ==='; "
-			"echo 'This interface cannot report carrier, and NetworkManager times out on it.'; "
-			"echo 'Sharing with ip, iptables, and dnsmasq instead.'; "
-			"if ! command -v dnsmasq >/dev/null 2>&1 || ! command -v iptables >/dev/null 2>&1; then "
-			"  echo '%1' | sudo -S -p '' apt-get update -qq || true; "
-			"  echo '%1' | sudo -S -p '' apt-get install -y dnsmasq iptables || true; "
-			"fi; "
-			"if ! command -v dnsmasq >/dev/null 2>&1; then "
-			"  echo ERROR: dnsmasq is not installed on the companion.; exit 2; "
-			"fi; "
-			"PRIMARY=$(ip route 2>/dev/null | awk '/default/{print $5; exit}'); "
-			"echo primary_iface=$PRIMARY; "
-			"echo '%1' | sudo -S -p '' sysctl -w net.ipv4.ip_forward=1; "
-			"shared=0; "
-			"IFACES=$(ip -o link show 2>/dev/null | awk -F': ' '{print $2}' | "
-			"  sed 's/@.*//' | grep -E '^(enx|usb)' || true); "
-			"for d in $IFACES; do "
-			"  [ -z \"$d\" ] && continue; "
-			"  [ \"$d\" = lo ] && continue; "
-			"  [ -n \"$PRIMARY\" ] && [ \"$d\" = \"$PRIMARY\" ] && continue; "
-			"  echo Sharing_iface $d; "
-			"  echo '%1' | sudo -S -p '' ip link set \"$d\" up || true; "
-			"  echo '%1' | sudo -S -p '' ip addr replace 10.42.0.1/24 dev \"$d\" || "
-			"    echo \"ERROR: could not address $d\"; "
-			"  if [ -n \"$PRIMARY\" ]; then "
-			"    echo '%1' | sudo -S -p '' iptables -t nat -C POSTROUTING -o \"$PRIMARY\" -j MASQUERADE "
-			"      2>/dev/null || echo '%1' | sudo -S -p '' iptables -t nat -A POSTROUTING "
-			"      -o \"$PRIMARY\" -j MASQUERADE; "
-			"    echo '%1' | sudo -S -p '' iptables -C FORWARD -i \"$d\" -o \"$PRIMARY\" -j ACCEPT "
-			"      2>/dev/null || echo '%1' | sudo -S -p '' iptables -A FORWARD -i \"$d\" "
-			"      -o \"$PRIMARY\" -j ACCEPT; "
-			"    echo '%1' | sudo -S -p '' iptables -C FORWARD -i \"$PRIMARY\" -o \"$d\" "
-			"      -m state --state RELATED,ESTABLISHED -j ACCEPT 2>/dev/null || "
-			"      echo '%1' | sudo -S -p '' iptables -A FORWARD -i \"$PRIMARY\" -o \"$d\" "
-			"      -m state --state RELATED,ESTABLISHED -j ACCEPT; "
-			"  fi; "
-			"  if [ -f /run/aqemu-dnsmasq-$d.pid ]; then "
-			"    echo '%1' | sudo -S -p '' kill \"$(cat /run/aqemu-dnsmasq-$d.pid)\" 2>/dev/null || true; "
-			"  fi; "
-			"  echo '%1' | sudo -S -p '' dnsmasq --conf-file=/dev/null --interface=\"$d\" "
-			"    --bind-interfaces --except-interface=lo "
-			"    --dhcp-range=10.42.0.10,10.42.0.100,12h "
-			"    --dhcp-option=option:router,10.42.0.1 "
-			"    --dhcp-option=option:dns-server,10.42.0.1 "
-			"    --pid-file=/run/aqemu-dnsmasq-$d.pid "
-			"    --log-facility=/tmp/aqemu-dnsmasq-$d.log || echo \"ERROR: dnsmasq failed on $d\"; "
-			"  shared=1; "
-			"done; "
-			"if [ \"$shared\" != 1 ]; then "
-			"  echo 'No USB ethernet interface to share.'; "
-			"  ip -br link; "
-			"  exit 3; "
-			"fi; "
-			"echo '=== 4) share recheck ==='; "
-			"ip -br link; "
-			"ip -4 addr show | grep -E 'enx|usb' || true; "
-			"echo 'Gateway on the companion is 10.42.0.1.'; "
-			"if ip -br link | grep -E '^(enx|usb)' | grep -q NO-CARRIER; then "
-			"  echo 'The USB link still has no carrier, so the phone may not request DHCP yet.'; "
-			"fi; "
-			"echo 'idevice_id stays empty in MODE=3. IPA install switches back to MODE=1.'; " )
-			.arg( pw );
-
-	Start_Companion_SSH(
-		QStringLiteral( "ssh_do '%1'; echo DONE" )
-			.arg( Shell_Quote( remote ) ) );
+	Start_On_Host( 3, QStringLiteral(
+		"set +e; "
+		"echo '=== USB ethernet (MODE=3) ==='; "
+		"echo 'MODE=3 does not list the phone in idevice_id.'; "
+		"ok=0; "
+		"for i in 1 2 3 4 5 6 7 8 9 10; do "
+		"  if ip -o link show 2>/dev/null | grep -q enx; then ok=1; break; fi; "
+		"  echo waiting_for_usb_ethernet $i; sleep 2; "
+		"done; "
+		"ip -br link; "
+		"if [ \"$ok\" != 1 ]; then "
+		"  echo 'ERROR: no enx USB ethernet. Power On iOS with USB 127.0.0.1:8030 and retry.'; "
+		"  exit 3; "
+		"fi; "
+		"if ! command -v dnsmasq >/dev/null 2>&1 || ! command -v iptables >/dev/null 2>&1; then "
+		"  apt-get update -qq || true; "
+		"  apt-get install -y dnsmasq iptables || true; "
+		"fi; "
+		"if ! command -v dnsmasq >/dev/null 2>&1; then "
+		"  echo 'ERROR: dnsmasq is not installed.'; exit 2; "
+		"fi; "
+		"PRIMARY=$(ip route 2>/dev/null | awk '/default/{print $5; exit}'); "
+		"echo primary_iface=$PRIMARY; "
+		"sysctl -w net.ipv4.ip_forward=1; "
+		"shared=0; "
+		"IFACES=$(ip -o link show 2>/dev/null | awk -F': ' '{print $2}' | "
+		"  sed 's/@.*//' | grep -E '^(enx|usb)' || true); "
+		"for d in $IFACES; do "
+		"  [ -z \"$d\" ] && continue; "
+		"  [ \"$d\" = lo ] && continue; "
+		"  [ -n \"$PRIMARY\" ] && [ \"$d\" = \"$PRIMARY\" ] && continue; "
+		"  echo Sharing_iface $d; "
+		"  ip link set \"$d\" up || true; "
+		"  ip addr replace 10.42.0.1/24 dev \"$d\" || echo \"ERROR: could not address $d\"; "
+		"  if [ -n \"$PRIMARY\" ]; then "
+		"    iptables -t nat -C POSTROUTING -o \"$PRIMARY\" -j MASQUERADE 2>/dev/null || "
+		"      iptables -t nat -A POSTROUTING -o \"$PRIMARY\" -j MASQUERADE; "
+		"    iptables -C FORWARD -i \"$d\" -o \"$PRIMARY\" -j ACCEPT 2>/dev/null || "
+		"      iptables -A FORWARD -i \"$d\" -o \"$PRIMARY\" -j ACCEPT; "
+		"    iptables -C FORWARD -i \"$PRIMARY\" -o \"$d\" "
+		"      -m state --state RELATED,ESTABLISHED -j ACCEPT 2>/dev/null || "
+		"      iptables -A FORWARD -i \"$PRIMARY\" -o \"$d\" "
+		"      -m state --state RELATED,ESTABLISHED -j ACCEPT; "
+		"  fi; "
+		"  if [ -f /run/aqemu-dnsmasq-$d.pid ]; then "
+		"    kill \"$(cat /run/aqemu-dnsmasq-$d.pid)\" 2>/dev/null || true; "
+		"  fi; "
+		"  dnsmasq --conf-file=/dev/null --interface=\"$d\" "
+		"    --bind-interfaces --except-interface=lo "
+		"    --dhcp-range=10.42.0.10,10.42.0.100,12h "
+		"    --dhcp-option=option:router,10.42.0.1 "
+		"    --dhcp-option=option:dns-server,10.42.0.1 "
+		"    --pid-file=/run/aqemu-dnsmasq-$d.pid "
+		"    --log-facility=/tmp/aqemu-dnsmasq-$d.log || echo \"ERROR: dnsmasq failed on $d\"; "
+		"  shared=1; "
+		"done; "
+		"if [ \"$shared\" != 1 ]; then "
+		"  echo 'No USB ethernet interface to share.'; "
+		"  ip -br link; "
+		"  exit 3; "
+		"fi; "
+		"echo '=== share recheck ==='; "
+		"ip -br link; "
+		"echo 'Gateway on this PC is 10.42.0.1.'; "
+		"echo 'idevice_id stays empty in MODE=3.'; "
+		"echo DONE" ) );
 }
 
 void Apple_SoC_Device_Tools_Window::Apply_Reverse_Tether_Hints()
