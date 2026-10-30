@@ -98,7 +98,7 @@ class Virtual_Machine: public QObject
 		QStringList Build_QEMU_Args_For_Tab_Info();
 		QStringList Build_QEMU_Args_For_Script();
 		
-        QStringList Build_Native_Device_Args( VM_Native_Storage_Device device, bool Build_QEMU_Args_for_Script_Mode );
+        QStringList Build_Native_Device_Args( VM_Native_Storage_Device device, bool Build_QEMU_Args_for_Script_Mode, int boot_override = -1 );
 		QStringList Build_Shared_Folder_Args( VM_Shared_Folder folder, int id, bool Build_QEMU_Args_for_Script_Mode );
 
 		bool Start_Snapshot( const QString &tag );

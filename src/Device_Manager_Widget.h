@@ -79,6 +79,8 @@ class Device_Manager_Widget: public QWidget
 		void on_actionList_Mode_triggered();
 		
 		void Update_Icons();
+		void Apply_Virtio_Driver_Disc();
+		void Browse_Virtio_Driver_ISO();
 		void Update_HDA( bool ok );
 		void Update_HDB( bool ok );
 		void Update_HDC( bool ok );
@@ -98,6 +100,11 @@ class Device_Manager_Widget: public QWidget
 		HDD_Image_Info* HDB_Info;
 		HDD_Image_Info* HDC_Info;
 		HDD_Image_Info* HDD_Info;
+
+		class QCheckBox *CH_Virtio_Drivers;
+		class QLineEdit *Edit_Virtio_ISO;
+		class QToolButton *TB_Virtio_ISO_Browse;
+		bool Virtio_Driver_UI_Lock;
 		
 		const Available_Devices *Current_Machine_Devices;
 };

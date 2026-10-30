@@ -1,0 +1,265 @@
+diff --git a/backends/tpm/tpm_emulator.c b/backends/tpm/tpm_emulator.c
+index 75c33d2..b91871c 100644
+--- a/backends/tpm/tpm_emulator.c
++++ b/backends/tpm/tpm_emulator.c
+@@ -71,6 +71,8 @@ struct TPMEmulator {
+     TPMEmulatorOptions *options;
+     CharFrontend ctrl_chr;
+     QIOChannel *data_ioc;
++    char *data_host;
++    uint16_t data_port;
+     TPMVersion tpm_version;
+     uint32_t caps; /* capabilities of the TPM */
+     uint8_t cur_locty_number; /* last set locality */
+@@ -581,6 +583,82 @@ static int tpm_emulator_block_migration(TPMEmulator *tpm_emu)
+     return 0;
+ }
+ 
++/*
++ * swtpm --server speaks the same raw TPM command stream as the fd passed
++ * with CMD_SET_DATAFD. Windows has no SCM_RIGHTS, so that is the data path.
++ */
++static int tpm_emulator_prepare_data_tcp(TPMEmulator *tpm_emu)
++{
++    SocketAddress addr;
++    Error *err = NULL;
++    QIOChannelSocket *sioc;
++    g_autofree char *port = g_strdup_printf("%u", tpm_emu->data_port);
++
++    memset(&addr, 0, sizeof(addr));
++    addr.type = SOCKET_ADDRESS_TYPE_INET;
++    addr.u.inet.host = tpm_emu->data_host;
++    addr.u.inet.port = port;
++
++    sioc = qio_channel_socket_new();
++    if (qio_channel_socket_connect_sync(sioc, &addr, &err) < 0) {
++        error_reportf_err(err, "tpm-emulator: Cannot connect data channel to %s:%u: ",
++                          tpm_emu->data_host, tpm_emu->data_port);
++        object_unref(OBJECT(sioc));
++        return -1;
++    }
++
++    /*
++     * socket_connect() leaves the fd non-blocking. The command stream
++     * uses blocking qio_channel_read_all, same as the Unix socketpair.
++     */
++    if (!qemu_set_blocking(sioc->fd, true, &err)) {
++        error_report_err(err);
++        object_unref(OBJECT(sioc));
++        return -1;
++    }
++
++    tpm_emu->data_ioc = QIO_CHANNEL(sioc);
++    return 0;
++}
++
++static int tpm_emulator_probe_version_ioc(TPMEmulator *tpm_emu)
++{
++    const struct tpm_req_hdr test_req_tpm2 = {
++        .tag = cpu_to_be16(TPM2_ST_NO_SESSIONS),
++        .len = cpu_to_be32(sizeof(test_req_tpm2)),
++        .ordinal = cpu_to_be32(TPM2_CC_ReadClock),
++    };
++    const struct tpm_req_hdr test_req = {
++        .tag = cpu_to_be16(TPM_TAG_RQU_COMMAND),
++        .len = cpu_to_be32(sizeof(test_req)),
++        .ordinal = cpu_to_be32(TPM_ORD_GetTicks),
++    };
++    uint8_t buf[1024];
++    Error *err = NULL;
++
++    if (tpm_emulator_unix_tx_bufs(tpm_emu, (const uint8_t *)&test_req_tpm2,
++                                  sizeof(test_req_tpm2), buf, sizeof(buf),
++                                  NULL, &err) == 0 &&
++        tpm_cmd_get_tag(buf) == TPM2_ST_NO_SESSIONS) {
++        tpm_emu->tpm_version = TPM_VERSION_2_0;
++        return 0;
++    }
++    error_free(err);
++    err = NULL;
++
++    if (tpm_emulator_unix_tx_bufs(tpm_emu, (const uint8_t *)&test_req,
++                                  sizeof(test_req), buf, sizeof(buf),
++                                  NULL, &err) == 0 &&
++        tpm_cmd_get_tag(buf) == TPM_TAG_RSP_COMMAND) {
++        tpm_emu->tpm_version = TPM_VERSION_1_2;
++        return 0;
++    }
++    error_free(err);
++    tpm_emu->tpm_version = TPM_VERSION_UNSPEC;
++    return -1;
++}
++
++#ifndef _WIN32
+ static int tpm_emulator_prepare_data_fd(TPMEmulator *tpm_emu)
+ {
+     ptm_res res;
+@@ -616,6 +694,7 @@ err_exit:
+     close(fds[1]);
+     return -1;
+ }
++#endif
+ 
+ static int tpm_emulator_handle_device_opts(TPMEmulator *tpm_emu, QemuOpts *opts)
+ {
+@@ -644,18 +723,47 @@ static int tpm_emulator_handle_device_opts(TPMEmulator *tpm_emu, QemuOpts *opts)
+ 
+     tpm_emu->options->chardev = g_strdup(value);
+ 
+-    if (tpm_emulator_prepare_data_fd(tpm_emu) < 0) {
++    value = qemu_opt_get(opts, "datahost");
++    if (value) {
++        tpm_emu->data_host = g_strdup(value);
++    }
++    tpm_emu->data_port = (uint16_t)qemu_opt_get_number(opts, "dataport", 0);
++
++#ifdef _WIN32
++    if (!tpm_emu->data_host || tpm_emu->data_port == 0) {
++        error_report("tpm-emulator: Windows requires datahost and dataport "
++                     "(swtpm --server)");
+         goto err;
+     }
++#endif
+ 
+-    /* FIXME: tpm_util_test_tpmdev() accepts only on socket fd, as it also used
+-     * by passthrough driver, which not yet using GIOChannel.
+-     */
+-    if (tpm_util_test_tpmdev(QIO_CHANNEL_SOCKET(tpm_emu->data_ioc)->fd,
+-                             &tpm_emu->tpm_version)) {
+-        error_report("'%s' is not emulating TPM device.",
+-                      tpm_emu->options->chardev);
++    if (tpm_emu->data_host && tpm_emu->data_port != 0) {
++        if (tpm_emulator_prepare_data_tcp(tpm_emu) < 0) {
++            goto err;
++        }
++        if (tpm_emulator_probe_version_ioc(tpm_emu) < 0) {
++            error_report("'%s' is not emulating TPM device.",
++                         tpm_emu->options->chardev);
++            goto err;
++        }
++    } else {
++#ifndef _WIN32
++        if (tpm_emulator_prepare_data_fd(tpm_emu) < 0) {
++            goto err;
++        }
++
++        /* FIXME: tpm_util_test_tpmdev() accepts only on socket fd, as it also used
++         * by passthrough driver, which not yet using GIOChannel.
++         */
++        if (tpm_util_test_tpmdev(QIO_CHANNEL_SOCKET(tpm_emu->data_ioc)->fd,
++                                 &tpm_emu->tpm_version)) {
++            error_report("'%s' is not emulating TPM device.",
++                          tpm_emu->options->chardev);
++            goto err;
++        }
++#else
+         goto err;
++#endif
+     }
+ 
+     switch (tpm_emu->tpm_version) {
+@@ -712,6 +820,16 @@ static const QemuOptDesc tpm_emulator_cmdline_opts[] = {
+         .type = QEMU_OPT_STRING,
+         .help = "Character device to use for out-of-band control messages",
+     },
++    {
++        .name = "datahost",
++        .type = QEMU_OPT_STRING,
++        .help = "Host of the swtpm --server data channel (required on Windows)",
++    },
++    {
++        .name = "dataport",
++        .type = QEMU_OPT_NUMBER,
++        .help = "Port of the swtpm --server data channel (required on Windows)",
++    },
+     { /* end of list */ },
+ };
+ 
+@@ -1043,6 +1161,7 @@ static void tpm_emulator_inst_finalize(Object *obj)
+ 
+     qemu_chr_fe_deinit(&tpm_emu->ctrl_chr, false);
+ 
++    g_free(tpm_emu->data_host);
+     qapi_free_TPMEmulatorOptions(tpm_emu->options);
+ 
+     migrate_del_blocker(&tpm_emu->migration_blocker);
+diff --git a/meson.build b/meson.build
+index 51f5f28..e535e24 100644
+--- a/meson.build
++++ b/meson.build
+@@ -219,9 +219,10 @@ vfio_user_server_allowed = get_option('vfio_user_server') \
+   .require(host_os == 'linux', error_message: 'vfio-user server is supported only on Linux') \
+   .allowed()
+ 
+-have_tpm = get_option('tpm') \
+-  .require(host_os != 'windows', error_message: 'TPM emulation only available on POSIX systems') \
+-  .allowed()
++# Passthrough stays Linux-only (backends/tpm/Kconfig). The emulator backend
++# can use a TCP data port (swtpm --server) on Windows, where SCM_RIGHTS
++# cannot hand an AF_UNIX fd to swtpm.
++have_tpm = get_option('tpm').allowed()
+ 
+ # vhost
+ have_vhost_user = get_option('vhost_user') \
+diff --git a/qemu-options.hx b/qemu-options.hx
+index 21972f8..5476893 100644
+--- a/qemu-options.hx
++++ b/qemu-options.hx
+@@ -4396,8 +4396,9 @@ DEF("tpmdev", HAS_ARG, QEMU_OPTION_tpmdev, \
+     "                use path to provide path to a character device; default is /dev/tpm0\n"
+     "                use cancel-path to provide path to TPM's cancel sysfs entry; if\n"
+     "                not provided it will be searched for in /sys/class/misc/tpm?/device\n"
+-    "-tpmdev emulator,id=id,chardev=dev\n"
+-    "                configure the TPM device using chardev backend\n",
++    "-tpmdev emulator,id=id,chardev=dev[,datahost=host,dataport=port]\n"
++    "                configure the TPM device using chardev backend\n"
++    "                datahost/dataport: swtpm --server TCP channel (required on Windows)\n",
+     QEMU_ARCH_ALL)
+ SRST
+ The general form of a TPM device option is:
+@@ -4449,9 +4450,11 @@ The available backends are:
+     Note that the ``-tpmdev`` id is ``tpm0`` and is referenced by
+     ``tpmdev=tpm0`` in the device option.
+ 
+-``-tpmdev emulator,id=id,chardev=dev``
+-    (Linux-host only) Enable access to a TPM emulator using Unix domain
+-    socket based chardev backend.
++``-tpmdev emulator,id=id,chardev=dev[,datahost=host,dataport=port]``
++    Enable access to a TPM emulator. On POSIX the default data channel is
++    a Unix socket fd passed to swtpm. On Windows, and whenever ``datahost``
++    and ``dataport`` are set, QEMU connects that data channel to
++    ``swtpm --server`` and keeps ``chardev`` as the control channel.
+ 
+     ``chardev`` specifies the unique ID of a character device backend
+     that provides connection to the software TPM server.
+diff --git a/tests/qtest/tpm-util.c b/tests/qtest/tpm-util.c
+index 2cb2dd4..4e4ae24 100644
+--- a/tests/qtest/tpm-util.c
++++ b/tests/qtest/tpm-util.c
+@@ -163,12 +163,16 @@ gboolean tpm_util_swtpm_start(const char *path, GPid *pid,
+ 
+ void tpm_util_swtpm_kill(GPid pid)
+ {
+-    int n;
+-
+     if (!pid) {
+         return;
+     }
+ 
++#ifdef _WIN32
++    TerminateProcess(pid, 1);
++    g_spawn_close_pid(pid);
++#else
++    int n;
++
+     g_spawn_close_pid(pid);
+ 
+     n = kill(pid, 0);
+@@ -177,6 +181,7 @@ void tpm_util_swtpm_kill(GPid pid)
+     }
+ 
+     kill(pid, SIGKILL);
++#endif
+ }
+ 
+ void tpm_util_migrate(QTestState *who, const char *uri)

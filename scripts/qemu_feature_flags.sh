@@ -42,7 +42,7 @@ aqemu_apply_qemu_patches() {
 	[[ -f "${src}/meson.build" || -f "${src}/configure" ]] || return 0
 	# Git for Windows checks these out with CRLF, and git apply then
 	# rejects a Unix patch even when the text matches.
-	for f in chardev/char-pipe.c chardev/char-win.c include/chardev/char-win.h scripts/symlink-install-tree.py block/iscsi.c; do
+	for f in chardev/char-pipe.c chardev/char-win.c include/chardev/char-win.h scripts/symlink-install-tree.py block/iscsi.c meson.build backends/tpm/tpm_emulator.c qemu-options.hx tests/qtest/tpm-util.c; do
 		aqemu_force_lf "${src}/${f}"
 	done
 	shopt -s nullglob

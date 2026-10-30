@@ -6973,26 +6973,31 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		const QString preferred = Get_Current_Emulator_Binary_Path( system_name );
 		const QStringList avail = AQ_QEMU_List_Display_Backends( preferred );
 		const QString db = Display_Backend.trimmed().toLower();
+		// spice-app is not a window on this build. QEMU's spice server exits
+		// with "Failed to open SPICE sockets" before the guest starts.
+		const bool spice_app = ( db == QLatin1String( "spice-app" ) );
 		const bool wants_native =
 			Prefer_Native_VGA_Window() ||
 			db == QLatin1String( "gtk" ) ||
-			db == QLatin1String( "sdl" );
+			db == QLatin1String( "sdl" ) ||
+			spice_app;
 		if( wants_native )
 		{
 			const bool has_native =
 				avail.contains( QLatin1String( "sdl" ) ) ||
 				avail.contains( QLatin1String( "gtk" ) );
-			// Only force embed when we know the binary lacks gtk/sdl, or the user
-			// explicitly picked gtk/sdl and -display help could not be probed.
-			if( ( ! avail.isEmpty() && ! has_native ) ||
+			// Force the AQEMU window when there is no gtk/sdl, when the probe
+			// could not run, or when the saved backend is the broken spice-app.
+			if( spice_app ||
+			    ( ! avail.isEmpty() && ! has_native ) ||
 			    ( avail.isEmpty() &&
 			      ( db == QLatin1String( "gtk" ) || db == QLatin1String( "sdl" ) ) ) )
 			{
 				force_headless_embed = true;
 				AQDebug( "Virtual_Machine::Build_QEMU_Args_General()",
 					 QStringLiteral(
-						 "QEMU has no gtk/sdl display backend — using embedded VNC "
-						 "(-display none) instead of \"%1\"" )
+						 "QEMU has no working native window — showing the guest "
+						 "with SPICE inside AQEMU instead of \"%1\"" )
 						 .arg( db.isEmpty() ? QStringLiteral( "native" ) : db ) );
 			}
 		}
@@ -7025,12 +7030,8 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	{
 		if( QMP_Port <= 0 )
 			QMP_Port = Find_Free_TCP_Port( 4444 );
-#ifndef Q_OS_WIN
 		if( Embedded_Spice_Port <= 0 )
 			Embedded_Spice_Port = Find_Free_TCP_Port( 5930 );
-#else
-		Embedded_Spice_Port = 0;
-#endif
 		if( Embedded_VNC_Port <= 0 )
 		{
 			const int first_vnc = Settings.value( "First_VNC_Port", "5910" ).toString().toInt();
@@ -7663,13 +7664,26 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 #endif
 			props << QStringLiteral( "gic-version=3" );
 			if( whpx_virt )
+			{
 				props << QStringLiteral( "msi=gicv2m" );
+				props << QStringLiteral( "highmem=off" );
+			}
 			else
 			{
 				props << QStringLiteral( "highmem=on" );
 				props << QStringLiteral( "its=on" );
 			}
 		}
+		const bool x86_q35 =
+			( Computer_Type.contains( QLatin1String( "x86_64" ), Qt::CaseInsensitive ) ||
+			  Computer_Type.contains( QLatin1String( "i386" ), Qt::CaseInsensitive ) ) &&
+			effective_machine.contains( QLatin1String( "q35" ), Qt::CaseInsensitive );
+		const QString uefi_code_l = UEFI_CODE_File.toLower();
+		if( x86_q35 && UEFI &&
+		    ( uefi_code_l.contains( QLatin1String( "secure" ) ) ||
+		      uefi_code_l.contains( QLatin1String( "secboot" ) ) ) &&
+		    ! Machine_Extra_Props.contains( QLatin1String( "smm=" ), Qt::CaseInsensitive ) )
+			props << QStringLiteral( "smm=on" );
 		if( reims_shared_ram )
 			props << QStringLiteral( "memory-backend=aqemu_reims_ram" );
 	}
@@ -8034,30 +8048,31 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			}
             StorageArgs << Build_Native_Device_Args( native_cd, Build_QEMU_Args_for_Tab_Info );
 		}
-		else if( is_virt_arch )
+		else if( is_virt_arch || Win11_Lifecycle_Mode == VM::Win11_Install )
 		{
-			// UEFI virt + Windows ARM: present ISO as USB mass storage (BVM / virtio-win).
+			// EDK2 boots a VirtIO SCSI CD. USB mass storage is what the firmware
+			// calls "QEMU USB HARDDRIVE"; that path times out on a Windows ISO.
+			// The driver disc is a second SCSI CD and must not get a bootindex.
 			if( QFile::exists(CD_ROM.Get_File_Name()) || Build_QEMU_Args_for_Tab_Info )
 			{
+				has_virt_scsi = true;
 				const int cd_boot = Bootindex_For( *this, VM::Boot_From_CDROM );
 				const QString cd_path = AQ_Normalize_File_Path( CD_ROM.Get_File_Name() );
 				const QString drive = QString(
 					"file=%1,if=none,id=aqemu-cdrom,format=raw,media=cdrom,readonly=on" )
 					.arg( cd_path );
-				const QString usb_dev = With_Bootindex(
-					QStringLiteral( "usb-storage,bus=aqemu_iso_xhci.0,drive=aqemu-cdrom" ),
+				const QString scsi_dev = With_Bootindex(
+					QStringLiteral( "scsi-cd,bus=aq-vscsi.0,drive=aqemu-cdrom" ),
 					cd_boot );
 				if( Build_QEMU_Args_for_Script_Mode )
 				{
-					StorageArgs << "-device" << "qemu-xhci,id=aqemu_iso_xhci";
 					StorageArgs << "-drive" << "\"" + drive + "\"";
-					StorageArgs << "-device" << usb_dev;
+					StorageArgs << "-device" << scsi_dev;
 				}
 				else
 				{
-					StorageArgs << "-device" << "qemu-xhci,id=aqemu_iso_xhci";
 					StorageArgs << "-drive" << drive;
-					StorageArgs << "-device" << usb_dev;
+					StorageArgs << "-device" << scsi_dev;
 				}
 			}
 		}
@@ -8400,7 +8415,14 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 					drive = QString( "file=%1,if=none,id=aqhd0,cache=%2,aio=threads" )
 						.arg( HDA.Get_File_Name(), cache );
 				}
-				QString virtio_dev_str = QStringLiteral( "virtio-blk-pci,drive=aqhd0,serial=aqemu-aqhd0" );
+				const bool win11_scsi_disk =
+					Win11_Lifecycle_Mode == VM::Win11_Install ||
+					Win11_Lifecycle_Mode == VM::Win11_First_Boot;
+				if( win11_scsi_disk )
+					has_virt_scsi = true;
+				QString virtio_dev_str = win11_scsi_disk
+					? QStringLiteral( "scsi-hd,bus=aq-vscsi.0,drive=aqhd0,serial=aqemu-aqhd0" )
+					: QStringLiteral( "virtio-blk-pci,drive=aqhd0,serial=aqemu-aqhd0" );
 				if( HDA.Get_Native_Device().Use_Block_Size() )
 				{
 					const int lbs = HDA.Get_Native_Device().Get_Logical_Block_Size() > 0 ? HDA.Get_Native_Device().Get_Logical_Block_Size() : 512;
@@ -8451,7 +8473,14 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 						drive = QString( "file=%1,if=none,id=aqhd0,cache=%2,aio=threads" )
 							.arg( HDA.Get_File_Name(), cache );
 					}
-					QString virtio_dev_str = QStringLiteral( "virtio-blk-pci,drive=aqhd0" );
+					const bool win11_scsi_disk =
+						( Win11_Lifecycle_Mode == VM::Win11_Install ||
+						  Win11_Lifecycle_Mode == VM::Win11_First_Boot );
+					if( win11_scsi_disk )
+						has_virt_scsi = true;
+					QString virtio_dev_str = win11_scsi_disk
+						? QStringLiteral( "scsi-hd,bus=aq-vscsi.0,drive=aqhd0,serial=aqemu-aqhd0" )
+						: QStringLiteral( "virtio-blk-pci,drive=aqhd0" );
 					if( HDA.Get_Native_Device().Use_Block_Size() )
 					{
 						const int lbs = HDA.Get_Native_Device().Get_Logical_Block_Size() > 0 ? HDA.Get_Native_Device().Get_Logical_Block_Size() : 512;
@@ -8579,13 +8608,26 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	{
 		for( int ix = 0; ix < Storage_Devices.count(); ++ix )
         {
-            // Testing for the 'virtio-scsi' interface type
-            VM::Device_Interface iftype = Storage_Devices[ix].Get_Interface();
-            if (iftype == VM::DI_Virtio_SCSI)
+            VM_Native_Storage_Device extra = Storage_Devices[ix];
+            const bool optical = extra.Use_Media() && extra.Get_Media() == VM::DM_CD_ROM;
+            const bool driver_disc =
+                extra.Get_Disk_Serial() == QLatin1String( "aqemu-virtio-drivers" );
+            // A second optical disc (virtio-win) is passive: EDK2 boots any
+            // SCSI CD that has a bootindex, including the driver ISO.
+            if( optical && ( is_virt_arch || driver_disc ||
+                             Win11_Lifecycle_Mode == VM::Win11_Install ) )
             {
+                extra.Use_Interface( true );
+                extra.Set_Interface( VM::DI_Virtio_SCSI );
+                if( ! extra.Use_File_Path() && ! extra.Get_File_Path().isEmpty() )
+                    extra.Use_File_Path( true );
+                has_virt_scsi = true;
+                StorageArgs << Build_Native_Device_Args( extra, Build_QEMU_Args_for_Tab_Info, 0 );
+                continue;
+            }
+            if( extra.Get_Interface() == VM::DI_Virtio_SCSI )
 				has_virt_scsi = true;
-			}
-            StorageArgs << Build_Native_Device_Args( Storage_Devices[ix], Build_QEMU_Args_for_Tab_Info );
+            StorageArgs << Build_Native_Device_Args( extra, Build_QEMU_Args_for_Tab_Info );
 		}
 	}
 	
@@ -10317,18 +10359,70 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	// TPM
 	{
 		const QString tt = TPM_Type.trimmed().toLower();
+		const bool arm_virt_tpm =
+			( Computer_Type.contains( QLatin1String( "aarch64" ), Qt::CaseInsensitive ) ||
+			  Computer_Type.contains( QLatin1String( "qemu-system-arm" ), Qt::CaseInsensitive ) ) &&
+			( Machine_Type.contains( QLatin1String( "virt" ), Qt::CaseInsensitive ) ||
+			  effective_machine.contains( QLatin1String( "virt" ), Qt::CaseInsensitive ) );
+		const QString tpm_frontend = arm_virt_tpm
+			? QStringLiteral( "tpm-tis-device,tpmdev=tpm0" )
+			: QStringLiteral( "tpm-tis,tpmdev=tpm0" );
+		QString tpm_bin_name = Current_Emulator_Devices.System.QEMU_Name;
+		if( tpm_bin_name.isEmpty() )
+			tpm_bin_name = Computer_Type;
+		const bool tpmdev_ok = AQ_QEMU_Accepts_TPMDev(
+			Get_Current_Emulator_Binary_Path( tpm_bin_name ) );
 		if( tt == QLatin1String( "emulator" ) )
 		{
-			QString path = TPM_Path.trimmed().isEmpty()
-				? QStringLiteral( "/tmp/aqemu-swtpm.sock" ) : TPM_Path.trimmed();
-			Args << "-chardev" << QStringLiteral( "socket,id=chrtpm,path=" ) + path;
-			Args << "-tpmdev" << QStringLiteral( "emulator,id=tpm0,chardev=chrtpm" );
-			Args << "-device" << "tpm-tis,tpmdev=tpm0";
+			bool tpm_chardev = false;
+			QString data_host;
+			QString data_port;
+			QString path = TPM_Path.trimmed();
+			if( path.startsWith( QLatin1String( "tcp:" ) ) )
+			{
+				QString rest = path.mid( 4 );
+				const int slash = rest.indexOf( QLatin1Char( '/' ) );
+				if( slash > 0 )
+				{
+					data_port = rest.mid( slash + 1 ).trimmed();
+					rest = rest.left( slash );
+				}
+				const int colon = rest.lastIndexOf( QLatin1Char( ':' ) );
+				if( colon > 0 )
+				{
+					data_host = rest.left( colon );
+					Args << "-chardev" << QStringLiteral( "socket,id=chrtpm,host=%1,port=%2" )
+						.arg( data_host, rest.mid( colon + 1 ) );
+					tpm_chardev = true;
+				}
+			}
+			else if( ! path.isEmpty() )
+			{
+#ifndef Q_OS_WIN
+				Args << "-chardev" << QStringLiteral( "socket,id=chrtpm,path=" ) + path;
+				tpm_chardev = true;
+#endif
+			}
+			if( tpm_chardev && tpmdev_ok )
+			{
+				QString spec = QStringLiteral( "emulator,id=tpm0,chardev=chrtpm" );
+#ifdef Q_OS_WIN
+				if( data_host.isEmpty() || data_port.isEmpty() )
+					tpm_chardev = false;
+				else
+					spec += QStringLiteral( ",datahost=%1,dataport=%2" ).arg( data_host, data_port );
+#endif
+				if( tpm_chardev )
+				{
+					Args << "-tpmdev" << spec;
+					Args << "-device" << tpm_frontend;
+				}
+			}
 		}
-		else if( tt == QLatin1String( "passthrough" ) && ! TPM_Path.trimmed().isEmpty() )
+		else if( tpmdev_ok && tt == QLatin1String( "passthrough" ) && ! TPM_Path.trimmed().isEmpty() )
 		{
 			Args << "-tpmdev" << QStringLiteral( "passthrough,id=tpm0,path=" ) + TPM_Path.trimmed();
-			Args << "-device" << "tpm-tis,tpmdev=tpm0";
+			Args << "-device" << tpm_frontend;
 		}
 	}
 
@@ -10434,20 +10528,13 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		// Headless: no QEMU SDL/GTK chrome - AQEMU owns the window
 		Args << "-display" << "none";
 
-#ifdef Q_OS_WIN32
-		// On Windows, embedded display uses LibVNC. Skip -spice so spice-client-glib
-		// is never needed (channel ERROR_LINK teardown was crashing AQEMU).
-		const bool win_vnc_only = true;
-#else
-		const bool win_vnc_only = false;
-#endif
-		if( ! win_vnc_only )
+		// TCP SPICE on localhost. -display spice-app uses a Unix socket and
+		// this Windows spice server refuses it ("Failed to open SPICE sockets").
 		{
 			QStringList spiceArgs;
 			spiceArgs << QString( "port=%1" ).arg( Embedded_Spice_Port > 0 ? Embedded_Spice_Port : 5930 );
 			spiceArgs << "addr=127.0.0.1";
 			spiceArgs << "disable-ticketing=on";
-			// Local profile: avoid compression overhead and stream detection lag on localhost
 			spiceArgs << "image-compression=off";
 			spiceArgs << "playback-compression=off";
 			spiceArgs << "streaming-video=off";
@@ -10457,12 +10544,8 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 				spiceArgs << "agent-mouse=off";
 			Args << "-spice" << spiceArgs.join( "," );
 		}
-		else
-		{
-			Embedded_Spice_Port = 0;
-		}
 
-		// VNC for LibVNC client - bind a free TCP port (not a fixed display index)
+		// VNC stays available if the SPICE client cannot connect.
 		if( Embedded_VNC_Port <= 0 )
 		{
 			const int first_vnc = Settings.value( "First_VNC_Port", "5910" ).toString().toInt();
@@ -10492,6 +10575,22 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			if( disp.isEmpty() )
 				disp = QStringLiteral( "none" );
 		}
+#ifdef Q_OS_WIN
+		if( disp == QLatin1String( "spice-app" ) )
+		{
+			QString system_name = Current_Emulator_Devices.System.QEMU_Name;
+			if( system_name.isEmpty() )
+				system_name = Computer_Type;
+			const QString preferred = Get_Current_Emulator_Binary_Path( system_name );
+			const QStringList backs = AQ_QEMU_List_Display_Backends( preferred );
+			if( backs.contains( QLatin1String( "gtk" ) ) )
+				disp = QStringLiteral( "gtk" );
+			else if( backs.contains( QLatin1String( "sdl" ) ) )
+				disp = QStringLiteral( "sdl" );
+			else
+				disp = QStringLiteral( "none" );
+		}
+#endif
 		if( disp == QLatin1String( "none" ) || disp == QLatin1String( "curses" ) ||
 		    disp == QLatin1String( "sdl" ) || disp == QLatin1String( "gtk" ) ||
 		    disp == QLatin1String( "egl-headless" ) || disp == QLatin1String( "spice-app" ) )
@@ -10868,7 +10967,7 @@ QStringList Virtual_Machine::Build_QEMU_Args_For_Script()
 //      with
 //         -drive file=/path/to/image,if=none,id=aqhd3
 // ...
-QStringList Virtual_Machine::Build_Native_Device_Args( VM_Native_Storage_Device device, bool Build_QEMU_Args_for_Script_Mode )
+QStringList Virtual_Machine::Build_Native_Device_Args( VM_Native_Storage_Device device, bool Build_QEMU_Args_for_Script_Mode, int boot_override )
 {
 	QStringList opt;
 
@@ -11120,7 +11219,7 @@ QStringList Virtual_Machine::Build_Native_Device_Args( VM_Native_Storage_Device 
 	if (device.Get_Interface() == VM::DI_Virtio_SCSI) {
 	    QString devtype =
 		(device.Get_Media() == VM::DM_CD_ROM ? "scsi-cd" : "scsi-hd");
-	    const int boot_idx = Bootindex_For( *this,
+	    const int boot_idx = boot_override >= 0 ? boot_override : Bootindex_For( *this,
 		device.Get_Media() == VM::DM_CD_ROM ? VM::Boot_From_CDROM : VM::Boot_From_HDD );
 	    const QString ssd_opt = ( device.Get_SSD() && devtype == QLatin1String( "scsi-hd" ) )
 		? QStringLiteral( ",rotation_rate=1" ) : QString();
@@ -13412,11 +13511,26 @@ bool Virtual_Machine::Prefer_Native_VGA_Window() const
 		return false;
 #endif
 	const QString mode = Display_Window_Mode.trimmed().toLower();
-	if( mode == QLatin1String( "native" ) )
-		return true;
+	if( mode != QLatin1String( "native" ) )
+		return false;
 
-	// Default to embedded window for all guests (including legacy Windows text mode)
-	return false;
+#ifdef Q_OS_WIN32
+	// spice-app is not a window here: the spice server exits with
+	// "Failed to open SPICE sockets". Without gtk or sdl, show the guest
+	// in AQEMU over a normal SPICE TCP port.
+	{
+		const QString bin = Get_Current_Emulator_Binary_Path( Computer_Type );
+		const QStringList avail = AQ_QEMU_List_Display_Backends( bin );
+		const bool has_window =
+			avail.contains( QLatin1String( "sdl" ) ) ||
+			avail.contains( QLatin1String( "gtk" ) );
+		const QString db = Display_Backend.trimmed().toLower();
+		if( ! has_window || db == QLatin1String( "spice-app" ) )
+			return false;
+	}
+#endif
+
+	return true;
 }
 
 void Virtual_Machine::Ensure_Windows_XP_Family_Defaults()

@@ -2895,6 +2895,21 @@ QStringList AQ_QEMU_List_Display_Backends( const QString &qemu_binary )
 
 	QProcess p;
 	p.setProcessChannelMode( QProcess::MergedChannels );
+#ifdef Q_OS_WIN32
+	// The ARM64 QEMU build needs clangarm64 on PATH. Without it the probe
+	// dies before printing backends, and a saved spice-app display is launched.
+	{
+		QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+		const QString binDir = QDir::toNativeSeparators( QFileInfo( key ).absolutePath() );
+		const QString appDir = QDir::toNativeSeparators( QCoreApplication::applicationDirPath() );
+		const QString curPath = env.value( QStringLiteral( "PATH" ), QString() );
+		const QString msysPaths = AQ_Msys_Bin_Path();
+		env.insert( QStringLiteral( "PATH" ),
+		            binDir + QLatin1Char( ';' ) + appDir + QLatin1Char( ';' ) +
+		            msysPaths + QLatin1Char( ';' ) + curPath );
+		p.setProcessEnvironment( env );
+	}
+#endif
 	p.start( key, QStringList() << QStringLiteral( "-display" ) << QStringLiteral( "help" ) );
 	if( ! p.waitForFinished( 5000 ) )
 	{
@@ -2928,6 +2943,47 @@ QStringList AQ_QEMU_List_Display_Backends( const QString &qemu_binary )
 	}
 	cache.insert( key, backends );
 	return backends;
+}
+
+bool AQ_QEMU_Accepts_TPMDev( const QString &qemu_binary )
+{
+	static QHash<QString, bool> cache;
+	const QString key = QDir::toNativeSeparators( qemu_binary );
+	if( key.isEmpty() || ! QFile::exists( key ) )
+		return false;
+	if( cache.contains( key ) )
+		return cache.value( key );
+
+	QProcess p;
+	p.setProcessChannelMode( QProcess::MergedChannels );
+#ifdef Q_OS_WIN32
+	{
+		QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+		const QString binDir = QDir::toNativeSeparators( QFileInfo( key ).absolutePath() );
+		const QString appDir = QDir::toNativeSeparators( QCoreApplication::applicationDirPath() );
+		const QString curPath = env.value( QStringLiteral( "PATH" ), QString() );
+		const QString msysPaths = AQ_Msys_Bin_Path();
+		env.insert( QStringLiteral( "PATH" ),
+		            binDir + QLatin1Char( ';' ) + appDir + QLatin1Char( ';' ) +
+		            msysPaths + QLatin1Char( ';' ) + curPath );
+		p.setProcessEnvironment( env );
+	}
+#endif
+	// Help exits before any accelerator is opened.
+	p.start( key, QStringList() << QStringLiteral( "-tpmdev" ) << QStringLiteral( "help" ) );
+	if( ! p.waitForFinished( 5000 ) )
+	{
+		p.kill();
+		p.waitForFinished( 1000 );
+		cache.insert( key, false );
+		return false;
+	}
+
+	const QString out = QString::fromLocal8Bit( p.readAll() );
+	const bool ok = out.contains( QLatin1String( "emulator" ) ) &&
+	                ! out.contains( QLatin1String( "invalid option" ) );
+	cache.insert( key, ok );
+	return ok;
 }
 
 QString AQ_QEMU_Pick_Native_Display( const QString &qemu_binary )
@@ -3332,6 +3388,80 @@ QString Find_UEFI_Firmware_VARS_Template( const QString &qemu_binary_path, const
 
 	Append_Bundled_UEFI_VARS( candidates, qemu_binary_path, x86 );
 	return First_Existing_Path( candidates );
+}
+
+static QStringList UEFI_Search_Dirs( const QString &qemu_binary_path )
+{
+	QStringList dirs;
+	if( ! qemu_binary_path.isEmpty() )
+	{
+		const QString bin = QFileInfo( qemu_binary_path ).absolutePath();
+		dirs << bin
+		     << ( bin + QStringLiteral( "/share" ) )
+		     << QDir( bin ).absoluteFilePath( QStringLiteral( "../share" ) )
+		     << QDir( bin ).absoluteFilePath( QStringLiteral( "../share/qemu" ) );
+	}
+	dirs << ( QCoreApplication::applicationDirPath() + QStringLiteral( "/share" ) );
+#ifdef Q_OS_WIN32
+	const QStringList qemu_dirs = AQ_Windows_Qemu_Dirs();
+	for( int i = 0; i < qemu_dirs.size(); ++i )
+		dirs << ( qemu_dirs.at( i ) + QStringLiteral( "/share" ) );
+#else
+	dirs << QStringLiteral( "/usr/share/AAVMF" )
+	     << QStringLiteral( "/usr/share/OVMF" )
+	     << QStringLiteral( "/usr/share/qemu" )
+	     << QStringLiteral( "/usr/share/edk2/aarch64" )
+	     << QStringLiteral( "/usr/share/edk2/x64" );
+#endif
+	return dirs;
+}
+
+static QString First_Named_Firmware( const QStringList &dirs, const QStringList &names )
+{
+	for( int d = 0; d < dirs.size(); ++d )
+	{
+		for( int n = 0; n < names.size(); ++n )
+		{
+			const QString path = QDir( dirs.at( d ) ).filePath( names.at( n ) );
+			const QFileInfo info( path );
+			if( info.isFile() && info.size() > 0 )
+				return info.absoluteFilePath();
+		}
+	}
+	return QString();
+}
+
+QString Find_UEFI_Secure_CODE( const QString &qemu_binary_path, const QString &arch )
+{
+	const bool x86 = UEFI_Arch_Is_X86( arch );
+	const QStringList names = x86
+		? ( QStringList()
+			<< QStringLiteral( "edk2-x86_64-secure-code.fd" )
+			<< QStringLiteral( "OVMF_CODE.secboot.fd" )
+			<< QStringLiteral( "OVMF_CODE_4M.secboot.fd" )
+			<< QStringLiteral( "OVMF_CODE.ms.fd" ) )
+		: ( QStringList()
+			<< QStringLiteral( "AAVMF_CODE.ms.fd" )
+			<< QStringLiteral( "AAVMF_CODE.secboot.fd" )
+			<< QStringLiteral( "edk2-aarch64-secure-code.fd" )
+			<< QStringLiteral( "AAVMF_CODE.fd" ) );
+	return First_Named_Firmware( UEFI_Search_Dirs( qemu_binary_path ), names );
+}
+
+QString Find_UEFI_Secure_VARS_Template( const QString &qemu_binary_path, const QString &arch )
+{
+	const bool x86 = UEFI_Arch_Is_X86( arch );
+	// These names are the templates that already hold Microsoft production keys.
+	// edk2-arm-vars.fd and edk2-i386-vars.fd are empty stores and are not listed.
+	const QStringList names = x86
+		? ( QStringList()
+			<< QStringLiteral( "OVMF_VARS_4M.ms.fd" )
+			<< QStringLiteral( "OVMF_VARS.ms.fd" )
+			<< QStringLiteral( "OVMF_VARS.secboot.fd" ) )
+		: ( QStringList()
+			<< QStringLiteral( "AAVMF_VARS.ms.fd" )
+			<< QStringLiteral( "edk2-arm-vars.ms.fd" ) );
+	return First_Named_Firmware( UEFI_Search_Dirs( qemu_binary_path ), names );
 }
 
 bool Prepare_UEFI_VARS_File( const QString &dest_path, const QString &qemu_binary_path,

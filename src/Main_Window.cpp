@@ -886,10 +886,8 @@ Main_Window::Main_Window( QWidget *parent )
 		Settings.setValue( "Embedded_Display_Backend", "spice" );
 #endif
 	}
-#ifdef Q_OS_WIN
-	// Migrate existing installs off spice-client-glib (process crashes on channel errors).
-	if( Settings.value( "Embedded_Display_Backend" ).toString().toLower() == QLatin1String( "spice" ) )
-		Settings.setValue( "Embedded_Display_Backend", "vnc" );
+#if defined(AQEMU_HAVE_SPICE_GLIB) || defined(AQEMU_HAVE_SPICE_GTK)
+	Settings.setValue( "Embedded_Display_Backend", "spice" );
 #endif
 
     connect(ui_ao.CH_Start_Date,SIGNAL(toggled(bool)),this,SLOT(adv_on_CH_Start_Date_toggled(bool)));
@@ -4455,11 +4453,7 @@ void Main_Window::Enter_Session_Mode( Virtual_Machine *vm )
 	const int vnc_tcp = vm->Get_Embedded_VNC_Port() > 0
 		? vm->Get_Embedded_VNC_Port()
 		: ( vm->Get_Embedded_Display_Port() + Settings.value( "First_VNC_Port", "5910" ).toString().toInt() );
-	QString backend = Settings.value( "Embedded_Display_Backend", "vnc" ).toString();
-#ifdef Q_OS_WIN
-	if( backend.toLower() == QLatin1String( "spice" ) )
-		backend = QStringLiteral( "vnc" );
-#endif
+	QString backend = Settings.value( "Embedded_Display_Backend", "spice" ).toString();
 
 	Session_Widget->Attach_VM( vm, vm->Get_QMP(),
 	                           QStringLiteral( "127.0.0.1" ),
@@ -4483,11 +4477,7 @@ void Main_Window::Enter_Session_Mode_Preparing( Virtual_Machine *vm )
 	ui.Tool_Bar_VM_Manage->setVisible( false );
 	ui.Tool_Bar_VM_Control->setVisible( false );
 
-	QString backend = Settings.value( "Embedded_Display_Backend", "vnc" ).toString();
-#ifdef Q_OS_WIN
-	if( backend.toLower() == QLatin1String( "spice" ) )
-		backend = QStringLiteral( "vnc" );
-#endif
+	QString backend = Settings.value( "Embedded_Display_Backend", "spice" ).toString();
 	// Ports are allocated during Start — show the session shell first so QEMU
 	// does not race ahead of the UI.
 	Session_Widget->Attach_VM( vm, nullptr,
@@ -9368,7 +9358,7 @@ void Main_Window::Apply_Win11_Lifecycle_Mode( VM::Win11_Lifecycle_Mode mode )
 		}
 	}
 
-	ui.CB_Disk_Interface->setCurrentIndex( 0 ); // VirtIO
+	ui.CB_Disk_Interface->setCurrentIndex( 1 ); // VirtIO SCSI
 	ui.CH_sb16->setChecked( false );
 	ui.CH_es1370->setChecked( false );
 	ui.CH_Adlib->setChecked( false );
@@ -9425,8 +9415,9 @@ void Main_Window::Apply_Win11_Lifecycle_Mode( VM::Win11_Lifecycle_Mode mode )
 	}
 	else if( mode == VM::Win11_First_Boot )
 	{
-		// BVM post-install "boot" uses virtio-gpu only (ramfb is install-only).
-		const int vix = ui.CB_Video_Card->findData( "virtio-gpu-pci" );
+		const QString post_video = vm->Get_Computer_Type().contains( QLatin1String( "x86" ), Qt::CaseInsensitive )
+			? QStringLiteral( "virtio-vga" ) : QStringLiteral( "virtio-gpu-pci" );
+		const int vix = ui.CB_Video_Card->findData( post_video );
 		if( vix >= 0 )
 			ui.CB_Video_Card->setCurrentIndex( vix );
 
@@ -9441,7 +9432,9 @@ void Main_Window::Apply_Win11_Lifecycle_Mode( VM::Win11_Lifecycle_Mode mode )
 	}
 	else // Normal
 	{
-		const int vix = ui.CB_Video_Card->findData( "virtio-gpu-pci" );
+		const QString post_video = vm->Get_Computer_Type().contains( QLatin1String( "x86" ), Qt::CaseInsensitive )
+			? QStringLiteral( "virtio-vga" ) : QStringLiteral( "virtio-gpu-pci" );
+		const int vix = ui.CB_Video_Card->findData( post_video );
 		if( vix >= 0 )
 			ui.CB_Video_Card->setCurrentIndex( vix );
 

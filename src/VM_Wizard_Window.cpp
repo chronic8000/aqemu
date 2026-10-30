@@ -7041,7 +7041,7 @@ void VM_Wizard_Window::Apply_Windows11_ARM_Profile( bool simulate )
 		native.Use_File_Path( true );
 		native.Set_File_Path( hda.Get_File_Name() );
 		native.Use_Interface( true );
-		native.Set_Interface( VM::DI_Virtio );
+		native.Set_Interface( VM::DI_Virtio_SCSI );
 		native.Use_Cache( true );
 		#ifdef Q_OS_WIN32
 		// cache=none (O_DIRECT) breaks qcow2 on Windows with a misleading format error
@@ -7086,6 +7086,9 @@ void VM_Wizard_Window::Apply_Windows11_ARM_Profile( bool simulate )
 			virtio_cd.Set_File_Path( Edit_Win11_VirtIO_ISO->text() );
 			virtio_cd.Use_Media( true );
 			virtio_cd.Set_Media( VM::DM_CD_ROM );
+			virtio_cd.Use_Interface( true );
+			virtio_cd.Set_Interface( VM::DI_Virtio_SCSI );
+			virtio_cd.Set_Disk_Serial( QStringLiteral( "aqemu-virtio-drivers" ) );
 			QList<VM_Native_Storage_Device> extras = New_VM->Get_Storage_Devices_List();
 			extras.append( virtio_cd );
 			New_VM->Set_Storage_Devices_List( extras );
@@ -7104,27 +7107,27 @@ void VM_Wizard_Window::Apply_Windows11_ARM_Profile( bool simulate )
 	
 	const bool secure_boot = CH_Win11_Secure_Boot && CH_Win11_Secure_Boot->isChecked();
 	New_VM->Use_UEFI( true );
-	if( secure_boot && ! code.isEmpty() )
+	QString secure_vars;
+	if( secure_boot )
 	{
-		const QFileInfo code_info( code );
-		const QStringList secboot = QStringList()
-			<< code_info.dir().filePath( QStringLiteral( "OVMF_CODE.secboot.fd" ) )
-			<< code_info.dir().filePath( QStringLiteral( "AAVMF_CODE.secboot.fd" ) )
-			<< code_info.dir().filePath( code_info.completeBaseName() + QStringLiteral( ".secboot.fd" ) );
-		for( int i = 0; i < secboot.count(); ++i )
-		{
-			if( QFileInfo( secboot.at( i ) ).exists() )
-			{
-				code = secboot.at( i );
-				break;
-			}
-		}
+		const QString secure_code = Find_UEFI_Secure_CODE( qemu_bin, QStringLiteral( "aarch64" ) );
+		if( ! secure_code.isEmpty() )
+			code = secure_code;
+		secure_vars = Find_UEFI_Secure_VARS_Template( qemu_bin, QStringLiteral( "aarch64" ) );
 	}
 	if( ! code.isEmpty() )
 		New_VM->Set_UEFI_CODE_File( code );
 	New_VM->Set_UEFI_VARS_File( vars_dest );
 	if( ! simulate )
-		Prepare_UEFI_VARS_File( vars_dest, qemu_bin );
+	{
+		if( ! secure_vars.isEmpty() && ! QFile::exists( vars_dest ) )
+		{
+			QDir().mkpath( QFileInfo( vars_dest ).absolutePath() );
+			QFile::copy( secure_vars, vars_dest );
+		}
+		else
+			Prepare_UEFI_VARS_File( vars_dest, qemu_bin );
+	}
 	if( CH_Win11_TPM && CH_Win11_TPM->isChecked() )
 	{
 		New_VM->Set_TPM_Type( QStringLiteral( "emulator" ) );

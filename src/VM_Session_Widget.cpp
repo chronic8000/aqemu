@@ -945,22 +945,10 @@ QString VM_Session_Widget::Pick_Backend( const QString &preferred ) const
 {
 	QString p = preferred.toLower();
 	if( p.isEmpty() )
-		p = QSettings().value( "Embedded_Display_Backend", "vnc" ).toString().toLower();
-
-#ifdef Q_OS_WIN
-	// Windows: spice-client-glib channel teardown / ERROR_LINK retries have been
-	// crashing the whole AQEMU process. Prefer LibVNC (QEMU already opens -vnc).
-	if( p != QLatin1String( "spice" ) )
-	{
-#ifdef VNC_DISPLAY
-		return QStringLiteral( "vnc" );
-#endif
-	}
-	// Explicit "spice" still allowed for debugging, but fall through carefully.
-#endif
+		p = QSettings().value( "Embedded_Display_Backend", "spice" ).toString().toLower();
 
 	if( Spice && Spice->Spice_Available() &&
-	    ( p == QLatin1String( "spice" ) ) )
+	    ( p.isEmpty() || p == QLatin1String( "spice" ) || p == QLatin1String( "auto" ) ) )
 		return QStringLiteral( "spice" );
 
 #ifdef VNC_DISPLAY

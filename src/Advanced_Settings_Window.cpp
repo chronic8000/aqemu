@@ -1079,14 +1079,9 @@ void Advanced_Settings_Window::done(int r)
 	    if( ! Settings.contains( "Embedded_Session" ) )
 		    Settings.setValue( "Embedded_Session", "yes" );
 	    if( ! Settings.contains( "Embedded_Display_Backend" ) )
-#ifdef Q_OS_WIN32
-		    Settings.setValue( "Embedded_Display_Backend", "vnc" );
-#else
 		    Settings.setValue( "Embedded_Display_Backend", "spice" );
-#endif
-#ifdef Q_OS_WIN32
-	    if( Settings.value( "Embedded_Display_Backend" ).toString().toLower() == QLatin1String( "spice" ) )
-		    Settings.setValue( "Embedded_Display_Backend", "vnc" );
+#if defined(AQEMU_HAVE_SPICE_GLIB) || defined(AQEMU_HAVE_SPICE_GTK)
+	    Settings.setValue( "Embedded_Display_Backend", "spice" );
 #endif
 	
 	    // QEMU Monitor Type

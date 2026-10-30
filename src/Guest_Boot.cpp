@@ -119,7 +119,10 @@ QString Pick_Display( const QStringList &backends, bool probe_loaded )
 {
 	QStringList prefer;
 #ifdef Q_OS_WIN
-	prefer << QStringLiteral( "spice-app" ) << QStringLiteral( "gtk" ) << QStringLiteral( "sdl" );
+	// spice-app asks the Windows spice server for a socket it cannot open
+	// ("Failed to open SPICE sockets"). gtk/sdl are real windows. If the
+	// binary has neither, launch uses the embedded VNC view.
+	prefer << QStringLiteral( "gtk" ) << QStringLiteral( "sdl" );
 #else
 	prefer << QStringLiteral( "gtk" ) << QStringLiteral( "sdl" ) << QStringLiteral( "spice-app" )
 	       << QStringLiteral( "cocoa" );

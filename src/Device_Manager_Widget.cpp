@@ -21,9 +21,16 @@
 **
 ****************************************************************************/
 
+#include <QCheckBox>
+#include <QDir>
+#include <QFileDialog>
 #include <QFileInfo>
+#include <QHBoxLayout>
+#include <QLineEdit>
 #include <QMessageBox>
 #include <QMenu>
+#include <QSettings>
+#include <QToolButton>
 
 #include "Device_Manager_Widget.h"
 #include "Add_New_Device_Window.h"
@@ -36,6 +43,26 @@ Device_Manager_Widget::Device_Manager_Widget( QWidget *parent )
 	: QWidget( parent )
 {
 	ui.setupUi( this );
+
+	Virtio_Driver_UI_Lock = false;
+	CH_Virtio_Drivers = new QCheckBox( tr( "Attach VirtIO driver ISO (virtio-win)" ), this );
+	CH_Virtio_Drivers->setToolTip( tr( "Second optical drive. It is not a boot device.\n"
+		"Windows Setup: vioscsi\\w11\\amd64 on x64, vioscsi\\w11\\ARM64 on ARM." ) );
+	Edit_Virtio_ISO = new QLineEdit( this );
+	Edit_Virtio_ISO->setPlaceholderText( tr( "Path to virtio-win.iso" ) );
+	TB_Virtio_ISO_Browse = new QToolButton( this );
+	TB_Virtio_ISO_Browse->setText( QStringLiteral( "..." ) );
+	QHBoxLayout *virtio_row = new QHBoxLayout();
+	virtio_row->addWidget( CH_Virtio_Drivers );
+	virtio_row->addWidget( Edit_Virtio_ISO, 1 );
+	virtio_row->addWidget( TB_Virtio_ISO_Browse );
+	ui.view_vbox_123->insertLayout( 0, virtio_row );
+	connect( CH_Virtio_Drivers, SIGNAL(toggled(bool)),
+			 this, SLOT(Apply_Virtio_Driver_Disc()) );
+	connect( Edit_Virtio_ISO, SIGNAL(editingFinished()),
+			 this, SLOT(Apply_Virtio_Driver_Disc()) );
+	connect( TB_Virtio_ISO_Browse, SIGNAL(clicked()),
+			 this, SLOT(Browse_Virtio_Driver_ISO()) );
 	
 	Enabled = true;
 	
@@ -109,6 +136,27 @@ void Device_Manager_Widget::Set_VM( const Virtual_Machine &vm )
 	{
 		Storage_Devices << vm.Get_Storage_Devices_List()[ix];
 	}
+
+	QString driver_iso;
+	bool driver_on = false;
+	for( int ix = 0; ix < Storage_Devices.count(); ++ix )
+	{
+		if( Storage_Devices[ix].Get_Disk_Serial() == QLatin1String( "aqemu-virtio-drivers" ) )
+		{
+			driver_on = true;
+			driver_iso = Storage_Devices[ix].Get_File_Path();
+			break;
+		}
+	}
+	if( driver_iso.isEmpty() )
+	{
+		QSettings settings;
+		driver_iso = settings.value( QStringLiteral( "VirtIO_Win_ISO" ) ).toString();
+	}
+	Virtio_Driver_UI_Lock = true;
+	CH_Virtio_Drivers->setChecked( driver_on );
+	Edit_Virtio_ISO->setText( driver_iso );
+	Virtio_Driver_UI_Lock = false;
 	
 	Update_Icons();
 	Update_Enabled_Actions();
@@ -137,6 +185,12 @@ void Device_Manager_Widget::Set_Enabled( bool on )
 	ui.Label_View_Mode->setEnabled( on );
 	ui.TB_Icon_Mode->setEnabled( on );
 	ui.TB_List_Mode->setEnabled( on );
+	if( CH_Virtio_Drivers )
+		CH_Virtio_Drivers->setEnabled( on );
+	if( Edit_Virtio_ISO )
+		Edit_Virtio_ISO->setEnabled( on );
+	if( TB_Virtio_ISO_Browse )
+		TB_Virtio_ISO_Browse->setEnabled( on );
 	
 	//ui.Label_Devices_List->setEnabled( on );
 	ui.Label_Information->setEnabled( on );
@@ -1194,6 +1248,53 @@ void Device_Manager_Widget::on_actionList_Mode_triggered()
 	ui.Devices_List->setViewMode( QListView::ListMode );
 }
 
+void Device_Manager_Widget::Apply_Virtio_Driver_Disc()
+{
+	if( Virtio_Driver_UI_Lock )
+		return;
+
+	for( int i = Storage_Devices.count() - 1; i >= 0; --i )
+	{
+		if( Storage_Devices[i].Get_Disk_Serial() == QLatin1String( "aqemu-virtio-drivers" ) )
+			Storage_Devices.removeAt( i );
+	}
+
+	const QString path = Edit_Virtio_ISO->text().trimmed();
+	if( CH_Virtio_Drivers->isChecked() && ! path.isEmpty() )
+	{
+		VM_Native_Storage_Device disc;
+		disc.Use_File_Path( true );
+		disc.Set_File_Path( path );
+		disc.Use_Media( true );
+		disc.Set_Media( VM::DM_CD_ROM );
+		disc.Use_Interface( true );
+		disc.Set_Interface( VM::DI_Virtio_SCSI );
+		disc.Set_Read_Only( true );
+		disc.Set_Disk_Serial( QStringLiteral( "aqemu-virtio-drivers" ) );
+		Storage_Devices << disc;
+		QSettings settings;
+		settings.setValue( QStringLiteral( "VirtIO_Win_ISO" ), path );
+	}
+
+	Update_Icons();
+	emit Device_Changed();
+}
+
+void Device_Manager_Widget::Browse_Virtio_Driver_ISO()
+{
+	const QString file = QFileDialog::getOpenFileName(
+		this, tr( "VirtIO driver ISO" ),
+		Edit_Virtio_ISO->text(),
+		tr( "ISO (*.iso);;All Files (*)" ) );
+	if( file.isEmpty() )
+		return;
+	Edit_Virtio_ISO->setText( QDir::toNativeSeparators( file ) );
+	if( ! CH_Virtio_Drivers->isChecked() )
+		CH_Virtio_Drivers->setChecked( true );
+	else
+		Apply_Virtio_Driver_Disc();
+}
+
 void Device_Manager_Widget::Update_Icons()
 {
 	ui.Devices_List->clear();
@@ -1218,8 +1319,19 @@ void Device_Manager_Widget::Update_Icons()
 	
 	if( CD_ROM.Get_Enabled() )
 	{
+		bool driver_disc = false;
+		for( int ix = 0; ix < Storage_Devices.count(); ++ix )
+		{
+			if( Storage_Devices[ix].Get_Disk_Serial() == QLatin1String( "aqemu-virtio-drivers" ) )
+			{
+				driver_disc = true;
+				break;
+			}
+		}
+		const QString cd_title = driver_disc
+			? tr( "CD-ROM 1 (Installer)" ) : tr( "CD-ROM" );
 		QListWidgetItem *cdit = new QListWidgetItem( QIcon(":/cdrom.png"),
-													 tr("CD-ROM") + " (" + CD_ROM.Get_File_Name() + ")" , ui.Devices_List );
+													 cd_title + " (" + CD_ROM.Get_File_Name() + ")" , ui.Devices_List );
 		cdit->setData( 512, "cd" );
 		
 		ui.Devices_List->addItem( cdit );
@@ -1282,6 +1394,11 @@ void Device_Manager_Widget::Update_Icons()
 			{
 				ico = QIcon( ":/preferences-system-network-sharing.png" );
 				dev_title = tr( "NVMe-oF / NVMe (%1)" ).arg( fp );
+			}
+			else if( Storage_Devices[ix].Get_Disk_Serial() == QLatin1String( "aqemu-virtio-drivers" ) )
+			{
+				ico = QIcon( ":/cdrom.png" );
+				dev_title = tr( "CD-ROM 2 (VirtIO Drivers) (%1)" ).arg( fp.isEmpty() ? tr( "empty" ) : fp );
 			}
 			else if( Storage_Devices[ix].Use_Media() && Storage_Devices[ix].Get_Media() == VM::DM_CD_ROM )
 			{

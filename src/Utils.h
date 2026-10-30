@@ -296,6 +296,15 @@ QString Find_UEFI_Firmware_CODE( const QString &qemu_binary_path = QString(),
 // Template VARS file (read-only source to copy for a new VM)
 QString Find_UEFI_Firmware_VARS_Template( const QString &qemu_binary_path = QString(),
                                           const QString &arch = QStringLiteral( "aarch64" ) );
+// Secure Boot CODE. Empty when this install has no secboot image.
+// x86: edk2-x86_64-secure-code.fd. ARM: AAVMF_CODE.ms.fd / AAVMF_CODE.secboot.fd.
+// The plain edk2-aarch64-code.fd is not a Secure Boot image and is never returned here.
+QString Find_UEFI_Secure_CODE( const QString &qemu_binary_path = QString(),
+                               const QString &arch = QStringLiteral( "aarch64" ) );
+// Vars template with Microsoft keys when one is installed (AAVMF_VARS.ms.fd /
+// OVMF_VARS*.ms.fd). Empty if the only template has no enrolled keys.
+QString Find_UEFI_Secure_VARS_Template( const QString &qemu_binary_path = QString(),
+                                        const QString &arch = QStringLiteral( "aarch64" ) );
 // Copy VARS template into dest_path; returns true on success
 bool Prepare_UEFI_VARS_File( const QString &dest_path, const QString &qemu_binary_path = QString(),
                              const QString &arch = QStringLiteral( "aarch64" ) );
@@ -375,6 +384,12 @@ bool AQ_Native_Accel_Selectable( const QString &guest_qemu_name, const QString &
  * Probe `qemu -display help` (cached). Returns backends like "sdl", "gtk".
  */
 QStringList AQ_QEMU_List_Display_Backends( const QString &qemu_binary );
+
+/**
+ * True when `qemu -tpmdev help` lists the emulator backend.
+ * The probe does not open an accelerator or start a guest.
+ */
+bool AQ_QEMU_Accepts_TPMDev( const QString &qemu_binary );
 
 /** Prefer "sdl", else "gtk", else empty (headless-only build). */
 QString AQ_QEMU_Pick_Native_Display( const QString &qemu_binary );

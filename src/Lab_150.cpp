@@ -59,6 +59,10 @@
 #include <QUrl>
 #include <QApplication>
 #include <QHostInfo>
+#include <QHostAddress>
+#include <QTcpSocket>
+#include <QElapsedTimer>
+#include <QThread>
 #include <QInputDialog>
 #include <QCoreApplication>
 #include <cstring>
@@ -566,6 +570,46 @@ static void Start_Companion( Virtual_Machine *vm, const QString &program, const 
 	g_companions[ vm ] << proc;
 }
 
+static QString Find_Native_Swtpm()
+{
+	const QString found = QStandardPaths::findExecutable( QStringLiteral( "swtpm" ) );
+	if( ! found.isEmpty() )
+		return found;
+	const QString beside = QDir( QCoreApplication::applicationDirPath() ).filePath(
+#ifdef Q_OS_WIN
+		QStringLiteral( "swtpm.exe" )
+#else
+		QStringLiteral( "swtpm" )
+#endif
+	);
+	if( QFileInfo( beside ).isFile() )
+		return beside;
+	return QString();
+}
+
+#ifdef Q_OS_WIN
+static QString Win_Path_For_WSL( const QString &path )
+{
+	QString p = QDir::fromNativeSeparators( QFileInfo( path ).absoluteFilePath() );
+	if( p.length() >= 2 && p.at( 1 ) == QLatin1Char( ':' ) )
+		p = QStringLiteral( "/mnt/" ) + p.left( 1 ).toLower() + p.mid( 2 );
+	return p;
+}
+
+static bool WSL_Has_Swtpm( const QString &distro )
+{
+	QProcess probe;
+	probe.start( QStringLiteral( "wsl.exe" ), QStringList()
+		<< QStringLiteral( "-d" ) << distro
+		<< QStringLiteral( "--" )
+		<< QStringLiteral( "which" ) << QStringLiteral( "swtpm" ) );
+	if( ! probe.waitForFinished( 20000 ) )
+		return false;
+	const QString out = QString::fromUtf8( probe.readAllStandardOutput() );
+	return probe.exitCode() == 0 && out.contains( QLatin1String( "swtpm" ) );
+}
+#endif
+
 bool AQ_Lab_Prepare_Start( Virtual_Machine *vm )
 {
 	if( ! vm )
@@ -672,23 +716,92 @@ bool AQ_Lab_Prepare_Start( Virtual_Machine *vm )
 
 	if( vm->Get_TPM_Type().trimmed().compare( QLatin1String( "emulator" ), Qt::CaseInsensitive ) == 0 )
 	{
-		QString tpm_sock = vm->Get_TPM_Path().trimmed();
-		if( tpm_sock.isEmpty() )
-			tpm_sock = QStringLiteral( "/tmp/aqemu-swtpm.sock" );
-		const QString swtpm = QStandardPaths::findExecutable( QStringLiteral( "swtpm" ) );
-		if( ! swtpm.isEmpty() )
+		QString state_dir;
+		const QString xml = vm->Get_VM_XML_File_Path();
+		if( ! xml.isEmpty() )
 		{
+			const QFileInfo vmi( xml );
+			state_dir = vmi.absolutePath() + QLatin1Char( '/' )
+				+ vmi.completeBaseName() + QStringLiteral( "-tpm" );
+		}
+		else
+			state_dir = QDir::temp().filePath( QStringLiteral( "aqemu-tpm" ) );
+		QDir().mkpath( state_dir );
+		const QString native = Find_Native_Swtpm();
+#ifdef Q_OS_WIN
+		QString distro = QSettings().value( QStringLiteral( "WSL_Launch/Distro" ),
+			QStringLiteral( "Ubuntu" ) ).toString().trimmed();
+		if( distro.isEmpty() )
+			distro = QStringLiteral( "Ubuntu" );
+		const bool wsl_swtpm = native.isEmpty() && WSL_Has_Swtpm( distro );
+		QString qemu_names = vm->Get_Computer_Type();
+		const QString qemu_bin = vm->Get_Current_Emulator_Binary_Path( qemu_names );
+		// A QEMU built without TPM rejects -tpmdev and will not start. Skip
+		// swtpm until the binary lists the emulator backend.
+		if( ( ! native.isEmpty() || wsl_swtpm ) && AQ_QEMU_Accepts_TPMDev( qemu_bin ) )
+		{
+			// Control stays on --ctrl. The data channel is --server, which
+			// QEMU connects to with -tpmdev datahost/dataport.
+			const quint16 ctrl = Find_Free_TCP_Port( 2321 );
+			quint16 data = ( ctrl < 65535 )
+				? Find_Free_TCP_Port( static_cast<quint16>( ctrl + 1 ) ) : 0;
+			if( data == 0 || data == ctrl )
+				data = Find_Free_TCP_Port( 0 );
+			vm->Set_TPM_Path( QStringLiteral( "tcp:127.0.0.1:%1/%2" ).arg( ctrl ).arg( data ) );
+			const QString state_arg = QStringLiteral( "dir=" )
+				+ ( wsl_swtpm ? Win_Path_For_WSL( state_dir ) : state_dir );
+			QStringList sargs;
+			sargs << QStringLiteral( "socket" )
+			      << QStringLiteral( "--tpm2" )
+			      << QStringLiteral( "--ctrl" )
+			      << QStringLiteral( "type=tcp,port=%1,bindaddr=127.0.0.1" ).arg( ctrl )
+			      << QStringLiteral( "--server" )
+			      << QStringLiteral( "type=tcp,port=%1,bindaddr=127.0.0.1" ).arg( data )
+			      << QStringLiteral( "--tpmstate" ) << state_arg
+			      << QStringLiteral( "--flags" )
+			      << QStringLiteral( "not-need-init,startup-clear" );
+			if( wsl_swtpm )
+			{
+				QStringList wargs;
+				wargs << QStringLiteral( "-d" ) << distro
+				      << QStringLiteral( "--" ) << QStringLiteral( "swtpm" );
+				wargs << sargs;
+				Start_Companion( vm, QStringLiteral( "wsl.exe" ), wargs );
+			}
+			else
+				Start_Companion( vm, native, sargs );
+
+			// swtpm binds --server before it accepts --ctrl. Connecting to the
+			// data port would take the TPM command session QEMU still needs.
+			QElapsedTimer wait;
+			wait.start();
+			bool ctrl_up = false;
+			while( wait.elapsed() < 8000 && ! ctrl_up )
+			{
+				QTcpSocket probe;
+				probe.connectToHost( QHostAddress::LocalHost, ctrl );
+				ctrl_up = probe.waitForConnected( 200 );
+				probe.abort();
+				if( ! ctrl_up )
+					QThread::msleep( 100 );
+			}
+		}
+#else
+		if( ! native.isEmpty() )
+		{
+			QString tpm_sock = vm->Get_TPM_Path().trimmed();
+			if( tpm_sock.isEmpty() || tpm_sock.startsWith( QLatin1String( "tcp:" ) ) )
+				tpm_sock = QDir( state_dir ).filePath( QStringLiteral( "swtpm.sock" ) );
+			vm->Set_TPM_Path( tpm_sock );
 			QFile::remove( tpm_sock );
-			const QFileInfo sock_info( tpm_sock );
-			const QString state = sock_info.absolutePath() + QLatin1Char( '/' )
-				+ sock_info.completeBaseName() + QStringLiteral( "-state" );
-			QDir().mkpath( state );
-			Start_Companion( vm, swtpm, QStringList()
+			Start_Companion( vm, native, QStringList()
 				<< QStringLiteral( "socket" )
 				<< QStringLiteral( "--tpm2" )
 				<< QStringLiteral( "--ctrl" ) << ( QStringLiteral( "type=unixio,path=" ) + tpm_sock )
-				<< QStringLiteral( "--tpmstate" ) << ( QStringLiteral( "dir=" ) + state ) );
+				<< QStringLiteral( "--tpmstate" ) << ( QStringLiteral( "dir=" ) + state_dir )
+				<< QStringLiteral( "--flags" ) << QStringLiteral( "not-need-init,startup-clear" ) );
 		}
+#endif
 	}
 
 	const QString vsock_helper = opt.value( QStringLiteral( "vsock_helper" ) );
