@@ -1,4 +1,10 @@
 <p align="center">
+  <a href="https://apps.microsoft.com/detail/9P0HGKHQ9W19?cid=ghreadme"><img src="https://get.microsoft.com/images/en-us%20dark.svg" alt="Get AQEMU from the Microsoft Store" width="200"/></a><br/>
+  <b>Website:</b> <a href="https://chronic8000.github.io/aqemu/">chronic8000.github.io/aqemu</a> · 7-day trial on the Microsoft Store, then a one-time purchase<br/>
+  <b>Documentation:</b> <a href="https://chronic8000.github.io/aqemu/docs/">chronic8000.github.io/aqemu/docs</a> · <a href="docs/DOCUMENTATION_HUB.md">Documentation Hub</a> (user guide, Windows 11, OS catalog)
+</p>
+
+<p align="center">
 # AQEMU
 
 
@@ -107,11 +113,13 @@ You can also send direct cryptocurrency donations to the following public addres
 
 ---
 
-## iOS on Windows 11
+## iOS on Windows 11 (experimental)
 
-**AQEMU is the Windows 11 app that runs iOS in a window.** Nothing else on the Microsoft Store — or as a Windows VM manager — puts a working iPhone guest on a PC like this. Under the hood that is ChefKiss Inferno (`qemu-system-applesoc`); AQEMU is the GUI, restore flow, filesystem patches, hardware buttons, and guest internet that make it usable on Windows.
+> **Experimental — not yet a supported or announced feature.** The iOS path is a developer preview. It needs your own firmware, a WSL companion VM, and manual steps, and it is not part of what the Microsoft Store listing offers today. Expect breakage.
 
-**Tested today with iOS 14** (setup + SpringBoard on **t8030** / iPhone 11). **Newer iOS versions are the roadmap** as Inferno’s SoC support grows — AQEMU will follow those builds, not freeze on 14.
+Under the hood this is ChefKiss Inferno (`qemu-system-applesoc`); AQEMU provides the GUI, restore flow, filesystem patches, hardware buttons, and guest internet.
+
+In development testing, iOS 14 has reached Setup and SpringBoard on **t8030** (iPhone 11). Newer iOS versions depend on Inferno’s SoC support.
 
 <p align="center">
   <img src="screenshots/ios-setup-windows11.png" alt="iOS Setup — Welcome to iPhone — running in AQEMU on Windows 11" width="920"/>
@@ -133,7 +141,7 @@ You supply the IPSW and firmware (AQEMU does not ship Apple OS images). After re
 
 Full walkthrough (including re-install): [`extras/Inferno/iOS_Installation.md`](extras/Inferno/iOS_Installation.md).
 
-### How to run iOS
+### How to try the experimental iOS path
 
 1. **New VM Wizard → Apple → iOS (ARM64)** — Inferno `t8030`, 4 vCPUs, ≥4 GB RAM.
 2. Fill **kernel**, **DeviceTree** (extracted `.dtb` / `.dec`), trustcache, ticket, SEP, restore ramdisk. **File → iOS Firmware Tool** unpacks the IPSW, forges tickets, and packs SEP with **`img4`** (Windows: `.\scripts\build_img4_windows.ps1`) and DeviceTree IM4P with **`pyimg4`**.
@@ -141,8 +149,6 @@ Full walkthrough (including re-install): [`extras/Inferno/iOS_Installation.md`](
 4. **File → Apply iOS filesystem patches…** on the guest `root` disk (not the companion). Then Power On for Setup / SpringBoard.
 5. Toolbar **Net** or **File → Guest Internet / iOS Device Tools…** → **Enable guest internet** for Safari / App Store.
 6. This path is **TCG on x86 Windows via WSL** — real, but not iPhone-speed. Machine presets: **`t8030`** (A13) and **`s8000`**.
-
-Get it with automatic updates: [AQEMU VM Manager on the Microsoft Store](https://apps.microsoft.com/detail/9p0hgkhq9w19).
 
 ---
 
@@ -153,7 +159,7 @@ Get it with automatic updates: [AQEMU VM Manager on the Microsoft Store](https:/
 | **Microsoft Store** | [AQEMU VM Manager on Microsoft Store](https://apps.microsoft.com/detail/9p0hgkhq9w19) (Official Windows installation with automatic updates) |
 | **Releases & Source** | [GitHub Releases](https://github.com/chronic8000/aqemu/releases) / [Repository](https://github.com/chronic8000/aqemu) |
 | **File bugs** | [GitHub Issues](https://github.com/chronic8000/aqemu/issues) — host OS, guest OS, and exact log outputs help us triage quickly. Historical [tobimensch/aqemu issues](https://github.com/tobimensch/aqemu/issues) are archived context only; triage lives in [`docs/TOBIMENSCH_ISSUE_TRIAGE.md`](docs/TOBIMENSCH_ISSUE_TRIAGE.md) |
-| **What we care about** | **iOS on Windows 11**, install wizards, embedded SPICE, Win9x/XP TCG, Win11 ARM, Intel macOS, Solaris x86, AIX/pseries, migrate/QMP tools |
+| **What we care about** | Install wizards, embedded SPICE, Win9x/XP TCG, Win11 ARM, Intel macOS, Solaris x86, AIX/pseries, migrate/QMP tools, experimental iOS (Inferno) |
 
 ---
 
@@ -168,7 +174,7 @@ AQEMU started with **Andrey Rijov (RDron)**, then the community era under **Tobi
 
 ### https://github.com/chronic8000/aqemu
 
-Compared to [tobimensch/aqemu](https://github.com/tobimensch/aqemu): **iOS on Windows 11**, **probe-driven QEMU catalogs**, **six-path VM creation**, **embedded SPICE/VNC sessions**, **bundled QEMU 11.0.2**, **Win11 ARM**, proper **Win9x TCG**, **classic Mac + Intel macOS** (WSL/KVM), Solaris/AIX/OS/2 recipes, QMP/blockdev/migrate UI, Windows packaging + **Microsoft Store**.
+Compared to [tobimensch/aqemu](https://github.com/tobimensch/aqemu): **probe-driven QEMU catalogs**, **six-path VM creation**, **embedded SPICE/VNC sessions**, **bundled QEMU 11.0.2**, **Win11 ARM**, proper **Win9x TCG**, **classic Mac + Intel macOS** (WSL/KVM), Solaris/AIX/OS/2 recipes, QMP/blockdev/migrate UI, Windows packaging + **Microsoft Store**, and an experimental iOS path (Inferno).
 
 Measured against that tree ([compare](https://github.com/tobimensch/aqemu/compare/master...chronic8000:aqemu:master)):
 
@@ -196,7 +202,7 @@ We keep the original authors’ names. We do **not** inherit their old donation 
 
 ## What’s new vs the old AQEMU (tobimensch / ~0.9.x)
 
-The last widely known community tree — [tobimensch/aqemu](https://github.com/tobimensch/aqemu) — went quiet in 2020 (Qt5 port, embedded VNC, you brought your own QEMU). **AQEMU 1.6.5.0** is that codebase continued: the same GPLv2 frontend, with the capability model, runtime, wizard, hosts, and distribution pipeline rebuilt on top. The 1.6.0 QEMU Lab is documented in [`docs/LAB_1.6.0.md`](docs/LAB_1.6.0.md). The rest of the long guides are indexed in [`docs/README.md`](docs/README.md).
+The last widely known community tree — [tobimensch/aqemu](https://github.com/tobimensch/aqemu) — went quiet in 2020 (Qt5 port, embedded VNC, you brought your own QEMU). **AQEMU 1.6.5.0** is that codebase continued: the same GPLv2 frontend, with the capability model, runtime, wizard, hosts, and distribution pipeline rebuilt on top. The 1.6.0 QEMU Lab is documented in [`docs/LAB_1.6.0.md`](docs/LAB_1.6.0.md). Start with the [Documentation Hub](docs/DOCUMENTATION_HUB.md) (also on the [website](https://chronic8000.github.io/aqemu/docs/)); the rest of the long guides are indexed in [`docs/README.md`](docs/README.md).
 
 | | Tobias Gläßer’s 0.9.x | AQEMU 1.6.5.0 |
 |--|--|--|
@@ -211,7 +217,7 @@ The last widely known community tree — [tobimensch/aqemu](https://github.com/t
 | **USB** | Add-device dialog; several upstream bugs around bus and VID:PID | Session-toolbar hotplug on a USB 3.0 XHCI controller, with host mouse/keyboard lockout guards |
 | **Hosts** | Linux, and a Windows port that was still on the TODO list | **Windows x64**, **Windows on ARM** (Snapdragon), **Linux x86_64**, **Raspberry Pi 5** (KVM, 16KB-page kernels) |
 | **Acceleration** | One accelerator choice, easy to apply to the wrong guest | Explicit **TCG**, WHPX/HAX, or KVM. Win9x is forced to TCG. Cross-architecture guests stay on TCG. WSL/KVM path for Intel macOS and Reims |
-| **Guests that needed hand-written flags** | Generic PC | **iOS 14 on Windows 11** (Inferno restore, filesystem patches, SpringBoard), **Windows 11 ARM**, Win9x, classic Mac, Intel macOS + **Reims vGPU**, TrueNAS CORE & SCALE (including ARM64), Solaris, AIX, OS/2 |
+| **Guests that needed hand-written flags** | Generic PC | **Windows 11 ARM**, Win9x, classic Mac, Intel macOS + **Reims vGPU**, TrueNAS CORE & SCALE (including ARM64), Solaris, AIX, OS/2. Experimental: iOS 14 via Inferno |
 | **Packaging** | Build it yourself | GitHub Actions builds **Windows MSIX** (x64 and ARM64) and **Linux tarballs** (x86_64 and Pi 5) on every `master` push. WiX MSI for a classic installer. Version comes from `VERSION.txt` |
 | **Upstream issue list** | [72 open issues](https://github.com/tobimensch/aqemu/issues) we cannot close there | Triaged in [`docs/TOBIMENSCH_ISSUE_TRIAGE.md`](docs/TOBIMENSCH_ISSUE_TRIAGE.md). Launch, network `vlan=`, USB, CD/floppy, UEFI, and QEMU version detection are fixed here. New bugs go to [chronic8000/aqemu](https://github.com/chronic8000/aqemu/issues) |
 
@@ -249,7 +255,7 @@ An asynchronous **QMP client** drives pause/resume, ACPI shutdown, reset, media 
 |--|--|
 | **Windows 11 ARM** | Wizard + lifecycle on **x64 Windows hosts via TCG** (and KVM on Pi 5 / aarch64) |
 | **Windows 95 / 98 / ME** | **Force pure TCG** — WHPX hangs classic 9x; we stop that footgun |
-| **Apple SoC / iOS** | **1.3.0** — **iOS 14 on Windows 11** (Inferno + WSL): restore, FS patches, SpringBoard, reverse-tether. Newer iOS as Inferno allows. |
+| **Apple SoC / iOS** | **1.3.0** — *Experimental, not yet supported:* iOS 14 via Inferno + WSL (restore, FS patches, SpringBoard, reverse-tether). Newer iOS as Inferno allows. |
 | **Intel macOS + Reims** | OpenCore + OVMF + OSK; **Reims** accel via WSL `qemu-system-reims3d` + Vulkan (**AMD and NVIDIA** on Windows) |
 | **Classic Mac OS (PPC)** | `mac99` / PowerPC profiles, no PC floppy nonsense |
 | **Solaris 11.4 / AIX / OS/2 / ReactOS** | Wizard defaults matching real QEMU flags (AIX = `ppc64`/`pseries`, TCG on Windows) |
@@ -512,7 +518,7 @@ Apple Silicon macOS guests on Snapdragon Windows hosts — not this release’s 
 
 ## Apple Silicon (macOS ARM64) — experimental
 
-iOS on Windows 11 is documented **[above](#ios-on-windows-11)** (screenshots, iOS 14 tested, install steps).
+The experimental iOS path is documented **[above](#ios-on-windows-11-experimental)** (screenshots and install steps).
 
 The same Inferno binary can target **macOS Apple Silicon (ARM64)** in the wizard. Do not expect M1/`t8101` unless your `qemu-system-applesoc` lists it in `-machine help`. AQEMU does **not** ship IPSW files, kernels, DeviceTrees, SHSH/`ticket.shsh2`, or Apple OS images.
 
