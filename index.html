@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AQEMU – QEMU GUI for Windows with native ARM64 acceleration</title>
+<meta name="description" content="AQEMU is a Qt GUI for QEMU on Windows: native ARM64 WHPX acceleration on Windows on Arm, x64 support, VM snapshots, drag-and-drop file copy to and from guests. One-time £12.99 on the Microsoft Store with a 7-day trial. Source is GPLv2.">
+<meta name="keywords" content="AQEMU, QEMU GUI, QEMU for Windows, Windows on Arm virtual machine, ARM64 WHPX, Snapdragon virtual machine, QEMU frontend, VM manager, ReactOS, retro OS emulation">
+<meta name="author" content="Chronic Engineering">
+<link rel="canonical" href="https://chronic8000.github.io/aqemu/">
+<meta name="theme-color" content="#0b0f19">
+<link rel="icon" type="image/png" href="favicon.png">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="AQEMU">
+<meta property="og:title" content="AQEMU – QEMU GUI for Windows with native ARM64 acceleration">
+<meta property="og:description" content="Run QEMU virtual machines from a clean Windows GUI. Native ARM64 WHPX acceleration on Windows on Arm, snapshots, and drag-and-drop file copy. 7-day trial on the Microsoft Store.">
+<meta property="og:url" content="https://chronic8000.github.io/aqemu/">
+<meta property="og:image" content="https://chronic8000.github.io/aqemu/img/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="AQEMU – QEMU GUI for Windows with native ARM64 acceleration">
+<meta name="twitter:description" content="Native ARM64 WHPX acceleration on Windows on Arm, snapshots, drag-and-drop file copy. 7-day trial, then a one-time £12.99 on the Microsoft Store.">
+<meta name="twitter:image" content="https://chronic8000.github.io/aqemu/img/og.jpg">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"AQEMU VM Manager","operatingSystem":"Windows 10, Windows 11 (x64 and ARM64)","applicationCategory":"DeveloperApplication","url":"https://chronic8000.github.io/aqemu/","downloadUrl":"https://apps.microsoft.com/detail/9P0HGKHQ9W19?cid=ghpages","license":"https://www.gnu.org/licenses/old-licenses/gpl-2.0.html","offers":{"@type":"Offer","price":"12.99","priceCurrency":"GBP","url":"https://apps.microsoft.com/detail/9P0HGKHQ9W19?cid=ghpages"},"author":{"@type":"Organization","name":"Chronic Engineering","url":"https://github.com/chronic8000"}}
+</script>
+<style>
+:root{--bg:#0b0f19;--bg2:#111827;--card:#151d2e;--line:#243049;--text:#e6ebf5;--mute:#9aa6bd;--acc:#4f9dff;--acc2:#8b5cf6;--ok:#34d399}
+*{box-sizing:border-box}html{scroll-behavior:smooth}
+body{margin:0;font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+a{color:var(--acc);text-decoration:none}a:hover{text-decoration:underline}
+img{max-width:100%;height:auto;display:block}
+.wrap{max-width:1120px;margin:0 auto;padding:0 20px}
+header.nav{position:sticky;top:0;z-index:10;background:rgba(11,15,25,.85);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+header.nav .wrap{display:flex;align-items:center;justify-content:space-between;height:60px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;color:var(--text);font-size:18px}.brand img{width:34px;height:auto}
+nav a{color:var(--mute);margin-left:22px;font-size:15px}nav a:hover{color:var(--text);text-decoration:none}
+@media(max-width:700px){nav a.hide-sm{display:none}nav a{margin-left:14px}}
+.hero{padding:72px 0 40px;background:radial-gradient(900px 420px at 15% -10%,rgba(79,157,255,.18),transparent),radial-gradient(800px 400px at 95% 0,rgba(139,92,246,.16),transparent)}
+.hero-grid{display:grid;grid-template-columns:1.05fr 1fr;gap:48px;align-items:center}
+@media(max-width:900px){.hero-grid{grid-template-columns:1fr}}
+.pill{display:inline-block;padding:4px 12px;border:1px solid var(--line);border-radius:999px;color:var(--mute);font-size:13px;margin-bottom:18px;background:var(--bg2)}
+h1{font-size:clamp(32px,5vw,52px);line-height:1.1;margin:0 0 18px;letter-spacing:-.02em}
+h1 .grad{background:linear-gradient(90deg,var(--acc),var(--acc2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.lead{font-size:19px;color:var(--mute);margin:0 0 28px}
+.cta{display:flex;flex-wrap:wrap;gap:14px;align-items:center}
+.cta .store img{height:56px;width:auto}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:13px 20px;border-radius:10px;border:1px solid var(--line);color:var(--text);background:var(--bg2);font-weight:600}
+.btn:hover{border-color:var(--acc);text-decoration:none}
+.note{font-size:14px;color:var(--mute);margin-top:14px}
+.shot{border-radius:14px;overflow:hidden;border:1px solid var(--line);box-shadow:0 30px 80px rgba(0,0,0,.55)}
+section{padding:72px 0}section.alt{background:var(--bg2);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+h2{font-size:clamp(26px,3.4vw,36px);margin:0 0 12px;letter-spacing:-.01em}
+.sub{color:var(--mute);margin:0 0 36px;max-width:720px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+@media(max-width:900px){.grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:600px){.grid{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:24px}
+.card h3{margin:0 0 8px;font-size:18px}.card p{margin:0;color:var(--mute);font-size:15px}
+.ic{width:40px;height:40px;border-radius:10px;display:grid;place-items:center;margin-bottom:14px;background:linear-gradient(135deg,rgba(79,157,255,.25),rgba(139,92,246,.25));font-size:20px}
+code{font:13px/1.4 ui-monospace,SFMono-Regular,Consolas,monospace;background:#0e1524;border:1px solid var(--line);padding:2px 6px;border-radius:6px;color:#c9d6ff}
+.gallery{display:grid;grid-template-columns:repeat(2,1fr);gap:20px}@media(max-width:700px){.gallery{grid-template-columns:1fr}}
+figure{margin:0}figure .shot{box-shadow:0 14px 40px rgba(0,0,0,.4)}figcaption{color:var(--mute);font-size:14px;margin-top:10px}
+.cli{background:#0e1524;border:1px solid var(--line);border-radius:12px;padding:18px;overflow-x:auto;font:13px/1.6 ui-monospace,Consolas,monospace;color:#9fb3d9;white-space:pre}
+.split{display:grid;grid-template-columns:1fr 1fr;gap:36px;align-items:center}@media(max-width:900px){.split{grid-template-columns:1fr}}
+.price{display:grid;grid-template-columns:1fr 1fr;gap:20px}@media(max-width:700px){.price{grid-template-columns:1fr}}
+.price .card{padding:30px}.amt{font-size:44px;font-weight:800;margin:6px 0}.amt small{font-size:16px;color:var(--mute);font-weight:500}
+.price ul{padding-left:20px;color:var(--mute);margin:16px 0 22px}.price li{margin:6px 0}
+.featured{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc) inset}
+details{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 20px;margin-bottom:12px}
+summary{cursor:pointer;font-weight:600;list-style:none}summary::-webkit-details-marker{display:none}summary:after{content:"+";float:right;color:var(--mute)}details[open] summary:after{content:"–"}
+details p{color:var(--mute);margin:12px 0 0}
+.docs a{display:block}
+footer{padding:40px 0;color:var(--mute);font-size:14px;border-top:1px solid var(--line)}
+footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}
+</style>
+</head>
+<body>
+<header class="nav"><div class="wrap">
+  <a class="brand" href="#top"><img src="img/logo.png" alt="AQEMU logo" width="34" height="27">AQEMU</a>
+  <nav><a class="hide-sm" href="#features">Features</a><a class="hide-sm" href="#pricing">Pricing</a><a href="#faq">FAQ</a><a href="https://github.com/chronic8000/aqemu">GitHub</a></nav>
+</div></header>
+
+<main id="top">
+<section class="hero"><div class="wrap hero-grid">
+  <div>
+    <span class="pill">AQEMU 1.6 · Windows x64 &amp; Windows on Arm</span>
+    <h1>The QEMU GUI for Windows, with <span class="grad">native ARM64 acceleration</span></h1>
+    <p class="lead">Create, run and snapshot QEMU virtual machines from a clean Qt interface. No long command lines. Hardware-accelerated ARM64 guests on Snapdragon and other Windows on Arm PCs.</p>
+    <div class="cta">
+      <a class="store" href="https://apps.microsoft.com/detail/9P0HGKHQ9W19?cid=ghpages" rel="noopener"><img src="https://get.microsoft.com/images/en-gb%20dark.svg" alt="Get it from Microsoft" width="200" height="56"></a>
+      <a class="btn" href="https://github.com/chronic8000/aqemu" rel="noopener"><svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>Source on GitHub</a>
+    </div>
+    <p class="note">7-day trial on the Microsoft Store, then a one-time £12.99. No subscription. Source code is GPLv2.</p>
+  </div>
+  <figure class="shot"><img src="img/reactos.webp" alt="ReactOS 64-bit running inside AQEMU on Windows, with the Paste files, To guest and From guest toolbar" width="1600" height="1066" fetchpriority="high"></figure>
+</div></section>
+
+<section id="features"><div class="wrap">
+  <h2>Everything QEMU can do, without the command line</h2>
+  <p class="sub">AQEMU builds the QEMU command for you, starts the guest in an embedded display and keeps the controls one click away.</p>
+  <div class="grid">
+    <div class="card"><div class="ic">⚡</div><h3>Native ARM64 on Windows on Arm</h3><p>ARM64 guests run with WHPX hardware acceleration on Windows on Arm PCs such as Snapdragon X laptops. Needs Windows 11 24H2, build 26100.3915 or newer.</p></div>
+    <div class="card"><div class="ic">🖥️</div><h3>x64 Windows too</h3><p>Runs on regular Intel and AMD Windows PCs, with WHPX acceleration for x86 guests and TCG for everything else.</p></div>
+    <div class="card"><div class="ic">📸</div><h3>Snapshots and qcow2 overlays</h3><p>Take a snapshot before you experiment. AQEMU creates a qcow2 overlay, and the Chain Studio shows, rebases or commits the backing chain.</p></div>
+    <div class="card"><div class="ic">📂</div><h3>Drag-and-drop file copy</h3><p>Drop files on the guest window or use <b>Paste files</b>. <b>To guest</b> and <b>From guest</b> copy single files both ways through <code>qemu-guest-agent</code>.</p></div>
+    <div class="card"><div class="ic">🧰</div><h3>Qt GUI, no long QEMU commands</h3><p>A step-by-step New VM wizard with guest profiles sets machine, CPU, memory, disk, network and display for you.</p></div>
+    <div class="card"><div class="ic">🕹️</div><h3>ReactOS and classic OSes</h3><p>Boot ReactOS, Windows 98, Windows XP, Linux, BSD and other classic systems, with QEMU bundled in the app.</p></div>
+    <div class="card"><div class="ic">🩺</div><h3>Local crash reporting</h3><p>If AQEMU crashes it writes a local report (a minidump on Windows) and offers to open it on the next launch. Nothing is uploaded.</p></div>
+    <div class="card"><div class="ic">🔄</div><h3>Automatic updates</h3><p>The Microsoft Store keeps AQEMU up to date without touching your virtual machines, disks or settings.</p></div>
+    <div class="card"><div class="ic">🔓</div><h3>Open source, GPLv2</h3><p>The full source is on GitHub. Buying on the Store pays for development and gets you the signed, auto-updating build.</p></div>
+  </div>
+</div></section>
+
+<section class="alt"><div class="wrap split">
+  <div>
+    <h2>Stop typing this</h2>
+    <p class="sub">An ARM64 virtual machine with WHPX on Windows on Arm normally means a command like the one on the right, plus firmware paths, disks and network flags. In AQEMU you pick a profile in the wizard and press Start.</p>
+    <a class="btn" href="https://github.com/chronic8000/aqemu/blob/master/docs/LAB_1.6.0.md">Read the 1.6 guide →</a>
+  </div>
+  <div class="cli">qemu-system-aarch64.exe \
+  -machine virt,gic-version=3,accel=whpx \
+  -cpu max -m 4096 -smp 4 \
+  -bios edk2-aarch64-code.fd \
+  -drive file=disk.qcow2,if=none,id=hd0 \
+  -device nvme,drive=hd0,serial=hd0 \
+  -device ramfb -device qemu-xhci \
+  -device usb-kbd -device usb-tablet \
+  -netdev user,id=n0 -device virtio-net-pci,netdev=n0</div>
+</div></section>
+
+<section id="screenshots"><div class="wrap">
+  <h2>Screenshots</h2>
+  <p class="sub">Real captures from AQEMU on Windows.</p>
+  <div class="gallery">
+    <figure><div class="shot"><img src="img/win11-arm-setup.webp" alt="Windows 11 ARM guest finishing setup inside AQEMU" width="1000" height="1007" loading="lazy"></div><figcaption>Windows 11 ARM guest finishing setup.</figcaption></figure>
+    <figure><div class="shot"><img src="img/wizard.webp" alt="AQEMU New Virtual Machine wizard choosing a system platform" width="1024" height="540" loading="lazy"></div><figcaption>The New VM wizard picks the machine for you.</figcaption></figure>
+    <figure><div class="shot"><img src="img/win98-setup.webp" alt="Windows 98 Setup running in AQEMU" width="1024" height="539" loading="lazy"></div><figcaption>Windows 98 Setup in the session window.</figcaption></figure>
+    <figure><div class="shot"><img src="img/winxp.webp" alt="Windows XP welcome screen in AQEMU" width="1024" height="540" loading="lazy"></div><figcaption>Windows XP first boot.</figcaption></figure>
+  </div>
+</div></section>
+
+<section id="pricing" class="alt"><div class="wrap">
+  <h2>Pricing</h2>
+  <p class="sub">Pay once. Try it for 7 days first.</p>
+  <div class="price">
+    <div class="card featured">
+      <h3>Microsoft Store</h3>
+      <div class="amt">£12.99 <small>one-time</small></div>
+      <ul><li>7-day trial before you pay</li><li>Signed package with automatic updates</li><li>Windows x64 and Windows on Arm</li><li>Bundled QEMU, firmware and tools</li><li>No subscription</li></ul>
+      <a class="store" href="https://apps.microsoft.com/detail/9P0HGKHQ9W19?cid=ghpages" rel="noopener"><img src="https://get.microsoft.com/images/en-gb%20dark.svg" alt="Get it from Microsoft" width="180" height="50" style="height:50px;width:auto"></a>
+      <p class="note">Prices in other countries are set by the Microsoft Store in local currency.</p>
+    </div>
+    <div class="card">
+      <h3>Source code</h3>
+      <div class="amt">GPLv2</div>
+      <ul><li>The full source is public on GitHub</li><li>Build it yourself on Windows or Linux</li><li>Bug reports and pull requests welcome</li></ul>
+      <a class="btn" href="https://github.com/chronic8000/aqemu">View on GitHub</a>
+    </div>
+  </div>
+</div></section>
+
+<section id="faq"><div class="wrap">
+  <h2>FAQ</h2>
+  <p class="sub">Short answers. The <a href="https://github.com/chronic8000/aqemu/tree/master/docs">docs</a> have the long ones.</p>
+  <details><summary>Which Windows do I need for ARM64 acceleration?</summary><p>A Windows on Arm PC running Windows 11 24H2, build 26100.3915 or newer, with the Windows Hypervisor Platform feature turned on. On older builds, ARM64 guests still run with QEMU's software emulation (TCG), just more slowly.</p></details>
+  <details><summary>Does it work on regular Intel and AMD PCs?</summary><p>Yes. The Store build supports Windows x64 as well as Windows on Arm. x86 guests can use WHPX acceleration, and other architectures run under TCG.</p></details>
+  <details><summary>Do I need to install QEMU separately?</summary><p>No. The Store build ships QEMU, firmware and tools beside the app. You can point AQEMU at your own QEMU folder if you prefer.</p></details>
+  <details><summary>How do I copy files into and out of a guest?</summary><p>Drop files on the guest window or click <b>Paste files</b> and AQEMU hands them to the guest as a floppy or USB drive, with no guest software needed. <b>To guest</b> and <b>From guest</b> copy one file by path using <code>qemu-guest-agent</code>. See <a href="https://github.com/chronic8000/aqemu/blob/master/docs/COPY_AND_PASTE.md">Copy and paste</a>.</p></details>
+  <details><summary>How do snapshots work?</summary><p>VM → Manage Snapshots creates a qcow2 overlay and points the disk at it, or takes an internal snapshot over QMP while the VM runs. See the <a href="https://github.com/chronic8000/aqemu/blob/master/docs/LAB_1.6.0.md">1.6 Lab guide</a>.</p></details>
+  <details><summary>Does AQEMU include operating systems?</summary><p>No. You bring your own installation media and licences. AQEMU provides the virtual machine manager and QEMU.</p></details>
+  <details><summary>Is there a trial?</summary><p>Yes, 7 days through the Microsoft Store. After that it is a one-time £12.99 purchase in the UK, with local pricing elsewhere.</p></details>
+  <details><summary>The source is GPLv2. Why pay on the Store?</summary><p>The Store build is signed, bundles everything and updates itself, and buying it funds development. You are always welcome to build from source instead.</p></details>
+  <details><summary>Where do I report bugs?</summary><p>On <a href="https://github.com/chronic8000/aqemu/issues">GitHub Issues</a>. Help → Copy setup for a GitHub issue puts your version, host and QEMU path on the clipboard.</p></details>
+</div></section>
+
+<section class="alt"><div class="wrap docs">
+  <h2>Documentation</h2>
+  <div class="grid">
+    <div class="card"><h3><a href="https://github.com/chronic8000/aqemu/blob/master/docs/README.md">Docs index</a></h3><p>All the long guides in one place.</p></div>
+    <div class="card"><h3><a href="https://github.com/chronic8000/aqemu/blob/master/docs/LAB_1.6.0.md">QEMU Lab 1.6</a></h3><p>Menus, storage, snapshots, networking and acceleration.</p></div>
+    <div class="card"><h3><a href="https://github.com/chronic8000/aqemu/blob/master/docs/COPY_AND_PASTE.md">Copy and paste</a></h3><p>Text, Paste files, To guest and From guest.</p></div>
+    <div class="card"><h3><a href="https://github.com/chronic8000/aqemu/blob/master/docs/VM_WIZARD_THREE_PATH.md">New VM wizard</a></h3><p>How the creation paths fit together.</p></div>
+    <div class="card"><h3><a href="https://github.com/chronic8000/aqemu/blob/master/CHANGELOG">Changelog</a></h3><p>What changed in each release.</p></div>
+    <div class="card"><h3><a href="https://github.com/chronic8000/aqemu/blob/master/PRIVACY.md">Privacy</a></h3><p>What AQEMU stores and what it never sends.</p></div>
+  </div>
+</div></section>
+</main>
+
+<footer><div class="wrap">
+  <span>© 2026 Chronic Engineering · AQEMU is GPLv2 · QEMU is a trademark of Fabrice Bellard.</span>
+  <span><a href="https://apps.microsoft.com/detail/9P0HGKHQ9W19?cid=ghpages">Microsoft Store</a> · <a href="https://github.com/chronic8000/aqemu">GitHub</a> · <a href="https://github.com/chronic8000/aqemu/blob/master/PRIVACY.md">Privacy</a></span>
+</div></footer>
+</body>
+</html>
