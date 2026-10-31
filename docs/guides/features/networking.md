@@ -53,7 +53,8 @@ The wizard picks a card model for your guest. The per-OS tables in the [guest OS
 | --- | --- |
 | Linux distributions | `virtio-net-pci` (46 of 47; Linux on IBM Z gets `virtio-net-ccw`) |
 | Most Windows versions | `e1000e` |
-| Older Windows, DOS, OS/2 and ReactOS | `ne2k_pci` (NE2000) or `rtl8139` |
+| Older Windows, DOS and OS/2 | `ne2k_pci` (NE2000) or `rtl8139` |
+| ReactOS | `e1000` |
 | Intel macOS | `virtio-net-pci` (forced) |
 
 **VirtIO** is the fastest, but the guest needs VirtIO drivers. Modern Linux has them built in; Windows needs a VirtIO driver disc that you supply. If a guest can't see its network card, switch the card to one it has a driver for.

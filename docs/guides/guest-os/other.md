@@ -37,8 +37,8 @@ You supply the installer media and any licence the OS needs. AQEMU doesn't inclu
 | **MorphOS** | `qemu-system-ppc` | `sam460ex` | `g4` | 512 MB | 10 GB | `e1000` | TCG on every host |
 | **Plan 9** | `qemu-system-x86_64` | `pc` | `max` | 1 GB | 10 GB | `e1000` | WHPX on Windows x64, KVM on Linux x64. TCG on ARM hosts |
 | **QNX** | `qemu-system-x86_64` | `pc` | `max` | 1 GB | 10 GB | `e1000` | WHPX on Windows x64, KVM on Linux x64. TCG on ARM hosts |
-| **ReactOS (32-bit)** | `qemu-system-i386` | `pc-i440fx` | `pentium3` | 1 GB | 4 GB | `rtl8139` | TCG on every host (the wizard turns on **Force TCG**) |
-| **ReactOS (64-bit)** | `qemu-system-x86_64` | `pc-i440fx` | `qemu64` | 4 GB | 8 GB | `rtl8139` | TCG on every host (the wizard turns on **Force TCG**) |
+| **ReactOS (32-bit)** | `qemu-system-i386` | `pc-i440fx` | `pentium3` | 1 GB | 4 GB | `e1000` | TCG on every host (the wizard turns on **Force TCG**) |
+| **ReactOS (64-bit)** | `qemu-system-x86_64` | `pc-i440fx` | `qemu64` | 4 GB | 8 GB | `e1000` | TCG on every host (the wizard turns on **Force TCG**) |
 | **Redox OS** | `qemu-system-x86_64` | `q35` | `max` | 2 GB | 10 GB | `e1000` | WHPX on Windows x64, KVM on Linux x64. TCG on ARM hosts |
 | **RISC OS** | `qemu-system-arm` | `virt` | `max` | 256 MB | 4 GB | `virtio-net-pci` | TCG on every host (`arm` binary is TCG only) |
 | **SerenityOS** | `qemu-system-x86_64` | `q35` | `max` | 2 GB | 20 GB | `virtio-net-pci` | WHPX on Windows x64, KVM on Linux x64. TCG on ARM hosts |
