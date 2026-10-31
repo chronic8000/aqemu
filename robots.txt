@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://chronic8000.github.io/aqemu/sitemap.xml
