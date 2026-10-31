@@ -116,7 +116,7 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}
   <div>
     <h2>Stop typing this</h2>
     <p class="sub">An ARM64 virtual machine with WHPX on Windows on Arm normally means a command like the one on the right, plus firmware paths, disks and network flags. In AQEMU you pick a profile in the wizard and press Start.</p>
-    <a class="btn" href="https://github.com/chronic8000/aqemu/blob/master/docs/LAB_1.6.0.md">Read the 1.6 guide →</a>
+    <a class="btn" href="https://github.com/chronic8000/aqemu/blob/master/docs/guides/qemu-lab-1.6.md">Read the 1.6 guide →</a>
   </div>
   <div class="cli">qemu-system-aarch64.exe \
   -machine virt,gic-version=3,accel=whpx \
@@ -166,8 +166,8 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}
   <details><summary>Which Windows do I need for ARM64 acceleration?</summary><p>A Windows on Arm PC running Windows 11 24H2, build 26100.3915 or newer, with the Windows Hypervisor Platform feature turned on. On older builds, ARM64 guests still run with QEMU's software emulation (TCG), just more slowly.</p></details>
   <details><summary>Does it work on regular Intel and AMD PCs?</summary><p>Yes. The Store build supports Windows x64 as well as Windows on Arm. x86 guests can use WHPX acceleration, and other architectures run under TCG.</p></details>
   <details><summary>Do I need to install QEMU separately?</summary><p>No. The Store build ships QEMU, firmware and tools beside the app. You can point AQEMU at your own QEMU folder if you prefer.</p></details>
-  <details><summary>How do I copy files into and out of a guest?</summary><p>Drop files on the guest window or click <b>Paste files</b> and AQEMU hands them to the guest as a floppy or USB drive, with no guest software needed. <b>To guest</b> and <b>From guest</b> copy one file by path using <code>qemu-guest-agent</code>. See <a href="https://github.com/chronic8000/aqemu/blob/master/docs/COPY_AND_PASTE.md">Copy and paste</a>.</p></details>
-  <details><summary>How do snapshots work?</summary><p>VM → Manage Snapshots creates a qcow2 overlay and points the disk at it, or takes an internal snapshot over QMP while the VM runs. See the <a href="https://github.com/chronic8000/aqemu/blob/master/docs/LAB_1.6.0.md">1.6 Lab guide</a>.</p></details>
+  <details><summary>How do I copy files into and out of a guest?</summary><p>Drop files on the guest window or click <b>Paste files</b> and AQEMU hands them to the guest as a floppy or USB drive, with no guest software needed. <b>To guest</b> and <b>From guest</b> copy one file by path using <code>qemu-guest-agent</code>. See <a href="https://github.com/chronic8000/aqemu/blob/master/docs/guides/copy-and-paste.md">Copy and paste</a>.</p></details>
+  <details><summary>How do snapshots work?</summary><p>VM → Manage Snapshots creates a qcow2 overlay and points the disk at it, or takes an internal snapshot over QMP while the VM runs. See the <a href="https://github.com/chronic8000/aqemu/blob/master/docs/guides/qemu-lab-1.6.md">1.6 Lab guide</a>.</p></details>
   <details><summary>Does AQEMU include operating systems?</summary><p>No. You bring your own installation media and licences. AQEMU provides the virtual machine manager and QEMU.</p></details>
   <details><summary>Is there a trial?</summary><p>Yes, 7 days through the Microsoft Store. After that it is a one-time £12.99 purchase in the UK, with local pricing elsewhere.</p></details>
   <details><summary>The source is GPLv2. Why pay on the Store?</summary><p>The Store build is signed, bundles everything and updates itself, and buying it funds development. You are always welcome to build from source instead.</p></details>
@@ -181,9 +181,9 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}
     <div class="card"><h3><a href="docs/user-guide.html">User guide</a></h3><p>First start, the main window, the New Virtual Machine Wizard and the settings tabs.</p></div>
     <div class="card"><h3><a href="docs/windows-11-guide.html">Windows 11 guide</a></h3><p>Windows 11 on ARM and x86, TPM and UEFI, plus Windows 9x, XP and 7.</p></div>
     <div class="card"><h3><a href="docs/os-catalog.html">OS catalog</a></h3><p>Linux, BSD, Raspberry Pi, RISC-V, POWER, SPARC, DOS, OS/2 and the built-in templates.</p></div>
-    <div class="card"><h3><a href="https://github.com/chronic8000/aqemu/blob/master/docs/LAB_1.6.0.md">QEMU Lab 1.6</a></h3><p>Menus, storage, snapshots, networking and acceleration.</p></div>
-    <div class="card"><h3><a href="https://github.com/chronic8000/aqemu/blob/master/docs/COPY_AND_PASTE.md">Copy and paste</a></h3><p>Text, Paste files, To guest and From guest.</p></div>
-    <div class="card"><h3><a href="https://github.com/chronic8000/aqemu/blob/master/docs/VM_WIZARD_THREE_PATH.md">New VM wizard</a></h3><p>How the creation paths fit together.</p></div>
+    <div class="card"><h3><a href="https://github.com/chronic8000/aqemu/blob/master/docs/guides/qemu-lab-1.6.md">QEMU Lab 1.6</a></h3><p>Menus, storage, snapshots, networking and acceleration.</p></div>
+    <div class="card"><h3><a href="https://github.com/chronic8000/aqemu/blob/master/docs/guides/copy-and-paste.md">Copy and paste</a></h3><p>Text, Paste files, To guest and From guest.</p></div>
+    <div class="card"><h3><a href="https://github.com/chronic8000/aqemu/blob/master/docs/reference/new-vm-wizard-paths.md">New VM wizard</a></h3><p>How the creation paths fit together.</p></div>
     <div class="card"><h3><a href="https://github.com/chronic8000/aqemu/blob/master/CHANGELOG">Changelog</a></h3><p>What changed in each release.</p></div>
     <div class="card"><h3><a href="https://github.com/chronic8000/aqemu/blob/master/PRIVACY.md">Privacy</a></h3><p>What AQEMU stores and what it never sends.</p></div>
   </div>
