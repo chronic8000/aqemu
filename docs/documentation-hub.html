@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AQEMU Documentation Hub – AQEMU Docs</title>
+<meta name="description" content="AQEMU documentation: user guide, Windows 11 ARM and x86 guide, and operating system catalog.">
+<link rel="canonical" href="https://chronic8000.github.io/aqemu/docs/documentation-hub.html">
+<meta name="theme-color" content="#0b0f19">
+<link rel="icon" type="image/png" href="../favicon.png">
+<style>:root{--bg:#0b0f19;--bg2:#111827;--card:#151d2e;--line:#243049;--text:#e6ebf5;--mute:#9aa6bd;--acc:#4f9dff;--acc2:#8b5cf6}
+*{box-sizing:border-box}html{scroll-behavior:smooth}
+body{margin:0;font:16px/1.7 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+a{color:var(--acc);text-decoration:none}a:hover{text-decoration:underline}
+.wrap{max-width:1120px;margin:0 auto;padding:0 20px}
+header.nav{position:sticky;top:0;z-index:10;background:rgba(11,15,25,.85);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+header.nav .wrap{display:flex;align-items:center;justify-content:space-between;height:60px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;color:var(--text);font-size:18px}.brand img{width:34px;height:auto}
+nav a{color:var(--mute);margin-left:22px;font-size:15px}nav a:hover,nav a.on{color:var(--text);text-decoration:none}
+@media(max-width:800px){nav a.hide-sm{display:none}nav a{margin-left:14px}}
+.layout{display:grid;grid-template-columns:220px 1fr;gap:40px;padding:40px 20px 72px}
+@media(max-width:900px){.layout{grid-template-columns:1fr}.side{display:none}}
+.side{position:sticky;top:84px;align-self:start;font-size:15px}
+.side h4{margin:0 0 10px;color:var(--mute);font-size:12px;letter-spacing:.08em;text-transform:uppercase}
+.side a{display:block;padding:6px 10px;border-radius:8px;color:var(--mute)}.side a.on,.side a:hover{background:var(--card);color:var(--text);text-decoration:none}
+.side .store{margin-top:18px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--bg2)}
+article{min-width:0}
+article h1{font-size:clamp(28px,4vw,42px);line-height:1.15;margin:0 0 18px;letter-spacing:-.02em}
+article h2{font-size:26px;margin:44px 0 12px;padding-top:12px;border-top:1px solid var(--line)}
+article h3{font-size:19px;margin:28px 0 8px}
+article p,article li{color:#cfd7e6}
+article hr{border:0;border-top:1px solid var(--line);margin:32px 0}
+article table{border-collapse:collapse;width:100%;margin:16px 0;font-size:15px;display:block;overflow-x:auto}
+article th,article td{border:1px solid var(--line);padding:8px 12px;text-align:left;vertical-align:top}
+article th{background:var(--bg2)}article tr:nth-child(even) td{background:rgba(21,29,46,.5)}
+code{font:13px/1.4 ui-monospace,SFMono-Regular,Consolas,monospace;background:#0e1524;border:1px solid var(--line);padding:2px 6px;border-radius:6px;color:#c9d6ff}
+pre{background:#0e1524;border:1px solid var(--line);border-radius:12px;padding:16px;overflow-x:auto}pre code{border:0;padding:0;background:none}
+blockquote{margin:18px 0;padding:12px 18px;border-left:4px solid var(--acc2);background:var(--card);border-radius:0 10px 10px 0}blockquote p{margin:4px 0}
+footer{padding:40px 0;color:var(--mute);font-size:14px;border-top:1px solid var(--line)}
+footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}</style>
+</head>
+<body>
+<header class="nav"><div class="wrap">
+  <a class="brand" href="../"><img src="../img/logo.png" alt="AQEMU logo" width="34" height="27">AQEMU <span style="color:var(--mute);font-weight:500">Docs</span></a>
+  <nav><a href="./" class="on">Docs</a><a class="hide-sm" href="user-guide.html">User Guide</a><a class="hide-sm" href="windows-11-guide.html">Windows</a><a class="hide-sm" href="os-catalog.html">OS Catalog</a><a href="https://github.com/chronic8000/aqemu">GitHub</a></nav>
+</div></header>
+<div class="wrap layout">
+  <aside class="side"><h4>Guides</h4><a href="documentation-hub.html" class=on>Docs home</a><a href="user-guide.html">User Guide</a><a href="windows-11-guide.html">Windows</a><a href="os-catalog.html">OS Catalog</a>
+    <div class="store"><a href="https://apps.microsoft.com/detail/9P0HGKHQ9W19?cid=ghpages_docs">Get AQEMU on the Microsoft Store</a></div>
+    <p style="font-size:13px;color:var(--mute);margin-top:14px"><a href="https://github.com/chronic8000/aqemu/edit/master/docs/DOCUMENTATION_HUB.md">Edit this page on GitHub</a></p>
+  </aside>
+  <article>
+<h1 id="aqemu-documentation-hub">AQEMU Documentation Hub</h1>
+<p>Welcome to the AQEMU docs! AQEMU is a desktop front end for QEMU on
+Windows and Linux. You build and run virtual machines from a GUI, and
+you never have to type a QEMU command line unless you want to.</p>
+<p>Everything in these guides was checked against the AQEMU source on
+<code>master</code>: menu names, button labels, defaults, and the QEMU
+flags AQEMU generates. If something in the app doesn't match what you
+read here, please <a
+href="https://github.com/chronic8000/aqemu/issues">open an issue</a> and
+tell us.</p>
+<hr />
+<h2 id="start-here">Start here</h2>
+<table>
+<thead>
+<tr class="header">
+<th>Guide</th>
+<th>What it covers</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><a href="user-guide.html">User Guide: Overview and the New VM
+Wizard</a></td>
+<td>First start, the main window, the <strong>New Virtual Machine
+Wizard</strong>, and the settings tabs</td>
+</tr>
+<tr class="even">
+<td><a href="windows-11-guide.html">Windows 11 (ARM and x86) and Legacy
+Windows</a></td>
+<td>Windows 11 ARM with slipstreamed VirtIO drivers, Windows 11 x86,
+Windows 9x/XP/7</td>
+</tr>
+<tr class="odd">
+<td><a href="os-catalog.html">Operating System Catalog</a></td>
+<td>Linux, BSD, retro and other guests, the built-in templates, and the
+AQEMU guest tools</td>
+</tr>
+</tbody>
+</table>
+<h2 id="reference-docs-already-in-the-repo">Reference docs already in
+the repo</h2>
+<table>
+<thead>
+<tr class="header">
+<th>Doc</th>
+<th>What it covers</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><a
+href="https://github.com/chronic8000/aqemu/blob/master/docs/VM_WIZARD_THREE_PATH.md">New
+VM Wizard paths</a></td>
+<td>How the wizard's Guest OS / Platform / Architecture / Custom paths
+map to QEMU machines, and the guest-aware Devices page</td>
+</tr>
+<tr class="even">
+<td><a
+href="https://github.com/chronic8000/aqemu/blob/master/docs/QEMU_MACHINE_CATALOG.md">QEMU
+Machine Catalog</a></td>
+<td>Friendly names for every QEMU machine the wizard knows about</td>
+</tr>
+<tr class="odd">
+<td><a
+href="https://github.com/chronic8000/aqemu/blob/master/docs/COPY_AND_PASTE.md">Copy
+and paste</a></td>
+<td>Text clipboard through the built-in display, <strong>Paste
+files</strong>, <strong>To guest</strong> / <strong>From guest</strong>,
+and the guest helper</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="what-aqemu-does">What AQEMU does</h2>
+<h3 id="making-vms">Making VMs</h3>
+<ul>
+<li><strong>New Virtual Machine Wizard</strong>
+(<code>VM → Add VM → Add New VM</code>, or <code>Ctrl+N</code>). Seven
+ways in: <em>Guest Operating System</em>, <em>System / Machine
+Platform</em>, <em>CPU Architecture</em>, <em>Custom / Advanced</em>,
+<em>Import Existing Disk</em>, <em>Import Virtual Appliance (OVA /
+OVF)</em>, and <em>Recover storage</em>.</li>
+<li><strong>Templates.</strong> 25 built-in templates (Windows 9x
+through Windows 11 and Windows 11 ARM, Linux, FreeBSD, Haiku, FreeDOS,
+Raspberry Pi OS, RISC-V Linux, and Mac OS Classic PPC). You can save
+your own with <code>VM → Save As Template</code>.</li>
+<li><strong>Appliances.</strong>
+<code>File → Import and Export → Import Appliance (OVA / OVF)…</code>
+and <code>Export Appliance (OVA)…</code>.</li>
+</ul>
+<h3 id="running-vms">Running VMs</h3>
+<ul>
+<li><strong>Accelerators.</strong> TCG everywhere; WHPX on Windows; KVM
+on Linux (and inside WSL); Xen where available.</li>
+<li><strong>Session tools.</strong> The <code>VM → Tools</code> menu has
+the QEMU monitor, serial monitor, <strong>Show QEMU Arguments</strong>,
+<strong>Create Shell Script</strong>, and the QEMU error log.</li>
+<li><strong>Snapshots and recovery.</strong>
+<code>VM → Storage → Manage Snapshots</code>, plus
+<code>VM → Recovery → Storage Recovery…</code> and
+<code>Recovery Checkpoint…</code>.</li>
+<li><strong>Remote storage.</strong>
+<code>VM → Storage → Attach Remote SAN Storage (iSCSI / NVMe-oF)…</code>.</li>
+<li><strong>Command line.</strong>
+<code>aqemu start|stop|… &lt;vm&gt;</code> and <code>aqemu list</code>
+for scripting.</li>
+</ul>
+<h3 id="copy-and-paste">Copy and paste</h3>
+<p>The built-in display shares the <strong>text</strong> clipboard with
+no guest software. For files, use <strong>Paste files</strong> (no guest
+software needed; AQEMU builds a floppy or a USB stick for the guest), or
+<strong>To guest</strong> / <strong>From guest</strong>, which need
+<code>qemu-guest-agent</code> in the guest. Full details are in <a
+href="https://github.com/chronic8000/aqemu/blob/master/docs/COPY_AND_PASTE.md">Copy
+and paste</a>.</p>
+<hr />
+<h2 id="getting-aqemu">Getting AQEMU</h2>
+<ul>
+<li><strong>Windows:</strong> <a
+href="https://apps.microsoft.com/detail/9P0HGKHQ9W19?cid=docs_hub">AQEMU
+on the Microsoft Store</a></li>
+<li><strong>Linux and source:</strong> <a
+href="https://github.com/chronic8000/aqemu">github.com/chronic8000/aqemu</a></li>
+</ul>
+<p>AQEMU doesn't ship operating systems, Apple firmware, or console
+ROMs. You bring your own installers and licences.</p>
+
+  </article>
+</div>
+<footer><div class="wrap">
+  <span>© 2026 Chronic Engineering · AQEMU is GPLv2 · QEMU is a trademark of Fabrice Bellard.</span>
+  <span><a href="../">Home</a> · <a href="https://apps.microsoft.com/detail/9P0HGKHQ9W19?cid=ghpages_docs">Microsoft Store</a> · <a href="https://github.com/chronic8000/aqemu">GitHub</a></span>
+</div></footer>
+</body>
+</html>

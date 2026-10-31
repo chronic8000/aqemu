@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AQEMU User Guide: Overview and the New VM Wizard – AQEMU Docs</title>
+<meta name="description" content="AQEMU user guide: first start, main window, the New Virtual Machine Wizard, settings tabs and advanced options.">
+<link rel="canonical" href="https://chronic8000.github.io/aqemu/docs/user-guide.html">
+<meta name="theme-color" content="#0b0f19">
+<link rel="icon" type="image/png" href="../favicon.png">
+<style>:root{--bg:#0b0f19;--bg2:#111827;--card:#151d2e;--line:#243049;--text:#e6ebf5;--mute:#9aa6bd;--acc:#4f9dff;--acc2:#8b5cf6}
+*{box-sizing:border-box}html{scroll-behavior:smooth}
+body{margin:0;font:16px/1.7 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+a{color:var(--acc);text-decoration:none}a:hover{text-decoration:underline}
+.wrap{max-width:1120px;margin:0 auto;padding:0 20px}
+header.nav{position:sticky;top:0;z-index:10;background:rgba(11,15,25,.85);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+header.nav .wrap{display:flex;align-items:center;justify-content:space-between;height:60px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;color:var(--text);font-size:18px}.brand img{width:34px;height:auto}
+nav a{color:var(--mute);margin-left:22px;font-size:15px}nav a:hover,nav a.on{color:var(--text);text-decoration:none}
+@media(max-width:800px){nav a.hide-sm{display:none}nav a{margin-left:14px}}
+.layout{display:grid;grid-template-columns:220px 1fr;gap:40px;padding:40px 20px 72px}
+@media(max-width:900px){.layout{grid-template-columns:1fr}.side{display:none}}
+.side{position:sticky;top:84px;align-self:start;font-size:15px}
+.side h4{margin:0 0 10px;color:var(--mute);font-size:12px;letter-spacing:.08em;text-transform:uppercase}
+.side a{display:block;padding:6px 10px;border-radius:8px;color:var(--mute)}.side a.on,.side a:hover{background:var(--card);color:var(--text);text-decoration:none}
+.side .store{margin-top:18px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--bg2)}
+article{min-width:0}
+article h1{font-size:clamp(28px,4vw,42px);line-height:1.15;margin:0 0 18px;letter-spacing:-.02em}
+article h2{font-size:26px;margin:44px 0 12px;padding-top:12px;border-top:1px solid var(--line)}
+article h3{font-size:19px;margin:28px 0 8px}
+article p,article li{color:#cfd7e6}
+article hr{border:0;border-top:1px solid var(--line);margin:32px 0}
+article table{border-collapse:collapse;width:100%;margin:16px 0;font-size:15px;display:block;overflow-x:auto}
+article th,article td{border:1px solid var(--line);padding:8px 12px;text-align:left;vertical-align:top}
+article th{background:var(--bg2)}article tr:nth-child(even) td{background:rgba(21,29,46,.5)}
+code{font:13px/1.4 ui-monospace,SFMono-Regular,Consolas,monospace;background:#0e1524;border:1px solid var(--line);padding:2px 6px;border-radius:6px;color:#c9d6ff}
+pre{background:#0e1524;border:1px solid var(--line);border-radius:12px;padding:16px;overflow-x:auto}pre code{border:0;padding:0;background:none}
+blockquote{margin:18px 0;padding:12px 18px;border-left:4px solid var(--acc2);background:var(--card);border-radius:0 10px 10px 0}blockquote p{margin:4px 0}
+footer{padding:40px 0;color:var(--mute);font-size:14px;border-top:1px solid var(--line)}
+footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}</style>
+</head>
+<body>
+<header class="nav"><div class="wrap">
+  <a class="brand" href="../"><img src="../img/logo.png" alt="AQEMU logo" width="34" height="27">AQEMU <span style="color:var(--mute);font-weight:500">Docs</span></a>
+  <nav><a href="./">Docs</a><a class="hide-sm on" href="user-guide.html">User Guide</a><a class="hide-sm" href="windows-11-guide.html">Windows</a><a class="hide-sm" href="os-catalog.html">OS Catalog</a><a href="https://github.com/chronic8000/aqemu">GitHub</a></nav>
+</div></header>
+<div class="wrap layout">
+  <aside class="side"><h4>Guides</h4><a href="documentation-hub.html">Docs home</a><a href="user-guide.html" class=on>User Guide</a><a href="windows-11-guide.html">Windows</a><a href="os-catalog.html">OS Catalog</a>
+    <div class="store"><a href="https://apps.microsoft.com/detail/9P0HGKHQ9W19?cid=ghpages_docs">Get AQEMU on the Microsoft Store</a></div>
+    <p style="font-size:13px;color:var(--mute);margin-top:14px"><a href="https://github.com/chronic8000/aqemu/edit/master/docs/USER_GUIDE_OVERVIEW_AND_WIZARD.md">Edit this page on GitHub</a></p>
+  </aside>
+  <article>
+<h1 id="aqemu-user-guide-overview-and-the-new-vm-wizard">AQEMU User
+Guide: Overview and the New VM Wizard</h1>
+<p>Welcome to AQEMU! This guide walks you through the first start, the
+main window, and the <strong>New Virtual Machine Wizard</strong>, which
+is how most VMs get made. Every label below is the exact text you'll see
+in the app.</p>
+<p><strong>Contents</strong></p>
+<ol type="1">
+<li><a href="#1-first-start">First start</a></li>
+<li><a href="#2-the-main-window">The main window</a></li>
+<li><a href="#3-the-new-virtual-machine-wizard">The New Virtual Machine
+Wizard</a></li>
+<li><a href="#4-the-settings-tabs">The settings tabs</a></li>
+<li><a href="#5-advanced-options-and-smp-settings">Advanced Options and
+SMP Settings</a></li>
+<li><a href="#6-seeing-what-aqemu-sends-to-qemu">Seeing what AQEMU sends
+to QEMU</a></li>
+<li><a href="#7-host-platforms">Host platforms</a></li>
+</ol>
+<hr />
+<h2 id="1-first-start">1. First start</h2>
+<p>The first time you run AQEMU, the <strong>First Start Wizard</strong>
+asks three things:</p>
+<ol type="1">
+<li><strong>Choose interface language.</strong></li>
+<li><strong>The folder for virtual machine configurations.</strong>
+Every VM is saved there as a <code>.aqemu</code> file.</li>
+<li><strong>Where QEMU lives.</strong> Pick one:
+<ul>
+<li><strong>Use the QEMU binaries that ship with AQEMU
+(Recommended)</strong></li>
+<li><strong>Use system-installed QEMU</strong></li>
+<li><strong>Specify a custom QEMU executable or folder</strong></li>
+</ul></li>
+</ol>
+<p>You can change all of this later in
+<code>File → Preferences…</code>.</p>
+<hr />
+<h2 id="2-the-main-window">2. The main window</h2>
+<p>The VM list is on the left and the selected VM's settings are on the
+right.</p>
+<p><strong>Menus</strong></p>
+<table>
+<thead>
+<tr class="header">
+<th>Menu</th>
+<th>What's in it</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>File</strong></td>
+<td>Disks, Import and Export (OVA/OVF appliances), Host tools,
+<strong>Preferences…</strong></td>
+</tr>
+<tr class="even">
+<td><strong>VM</strong></td>
+<td><strong>Add VM</strong> (→ <strong>Add New VM</strong>,
+<code>Ctrl+N</code>), Save As Template, Start / Pause / Shutdown / Power
+Off / Reset, plus the <strong>Apple</strong>, <strong>Recovery</strong>,
+<strong>Storage</strong>, <strong>Tools</strong> and
+<strong>Lab</strong> submenus</td>
+</tr>
+<tr class="odd">
+<td><strong>Help</strong></td>
+<td><strong>About AQEMU</strong>, <strong>QEMU Help Browser…</strong>,
+and the <strong>Diagnostics</strong> submenu</td>
+</tr>
+</tbody>
+</table>
+<p>The toolbar gives you one-click <strong>Add New VM</strong>,
+<strong>Start</strong>, <strong>Pause</strong>,
+<strong>Shutdown</strong>, <strong>Power Off</strong>,
+<strong>Reset</strong>, <strong>Manage Snapshots</strong> and
+<strong>Show QEMU Arguments</strong>.</p>
+<hr />
+<h2 id="3-the-new-virtual-machine-wizard">3. The New Virtual Machine
+Wizard</h2>
+<p>Open it with <code>VM → Add VM → Add New VM</code> (or
+<code>Ctrl+N</code>, or the toolbar). The first page asks <strong>how
+you want to create this VM</strong>:</p>
+<table>
+<thead>
+<tr class="header">
+<th>Method</th>
+<th>Use it when</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Guest Operating System</strong></td>
+<td>You know what you want to install (Windows 11, Ubuntu, Mac OS 9,
+IRIX…). Pick a vendor, then the OS.</td>
+</tr>
+<tr class="even">
+<td><strong>System / Machine Platform</strong></td>
+<td>You want a particular machine (Raspberry Pi 3, IBM PC Compatible,
+Sun, SGI…).</td>
+</tr>
+<tr class="odd">
+<td><strong>CPU Architecture</strong></td>
+<td>You want a CPU family first (x86-64, ARM64, PowerPC, RISC-V,
+s390x…), then a machine.</td>
+</tr>
+<tr class="even">
+<td><strong>Custom / Advanced</strong></td>
+<td>The classic <strong>Typical</strong> / <strong>Custom</strong> /
+<strong>Template</strong> flow. This is where the <strong>Windows 11
+ARM</strong> template lives.</td>
+</tr>
+<tr class="odd">
+<td><strong>Import Existing Disk</strong></td>
+<td>You already have a disk image (qcow2, raw, VHDX, VMDK…).</td>
+</tr>
+<tr class="even">
+<td><strong>Import Virtual Appliance (OVA / OVF)</strong></td>
+<td>You have an appliance exported from another hypervisor.</td>
+</tr>
+<tr class="odd">
+<td><strong>Recover storage</strong></td>
+<td>You need to get data off a damaged or orphaned disk.</td>
+</tr>
+</tbody>
+</table>
+<p>The <strong>Guest Operating System</strong> list is grouped by
+vendor: Lab, Apple, BSD, DEC, HP, IBM, Linux, Microsoft, Other, SCO,
+SGI, Sun, TrueNAS / Storage, and Consoles &amp; Retro. The <strong>CPU
+Architecture</strong> list covers 28 architecture families, backed by 29
+QEMU system emulators.</p>
+<h3 id="after-you-choose">After you choose</h3>
+<p>The first three paths end on a <strong>Confirm QEMU system</strong>
+page, where the Computer Type (the <code>qemu-system-*</code> binary)
+and Machine Type are still editable. Then the wizard walks through:</p>
+<p><strong>Accelerator → Name / CPU → Disk → Devices → Network →
+Finish</strong></p>
+<p>The <strong>Devices</strong> page is guest-aware. AQEMU picks
+sensible devices for the OS you chose (for example IDE, NE2000, Sound
+Blaster 16 and Cirrus for Windows 98) and hides devices that won't work
+for that guest unless you tick <strong>Show all QEMU options</strong>.
+See <a
+href="https://github.com/chronic8000/aqemu/blob/master/docs/VM_WIZARD_THREE_PATH.md">New
+VM Wizard paths</a> for the full mapping.</p>
+<p>On the <strong>Disk</strong> page you choose <strong>Create a new
+disk image</strong> or <strong>Use an existing disk image</strong>. The
+install media page offers <strong>Local ISO / image file</strong>,
+<strong>Download ISO from URL</strong>, or <strong>Network install
+(kernel + initrd URLs)</strong>.</p>
+<blockquote>
+<p><strong>Everything stays editable.</strong> The wizard just fills in
+a starting point. Every setting can be changed on the main window
+afterwards.</p>
+</blockquote>
+<hr />
+<h2 id="4-the-settings-tabs">4. The settings tabs</h2>
+<p>Select a VM and you'll see these tabs:</p>
+<table>
+<thead>
+<tr class="header">
+<th>Tab</th>
+<th>What you set there</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Info</strong></td>
+<td>A summary of the selected VM</td>
+</tr>
+<tr class="even">
+<td><strong>Machine</strong></td>
+<td>Name, Architecture, CPU Model, CPUs, Accelerator, Boot order,
+Graphics, Resolution, Keyboard, Pointer mode, USB, Memory, Audio, disk
+Interface, and the <strong>Advanced</strong> button. Windows 11 ARM and
+Intel macOS VMs get their own panel here too.</td>
+</tr>
+<tr class="odd">
+<td><strong>Media</strong></td>
+<td>Hard disks, CD/DVD and floppy images, plus <strong>Boot
+Kernel</strong> (direct kernel/initrd boot) and <strong>Special
+Images</strong></td>
+</tr>
+<tr class="even">
+<td><strong>Display</strong></td>
+<td>Display settings, with <strong>VNC Remote</strong> and <strong>QEMU
+Window</strong> sub-tabs. While a VM is running, its live screen also
+opens as a Display tab.</td>
+</tr>
+<tr class="odd">
+<td><strong>Network</strong></td>
+<td>Network cards, <strong>Redirections</strong> (port forwards), and
+<strong>TFTP/SAMBA</strong></td>
+</tr>
+<tr class="even">
+<td><strong>Storage</strong></td>
+<td><strong>Enable TrueNAS Guest Integration</strong>: connect to a
+TrueNAS host (address, port, API token) and see its pools</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Accelerator</strong> choices on the Machine tab:
+<strong>TCG</strong> (pure emulation, works everywhere),
+<strong>WHPX</strong> (Windows Hypervisor Platform, on Windows hosts),
+<strong>KVM</strong> (Linux hosts, and Linux QEMU inside WSL), and
+<strong>XEN</strong>.</p>
+<p><strong>Disk Interface</strong> choices: VirtIO, VirtIO SCSI, SCSI,
+IDE, AHCI (SATA), SD and NVMe. The <strong>Apply VirtIO
+defaults</strong> button switches a VM to VirtIO in one click.</p>
+<p><strong>Pointer mode:</strong> <em>Seamless</em> uses an absolute
+tablet, so the host and guest cursors line up with no mouse grab.
+<em>Relative</em> is a PS/2-style mouse: click the screen to capture and
+middle-click or Escape to release. Use Relative for Windows 9x and other
+guests with no tablet driver.</p>
+<hr />
+<h2 id="5-advanced-options-and-smp-settings">5. Advanced Options and SMP
+Settings</h2>
+<p><strong>SMP Settings.</strong> Click the <strong>…</strong> button
+next to <strong>CPUs</strong> to set <strong>CPU count</strong>,
+<strong>Socket count</strong>, <strong>Cores per socket</strong>,
+<strong>Threads per core</strong> and <strong>Maximum number of
+hotpluggable CPUs</strong>.</p>
+<p><strong>Boot Order.</strong> The <strong>…</strong> button next to
+<strong>Boot</strong> lets you reorder devices and set <strong>Enable
+interactive boot menu</strong>, <strong>Boot menu wait
+(seconds)</strong> and <strong>Show boot logo</strong>.</p>
+<p><strong>Advanced Options.</strong> The <strong>Advanced</strong>
+button on the Machine tab opens the power-user settings, including:</p>
+<ul>
+<li><strong>Force pure TCG (Win9x / pre-ME)</strong></li>
+<li><strong>VirtIO balloon</strong>, <strong>VirtIO RNG</strong>,
+<strong>VirtIO keyboard</strong></li>
+<li><strong>No default devices (-nodefaults)</strong>, <strong>Guest RTC
+clock</strong>, <strong>IOThread for VirtIO disks</strong>,
+<strong>Modern -netdev networking</strong></li>
+<li>UUID, BIOS image, <strong>OVMF CODE</strong> / <strong>OVMF
+VARS</strong> (UEFI firmware), NUMA, watchdog</li>
+<li><strong>TPM:</strong> none, emulator (swtpm socket), or
+passthrough</li>
+<li><strong>Custom QEMU Command Line Arguments</strong>, if you want to
+add your own flags</li>
+</ul>
+<hr />
+<h2 id="6-seeing-what-aqemu-sends-to-qemu">6. Seeing what AQEMU sends to
+QEMU</h2>
+<p>Want to see exactly what's going on?
+<code>VM → Tools → Show QEMU Arguments</code> (also on the toolbar)
+shows the full QEMU command line for the selected VM.
+<code>VM → Tools → Create Shell Script</code> saves it as a script you
+can run yourself.</p>
+<p>AQEMU also works from a terminal:</p>
+<pre><code>aqemu list
+aqemu start &quot;My VM&quot;
+aqemu stop &quot;My VM&quot;</code></pre>
+<hr />
+<h2 id="7-host-platforms">7. Host platforms</h2>
+<table>
+<thead>
+<tr class="header">
+<th>Host</th>
+<th>Accelerators</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Windows 10/11 x64</strong></td>
+<td>WHPX, TCG; KVM through WSL</td>
+<td>Available from the <a
+href="https://apps.microsoft.com/detail/9P0HGKHQ9W19?cid=docs_user_guide">Microsoft
+Store</a></td>
+</tr>
+<tr class="even">
+<td><strong>Windows 11 on ARM</strong></td>
+<td>WHPX, TCG</td>
+<td>For AArch64 guests under WHPX, AQEMU uses <code>-cpu max</code> and
+needs the AAVMF UEFI firmware</td>
+</tr>
+<tr class="odd">
+<td><strong>Linux x86_64 / ARM64</strong></td>
+<td>KVM, TCG</td>
+<td>Build from <a
+href="https://github.com/chronic8000/aqemu">source</a></td>
+</tr>
+</tbody>
+</table>
+<p>Next: <a href="windows-11-guide.html">Windows 11 (ARM and x86) and
+Legacy Windows</a> · <a href="os-catalog.html">Operating System
+Catalog</a> · <a href="documentation-hub.html">Documentation Hub</a></p>
+
+  </article>
+</div>
+<footer><div class="wrap">
+  <span>© 2026 Chronic Engineering · AQEMU is GPLv2 · QEMU is a trademark of Fabrice Bellard.</span>
+  <span><a href="../">Home</a> · <a href="https://apps.microsoft.com/detail/9P0HGKHQ9W19?cid=ghpages_docs">Microsoft Store</a> · <a href="https://github.com/chronic8000/aqemu">GitHub</a></span>
+</div></footer>
+</body>
+</html>

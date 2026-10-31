@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AQEMU Operating System Catalog – AQEMU Docs</title>
+<meta name="description" content="Operating systems in AQEMU: Linux, BSD, Raspberry Pi, RISC-V, POWER, SPARC, IBM Z, DOS, OS/2, templates and guest tools.">
+<link rel="canonical" href="https://chronic8000.github.io/aqemu/docs/os-catalog.html">
+<meta name="theme-color" content="#0b0f19">
+<link rel="icon" type="image/png" href="../favicon.png">
+<style>:root{--bg:#0b0f19;--bg2:#111827;--card:#151d2e;--line:#243049;--text:#e6ebf5;--mute:#9aa6bd;--acc:#4f9dff;--acc2:#8b5cf6}
+*{box-sizing:border-box}html{scroll-behavior:smooth}
+body{margin:0;font:16px/1.7 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+a{color:var(--acc);text-decoration:none}a:hover{text-decoration:underline}
+.wrap{max-width:1120px;margin:0 auto;padding:0 20px}
+header.nav{position:sticky;top:0;z-index:10;background:rgba(11,15,25,.85);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+header.nav .wrap{display:flex;align-items:center;justify-content:space-between;height:60px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;color:var(--text);font-size:18px}.brand img{width:34px;height:auto}
+nav a{color:var(--mute);margin-left:22px;font-size:15px}nav a:hover,nav a.on{color:var(--text);text-decoration:none}
+@media(max-width:800px){nav a.hide-sm{display:none}nav a{margin-left:14px}}
+.layout{display:grid;grid-template-columns:220px 1fr;gap:40px;padding:40px 20px 72px}
+@media(max-width:900px){.layout{grid-template-columns:1fr}.side{display:none}}
+.side{position:sticky;top:84px;align-self:start;font-size:15px}
+.side h4{margin:0 0 10px;color:var(--mute);font-size:12px;letter-spacing:.08em;text-transform:uppercase}
+.side a{display:block;padding:6px 10px;border-radius:8px;color:var(--mute)}.side a.on,.side a:hover{background:var(--card);color:var(--text);text-decoration:none}
+.side .store{margin-top:18px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--bg2)}
+article{min-width:0}
+article h1{font-size:clamp(28px,4vw,42px);line-height:1.15;margin:0 0 18px;letter-spacing:-.02em}
+article h2{font-size:26px;margin:44px 0 12px;padding-top:12px;border-top:1px solid var(--line)}
+article h3{font-size:19px;margin:28px 0 8px}
+article p,article li{color:#cfd7e6}
+article hr{border:0;border-top:1px solid var(--line);margin:32px 0}
+article table{border-collapse:collapse;width:100%;margin:16px 0;font-size:15px;display:block;overflow-x:auto}
+article th,article td{border:1px solid var(--line);padding:8px 12px;text-align:left;vertical-align:top}
+article th{background:var(--bg2)}article tr:nth-child(even) td{background:rgba(21,29,46,.5)}
+code{font:13px/1.4 ui-monospace,SFMono-Regular,Consolas,monospace;background:#0e1524;border:1px solid var(--line);padding:2px 6px;border-radius:6px;color:#c9d6ff}
+pre{background:#0e1524;border:1px solid var(--line);border-radius:12px;padding:16px;overflow-x:auto}pre code{border:0;padding:0;background:none}
+blockquote{margin:18px 0;padding:12px 18px;border-left:4px solid var(--acc2);background:var(--card);border-radius:0 10px 10px 0}blockquote p{margin:4px 0}
+footer{padding:40px 0;color:var(--mute);font-size:14px;border-top:1px solid var(--line)}
+footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}</style>
+</head>
+<body>
+<header class="nav"><div class="wrap">
+  <a class="brand" href="../"><img src="../img/logo.png" alt="AQEMU logo" width="34" height="27">AQEMU <span style="color:var(--mute);font-weight:500">Docs</span></a>
+  <nav><a href="./">Docs</a><a class="hide-sm" href="user-guide.html">User Guide</a><a class="hide-sm" href="windows-11-guide.html">Windows</a><a class="hide-sm on" href="os-catalog.html">OS Catalog</a><a href="https://github.com/chronic8000/aqemu">GitHub</a></nav>
+</div></header>
+<div class="wrap layout">
+  <aside class="side"><h4>Guides</h4><a href="documentation-hub.html">Docs home</a><a href="user-guide.html">User Guide</a><a href="windows-11-guide.html">Windows</a><a href="os-catalog.html" class=on>OS Catalog</a>
+    <div class="store"><a href="https://apps.microsoft.com/detail/9P0HGKHQ9W19?cid=ghpages_docs">Get AQEMU on the Microsoft Store</a></div>
+    <p style="font-size:13px;color:var(--mute);margin-top:14px"><a href="https://github.com/chronic8000/aqemu/edit/master/docs/MULTI_PLATFORM_OS_INSTALLATION_CATALOG.md">Edit this page on GitHub</a></p>
+  </aside>
+  <article>
+<h1 id="aqemu-operating-system-catalog">AQEMU Operating System
+Catalog</h1>
+<p>AQEMU isn't just for Windows. The wizard knows <strong>230 operating
+system profiles</strong> across <strong>28 CPU architecture
+families</strong> (29 QEMU system emulators): Linux and BSD on PC and
+ARM, DOS and OS/2, Solaris on SPARC, AIX on POWER, Linux on IBM Z, and
+plenty of museum pieces.</p>
+<p>This catalog shows you where to find each family in the <strong>New
+Virtual Machine Wizard</strong>, what AQEMU picks for you, and how to
+install the AQEMU guest tools.</p>
+<blockquote>
+<p>Windows has its own guide: <a href="windows-11-guide.html">Windows 11
+(ARM and x86) and Legacy Windows</a>.</p>
+</blockquote>
+<p><strong>Contents</strong></p>
+<ol type="1">
+<li><a href="#1-how-to-pick-a-guest">How to pick a guest</a></li>
+<li><a href="#2-built-in-templates">Built-in templates</a></li>
+<li><a href="#3-linux-and-bsd">Linux and BSD</a></li>
+<li><a href="#4-arm-raspberry-pi-and-arm64">ARM: Raspberry Pi and
+ARM64</a></li>
+<li><a href="#5-risc-v-power-sparc-and-ibm-z">RISC-V, POWER, SPARC and
+IBM Z</a></li>
+<li><a href="#6-dos-os2-and-retro">DOS, OS/2 and retro</a></li>
+<li><a href="#7-truenas-and-remote-storage">TrueNAS and remote
+storage</a></li>
+<li><a href="#8-aqemu-guest-tools">AQEMU guest tools</a></li>
+</ol>
+<hr />
+<h2 id="1-how-to-pick-a-guest">1. How to pick a guest</h2>
+<p>Open <code>VM → Add VM → Add New VM</code> (<code>Ctrl+N</code>) and
+choose:</p>
+<ul>
+<li><strong>Guest Operating System</strong> when you know the OS.
+Vendors: Lab, Apple, BSD, DEC, HP, IBM, Linux, Microsoft, Other, SCO,
+SGI, Sun, TrueNAS / Storage, Consoles &amp; Retro.</li>
+<li><strong>System / Machine Platform</strong> when you know the
+hardware. Platforms: IBM PC Compatible, ARM Virtual Platforms, Raspberry
+Pi, Apple Macintosh, Sun Microsystems, IBM Power, IBM Mainframe, MIPS,
+DEC Alpha, HP PA-RISC, RISC-V, Embedded, Other Platforms, Generic,
+Consoles &amp; Retro.</li>
+<li><strong>CPU Architecture</strong> when you want a CPU family first:
+x86, x86-64, ARM, ARM64 / AArch64, PowerPC 32/64, MIPS (four variants),
+SPARC32/64, RISC-V 32/64, s390x, Alpha, PA-RISC, m68k, AVR, MicroBlaze,
+OpenRISC, Xtensa (two variants), RX, SH4 (two variants), TriCore,
+LoongArch.</li>
+</ul>
+<p>Each profile sets the emulator, machine, CPU, RAM, disk size and
+guest-appropriate devices. The friendly-name-to-QEMU mapping is in the
+<a
+href="https://github.com/chronic8000/aqemu/blob/master/docs/QEMU_MACHINE_CATALOG.md">QEMU
+Machine Catalog</a>.</p>
+<h2 id="2-built-in-templates">2. Built-in templates</h2>
+<p>Under <strong>Custom / Advanced → Template</strong> you'll find 25
+ready-made templates. The non-Windows ones:</p>
+<table>
+<thead>
+<tr class="header">
+<th>Template</th>
+<th>Emulator / machine</th>
+<th>CPU</th>
+<th>RAM</th>
+<th>Disk</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Ubuntu Linux</td>
+<td><code>x86_64</code> / <code>q35</code></td>
+<td>host</td>
+<td>2048 MB</td>
+<td>25 GB</td>
+<td>VirtIO GPU, Intel HDA</td>
+</tr>
+<tr class="even">
+<td>Linux 2.0 / 2.4 / 2.6 / 2.6 x86_64</td>
+<td><code>x86</code> / <code>x86_64</code></td>
+<td>default</td>
+<td>64–256 MB</td>
+<td>4–20 GB</td>
+<td>For old kernels</td>
+</tr>
+<tr class="odd">
+<td>FreeBSD 4 / 7 / 8</td>
+<td><code>x86</code></td>
+<td>default</td>
+<td>64–256 MB</td>
+<td>4–20 GB</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>Haiku OS</td>
+<td><code>x86_64</code> / <code>pc</code></td>
+<td>core2duo</td>
+<td>1024 MB</td>
+<td>10 GB</td>
+<td>Intel HDA</td>
+</tr>
+<tr class="odd">
+<td>FreeDOS</td>
+<td><code>i386</code> / <code>pc</code></td>
+<td>pentium</td>
+<td>32 MB</td>
+<td>500 MB</td>
+<td>Cirrus, SB16 + AdLib, PC speaker, boots from floppy</td>
+</tr>
+<tr class="even">
+<td>Raspberry Pi OS</td>
+<td><code>aarch64</code> / <code>raspi3b</code></td>
+<td>cortex-a53 ×4</td>
+<td>1024 MB</td>
+<td>16 GB</td>
+<td>Real Pi 3B board, USB (lan9514) network</td>
+</tr>
+<tr class="odd">
+<td>RISC-V Linux</td>
+<td><code>riscv64</code> / <code>virt</code></td>
+<td>rv64 ×2</td>
+<td>2048 MB</td>
+<td>20 GB</td>
+<td>VirtIO GPU and network</td>
+</tr>
+</tbody>
+</table>
+<p>You can save any VM as your own template with
+<code>VM → Save As Template</code>.</p>
+<h2 id="3-linux-and-bsd">3. Linux and BSD</h2>
+<p><strong>Guest Operating System → Linux</strong> offers Ubuntu,
+Debian, Fedora, Arch, openSUSE, Mint, Alpine, Rocky, AlmaLinux, NixOS
+and many more, in 32-bit, 64-bit and ARM64 versions. The 64-bit PC
+profiles use:</p>
+<ul>
+<li><code>x86_64</code> + <code>q35</code>, <code>-cpu max</code>, 4096
+MB RAM, a 20 GB disk</li>
+<li>VirtIO disk, VirtIO network and VirtIO VGA first, with AHCI/NVMe,
+e1000e/e1000 and QXL/std as fallbacks</li>
+</ul>
+<blockquote>
+<p>Ubuntu desktop needs about 4 GB RAM. AQEMU's tip: "GNOME live/install
+fails on 2 GB under TCG." Use WHPX or KVM if you can.</p>
+</blockquote>
+<p>FreeBSD (64-bit) and Haiku (64-bit) use the same Q35 + VirtIO
+pattern.</p>
+<h2 id="4-arm-raspberry-pi-and-arm64">4. ARM: Raspberry Pi and
+ARM64</h2>
+<p>You have two choices:</p>
+<ul>
+<li><strong>Emulate a real Pi board.</strong> Use <strong>System /
+Machine Platform → Raspberry Pi</strong> (Pi Zero, 1, 2, 3, 4) or the
+<strong>Raspberry Pi OS</strong> template (<code>raspi3b</code>, see
+above). This is the most authentic option, but it's slow and limited to
+the board's devices.</li>
+<li><strong>Run Raspberry Pi OS on a generic ARM64 VM.</strong> Use
+<strong>Guest Operating System → Linux → ARM64 / AArch64 (Modern ARM) →
+Raspberry Pi OS (ARM64)</strong>. It uses <code>aarch64</code> +
+<code>virt</code>, VirtIO, UEFI, 2048 MB and 16 GB. This is much faster,
+and it uses KVM on ARM Linux hosts.</li>
+</ul>
+<p>ARM64 Linux profiles (Ubuntu, Debian, Fedora…) get dual-pflash UEFI,
+xHCI input, <code>-cpu host</code> with KVM on ARM hosts, and
+<code>-cpu max</code> with TCG elsewhere.</p>
+<h2 id="5-risc-v-power-sparc-and-ibm-z">5. RISC-V, POWER, SPARC and IBM
+Z</h2>
+<table>
+<thead>
+<tr class="header">
+<th>Guest</th>
+<th>Profile</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>RISC-V</td>
+<td><strong>RISC-V Linux</strong> template (<code>virt</code>, rv64,
+VirtIO), or <strong>Lab → RISC-V virt lab</strong> (open firmware and
+kernels only)</td>
+</tr>
+<tr class="even">
+<td>AIX</td>
+<td><code>ppc64</code> + <code>pseries</code>, POWER8, 2 GB+. TCG only
+(WHPX can't accelerate POWER), so it's very slow.</td>
+</tr>
+<tr class="odd">
+<td>Solaris SPARC</td>
+<td><code>sparc64</code> + <code>sun4u</code>, UltraSPARC II, sunhme
+network, SCSI disk</td>
+</tr>
+<tr class="even">
+<td>Linux on IBM Z</td>
+<td><code>s390x</code> + <code>s390-ccw-virtio</code>, VirtIO CCW disk
+and network, usually headless</td>
+</tr>
+<tr class="odd">
+<td>IRIX 6.x</td>
+<td><code>mips64</code> + <code>magnum</code>, marked
+<strong>experimental</strong>; needs a suitable IRIX image</td>
+</tr>
+</tbody>
+</table>
+<h2 id="6-dos-os2-and-retro">6. DOS, OS/2 and retro</h2>
+<table>
+<thead>
+<tr class="header">
+<th>Guest</th>
+<th>What AQEMU picks</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>MS-DOS</td>
+<td><code>i386</code> PC, 486 CPU, 32 MB, IDE, Cirrus</td>
+</tr>
+<tr class="even">
+<td>FreeDOS</td>
+<td><code>i386</code> PC, 64 MB, IDE, NE2000/PCnet/RTL8139, SB16</td>
+</tr>
+<tr class="odd">
+<td>OS/2 Warp</td>
+<td>"Proven AQEMU profile": Force TCG / pentium3, Cirrus, ACPI off, IDE
+(not VirtIO), RTL8139, ES1370, 512 MB, 1 CPU. AQEMU's tip: "LVM Error 9
+usually means VirtIO/ACPI."</td>
+</tr>
+<tr class="even">
+<td>Original Xbox (Lab)</td>
+<td>Runs through a separate <strong>xemu</strong> binary that you
+install. You bring xemu, the MCPX, the flash BIOS, the HDD, the DVD and
+the EEPROM. AQEMU doesn't ship Microsoft ROMs.</td>
+</tr>
+</tbody>
+</table>
+<p>For these guests, set <strong>Pointer mode</strong> to
+<strong>Relative</strong> on the Machine tab.</p>
+<h2 id="7-truenas-and-remote-storage">7. TrueNAS and remote storage</h2>
+<ul>
+<li><strong>TrueNAS SCALE</strong> (<code>TrueNAS / Storage</code>):
+<code>x86_64</code> + <code>q35</code>, 8192 MB, a 32 GB disk on NVMe,
+VirtIO networking, and <strong>4096-byte (4Kn) sectors</strong> by
+default for OpenZFS.</li>
+<li>The <strong>Storage</strong> tab has <strong>Enable TrueNAS Guest
+Integration</strong>. Enter the TrueNAS address, port and API token,
+then click <strong>Refresh from TrueNAS</strong> to see its pools.</li>
+<li><code>VM → Storage → Attach Remote SAN Storage (iSCSI / NVMe-oF)…</code>
+attaches network block storage to a VM.</li>
+</ul>
+<h2 id="8-aqemu-guest-tools">8. AQEMU guest tools</h2>
+<p>For basic use you don't need anything in the guest:</p>
+<ul>
+<li><strong>Text</strong> copy/paste works through AQEMU's built-in
+display.</li>
+<li><strong>Paste files</strong> gives the guest a floppy (A:) or a FAT
+USB drive named <strong>AQEMU</strong>.</li>
+</ul>
+<p>To copy files to and from guest paths (<strong>To guest</strong> /
+<strong>From guest</strong>), or to copy files in the guest's file
+manager and have them arrive on the host, click <strong>Guest
+tools</strong>. AQEMU inserts a floppy with the tools.</p>
+<p><strong>Linux guest:</strong> open a terminal in that folder and
+run</p>
+<pre class="sh"><code>sh install-linux.sh</code></pre>
+<p>It installs <code>qemu-guest-agent</code> with <code>apt-get</code>,
+<code>dnf</code> or <code>pacman</code>, enables it, and starts the
+clipboard helper (<code>aqemu-guest.py</code>) if <code>python3</code>
+is present. The helper needs <code>wl-paste</code> or
+<code>xclip</code>.</p>
+<p><strong>Windows guest:</strong> install <code>qemu-guest-agent</code>
+from the QEMU project (it includes the virtio serial driver). Then, in
+the tools folder, run</p>
+<pre class="bat"><code>powershell -STA -ExecutionPolicy Bypass -File aqemu-guest.ps1</code></pre>
+<p><strong>DOS and Windows 95/98:</strong> these can't run the tools.
+Keep using <strong>Paste files</strong>.</p>
+<p>More detail is in <a
+href="https://github.com/chronic8000/aqemu/blob/master/docs/COPY_AND_PASTE.md">Copy
+and paste</a>.</p>
+<hr />
+<p>Next: <a href="user-guide.html">User Guide</a> · <a
+href="windows-11-guide.html">Windows guide</a> · <a
+href="documentation-hub.html">Documentation Hub</a></p>
+
+  </article>
+</div>
+<footer><div class="wrap">
+  <span>© 2026 Chronic Engineering · AQEMU is GPLv2 · QEMU is a trademark of Fabrice Bellard.</span>
+  <span><a href="../">Home</a> · <a href="https://apps.microsoft.com/detail/9P0HGKHQ9W19?cid=ghpages_docs">Microsoft Store</a> · <a href="https://github.com/chronic8000/aqemu">GitHub</a></span>
+</div></footer>
+</body>
+</html>

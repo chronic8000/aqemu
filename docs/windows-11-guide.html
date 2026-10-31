@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Windows 11 (ARM and x86) and Legacy Windows – AQEMU Docs</title>
+<meta name="description" content="Run Windows 11 on ARM and x86, plus Windows 9x, XP and 7, in AQEMU: defaults, lifecycle modes, TPM and OOBE tips.">
+<link rel="canonical" href="https://chronic8000.github.io/aqemu/docs/windows-11-guide.html">
+<meta name="theme-color" content="#0b0f19">
+<link rel="icon" type="image/png" href="../favicon.png">
+<style>:root{--bg:#0b0f19;--bg2:#111827;--card:#151d2e;--line:#243049;--text:#e6ebf5;--mute:#9aa6bd;--acc:#4f9dff;--acc2:#8b5cf6}
+*{box-sizing:border-box}html{scroll-behavior:smooth}
+body{margin:0;font:16px/1.7 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+a{color:var(--acc);text-decoration:none}a:hover{text-decoration:underline}
+.wrap{max-width:1120px;margin:0 auto;padding:0 20px}
+header.nav{position:sticky;top:0;z-index:10;background:rgba(11,15,25,.85);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+header.nav .wrap{display:flex;align-items:center;justify-content:space-between;height:60px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;color:var(--text);font-size:18px}.brand img{width:34px;height:auto}
+nav a{color:var(--mute);margin-left:22px;font-size:15px}nav a:hover,nav a.on{color:var(--text);text-decoration:none}
+@media(max-width:800px){nav a.hide-sm{display:none}nav a{margin-left:14px}}
+.layout{display:grid;grid-template-columns:220px 1fr;gap:40px;padding:40px 20px 72px}
+@media(max-width:900px){.layout{grid-template-columns:1fr}.side{display:none}}
+.side{position:sticky;top:84px;align-self:start;font-size:15px}
+.side h4{margin:0 0 10px;color:var(--mute);font-size:12px;letter-spacing:.08em;text-transform:uppercase}
+.side a{display:block;padding:6px 10px;border-radius:8px;color:var(--mute)}.side a.on,.side a:hover{background:var(--card);color:var(--text);text-decoration:none}
+.side .store{margin-top:18px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--bg2)}
+article{min-width:0}
+article h1{font-size:clamp(28px,4vw,42px);line-height:1.15;margin:0 0 18px;letter-spacing:-.02em}
+article h2{font-size:26px;margin:44px 0 12px;padding-top:12px;border-top:1px solid var(--line)}
+article h3{font-size:19px;margin:28px 0 8px}
+article p,article li{color:#cfd7e6}
+article hr{border:0;border-top:1px solid var(--line);margin:32px 0}
+article table{border-collapse:collapse;width:100%;margin:16px 0;font-size:15px;display:block;overflow-x:auto}
+article th,article td{border:1px solid var(--line);padding:8px 12px;text-align:left;vertical-align:top}
+article th{background:var(--bg2)}article tr:nth-child(even) td{background:rgba(21,29,46,.5)}
+code{font:13px/1.4 ui-monospace,SFMono-Regular,Consolas,monospace;background:#0e1524;border:1px solid var(--line);padding:2px 6px;border-radius:6px;color:#c9d6ff}
+pre{background:#0e1524;border:1px solid var(--line);border-radius:12px;padding:16px;overflow-x:auto}pre code{border:0;padding:0;background:none}
+blockquote{margin:18px 0;padding:12px 18px;border-left:4px solid var(--acc2);background:var(--card);border-radius:0 10px 10px 0}blockquote p{margin:4px 0}
+footer{padding:40px 0;color:var(--mute);font-size:14px;border-top:1px solid var(--line)}
+footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}</style>
+</head>
+<body>
+<header class="nav"><div class="wrap">
+  <a class="brand" href="../"><img src="../img/logo.png" alt="AQEMU logo" width="34" height="27">AQEMU <span style="color:var(--mute);font-weight:500">Docs</span></a>
+  <nav><a href="./">Docs</a><a class="hide-sm" href="user-guide.html">User Guide</a><a class="hide-sm on" href="windows-11-guide.html">Windows</a><a class="hide-sm" href="os-catalog.html">OS Catalog</a><a href="https://github.com/chronic8000/aqemu">GitHub</a></nav>
+</div></header>
+<div class="wrap layout">
+  <aside class="side"><h4>Guides</h4><a href="documentation-hub.html">Docs home</a><a href="user-guide.html">User Guide</a><a href="windows-11-guide.html" class=on>Windows</a><a href="os-catalog.html">OS Catalog</a>
+    <div class="store"><a href="https://apps.microsoft.com/detail/9P0HGKHQ9W19?cid=ghpages_docs">Get AQEMU on the Microsoft Store</a></div>
+    <p style="font-size:13px;color:var(--mute);margin-top:14px"><a href="https://github.com/chronic8000/aqemu/edit/master/docs/WINDOWS_11_ARM_AND_X86_GUIDE.md">Edit this page on GitHub</a></p>
+  </aside>
+  <article>
+<h1 id="windows-11-arm-and-x86-and-legacy-windows">Windows 11 (ARM and
+x86) and Legacy Windows</h1>
+<p>This is the Windows guide. It covers Windows 11 on ARM, Windows 11 on
+x86, and the classics: Windows 9x, XP and 7. AQEMU ships tuned defaults
+for all of them. This guide shows you where those defaults are, what
+they do, and what to change when you need to.</p>
+<blockquote>
+<p>You need your own Windows installer ISO and licence. AQEMU doesn't
+ship Windows.</p>
+</blockquote>
+<p><strong>Contents</strong></p>
+<ol type="1">
+<li><a href="#1-windows-11-on-arm">Windows 11 on ARM</a></li>
+<li><a href="#2-windows-11-on-x86_64">Windows 11 on x86_64</a></li>
+<li><a href="#3-getting-past-oobe-local-account">Getting past OOBE
+(local account)</a></li>
+<li><a href="#4-legacy-windows-9x-xp-7">Legacy Windows: 9x, XP,
+7</a></li>
+</ol>
+<hr />
+<h2 id="1-windows-11-on-arm">1. Windows 11 on ARM</h2>
+<h3 id="step-1-prepare-a-slipstreamed-iso">Step 1: Prepare a
+slipstreamed ISO</h3>
+<p>Windows Setup on ARM can't see a VirtIO disk without drivers. The
+cleanest fix is a Windows 11 ARM64 ISO with the <a
+href="https://github.com/virtio-win/virtio-win-pkg-scripts">Windows
+VirtIO drivers</a> (ARM64 builds) already added to <code>boot.wim</code>
+and <code>install.wim</code>. AQEMU's wizard expects this.</p>
+<p>If your ISO isn't slipstreamed, the wizard can attach
+<code>virtio-win.iso</code> as a second CD so you can load drivers by
+hand during Setup.</p>
+<h3 id="step-2-create-the-vm">Step 2: Create the VM</h3>
+<ol type="1">
+<li>Open the wizard: <code>VM → Add VM → Add New VM</code>
+(<code>Ctrl+N</code>).</li>
+<li>Choose <strong>Custom / Advanced</strong>, then
+<strong>Template</strong>, and set <strong>OS Type</strong> to
+<strong>Windows 11 ARM</strong>.
+<ul>
+<li>On an ARM host, <strong>Guest Operating System → Microsoft → Windows
+11</strong> also switches to AArch64 + <code>virt</code>
+automatically.</li>
+</ul></li>
+<li>The <strong>Windows 11 ARM Install</strong> page asks for:
+<ul>
+<li><strong>Virtual disk:</strong> <strong>Create a new disk
+image</strong> or <strong>Use an existing disk image</strong>. If
+Windows is already on that disk, tick <strong>Windows is already
+installed on this disk</strong>.</li>
+<li><strong>Windows 11 ARM ISO:</strong> your slipstreamed ISO.</li>
+<li><strong>Also attach virtio-win.iso (only if drivers were not
+slipstreamed)</strong>.</li>
+<li><strong>TPM 2.0 (start swtpm with this VM)</strong>. This is only
+enabled if <code>swtpm</code> is installed. The VM still boots without
+it.</li>
+</ul></li>
+<li>Finish. AQEMU picks UEFI (AAVMF) firmware and creates a private VARS
+file for this VM.</li>
+</ol>
+<h3 id="what-aqemu-sets-up-for-you">What AQEMU sets up for you</h3>
+<p>These are the <strong>Windows 11 ARM</strong> template defaults. We
+checked them by running AQEMU's argument builder:</p>
+<table>
+<thead>
+<tr class="header">
+<th>Setting</th>
+<th>Default</th>
+<th>QEMU flag</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Machine</td>
+<td><code>virt</code>, GICv3, high memory, ITS</td>
+<td><code>-machine virt,gic-version=3,highmem=on,its=on</code></td>
+</tr>
+<tr class="even">
+<td>CPU / cores</td>
+<td><code>max</code>, 4 vCPUs</td>
+<td>see the accelerator table below</td>
+</tr>
+<tr class="odd">
+<td>Memory</td>
+<td>8 GB</td>
+<td><code>-m 8192</code></td>
+</tr>
+<tr class="even">
+<td>Disk</td>
+<td>64 GB, VirtIO</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>Graphics</td>
+<td>VirtIO GPU with EDID</td>
+<td><code>-device virtio-gpu-pci,edid=on,max_outputs=1</code></td>
+</tr>
+<tr class="even">
+<td>Audio</td>
+<td>USB audio on its own xHCI controller</td>
+<td><code>-device qemu-xhci,id=usb_audio_xhci -device usb-audio</code></td>
+</tr>
+<tr class="odd">
+<td>Network</td>
+<td>User-mode NAT, VirtIO NIC</td>
+<td><code>-netdev user</code> + <code>virtio-net-pci</code></td>
+</tr>
+<tr class="even">
+<td>Input</td>
+<td>USB tablet + USB keyboard on xHCI</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>Extras</td>
+<td>VirtIO RNG, VirtIO balloon, the guest-agent channel, guest clock in
+local time</td>
+<td><code>virtio-rng-pci</code>, <code>virtio-balloon-pci</code>,
+<code>-rtc base=localtime</code></td>
+</tr>
+<tr class="even">
+<td>Firmware</td>
+<td>AAVMF UEFI + per-VM VARS</td>
+<td>two <code>pflash</code> drives</td>
+</tr>
+</tbody>
+</table>
+<p><strong>CPU and accelerator.</strong> AQEMU chooses the CPU flags
+itself:</p>
+<table>
+<thead>
+<tr class="header">
+<th>Host</th>
+<th>Accelerator</th>
+<th>CPU AQEMU uses</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>x86_64 (Windows or Linux)</td>
+<td>TCG (emulation, slow)</td>
+<td><code>-cpu max,pauth-impdef=on</code> with
+<code>-accel tcg,thread=multi,tb-size=1024</code></td>
+</tr>
+<tr class="even">
+<td>Windows on ARM</td>
+<td>WHPX</td>
+<td><code>-cpu max</code>. AQEMU avoids <code>-cpu host</code> here
+because it has been tied to host crashes on Insider WHPX-ARM builds.
+WHPX also needs the AAVMF firmware.</td>
+</tr>
+<tr class="odd">
+<td>Linux on ARM</td>
+<td>KVM</td>
+<td><code>-cpu host</code></td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>Running ARM Windows on an x86 PC is full emulation. It works, but
+expect it to be much slower than an ARM host.</p>
+</blockquote>
+<h3 id="step-3-the-three-lifecycle-modes">Step 3: The three lifecycle
+modes</h3>
+<p>On the <strong>Machine</strong> tab, Windows 11 ARM VMs get their own
+panel with three buttons. This is the part that makes Windows on ARM
+painless:</p>
+<table>
+<thead>
+<tr class="header">
+<th>Button</th>
+<th>What it does</th>
+<th>When to use it</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Install Windows</strong></td>
+<td>"Install profile (BVM firstboot): ramfb only, USB installer ISO, CD
+boot first."</td>
+<td>While Windows Setup runs</td>
+</tr>
+<tr class="even">
+<td><strong>First boot</strong></td>
+<td>"First boot / OOBE (BVM boot): virtio-gpu only, no installer ISO,
+HDD boot, cache=none."</td>
+<td>After Setup, for the OOBE screens</td>
+</tr>
+<tr class="odd">
+<td><strong>Normal</strong></td>
+<td>"Daily use (BVM boot): virtio-gpu only, no installer ISO, HDD
+boot."</td>
+<td>Every day after that</td>
+</tr>
+</tbody>
+</table>
+<p>A new install starts in <strong>Install Windows</strong>: the display
+is <code>ramfb</code> and a VirtIO keyboard is added so Setup works
+before any drivers load. When Setup finishes, switch to <strong>First
+boot</strong>, complete OOBE, then switch to <strong>Normal</strong>.
+The panel shows the current mode (for example "Mode: Normal").</p>
+<hr />
+<h2 id="2-windows-11-on-x86_64">2. Windows 11 on x86_64</h2>
+<p><strong>Quickest path:</strong> <strong>Guest Operating System →
+Microsoft → Windows 11</strong>. The wizard profile uses x86_64 +
+<code>q35</code>, <code>-cpu max</code>, 4 GB RAM, a 40 GB disk, NVMe as
+the first disk choice, VirtIO or e1000e networking, Intel HDA audio, and
+VirtIO VGA.</p>
+<p>The older <strong>Windows 11</strong> template (under <strong>Custom
+/ Advanced → Template</strong>) is plainer: <code>q35</code>,
+<code>max</code>, 2 CPUs, 4 GB, 64 GB, standard VGA, Intel HDA and
+e1000.</p>
+<p><strong>Windows 11's checks need UEFI and TPM 2.0.</strong> In
+AQEMU:</p>
+<ul>
+<li><strong>TPM:</strong> <strong>Machine → Advanced → TPM:</strong> set
+to <strong>emulator (swtpm socket)</strong>. This needs
+<code>swtpm</code> installed.</li>
+<li><strong>UEFI:</strong> <strong>Machine → Advanced → OVMF CODE / OVMF
+VARS</strong>.</li>
+</ul>
+<p><strong>Acceleration:</strong> choose <strong>WHPX</strong> on
+Windows hosts or <strong>KVM</strong> on Linux in the
+<strong>Accelerator</strong> box on the Machine tab.</p>
+<p>If you can't use a TPM, the well-known manual workaround still works.
+In Setup, press <strong>Shift+F10</strong> and add the
+<code>LabConfig</code> keys <code>BypassTPMCheck</code>,
+<code>BypassSecureBootCheck</code> and <code>BypassRAMCheck</code>
+(DWORD <code>1</code>) under <code>HKLM\SYSTEM\Setup\LabConfig</code>.
+AQEMU doesn't do this for you.</p>
+<hr />
+<h2 id="3-getting-past-oobe-local-account">3. Getting past OOBE (local
+account)</h2>
+<p>Newer Windows 11 builds push hard for a Microsoft account. AQEMU has
+a helper button: <strong>Machine → OOBE / UCPD…</strong> ("OOBE account
+bypass (Shift+F10) and UCPD.sys removal helpers"). It gives you commands
+to paste into the guest.</p>
+<p>To open a command prompt during OOBE, press
+<strong>Shift+F10</strong>. The running VM's toolbar also has a
+<strong>Send Shift+F10</strong> button. Then try these in order:</p>
+<pre class="bat"><code>rem 1) Local-account OOBE URI (works on many 24H2+ builds):
+start ms-cxh:localonly
+
+rem 2) Classic BypassNRO + reboot (if step 1 does nothing):
+reg add &quot;HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\OOBE&quot; /v BypassNRO /t REG_DWORD /d 1 /f
+shutdown /r /t 0
+
+rem 3) Optional: kill networking so OOBE offers offline path:
+ipconfig /release</code></pre>
+<p><strong>UCPD fix.</strong> If an ARM VM reboots or blue-screens right
+after OOBE, the same button gives you the UCPD.sys removal commands. Run
+them in the guest command prompt, then reboot.</p>
+<hr />
+<h2 id="4-legacy-windows-9x-xp-7">4. Legacy Windows: 9x, XP, 7</h2>
+<h3 id="windows-95--98">Windows 95 / 98</h3>
+<p>Use <strong>Guest Operating System → Microsoft → Windows 98</strong>
+(or Windows 95). It's a proven AQEMU profile:</p>
+<ul>
+<li><code>qemu-system-i386</code>, <code>pc</code> machine, 1 CPU, 128
+MB RAM</li>
+<li><strong>Pure TCG</strong> with a <code>pentium2</code> CPU
+(<code>-accel tcg,thread=single</code>)</li>
+<li>Cirrus VGA, IDE disk, NE2000 PCI network, Sound Blaster 16, ACPI
+off</li>
+</ul>
+<p>You can turn on <strong>Force pure TCG (Win9x / pre-ME)</strong> for
+any VM under <strong>Machine → Advanced</strong>. AQEMU then swaps
+<code>max</code>/<code>host</code>/<code>qemu64</code> CPUs for
+<code>pentium2</code> and drops hardware acceleration. Windows 9x is not
+happy on modern virtualised CPUs.</p>
+<p>Tips:</p>
+<ul>
+<li>Keep RAM at 512 MB or less. Windows 9x has well-known problems with
+more.</li>
+<li>Set <strong>Pointer mode</strong> to <strong>Relative</strong>
+(Windows 9x has no tablet driver). Click the screen to capture the
+mouse, and middle-click or press Escape to release it.</li>
+<li>To move files in, use <strong>Paste files</strong>. AQEMU builds a
+floppy (A:) or a FAT USB drive. See <a
+href="https://github.com/chronic8000/aqemu/blob/master/docs/COPY_AND_PASTE.md">Copy
+and paste</a>.</li>
+</ul>
+<h3 id="windows-xp-and-windows-7">Windows XP and Windows 7</h3>
+<p>The built-in templates:</p>
+<table>
+<thead>
+<tr class="header">
+<th>Template</th>
+<th>Emulator</th>
+<th>RAM</th>
+<th>Disk</th>
+<th>Audio</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Windows XP</td>
+<td><code>qemu-system-i386</code></td>
+<td>256 MB</td>
+<td>20 GB</td>
+<td>ES1370</td>
+</tr>
+<tr class="even">
+<td>Windows XP x64</td>
+<td><code>qemu-system-x86_64</code></td>
+<td>256 MB</td>
+<td>20 GB</td>
+<td>ES1370</td>
+</tr>
+<tr class="odd">
+<td>Windows 7</td>
+<td><code>qemu-system-i386</code></td>
+<td>1024 MB</td>
+<td>40 GB</td>
+<td>ES1370</td>
+</tr>
+<tr class="even">
+<td>Windows 7 x64</td>
+<td><code>qemu-system-x86_64</code></td>
+<td>1024 MB</td>
+<td>40 GB</td>
+<td>ES1370</td>
+</tr>
+</tbody>
+</table>
+<p>XP and 7 have no VirtIO drivers in the box, so stay with
+<strong>IDE</strong> or <strong>AHCI (SATA)</strong> disks and an e1000
+or RTL8139 NIC. Moving to VirtIO later means loading the drivers inside
+the guest first.</p>
+<hr />
+<p>Next: <a href="os-catalog.html">Operating System Catalog</a> · <a
+href="user-guide.html">User Guide</a> · <a
+href="documentation-hub.html">Documentation Hub</a></p>
+
+  </article>
+</div>
+<footer><div class="wrap">
+  <span>© 2026 Chronic Engineering · AQEMU is GPLv2 · QEMU is a trademark of Fabrice Bellard.</span>
+  <span><a href="../">Home</a> · <a href="https://apps.microsoft.com/detail/9P0HGKHQ9W19?cid=ghpages_docs">Microsoft Store</a> · <a href="https://github.com/chronic8000/aqemu">GitHub</a></span>
+</div></footer>
+</body>
+</html>

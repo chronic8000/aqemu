@@ -78,7 +78,7 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}
 <body>
 <header class="nav"><div class="wrap">
   <a class="brand" href="#top"><img src="img/logo.png" alt="AQEMU logo" width="34" height="27">AQEMU</a>
-  <nav><a class="hide-sm" href="#features">Features</a><a class="hide-sm" href="#pricing">Pricing</a><a href="#faq">FAQ</a><a href="https://github.com/chronic8000/aqemu">GitHub</a></nav>
+  <nav><a class="hide-sm" href="#features">Features</a><a class="hide-sm" href="#pricing">Pricing</a><a href="docs/">Docs</a><a href="#faq">FAQ</a><a href="https://github.com/chronic8000/aqemu">GitHub</a></nav>
 </div></header>
 
 <main id="top">
@@ -162,7 +162,7 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}
 
 <section id="faq"><div class="wrap">
   <h2>FAQ</h2>
-  <p class="sub">Short answers. The <a href="https://github.com/chronic8000/aqemu/tree/master/docs">docs</a> have the long ones.</p>
+  <p class="sub">Short answers. The <a href="docs/">docs</a> have the long ones.</p>
   <details><summary>Which Windows do I need for ARM64 acceleration?</summary><p>A Windows on Arm PC running Windows 11 24H2, build 26100.3915 or newer, with the Windows Hypervisor Platform feature turned on. On older builds, ARM64 guests still run with QEMU's software emulation (TCG), just more slowly.</p></details>
   <details><summary>Does it work on regular Intel and AMD PCs?</summary><p>Yes. The Store build supports Windows x64 as well as Windows on Arm. x86 guests can use WHPX acceleration, and other architectures run under TCG.</p></details>
   <details><summary>Do I need to install QEMU separately?</summary><p>No. The Store build ships QEMU, firmware and tools beside the app. You can point AQEMU at your own QEMU folder if you prefer.</p></details>
@@ -177,7 +177,10 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}
 <section class="alt"><div class="wrap docs">
   <h2>Documentation</h2>
   <div class="grid">
-    <div class="card"><h3><a href="https://github.com/chronic8000/aqemu/blob/master/docs/README.md">Docs index</a></h3><p>All the long guides in one place.</p></div>
+    <div class="card"><h3><a href="docs/">Docs home</a></h3><p>Start here: every guide and reference doc in one place.</p></div>
+    <div class="card"><h3><a href="docs/user-guide.html">User guide</a></h3><p>First start, the main window, the New Virtual Machine Wizard and the settings tabs.</p></div>
+    <div class="card"><h3><a href="docs/windows-11-guide.html">Windows 11 guide</a></h3><p>Windows 11 on ARM and x86, TPM and UEFI, plus Windows 9x, XP and 7.</p></div>
+    <div class="card"><h3><a href="docs/os-catalog.html">OS catalog</a></h3><p>Linux, BSD, Raspberry Pi, RISC-V, POWER, SPARC, DOS, OS/2 and the built-in templates.</p></div>
     <div class="card"><h3><a href="https://github.com/chronic8000/aqemu/blob/master/docs/LAB_1.6.0.md">QEMU Lab 1.6</a></h3><p>Menus, storage, snapshots, networking and acceleration.</p></div>
     <div class="card"><h3><a href="https://github.com/chronic8000/aqemu/blob/master/docs/COPY_AND_PASTE.md">Copy and paste</a></h3><p>Text, Paste files, To guest and From guest.</p></div>
     <div class="card"><h3><a href="https://github.com/chronic8000/aqemu/blob/master/docs/VM_WIZARD_THREE_PATH.md">New VM wizard</a></h3><p>How the creation paths fit together.</p></div>
