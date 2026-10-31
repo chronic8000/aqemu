@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="https://apps.microsoft.com/detail/9P0HGKHQ9W19?cid=ghreadme"><img src="https://get.microsoft.com/images/en-gb%20dark.svg" alt="Get AQEMU from the Microsoft Store" width="200"/></a><br/>
+  <a href="https://apps.microsoft.com/detail/9P0HGKHQ9W19?cid=ghreadme"><img src="https://get.microsoft.com/images/en-us%20dark.svg" alt="Get AQEMU from the Microsoft Store" width="200"/></a><br/>
   <b>Website:</b> <a href="https://chronic8000.github.io/aqemu/">chronic8000.github.io/aqemu</a> · 7-day trial on the Microsoft Store, then a one-time purchase
 </p>
 
