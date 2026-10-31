@@ -1,5 +1,7 @@
 # Windows 11 and Legacy Windows
 
+<!-- site:skip-start -->_Docs v1 Â· checked against the AQEMU source on `master`, 31 October 2026._<!-- site:skip-end -->
+
 This is the Windows guide. It covers Windows 11 on ARM, Windows 11 on x86, and the classics: Windows 9x, XP and 7. AQEMU ships tuned defaults for all of them. This guide shows you where those defaults are, what they do, and what to change when you need to.
 
 > You need your own Windows installer ISO and licence. AQEMU doesn't ship Windows.
@@ -14,6 +16,8 @@ This is the Windows guide. It covers Windows 11 on ARM, Windows 11 on x86, and t
 ---
 
 ## 1. Windows 11 on ARM
+
+> **Host by host:** accelerator, CPU model, limitations and steps for Windows ARM64, Windows x64, Linux ARM64 and Linux x64 are in [Windows 11 on ARM, host by host](guest-os/windows-11-arm.md).
 
 ### Step 1: Prepare a slipstreamed ISO
 
@@ -39,7 +43,7 @@ These are the **Windows 11 ARM** template defaults. We checked them by running A
 
 | Setting | Default | QEMU flag |
 | --- | --- | --- |
-| Machine | `virt`, GICv3, high memory, ITS | `-machine virt,gic-version=3,highmem=on,its=on` |
+| Machine | `virt`, GICv3, high memory, ITS (with WHPX: GICv3 + `msi=gicv2m`, no ITS) | `-machine virt,gic-version=3,highmem=on,its=on` |
 | CPU / cores | `max`, 4 vCPUs | see the accelerator table below |
 | Memory | 8 GB | `-m 8192` |
 | Disk | 64 GB, VirtIO | |
@@ -127,7 +131,7 @@ You can turn on **Force pure TCG (Win9x / pre-ME)** for any VM under **Machine â
 
 Tips:
 - Keep RAM at 512 MB or less. Windows 9x has well-known problems with more.
-- Set **Pointer mode** to **Relative** (Windows 9x has no tablet driver). Click the screen to capture the mouse, and middle-click or press Escape to release it.
+- Set **Pointer mode** to **Relative** (Windows 9x has no tablet driver). Click the screen to capture the mouse, and press **Esc** or **Ctrl+Alt** to release it.
 - To move files in, use **Paste files**. AQEMU builds a floppy (A:) or a FAT USB drive. See [Copy and paste](copy-and-paste.md).
 
 ### Windows XP and Windows 7

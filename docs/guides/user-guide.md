@@ -1,5 +1,7 @@
 # User Guide: Getting Started and the New VM Wizard
 
+<!-- site:skip-start -->_Docs v1 · checked against the AQEMU source on `master`, 31 October 2026._<!-- site:skip-end -->
+
 Welcome to AQEMU! This guide walks you through the first start, the main window, and the **New Virtual Machine Wizard**, which is how most VMs get made. Every label below is the exact text you'll see in the app.
 
 **Contents**
@@ -37,7 +39,7 @@ The VM list is on the left and the selected VM's settings are on the right.
 
 | Menu | What's in it |
 | --- | --- |
-| **File** | Disks, Import and Export (OVA/OVF appliances), Host tools, **Preferences…** |
+| **File** | Disks, Import and Export (OVA/OVF appliances), **Host** submenu, **Preferences…** |
 | **VM** | **Add VM** (→ **Add New VM**, `Ctrl+N`), Save As Template, Start / Pause / Shutdown / Power Off / Reset, plus the **Apple**, **Recovery**, **Storage**, **Tools** and **Lab** submenus |
 | **Help** | **About AQEMU**, **QEMU Help Browser…**, and the **Diagnostics** submenu |
 
@@ -84,7 +86,7 @@ Select a VM and you'll see these tabs:
 | **Info** | A summary of the selected VM |
 | **Machine** | Name, Architecture, CPU Model, CPUs, Accelerator, Boot order, Graphics, Resolution, Keyboard, Pointer mode, USB, Memory, Audio, disk Interface, and the **Advanced** button. Windows 11 ARM and Intel macOS VMs get their own panel here too. |
 | **Media** | Hard disks, CD/DVD and floppy images, plus **Boot Kernel** (direct kernel/initrd boot) and **Special Images** |
-| **Display** | Display settings, with **VNC Remote** and **QEMU Window** sub-tabs. While a VM is running, its live screen also opens as a Display tab. |
+| **Display** | Display settings, with **VNC Remote**, **SPICE Remote** and **QEMU Window** sub-tabs. While a VM is running, its live screen also opens as a Display tab. |
 | **Network** | Network cards, **Redirections** (port forwards), and **TFTP/SAMBA** |
 | **Storage** | **Enable TrueNAS Guest Integration**: connect to a TrueNAS host (address, port, API token) and see its pools |
 
@@ -92,7 +94,7 @@ Select a VM and you'll see these tabs:
 
 **Disk Interface** choices: VirtIO, VirtIO SCSI, SCSI, IDE, AHCI (SATA), SD and NVMe. The **Apply VirtIO defaults** button switches a VM to VirtIO in one click.
 
-**Pointer mode:** *Seamless* uses an absolute tablet, so the host and guest cursors line up with no mouse grab. *Relative* is a PS/2-style mouse: click the screen to capture and middle-click or Escape to release. Use Relative for Windows 9x and other guests with no tablet driver.
+**Pointer mode:** *Seamless* uses an absolute tablet, so the host and guest cursors line up with no mouse grab. *Relative* is a PS/2-style mouse: click the screen to capture, and press **Esc** or **Ctrl+Alt** to release. Use Relative for Windows 9x and other guests with no tablet driver.
 
 ---
 
@@ -131,7 +133,7 @@ aqemu stop "My VM"
 
 | Host | Accelerators | Notes |
 | --- | --- | --- |
-| **Windows 10/11 x64** | WHPX, TCG; KVM through WSL | Available from the [Microsoft Store](https://apps.microsoft.com/detail/9P0HGKHQ9W19?cid=docs_user_guide) |
+| **Windows 10/11 x64** | WHPX, TCG; KVM through WSL | Available from the [Microsoft Store](https://apps.microsoft.com/detail/9P0HGKHQ9W19?cid=docs) |
 | **Windows 11 on ARM** | WHPX, TCG | For AArch64 guests under WHPX, AQEMU uses `-cpu max` and needs the AAVMF UEFI firmware |
 | **Linux x86_64 / ARM64** | KVM, TCG | Build from [source](https://github.com/chronic8000/aqemu) |
 

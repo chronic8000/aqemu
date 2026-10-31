@@ -1,6 +1,10 @@
 # Operating System Catalog
 
-AQEMU isn't just for Windows. The wizard knows **230 operating system profiles** across **28 CPU architecture families** (29 QEMU system emulators): Linux and BSD on PC and ARM, DOS and OS/2, Solaris on SPARC, AIX on POWER, Linux on IBM Z, and plenty of museum pieces.
+<!-- site:skip-start -->_Docs v1 · checked against the AQEMU source on `master`, 31 October 2026._<!-- site:skip-end -->
+
+> **Looking for one OS?** The [guest OS guides](guest-os/README.md) list every OS in the wizard, grouped by family, with the settings AQEMU picks.
+
+AQEMU isn't just for Windows. The wizard knows **230 operating system profiles**, which use **19 different QEMU system emulators**: Linux and BSD on PC and ARM, DOS and OS/2, Solaris on SPARC, AIX on POWER, Linux on IBM Z, and plenty of museum pieces.
 
 This catalog shows you where to find each family in the **New Virtual Machine Wizard**, what AQEMU picks for you, and how to install the AQEMU guest tools.
 
