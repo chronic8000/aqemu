@@ -1,6 +1,7 @@
 <p align="center">
   <a href="https://apps.microsoft.com/detail/9P0HGKHQ9W19?cid=ghreadme"><img src="https://get.microsoft.com/images/en-us%20dark.svg" alt="Get AQEMU from the Microsoft Store" width="200"/></a><br/>
-  <b>Website:</b> <a href="https://chronic8000.github.io/aqemu/">chronic8000.github.io/aqemu</a> · 7-day trial on the Microsoft Store, then a one-time purchase
+  <b>Website:</b> <a href="https://chronic8000.github.io/aqemu/">chronic8000.github.io/aqemu</a> · 7-day trial on the Microsoft Store, then a one-time purchase<br/>
+  <b>Documentation:</b> <a href="https://chronic8000.github.io/aqemu/docs/">chronic8000.github.io/aqemu/docs</a> · <a href="docs/DOCUMENTATION_HUB.md">Documentation Hub</a> (user guide, Windows 11, OS catalog)
 </p>
 
 <p align="center">
@@ -201,7 +202,7 @@ We keep the original authors’ names. We do **not** inherit their old donation 
 
 ## What’s new vs the old AQEMU (tobimensch / ~0.9.x)
 
-The last widely known community tree — [tobimensch/aqemu](https://github.com/tobimensch/aqemu) — went quiet in 2020 (Qt5 port, embedded VNC, you brought your own QEMU). **AQEMU 1.6.5.0** is that codebase continued: the same GPLv2 frontend, with the capability model, runtime, wizard, hosts, and distribution pipeline rebuilt on top. The 1.6.0 QEMU Lab is documented in [`docs/LAB_1.6.0.md`](docs/LAB_1.6.0.md). The rest of the long guides are indexed in [`docs/README.md`](docs/README.md).
+The last widely known community tree — [tobimensch/aqemu](https://github.com/tobimensch/aqemu) — went quiet in 2020 (Qt5 port, embedded VNC, you brought your own QEMU). **AQEMU 1.6.5.0** is that codebase continued: the same GPLv2 frontend, with the capability model, runtime, wizard, hosts, and distribution pipeline rebuilt on top. The 1.6.0 QEMU Lab is documented in [`docs/LAB_1.6.0.md`](docs/LAB_1.6.0.md). Start with the [Documentation Hub](docs/DOCUMENTATION_HUB.md) (also on the [website](https://chronic8000.github.io/aqemu/docs/)); the rest of the long guides are indexed in [`docs/README.md`](docs/README.md).
 
 | | Tobias Gläßer’s 0.9.x | AQEMU 1.6.5.0 |
 |--|--|--|
