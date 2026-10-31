@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>macOS Guide (Experimental) – AQEMU Docs</title>
+<meta name="description" content="Experimental: Classic Mac OS on PowerPC and the experimental Intel macOS profile in AQEMU.">
+<link rel="canonical" href="https://chronic8000.github.io/aqemu/docs/macos-guide.html">
+<meta name="theme-color" content="#0b0f19">
+<link rel="icon" type="image/png" href="../favicon.png">
+<style>:root{--bg:#0b0f19;--bg2:#111827;--card:#151d2e;--line:#243049;--text:#e6ebf5;--mute:#9aa6bd;--acc:#4f9dff;--acc2:#8b5cf6}
+*{box-sizing:border-box}html{scroll-behavior:smooth}
+body{margin:0;font:16px/1.7 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+a{color:var(--acc);text-decoration:none}a:hover{text-decoration:underline}
+.wrap{max-width:1120px;margin:0 auto;padding:0 20px}
+header.nav{position:sticky;top:0;z-index:10;background:rgba(11,15,25,.85);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+header.nav .wrap{display:flex;align-items:center;justify-content:space-between;height:60px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;color:var(--text);font-size:18px}.brand img{width:34px;height:auto}
+nav a{color:var(--mute);margin-left:22px;font-size:15px}nav a:hover,nav a.on{color:var(--text);text-decoration:none}
+@media(max-width:800px){nav a.hide-sm{display:none}nav a{margin-left:14px}}
+.layout{display:grid;grid-template-columns:220px 1fr;gap:40px;padding:40px 20px 72px}
+@media(max-width:900px){.layout{grid-template-columns:1fr}.side{display:none}}
+.side{position:sticky;top:84px;align-self:start;font-size:15px}
+.side h4{margin:0 0 10px;color:var(--mute);font-size:12px;letter-spacing:.08em;text-transform:uppercase}
+.side a{display:block;padding:6px 10px;border-radius:8px;color:var(--mute)}.side a.on,.side a:hover{background:var(--card);color:var(--text);text-decoration:none}
+.side .store{margin-top:18px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--bg2)}
+article{min-width:0}
+article h1{font-size:clamp(28px,4vw,42px);line-height:1.15;margin:0 0 18px;letter-spacing:-.02em}
+article h2{font-size:26px;margin:44px 0 12px;padding-top:12px;border-top:1px solid var(--line)}
+article h3{font-size:19px;margin:28px 0 8px}
+article p,article li{color:#cfd7e6}
+article hr{border:0;border-top:1px solid var(--line);margin:32px 0}
+article table{border-collapse:collapse;width:100%;margin:16px 0;font-size:15px;display:block;overflow-x:auto}
+article th,article td{border:1px solid var(--line);padding:8px 12px;text-align:left;vertical-align:top}
+article th{background:var(--bg2)}article tr:nth-child(even) td{background:rgba(21,29,46,.5)}
+code{font:13px/1.4 ui-monospace,SFMono-Regular,Consolas,monospace;background:#0e1524;border:1px solid var(--line);padding:2px 6px;border-radius:6px;color:#c9d6ff}
+pre{background:#0e1524;border:1px solid var(--line);border-radius:12px;padding:16px;overflow-x:auto}pre code{border:0;padding:0;background:none}
+blockquote{margin:18px 0;padding:12px 18px;border-left:4px solid var(--acc2);background:var(--card);border-radius:0 10px 10px 0}blockquote p{margin:4px 0}
+.docver{font-size:13px;color:var(--mute);margin:-8px 0 22px}.docver span{display:inline-block;padding:1px 9px;margin-right:8px;border:1px solid var(--line);border-radius:999px;background:var(--bg2);color:var(--text)}
+footer{padding:40px 0;color:var(--mute);font-size:14px;border-top:1px solid var(--line)}
+footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}</style>
+</head>
+<body>
+<header class="nav"><div class="wrap">
+  <a class="brand" href="../"><img src="../img/logo.png" alt="AQEMU logo" width="34" height="27">AQEMU <span style="color:var(--mute);font-weight:500">Docs</span></a>
+  <nav><a href="./">Docs</a><a class="hide-sm" href="user-guide.html">User Guide</a><a class="hide-sm" href="windows-11-guide.html">Windows</a><a class="hide-sm" href="os-catalog.html">OS Catalog</a><a class="hide-sm on" href="macos-guide.html">macOS (Experimental)</a><a class="hide-sm" href="ios-apple-soc-guide.html">iOS / Apple SoC (Experimental)</a><a href="https://github.com/chronic8000/aqemu">GitHub</a></nav>
+</div></header>
+<div class="wrap layout">
+  <aside class="side"><h4>Guides</h4><a href="documentation-hub.html">Docs home</a><a href="user-guide.html">User Guide</a><a href="windows-11-guide.html">Windows</a><a href="os-catalog.html">OS Catalog</a><a href="macos-guide.html" class=on>macOS (Experimental)</a><a href="ios-apple-soc-guide.html">iOS / Apple SoC (Experimental)</a>
+    <div class="store"><a href="https://apps.microsoft.com/detail/9P0HGKHQ9W19?cid=ghpages_docs">Get AQEMU on the Microsoft Store</a></div>
+    <p style="font-size:13px;color:var(--mute);margin-top:14px"><a href="https://github.com/chronic8000/aqemu/edit/master/docs/MACOS_INSTALLATION_GUIDE.md">Edit this page on GitHub</a></p>
+  </aside>
+  <article>
+<h1 id="macos-guide-experimental">macOS Guide (Experimental)</h1>
+<p class="docver"><span>Docs v1</span> Last updated 31 October 2026. These guides are a first version and will be updated.</p>
+<blockquote>
+<p><strong>Experimental.</strong> Intel macOS in AQEMU is an
+experimental profile, and the app labels it that way. It is not a
+supported or announced feature, and it may not boot on your hardware.
+Classic Mac OS on PowerPC uses standard QEMU emulation. AQEMU doesn't
+ship any Apple software, firmware or keys. You supply your own, and
+you're responsible for following Apple's licence terms.</p>
+</blockquote>
+<p>AQEMU has two very different Mac paths:</p>
+<ol type="1">
+<li><strong>Classic Mac OS on PowerPC</strong> (Mac OS 7 to 9, Mac OS X
+PPC), using <code>qemu-system-ppc</code>.</li>
+<li><strong>Intel macOS (experimental)</strong>, using
+<code>qemu-system-x86_64</code> + <code>q35</code> with OpenCore.</li>
+</ol>
+<hr />
+<h2 id="1-classic-mac-os-powerpc">1. Classic Mac OS (PowerPC)</h2>
+<h3 id="what-you-need">What you need</h3>
+<ul>
+<li>A QEMU build that includes <code>qemu-system-ppc</code>. If
+<strong>Start</strong> can't find the binary, install one and run the
+First Start Wizard again.</li>
+<li>Your own Mac OS install CD/ISO, or a prepared disk image.</li>
+</ul>
+<h3 id="create-the-vm">Create the VM</h3>
+<p><strong>Guest Operating System → Apple → Mac OS 9</strong> (or Mac OS
+7, Mac OS 8, Mac OS X PPC). Or use the <strong>Mac OS Classic
+PPC</strong> template under <strong>Custom / Advanced →
+Template</strong>.</p>
+<table>
+<thead>
+<tr class="header">
+<th></th>
+<th>Mac OS 9 profile</th>
+<th>Mac OS X PPC profile</th>
+<th>Mac OS Classic PPC template</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Machine</td>
+<td><code>mac99</code> (or <code>g3beige</code>)</td>
+<td><code>mac99</code> (or <code>g3beige</code>)</td>
+<td><code>mac99</code></td>
+</tr>
+<tr class="even">
+<td>CPU</td>
+<td>G4</td>
+<td>G4</td>
+<td>default</td>
+</tr>
+<tr class="odd">
+<td>RAM</td>
+<td>256 MB</td>
+<td>512 MB</td>
+<td>512 MB</td>
+</tr>
+<tr class="even">
+<td>Disk</td>
+<td>4 GB, IDE</td>
+<td>10 GB, IDE</td>
+<td>10 GB</td>
+</tr>
+<tr class="odd">
+<td>Network</td>
+<td>sungem</td>
+<td>sungem</td>
+<td>sungem</td>
+</tr>
+</tbody>
+</table>
+<p>When we ran AQEMU's argument builder on the template, it produced
+<code>-machine mac99 -accel tcg,thread=single -m 512 -net nic,model=sungem</code>.
+PowerPC is always emulated (TCG).</p>
+<p>Attach your install media on the <strong>Media</strong> tab and click
+<strong>Start</strong>.</p>
+<hr />
+<h2 id="2-intel-macos-experimental">2. Intel macOS (experimental)</h2>
+<h3 id="what-you-need-1">What you need</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Item</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>OpenCore</strong></td>
+<td>A bootable OpenCore ISO or disk image you prepare yourself</td>
+</tr>
+<tr class="even">
+<td><strong>Installer image</strong></td>
+<td>A macOS installer disk image (for example one made with MIST)</td>
+</tr>
+<tr class="odd">
+<td><strong>Apple SMC OSK</strong></td>
+<td>The 64-byte SMC key. AQEMU <strong>never pre-fills it</strong> and
+won't start this profile without one. Get it from Mac hardware you
+own.</td>
+</tr>
+<tr class="even">
+<td><strong>OVMF</strong></td>
+<td>UEFI firmware (<code>OVMF CODE</code> / <code>OVMF VARS</code>)</td>
+</tr>
+<tr class="odd">
+<td><strong>Acceleration</strong></td>
+<td>Strongly recommended: KVM on Linux, or on Windows <strong>Launch via
+WSL/KVM</strong> ("Run Linux QEMU inside WSL with KVM when
+available")</td>
+</tr>
+</tbody>
+</table>
+<h3 id="create-the-vm-1">Create the VM</h3>
+<p><strong>Guest Operating System → Apple → macOS</strong> (or
+<strong>Mac OS X Intel</strong>). The wizard opens the <strong>Intel
+macOS Setup</strong> page:</p>
+<ul>
+<li><strong>OpenCore (ISO or disk image)</strong></li>
+<li><strong>System disk:</strong> <strong>Create a new disk
+image</strong> or <strong>Use an existing disk image</strong></li>
+<li><strong>Installer disk image (MIST APM/HFS .iso)</strong></li>
+<li><strong>Apple SMC OSK (required to start)</strong>: paste your own
+key</li>
+</ul>
+<p>The profile uses <code>q35</code>, 4096 MB RAM, a 40 GB AHCI (SATA)
+disk, an <code>e1000-82545em</code> NIC, and VMware SVGA graphics at the
+host's native resolution.</p>
+<p>After the VM is created, these settings live on the Machine tab's
+<strong>Intel macOS</strong> panel (<strong>OpenCore ISO/disk</strong>,
+<strong>Installer image</strong>, <strong>Apple SMC OSK</strong>,
+<strong>Launch via WSL/KVM</strong>) and in <strong>Machine →
+Advanced</strong> under <strong>Enable Intel macOS profile (q35 +
+OpenCore + SMC)</strong>.</p>
+<h3 id="what-aqemu-sets-automatically">What AQEMU sets
+automatically</h3>
+<p>You don't need to pick a CPU model or add SMC flags yourself. With
+the Intel macOS profile on, we ran AQEMU's argument builder and got:</p>
+<pre><code>-cpu Skylake-Client-v4,vendor=GenuineIntel,+invtsc,tsc-frequency=2000000000
+-device isa-applesmc,osk=&lt;your key&gt;
+-smbios type=2</code></pre>
+<ul>
+<li>AQEMU escapes any commas in the OSK for you. It doesn't check the
+key's length or contents, so paste it exactly.</li>
+<li>When QEMU runs inside WSL with KVM, AQEMU also adds
+<code>kvm=on,vmware-cpuid-freq=on</code> to the CPU.</li>
+<li>Under pure TCG, QEMU warns that <code>invtsc</code> isn't supported.
+Expect TCG to be too slow for real use.</li>
+</ul>
+<h3 id="install">Install</h3>
+<ol type="1">
+<li>Click <strong>Start</strong>. OpenCore's picker should appear.</li>
+<li>Choose the installer, use Disk Utility to erase the system disk as
+<strong>APFS</strong>, then install.</li>
+<li>After the reboots, choose the system disk in OpenCore.</li>
+</ol>
+<p>This is experimental. If it doesn't boot, please open an <a
+href="https://github.com/chronic8000/aqemu/issues">issue</a> with your
+QEMU arguments (<code>VM → Tools → Show QEMU Arguments</code>), with the
+OSK removed.</p>
+<hr />
+<p><a href="documentation-hub.html">Documentation Hub</a> · <a
+href="user-guide.html">User Guide</a></p>
+
+  </article>
+</div>
+<footer><div class="wrap">
+  <span>© 2026 Chronic Engineering · AQEMU is GPLv2 · QEMU is a trademark of Fabrice Bellard.</span>
+  <span><a href="../">Home</a> · <a href="https://apps.microsoft.com/detail/9P0HGKHQ9W19?cid=ghpages_docs">Microsoft Store</a> · <a href="https://github.com/chronic8000/aqemu">GitHub</a></span>
+</div></footer>
+</body>
+</html>

@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>iOS / Apple SoC Guide (Experimental) – AQEMU Docs</title>
+<meta name="description" content="Experimental research tooling: the Inferno Apple SoC (t8030) tools in AQEMU.">
+<link rel="canonical" href="https://chronic8000.github.io/aqemu/docs/ios-apple-soc-guide.html">
+<meta name="theme-color" content="#0b0f19">
+<link rel="icon" type="image/png" href="../favicon.png">
+<style>:root{--bg:#0b0f19;--bg2:#111827;--card:#151d2e;--line:#243049;--text:#e6ebf5;--mute:#9aa6bd;--acc:#4f9dff;--acc2:#8b5cf6}
+*{box-sizing:border-box}html{scroll-behavior:smooth}
+body{margin:0;font:16px/1.7 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+a{color:var(--acc);text-decoration:none}a:hover{text-decoration:underline}
+.wrap{max-width:1120px;margin:0 auto;padding:0 20px}
+header.nav{position:sticky;top:0;z-index:10;background:rgba(11,15,25,.85);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+header.nav .wrap{display:flex;align-items:center;justify-content:space-between;height:60px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;color:var(--text);font-size:18px}.brand img{width:34px;height:auto}
+nav a{color:var(--mute);margin-left:22px;font-size:15px}nav a:hover,nav a.on{color:var(--text);text-decoration:none}
+@media(max-width:800px){nav a.hide-sm{display:none}nav a{margin-left:14px}}
+.layout{display:grid;grid-template-columns:220px 1fr;gap:40px;padding:40px 20px 72px}
+@media(max-width:900px){.layout{grid-template-columns:1fr}.side{display:none}}
+.side{position:sticky;top:84px;align-self:start;font-size:15px}
+.side h4{margin:0 0 10px;color:var(--mute);font-size:12px;letter-spacing:.08em;text-transform:uppercase}
+.side a{display:block;padding:6px 10px;border-radius:8px;color:var(--mute)}.side a.on,.side a:hover{background:var(--card);color:var(--text);text-decoration:none}
+.side .store{margin-top:18px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--bg2)}
+article{min-width:0}
+article h1{font-size:clamp(28px,4vw,42px);line-height:1.15;margin:0 0 18px;letter-spacing:-.02em}
+article h2{font-size:26px;margin:44px 0 12px;padding-top:12px;border-top:1px solid var(--line)}
+article h3{font-size:19px;margin:28px 0 8px}
+article p,article li{color:#cfd7e6}
+article hr{border:0;border-top:1px solid var(--line);margin:32px 0}
+article table{border-collapse:collapse;width:100%;margin:16px 0;font-size:15px;display:block;overflow-x:auto}
+article th,article td{border:1px solid var(--line);padding:8px 12px;text-align:left;vertical-align:top}
+article th{background:var(--bg2)}article tr:nth-child(even) td{background:rgba(21,29,46,.5)}
+code{font:13px/1.4 ui-monospace,SFMono-Regular,Consolas,monospace;background:#0e1524;border:1px solid var(--line);padding:2px 6px;border-radius:6px;color:#c9d6ff}
+pre{background:#0e1524;border:1px solid var(--line);border-radius:12px;padding:16px;overflow-x:auto}pre code{border:0;padding:0;background:none}
+blockquote{margin:18px 0;padding:12px 18px;border-left:4px solid var(--acc2);background:var(--card);border-radius:0 10px 10px 0}blockquote p{margin:4px 0}
+.docver{font-size:13px;color:var(--mute);margin:-8px 0 22px}.docver span{display:inline-block;padding:1px 9px;margin-right:8px;border:1px solid var(--line);border-radius:999px;background:var(--bg2);color:var(--text)}
+footer{padding:40px 0;color:var(--mute);font-size:14px;border-top:1px solid var(--line)}
+footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}</style>
+</head>
+<body>
+<header class="nav"><div class="wrap">
+  <a class="brand" href="../"><img src="../img/logo.png" alt="AQEMU logo" width="34" height="27">AQEMU <span style="color:var(--mute);font-weight:500">Docs</span></a>
+  <nav><a href="./">Docs</a><a class="hide-sm" href="user-guide.html">User Guide</a><a class="hide-sm" href="windows-11-guide.html">Windows</a><a class="hide-sm" href="os-catalog.html">OS Catalog</a><a class="hide-sm" href="macos-guide.html">macOS (Experimental)</a><a class="hide-sm on" href="ios-apple-soc-guide.html">iOS / Apple SoC (Experimental)</a><a href="https://github.com/chronic8000/aqemu">GitHub</a></nav>
+</div></header>
+<div class="wrap layout">
+  <aside class="side"><h4>Guides</h4><a href="documentation-hub.html">Docs home</a><a href="user-guide.html">User Guide</a><a href="windows-11-guide.html">Windows</a><a href="os-catalog.html">OS Catalog</a><a href="macos-guide.html">macOS (Experimental)</a><a href="ios-apple-soc-guide.html" class=on>iOS / Apple SoC (Experimental)</a>
+    <div class="store"><a href="https://apps.microsoft.com/detail/9P0HGKHQ9W19?cid=ghpages_docs">Get AQEMU on the Microsoft Store</a></div>
+    <p style="font-size:13px;color:var(--mute);margin-top:14px"><a href="https://github.com/chronic8000/aqemu/edit/master/docs/IOS_APPLE_SOC_INSTALLATION_GUIDE.md">Edit this page on GitHub</a></p>
+  </aside>
+  <article>
+<h1 id="ios--apple-soc-guide-experimental">iOS / Apple SoC Guide
+(Experimental)</h1>
+<p class="docver"><span>Docs v1</span> Last updated 31 October 2026. These guides are a first version and will be updated.</p>
+<blockquote>
+<p><strong>Experimental research tooling.</strong> This is not a
+supported or announced AQEMU feature, and it is not an "iPhone
+simulator". AQEMU drives the third-party <a
+href="https://chefkiss.dev/guides/inferno/file-setup/">ChefKiss
+Inferno</a> QEMU fork (<code>qemu-system-applesoc</code>). It's slow
+(TCG only), it needs a lot of manual preparation, and it may not reach
+the home screen on your setup. AQEMU <strong>does not ship</strong>
+IPSWs, kernels, DeviceTrees, tickets or any Apple firmware. You bring
+those, and you're responsible for following Apple's licence terms.</p>
+</blockquote>
+<p>The step-by-step walkthrough, with every field explained, is in <a
+href="https://github.com/chronic8000/aqemu/blob/master/extras/Inferno/iOS_Installation.md"><code>extras/Inferno/iOS_Installation.md</code></a>.
+This page is the overview: what exists in AQEMU and where to find
+it.</p>
+<hr />
+<h2 id="1-what-you-need">1. What you need</h2>
+<table>
+<thead>
+<tr class="header">
+<th>Item</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Windows 10/11 + WSL Ubuntu</strong>, or Linux</td>
+<td>On Windows, AQEMU always runs <code>qemu-system-applesoc</code>
+through <strong>WSL</strong></td>
+</tr>
+<tr class="even">
+<td><strong>Inferno <code>qemu-system-applesoc</code></strong></td>
+<td>Installed in Linux or WSL</td>
+</tr>
+<tr class="odd">
+<td><strong>A companion Linux VM</strong></td>
+<td>Runs <code>idevicerestore</code> to restore the IPSW. See step
+3.</td>
+</tr>
+<tr class="even">
+<td><strong>Your IPSW + extracted firmware</strong></td>
+<td>The tooling targets the <strong>iPhone 11 (t8030, n104ap)</strong>.
+Tickets, SEP firmware and the IPSW must all come from the <strong>same
+build</strong>.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="2-create-the-ios-vm">2. Create the iOS VM</h2>
+<p><strong>Guest Operating System → Apple → iOS (ARM64)</strong>. The
+wizard sets:</p>
+<ul>
+<li>Emulator <code>qemu-system-applesoc</code>, machine
+<strong><code>t8030</code></strong>, CPU <code>max</code></li>
+<li>At least <strong>4096 MB</strong> RAM, <strong>4</strong> vCPUs, no
+PC VGA, a USB tablet</li>
+<li>USB bridge: <code>127.0.0.1:8030</code> on Windows (a UNIX socket on
+Linux)</li>
+<li><strong>NAND (root) size</strong>: 16 / 32 / 64 / 128 / 256 GiB, or
+Custom (16 to 2048 GiB). The default is <strong>32 GiB</strong>.</li>
+</ul>
+<h2 id="3-create-the-restore-companion">3. Create the restore
+companion</h2>
+<p><strong>Guest Operating System → Apple → iPhone IPSW Restore
+Companion</strong> (also listed under Linux as <em>IPSW Restore
+Companion (Ubuntu)</em>). This makes a normal AQEMU VM: Ubuntu Server,
+2048 MB, 20 GB, <code>companion.qcow2</code>. When you click Finish,
+AQEMU downloads Ubuntu Server (or uses your ISO). You can SSH in
+with:</p>
+<pre><code>ssh -p 32222 user@127.0.0.1</code></pre>
+<hr />
+<h2 id="4-the-apple-tools-vm--apple">4. The Apple tools
+(<code>VM → Apple</code>)</h2>
+<table>
+<thead>
+<tr class="header">
+<th>Menu item</th>
+<th>Window</th>
+<th>What it's for</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>iOS Firmware Tool…</strong></td>
+<td><em>iOS Firmware Tool</em></td>
+<td><strong>Unpack IPSW</strong>, <strong>Forge restore + SEP
+tickets</strong>, <strong>Decrypt + pack SEP firmware</strong>,
+<strong>Run pyimg4</strong>, <strong>Copy locations</strong></td>
+</tr>
+<tr class="even">
+<td><strong>Apple SoC Restore…</strong></td>
+<td><em>Apple SoC Restore (Inferno companion)</em></td>
+<td><strong>Apply localhost preset (127.0.0.1:8030)</strong>,
+<strong>Start companion in WSL</strong> / <strong>Stop
+companion</strong>, <strong>Diagnose USB bridge</strong>,
+<strong>Restore IPSW via SSH…</strong></td>
+</tr>
+<tr class="odd">
+<td><strong>Apply iOS filesystem patches…</strong></td>
+<td></td>
+<td>Patches the guest <code>root</code> disk after a restore (needed or
+the screen stays black)</td>
+</tr>
+<tr class="even">
+<td><strong>Guest Internet / iOS Device Tools…</strong></td>
+<td><em>iOS Device Tools / Guest Internet</em></td>
+<td><strong>Internet</strong> tab: <strong>Enable guest internet
+(reverse-tether)</strong>. <strong>Device</strong> tab: <strong>Device
+info</strong>, <strong>List apps</strong>, <strong>Install
+IPA...</strong>, <strong>Screenshot</strong></td>
+</tr>
+<tr class="odd">
+<td><strong>Wipe Inferno disks…</strong></td>
+<td></td>
+<td>Start over with clean NAND images</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>Some older text (the wizard's help panel and
+<code>extras/Inferno/iOS_Installation.md</code>) still says <strong>File
+→</strong> for these items. They now live under <strong>VM →
+Apple</strong>.</p>
+</blockquote>
+<h2 id="5-the-order-of-operations">5. The order of operations</h2>
+<ol type="1">
+<li><strong>iOS Firmware Tool:</strong> unpack your IPSW, forge the
+restore + SEP tickets, and pack the SEP firmware.</li>
+<li>Fill in the firmware paths on the VM's Machine settings, then grow
+<code>root</code> to the size you want <strong>before</strong> the first
+restore.</li>
+<li><strong>Apple SoC Restore:</strong> set the companion disk and SSH
+login, click <strong>Start companion in WSL</strong>, and wait for SSH
+on port 32222.</li>
+<li>Start the iOS VM. You should see the restore screen, not the home
+screen.</li>
+<li>Click <strong>Restore IPSW via SSH…</strong>. When the restore
+finishes, QEMU exits. That's normal.</li>
+<li>Power off and run <strong>Apply iOS filesystem patches…</strong> on
+the guest <code>root</code> disk (not the companion).</li>
+<li>Power on again.</li>
+</ol>
+<blockquote>
+<p><strong>Build mismatch warning.</strong> If the IPSW is iOS 14.0 beta
+5 (<code>18A5351d</code>) but your tickets and SEP pack were made from a
+different build, the restore fails after NORData with <code>-256</code>.
+AQEMU warns you about this.</p>
+</blockquote>
+<h2 id="6-hardware-buttons">6. Hardware buttons</h2>
+<p>While the VM runs, click <strong>Pad</strong> on the session toolbar
+("Show / hide floating iOS button pad") to open the <strong>iOS
+buttons</strong> window:</p>
+<table>
+<thead>
+<tr class="header">
+<th>Button</th>
+<th>Inferno key</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Vol−</strong></td>
+<td>F3</td>
+<td>Volume down</td>
+</tr>
+<tr class="even">
+<td><strong>Vol+</strong></td>
+<td>F4</td>
+<td>Volume up</td>
+</tr>
+<tr class="odd">
+<td><strong>Side</strong></td>
+<td>F5</td>
+<td>Click: sleep/wake. Hold about 2 s: power menu</td>
+</tr>
+<tr class="even">
+<td><strong>Home</strong></td>
+<td>F6</td>
+<td>Click: Home screen. Double-click: App Switcher</td>
+</tr>
+<tr class="odd">
+<td><strong>SOS</strong></td>
+<td></td>
+<td>The Vol-up + Side combo. Use it on the Welcome / "Swipe up"
+screen.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<p><a href="documentation-hub.html">Documentation Hub</a> · <a
+href="https://chefkiss.dev/guides/inferno/file-setup/">Inferno file
+setup</a> · <a
+href="https://chefkiss.dev/guides/inferno/fs-patches/">Inferno
+filesystem patches</a></p>
+
+  </article>
+</div>
+<footer><div class="wrap">
+  <span>© 2026 Chronic Engineering · AQEMU is GPLv2 · QEMU is a trademark of Fabrice Bellard.</span>
+  <span><a href="../">Home</a> · <a href="https://apps.microsoft.com/detail/9P0HGKHQ9W19?cid=ghpages_docs">Microsoft Store</a> · <a href="https://github.com/chronic8000/aqemu">GitHub</a></span>
+</div></footer>
+</body>
+</html>
