@@ -1,8 +1,8 @@
-# iOS / Apple SoC Guide (Experimental)
+# iOS and Apple SoC (Experimental)
 
 > **Experimental research tooling.** This is not a supported or announced AQEMU feature, and it is not an "iPhone simulator". AQEMU drives the third-party [ChefKiss Inferno](https://chefkiss.dev/guides/inferno/file-setup/) QEMU fork (`qemu-system-applesoc`). It's slow (TCG only), it needs a lot of manual preparation, and it may not reach the home screen on your setup. AQEMU **does not ship** IPSWs, kernels, DeviceTrees, tickets or any Apple firmware. You bring those, and you're responsible for following Apple's licence terms.
 
-The step-by-step walkthrough, with every field explained, is in [`extras/Inferno/iOS_Installation.md`](../extras/Inferno/iOS_Installation.md). This page is the overview: what exists in AQEMU and where to find it.
+The step-by-step walkthrough, with every field explained, is in [`extras/Inferno/iOS_Installation.md`](../../extras/Inferno/iOS_Installation.md). This page is the overview: what exists in AQEMU and where to find it.
 
 ---
 
@@ -74,4 +74,4 @@ While the VM runs, click **Pad** on the session toolbar ("Show / hide floating i
 
 ---
 
-[Documentation Hub](DOCUMENTATION_HUB.md) · [Inferno file setup](https://chefkiss.dev/guides/inferno/file-setup/) · [Inferno filesystem patches](https://chefkiss.dev/guides/inferno/fs-patches/)
+[Documentation Hub](../README.md) · [Inferno file setup](https://chefkiss.dev/guides/inferno/file-setup/) · [Inferno filesystem patches](https://chefkiss.dev/guides/inferno/fs-patches/)

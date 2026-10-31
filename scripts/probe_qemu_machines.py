@@ -683,7 +683,7 @@ def main() -> int:
     args = ap.parse_args()
 
     repo = Path(__file__).resolve().parents[1]
-    out_md = args.out_md or (repo / "docs" / "QEMU_MACHINE_CATALOG.md")
+    out_md = args.out_md or (repo / "docs" / "reference" / "qemu-machine-catalog.md")
     out_json = args.out_json or (repo / "docs" / "qemu_machine_catalog.json")
     out_md.parent.mkdir(parents=True, exist_ok=True)
 

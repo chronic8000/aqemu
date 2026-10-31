@@ -1,7 +1,7 @@
 <p align="center">
   <a href="https://apps.microsoft.com/detail/9P0HGKHQ9W19?cid=ghreadme"><img src="https://get.microsoft.com/images/en-us%20dark.svg" alt="Get AQEMU from the Microsoft Store" width="200"/></a><br/>
   <b>Website:</b> <a href="https://chronic8000.github.io/aqemu/">chronic8000.github.io/aqemu</a> · 7-day trial on the Microsoft Store, then a one-time purchase<br/>
-  <b>Documentation:</b> <a href="https://chronic8000.github.io/aqemu/docs/">chronic8000.github.io/aqemu/docs</a> · <a href="docs/DOCUMENTATION_HUB.md">Documentation Hub</a> (user guide, Windows 11, OS catalog)
+  <b>Documentation:</b> <a href="https://chronic8000.github.io/aqemu/docs/">chronic8000.github.io/aqemu/docs</a> · <a href="docs/README.md">docs/README.md</a> (user guide, Windows 11, OS catalog)
 </p>
 
 <p align="center">
@@ -158,7 +158,7 @@ Full walkthrough (including re-install): [`extras/Inferno/iOS_Installation.md`](
 |--|--|
 | **Microsoft Store** | [AQEMU VM Manager on Microsoft Store](https://apps.microsoft.com/detail/9p0hgkhq9w19) (Official Windows installation with automatic updates) |
 | **Releases & Source** | [GitHub Releases](https://github.com/chronic8000/aqemu/releases) / [Repository](https://github.com/chronic8000/aqemu) |
-| **File bugs** | [GitHub Issues](https://github.com/chronic8000/aqemu/issues) — host OS, guest OS, and exact log outputs help us triage quickly. Historical [tobimensch/aqemu issues](https://github.com/tobimensch/aqemu/issues) are archived context only; triage lives in [`docs/TOBIMENSCH_ISSUE_TRIAGE.md`](docs/TOBIMENSCH_ISSUE_TRIAGE.md) |
+| **File bugs** | [GitHub Issues](https://github.com/chronic8000/aqemu/issues) — host OS, guest OS, and exact log outputs help us triage quickly. Historical [tobimensch/aqemu issues](https://github.com/tobimensch/aqemu/issues) are archived context only; triage lives in [`docs/development/tobimensch-issue-triage.md`](docs/development/tobimensch-issue-triage.md) |
 | **What we care about** | Install wizards, embedded SPICE, Win9x/XP TCG, Win11 ARM, Intel macOS, Solaris x86, AIX/pseries, migrate/QMP tools, experimental iOS (Inferno) |
 
 ---
@@ -202,7 +202,7 @@ We keep the original authors’ names. We do **not** inherit their old donation 
 
 ## What’s new vs the old AQEMU (tobimensch / ~0.9.x)
 
-The last widely known community tree — [tobimensch/aqemu](https://github.com/tobimensch/aqemu) — went quiet in 2020 (Qt5 port, embedded VNC, you brought your own QEMU). **AQEMU 1.6.5.0** is that codebase continued: the same GPLv2 frontend, with the capability model, runtime, wizard, hosts, and distribution pipeline rebuilt on top. The 1.6.0 QEMU Lab is documented in [`docs/LAB_1.6.0.md`](docs/LAB_1.6.0.md). Start with the [Documentation Hub](docs/DOCUMENTATION_HUB.md) (also on the [website](https://chronic8000.github.io/aqemu/docs/)); the rest of the long guides are indexed in [`docs/README.md`](docs/README.md).
+The last widely known community tree — [tobimensch/aqemu](https://github.com/tobimensch/aqemu) — went quiet in 2020 (Qt5 port, embedded VNC, you brought your own QEMU). **AQEMU 1.6.5.0** is that codebase continued: the same GPLv2 frontend, with the capability model, runtime, wizard, hosts, and distribution pipeline rebuilt on top. The 1.6.0 QEMU Lab is documented in [`docs/guides/qemu-lab-1.6.md`](docs/guides/qemu-lab-1.6.md). Every guide is listed in the [documentation index](docs/README.md), which is also on the [website](https://chronic8000.github.io/aqemu/docs/).
 
 | | Tobias Gläßer’s 0.9.x | AQEMU 1.6.5.0 |
 |--|--|--|
@@ -219,7 +219,7 @@ The last widely known community tree — [tobimensch/aqemu](https://github.com/t
 | **Acceleration** | One accelerator choice, easy to apply to the wrong guest | Explicit **TCG**, WHPX/HAX, or KVM. Win9x is forced to TCG. Cross-architecture guests stay on TCG. WSL/KVM path for Intel macOS and Reims |
 | **Guests that needed hand-written flags** | Generic PC | **Windows 11 ARM**, Win9x, classic Mac, Intel macOS + **Reims vGPU**, TrueNAS CORE & SCALE (including ARM64), Solaris, AIX, OS/2. Experimental: iOS 14 via Inferno |
 | **Packaging** | Build it yourself | GitHub Actions builds **Windows MSIX** (x64 and ARM64) and **Linux tarballs** (x86_64 and Pi 5) on every `master` push. WiX MSI for a classic installer. Version comes from `VERSION.txt` |
-| **Upstream issue list** | [72 open issues](https://github.com/tobimensch/aqemu/issues) we cannot close there | Triaged in [`docs/TOBIMENSCH_ISSUE_TRIAGE.md`](docs/TOBIMENSCH_ISSUE_TRIAGE.md). Launch, network `vlan=`, USB, CD/floppy, UEFI, and QEMU version detection are fixed here. New bugs go to [chronic8000/aqemu](https://github.com/chronic8000/aqemu/issues) |
+| **Upstream issue list** | [72 open issues](https://github.com/tobimensch/aqemu/issues) we cannot close there | Triaged in [`docs/development/tobimensch-issue-triage.md`](docs/development/tobimensch-issue-triage.md). Launch, network `vlan=`, USB, CD/floppy, UEFI, and QEMU version detection are fixed here. New bugs go to [chronic8000/aqemu](https://github.com/chronic8000/aqemu/issues) |
 
 Tobias Gläßer remains credited as the 0.9.x maintainer. This repository does not take over that GitHub project’s issues, donation pages, or SourceForge links.
 
@@ -444,7 +444,7 @@ Text copied on the host still reaches the guest through the embedded display. Fi
 - **To guest** and **From guest** copy one file by path once the guest is running `qemu-guest-agent`.
 - **Guest tools** inserts the installer disk. Linux runs `sh install-linux.sh`. Windows installs qemu-guest-agent, then runs `aqemu-guest.ps1`. After that, files copied in the guest file manager can be saved on the host.
 
-Guide: [`docs/COPY_AND_PASTE.md`](docs/COPY_AND_PASTE.md).
+Guide: [`docs/guides/copy-and-paste.md`](docs/guides/copy-and-paste.md).
 
 ---
 
@@ -497,7 +497,7 @@ From **Win9x setup screens** to **Windows 11 ARM “Almost there”** — same a
 - `qemu-system-x86_64`, **q35**, dual-pflash **OVMF**, OpenCore as first disk, Apple SMC **only if you paste your own OSK**
 - Optional Recovery/BaseSystem path
 - Native **WHPX** on Windows, or **WSL/KVM** when `/dev/kvm` works (`wsl.exe` + Linux QEMU, SPICE still on localhost)
-- Host-matching resolution via OpenCore; AMD Metal passthrough UI on bare-metal Linux (see [`docs/intel-macos-gpu.md`](docs/intel-macos-gpu.md))
+- Host-matching resolution via OpenCore; AMD Metal passthrough UI on bare-metal Linux (see [`docs/reference/intel-macos-graphics.md`](docs/reference/intel-macos-graphics.md))
 - **AQEMU does not ship** OpenCore, OVMF bundles as Apple IP, OS images, or a pre-filled OSK
 
 <p align="center">
@@ -590,9 +590,9 @@ Details: [`third_party/README.md`](third_party/README.md).
 - **QCOW2 4K Cluster Alignment** — Create disk images with 4 KB cluster size alignment directly from the wizard or File menu to eliminate write amplification on 4Kn / ZFS workloads.
 - **Embedded Display Canvas Auto-Stretch** — Seamless full-canvas stretching without letterboxing, maintaining crisp aspect rendering and immediate adaptation to dynamic in-guest resolution changes.
 - **VMware-Style USB Passthrough** — Hotplug host physical USB hardware (printers, flash drives, security dongles) directly into running guests via the session toolbar with modern XHCI 3.0 controller support.
-- **Copy and paste files** — Paste or drop files onto a running guest as floppy A or an AQEMU USB drive. With qemu-guest-agent, copy one file to a guest path or back to the host. Guide: [`docs/COPY_AND_PASTE.md`](docs/COPY_AND_PASTE.md).
+- **Copy and paste files** — Paste or drop files onto a running guest as floppy A or an AQEMU USB drive. With qemu-guest-agent, copy one file to a guest path or back to the host. Guide: [`docs/guides/copy-and-paste.md`](docs/guides/copy-and-paste.md).
 - **Pi 5** optimizations (`-mcpu=cortex-a76`, 64KB page alignment, Wayland)
-- **QEMU Lab (1.6.0)** — port table, support bundle, snapshot timeline, Chain Studio, virtiofs when the host has it, and bring-your-own wraps. Guide: [`docs/LAB_1.6.0.md`](docs/LAB_1.6.0.md)
+- **QEMU Lab (1.6.0)** — port table, support bundle, snapshot timeline, Chain Studio, virtiofs when the host has it, and bring-your-own wraps. Guide: [`docs/guides/qemu-lab-1.6.md`](docs/guides/qemu-lab-1.6.md)
 - **Microsoft Store–ready** posture: GPLv2 source public, [privacy policy](PRIVACY.md), no proprietary OS media in the box
 
 ---

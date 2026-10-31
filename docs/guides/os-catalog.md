@@ -1,10 +1,10 @@
-# AQEMU Operating System Catalog
+# Operating System Catalog
 
 AQEMU isn't just for Windows. The wizard knows **230 operating system profiles** across **28 CPU architecture families** (29 QEMU system emulators): Linux and BSD on PC and ARM, DOS and OS/2, Solaris on SPARC, AIX on POWER, Linux on IBM Z, and plenty of museum pieces.
 
 This catalog shows you where to find each family in the **New Virtual Machine Wizard**, what AQEMU picks for you, and how to install the AQEMU guest tools.
 
-> Windows has its own guide: [Windows 11 (ARM and x86) and Legacy Windows](WINDOWS_11_ARM_AND_X86_GUIDE.md).
+> Windows has its own guide: [Windows 11 (ARM and x86) and Legacy Windows](windows-11.md).
 
 **Contents**
 
@@ -27,7 +27,7 @@ Open `VM → Add VM → Add New VM` (`Ctrl+N`) and choose:
 - **System / Machine Platform** when you know the hardware. Platforms: IBM PC Compatible, ARM Virtual Platforms, Raspberry Pi, Apple Macintosh, Sun Microsystems, IBM Power, IBM Mainframe, MIPS, DEC Alpha, HP PA-RISC, RISC-V, Embedded, Other Platforms, Generic, Consoles & Retro.
 - **CPU Architecture** when you want a CPU family first: x86, x86-64, ARM, ARM64 / AArch64, PowerPC 32/64, MIPS (four variants), SPARC32/64, RISC-V 32/64, s390x, Alpha, PA-RISC, m68k, AVR, MicroBlaze, OpenRISC, Xtensa (two variants), RX, SH4 (two variants), TriCore, LoongArch.
 
-Each profile sets the emulator, machine, CPU, RAM, disk size and guest-appropriate devices. The friendly-name-to-QEMU mapping is in the [QEMU Machine Catalog](QEMU_MACHINE_CATALOG.md).
+Each profile sets the emulator, machine, CPU, RAM, disk size and guest-appropriate devices. The friendly-name-to-QEMU mapping is in the [QEMU Machine Catalog](../reference/qemu-machine-catalog.md).
 
 ## 2. Built-in templates
 
@@ -42,7 +42,7 @@ Under **Custom / Advanced → Template** you'll find 25 ready-made templates. Th
 | FreeDOS | `i386` / `pc` | pentium | 32 MB | 500 MB | Cirrus, SB16 + AdLib, PC speaker, boots from floppy |
 | Raspberry Pi OS | `aarch64` / `raspi3b` | cortex-a53 ×4 | 1024 MB | 16 GB | Real Pi 3B board, USB (lan9514) network |
 | RISC-V Linux | `riscv64` / `virt` | rv64 ×2 | 2048 MB | 20 GB | VirtIO GPU and network |
-| Mac OS Classic PPC | `ppc` / `mac99` | default | 512 MB | 10 GB | sungem network (see the [macOS guide](MACOS_INSTALLATION_GUIDE.md)) |
+| Mac OS Classic PPC | `ppc` / `mac99` | default | 512 MB | 10 GB | sungem network (see the [macOS guide](macos.md)) |
 
 You can save any VM as your own template with `VM → Save As Template`.
 
@@ -118,8 +118,8 @@ powershell -STA -ExecutionPolicy Bypass -File aqemu-guest.ps1
 
 **DOS and Windows 95/98:** these can't run the tools. Keep using **Paste files**.
 
-More detail is in [Copy and paste](COPY_AND_PASTE.md).
+More detail is in [Copy and paste](copy-and-paste.md).
 
 ---
 
-Next: [User Guide](USER_GUIDE_OVERVIEW_AND_WIZARD.md) · [Windows guide](WINDOWS_11_ARM_AND_X86_GUIDE.md) · [Documentation Hub](DOCUMENTATION_HUB.md)
+Next: [User Guide](user-guide.md) · [Windows guide](windows-11.md) · [Documentation Hub](../README.md)

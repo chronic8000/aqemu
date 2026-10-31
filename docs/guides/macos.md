@@ -1,4 +1,4 @@
-# macOS Guide (Experimental)
+# macOS (Experimental)
 
 > **Experimental.** Intel macOS in AQEMU is an experimental profile, and the app labels it that way. It is not a supported or announced feature, and it may not boot on your hardware. Classic Mac OS on PowerPC uses standard QEMU emulation. AQEMU doesn't ship any Apple software, firmware or keys. You supply your own, and you're responsible for following Apple's licence terms.
 
@@ -55,7 +55,7 @@ Attach your install media on the **Media** tab and click **Start**.
 - **Installer disk image (MIST APM/HFS .iso)**
 - **Apple SMC OSK (required to start)**: paste your own key
 
-The profile uses `q35`, 4096 MB RAM, a 40 GB AHCI (SATA) disk, an `e1000-82545em` NIC, and VMware SVGA graphics at the host's native resolution (see [Intel macOS graphics](intel-macos-gpu.md)).
+The profile uses `q35`, 4096 MB RAM, a 40 GB AHCI (SATA) disk, an `e1000-82545em` NIC, and VMware SVGA graphics at the host's native resolution (see [Intel macOS graphics](../reference/intel-macos-graphics.md)).
 
 After the VM is created, these settings live on the Machine tab's **Intel macOS** panel (**OpenCore ISO/disk**, **Installer image**, **Apple SMC OSK**, **Launch via WSL/KVM**) and in **Machine → Advanced** under **Enable Intel macOS profile (q35 + OpenCore + SMC)**.
 
@@ -83,4 +83,4 @@ This is experimental. If it doesn't boot, please open an [issue](https://github.
 
 ---
 
-[Documentation Hub](DOCUMENTATION_HUB.md) · [User Guide](USER_GUIDE_OVERVIEW_AND_WIZARD.md)
+[Documentation Hub](../README.md) · [User Guide](user-guide.md)
