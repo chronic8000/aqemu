@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AQEMU on Windows x64 – AQEMU Docs</title>
+<meta name="description" content="Running AQEMU on Windows x64: WHPX, KVM through WSL, and which guests run fast.">
+<link rel="canonical" href="https://chronic8000.github.io/aqemu/docs/host-windows-x64.html">
+<meta name="theme-color" content="#0b0f19">
+<link rel="icon" type="image/png" href="../favicon.png">
+<style>:root{--bg:#0b0f19;--bg2:#111827;--card:#151d2e;--line:#243049;--text:#e6ebf5;--mute:#9aa6bd;--acc:#4f9dff;--acc2:#8b5cf6}
+*{box-sizing:border-box}html{scroll-behavior:smooth}
+body{margin:0;font:16px/1.7 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+a{color:var(--acc);text-decoration:none}a:hover{text-decoration:underline}
+.wrap{max-width:1120px;margin:0 auto;padding:0 20px}
+header.nav{position:sticky;top:0;z-index:10;background:rgba(11,15,25,.85);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+header.nav .wrap{display:flex;align-items:center;justify-content:space-between;height:60px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;color:var(--text);font-size:18px}.brand img{width:34px;height:auto}
+nav a{color:var(--mute);margin-left:22px;font-size:15px}nav a:hover,nav a.on{color:var(--text);text-decoration:none}
+@media(max-width:800px){nav a.hide-sm{display:none}nav a{margin-left:14px}}
+.layout{display:grid;grid-template-columns:220px 1fr;gap:40px;padding:40px 20px 72px}
+@media(max-width:900px){.layout{grid-template-columns:1fr}.side{display:none}}
+.side{position:sticky;top:84px;align-self:start;font-size:15px}
+.side h4{margin:0 0 10px;color:var(--mute);font-size:12px;letter-spacing:.08em;text-transform:uppercase}
+.side a{display:block;padding:6px 10px;border-radius:8px;color:var(--mute)}.side a.on,.side a:hover{background:var(--card);color:var(--text);text-decoration:none}
+.side .store{margin-top:18px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--bg2)}
+article{min-width:0}
+article h1{font-size:clamp(28px,4vw,42px);line-height:1.15;margin:0 0 18px;letter-spacing:-.02em}
+article h2{font-size:26px;margin:44px 0 12px;padding-top:12px;border-top:1px solid var(--line)}
+article h3{font-size:19px;margin:28px 0 8px}
+article p,article li{color:#cfd7e6}
+article hr{border:0;border-top:1px solid var(--line);margin:32px 0}
+article table{border-collapse:collapse;width:100%;margin:16px 0;font-size:15px;display:block;overflow-x:auto}
+article th,article td{border:1px solid var(--line);padding:8px 12px;text-align:left;vertical-align:top}
+article th{background:var(--bg2)}article tr:nth-child(even) td{background:rgba(21,29,46,.5)}
+code{font:13px/1.4 ui-monospace,SFMono-Regular,Consolas,monospace;background:#0e1524;border:1px solid var(--line);padding:2px 6px;border-radius:6px;color:#c9d6ff}
+pre{background:#0e1524;border:1px solid var(--line);border-radius:12px;padding:16px;overflow-x:auto}pre code{border:0;padding:0;background:none}
+blockquote{margin:18px 0;padding:12px 18px;border-left:4px solid var(--acc2);background:var(--card);border-radius:0 10px 10px 0}blockquote p{margin:4px 0}
+.docver{font-size:13px;color:var(--mute);margin:-8px 0 22px}.docver span{display:inline-block;padding:1px 9px;margin-right:8px;border:1px solid var(--line);border-radius:999px;background:var(--bg2);color:var(--text)}
+footer{padding:40px 0;color:var(--mute);font-size:14px;border-top:1px solid var(--line)}
+footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}</style>
+</head>
+<body>
+<header class="nav"><div class="wrap">
+  <a class="brand" href="../"><img src="../img/logo.png" alt="AQEMU logo" width="34" height="27">AQEMU <span style="color:var(--mute);font-weight:500">Docs</span></a>
+  <nav><a href="./">Docs</a><a class="hide-sm" href="your-first-vm.html">Your first VM</a><a class="hide-sm" href="guest-os.html">All guest OSes</a><a class="hide-sm" href="troubleshooting.html">Troubleshooting and FAQ</a><a href="https://github.com/chronic8000/aqemu">GitHub</a></nav>
+</div></header>
+<div class="wrap layout">
+  <aside class="side"><h4 style="margin-top:18px">Start here</h4><a href="documentation-hub.html">Docs home</a><a href="install-from-store.html">Install from the Store</a><a href="first-start.html">First start</a><a href="your-first-vm.html">Your first VM</a><a href="command-line.html">Command line</a><h4 style="margin-top:18px">Hosts</h4><a href="host-windows-x64.html" class=on>Windows x64</a><a href="host-windows-arm64.html">Windows ARM64</a><a href="host-linux-x64.html">Linux x64</a><a href="host-linux-arm64.html">Linux ARM64</a><h4 style="margin-top:18px">Using AQEMU</h4><a href="new-vm-wizard.html">New VM Wizard</a><a href="session-toolbar.html">Session toolbar</a><a href="display.html">Display and mouse</a><a href="networking.html">Networking</a><a href="storage-and-disks.html">Storage and disks</a><a href="file-transfer.html">File transfer</a><a href="copy-and-paste.html">Copy and paste</a><a href="snapshots.html">Snapshots</a><a href="accelerators.html">Accelerators</a><a href="troubleshooting.html">Troubleshooting and FAQ</a><a href="user-guide.html">User Guide (one page)</a><h4 style="margin-top:18px">Guest operating systems</h4><a href="guest-os.html">All guest OSes</a><a href="windows-11-guide.html">Windows 11 and legacy</a><a href="guest-os-windows.html">Windows family</a><a href="guest-os-windows-11-arm.html">Windows 11 ARM per host</a><a href="guest-os-linux.html">Linux</a><a href="guest-os-bsd.html">BSD</a><a href="guest-os-unix.html">Unix</a><a href="guest-os-retro-dos-os2.html">DOS, OS/2 and retro</a><a href="guest-os-truenas.html">TrueNAS</a><a href="guest-os-other.html">Other OSes</a><a href="guest-os-boards.html">ARM and RISC-V boards</a><a href="os-catalog.html">OS Catalog</a><a href="macos-guide.html">macOS (Experimental)</a><a href="ios-apple-soc-guide.html">iOS / Apple SoC (Experimental)</a><h4 style="margin-top:18px">Reference</h4><a href="settings-tabs.html">Settings tab map</a><a href="preferences.html">Preferences</a><a href="menus.html">Menus</a><a href="new-vm-wizard-paths.html">Wizard paths</a><a href="virt-manager-comparison.html">AQEMU vs virt-manager</a>
+    <div class="store"><a href="https://apps.microsoft.com/detail/9P0HGKHQ9W19?cid=ghpages_docs">Get AQEMU on the Microsoft Store</a></div>
+    <p style="font-size:13px;color:var(--mute);margin-top:14px"><a href="https://github.com/chronic8000/aqemu/edit/master/docs/guides/hosts/windows-x64.md">Edit this page on GitHub</a></p>
+  </aside>
+  <article>
+<h1 id="aqemu-on-windows-x64">AQEMU on Windows x64</h1>
+<p class="docver"><span>Docs v1</span> Last updated 31 October 2026. These guides are a first version and will be updated.</p>
+<p>This page is for a normal Intel or AMD Windows PC (64-bit). It's the
+most common AQEMU host.</p>
+<hr />
+<h2 id="get-aqemu">Get AQEMU</h2>
+<p><strong>Recommended:</strong> <a
+href="https://apps.microsoft.com/detail/9P0HGKHQ9W19?cid=docs">AQEMU on
+the Microsoft Store</a> (£12.99, 7-day trial). QEMU is included. See <a
+href="install-from-store.html">Install from the Microsoft Store</a>.</p>
+<p><strong>From source:</strong> the repo has
+<code>scripts/build_aqemu_win64.ps1</code>, which builds x86_64 AQEMU in
+the <strong>MSYS2 UCRT64</strong> environment. Its switches are
+<code>-InstallDeps</code> (install the toolchain and Qt),
+<code>-SkipSpice</code> and <code>-BuildMsix</code>. QEMU for Windows is
+built separately (<code>scripts/build_qemu_win_x86_64.ps1</code>).</p>
+<h2 id="turn-on-fast-virtualization-whpx">Turn on fast virtualization
+(WHPX)</h2>
+<p>Without hardware acceleration, every guest runs on
+<strong>TCG</strong> (software emulation), which works but is slow. On
+Windows x64, AQEMU uses the <strong>Windows Hypervisor Platform
+(WHPX)</strong> for x86 guests.</p>
+<ol type="1">
+<li>Open <strong>Windows Features</strong>
+(<code>optionalfeatures</code> from Start) and tick:
+<ul>
+<li><strong>Hyper-V</strong></li>
+<li><strong>Virtual Machine Platform</strong></li>
+<li><strong>Windows Hypervisor Platform</strong></li>
+</ul></li>
+<li>Restart Windows.</li>
+<li>In AQEMU, open <strong>Help → Diagnostics → WHPX health…</strong>.
+The <strong>Hyper-V / WHPX health</strong> window checks that QEMU can
+see WHPX and reports the state of <strong>Core isolation (Memory
+Integrity)</strong>. Its buttons open the matching Windows Settings
+pages.</li>
+</ol>
+<p>If WHPX fails when a VM starts, AQEMU offers <strong>Force
+TCG</strong> the next time the VM starts, so the VM still runs, just
+slowly.</p>
+<h2 id="which-guests-are-fast">Which guests are fast?</h2>
+<table>
+<thead>
+<tr class="header">
+<th>Guest</th>
+<th>Accelerator</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>64-bit x86 guests (<code>qemu-system-x86_64</code>: modern Windows,
+Linux, BSD…)</td>
+<td><strong>WHPX</strong> (fast)</td>
+</tr>
+<tr class="even">
+<td>32-bit x86 guests that use <code>qemu-system-i386</code> (Windows
+9x/XP 32-bit, DOS, OS/2…)</td>
+<td><strong>TCG</strong>. AQEMU never offers WHPX/KVM for the
+<code>i386</code> binary.</td>
+</tr>
+<tr class="odd">
+<td>ARM64, PowerPC, SPARC, MIPS, RISC-V, m68k…</td>
+<td><strong>TCG</strong> (emulated, slower)</td>
+</tr>
+</tbody>
+</table>
+<p>WHPX only accelerates a guest whose CPU type matches your PC. AQEMU
+switches other guests to TCG automatically and says so in the
+accelerator tooltip: "WHPX runs a guest that matches this … PC. This …
+guest uses TCG."</p>
+<p>Some older guests (OS/2, ReactOS) use <strong>Force TCG</strong> in
+their wizard profiles on purpose. Leave it on.</p>
+<h2 id="optional-kvm-through-wsl">Optional: KVM through WSL</h2>
+<p>If you have <strong>WSL 2</strong> with a Linux distro, AQEMU can run
+the <strong>Linux</strong> build of QEMU inside WSL with
+<strong>KVM</strong>:</p>
+<ul>
+<li>Choosing <strong>KVM</strong> in a VM's accelerator list turns
+<strong>Run via WSL</strong> on ("Linux KVM inside WSL").</li>
+<li>Choosing <strong>WHPX</strong> turns <strong>Run via WSL</strong>
+off and starts the Windows QEMU.</li>
+<li><strong>File → Host → Configure WSL…</strong> sets the WSL distro
+and username AQEMU uses for KVM launches.</li>
+<li>KVM needs a usable <code>/dev/kvm</code> inside WSL. AQEMU adds your
+WSL user to the <code>kvm</code> group when it launches there.</li>
+<li><strong>Help → Diagnostics → WSL dashboard…</strong> shows the WSL
+side.</li>
+</ul>
+<p>There is <strong>no separate "WSL2 accelerator"</strong>. It's KVM,
+run inside WSL.</p>
+<h2 id="windows-specific-behaviour">Windows-specific behaviour</h2>
+<ul>
+<li><strong>Shared folders (9p / Samba) need a Linux host.</strong> On
+Windows, the folder-sharing <strong>Add</strong> button is hidden. Use
+<strong>Paste files</strong> on the session toolbar instead. See <a
+href="file-transfer.html">File transfer</a>.</li>
+<li><strong>Audio:</strong> host playback uses DirectSound.</li>
+<li><strong>Where things live:</strong> settings and VMs are under your
+AppData folder (the Store version uses its own <code>aqemu-store</code>
+folder).</li>
+</ul>
+<h2 id="good-first-guests-on-windows-x64">Good first guests on Windows
+x64</h2>
+<ul>
+<li><a href="windows-11-guide.html#2-windows-11-on-x86_64">Windows 11
+x86_64</a></li>
+<li><a href="guest-os-linux.html">Linux (Ubuntu, Debian,
+Fedora…)</a></li>
+<li><a href="guest-os-retro-dos-os2.html">Retro Windows and DOS</a></li>
+</ul>
+<hr />
+<p>Other hosts: <a href="host-windows-arm64.html">Windows on ARM</a> ·
+<a href="host-linux-x64.html">Linux x64</a> · <a
+href="host-linux-arm64.html">Linux ARM64</a> · <a
+href="documentation-hub.html">Documentation Hub</a></p>
+
+  </article>
+</div>
+<footer><div class="wrap">
+  <span>© 2026 Chronic Engineering · AQEMU is GPLv2 · QEMU is a trademark of Fabrice Bellard.</span>
+  <span><a href="../">Home</a> · <a href="https://apps.microsoft.com/detail/9P0HGKHQ9W19?cid=ghpages_docs">Microsoft Store</a> · <a href="https://github.com/chronic8000/aqemu">GitHub</a></span>
+</div></footer>
+</body>
+</html>

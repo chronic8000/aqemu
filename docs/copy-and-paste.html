@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Copy and Paste – AQEMU Docs</title>
+<meta name="description" content="Copy and paste text and files between your computer and an AQEMU guest.">
+<link rel="canonical" href="https://chronic8000.github.io/aqemu/docs/copy-and-paste.html">
+<meta name="theme-color" content="#0b0f19">
+<link rel="icon" type="image/png" href="../favicon.png">
+<style>:root{--bg:#0b0f19;--bg2:#111827;--card:#151d2e;--line:#243049;--text:#e6ebf5;--mute:#9aa6bd;--acc:#4f9dff;--acc2:#8b5cf6}
+*{box-sizing:border-box}html{scroll-behavior:smooth}
+body{margin:0;font:16px/1.7 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+a{color:var(--acc);text-decoration:none}a:hover{text-decoration:underline}
+.wrap{max-width:1120px;margin:0 auto;padding:0 20px}
+header.nav{position:sticky;top:0;z-index:10;background:rgba(11,15,25,.85);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+header.nav .wrap{display:flex;align-items:center;justify-content:space-between;height:60px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;color:var(--text);font-size:18px}.brand img{width:34px;height:auto}
+nav a{color:var(--mute);margin-left:22px;font-size:15px}nav a:hover,nav a.on{color:var(--text);text-decoration:none}
+@media(max-width:800px){nav a.hide-sm{display:none}nav a{margin-left:14px}}
+.layout{display:grid;grid-template-columns:220px 1fr;gap:40px;padding:40px 20px 72px}
+@media(max-width:900px){.layout{grid-template-columns:1fr}.side{display:none}}
+.side{position:sticky;top:84px;align-self:start;font-size:15px}
+.side h4{margin:0 0 10px;color:var(--mute);font-size:12px;letter-spacing:.08em;text-transform:uppercase}
+.side a{display:block;padding:6px 10px;border-radius:8px;color:var(--mute)}.side a.on,.side a:hover{background:var(--card);color:var(--text);text-decoration:none}
+.side .store{margin-top:18px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--bg2)}
+article{min-width:0}
+article h1{font-size:clamp(28px,4vw,42px);line-height:1.15;margin:0 0 18px;letter-spacing:-.02em}
+article h2{font-size:26px;margin:44px 0 12px;padding-top:12px;border-top:1px solid var(--line)}
+article h3{font-size:19px;margin:28px 0 8px}
+article p,article li{color:#cfd7e6}
+article hr{border:0;border-top:1px solid var(--line);margin:32px 0}
+article table{border-collapse:collapse;width:100%;margin:16px 0;font-size:15px;display:block;overflow-x:auto}
+article th,article td{border:1px solid var(--line);padding:8px 12px;text-align:left;vertical-align:top}
+article th{background:var(--bg2)}article tr:nth-child(even) td{background:rgba(21,29,46,.5)}
+code{font:13px/1.4 ui-monospace,SFMono-Regular,Consolas,monospace;background:#0e1524;border:1px solid var(--line);padding:2px 6px;border-radius:6px;color:#c9d6ff}
+pre{background:#0e1524;border:1px solid var(--line);border-radius:12px;padding:16px;overflow-x:auto}pre code{border:0;padding:0;background:none}
+blockquote{margin:18px 0;padding:12px 18px;border-left:4px solid var(--acc2);background:var(--card);border-radius:0 10px 10px 0}blockquote p{margin:4px 0}
+.docver{font-size:13px;color:var(--mute);margin:-8px 0 22px}.docver span{display:inline-block;padding:1px 9px;margin-right:8px;border:1px solid var(--line);border-radius:999px;background:var(--bg2);color:var(--text)}
+footer{padding:40px 0;color:var(--mute);font-size:14px;border-top:1px solid var(--line)}
+footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}</style>
+</head>
+<body>
+<header class="nav"><div class="wrap">
+  <a class="brand" href="../"><img src="../img/logo.png" alt="AQEMU logo" width="34" height="27">AQEMU <span style="color:var(--mute);font-weight:500">Docs</span></a>
+  <nav><a href="./">Docs</a><a class="hide-sm" href="your-first-vm.html">Your first VM</a><a class="hide-sm" href="guest-os.html">All guest OSes</a><a class="hide-sm" href="troubleshooting.html">Troubleshooting and FAQ</a><a href="https://github.com/chronic8000/aqemu">GitHub</a></nav>
+</div></header>
+<div class="wrap layout">
+  <aside class="side"><h4 style="margin-top:18px">Start here</h4><a href="documentation-hub.html">Docs home</a><a href="install-from-store.html">Install from the Store</a><a href="first-start.html">First start</a><a href="your-first-vm.html">Your first VM</a><a href="command-line.html">Command line</a><h4 style="margin-top:18px">Hosts</h4><a href="host-windows-x64.html">Windows x64</a><a href="host-windows-arm64.html">Windows ARM64</a><a href="host-linux-x64.html">Linux x64</a><a href="host-linux-arm64.html">Linux ARM64</a><h4 style="margin-top:18px">Using AQEMU</h4><a href="new-vm-wizard.html">New VM Wizard</a><a href="session-toolbar.html">Session toolbar</a><a href="display.html">Display and mouse</a><a href="networking.html">Networking</a><a href="storage-and-disks.html">Storage and disks</a><a href="file-transfer.html">File transfer</a><a href="copy-and-paste.html" class=on>Copy and paste</a><a href="snapshots.html">Snapshots</a><a href="accelerators.html">Accelerators</a><a href="troubleshooting.html">Troubleshooting and FAQ</a><a href="user-guide.html">User Guide (one page)</a><h4 style="margin-top:18px">Guest operating systems</h4><a href="guest-os.html">All guest OSes</a><a href="windows-11-guide.html">Windows 11 and legacy</a><a href="guest-os-windows.html">Windows family</a><a href="guest-os-windows-11-arm.html">Windows 11 ARM per host</a><a href="guest-os-linux.html">Linux</a><a href="guest-os-bsd.html">BSD</a><a href="guest-os-unix.html">Unix</a><a href="guest-os-retro-dos-os2.html">DOS, OS/2 and retro</a><a href="guest-os-truenas.html">TrueNAS</a><a href="guest-os-other.html">Other OSes</a><a href="guest-os-boards.html">ARM and RISC-V boards</a><a href="os-catalog.html">OS Catalog</a><a href="macos-guide.html">macOS (Experimental)</a><a href="ios-apple-soc-guide.html">iOS / Apple SoC (Experimental)</a><h4 style="margin-top:18px">Reference</h4><a href="settings-tabs.html">Settings tab map</a><a href="preferences.html">Preferences</a><a href="menus.html">Menus</a><a href="new-vm-wizard-paths.html">Wizard paths</a><a href="virt-manager-comparison.html">AQEMU vs virt-manager</a>
+    <div class="store"><a href="https://apps.microsoft.com/detail/9P0HGKHQ9W19?cid=ghpages_docs">Get AQEMU on the Microsoft Store</a></div>
+    <p style="font-size:13px;color:var(--mute);margin-top:14px"><a href="https://github.com/chronic8000/aqemu/edit/master/docs/guides/copy-and-paste.md">Edit this page on GitHub</a></p>
+  </aside>
+  <article>
+<h1 id="copy-and-paste">Copy and Paste</h1>
+<p class="docver"><span>Docs v1</span> Last updated 31 October 2026. These guides are a first version and will be updated.</p>
+<p>AQEMU copies text and files between the host and a running guest on
+Linux and Windows, on x86_64 and ARM. Start the virtual machine and use
+the session toolbar. Quit AQEMU and start it again after an update so
+the menu launches the new build.</p>
+<p>Text and files are different paths.</p>
+<table>
+<thead>
+<tr class="header">
+<th>What you copy</th>
+<th>What AQEMU does</th>
+<th>Guest software</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Text</td>
+<td>The embedded VNC display already shares the clipboard</td>
+<td>None</td>
+</tr>
+<tr class="even">
+<td>Files, no installer</td>
+<td><strong>Paste files</strong>, or drop them on the guest window</td>
+<td>None. The guest opens floppy A or an AQEMU USB drive</td>
+</tr>
+<tr class="odd">
+<td>One file to a guest path</td>
+<td><strong>To guest</strong></td>
+<td><code>qemu-guest-agent</code></td>
+</tr>
+<tr class="even">
+<td>One file from a guest path</td>
+<td><strong>From guest</strong></td>
+<td><code>qemu-guest-agent</code></td>
+</tr>
+<tr class="odd">
+<td>Files copied inside the guest file manager</td>
+<td>The guest helper sends them. AQEMU asks where to save them</td>
+<td><code>qemu-guest-agent</code> plus the AQEMU helper</td>
+</tr>
+</tbody>
+</table>
+<h2 id="paste-files-into-the-guest">Paste files into the guest</h2>
+<p>Copy the files in the host file manager, then click <strong>Paste
+files</strong>. AQEMU lists the paths and copies them only after you
+confirm. Text on the clipboard is ignored, including a path sent by the
+guest. You can also drop files on the guest window.</p>
+<p>AQEMU writes a FAT disk and gives it to the running guest:</p>
+<ul>
+<li>Small copies, up to about 1.4 MB, become a 1.44 MB floppy when the
+virtual machine has floppy drive A. DOS and Windows 9x can open that
+drive.</li>
+<li>Every other copy, up to 512 MB, becomes a partitioned FAT16 disk and
+is hot-plugged as a USB drive. In the guest, open the drive named
+<strong>AQEMU</strong>. Long file names are kept. Windows needs the
+partition, so a machine with no floppy still receives a USB disk.</li>
+</ul>
+<p>This does not need Samba, 9p, virtiofs, or a program inside the
+guest. Paste again to send another batch. Each batch is a new floppy or
+USB disk.</p>
+<p>On a Windows host, shared folders are not offered as 9p. The Samba
+helper on the shared-folder page is hidden there because a Windows host
+has no <code>smbd</code>. Use <strong>Paste files</strong> instead.</p>
+<h2 id="copy-one-file-by-path">Copy one file by path</h2>
+<p><strong>To guest</strong> asks for a file on the host, then a full
+path inside the guest, including the file name.</p>
+<ul>
+<li>Linux guest: <code>/home/user/notes.txt</code></li>
+<li>Windows guest: <code>C:\Users\Public\notes.txt</code></li>
+</ul>
+<p><strong>From guest</strong> asks for the path inside the guest, then
+where to save it on the host.</p>
+<p>Both buttons talk to <code>qemu-guest-agent</code> over a virtio
+serial port named <code>org.qemu.guest_agent.0</code>. AQEMU opens that
+port on PC, <code>q35</code>, and <code>virt</code> machines. The host
+side is a socket that only the AQEMU user can open, or a named pipe on
+Windows. It is not a TCP port. Raspberry Pi, s390x, NeXT, and Apple SoC
+machines do not get the port, because those boards have no PCI bus for
+it. If the agent is not running, AQEMU says so instead of pretending the
+file arrived.</p>
+<p>The agent can read and write files that its user can read and write.
+On many Linux guests that user is root. Type the path you mean.</p>
+<h2 id="install-the-guest-tools-once">Install the guest tools once</h2>
+<p>Click <strong>Guest tools</strong>. AQEMU inserts a floppy with four
+files:</p>
+<table>
+<thead>
+<tr class="header">
+<th>File</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>README.txt</code></td>
+<td>Short reminder inside the guest</td>
+</tr>
+<tr class="even">
+<td><code>install-linux.sh</code></td>
+<td>Installs <code>qemu-guest-agent</code> and starts the clipboard
+helper</td>
+</tr>
+<tr class="odd">
+<td><code>aqemu-guest.py</code></td>
+<td>Linux helper. Watches the clipboard for copied files</td>
+</tr>
+<tr class="even">
+<td><code>aqemu-guest.ps1</code></td>
+<td>Windows helper. Watches Explorer for copied files</td>
+</tr>
+</tbody>
+</table>
+<h3 id="linux-guest">Linux guest</h3>
+<p>Open the floppy and run:</p>
+<pre class="sh"><code>sh install-linux.sh</code></pre>
+<p>The script uses <code>apt-get</code>, <code>dnf</code>, or
+<code>pacman</code> when one of those is present. It enables
+<code>qemu-guest-agent</code> and starts <code>aqemu-guest.py</code>
+when <code>python3</code> is installed. The helper also needs
+<code>wl-paste</code> or <code>xclip</code> to see files copied on the
+Linux clipboard.</p>
+<h3 id="windows-guest">Windows guest</h3>
+<p>Install <code>qemu-guest-agent</code> from the QEMU project. That
+package includes the virtio serial driver the helper needs. Then, in the
+guest tools folder:</p>
+<pre class="powershell"><code>powershell -STA -ExecutionPolicy Bypass -File aqemu-guest.ps1</code></pre>
+<p>Leave that window running. It watches files copied in Explorer.</p>
+<h3 id="after-the-helper-is-running">After the helper is running</h3>
+<p>Copy files in the guest file manager. AQEMU asks for a folder on the
+host and saves them there. The helper sends at most 64 files, and 64 MB
+each.</p>
+<p>DOS and Windows 95/98 cannot run these tools. Keep using
+<strong>Paste files</strong> for those guests.</p>
+<h2 id="what-is-not-copied">What is not copied</h2>
+<ul>
+<li>A file copied in the guest does not appear on the host until the
+helper is running, or until you use <strong>From guest</strong> with a
+path.</li>
+<li><strong>Paste files</strong> does not drop files into an arbitrary
+guest folder. It adds a floppy or USB drive.</li>
+<li>NeXT and Apple SoC virtual machines do not get the guest-agent
+ports.</li>
+<li>Copying a folder tree through <strong>To guest</strong> is one file
+at a time. Dropping a folder with <strong>Paste files</strong> copies
+the files inside it onto the FAT disk.</li>
+</ul>
+
+  </article>
+</div>
+<footer><div class="wrap">
+  <span>© 2026 Chronic Engineering · AQEMU is GPLv2 · QEMU is a trademark of Fabrice Bellard.</span>
+  <span><a href="../">Home</a> · <a href="https://apps.microsoft.com/detail/9P0HGKHQ9W19?cid=ghpages_docs">Microsoft Store</a> · <a href="https://github.com/chronic8000/aqemu">GitHub</a></span>
+</div></footer>
+</body>
+</html>

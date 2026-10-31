@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ARM, RISC-V, PowerPC, MIPS and other boards – AQEMU Docs</title>
+<meta name="description" content="ARM and RISC-V boards in AQEMU, and the full QEMU machine list.">
+<link rel="canonical" href="https://chronic8000.github.io/aqemu/docs/guest-os-boards.html">
+<meta name="theme-color" content="#0b0f19">
+<link rel="icon" type="image/png" href="../favicon.png">
+<style>:root{--bg:#0b0f19;--bg2:#111827;--card:#151d2e;--line:#243049;--text:#e6ebf5;--mute:#9aa6bd;--acc:#4f9dff;--acc2:#8b5cf6}
+*{box-sizing:border-box}html{scroll-behavior:smooth}
+body{margin:0;font:16px/1.7 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+a{color:var(--acc);text-decoration:none}a:hover{text-decoration:underline}
+.wrap{max-width:1120px;margin:0 auto;padding:0 20px}
+header.nav{position:sticky;top:0;z-index:10;background:rgba(11,15,25,.85);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+header.nav .wrap{display:flex;align-items:center;justify-content:space-between;height:60px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;color:var(--text);font-size:18px}.brand img{width:34px;height:auto}
+nav a{color:var(--mute);margin-left:22px;font-size:15px}nav a:hover,nav a.on{color:var(--text);text-decoration:none}
+@media(max-width:800px){nav a.hide-sm{display:none}nav a{margin-left:14px}}
+.layout{display:grid;grid-template-columns:220px 1fr;gap:40px;padding:40px 20px 72px}
+@media(max-width:900px){.layout{grid-template-columns:1fr}.side{display:none}}
+.side{position:sticky;top:84px;align-self:start;font-size:15px}
+.side h4{margin:0 0 10px;color:var(--mute);font-size:12px;letter-spacing:.08em;text-transform:uppercase}
+.side a{display:block;padding:6px 10px;border-radius:8px;color:var(--mute)}.side a.on,.side a:hover{background:var(--card);color:var(--text);text-decoration:none}
+.side .store{margin-top:18px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--bg2)}
+article{min-width:0}
+article h1{font-size:clamp(28px,4vw,42px);line-height:1.15;margin:0 0 18px;letter-spacing:-.02em}
+article h2{font-size:26px;margin:44px 0 12px;padding-top:12px;border-top:1px solid var(--line)}
+article h3{font-size:19px;margin:28px 0 8px}
+article p,article li{color:#cfd7e6}
+article hr{border:0;border-top:1px solid var(--line);margin:32px 0}
+article table{border-collapse:collapse;width:100%;margin:16px 0;font-size:15px;display:block;overflow-x:auto}
+article th,article td{border:1px solid var(--line);padding:8px 12px;text-align:left;vertical-align:top}
+article th{background:var(--bg2)}article tr:nth-child(even) td{background:rgba(21,29,46,.5)}
+code{font:13px/1.4 ui-monospace,SFMono-Regular,Consolas,monospace;background:#0e1524;border:1px solid var(--line);padding:2px 6px;border-radius:6px;color:#c9d6ff}
+pre{background:#0e1524;border:1px solid var(--line);border-radius:12px;padding:16px;overflow-x:auto}pre code{border:0;padding:0;background:none}
+blockquote{margin:18px 0;padding:12px 18px;border-left:4px solid var(--acc2);background:var(--card);border-radius:0 10px 10px 0}blockquote p{margin:4px 0}
+.docver{font-size:13px;color:var(--mute);margin:-8px 0 22px}.docver span{display:inline-block;padding:1px 9px;margin-right:8px;border:1px solid var(--line);border-radius:999px;background:var(--bg2);color:var(--text)}
+footer{padding:40px 0;color:var(--mute);font-size:14px;border-top:1px solid var(--line)}
+footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}</style>
+</head>
+<body>
+<header class="nav"><div class="wrap">
+  <a class="brand" href="../"><img src="../img/logo.png" alt="AQEMU logo" width="34" height="27">AQEMU <span style="color:var(--mute);font-weight:500">Docs</span></a>
+  <nav><a href="./">Docs</a><a class="hide-sm" href="your-first-vm.html">Your first VM</a><a class="hide-sm" href="guest-os.html">All guest OSes</a><a class="hide-sm" href="troubleshooting.html">Troubleshooting and FAQ</a><a href="https://github.com/chronic8000/aqemu">GitHub</a></nav>
+</div></header>
+<div class="wrap layout">
+  <aside class="side"><h4 style="margin-top:18px">Start here</h4><a href="documentation-hub.html">Docs home</a><a href="install-from-store.html">Install from the Store</a><a href="first-start.html">First start</a><a href="your-first-vm.html">Your first VM</a><a href="command-line.html">Command line</a><h4 style="margin-top:18px">Hosts</h4><a href="host-windows-x64.html">Windows x64</a><a href="host-windows-arm64.html">Windows ARM64</a><a href="host-linux-x64.html">Linux x64</a><a href="host-linux-arm64.html">Linux ARM64</a><h4 style="margin-top:18px">Using AQEMU</h4><a href="new-vm-wizard.html">New VM Wizard</a><a href="session-toolbar.html">Session toolbar</a><a href="display.html">Display and mouse</a><a href="networking.html">Networking</a><a href="storage-and-disks.html">Storage and disks</a><a href="file-transfer.html">File transfer</a><a href="copy-and-paste.html">Copy and paste</a><a href="snapshots.html">Snapshots</a><a href="accelerators.html">Accelerators</a><a href="troubleshooting.html">Troubleshooting and FAQ</a><a href="user-guide.html">User Guide (one page)</a><h4 style="margin-top:18px">Guest operating systems</h4><a href="guest-os.html">All guest OSes</a><a href="windows-11-guide.html">Windows 11 and legacy</a><a href="guest-os-windows.html">Windows family</a><a href="guest-os-windows-11-arm.html">Windows 11 ARM per host</a><a href="guest-os-linux.html">Linux</a><a href="guest-os-bsd.html">BSD</a><a href="guest-os-unix.html">Unix</a><a href="guest-os-retro-dos-os2.html">DOS, OS/2 and retro</a><a href="guest-os-truenas.html">TrueNAS</a><a href="guest-os-other.html">Other OSes</a><a href="guest-os-boards.html" class=on>ARM and RISC-V boards</a><a href="os-catalog.html">OS Catalog</a><a href="macos-guide.html">macOS (Experimental)</a><a href="ios-apple-soc-guide.html">iOS / Apple SoC (Experimental)</a><h4 style="margin-top:18px">Reference</h4><a href="settings-tabs.html">Settings tab map</a><a href="preferences.html">Preferences</a><a href="menus.html">Menus</a><a href="new-vm-wizard-paths.html">Wizard paths</a><a href="virt-manager-comparison.html">AQEMU vs virt-manager</a>
+    <div class="store"><a href="https://apps.microsoft.com/detail/9P0HGKHQ9W19?cid=ghpages_docs">Get AQEMU on the Microsoft Store</a></div>
+    <p style="font-size:13px;color:var(--mute);margin-top:14px"><a href="https://github.com/chronic8000/aqemu/edit/master/docs/guides/guest-os/arm-riscv-boards.md">Edit this page on GitHub</a></p>
+  </aside>
+  <article>
+<h1 id="arm-risc-v-powerpc-mips-and-other-boards">ARM, RISC-V, PowerPC,
+MIPS and other boards</h1>
+<p class="docver"><span>Docs v1</span> Last updated 31 October 2026. These guides are a first version and will be updated.</p>
+<p>AQEMU's <strong>Consoles &amp; Retro</strong> list has 69 boards and
+machines: Raspberry Pi, Arduino, BBC micro:bit, ARM development boards,
+RISC-V, PowerPC, MIPS, Amiga-compatible and more. Most of these aren't
+desktop PCs. Many expect a firmware file, an SD card image or a kernel
+rather than an installer ISO, and their tips say so.</p>
+<h2 id="pick-boards-from-the-platform-path">Pick boards from the
+Platform path</h2>
+<ol type="1">
+<li>Click <strong>Add New VM</strong> (or <strong>Ctrl+N</strong>).</li>
+<li>Choose <strong>System / Machine Platform</strong>, then
+<strong>Consoles &amp; Retro</strong>, then the board.</li>
+<li>Continue through <strong>Confirm QEMU system</strong>, then the rest
+of the wizard.</li>
+</ol>
+<p>The Platform path sets the exact board machine listed below.</p>
+<blockquote>
+<p><strong>Heads-up (v1):</strong> the same list also appears under
+<strong>Guest Operating System → Consoles &amp; Retro</strong>. In the
+current source, 45 of those 69 OS-path profiles start on the generic
+<code>virt</code> machine instead of the named board. If you go that
+way, change <strong>Machine Type</strong> on the <strong>Confirm QEMU
+system</strong> page to the value below.</p>
+</blockquote>
+<p>All boards run with TCG (emulation). The only exception is a generic
+ARM64 <code>virt</code> machine on an ARM64 PC, which can use KVM or
+WHPX. 32-bit ARM boards use <code>qemu-system-arm</code>, which AQEMU
+runs with TCG only.</p>
+<h2 id="the-boards">The boards</h2>
+<table>
+<thead>
+<tr class="header">
+<th>Board</th>
+<th>Emulator</th>
+<th>Machine</th>
+<th>Speed</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>440 Bamboo</strong></td>
+<td><code>qemu-system-ppc</code></td>
+<td><code>bamboo</code></td>
+<td>TCG</td>
+</tr>
+<tr class="even">
+<td><strong>ARM Integrator/CP</strong></td>
+<td><code>qemu-system-arm</code></td>
+<td><code>integratorcp</code></td>
+<td>TCG</td>
+</tr>
+<tr class="odd">
+<td><strong>ARM Versatile AB</strong></td>
+<td><code>qemu-system-arm</code></td>
+<td><code>versatileab</code></td>
+<td>TCG</td>
+</tr>
+<tr class="even">
+<td><strong>ARM Versatile PB</strong></td>
+<td><code>qemu-system-arm</code></td>
+<td><code>versatilepb</code></td>
+<td>TCG</td>
+</tr>
+<tr class="odd">
+<td><strong>ARM Virt (generic)</strong></td>
+<td><code>qemu-system-aarch64</code></td>
+<td><code>virt</code></td>
+<td>TCG (KVM/WHPX possible for <code>virt</code> on an ARM64 PC)</td>
+</tr>
+<tr class="even">
+<td><strong>AmigaOne</strong></td>
+<td><code>qemu-system-ppc</code></td>
+<td><code>amigaone</code></td>
+<td>TCG</td>
+</tr>
+<tr class="odd">
+<td><strong>Arduino Duemilanove</strong></td>
+<td><code>qemu-system-avr</code></td>
+<td><code>arduino-duemilanove</code></td>
+<td>TCG</td>
+</tr>
+<tr class="even">
+<td><strong>Arduino Mega</strong></td>
+<td><code>qemu-system-avr</code></td>
+<td><code>arduino-mega</code></td>
+<td>TCG</td>
+</tr>
+<tr class="odd">
+<td><strong>Arduino Uno</strong></td>
+<td><code>qemu-system-avr</code></td>
+<td><code>arduino-uno</code></td>
+<td>TCG</td>
+</tr>
+<tr class="even">
+<td><strong>B-L475E-IOT01A</strong></td>
+<td><code>qemu-system-arm</code></td>
+<td><code>b-l475e-iot01a</code></td>
+<td>TCG</td>
+</tr>
+<tr class="odd">
+<td><strong>BBC micro:bit</strong></td>
+<td><code>qemu-system-arm</code></td>
+<td><code>microbit</code></td>
+<td>TCG</td>
+</tr>
+<tr class="even">
+<td><strong>Cubieboard</strong></td>
+<td><code>qemu-system-arm</code></td>
+<td><code>cubieboard</code></td>
+<td>TCG</td>
+</tr>
+<tr class="odd">
+<td><strong>Freescale Sabre Lite</strong></td>
+<td><code>qemu-system-arm</code></td>
+<td><code>sabrelite</code></td>
+<td>TCG</td>
+</tr>
+<tr class="even">
+<td><strong>IBM Power Series 6050/6070</strong></td>
+<td><code>qemu-system-ppc</code></td>
+<td><code>40p</code></td>
+<td>TCG</td>
+</tr>
+<tr class="odd">
+<td><strong>Kyoto Microcomputer KZM-ARM11</strong></td>
+<td><code>qemu-system-arm</code></td>
+<td><code>kzm</code></td>
+<td>TCG</td>
+</tr>
+<tr class="even">
+<td><strong>Loongson-3 Virt</strong></td>
+<td><code>qemu-system-mips64el</code></td>
+<td><code>loongson3-virt</code></td>
+<td>TCG</td>
+</tr>
+<tr class="odd">
+<td><strong>MIPS Boston</strong></td>
+<td><code>qemu-system-mips64el</code></td>
+<td><code>boston</code></td>
+<td>TCG</td>
+</tr>
+<tr class="even">
+<td><strong>MIPS Magnum</strong></td>
+<td><code>qemu-system-mips64</code></td>
+<td><code>magnum</code></td>
+<td>TCG</td>
+</tr>
+<tr class="odd">
+<td><strong>MIPS Malta</strong></td>
+<td><code>qemu-system-mips64el</code></td>
+<td><code>malta</code></td>
+<td>TCG</td>
+</tr>
+<tr class="even">
+<td><strong>MIPS Pica 61</strong></td>
+<td><code>qemu-system-mips64</code></td>
+<td><code>pica61</code></td>
+<td>TCG</td>
+</tr>
+<tr class="odd">
+<td><strong>MPC8544DS</strong></td>
+<td><code>qemu-system-ppc</code></td>
+<td><code>mpc8544ds</code></td>
+<td>TCG</td>
+</tr>
+<tr class="even">
+<td><strong>MPS2 AN385</strong></td>
+<td><code>qemu-system-arm</code></td>
+<td><code>mps2-an385</code></td>
+<td>TCG</td>
+</tr>
+<tr class="odd">
+<td><strong>MPS2 AN505</strong></td>
+<td><code>qemu-system-arm</code></td>
+<td><code>mps2-an505</code></td>
+<td>TCG</td>
+</tr>
+<tr class="even">
+<td><strong>MPS2 AN521</strong></td>
+<td><code>qemu-system-arm</code></td>
+<td><code>mps2-an521</code></td>
+<td>TCG</td>
+</tr>
+<tr class="odd">
+<td><strong>MPS3 AN524</strong></td>
+<td><code>qemu-system-arm</code></td>
+<td><code>mps3-an524</code></td>
+<td>TCG</td>
+</tr>
+<tr class="even">
+<td><strong>MPS3 AN547</strong></td>
+<td><code>qemu-system-arm</code></td>
+<td><code>mps3-an547</code></td>
+<td>TCG</td>
+</tr>
+<tr class="odd">
+<td><strong>Macintosh Quadra 800</strong></td>
+<td><code>qemu-system-m68k</code></td>
+<td><code>q800</code></td>
+<td>TCG</td>
+</tr>
+<tr class="even">
+<td><strong>NeXT Cube</strong></td>
+<td><code>qemu-system-m68k</code></td>
+<td><code>next-cube</code></td>
+<td>TCG</td>
+</tr>
+<tr class="odd">
+<td><strong>Netduino 2</strong></td>
+<td><code>qemu-system-arm</code></td>
+<td><code>netduino2</code></td>
+<td>TCG</td>
+</tr>
+<tr class="even">
+<td><strong>Netduino Plus 2</strong></td>
+<td><code>qemu-system-arm</code></td>
+<td><code>netduinoplus2</code></td>
+<td>TCG</td>
+</tr>
+<tr class="odd">
+<td><strong>Olimex STM32-H405</strong></td>
+<td><code>qemu-system-arm</code></td>
+<td><code>olimex-stm32-h405</code></td>
+<td>TCG</td>
+</tr>
+<tr class="even">
+<td><strong>OpenTitan</strong></td>
+<td><code>qemu-system-riscv32</code></td>
+<td><code>opentitan</code></td>
+<td>TCG</td>
+</tr>
+<tr class="odd">
+<td><strong>Orange Pi PC</strong></td>
+<td><code>qemu-system-arm</code></td>
+<td><code>orangepi-pc</code></td>
+<td>TCG</td>
+</tr>
+<tr class="even">
+<td><strong>Pegasos I</strong></td>
+<td><code>qemu-system-ppc</code></td>
+<td><code>pegasos1</code></td>
+<td>TCG</td>
+</tr>
+<tr class="odd">
+<td><strong>Pegasos II</strong></td>
+<td><code>qemu-system-ppc</code></td>
+<td><code>pegasos2</code></td>
+<td>TCG</td>
+</tr>
+<tr class="even">
+<td><strong>Petalogix ML605</strong></td>
+<td><code>qemu-system-microblaze</code></td>
+<td><code>petalogix-ml605</code></td>
+<td>TCG</td>
+</tr>
+<tr class="odd">
+<td><strong>PowerMac G3 Beige</strong></td>
+<td><code>qemu-system-ppc</code></td>
+<td><code>g3beige</code></td>
+<td>TCG</td>
+</tr>
+<tr class="even">
+<td><strong>PowerMac Mac99</strong></td>
+<td><code>qemu-system-ppc</code></td>
+<td><code>mac99</code></td>
+<td>TCG</td>
+</tr>
+<tr class="odd">
+<td><strong>PowerPC e500</strong></td>
+<td><code>qemu-system-ppc</code></td>
+<td><code>ppce500</code></td>
+<td>TCG</td>
+</tr>
+<tr class="even">
+<td><strong>RISC-V Spike</strong></td>
+<td><code>qemu-system-riscv64</code></td>
+<td><code>spike</code></td>
+<td>TCG</td>
+</tr>
+<tr class="odd">
+<td><strong>Raspberry Pi 1</strong></td>
+<td><code>qemu-system-arm</code></td>
+<td><code>raspi1ap</code></td>
+<td>TCG</td>
+</tr>
+<tr class="even">
+<td><strong>Raspberry Pi 2</strong></td>
+<td><code>qemu-system-arm</code></td>
+<td><code>raspi2b</code></td>
+<td>TCG</td>
+</tr>
+<tr class="odd">
+<td><strong>Raspberry Pi 3</strong></td>
+<td><code>qemu-system-aarch64</code></td>
+<td><code>raspi3b</code></td>
+<td>TCG</td>
+</tr>
+<tr class="even">
+<td><strong>Raspberry Pi 3A+</strong></td>
+<td><code>qemu-system-aarch64</code></td>
+<td><code>raspi3ap</code></td>
+<td>TCG</td>
+</tr>
+<tr class="odd">
+<td><strong>Raspberry Pi 4</strong></td>
+<td><code>qemu-system-aarch64</code></td>
+<td><code>raspi4b</code></td>
+<td>TCG</td>
+</tr>
+<tr class="even">
+<td><strong>Raspberry Pi Zero</strong></td>
+<td><code>qemu-system-arm</code></td>
+<td><code>raspi0</code></td>
+<td>TCG</td>
+</tr>
+<tr class="odd">
+<td><strong>RealView EB</strong></td>
+<td><code>qemu-system-arm</code></td>
+<td><code>realview-eb</code></td>
+<td>TCG</td>
+</tr>
+<tr class="even">
+<td><strong>RealView EB MPCore</strong></td>
+<td><code>qemu-system-arm</code></td>
+<td><code>realview-eb-mpcore</code></td>
+<td>TCG</td>
+</tr>
+<tr class="odd">
+<td><strong>RealView PB-A8</strong></td>
+<td><code>qemu-system-arm</code></td>
+<td><code>realview-pb-a8</code></td>
+<td>TCG</td>
+</tr>
+<tr class="even">
+<td><strong>RealView PBX-A9</strong></td>
+<td><code>qemu-system-arm</code></td>
+<td><code>realview-pbx-a9</code></td>
+<td>TCG</td>
+</tr>
+<tr class="odd">
+<td><strong>Renesas R2D</strong></td>
+<td><code>qemu-system-sh4</code></td>
+<td><code>r2d</code></td>
+<td>TCG</td>
+</tr>
+<tr class="even">
+<td><strong>SBSA Reference</strong></td>
+<td><code>qemu-system-aarch64</code></td>
+<td><code>sbsa-ref</code></td>
+<td>TCG</td>
+</tr>
+<tr class="odd">
+<td><strong>STM32VLDISCOVERY</strong></td>
+<td><code>qemu-system-arm</code></td>
+<td><code>stm32vldiscovery</code></td>
+<td>TCG</td>
+</tr>
+<tr class="even">
+<td><strong>Sam460ex</strong></td>
+<td><code>qemu-system-ppc</code></td>
+<td><code>sam460ex</code></td>
+<td>TCG</td>
+</tr>
+<tr class="odd">
+<td><strong>Sharp Zaurus SL-5500</strong></td>
+<td><code>qemu-system-arm</code></td>
+<td><code>collie</code></td>
+<td>TCG</td>
+</tr>
+<tr class="even">
+<td><strong>SiFive E31</strong></td>
+<td><code>qemu-system-riscv32</code></td>
+<td><code>sifive_e</code></td>
+<td>TCG</td>
+</tr>
+<tr class="odd">
+<td><strong>SiFive HiFive Unleashed</strong></td>
+<td><code>qemu-system-riscv64</code></td>
+<td><code>sifive_u</code></td>
+<td>TCG</td>
+</tr>
+<tr class="even">
+<td><strong>Siemens SX1</strong></td>
+<td><code>qemu-system-arm</code></td>
+<td><code>sx1</code></td>
+<td>TCG</td>
+</tr>
+<tr class="odd">
+<td><strong>Siemens SX1 v1</strong></td>
+<td><code>qemu-system-arm</code></td>
+<td><code>sx1-v1</code></td>
+<td>TCG</td>
+</tr>
+<tr class="even">
+<td><strong>Stellaris LM3S6965</strong></td>
+<td><code>qemu-system-arm</code></td>
+<td><code>lm3s6965evb</code></td>
+<td>TCG</td>
+</tr>
+<tr class="odd">
+<td><strong>Stellaris LM3S811</strong></td>
+<td><code>qemu-system-arm</code></td>
+<td><code>lm3s811evb</code></td>
+<td>TCG</td>
+</tr>
+<tr class="even">
+<td><strong>Versatile Express A15</strong></td>
+<td><code>qemu-system-arm</code></td>
+<td><code>vexpress-a15</code></td>
+<td>TCG</td>
+</tr>
+<tr class="odd">
+<td><strong>Versatile Express A9</strong></td>
+<td><code>qemu-system-arm</code></td>
+<td><code>vexpress-a9</code></td>
+<td>TCG</td>
+</tr>
+<tr class="even">
+<td><strong>Xilinx Virtex ML507</strong></td>
+<td><code>qemu-system-ppc</code></td>
+<td><code>virtex-ml507</code></td>
+<td>TCG</td>
+</tr>
+<tr class="odd">
+<td><strong>Xilinx ZCU102</strong></td>
+<td><code>qemu-system-aarch64</code></td>
+<td><code>xlnx-zcu102</code></td>
+<td>TCG</td>
+</tr>
+<tr class="even">
+<td><strong>Xilinx Zynq A9</strong></td>
+<td><code>qemu-system-arm</code></td>
+<td><code>xilinx-zynq-a9</code></td>
+<td>TCG</td>
+</tr>
+<tr class="odd">
+<td><strong>i.MX25 PDK</strong></td>
+<td><code>qemu-system-arm</code></td>
+<td><code>imx25-pdk</code></td>
+<td>TCG</td>
+</tr>
+<tr class="even">
+<td><strong>i.MX6UL EVK</strong></td>
+<td><code>qemu-system-arm</code></td>
+<td><code>mcimx6ul-evk</code></td>
+<td>TCG</td>
+</tr>
+<tr class="odd">
+<td><strong>i.MX7D Sabre</strong></td>
+<td><code>qemu-system-arm</code></td>
+<td><code>mcimx7d-sabre</code></td>
+<td>TCG</td>
+</tr>
+</tbody>
+</table>
+<h2 id="aqemus-tip-for-each-board">AQEMU's tip for each board</h2>
+<ul>
+<li><strong>440 Bamboo:</strong> 440 Bamboo → qemu-system-ppc -M bamboo.
+PowerPC 440 Bamboo board.</li>
+<li><strong>ARM Integrator/CP:</strong> ARM Integrator/CP →
+qemu-system-arm -M integratorcp. ARM Integrator/CP development
+board.</li>
+<li><strong>ARM Versatile AB:</strong> ARM Versatile AB →
+qemu-system-arm -M versatileab. ARM Versatile Application
+Baseboard.</li>
+<li><strong>ARM Versatile PB:</strong> ARM Versatile PB →
+qemu-system-arm -M versatilepb. Classic ARM Versatile Platform
+Baseboard.</li>
+<li><strong>ARM Virt (generic):</strong> ARM Virt (generic) →
+qemu-system-aarch64 -M virt. Generic ARM virt machine — best for
+Linux/Android-on-ARM VMs.</li>
+<li><strong>AmigaOne:</strong> AmigaOne → qemu-system-ppc -M amigaone.
+AmigaOne PowerPC board.</li>
+<li><strong>Arduino Duemilanove:</strong> Arduino Duemilanove →
+qemu-system-avr -M arduino-duemilanove. ATmega168 Arduino; load firmware
+ELF.</li>
+<li><strong>Arduino Mega:</strong> Arduino Mega → qemu-system-avr -M
+arduino-mega. ATmega2560 Arduino; load firmware ELF.</li>
+<li><strong>Arduino Uno:</strong> Arduino Uno → qemu-system-avr -M
+arduino-uno. ATmega328P Arduino Uno; load firmware ELF.</li>
+<li><strong>B-L475E-IOT01A:</strong> B-L475E-IOT01A → qemu-system-arm -M
+b-l475e-iot01a. STM32L4 Discovery IoT node.</li>
+<li><strong>BBC micro:bit:</strong> BBC micro:bit → qemu-system-arm -M
+microbit. Load .hex/.elf firmware; not a desktop OS.</li>
+<li><strong>Cubieboard:</strong> Cubieboard → qemu-system-arm -M
+cubieboard. Allwinner A10 board.</li>
+<li><strong>Freescale Sabre Lite:</strong> Freescale Sabre Lite →
+qemu-system-arm -M sabrelite. i.MX6 Sabre Lite.</li>
+<li><strong>IBM Power Series 6050/6070:</strong> IBM Power Series
+6050/6070 → qemu-system-ppc -M 40p. IBM RS/6000 40p (PREP).</li>
+<li><strong>Kyoto Microcomputer KZM-ARM11:</strong> Kyoto Microcomputer
+KZM-ARM11 → qemu-system-arm -M kzm. KZM-ARM11-01 board.</li>
+<li><strong>Loongson-3 Virt:</strong> Loongson-3 Virt →
+qemu-system-mips64el -M loongson3-virt. Loongson-3 virtual
+platform.</li>
+<li><strong>MIPS Boston:</strong> MIPS Boston → qemu-system-mips64el -M
+boston. MIPS Boston board.</li>
+<li><strong>MIPS Magnum:</strong> MIPS Magnum → qemu-system-mips64 -M
+magnum. MIPS Magnum R4000.</li>
+<li><strong>MIPS Malta:</strong> MIPS Malta → qemu-system-mips64el -M
+malta. MIPS Malta development board.</li>
+<li><strong>MIPS Pica 61:</strong> MIPS Pica 61 → qemu-system-mips64 -M
+pica61. MIPS Jazz Pica 61.</li>
+<li><strong>MPC8544DS:</strong> MPC8544DS → qemu-system-ppc -M
+mpc8544ds. Freescale MPC8544DS.</li>
+<li><strong>MPS2 AN385:</strong> MPS2 AN385 → qemu-system-arm -M
+mps2-an385. ARM MPS2 FPGA (AN385).</li>
+<li><strong>MPS2 AN505:</strong> MPS2 AN505 → qemu-system-arm -M
+mps2-an505. ARM MPS2 FPGA (AN505).</li>
+<li><strong>MPS2 AN521:</strong> MPS2 AN521 → qemu-system-arm -M
+mps2-an521. ARM MPS2 FPGA (AN521).</li>
+<li><strong>MPS3 AN524:</strong> MPS3 AN524 → qemu-system-arm -M
+mps3-an524. ARM MPS3 FPGA (AN524).</li>
+<li><strong>MPS3 AN547:</strong> MPS3 AN547 → qemu-system-arm -M
+mps3-an547. ARM MPS3 FPGA (AN547).</li>
+<li><strong>Macintosh Quadra 800:</strong> Macintosh Quadra 800 →
+qemu-system-m68k -M q800. Macintosh Quadra 800 (m68k).</li>
+<li><strong>NeXT Cube:</strong> NeXT Cube → qemu-system-m68k -M
+next-cube. NeXT Cube hardware for NeXTSTEP.</li>
+<li><strong>Netduino 2:</strong> Netduino 2 → qemu-system-arm -M
+netduino2. Netduino 2 (STM32).</li>
+<li><strong>Netduino Plus 2:</strong> Netduino Plus 2 → qemu-system-arm
+-M netduinoplus2. Netduino Plus 2.</li>
+<li><strong>Olimex STM32-H405:</strong> Olimex STM32-H405 →
+qemu-system-arm -M olimex-stm32-h405. Olimex STM32-H405 board.</li>
+<li><strong>OpenTitan:</strong> OpenTitan → qemu-system-riscv32 -M
+opentitan. OpenTitan Earl Grey.</li>
+<li><strong>Orange Pi PC:</strong> Orange Pi PC → qemu-system-arm -M
+orangepi-pc. Allwinner H3 board.</li>
+<li><strong>Pegasos I:</strong> Pegasos I → qemu-system-ppc -M pegasos1.
+Genesi/bPlan Pegasos I.</li>
+<li><strong>Pegasos II:</strong> Pegasos II → qemu-system-ppc -M
+pegasos2. Genesi/bPlan Pegasos II.</li>
+<li><strong>Petalogix ML605:</strong> Petalogix ML605 →
+qemu-system-microblaze -M petalogix-ml605. Petalogix ML605.</li>
+<li><strong>PowerMac G3 Beige:</strong> PowerMac G3 Beige →
+qemu-system-ppc -M g3beige. OldWorld Power Macintosh G3 (Beige).</li>
+<li><strong>PowerMac Mac99:</strong> PowerMac Mac99 → qemu-system-ppc -M
+mac99. PowerMac G4-ish mac99 machine.</li>
+<li><strong>PowerPC e500:</strong> PowerPC e500 → qemu-system-ppc -M
+ppce500. Freescale e500 platform.</li>
+<li><strong>RISC-V Spike:</strong> RISC-V Spike → qemu-system-riscv64 -M
+spike. RISC-V Spike ISA simulator machine.</li>
+<li><strong>Raspberry Pi 1:</strong> Raspberry Pi 1 → qemu-system-arm -M
+raspi1ap. SD image required.</li>
+<li><strong>Raspberry Pi 2:</strong> Raspberry Pi 2 → qemu-system-arm -M
+raspi2b. SD image required.</li>
+<li><strong>Raspberry Pi 3:</strong> Raspberry Pi 3 →
+qemu-system-aarch64 -M raspi3b. SD image; experimental in many
+builds.</li>
+<li><strong>Raspberry Pi 3A+:</strong> Raspberry Pi 3A+ →
+qemu-system-aarch64 -M raspi3ap. SD image; experimental in many
+builds.</li>
+<li><strong>Raspberry Pi 4:</strong> Raspberry Pi 4 →
+qemu-system-aarch64 -M raspi4b. SD image; experimental in many
+builds.</li>
+<li><strong>Raspberry Pi Zero:</strong> Raspberry Pi Zero →
+qemu-system-arm -M raspi0. SD image required; machine support varies by
+QEMU build.</li>
+<li><strong>RealView EB:</strong> RealView EB → qemu-system-arm -M
+realview-eb. ARM RealView Emulation Baseboard.</li>
+<li><strong>RealView EB MPCore:</strong> RealView EB MPCore →
+qemu-system-arm -M realview-eb-mpcore. RealView EB with MPCore.</li>
+<li><strong>RealView PB-A8:</strong> RealView PB-A8 → qemu-system-arm -M
+realview-pb-a8. RealView Platform Baseboard for Cortex-A8.</li>
+<li><strong>RealView PBX-A9:</strong> RealView PBX-A9 → qemu-system-arm
+-M realview-pbx-a9. RealView PBX for Cortex-A9.</li>
+<li><strong>Renesas R2D:</strong> Renesas R2D → qemu-system-sh4 -M r2d.
+Renesas SH4 R2D-PLUS.</li>
+<li><strong>SBSA Reference:</strong> SBSA Reference →
+qemu-system-aarch64 -M sbsa-ref. ARM SBSA Reference Platform.</li>
+<li><strong>STM32VLDISCOVERY:</strong> STM32VLDISCOVERY →
+qemu-system-arm -M stm32vldiscovery. ST STM32VLDISCOVERY board.</li>
+<li><strong>Sam460ex:</strong> Sam460ex → qemu-system-ppc -M sam460ex.
+ACube Sam460ex Amiga-compatible.</li>
+<li><strong>Sharp Zaurus SL-5500:</strong> Sharp Zaurus SL-5500 →
+qemu-system-arm -M collie. Sharp Zaurus Collie PDA.</li>
+<li><strong>SiFive E31:</strong> SiFive E31 → qemu-system-riscv32 -M
+sifive_e. SiFive E31 / HiFive1-class.</li>
+<li><strong>SiFive HiFive Unleashed:</strong> SiFive HiFive Unleashed →
+qemu-system-riscv64 -M sifive_u. SiFive U54 / HiFive Unleashed.</li>
+<li><strong>Siemens SX1:</strong> Siemens SX1 → qemu-system-arm -M sx1.
+Siemens SX1 smartphone.</li>
+<li><strong>Siemens SX1 v1:</strong> Siemens SX1 v1 → qemu-system-arm -M
+sx1-v1. Siemens SX1 (v1).</li>
+<li><strong>Stellaris LM3S6965:</strong> Stellaris LM3S6965 →
+qemu-system-arm -M lm3s6965evb. TI Stellaris LM3S6965EVB.</li>
+<li><strong>Stellaris LM3S811:</strong> Stellaris LM3S811 →
+qemu-system-arm -M lm3s811evb. TI Stellaris LM3S811EVB.</li>
+<li><strong>Versatile Express A15:</strong> Versatile Express A15 →
+qemu-system-arm -M vexpress-a15. ARM Versatile Express with
+Cortex-A15.</li>
+<li><strong>Versatile Express A9:</strong> Versatile Express A9 →
+qemu-system-arm -M vexpress-a9. ARM Versatile Express with
+Cortex-A9.</li>
+<li><strong>Xilinx Virtex ML507:</strong> Xilinx Virtex ML507 →
+qemu-system-ppc -M virtex-ml507. Xilinx Virtex ML507.</li>
+<li><strong>Xilinx ZCU102:</strong> Xilinx ZCU102 → qemu-system-aarch64
+-M xlnx-zcu102. ZynqMP ZCU102 evaluation kit.</li>
+<li><strong>Xilinx Zynq A9:</strong> Xilinx Zynq A9 → qemu-system-arm -M
+xilinx-zynq-a9. Xilinx Zynq Platform Baseboard for Cortex-A9.</li>
+<li><strong>i.MX25 PDK:</strong> i.MX25 PDK → qemu-system-arm -M
+imx25-pdk. Freescale i.MX25 Product Development Kit.</li>
+<li><strong>i.MX6UL EVK:</strong> i.MX6UL EVK → qemu-system-arm -M
+mcimx6ul-evk. NXP i.MX6UL evaluation kit.</li>
+<li><strong>i.MX7D Sabre:</strong> i.MX7D Sabre → qemu-system-arm -M
+mcimx7d-sabre. NXP i.MX7D Sabre board.</li>
+</ul>
+<h2 id="more-machines">More machines</h2>
+<p><strong>System / Machine Platform → All QEMU machines…</strong> lists
+every board your QEMU knows. AQEMU's generated catalog
+(<code>docs/qemu_machine_catalog.json</code>) lists <strong>1,175
+machine types across 37 QEMU emulators</strong>. See the QEMU machine
+catalog.</p>
+<hr />
+<p>More: <a href="guest-os.html">All guest OS guides</a> · <a
+href="guest-os-linux.html">Linux on ARM64</a> · <a
+href="host-linux-arm64.html">Linux ARM64 hosts</a> · <a
+href="documentation-hub.html">Documentation Hub</a></p>
+
+  </article>
+</div>
+<footer><div class="wrap">
+  <span>© 2026 Chronic Engineering · AQEMU is GPLv2 · QEMU is a trademark of Fabrice Bellard.</span>
+  <span><a href="../">Home</a> · <a href="https://apps.microsoft.com/detail/9P0HGKHQ9W19?cid=ghpages_docs">Microsoft Store</a> · <a href="https://github.com/chronic8000/aqemu">GitHub</a></span>
+</div></footer>
+</body>
+</html>

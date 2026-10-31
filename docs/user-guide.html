@@ -43,10 +43,10 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}
 <body>
 <header class="nav"><div class="wrap">
   <a class="brand" href="../"><img src="../img/logo.png" alt="AQEMU logo" width="34" height="27">AQEMU <span style="color:var(--mute);font-weight:500">Docs</span></a>
-  <nav><a href="./">Docs</a><a class="hide-sm on" href="user-guide.html">User Guide</a><a class="hide-sm" href="windows-11-guide.html">Windows</a><a class="hide-sm" href="os-catalog.html">OS Catalog</a><a class="hide-sm" href="macos-guide.html">macOS (Experimental)</a><a class="hide-sm" href="ios-apple-soc-guide.html">iOS / Apple SoC (Experimental)</a><a href="https://github.com/chronic8000/aqemu">GitHub</a></nav>
+  <nav><a href="./">Docs</a><a class="hide-sm" href="your-first-vm.html">Your first VM</a><a class="hide-sm" href="guest-os.html">All guest OSes</a><a class="hide-sm" href="troubleshooting.html">Troubleshooting and FAQ</a><a href="https://github.com/chronic8000/aqemu">GitHub</a></nav>
 </div></header>
 <div class="wrap layout">
-  <aside class="side"><h4>Guides</h4><a href="documentation-hub.html">Docs home</a><a href="user-guide.html" class=on>User Guide</a><a href="windows-11-guide.html">Windows</a><a href="os-catalog.html">OS Catalog</a><a href="macos-guide.html">macOS (Experimental)</a><a href="ios-apple-soc-guide.html">iOS / Apple SoC (Experimental)</a>
+  <aside class="side"><h4 style="margin-top:18px">Start here</h4><a href="documentation-hub.html">Docs home</a><a href="install-from-store.html">Install from the Store</a><a href="first-start.html">First start</a><a href="your-first-vm.html">Your first VM</a><a href="command-line.html">Command line</a><h4 style="margin-top:18px">Hosts</h4><a href="host-windows-x64.html">Windows x64</a><a href="host-windows-arm64.html">Windows ARM64</a><a href="host-linux-x64.html">Linux x64</a><a href="host-linux-arm64.html">Linux ARM64</a><h4 style="margin-top:18px">Using AQEMU</h4><a href="new-vm-wizard.html">New VM Wizard</a><a href="session-toolbar.html">Session toolbar</a><a href="display.html">Display and mouse</a><a href="networking.html">Networking</a><a href="storage-and-disks.html">Storage and disks</a><a href="file-transfer.html">File transfer</a><a href="copy-and-paste.html">Copy and paste</a><a href="snapshots.html">Snapshots</a><a href="accelerators.html">Accelerators</a><a href="troubleshooting.html">Troubleshooting and FAQ</a><a href="user-guide.html" class=on>User Guide (one page)</a><h4 style="margin-top:18px">Guest operating systems</h4><a href="guest-os.html">All guest OSes</a><a href="windows-11-guide.html">Windows 11 and legacy</a><a href="guest-os-windows.html">Windows family</a><a href="guest-os-windows-11-arm.html">Windows 11 ARM per host</a><a href="guest-os-linux.html">Linux</a><a href="guest-os-bsd.html">BSD</a><a href="guest-os-unix.html">Unix</a><a href="guest-os-retro-dos-os2.html">DOS, OS/2 and retro</a><a href="guest-os-truenas.html">TrueNAS</a><a href="guest-os-other.html">Other OSes</a><a href="guest-os-boards.html">ARM and RISC-V boards</a><a href="os-catalog.html">OS Catalog</a><a href="macos-guide.html">macOS (Experimental)</a><a href="ios-apple-soc-guide.html">iOS / Apple SoC (Experimental)</a><h4 style="margin-top:18px">Reference</h4><a href="settings-tabs.html">Settings tab map</a><a href="preferences.html">Preferences</a><a href="menus.html">Menus</a><a href="new-vm-wizard-paths.html">Wizard paths</a><a href="virt-manager-comparison.html">AQEMU vs virt-manager</a>
     <div class="store"><a href="https://apps.microsoft.com/detail/9P0HGKHQ9W19?cid=ghpages_docs">Get AQEMU on the Microsoft Store</a></div>
     <p style="font-size:13px;color:var(--mute);margin-top:14px"><a href="https://github.com/chronic8000/aqemu/edit/master/docs/guides/user-guide.md">Edit this page on GitHub</a></p>
   </aside>
@@ -104,8 +104,8 @@ right.</p>
 <tbody>
 <tr class="odd">
 <td><strong>File</strong></td>
-<td>Disks, Import and Export (OVA/OVF appliances), Host tools,
-<strong>Preferences…</strong></td>
+<td>Disks, Import and Export (OVA/OVF appliances), <strong>Host</strong>
+submenu, <strong>Preferences…</strong></td>
 </tr>
 <tr class="even">
 <td><strong>VM</strong></td>
@@ -191,9 +191,8 @@ Finish</strong></p>
 sensible devices for the OS you chose (for example IDE, NE2000, Sound
 Blaster 16 and Cirrus for Windows 98) and hides devices that won't work
 for that guest unless you tick <strong>Show all QEMU options</strong>.
-See <a
-href="https://github.com/chronic8000/aqemu/blob/master/docs/reference/new-vm-wizard-paths.md">New
-VM Wizard paths</a> for the full mapping.</p>
+See <a href="new-vm-wizard-paths.html">New VM Wizard paths</a> for the
+full mapping.</p>
 <p>On the <strong>Disk</strong> page you choose <strong>Create a new
 disk image</strong> or <strong>Use an existing disk image</strong>. The
 install media page offers <strong>Local ISO / image file</strong>,
@@ -234,9 +233,9 @@ Images</strong></td>
 </tr>
 <tr class="even">
 <td><strong>Display</strong></td>
-<td>Display settings, with <strong>VNC Remote</strong> and <strong>QEMU
-Window</strong> sub-tabs. While a VM is running, its live screen also
-opens as a Display tab.</td>
+<td>Display settings, with <strong>VNC Remote</strong>, <strong>SPICE
+Remote</strong> and <strong>QEMU Window</strong> sub-tabs. While a VM is
+running, its live screen also opens as a Display tab.</td>
 </tr>
 <tr class="odd">
 <td><strong>Network</strong></td>
@@ -260,9 +259,9 @@ IDE, AHCI (SATA), SD and NVMe. The <strong>Apply VirtIO
 defaults</strong> button switches a VM to VirtIO in one click.</p>
 <p><strong>Pointer mode:</strong> <em>Seamless</em> uses an absolute
 tablet, so the host and guest cursors line up with no mouse grab.
-<em>Relative</em> is a PS/2-style mouse: click the screen to capture and
-middle-click or Escape to release. Use Relative for Windows 9x and other
-guests with no tablet driver.</p>
+<em>Relative</em> is a PS/2-style mouse: click the screen to capture,
+and press <strong>Esc</strong> or <strong>Ctrl+Alt</strong> to release.
+Use Relative for Windows 9x and other guests with no tablet driver.</p>
 <hr />
 <h2 id="5-advanced-options-and-smp-settings">5. Advanced Options and SMP
 Settings</h2>
@@ -318,7 +317,7 @@ aqemu stop &quot;My VM&quot;</code></pre>
 <td><strong>Windows 10/11 x64</strong></td>
 <td>WHPX, TCG; KVM through WSL</td>
 <td>Available from the <a
-href="https://apps.microsoft.com/detail/9P0HGKHQ9W19?cid=docs_user_guide">Microsoft
+href="https://apps.microsoft.com/detail/9P0HGKHQ9W19?cid=docs">Microsoft
 Store</a></td>
 </tr>
 <tr class="even">

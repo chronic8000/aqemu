@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>macOS (Experimental) – AQEMU Docs</title>
+<title>macOS and Classic Mac OS (Experimental) – AQEMU Docs</title>
 <meta name="description" content="Experimental: Classic Mac OS on PowerPC and the experimental Intel macOS profile in AQEMU.">
 <link rel="canonical" href="https://chronic8000.github.io/aqemu/docs/macos-guide.html">
 <meta name="theme-color" content="#0b0f19">
@@ -43,95 +43,72 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}
 <body>
 <header class="nav"><div class="wrap">
   <a class="brand" href="../"><img src="../img/logo.png" alt="AQEMU logo" width="34" height="27">AQEMU <span style="color:var(--mute);font-weight:500">Docs</span></a>
-  <nav><a href="./">Docs</a><a class="hide-sm" href="user-guide.html">User Guide</a><a class="hide-sm" href="windows-11-guide.html">Windows</a><a class="hide-sm" href="os-catalog.html">OS Catalog</a><a class="hide-sm on" href="macos-guide.html">macOS (Experimental)</a><a class="hide-sm" href="ios-apple-soc-guide.html">iOS / Apple SoC (Experimental)</a><a href="https://github.com/chronic8000/aqemu">GitHub</a></nav>
+  <nav><a href="./">Docs</a><a class="hide-sm" href="your-first-vm.html">Your first VM</a><a class="hide-sm" href="guest-os.html">All guest OSes</a><a class="hide-sm" href="troubleshooting.html">Troubleshooting and FAQ</a><a href="https://github.com/chronic8000/aqemu">GitHub</a></nav>
 </div></header>
 <div class="wrap layout">
-  <aside class="side"><h4>Guides</h4><a href="documentation-hub.html">Docs home</a><a href="user-guide.html">User Guide</a><a href="windows-11-guide.html">Windows</a><a href="os-catalog.html">OS Catalog</a><a href="macos-guide.html" class=on>macOS (Experimental)</a><a href="ios-apple-soc-guide.html">iOS / Apple SoC (Experimental)</a>
+  <aside class="side"><h4 style="margin-top:18px">Start here</h4><a href="documentation-hub.html">Docs home</a><a href="install-from-store.html">Install from the Store</a><a href="first-start.html">First start</a><a href="your-first-vm.html">Your first VM</a><a href="command-line.html">Command line</a><h4 style="margin-top:18px">Hosts</h4><a href="host-windows-x64.html">Windows x64</a><a href="host-windows-arm64.html">Windows ARM64</a><a href="host-linux-x64.html">Linux x64</a><a href="host-linux-arm64.html">Linux ARM64</a><h4 style="margin-top:18px">Using AQEMU</h4><a href="new-vm-wizard.html">New VM Wizard</a><a href="session-toolbar.html">Session toolbar</a><a href="display.html">Display and mouse</a><a href="networking.html">Networking</a><a href="storage-and-disks.html">Storage and disks</a><a href="file-transfer.html">File transfer</a><a href="copy-and-paste.html">Copy and paste</a><a href="snapshots.html">Snapshots</a><a href="accelerators.html">Accelerators</a><a href="troubleshooting.html">Troubleshooting and FAQ</a><a href="user-guide.html">User Guide (one page)</a><h4 style="margin-top:18px">Guest operating systems</h4><a href="guest-os.html">All guest OSes</a><a href="windows-11-guide.html">Windows 11 and legacy</a><a href="guest-os-windows.html">Windows family</a><a href="guest-os-windows-11-arm.html">Windows 11 ARM per host</a><a href="guest-os-linux.html">Linux</a><a href="guest-os-bsd.html">BSD</a><a href="guest-os-unix.html">Unix</a><a href="guest-os-retro-dos-os2.html">DOS, OS/2 and retro</a><a href="guest-os-truenas.html">TrueNAS</a><a href="guest-os-other.html">Other OSes</a><a href="guest-os-boards.html">ARM and RISC-V boards</a><a href="os-catalog.html">OS Catalog</a><a href="macos-guide.html" class=on>macOS (Experimental)</a><a href="ios-apple-soc-guide.html">iOS / Apple SoC (Experimental)</a><h4 style="margin-top:18px">Reference</h4><a href="settings-tabs.html">Settings tab map</a><a href="preferences.html">Preferences</a><a href="menus.html">Menus</a><a href="new-vm-wizard-paths.html">Wizard paths</a><a href="virt-manager-comparison.html">AQEMU vs virt-manager</a>
     <div class="store"><a href="https://apps.microsoft.com/detail/9P0HGKHQ9W19?cid=ghpages_docs">Get AQEMU on the Microsoft Store</a></div>
     <p style="font-size:13px;color:var(--mute);margin-top:14px"><a href="https://github.com/chronic8000/aqemu/edit/master/docs/guides/macos.md">Edit this page on GitHub</a></p>
   </aside>
   <article>
-<h1 id="macos-experimental">macOS (Experimental)</h1>
+<h1 id="macos-and-classic-mac-os-experimental">macOS and Classic Mac OS
+(Experimental)</h1>
 <p class="docver"><span>Docs v1</span> Last updated 31 October 2026. These guides are a first version and will be updated.</p>
 <blockquote>
 <p><strong>Experimental.</strong> Intel macOS in AQEMU is an
-experimental profile, and the app labels it that way. It is not a
-supported or announced feature, and it may not boot on your hardware.
-Classic Mac OS on PowerPC uses standard QEMU emulation. AQEMU doesn't
-ship any Apple software, firmware or keys. You supply your own, and
-you're responsible for following Apple's licence terms.</p>
+experimental profile, and the app labels it "Intel macOS
+(experimental)". It is not a supported feature, and <strong>it may not
+boot on your hardware</strong>. Nothing here promises that it will.</p>
 </blockquote>
-<p>AQEMU has two very different Mac paths:</p>
-<ol type="1">
-<li><strong>Classic Mac OS on PowerPC</strong> (Mac OS 7 to 9, Mac OS X
-PPC), using <code>qemu-system-ppc</code>.</li>
-<li><strong>Intel macOS (experimental)</strong>, using
-<code>qemu-system-x86_64</code> + <code>q35</code> with OpenCore.</li>
-</ol>
-<hr />
-<h2 id="1-classic-mac-os-powerpc">1. Classic Mac OS (PowerPC)</h2>
-<h3 id="what-you-need">What you need</h3>
-<ul>
-<li>A QEMU build that includes <code>qemu-system-ppc</code>. If
-<strong>Start</strong> can't find the binary, install one and run the
-First Start Wizard again.</li>
-<li>Your own Mac OS install CD/ISO, or a prepared disk image.</li>
-</ul>
-<h3 id="create-the-vm">Create the VM</h3>
-<p><strong>Guest Operating System → Apple → Mac OS 9</strong> (or Mac OS
-7, Mac OS 8, Mac OS X PPC). Or use the <strong>Mac OS Classic
-PPC</strong> template under <strong>Custom / Advanced →
-Template</strong>.</p>
+<blockquote>
+<p><strong>Apple software: you're on your own, on purpose.</strong>
+AQEMU does not include, and cannot give you, any Apple software: no
+macOS or Mac OS installers, no Mac ROMs, no SMC key (OSK). We also can't
+tell you where to get any of it. Use your brain: you must obtain
+anything proprietary yourself, legally, and follow Apple's licence
+terms. AQEMU also doesn't ship OpenCore or OVMF for this profile. The
+wizard makes you tick "I will supply all Apple / OpenCore / OVMF files
+myself".</p>
+</blockquote>
+<p>AQEMU has three Mac paths:</p>
 <table>
 <thead>
 <tr class="header">
-<th></th>
-<th>Mac OS 9 profile</th>
-<th>Mac OS X PPC profile</th>
-<th>Mac OS Classic PPC template</th>
+<th>Path</th>
+<th>Emulator</th>
+<th>Guide section</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td>Machine</td>
-<td><code>mac99</code> (or <code>g3beige</code>)</td>
-<td><code>mac99</code> (or <code>g3beige</code>)</td>
-<td><code>mac99</code></td>
+<td><strong>Intel macOS (experimental)</strong></td>
+<td><code>qemu-system-x86_64</code> + <code>q35</code> + OpenCore +
+OVMF</td>
+<td><a href="#1-intel-macos-experimental">Intel macOS</a></td>
 </tr>
 <tr class="even">
-<td>CPU</td>
-<td>G4</td>
-<td>G4</td>
-<td>default</td>
+<td><strong>Classic Mac OS 7 to 9 and Mac OS X on PowerPC</strong></td>
+<td><code>qemu-system-ppc</code> (<code>mac99</code> /
+<code>g3beige</code>)</td>
+<td><a href="#2-classic-mac-os-and-mac-os-x-on-powerpc">PowerPC</a></td>
 </tr>
 <tr class="odd">
-<td>RAM</td>
-<td>256 MB</td>
-<td>512 MB</td>
-<td>512 MB</td>
-</tr>
-<tr class="even">
-<td>Disk</td>
-<td>4 GB, IDE</td>
-<td>10 GB, IDE</td>
-<td>10 GB</td>
-</tr>
-<tr class="odd">
-<td>Network</td>
-<td>sungem</td>
-<td>sungem</td>
-<td>sungem</td>
+<td><strong>Mac OS 6 on 68k</strong></td>
+<td><code>qemu-system-m68k</code> (<code>q800</code>)</td>
+<td><a href="#3-mac-os-6-68k">68k</a></td>
 </tr>
 </tbody>
 </table>
-<p>When we ran AQEMU's argument builder on the template, it produced
-<code>-machine mac99 -accel tcg,thread=single -m 512 -net nic,model=sungem</code>.
-PowerPC is always emulated (TCG).</p>
-<p>Attach your install media on the <strong>Media</strong> tab and click
-<strong>Start</strong>.</p>
+<blockquote>
+<p><strong>"macOS Apple Silicon (ARM64)"</strong> appears in the
+wizard's Apple list. There is no separate profile for it. AQEMU sets it
+up exactly like the <a href="ios-apple-soc-guide.html">iOS / Apple
+SoC</a> VM (Inferno, machine <code>t8030</code>). It is not a way to run
+Apple Silicon macOS.</p>
+</blockquote>
 <hr />
-<h2 id="2-intel-macos-experimental">2. Intel macOS (experimental)</h2>
-<h3 id="what-you-need-1">What you need</h3>
+<h2 id="1-intel-macos-experimental">1. Intel macOS (experimental)</h2>
+<h3 id="what-you-need">What you need</h3>
 <table>
 <thead>
 <tr class="header">
@@ -142,80 +119,295 @@ PowerPC is always emulated (TCG).</p>
 <tbody>
 <tr class="odd">
 <td><strong>OpenCore</strong></td>
-<td>A bootable OpenCore ISO or disk image you prepare yourself</td>
+<td>A bootable OpenCore ISO or disk image that you prepare yourself. An
+<code>.iso</code> attaches as a CD/DVD.</td>
 </tr>
 <tr class="even">
-<td><strong>Installer image</strong></td>
-<td>A macOS installer disk image (for example one made with MIST)</td>
+<td><strong>Installer disk image</strong></td>
+<td>Your own macOS installer image, chosen in the wizard's installer
+image field</td>
 </tr>
 <tr class="odd">
 <td><strong>Apple SMC OSK</strong></td>
-<td>The 64-byte SMC key. AQEMU <strong>never pre-fills it</strong> and
-won't start this profile without one. Get it from Mac hardware you
-own.</td>
+<td>You paste your own. AQEMU <strong>never pre-fills it</strong> and
+refuses to start this profile without one: "Apple SMC OSK is empty.
+Paste your own OSK string into the VM settings. AQEMU does not provide
+one."</td>
 </tr>
 <tr class="even">
 <td><strong>OVMF</strong></td>
-<td>UEFI firmware (<code>OVMF CODE</code> / <code>OVMF VARS</code>)</td>
-</tr>
-<tr class="odd">
-<td><strong>Acceleration</strong></td>
-<td>Strongly recommended: KVM on Linux, or on Windows <strong>Launch via
-WSL/KVM</strong> ("Run Linux QEMU inside WSL with KVM when
-available")</td>
+<td>x86 UEFI firmware. The wizard looks for it and shows "OVMF CODE
+found: …" or tells you to install OVMF / edk2 firmware.</td>
 </tr>
 </tbody>
 </table>
-<h3 id="create-the-vm-1">Create the VM</h3>
-<p><strong>Guest Operating System → Apple → macOS</strong> (or
-<strong>Mac OS X Intel</strong>). The wizard opens the <strong>Intel
-macOS Setup</strong> page:</p>
+<h3 id="what-aqemu-builds-all-hosts">What AQEMU builds (all hosts)</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Setting</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Emulator / machine</td>
+<td><code>qemu-system-x86_64</code>, <code>q35</code></td>
+</tr>
+<tr class="even">
+<td>CPU Type</td>
+<td><code>Skylake-Client-v4</code></td>
+</tr>
+<tr class="odd">
+<td>CPU line AQEMU passes</td>
+<td><code>-cpu Skylake-Client-v4,vendor=GenuineIntel,+invtsc,tsc-frequency=2000000000</code></td>
+</tr>
+<tr class="even">
+<td>CPU topology</td>
+<td><code>-smp sockets=1,cores=N,threads=1</code> (2 cores by
+default)</td>
+</tr>
+<tr class="odd">
+<td>Memory</td>
+<td>4096 MB minimum</td>
+</tr>
+<tr class="even">
+<td>SMC</td>
+<td><code>-device isa-applesmc,osk=&lt;your key&gt;</code> (commas in
+the key are escaped for you)</td>
+</tr>
+<tr class="odd">
+<td>Network</td>
+<td><code>virtio-net-pci</code> (AQEMU forces this for the profile)</td>
+</tr>
+<tr class="even">
+<td>Display</td>
+<td>VMware SVGA at the host's native resolution</td>
+</tr>
+<tr class="odd">
+<td>Audio</td>
+<td>Intel HDA (<code>ich9-intel-hda</code>)</td>
+</tr>
+<tr class="even">
+<td>Input</td>
+<td>USB tablet on xHCI, USB hub</td>
+</tr>
+</tbody>
+</table>
+<p>If you set the CPU Type to <code>max</code>, <code>host</code>, a
+<code>qemu…</code> model or <code>Penryn</code>, AQEMU swaps it back to
+<code>Skylake-Client-v4</code> at launch.</p>
+<h3 id="which-host-to-use">Which host to use</h3>
+<p>macOS here is an <strong>x86_64 guest</strong>, so it only gets
+hardware acceleration on an <strong>x86_64 host</strong>.</p>
+<table>
+<thead>
+<tr class="header">
+<th>Host</th>
+<th>Accelerator</th>
+<th>CPU</th>
+<th>Verdict</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Windows x64</strong></td>
+<td>WHPX by default, or KVM inside WSL with <strong>Launch via
+WSL/KVM</strong></td>
+<td>Skylake line above. In WSL with KVM AQEMU also adds
+<code>kvm=on,vmware-cpuid-freq=on</code>.</td>
+<td>The best Windows option. Booting is not verified.</td>
+</tr>
+<tr class="even">
+<td><strong>Windows ARM64</strong></td>
+<td>TCG only</td>
+<td>Skylake line above</td>
+<td>Full emulation. Expect it to be far too slow.</td>
+</tr>
+<tr class="odd">
+<td><strong>Linux x64</strong></td>
+<td>KVM</td>
+<td>Skylake line above</td>
+<td>The best overall option. Booting is not verified.</td>
+</tr>
+<tr class="even">
+<td><strong>Linux ARM64</strong></td>
+<td>TCG only</td>
+<td>Skylake line above</td>
+<td>Full emulation. Expect it to be far too slow.</td>
+</tr>
+</tbody>
+</table>
+<p>Under pure TCG, QEMU warns that <code>invtsc</code> isn't
+supported.</p>
+<h4 id="windows-x64">Windows x64</h4>
+<ol type="1">
+<li>Install AQEMU (see <a href="install-from-store.html">Install from
+the Microsoft Store</a>).</li>
+<li>Create the VM (<a href="#create-the-vm">below</a>). The profile
+picks <strong>WHPX</strong> on an x86_64 host.</li>
+<li>Optional, to use KVM inside WSL instead:
+<ul>
+<li>Install WSL and a distro, then run <strong>File → Configure
+WSL…</strong>.</li>
+<li>In <strong>File → Preferences… → WSL / KVM launch</strong>, tick
+<strong>Enable Launch via WSL/KVM (for Intel macOS and other
+VMs)</strong>. <strong>QEMU binary in WSL</strong> defaults to
+<code>qemu-system-x86_64</code>, so that must be installed in your
+distro. <strong>Probe /dev/kvm</strong> should report "Status: /dev/kvm
+OK".</li>
+<li>Tick <strong>Prefer WSL/KVM when /dev/kvm is available
+(Windows)</strong> in the wizard, or <strong>Launch via WSL/KVM</strong>
+on the Machine tab afterwards.</li>
+</ul></li>
+<li>Click <strong>Start</strong> and follow <a
+href="#install">Install</a>.</li>
+</ol>
+<p><strong>Limitations:</strong> these docs don't confirm that macOS
+boots under WHPX. The AMD GPU passthrough option is "bare-metal Linux
+with VFIO — not Windows/WSL".</p>
+<h4 id="windows-arm64">Windows ARM64</h4>
+<ol type="1">
+<li>Create the VM the same way. AQEMU will use TCG, because WHPX on ARM
+can't run an x86_64 guest, and neither can KVM in WSL.</li>
+<li>Start and wait. It's included here for completeness, not as a
+recommendation.</li>
+</ol>
+<h4 id="linux-x64">Linux x64</h4>
+<ol type="1">
+<li>Make sure <code>/dev/kvm</code> works for your user (see <a
+href="host-linux-x64.html#turn-on-kvm">Linux x64 host guide</a>) and
+that OVMF is installed (the wizard tells you).</li>
+<li>Create the VM, set <strong>Accelerator</strong> to
+<strong>KVM</strong> on the Machine tab if it isn't already, and click
+<strong>Start</strong>.</li>
+<li>Optional and advanced: if AQEMU detects an AMD GPU, the wizard
+offers AMD GPU passthrough. It "only works on bare-metal Linux with
+VFIO". The wizard says to install macOS first, then enable
+passthrough.</li>
+</ol>
+<h4 id="linux-arm64">Linux ARM64</h4>
+<p>The same steps as Linux x64, but the guest runs under TCG. Expect it
+to be far too slow for real use.</p>
+<h3 id="create-the-vm">Create the VM</h3>
+<ol type="1">
+<li><strong>VM → Add VM → Add New VM</strong> (<code>Ctrl+N</code>),
+then <strong>Guest Operating System → Apple → macOS</strong> (or
+<strong>Mac OS X Intel</strong>, or <strong>Darwin</strong>: all three
+use the same Intel macOS profile).</li>
+<li>The <strong>Intel macOS Setup</strong> page asks for:
 <ul>
 <li><strong>OpenCore (ISO or disk image)</strong></li>
 <li><strong>System disk:</strong> <strong>Create a new disk
 image</strong> or <strong>Use an existing disk image</strong></li>
-<li><strong>Installer disk image (MIST APM/HFS .iso)</strong></li>
-<li><strong>Apple SMC OSK (required to start)</strong>: paste your own
-key</li>
-</ul>
-<p>The profile uses <code>q35</code>, 4096 MB RAM, a 40 GB AHCI (SATA)
-disk, an <code>e1000-82545em</code> NIC, and VMware SVGA graphics at the
-host's native resolution.</p>
-<p>After the VM is created, these settings live on the Machine tab's
-<strong>Intel macOS</strong> panel (<strong>OpenCore ISO/disk</strong>,
-<strong>Installer image</strong>, <strong>Apple SMC OSK</strong>,
-<strong>Launch via WSL/KVM</strong>) and in <strong>Machine →
-Advanced</strong> under <strong>Enable Intel macOS profile (q35 +
-OpenCore + SMC)</strong>.</p>
-<h3 id="what-aqemu-sets-automatically">What AQEMU sets
-automatically</h3>
-<p>You don't need to pick a CPU model or add SMC flags yourself. With
-the Intel macOS profile on, we ran AQEMU's argument builder and got:</p>
-<pre><code>-cpu Skylake-Client-v4,vendor=GenuineIntel,+invtsc,tsc-frequency=2000000000
--device isa-applesmc,osk=&lt;your key&gt;
--smbios type=2</code></pre>
-<ul>
-<li>AQEMU escapes any commas in the OSK for you. It doesn't check the
-key's length or contents, so paste it exactly.</li>
-<li>When QEMU runs inside WSL with KVM, AQEMU also adds
-<code>kvm=on,vmware-cpuid-freq=on</code> to the CPU.</li>
-<li>Under pure TCG, QEMU warns that <code>invtsc</code> isn't supported.
-Expect TCG to be too slow for real use.</li>
-</ul>
+<li><strong>Installer disk image</strong></li>
+<li><strong>Apple SMC OSK (required to start)</strong>: "Paste your own
+OSK — AQEMU never pre-fills this"</li>
+<li><strong>I will supply all Apple / OpenCore / OVMF files
+myself</strong> (must stay ticked)</li>
+<li><strong>Prefer WSL/KVM when /dev/kvm is available (Windows)</strong>
+(Windows only)</li>
+</ul></li>
+<li>Finish. Afterwards, these settings live on the Machine tab's Intel
+macOS panel and in <strong>Machine → Advanced → Enable Intel macOS
+profile (q35 + OpenCore + SMC)</strong>.</li>
+</ol>
 <h3 id="install">Install</h3>
 <ol type="1">
-<li>Click <strong>Start</strong>. OpenCore's picker should appear.</li>
-<li>Choose the installer, use Disk Utility to erase the system disk as
+<li>Click <strong>Start</strong>. If the OpenCore path is missing, AQEMU
+stops with "OpenCore path is missing or does not exist". OpenCore's
+picker should appear.</li>
+<li>Pick the installer, use Disk Utility to erase the system disk as
 <strong>APFS</strong>, then install.</li>
-<li>After the reboots, choose the system disk in OpenCore.</li>
+<li>After the reboots, pick the system disk in OpenCore.</li>
 </ol>
-<p>This is experimental. If it doesn't boot, please open an <a
+<p>If it doesn't boot, open an <a
 href="https://github.com/chronic8000/aqemu/issues">issue</a> with your
-QEMU arguments (<code>VM → Tools → Show QEMU Arguments</code>), with the
-OSK removed.</p>
+QEMU arguments (<strong>Show QEMU Arguments</strong> on the toolbar),
+<strong>with the OSK removed</strong>.</p>
 <hr />
-<p><a href="documentation-hub.html">Documentation Hub</a> · <a
-href="user-guide.html">User Guide</a></p>
+<h2 id="2-classic-mac-os-and-mac-os-x-on-powerpc">2. Classic Mac OS and
+Mac OS X on PowerPC</h2>
+<p><strong>Guest Operating System → Apple → Mac OS 7 / Mac OS 8 / Mac OS
+9 / Mac OS X PPC</strong>, or the <strong>Mac OS Classic PPC</strong>
+template under <strong>Custom / Advanced → Template</strong>.</p>
+<table>
+<thead>
+<tr class="header">
+<th></th>
+<th>Mac OS 7 / 8 / 9</th>
+<th>Mac OS X PPC</th>
+<th>Mac OS Classic PPC template</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Emulator</td>
+<td><code>qemu-system-ppc</code></td>
+<td><code>qemu-system-ppc</code></td>
+<td><code>qemu-system-ppc</code></td>
+</tr>
+<tr class="even">
+<td>Machine</td>
+<td><code>mac99</code> (or <code>g3beige</code>)</td>
+<td><code>mac99</code> (or <code>g3beige</code>)</td>
+<td><code>mac99</code></td>
+</tr>
+<tr class="odd">
+<td>CPU</td>
+<td>G4</td>
+<td>G4</td>
+<td>default</td>
+</tr>
+<tr class="even">
+<td>RAM</td>
+<td>256 MB</td>
+<td>512 MB</td>
+<td>512 MB</td>
+</tr>
+<tr class="odd">
+<td>Disk</td>
+<td>4 GB, IDE</td>
+<td>10 GB, IDE</td>
+<td>10 GB</td>
+</tr>
+<tr class="even">
+<td>Network</td>
+<td>sungem</td>
+<td>sungem</td>
+<td>sungem</td>
+</tr>
+<tr class="odd">
+<td>Sound</td>
+<td>screamer (or none)</td>
+<td>screamer (or none)</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>On every host (Windows x64, Windows ARM64, Linux x64, Linux
+ARM64) this is TCG emulation.</strong> No accelerator can run PowerPC on
+an x86 or ARM CPU. The CPU is the G4 model from the profile on every
+host.</p>
+<ol type="1">
+<li>Check that your QEMU has <code>qemu-system-ppc</code>. The Store
+build bundles its own QEMU. A self-built QEMU needs the
+<code>ppc-softmmu</code> target.</li>
+<li>Create the VM, attach your own install CD/ISO on the
+<strong>Media</strong> tab, and click <strong>Start</strong>.</li>
+</ol>
+<h2 id="3-mac-os-6-68k">3. Mac OS 6 (68k)</h2>
+<p><strong>Guest Operating System → Apple → Mac OS 6</strong> uses
+<code>qemu-system-m68k</code> with the Quadra 800 machine
+(<code>q800</code>), 64 MB, a 2 GB SCSI disk, and no sound. The profile
+itself says "Experimental; supply your own disk/ROM image." It is TCG on
+every host.</p>
+<p>NeXTSTEP and OPENSTEP are also listed under Apple. See <a
+href="guest-os-unix.html">Unix and workstation systems</a>.</p>
+<hr />
+<p>Related: <a href="ios-apple-soc-guide.html">iOS / Apple SoC
+(experimental)</a> · <a href="accelerators.html">Accelerators</a> · <a
+href="documentation-hub.html">Documentation Hub</a></p>
 
   </article>
 </div>

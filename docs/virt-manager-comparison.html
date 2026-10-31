@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AQEMU vs virt-manager – AQEMU Docs</title>
+<meta name="description" content="How AQEMU differs from virt-manager.">
+<link rel="canonical" href="https://chronic8000.github.io/aqemu/docs/virt-manager-comparison.html">
+<meta name="theme-color" content="#0b0f19">
+<link rel="icon" type="image/png" href="../favicon.png">
+<style>:root{--bg:#0b0f19;--bg2:#111827;--card:#151d2e;--line:#243049;--text:#e6ebf5;--mute:#9aa6bd;--acc:#4f9dff;--acc2:#8b5cf6}
+*{box-sizing:border-box}html{scroll-behavior:smooth}
+body{margin:0;font:16px/1.7 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+a{color:var(--acc);text-decoration:none}a:hover{text-decoration:underline}
+.wrap{max-width:1120px;margin:0 auto;padding:0 20px}
+header.nav{position:sticky;top:0;z-index:10;background:rgba(11,15,25,.85);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+header.nav .wrap{display:flex;align-items:center;justify-content:space-between;height:60px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;color:var(--text);font-size:18px}.brand img{width:34px;height:auto}
+nav a{color:var(--mute);margin-left:22px;font-size:15px}nav a:hover,nav a.on{color:var(--text);text-decoration:none}
+@media(max-width:800px){nav a.hide-sm{display:none}nav a{margin-left:14px}}
+.layout{display:grid;grid-template-columns:220px 1fr;gap:40px;padding:40px 20px 72px}
+@media(max-width:900px){.layout{grid-template-columns:1fr}.side{display:none}}
+.side{position:sticky;top:84px;align-self:start;font-size:15px}
+.side h4{margin:0 0 10px;color:var(--mute);font-size:12px;letter-spacing:.08em;text-transform:uppercase}
+.side a{display:block;padding:6px 10px;border-radius:8px;color:var(--mute)}.side a.on,.side a:hover{background:var(--card);color:var(--text);text-decoration:none}
+.side .store{margin-top:18px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--bg2)}
+article{min-width:0}
+article h1{font-size:clamp(28px,4vw,42px);line-height:1.15;margin:0 0 18px;letter-spacing:-.02em}
+article h2{font-size:26px;margin:44px 0 12px;padding-top:12px;border-top:1px solid var(--line)}
+article h3{font-size:19px;margin:28px 0 8px}
+article p,article li{color:#cfd7e6}
+article hr{border:0;border-top:1px solid var(--line);margin:32px 0}
+article table{border-collapse:collapse;width:100%;margin:16px 0;font-size:15px;display:block;overflow-x:auto}
+article th,article td{border:1px solid var(--line);padding:8px 12px;text-align:left;vertical-align:top}
+article th{background:var(--bg2)}article tr:nth-child(even) td{background:rgba(21,29,46,.5)}
+code{font:13px/1.4 ui-monospace,SFMono-Regular,Consolas,monospace;background:#0e1524;border:1px solid var(--line);padding:2px 6px;border-radius:6px;color:#c9d6ff}
+pre{background:#0e1524;border:1px solid var(--line);border-radius:12px;padding:16px;overflow-x:auto}pre code{border:0;padding:0;background:none}
+blockquote{margin:18px 0;padding:12px 18px;border-left:4px solid var(--acc2);background:var(--card);border-radius:0 10px 10px 0}blockquote p{margin:4px 0}
+.docver{font-size:13px;color:var(--mute);margin:-8px 0 22px}.docver span{display:inline-block;padding:1px 9px;margin-right:8px;border:1px solid var(--line);border-radius:999px;background:var(--bg2);color:var(--text)}
+footer{padding:40px 0;color:var(--mute);font-size:14px;border-top:1px solid var(--line)}
+footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}</style>
+</head>
+<body>
+<header class="nav"><div class="wrap">
+  <a class="brand" href="../"><img src="../img/logo.png" alt="AQEMU logo" width="34" height="27">AQEMU <span style="color:var(--mute);font-weight:500">Docs</span></a>
+  <nav><a href="./">Docs</a><a class="hide-sm" href="your-first-vm.html">Your first VM</a><a class="hide-sm" href="guest-os.html">All guest OSes</a><a class="hide-sm" href="troubleshooting.html">Troubleshooting and FAQ</a><a href="https://github.com/chronic8000/aqemu">GitHub</a></nav>
+</div></header>
+<div class="wrap layout">
+  <aside class="side"><h4 style="margin-top:18px">Start here</h4><a href="documentation-hub.html">Docs home</a><a href="install-from-store.html">Install from the Store</a><a href="first-start.html">First start</a><a href="your-first-vm.html">Your first VM</a><a href="command-line.html">Command line</a><h4 style="margin-top:18px">Hosts</h4><a href="host-windows-x64.html">Windows x64</a><a href="host-windows-arm64.html">Windows ARM64</a><a href="host-linux-x64.html">Linux x64</a><a href="host-linux-arm64.html">Linux ARM64</a><h4 style="margin-top:18px">Using AQEMU</h4><a href="new-vm-wizard.html">New VM Wizard</a><a href="session-toolbar.html">Session toolbar</a><a href="display.html">Display and mouse</a><a href="networking.html">Networking</a><a href="storage-and-disks.html">Storage and disks</a><a href="file-transfer.html">File transfer</a><a href="copy-and-paste.html">Copy and paste</a><a href="snapshots.html">Snapshots</a><a href="accelerators.html">Accelerators</a><a href="troubleshooting.html">Troubleshooting and FAQ</a><a href="user-guide.html">User Guide (one page)</a><h4 style="margin-top:18px">Guest operating systems</h4><a href="guest-os.html">All guest OSes</a><a href="windows-11-guide.html">Windows 11 and legacy</a><a href="guest-os-windows.html">Windows family</a><a href="guest-os-windows-11-arm.html">Windows 11 ARM per host</a><a href="guest-os-linux.html">Linux</a><a href="guest-os-bsd.html">BSD</a><a href="guest-os-unix.html">Unix</a><a href="guest-os-retro-dos-os2.html">DOS, OS/2 and retro</a><a href="guest-os-truenas.html">TrueNAS</a><a href="guest-os-other.html">Other OSes</a><a href="guest-os-boards.html">ARM and RISC-V boards</a><a href="os-catalog.html">OS Catalog</a><a href="macos-guide.html">macOS (Experimental)</a><a href="ios-apple-soc-guide.html">iOS / Apple SoC (Experimental)</a><h4 style="margin-top:18px">Reference</h4><a href="settings-tabs.html">Settings tab map</a><a href="preferences.html">Preferences</a><a href="menus.html">Menus</a><a href="new-vm-wizard-paths.html">Wizard paths</a><a href="virt-manager-comparison.html" class=on>AQEMU vs virt-manager</a>
+    <div class="store"><a href="https://apps.microsoft.com/detail/9P0HGKHQ9W19?cid=ghpages_docs">Get AQEMU on the Microsoft Store</a></div>
+    <p style="font-size:13px;color:var(--mute);margin-top:14px"><a href="https://github.com/chronic8000/aqemu/edit/master/docs/reference/virt-manager-comparison.md">Edit this page on GitHub</a></p>
+  </aside>
+  <article>
+<h1 id="aqemu-vs-virt-manager">AQEMU vs virt-manager</h1>
+<p class="docver"><span>Docs v1</span> Last updated 31 October 2026. These guides are a first version and will be updated.</p>
+<p>Reference clone (sibling checkout): <code>../virt-manager</code> from
+<a
+href="https://github.com/virt-manager/virt-manager.git">virt-manager/virt-manager</a>.</p>
+<h2 id="short-answer">Short answer</h2>
+<p><strong>No — we do not yet do everything virt-manager does, and we
+should not claim that on Reddit.</strong></p>
+<p>We also <strong>already beat</strong> virt-manager in several areas
+Reddit cares about (Windows host, obscure/retro guests, deeper QEMU
+knobs, in-app SPICE). The stacks are different:</p>
+<table>
+<thead>
+<tr class="header">
+<th></th>
+<th><strong>AQEMU</strong></th>
+<th><strong>virt-manager</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Backend</td>
+<td>Talks to <strong>QEMU</strong> (args + QMP/HMP)</td>
+<td>Talks to <strong>libvirt</strong> (XML API)</td>
+</tr>
+<tr class="even">
+<td>Host focus</td>
+<td>Windows + Linux (+ WSL/KVM recipes)</td>
+<td>Linux-first; remote libvirt URIs</td>
+</tr>
+<tr class="odd">
+<td>Philosophy</td>
+<td>“Make every QEMU guest easy”</td>
+<td>“Stable UI for common libvirt tasks” (<a
+href="https://github.com/virt-manager/virt-manager/blob/main/DESIGN.md">DESIGN.md</a>)</td>
+</tr>
+</tbody>
+</table>
+<p>virt-manager’s own design doc says it is <strong>not</strong> trying
+to be VirtualBox/VMware-class. AQEMU <em>is</em> aiming closer to that
+for QEMU.</p>
+<h2 id="feature-matrix-honest">Feature matrix (honest)</h2>
+<h3 id="where-aqemu-is-ahead-or-unique">Where AQEMU is ahead (or
+unique)</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Area</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Guest OS breadth</strong></td>
+<td>Huge wizard trees + profiles (Win9x TCG, XP, OS/2, classic Mac,
+Intel macOS, Win11 ARM, AIX/pseries, IRIX, …)</td>
+</tr>
+<tr class="even">
+<td><strong>Guest-aware devices</strong></td>
+<td>Capability matrix: no VirtIO on Win98, no AdLib on mac99, etc.</td>
+</tr>
+<tr class="odd">
+<td><strong>Windows host</strong></td>
+<td>First-class packaging, WHPX/TCG, Store/portable</td>
+</tr>
+<tr class="even">
+<td><strong>Embedded SPICE session</strong></td>
+<td>Guest display + toolbar inside the app</td>
+</tr>
+<tr class="odd">
+<td><strong>Deep QEMU options</strong></td>
+<td>NUMA, TPM, fw_cfg, blockdev graph, audiodev, migrate cancel, …</td>
+</tr>
+<tr class="even">
+<td><strong>Machine catalog</strong></td>
+<td>Full <code>-M</code> lists / probe, not just libvirt “recommended”
+x86</td>
+</tr>
+</tbody>
+</table>
+<h3 id="where-virt-manager-is-ahead-remaining-gaps">Where virt-manager
+is ahead (remaining gaps)</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Area</th>
+<th>virt-manager</th>
+<th>AQEMU</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Virtual networks</strong></td>
+<td>NAT/bridge/macvtap UI</td>
+<td>User/bridge/TAP/none in wizard</td>
+<td>Still weaker than libvirt virtual nets</td>
+</tr>
+<tr class="even">
+<td><strong>Snapshots UX</strong></td>
+<td>Domain snapshots</td>
+<td>Present, less polished</td>
+<td>QMP <code>savevm</code> / external snapshots</td>
+</tr>
+<tr class="odd">
+<td><strong>In-process Xen/LXC</strong></td>
+<td>Native via libvirt</td>
+<td>External only</td>
+<td><strong>File → Remote Hosts</strong> opens virt-manager/virsh</td>
+</tr>
+<tr class="even">
+<td><strong>Fleet / multi-host fabric</strong></td>
+<td>Connection list + migrate</td>
+<td>Helpers only</td>
+<td>SSH tunnels + migrate URI UI — not a libvirt cluster</td>
+</tr>
+</tbody>
+</table>
+<h3 id="borrowed--shipped-qemu-native">Borrowed / shipped
+(QEMU-native)</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Area</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>OS detection from ISO</strong></td>
+<td>Filename + ISO9660 volume ID; optional <code>osinfo-detect</code>
+(libosinfo) on Linux</td>
+</tr>
+<tr class="even">
+<td><strong>URL / network install</strong></td>
+<td>Wizard: download ISO URL, or kernel+initrd URLs →
+<code>-kernel</code>/<code>-initrd</code>/<code>-append</code></td>
+</tr>
+<tr class="odd">
+<td><strong>Import existing disk</strong></td>
+<td>Wizard method <strong>Import Existing Disk</strong></td>
+</tr>
+<tr class="even">
+<td><strong>Storage browser</strong></td>
+<td><strong>File → Storage Browser…</strong> (VM folder as pool)</td>
+</tr>
+<tr class="odd">
+<td><strong>Network modes</strong></td>
+<td>User/NAT, Bridge, TAP, None</td>
+</tr>
+<tr class="even">
+<td><strong>Clone VM</strong></td>
+<td><strong>Clone VM…</strong> + disk copy options</td>
+</tr>
+<tr class="odd">
+<td><strong>Serial console</strong></td>
+<td>Session toolbar → TCP serial</td>
+</tr>
+<tr class="even">
+<td><strong>Remote hosts</strong></td>
+<td><strong>File → Remote Hosts…</strong> — SSH port forwards;
+libvirt/Xen/LXC via external tools</td>
+</tr>
+<tr class="odd">
+<td><strong>Live migrate</strong></td>
+<td>Session / Emulator Control → migrate URI dialog
+(<code>tcp:host:port</code>, optional <code>blk</code>)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="roughly-similar">Roughly similar</h3>
+<p>Lifecycle start/stop/pause, CD/USB hotplug, memory/CPU edits,
+SPICE/VNC graphics, UEFI, VirtIO when appropriate, add hardware after
+create.</p>
+<h2 id="what-everything-virt-manager-does-with-qemu-means">What
+“everything virt-manager does with QEMU” means</h2>
+<p>Do <strong>not</strong> clone libvirt wholesale. Reimplement the
+<strong>user-visible QEMU workflows</strong>:</p>
+<ol type="1">
+<li><strong>Create</strong> — ISO / existing disk / URL / manual (we’re
+strong on OS/arch/platform paths).</li>
+<li><strong>Install media detection</strong> — suggest OS from ISO when
+possible.</li>
+<li><strong>Network</strong> — usernet, bridge, tap with clear
+defaults.</li>
+<li><strong>Storage</strong> — named folders (“pools”), browse volumes,
+resize.</li>
+<li><strong>Clone / snapshot / delete</strong> — one-click, safe disk
+handling.</li>
+<li><strong>Console</strong> — graphical SPICE (have) + serial
+(have).</li>
+<li><strong>Hardware add</strong> — disk/NIC/USB/filesystem
+(virtiofs/9p) with guest filters.</li>
+</ol>
+<p><strong>Out of scope as in-process backends:</strong> Xen, LXC, bhyve
+— use Remote Hosts → libvirt URI.</p>
+<h2 id="reddit-talking-points-accurate">Reddit talking points
+(accurate)</h2>
+<blockquote>
+<p>AQEMU isn’t a virt-manager clone — it’s a QEMU-native manager aimed
+at Windows and obscure guests virt-manager never prioritized. We borrow
+virt-manager UX (import, URL install, storage browser, remote helpers)
+without requiring libvirt. Full Xen/LXC and multi-host fabric still live
+in virt-manager when you need them.</p>
+</blockquote>
+<h2 id="implementation-status">Implementation status</h2>
+<table>
+<thead>
+<tr class="header">
+<th>Priority</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Wizard: Import + ISO → OS guess</td>
+<td><strong>done</strong></td>
+</tr>
+<tr class="even">
+<td>Serial console in session</td>
+<td><strong>done</strong></td>
+</tr>
+<tr class="odd">
+<td>Storage browser + clone polish</td>
+<td><strong>done</strong></td>
+</tr>
+<tr class="even">
+<td>Network page clarity</td>
+<td><strong>done</strong></td>
+</tr>
+<tr class="odd">
+<td>URL / network install</td>
+<td><strong>done</strong></td>
+</tr>
+<tr class="even">
+<td>Deeper media detect (ISO9660 + osinfo-detect)</td>
+<td><strong>done</strong></td>
+</tr>
+<tr class="odd">
+<td>Remote hosts + live migrate URI</td>
+<td><strong>done</strong> (QEMU-native + external libvirt)</td>
+</tr>
+<tr class="even">
+<td>In-app Xen/LXC</td>
+<td><strong>won’t</strong> — launch virt-manager instead</td>
+</tr>
+</tbody>
+</table>
+<h3 id="where-to-click">Where to click</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Feature</th>
+<th>Where</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Import existing disk</td>
+<td>New VM wizard → <strong>Import Existing Disk</strong></td>
+</tr>
+<tr class="even">
+<td>ISO / URL / kernel+initrd</td>
+<td>Typical disk page — install media radios</td>
+</tr>
+<tr class="odd">
+<td>Storage browser</td>
+<td><strong>File → Storage Browser…</strong></td>
+</tr>
+<tr class="even">
+<td>Remote hosts / Xen·LXC helper</td>
+<td><strong>File → Remote Hosts…</strong></td>
+</tr>
+<tr class="odd">
+<td>Serial console</td>
+<td>Session toolbar</td>
+</tr>
+<tr class="even">
+<td>Live migrate</td>
+<td>Session toolbar / Emulator Control → <strong>Migrate…</strong></td>
+</tr>
+<tr class="odd">
+<td>Clone</td>
+<td><strong>Clone VM…</strong></td>
+</tr>
+</tbody>
+</table>
+
+  </article>
+</div>
+<footer><div class="wrap">
+  <span>© 2026 Chronic Engineering · AQEMU is GPLv2 · QEMU is a trademark of Fabrice Bellard.</span>
+  <span><a href="../">Home</a> · <a href="https://apps.microsoft.com/detail/9P0HGKHQ9W19?cid=ghpages_docs">Microsoft Store</a> · <a href="https://github.com/chronic8000/aqemu">GitHub</a></span>
+</div></footer>
+</body>
+</html>

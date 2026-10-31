@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Storage and disks – AQEMU Docs</title>
+<meta name="description" content="AQEMU storage: disk formats, the Media tab, disk bus, conversion, SAN storage and recovery.">
+<link rel="canonical" href="https://chronic8000.github.io/aqemu/docs/storage-and-disks.html">
+<meta name="theme-color" content="#0b0f19">
+<link rel="icon" type="image/png" href="../favicon.png">
+<style>:root{--bg:#0b0f19;--bg2:#111827;--card:#151d2e;--line:#243049;--text:#e6ebf5;--mute:#9aa6bd;--acc:#4f9dff;--acc2:#8b5cf6}
+*{box-sizing:border-box}html{scroll-behavior:smooth}
+body{margin:0;font:16px/1.7 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+a{color:var(--acc);text-decoration:none}a:hover{text-decoration:underline}
+.wrap{max-width:1120px;margin:0 auto;padding:0 20px}
+header.nav{position:sticky;top:0;z-index:10;background:rgba(11,15,25,.85);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+header.nav .wrap{display:flex;align-items:center;justify-content:space-between;height:60px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;color:var(--text);font-size:18px}.brand img{width:34px;height:auto}
+nav a{color:var(--mute);margin-left:22px;font-size:15px}nav a:hover,nav a.on{color:var(--text);text-decoration:none}
+@media(max-width:800px){nav a.hide-sm{display:none}nav a{margin-left:14px}}
+.layout{display:grid;grid-template-columns:220px 1fr;gap:40px;padding:40px 20px 72px}
+@media(max-width:900px){.layout{grid-template-columns:1fr}.side{display:none}}
+.side{position:sticky;top:84px;align-self:start;font-size:15px}
+.side h4{margin:0 0 10px;color:var(--mute);font-size:12px;letter-spacing:.08em;text-transform:uppercase}
+.side a{display:block;padding:6px 10px;border-radius:8px;color:var(--mute)}.side a.on,.side a:hover{background:var(--card);color:var(--text);text-decoration:none}
+.side .store{margin-top:18px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--bg2)}
+article{min-width:0}
+article h1{font-size:clamp(28px,4vw,42px);line-height:1.15;margin:0 0 18px;letter-spacing:-.02em}
+article h2{font-size:26px;margin:44px 0 12px;padding-top:12px;border-top:1px solid var(--line)}
+article h3{font-size:19px;margin:28px 0 8px}
+article p,article li{color:#cfd7e6}
+article hr{border:0;border-top:1px solid var(--line);margin:32px 0}
+article table{border-collapse:collapse;width:100%;margin:16px 0;font-size:15px;display:block;overflow-x:auto}
+article th,article td{border:1px solid var(--line);padding:8px 12px;text-align:left;vertical-align:top}
+article th{background:var(--bg2)}article tr:nth-child(even) td{background:rgba(21,29,46,.5)}
+code{font:13px/1.4 ui-monospace,SFMono-Regular,Consolas,monospace;background:#0e1524;border:1px solid var(--line);padding:2px 6px;border-radius:6px;color:#c9d6ff}
+pre{background:#0e1524;border:1px solid var(--line);border-radius:12px;padding:16px;overflow-x:auto}pre code{border:0;padding:0;background:none}
+blockquote{margin:18px 0;padding:12px 18px;border-left:4px solid var(--acc2);background:var(--card);border-radius:0 10px 10px 0}blockquote p{margin:4px 0}
+.docver{font-size:13px;color:var(--mute);margin:-8px 0 22px}.docver span{display:inline-block;padding:1px 9px;margin-right:8px;border:1px solid var(--line);border-radius:999px;background:var(--bg2);color:var(--text)}
+footer{padding:40px 0;color:var(--mute);font-size:14px;border-top:1px solid var(--line)}
+footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}</style>
+</head>
+<body>
+<header class="nav"><div class="wrap">
+  <a class="brand" href="../"><img src="../img/logo.png" alt="AQEMU logo" width="34" height="27">AQEMU <span style="color:var(--mute);font-weight:500">Docs</span></a>
+  <nav><a href="./">Docs</a><a class="hide-sm" href="your-first-vm.html">Your first VM</a><a class="hide-sm" href="guest-os.html">All guest OSes</a><a class="hide-sm" href="troubleshooting.html">Troubleshooting and FAQ</a><a href="https://github.com/chronic8000/aqemu">GitHub</a></nav>
+</div></header>
+<div class="wrap layout">
+  <aside class="side"><h4 style="margin-top:18px">Start here</h4><a href="documentation-hub.html">Docs home</a><a href="install-from-store.html">Install from the Store</a><a href="first-start.html">First start</a><a href="your-first-vm.html">Your first VM</a><a href="command-line.html">Command line</a><h4 style="margin-top:18px">Hosts</h4><a href="host-windows-x64.html">Windows x64</a><a href="host-windows-arm64.html">Windows ARM64</a><a href="host-linux-x64.html">Linux x64</a><a href="host-linux-arm64.html">Linux ARM64</a><h4 style="margin-top:18px">Using AQEMU</h4><a href="new-vm-wizard.html">New VM Wizard</a><a href="session-toolbar.html">Session toolbar</a><a href="display.html">Display and mouse</a><a href="networking.html">Networking</a><a href="storage-and-disks.html" class=on>Storage and disks</a><a href="file-transfer.html">File transfer</a><a href="copy-and-paste.html">Copy and paste</a><a href="snapshots.html">Snapshots</a><a href="accelerators.html">Accelerators</a><a href="troubleshooting.html">Troubleshooting and FAQ</a><a href="user-guide.html">User Guide (one page)</a><h4 style="margin-top:18px">Guest operating systems</h4><a href="guest-os.html">All guest OSes</a><a href="windows-11-guide.html">Windows 11 and legacy</a><a href="guest-os-windows.html">Windows family</a><a href="guest-os-windows-11-arm.html">Windows 11 ARM per host</a><a href="guest-os-linux.html">Linux</a><a href="guest-os-bsd.html">BSD</a><a href="guest-os-unix.html">Unix</a><a href="guest-os-retro-dos-os2.html">DOS, OS/2 and retro</a><a href="guest-os-truenas.html">TrueNAS</a><a href="guest-os-other.html">Other OSes</a><a href="guest-os-boards.html">ARM and RISC-V boards</a><a href="os-catalog.html">OS Catalog</a><a href="macos-guide.html">macOS (Experimental)</a><a href="ios-apple-soc-guide.html">iOS / Apple SoC (Experimental)</a><h4 style="margin-top:18px">Reference</h4><a href="settings-tabs.html">Settings tab map</a><a href="preferences.html">Preferences</a><a href="menus.html">Menus</a><a href="new-vm-wizard-paths.html">Wizard paths</a><a href="virt-manager-comparison.html">AQEMU vs virt-manager</a>
+    <div class="store"><a href="https://apps.microsoft.com/detail/9P0HGKHQ9W19?cid=ghpages_docs">Get AQEMU on the Microsoft Store</a></div>
+    <p style="font-size:13px;color:var(--mute);margin-top:14px"><a href="https://github.com/chronic8000/aqemu/edit/master/docs/guides/features/storage-and-disks.md">Edit this page on GitHub</a></p>
+  </aside>
+  <article>
+<h1 id="storage-and-disks">Storage and disks</h1>
+<p class="docver"><span>Docs v1</span> Last updated 31 October 2026. These guides are a first version and will be updated.</p>
+<p>A virtual disk is just a file on your computer. This guide covers
+making disks, adding CDs and floppies, changing the disk type,
+converting images, and getting data back from broken disks.</p>
+<hr />
+<h2 id="1-disk-image-formats-in-plain-english">1. Disk image formats in
+plain English</h2>
+<table>
+<thead>
+<tr class="header">
+<th>Format</th>
+<th>What it is</th>
+<th>When to use it</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>qcow2</strong></td>
+<td>QEMU's own format. Grows as you fill it, supports snapshots and
+saved state.</td>
+<td><strong>Use this by default.</strong></td>
+</tr>
+<tr class="even">
+<td><strong>raw</strong></td>
+<td>A plain byte-for-byte image. Simple and fast, no snapshots.</td>
+<td>Swapping images with other tools</td>
+</tr>
+<tr class="odd">
+<td><strong>vmdk</strong></td>
+<td>VMware's format</td>
+<td>Moving to or from VMware</td>
+</tr>
+<tr class="even">
+<td><strong>vhdx</strong> / <strong>vpc</strong></td>
+<td>Hyper-V / Virtual PC formats</td>
+<td>Moving to or from Hyper-V (convert only)</td>
+</tr>
+<tr class="odd">
+<td><strong>qcow</strong>, <strong>cow</strong>,
+<strong>cloop</strong></td>
+<td>Old formats</td>
+<td>Only for old images</td>
+</tr>
+</tbody>
+</table>
+<p><strong>File → Disks → Create HDD Image</strong> offers qcow2, qcow,
+raw, vmdk, cow and cloop. <strong>Convert disk…</strong> offers qcow2,
+raw, vmdk, vhdx and vpc.</p>
+<blockquote>
+<p>Saved state and <strong>Manage Snapshots</strong> need
+<strong>qcow2</strong>. See <a href="snapshots.html">Snapshots</a>.</p>
+</blockquote>
+<h2 id="2-disks-in-the-new-vm-wizard">2. Disks in the New VM Wizard</h2>
+<p>On the wizard's <strong>Disk</strong> page, choose <strong>Create a
+new disk image</strong> (pick a size) or <strong>Use an existing disk
+image</strong>. The install media page offers <strong>Local ISO / image
+file</strong>, <strong>Download ISO from URL</strong>, or
+<strong>Network install (kernel + initrd URLs)</strong>.</p>
+<p>If you already have a disk, use the wizard's <strong>Import Existing
+Disk</strong> method instead (qcow2, raw, VHDX, VMDK…). See <a
+href="new-vm-wizard.html">New VM Wizard</a>.</p>
+<h2 id="3-the-media-tab">3. The Media tab</h2>
+<p>Select a VM, then open <strong>Media</strong>. It has these
+sub-tabs:</p>
+<table>
+<thead>
+<tr class="header">
+<th>Sub-tab</th>
+<th>What's there</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Device Manager</strong></td>
+<td>The VM's hard disks, CD/DVD drives and floppies. <strong>Add
+HDD</strong>, <strong>Add CD/DVD-ROM</strong>, <strong>Add
+Floppy</strong>, <strong>Add Storage Device</strong>, <strong>Attach
+Remote SAN Storage (iSCSI / NVMe-oF)…</strong>, <strong>Delete</strong>,
+<strong>Properties</strong>, <strong>Format HDD</strong> and
+<strong>Quick Format</strong>.</td>
+</tr>
+<tr class="even">
+<td><strong>Folder Sharing</strong></td>
+<td>Shared folders (Linux hosts). See <a href="file-transfer.html">File
+transfer</a>.</td>
+</tr>
+<tr class="odd">
+<td><strong>Computer Ports</strong></td>
+<td>Serial (COM), parallel (LPT) and USB ports</td>
+</tr>
+<tr class="even">
+<td><strong>Boot Kernel</strong></td>
+<td>Boot a Linux or Multiboot kernel directly: <strong>Kernel bzImage
+file</strong>, <strong>Initrd file</strong>, <strong>Append command
+line</strong></td>
+</tr>
+<tr class="odd">
+<td><strong>Special Images</strong></td>
+<td>Onboard flash, SecureDigital card, parallel flash and ROM images
+(mostly for ARM boards)</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Careful:</strong> <strong>Quick Format</strong> asks "Format
+Virtual Hard Disk?" and <strong>Format HDD</strong> recreates the image.
+Both wipe what's on that disk.</p>
+</blockquote>
+<p>While the VM runs, swap CDs and floppies from the <a
+href="session-toolbar.html">session toolbar</a>.</p>
+<h2 id="4-disk-interface-the-bus">4. Disk interface (the "bus")</h2>
+<p>On the Machine tab, <strong>Disk bus (HDA) → Interface</strong> sets
+how the main disk is connected: <strong>VirtIO</strong>, <strong>VirtIO
+SCSI</strong>, <strong>SCSI</strong>, <strong>IDE</strong>, <strong>AHCI
+(SATA)</strong>, <strong>SD</strong> or <strong>NVMe</strong>.</p>
+<p>The wizard picks one for your guest. Some examples from the
+source:</p>
+<ul>
+<li>Windows 11 and Server 2025 get <strong>NVMe</strong>.</li>
+<li>Vista, 7, 8, 10 and Server versions get <strong>SATA
+(AHCI)</strong>.</li>
+<li>Windows 9x/XP, DOS and OS/2 use <strong>IDE</strong>, because their
+setup programs can't see the newer disk types.</li>
+<li>Linux, BSD, Haiku, Android, ChromeOS, ARM and s390x guests get
+<strong>VirtIO</strong>.</li>
+<li>HP-UX gets <strong>SCSI</strong> and AIX gets <strong>VirtIO
+SCSI</strong>.</li>
+<li>Anything else falls back to <strong>IDE</strong>.</li>
+</ul>
+<p>If the installer says "no hard disk found", the guest can't see the
+bus. Switch to <strong>IDE</strong> or <strong>AHCI (SATA)</strong> and
+try again.</p>
+<h2 id="5-disk-tools-file--disks">5. Disk tools (File → Disks)</h2>
+<table>
+<thead>
+<tr class="header">
+<th>Menu item</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Storage Browser…</strong></td>
+<td>"Browse disk images and ISOs in your VM folder"</td>
+</tr>
+<tr class="even">
+<td><strong>Create HDD Image</strong></td>
+<td>Makes a new image. <strong>Use Base HDD Image</strong> makes it a
+difference image on top of an existing one ("QEMU reads the base file
+and writes changes into the new file").</td>
+</tr>
+<tr class="odd">
+<td><strong>Convert HDD Image</strong></td>
+<td>Converts an image, with optional compression</td>
+</tr>
+<tr class="even">
+<td><strong>Convert disk…</strong></td>
+<td>Converts with <code>qemu-img convert</code> to qcow2, raw, vmdk,
+vhdx or vpc, with an optional 4K alignment</td>
+</tr>
+<tr class="odd">
+<td><strong>qemu-nbd…</strong></td>
+<td>Shares a disk image read-only on <code>127.0.0.1:10809</code> until
+you close the window</td>
+</tr>
+</tbody>
+</table>
+<p>The <strong>VM → Lab</strong> menu has more tools for power users:
+<strong>Chain Studio…</strong> (view a backing chain, create an overlay,
+commit, rebase), <strong>Block jobs…</strong> and <strong>Linked
+clones…</strong>.</p>
+<h2 id="6-remote-and-network-storage">6. Remote and network storage</h2>
+<ul>
+<li><strong>VM → Storage → Attach Remote SAN Storage (iSCSI /
+NVMe-oF)…</strong> connects a network disk to the selected VM.</li>
+<li>The <strong>Storage</strong> tab has <strong>Enable TrueNAS Guest
+Integration</strong>: enter your TrueNAS host's address, port and API
+token to see its pools. See also the <a
+href="guest-os-truenas.html">TrueNAS guide</a>.</li>
+</ul>
+<h2 id="7-getting-data-off-a-broken-disk">7. Getting data off a broken
+disk</h2>
+<p><strong>VM → Recovery → Storage Recovery…</strong> reads disk labels
+and builds a <strong>read-only</strong> recovery VM. Add disk files, a
+folder or physical disks, pick a boot ISO, and click
+<strong>Analyze</strong>. The wizard has the same thing as its
+<strong>Recover storage</strong> method (<a
+href="new-vm-wizard.html#7-recover-storage">details</a>).</p>
+<hr />
+<p><a href="documentation-hub.html">Documentation Hub</a> · <a
+href="snapshots.html">Snapshots</a> · <a href="new-vm-wizard.html">New
+VM Wizard</a></p>
+
+  </article>
+</div>
+<footer><div class="wrap">
+  <span>© 2026 Chronic Engineering · AQEMU is GPLv2 · QEMU is a trademark of Fabrice Bellard.</span>
+  <span><a href="../">Home</a> · <a href="https://apps.microsoft.com/detail/9P0HGKHQ9W19?cid=ghpages_docs">Microsoft Store</a> · <a href="https://github.com/chronic8000/aqemu">GitHub</a></span>
+</div></footer>
+</body>
+</html>

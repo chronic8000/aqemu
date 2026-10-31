@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Using AQEMU from the Command Line – AQEMU Docs</title>
+<meta name="description" content="The AQEMU command line: start, stop and query VMs over D-Bus on Linux.">
+<link rel="canonical" href="https://chronic8000.github.io/aqemu/docs/command-line.html">
+<meta name="theme-color" content="#0b0f19">
+<link rel="icon" type="image/png" href="../favicon.png">
+<style>:root{--bg:#0b0f19;--bg2:#111827;--card:#151d2e;--line:#243049;--text:#e6ebf5;--mute:#9aa6bd;--acc:#4f9dff;--acc2:#8b5cf6}
+*{box-sizing:border-box}html{scroll-behavior:smooth}
+body{margin:0;font:16px/1.7 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+a{color:var(--acc);text-decoration:none}a:hover{text-decoration:underline}
+.wrap{max-width:1120px;margin:0 auto;padding:0 20px}
+header.nav{position:sticky;top:0;z-index:10;background:rgba(11,15,25,.85);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+header.nav .wrap{display:flex;align-items:center;justify-content:space-between;height:60px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;color:var(--text);font-size:18px}.brand img{width:34px;height:auto}
+nav a{color:var(--mute);margin-left:22px;font-size:15px}nav a:hover,nav a.on{color:var(--text);text-decoration:none}
+@media(max-width:800px){nav a.hide-sm{display:none}nav a{margin-left:14px}}
+.layout{display:grid;grid-template-columns:220px 1fr;gap:40px;padding:40px 20px 72px}
+@media(max-width:900px){.layout{grid-template-columns:1fr}.side{display:none}}
+.side{position:sticky;top:84px;align-self:start;font-size:15px}
+.side h4{margin:0 0 10px;color:var(--mute);font-size:12px;letter-spacing:.08em;text-transform:uppercase}
+.side a{display:block;padding:6px 10px;border-radius:8px;color:var(--mute)}.side a.on,.side a:hover{background:var(--card);color:var(--text);text-decoration:none}
+.side .store{margin-top:18px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--bg2)}
+article{min-width:0}
+article h1{font-size:clamp(28px,4vw,42px);line-height:1.15;margin:0 0 18px;letter-spacing:-.02em}
+article h2{font-size:26px;margin:44px 0 12px;padding-top:12px;border-top:1px solid var(--line)}
+article h3{font-size:19px;margin:28px 0 8px}
+article p,article li{color:#cfd7e6}
+article hr{border:0;border-top:1px solid var(--line);margin:32px 0}
+article table{border-collapse:collapse;width:100%;margin:16px 0;font-size:15px;display:block;overflow-x:auto}
+article th,article td{border:1px solid var(--line);padding:8px 12px;text-align:left;vertical-align:top}
+article th{background:var(--bg2)}article tr:nth-child(even) td{background:rgba(21,29,46,.5)}
+code{font:13px/1.4 ui-monospace,SFMono-Regular,Consolas,monospace;background:#0e1524;border:1px solid var(--line);padding:2px 6px;border-radius:6px;color:#c9d6ff}
+pre{background:#0e1524;border:1px solid var(--line);border-radius:12px;padding:16px;overflow-x:auto}pre code{border:0;padding:0;background:none}
+blockquote{margin:18px 0;padding:12px 18px;border-left:4px solid var(--acc2);background:var(--card);border-radius:0 10px 10px 0}blockquote p{margin:4px 0}
+.docver{font-size:13px;color:var(--mute);margin:-8px 0 22px}.docver span{display:inline-block;padding:1px 9px;margin-right:8px;border:1px solid var(--line);border-radius:999px;background:var(--bg2);color:var(--text)}
+footer{padding:40px 0;color:var(--mute);font-size:14px;border-top:1px solid var(--line)}
+footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}</style>
+</head>
+<body>
+<header class="nav"><div class="wrap">
+  <a class="brand" href="../"><img src="../img/logo.png" alt="AQEMU logo" width="34" height="27">AQEMU <span style="color:var(--mute);font-weight:500">Docs</span></a>
+  <nav><a href="./">Docs</a><a class="hide-sm" href="your-first-vm.html">Your first VM</a><a class="hide-sm" href="guest-os.html">All guest OSes</a><a class="hide-sm" href="troubleshooting.html">Troubleshooting and FAQ</a><a href="https://github.com/chronic8000/aqemu">GitHub</a></nav>
+</div></header>
+<div class="wrap layout">
+  <aside class="side"><h4 style="margin-top:18px">Start here</h4><a href="documentation-hub.html">Docs home</a><a href="install-from-store.html">Install from the Store</a><a href="first-start.html">First start</a><a href="your-first-vm.html">Your first VM</a><a href="command-line.html" class=on>Command line</a><h4 style="margin-top:18px">Hosts</h4><a href="host-windows-x64.html">Windows x64</a><a href="host-windows-arm64.html">Windows ARM64</a><a href="host-linux-x64.html">Linux x64</a><a href="host-linux-arm64.html">Linux ARM64</a><h4 style="margin-top:18px">Using AQEMU</h4><a href="new-vm-wizard.html">New VM Wizard</a><a href="session-toolbar.html">Session toolbar</a><a href="display.html">Display and mouse</a><a href="networking.html">Networking</a><a href="storage-and-disks.html">Storage and disks</a><a href="file-transfer.html">File transfer</a><a href="copy-and-paste.html">Copy and paste</a><a href="snapshots.html">Snapshots</a><a href="accelerators.html">Accelerators</a><a href="troubleshooting.html">Troubleshooting and FAQ</a><a href="user-guide.html">User Guide (one page)</a><h4 style="margin-top:18px">Guest operating systems</h4><a href="guest-os.html">All guest OSes</a><a href="windows-11-guide.html">Windows 11 and legacy</a><a href="guest-os-windows.html">Windows family</a><a href="guest-os-windows-11-arm.html">Windows 11 ARM per host</a><a href="guest-os-linux.html">Linux</a><a href="guest-os-bsd.html">BSD</a><a href="guest-os-unix.html">Unix</a><a href="guest-os-retro-dos-os2.html">DOS, OS/2 and retro</a><a href="guest-os-truenas.html">TrueNAS</a><a href="guest-os-other.html">Other OSes</a><a href="guest-os-boards.html">ARM and RISC-V boards</a><a href="os-catalog.html">OS Catalog</a><a href="macos-guide.html">macOS (Experimental)</a><a href="ios-apple-soc-guide.html">iOS / Apple SoC (Experimental)</a><h4 style="margin-top:18px">Reference</h4><a href="settings-tabs.html">Settings tab map</a><a href="preferences.html">Preferences</a><a href="menus.html">Menus</a><a href="new-vm-wizard-paths.html">Wizard paths</a><a href="virt-manager-comparison.html">AQEMU vs virt-manager</a>
+    <div class="store"><a href="https://apps.microsoft.com/detail/9P0HGKHQ9W19?cid=ghpages_docs">Get AQEMU on the Microsoft Store</a></div>
+    <p style="font-size:13px;color:var(--mute);margin-top:14px"><a href="https://github.com/chronic8000/aqemu/edit/master/docs/guides/getting-started/command-line.md">Edit this page on GitHub</a></p>
+  </aside>
+  <article>
+<h1 id="using-aqemu-from-the-command-line">Using AQEMU from the Command
+Line</h1>
+<p class="docver"><span>Docs v1</span> Last updated 31 October 2026. These guides are a first version and will be updated.</p>
+<p>AQEMU has a small command-line interface for scripting: start, stop
+and query VMs without clicking. This page is the full list of commands
+from the source (<code>src/main.cpp</code>).</p>
+<blockquote>
+<p><strong>Linux only (in practice).</strong> The commands talk to the
+running AQEMU over the <strong>D-Bus session bus</strong>. Linux
+desktops have one; Windows normally does not, so on Windows use the
+GUI.</p>
+</blockquote>
+<hr />
+<h2 id="commands">Commands</h2>
+<pre><code>aqemu start     ( &lt;AQEMU_FILE&gt; | &lt;VM_Name&gt; )
+aqemu stop      ( &lt;AQEMU_FILE&gt; | &lt;VM_Name&gt; )
+aqemu shutdown  ( &lt;AQEMU_FILE&gt; | &lt;VM_Name&gt; )
+aqemu pause     ( &lt;AQEMU_FILE&gt; | &lt;VM_Name&gt; )
+aqemu reset     ( &lt;AQEMU_FILE&gt; | &lt;VM_Name&gt; )
+aqemu save      ( &lt;AQEMU_FILE&gt; | &lt;VM_Name&gt; ) [ &lt;Tag&gt; ]
+aqemu load      ( &lt;AQEMU_FILE&gt; | &lt;VM_Name&gt; ) [ &lt;Tag&gt; ]
+aqemu monitor   ( &lt;AQEMU_FILE&gt; | &lt;VM_Name&gt; )
+aqemu error     ( &lt;AQEMU_FILE&gt; | &lt;VM_Name&gt; )
+aqemu control   ( &lt;AQEMU_FILE&gt; | &lt;VM_Name&gt; )
+aqemu status    [ &lt;AQEMU_FILE&gt; | &lt;VM_Name&gt; ]
+aqemu list</code></pre>
+<p>You can name a VM by its <strong>name</strong> (as shown in the VM
+list) or by the <strong>path to its <code>.aqemu</code>
+file</strong>.</p>
+<table>
+<thead>
+<tr class="header">
+<th>Command</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>start</code></td>
+<td>Starts the VM</td>
+</tr>
+<tr class="even">
+<td><code>stop</code></td>
+<td>Powers the VM off (like pulling the plug)</td>
+</tr>
+<tr class="odd">
+<td><code>shutdown</code></td>
+<td>Asks the guest to shut down (ACPI power button)</td>
+</tr>
+<tr class="even">
+<td><code>pause</code></td>
+<td>Pauses the VM</td>
+</tr>
+<tr class="odd">
+<td><code>reset</code></td>
+<td>Resets the VM</td>
+</tr>
+<tr class="even">
+<td><code>save</code></td>
+<td>Saves the VM state, optionally with a tag</td>
+</tr>
+<tr class="odd">
+<td><code>monitor</code></td>
+<td>Opens the QEMU monitor window</td>
+</tr>
+<tr class="even">
+<td><code>error</code></td>
+<td>Opens the QEMU error log window</td>
+</tr>
+<tr class="odd">
+<td><code>control</code></td>
+<td>Opens the emulator control window</td>
+</tr>
+<tr class="even">
+<td><code>status</code></td>
+<td>Shows the VM's state</td>
+</tr>
+<tr class="odd">
+<td><code>list</code></td>
+<td>Lists your VMs</td>
+</tr>
+</tbody>
+</table>
+<p>All commands except <code>start</code> and <code>load</code> expect
+the VM to be running already.</p>
+<blockquote>
+<p><code>load</code> is listed in the help text, but in the current
+source it isn't connected to an action. Don't rely on it yet.</p>
+</blockquote>
+<h2 id="options">Options</h2>
+<table>
+<thead>
+<tr class="header">
+<th>Option</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>-h</code>, <code>--help</code></td>
+<td>Show the help</td>
+</tr>
+<tr class="even">
+<td><code>--version</code></td>
+<td>Show the version</td>
+</tr>
+<tr class="odd">
+<td><code>--test-crash</code></td>
+<td>Write a local crash report and exit (for testing crash
+reporting)</td>
+</tr>
+<tr class="even">
+<td><code>--style THEME</code></td>
+<td>Set the Qt theme/style</td>
+</tr>
+</tbody>
+</table>
+<p>Running <code>aqemu</code> with no command opens the normal
+window.</p>
+<h2 id="examples">Examples</h2>
+<pre class="sh"><code>aqemu list
+aqemu start &quot;Obscure OS&quot;
+aqemu stop &quot;$HOME/.aqemu/Obscure OS.aqemu&quot;</code></pre>
+<h2 id="see-the-qemu-command-instead">See the QEMU command instead</h2>
+<p>If you want to run QEMU yourself without AQEMU, select the VM and use
+<strong>VM → Tools → Create Shell Script</strong>. <strong>VM → Tools →
+Show QEMU Arguments</strong> shows the command line without saving
+it.</p>
+<hr />
+<p><a href="documentation-hub.html">Documentation Hub</a> · <a
+href="menus.html">Menus reference</a></p>
+
+  </article>
+</div>
+<footer><div class="wrap">
+  <span>© 2026 Chronic Engineering · AQEMU is GPLv2 · QEMU is a trademark of Fabrice Bellard.</span>
+  <span><a href="../">Home</a> · <a href="https://apps.microsoft.com/detail/9P0HGKHQ9W19?cid=ghpages_docs">Microsoft Store</a> · <a href="https://github.com/chronic8000/aqemu">GitHub</a></span>
+</div></footer>
+</body>
+</html>

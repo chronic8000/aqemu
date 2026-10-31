@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The session toolbar (while a VM is running) – AQEMU Docs</title>
+<meta name="description" content="Every button on the AQEMU session toolbar above a running VM.">
+<link rel="canonical" href="https://chronic8000.github.io/aqemu/docs/session-toolbar.html">
+<meta name="theme-color" content="#0b0f19">
+<link rel="icon" type="image/png" href="../favicon.png">
+<style>:root{--bg:#0b0f19;--bg2:#111827;--card:#151d2e;--line:#243049;--text:#e6ebf5;--mute:#9aa6bd;--acc:#4f9dff;--acc2:#8b5cf6}
+*{box-sizing:border-box}html{scroll-behavior:smooth}
+body{margin:0;font:16px/1.7 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+a{color:var(--acc);text-decoration:none}a:hover{text-decoration:underline}
+.wrap{max-width:1120px;margin:0 auto;padding:0 20px}
+header.nav{position:sticky;top:0;z-index:10;background:rgba(11,15,25,.85);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+header.nav .wrap{display:flex;align-items:center;justify-content:space-between;height:60px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;color:var(--text);font-size:18px}.brand img{width:34px;height:auto}
+nav a{color:var(--mute);margin-left:22px;font-size:15px}nav a:hover,nav a.on{color:var(--text);text-decoration:none}
+@media(max-width:800px){nav a.hide-sm{display:none}nav a{margin-left:14px}}
+.layout{display:grid;grid-template-columns:220px 1fr;gap:40px;padding:40px 20px 72px}
+@media(max-width:900px){.layout{grid-template-columns:1fr}.side{display:none}}
+.side{position:sticky;top:84px;align-self:start;font-size:15px}
+.side h4{margin:0 0 10px;color:var(--mute);font-size:12px;letter-spacing:.08em;text-transform:uppercase}
+.side a{display:block;padding:6px 10px;border-radius:8px;color:var(--mute)}.side a.on,.side a:hover{background:var(--card);color:var(--text);text-decoration:none}
+.side .store{margin-top:18px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--bg2)}
+article{min-width:0}
+article h1{font-size:clamp(28px,4vw,42px);line-height:1.15;margin:0 0 18px;letter-spacing:-.02em}
+article h2{font-size:26px;margin:44px 0 12px;padding-top:12px;border-top:1px solid var(--line)}
+article h3{font-size:19px;margin:28px 0 8px}
+article p,article li{color:#cfd7e6}
+article hr{border:0;border-top:1px solid var(--line);margin:32px 0}
+article table{border-collapse:collapse;width:100%;margin:16px 0;font-size:15px;display:block;overflow-x:auto}
+article th,article td{border:1px solid var(--line);padding:8px 12px;text-align:left;vertical-align:top}
+article th{background:var(--bg2)}article tr:nth-child(even) td{background:rgba(21,29,46,.5)}
+code{font:13px/1.4 ui-monospace,SFMono-Regular,Consolas,monospace;background:#0e1524;border:1px solid var(--line);padding:2px 6px;border-radius:6px;color:#c9d6ff}
+pre{background:#0e1524;border:1px solid var(--line);border-radius:12px;padding:16px;overflow-x:auto}pre code{border:0;padding:0;background:none}
+blockquote{margin:18px 0;padding:12px 18px;border-left:4px solid var(--acc2);background:var(--card);border-radius:0 10px 10px 0}blockquote p{margin:4px 0}
+.docver{font-size:13px;color:var(--mute);margin:-8px 0 22px}.docver span{display:inline-block;padding:1px 9px;margin-right:8px;border:1px solid var(--line);border-radius:999px;background:var(--bg2);color:var(--text)}
+footer{padding:40px 0;color:var(--mute);font-size:14px;border-top:1px solid var(--line)}
+footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}</style>
+</head>
+<body>
+<header class="nav"><div class="wrap">
+  <a class="brand" href="../"><img src="../img/logo.png" alt="AQEMU logo" width="34" height="27">AQEMU <span style="color:var(--mute);font-weight:500">Docs</span></a>
+  <nav><a href="./">Docs</a><a class="hide-sm" href="your-first-vm.html">Your first VM</a><a class="hide-sm" href="guest-os.html">All guest OSes</a><a class="hide-sm" href="troubleshooting.html">Troubleshooting and FAQ</a><a href="https://github.com/chronic8000/aqemu">GitHub</a></nav>
+</div></header>
+<div class="wrap layout">
+  <aside class="side"><h4 style="margin-top:18px">Start here</h4><a href="documentation-hub.html">Docs home</a><a href="install-from-store.html">Install from the Store</a><a href="first-start.html">First start</a><a href="your-first-vm.html">Your first VM</a><a href="command-line.html">Command line</a><h4 style="margin-top:18px">Hosts</h4><a href="host-windows-x64.html">Windows x64</a><a href="host-windows-arm64.html">Windows ARM64</a><a href="host-linux-x64.html">Linux x64</a><a href="host-linux-arm64.html">Linux ARM64</a><h4 style="margin-top:18px">Using AQEMU</h4><a href="new-vm-wizard.html">New VM Wizard</a><a href="session-toolbar.html" class=on>Session toolbar</a><a href="display.html">Display and mouse</a><a href="networking.html">Networking</a><a href="storage-and-disks.html">Storage and disks</a><a href="file-transfer.html">File transfer</a><a href="copy-and-paste.html">Copy and paste</a><a href="snapshots.html">Snapshots</a><a href="accelerators.html">Accelerators</a><a href="troubleshooting.html">Troubleshooting and FAQ</a><a href="user-guide.html">User Guide (one page)</a><h4 style="margin-top:18px">Guest operating systems</h4><a href="guest-os.html">All guest OSes</a><a href="windows-11-guide.html">Windows 11 and legacy</a><a href="guest-os-windows.html">Windows family</a><a href="guest-os-windows-11-arm.html">Windows 11 ARM per host</a><a href="guest-os-linux.html">Linux</a><a href="guest-os-bsd.html">BSD</a><a href="guest-os-unix.html">Unix</a><a href="guest-os-retro-dos-os2.html">DOS, OS/2 and retro</a><a href="guest-os-truenas.html">TrueNAS</a><a href="guest-os-other.html">Other OSes</a><a href="guest-os-boards.html">ARM and RISC-V boards</a><a href="os-catalog.html">OS Catalog</a><a href="macos-guide.html">macOS (Experimental)</a><a href="ios-apple-soc-guide.html">iOS / Apple SoC (Experimental)</a><h4 style="margin-top:18px">Reference</h4><a href="settings-tabs.html">Settings tab map</a><a href="preferences.html">Preferences</a><a href="menus.html">Menus</a><a href="new-vm-wizard-paths.html">Wizard paths</a><a href="virt-manager-comparison.html">AQEMU vs virt-manager</a>
+    <div class="store"><a href="https://apps.microsoft.com/detail/9P0HGKHQ9W19?cid=ghpages_docs">Get AQEMU on the Microsoft Store</a></div>
+    <p style="font-size:13px;color:var(--mute);margin-top:14px"><a href="https://github.com/chronic8000/aqemu/edit/master/docs/guides/features/session-toolbar.md">Edit this page on GitHub</a></p>
+  </aside>
+  <article>
+<h1 id="the-session-toolbar-while-a-vm-is-running">The session toolbar
+(while a VM is running)</h1>
+<p class="docver"><span>Docs v1</span> Last updated 31 October 2026. These guides are a first version and will be updated.</p>
+<p>When you start a VM with the embedded display, the guest's screen
+takes over the AQEMU window and a toolbar appears above it. This page
+explains every button, from left to right.</p>
+<blockquote>
+<p><strong>Hover first.</strong> Most buttons are icons. Hover over one
+to see its name. The names below are the tooltips in the app.</p>
+</blockquote>
+<hr />
+<h2 id="1-power">1. Power</h2>
+<table>
+<thead>
+<tr class="header">
+<th>Button</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Pause / Resume</strong></td>
+<td>Freezes the guest. Click again to carry on.</td>
+</tr>
+<tr class="even">
+<td><strong>Save VM state</strong></td>
+<td>Saves the running guest's memory into its disk and stops it, so the
+next <strong>Start</strong> carries on where you left off. Needs a
+<strong>qcow2</strong> disk (see <a
+href="snapshots.html">Snapshots</a>).</td>
+</tr>
+<tr class="odd">
+<td><strong>Migrate to URI…</strong></td>
+<td>Live-migrates the running guest to another QEMU (advanced).</td>
+</tr>
+<tr class="even">
+<td><strong>Reset guest</strong></td>
+<td>Like pressing the reset button on a real PC. Unsaved work in the
+guest is lost.</td>
+</tr>
+<tr class="odd">
+<td><strong>ACPI shutdown</strong></td>
+<td>Asks the guest OS to shut down nicely, like a short press of the
+power button. Old guests without ACPI ignore it.</td>
+</tr>
+<tr class="even">
+<td><strong>Power off</strong></td>
+<td>Pulls the plug. Use it only when the guest is stuck.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="2-removable-media">2. Removable media</h2>
+<table>
+<thead>
+<tr class="header">
+<th>Button</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Insert CD/DVD image…</strong> / <strong>Eject
+CD/DVD</strong></td>
+<td>Swap the ISO in the virtual CD drive without stopping the VM. The
+tooltip shows which image is loaded.</td>
+</tr>
+<tr class="even">
+<td><strong>Insert floppy A image…</strong> / <strong>Eject floppy
+A</strong></td>
+<td>Floppy drive A. Only shown when the VM has floppy A turned on.</td>
+</tr>
+<tr class="odd">
+<td><strong>Insert floppy B image…</strong> / <strong>Eject floppy
+B</strong></td>
+<td>Floppy drive B. Only shown when the VM has floppy B turned on.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="3-files">3. Files</h2>
+<table>
+<thead>
+<tr class="header">
+<th>Button</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Paste files</strong></td>
+<td>Copies files from your host clipboard into the guest. They appear as
+floppy A or a USB drive named <strong>AQEMU</strong>. No guest software
+needed.</td>
+</tr>
+<tr class="even">
+<td><strong>To guest</strong></td>
+<td>Copies one host file to a path inside the guest. Needs
+<code>qemu-guest-agent</code> in the guest.</td>
+</tr>
+<tr class="odd">
+<td><strong>From guest</strong></td>
+<td>Copies one file from a path inside the guest to your host. Needs
+<code>qemu-guest-agent</code>.</td>
+</tr>
+<tr class="even">
+<td><strong>Guest tools</strong></td>
+<td>Inserts the AQEMU guest tools floppy. Run the installer once inside
+the guest.</td>
+</tr>
+</tbody>
+</table>
+<p>Full details: <a href="file-transfer.html">File transfer</a> and <a
+href="copy-and-paste.html">Copy and paste</a>.</p>
+<h2 id="4-apple-buttons-apple-soc-vms-only">4. Apple buttons (Apple SoC
+VMs only)</h2>
+<p>These appear only on experimental Apple SoC (iOS) VMs:
+<strong>Restore IPSW…</strong>, <strong>Vol−</strong>,
+<strong>Vol+</strong>, <strong>Home</strong>, <strong>Side</strong>,
+<strong>SOS</strong>, <strong>More…</strong>, <strong>Pad</strong> and
+<strong>Net</strong>. On every other VM they are hidden, and so are
+floppy, <strong>Send Ctrl+Alt+Del</strong> and <strong>Send
+Shift+F10</strong>. See <a href="ios-apple-soc-guide.html">iOS (Apple
+SoC)</a>.</p>
+<h2 id="5-devices">5. Devices</h2>
+<table>
+<thead>
+<tr class="header">
+<th>Button</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>USB devices</strong></td>
+<td>A menu of the host's USB devices. Click one to connect it to the
+guest (it disconnects from the host); click again to give it back.
+<strong>Disconnect all from guest</strong> returns everything. AQEMU
+warns you before passing through a keyboard or mouse, because your host
+may lose that input.</td>
+</tr>
+<tr class="even">
+<td><strong>Serial console (guest COM / ttyS0)</strong></td>
+<td>Opens the guest's first serial port.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="6-keyboard-mouse-and-screen">6. Keyboard, mouse and screen</h2>
+<table>
+<thead>
+<tr class="header">
+<th>Button</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Send Ctrl+Alt+Del</strong></td>
+<td>Sends the three-finger salute to the guest (your host keeps its
+own).</td>
+</tr>
+<tr class="even">
+<td><strong>Send Shift+F10</strong></td>
+<td>Opens a command prompt in Windows Setup / OOBE.</td>
+</tr>
+<tr class="odd">
+<td><strong>Grab mouse into guest</strong></td>
+<td>Locks the mouse inside the guest. You can also just click the guest
+screen. Press <strong>Esc</strong> or <strong>Ctrl+Alt</strong> to let
+go.</td>
+</tr>
+<tr class="even">
+<td><strong>Fullscreen</strong></td>
+<td>Fills the screen. Hold the mouse at the top centre of the screen to
+bring the toolbar back.</td>
+</tr>
+<tr class="odd">
+<td><strong>Back to VM list</strong></td>
+<td>Returns to the main window. <strong>The guest keeps
+running.</strong> Use <strong>VM → Connect</strong>
+(<code>Ctrl+Shift+C</code>) to get back to it.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="7-drive-lights">7. Drive lights</h2>
+<p>On the right, <strong>Drives</strong> shows little activity lights
+for floppy A, floppy B, the CD and the hard disk, like an old PC case.
+Hover over them to see which image is in each drive.</p>
+<hr />
+<h2 id="tips">Tips</h2>
+<ul>
+<li><strong>Seamless mouse:</strong> if you'd rather not grab the mouse
+at all, set <strong>Pointer mode</strong> to <strong>Seamless</strong>
+on the Machine tab. See <a href="display.html">Display</a>.</li>
+<li><strong>Guest won't shut down?</strong> Try <strong>ACPI
+shutdown</strong> first, wait a minute, and only then use <strong>Power
+off</strong>.</li>
+<li><strong>No toolbar?</strong> You are probably using a separate QEMU
+window instead of the embedded display. See <a
+href="display.html">Display</a>.</li>
+</ul>
+<hr />
+<p><a href="documentation-hub.html">Documentation Hub</a> · <a
+href="file-transfer.html">File transfer</a> · <a
+href="snapshots.html">Snapshots</a> · <a
+href="display.html">Display</a></p>
+
+  </article>
+</div>
+<footer><div class="wrap">
+  <span>© 2026 Chronic Engineering · AQEMU is GPLv2 · QEMU is a trademark of Fabrice Bellard.</span>
+  <span><a href="../">Home</a> · <a href="https://apps.microsoft.com/detail/9P0HGKHQ9W19?cid=ghpages_docs">Microsoft Store</a> · <a href="https://github.com/chronic8000/aqemu">GitHub</a></span>
+</div></footer>
+</body>
+</html>

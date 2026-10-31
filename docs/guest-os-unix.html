@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Unix and workstation guests – AQEMU Docs</title>
+<meta name="description" content="Unix guests in AQEMU: Solaris, AIX, HP-UX, IRIX and more.">
+<link rel="canonical" href="https://chronic8000.github.io/aqemu/docs/guest-os-unix.html">
+<meta name="theme-color" content="#0b0f19">
+<link rel="icon" type="image/png" href="../favicon.png">
+<style>:root{--bg:#0b0f19;--bg2:#111827;--card:#151d2e;--line:#243049;--text:#e6ebf5;--mute:#9aa6bd;--acc:#4f9dff;--acc2:#8b5cf6}
+*{box-sizing:border-box}html{scroll-behavior:smooth}
+body{margin:0;font:16px/1.7 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+a{color:var(--acc);text-decoration:none}a:hover{text-decoration:underline}
+.wrap{max-width:1120px;margin:0 auto;padding:0 20px}
+header.nav{position:sticky;top:0;z-index:10;background:rgba(11,15,25,.85);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+header.nav .wrap{display:flex;align-items:center;justify-content:space-between;height:60px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;color:var(--text);font-size:18px}.brand img{width:34px;height:auto}
+nav a{color:var(--mute);margin-left:22px;font-size:15px}nav a:hover,nav a.on{color:var(--text);text-decoration:none}
+@media(max-width:800px){nav a.hide-sm{display:none}nav a{margin-left:14px}}
+.layout{display:grid;grid-template-columns:220px 1fr;gap:40px;padding:40px 20px 72px}
+@media(max-width:900px){.layout{grid-template-columns:1fr}.side{display:none}}
+.side{position:sticky;top:84px;align-self:start;font-size:15px}
+.side h4{margin:0 0 10px;color:var(--mute);font-size:12px;letter-spacing:.08em;text-transform:uppercase}
+.side a{display:block;padding:6px 10px;border-radius:8px;color:var(--mute)}.side a.on,.side a:hover{background:var(--card);color:var(--text);text-decoration:none}
+.side .store{margin-top:18px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--bg2)}
+article{min-width:0}
+article h1{font-size:clamp(28px,4vw,42px);line-height:1.15;margin:0 0 18px;letter-spacing:-.02em}
+article h2{font-size:26px;margin:44px 0 12px;padding-top:12px;border-top:1px solid var(--line)}
+article h3{font-size:19px;margin:28px 0 8px}
+article p,article li{color:#cfd7e6}
+article hr{border:0;border-top:1px solid var(--line);margin:32px 0}
+article table{border-collapse:collapse;width:100%;margin:16px 0;font-size:15px;display:block;overflow-x:auto}
+article th,article td{border:1px solid var(--line);padding:8px 12px;text-align:left;vertical-align:top}
+article th{background:var(--bg2)}article tr:nth-child(even) td{background:rgba(21,29,46,.5)}
+code{font:13px/1.4 ui-monospace,SFMono-Regular,Consolas,monospace;background:#0e1524;border:1px solid var(--line);padding:2px 6px;border-radius:6px;color:#c9d6ff}
+pre{background:#0e1524;border:1px solid var(--line);border-radius:12px;padding:16px;overflow-x:auto}pre code{border:0;padding:0;background:none}
+blockquote{margin:18px 0;padding:12px 18px;border-left:4px solid var(--acc2);background:var(--card);border-radius:0 10px 10px 0}blockquote p{margin:4px 0}
+.docver{font-size:13px;color:var(--mute);margin:-8px 0 22px}.docver span{display:inline-block;padding:1px 9px;margin-right:8px;border:1px solid var(--line);border-radius:999px;background:var(--bg2);color:var(--text)}
+footer{padding:40px 0;color:var(--mute);font-size:14px;border-top:1px solid var(--line)}
+footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}</style>
+</head>
+<body>
+<header class="nav"><div class="wrap">
+  <a class="brand" href="../"><img src="../img/logo.png" alt="AQEMU logo" width="34" height="27">AQEMU <span style="color:var(--mute);font-weight:500">Docs</span></a>
+  <nav><a href="./">Docs</a><a class="hide-sm" href="your-first-vm.html">Your first VM</a><a class="hide-sm" href="guest-os.html">All guest OSes</a><a class="hide-sm" href="troubleshooting.html">Troubleshooting and FAQ</a><a href="https://github.com/chronic8000/aqemu">GitHub</a></nav>
+</div></header>
+<div class="wrap layout">
+  <aside class="side"><h4 style="margin-top:18px">Start here</h4><a href="documentation-hub.html">Docs home</a><a href="install-from-store.html">Install from the Store</a><a href="first-start.html">First start</a><a href="your-first-vm.html">Your first VM</a><a href="command-line.html">Command line</a><h4 style="margin-top:18px">Hosts</h4><a href="host-windows-x64.html">Windows x64</a><a href="host-windows-arm64.html">Windows ARM64</a><a href="host-linux-x64.html">Linux x64</a><a href="host-linux-arm64.html">Linux ARM64</a><h4 style="margin-top:18px">Using AQEMU</h4><a href="new-vm-wizard.html">New VM Wizard</a><a href="session-toolbar.html">Session toolbar</a><a href="display.html">Display and mouse</a><a href="networking.html">Networking</a><a href="storage-and-disks.html">Storage and disks</a><a href="file-transfer.html">File transfer</a><a href="copy-and-paste.html">Copy and paste</a><a href="snapshots.html">Snapshots</a><a href="accelerators.html">Accelerators</a><a href="troubleshooting.html">Troubleshooting and FAQ</a><a href="user-guide.html">User Guide (one page)</a><h4 style="margin-top:18px">Guest operating systems</h4><a href="guest-os.html">All guest OSes</a><a href="windows-11-guide.html">Windows 11 and legacy</a><a href="guest-os-windows.html">Windows family</a><a href="guest-os-windows-11-arm.html">Windows 11 ARM per host</a><a href="guest-os-linux.html">Linux</a><a href="guest-os-bsd.html">BSD</a><a href="guest-os-unix.html" class=on>Unix</a><a href="guest-os-retro-dos-os2.html">DOS, OS/2 and retro</a><a href="guest-os-truenas.html">TrueNAS</a><a href="guest-os-other.html">Other OSes</a><a href="guest-os-boards.html">ARM and RISC-V boards</a><a href="os-catalog.html">OS Catalog</a><a href="macos-guide.html">macOS (Experimental)</a><a href="ios-apple-soc-guide.html">iOS / Apple SoC (Experimental)</a><h4 style="margin-top:18px">Reference</h4><a href="settings-tabs.html">Settings tab map</a><a href="preferences.html">Preferences</a><a href="menus.html">Menus</a><a href="new-vm-wizard-paths.html">Wizard paths</a><a href="virt-manager-comparison.html">AQEMU vs virt-manager</a>
+    <div class="store"><a href="https://apps.microsoft.com/detail/9P0HGKHQ9W19?cid=ghpages_docs">Get AQEMU on the Microsoft Store</a></div>
+    <p style="font-size:13px;color:var(--mute);margin-top:14px"><a href="https://github.com/chronic8000/aqemu/edit/master/docs/guides/guest-os/unix.md">Edit this page on GitHub</a></p>
+  </aside>
+  <article>
+<h1 id="unix-and-workstation-guests">Unix and workstation guests</h1>
+<p class="docver"><span>Docs v1</span> Last updated 31 October 2026. These guides are a first version and will be updated.</p>
+<p>Classic workstation and server systems: Solaris and illumos, IRIX,
+HP-UX, Tru64 and OpenVMS, SCO, AIX, NeXTSTEP and OPENSTEP. Most of these
+are other CPU families (SPARC, MIPS, PA-RISC, Alpha, POWER, m68k), so
+they run under TCG and are <strong>slow</strong>. That's normal. The x86
+ones (Solaris x86, OpenSolaris, illumos, OmniOS, SCO) can use WHPX/KVM
+on an x64 PC when they use <code>qemu-system-x86_64</code>.</p>
+<p>Several tips say "experimental". Believe them: these OSes need
+suitable install media and patience.</p>
+<h2 id="how-to-make-one-of-these-vms">How to make one of these VMs</h2>
+<ol type="1">
+<li>Click <strong>Add New VM</strong> (or press
+<strong>Ctrl+N</strong>).</li>
+<li>Pick <strong>Guest Operating System</strong>, open the
+<strong>vendor (Sun, SGI, HP, DEC, SCO, IBM or Apple)</strong> branch
+and choose the OS.</li>
+<li>On <strong>Confirm QEMU system</strong>, check the Computer Type and
+Machine Type. They're filled in from the table below and you can still
+change them.</li>
+<li>Go through Accelerator → Name/CPU → Disk → Devices → Network →
+Finish.</li>
+<li>On the VM's <strong>Media</strong> tab, point the CD/DVD drive at
+your installer image, then start the VM.</li>
+</ol>
+<p>You supply the installer media and any licence the OS needs. AQEMU
+doesn't include operating systems.</p>
+<blockquote>
+<p><strong>What the table shows:</strong> each OS's wizard starting
+point, taken from <code>resources/wizard_trees.json</code>. For some
+older OSes the wizard adjusts things further (for example, the Windows
+XP family gets one CPU, IDE disks and Force TCG), so the
+<strong>Confirm</strong> page has the final word. "Speed" follows
+AQEMU's accelerator rules: see <a
+href="accelerators.html">Accelerators</a>.</p>
+</blockquote>
+<h2 id="sun">Sun</h2>
+<table>
+<thead>
+<tr class="header">
+<th>OS</th>
+<th>Emulator</th>
+<th>Machine</th>
+<th>CPU</th>
+<th>RAM</th>
+<th>Disk</th>
+<th>NIC</th>
+<th>Speed (accelerator)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>illumos</strong></td>
+<td><code>qemu-system-x86_64</code></td>
+<td><code>pc-i440fx</code></td>
+<td><code>qemu64</code></td>
+<td>2 GB</td>
+<td>20 GB</td>
+<td><code>e1000</code></td>
+<td>WHPX on Windows x64, KVM on Linux x64. TCG on ARM hosts</td>
+</tr>
+<tr class="even">
+<td><strong>OmniOS</strong></td>
+<td><code>qemu-system-x86_64</code></td>
+<td><code>pc-q35</code></td>
+<td><code>max</code></td>
+<td>2 GB</td>
+<td>20 GB</td>
+<td><code>e1000</code></td>
+<td>WHPX on Windows x64, KVM on Linux x64. TCG on ARM hosts</td>
+</tr>
+<tr class="odd">
+<td><strong>OpenSolaris</strong></td>
+<td><code>qemu-system-x86_64</code></td>
+<td><code>pc-i440fx</code></td>
+<td><code>qemu64</code></td>
+<td>4 GB</td>
+<td>20 GB</td>
+<td><code>e1000</code></td>
+<td>WHPX on Windows x64, KVM on Linux x64. TCG on ARM hosts</td>
+</tr>
+<tr class="even">
+<td><strong>Solaris SPARC</strong></td>
+<td><code>qemu-system-sparc64</code></td>
+<td><code>sun4u</code></td>
+<td><code>TI-UltraSparc-II</code></td>
+<td>1 GB</td>
+<td>20 GB</td>
+<td><code>sunhme</code></td>
+<td>TCG on every host</td>
+</tr>
+<tr class="odd">
+<td><strong>Solaris x86</strong></td>
+<td><code>qemu-system-x86_64</code></td>
+<td><code>pc-i440fx</code></td>
+<td><code>qemu64</code></td>
+<td>8 GB</td>
+<td>32 GB</td>
+<td><code>e1000</code></td>
+<td>WHPX on Windows x64, KVM on Linux x64. TCG on ARM hosts</td>
+</tr>
+<tr class="even">
+<td><strong>Solaris x86 (32-bit)</strong></td>
+<td><code>qemu-system-i386</code></td>
+<td><code>pc-i440fx</code></td>
+<td><code>qemu32</code></td>
+<td>1 GB</td>
+<td>20 GB</td>
+<td><code>e1000</code></td>
+<td>TCG on every host (<code>i386</code> binary is TCG only)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="aqemus-tip-for-each-os">AQEMU's tip for each OS</h3>
+<p>These are the tips the wizard shows when you pick the OS, copied from
+the source.</p>
+<ul>
+<li><strong>illumos:</strong> illumos → x86_64 (PC) + Q35 with
+VirtIO.</li>
+<li><strong>OmniOS:</strong> OmniOS → x86_64 (PC) + Q35 with
+VirtIO.</li>
+<li><strong>OpenSolaris:</strong> OpenSolaris → same family as Solaris
+x86: std VGA, IDE, e1000, AC97, WHPX/KVM preferred.</li>
+<li><strong>Solaris SPARC:</strong> Solaris SPARC → SPARC 64 /
+sun4u.</li>
+<li><strong>Solaris x86:</strong> Solaris 11.4 x86 (r/qemu_kvm recipe):
+pc+usb=off, std VGA, e1000, sb16, IDE, 8 GB, WHPX/KVM, PIIX4
+disable_s3/s4. Use sol-11_4-text-x86.iso. Install can sit on the SunOS
+banner / at 99% for 1–2 hours while the disk image keeps growing — not
+frozen. After install: create a normal user (root console login
+blocked); later pkg update + solaris-desktop; then VirtIO is
+optional.</li>
+<li><strong>Solaris x86 (32-bit):</strong> Legacy Solaris 8/9/early 10
+x86 (32-bit only) → IBM PC 32Bit. Modern ISOs will say “No long mode
+support” here — use Solaris x86 instead.</li>
+</ul>
+<h2 id="sgi">SGI</h2>
+<table>
+<thead>
+<tr class="header">
+<th>OS</th>
+<th>Emulator</th>
+<th>Machine</th>
+<th>CPU</th>
+<th>RAM</th>
+<th>Disk</th>
+<th>NIC</th>
+<th>Speed (accelerator)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>IRIX 5.x</strong></td>
+<td><code>qemu-system-mips64</code></td>
+<td><code>magnum</code></td>
+<td><code>5Kf</code></td>
+<td>256 MB</td>
+<td>8 GB</td>
+<td><code>e1000</code></td>
+<td>TCG on every host</td>
+</tr>
+<tr class="even">
+<td><strong>IRIX 6.x</strong></td>
+<td><code>qemu-system-mips64</code></td>
+<td><code>magnum</code></td>
+<td><code>5Kf</code></td>
+<td>256 MB</td>
+<td>8 GB</td>
+<td><code>e1000</code></td>
+<td>TCG on every host</td>
+</tr>
+</tbody>
+</table>
+<h3 id="aqemus-tip-for-each-os-1">AQEMU's tip for each OS</h3>
+<p>These are the tips the wizard shows when you pick the OS, copied from
+the source.</p>
+<ul>
+<li><strong>IRIX 5.x:</strong> IRIX 5.x → qemu-system-mips64 -M magnum.
+Experimental; needs a suitable IRIX image.</li>
+<li><strong>IRIX 6.x:</strong> IRIX 6.x → qemu-system-mips64 -M magnum.
+Experimental; needs a suitable IRIX image.</li>
+</ul>
+<h2 id="hp">HP</h2>
+<table>
+<thead>
+<tr class="header">
+<th>OS</th>
+<th>Emulator</th>
+<th>Machine</th>
+<th>CPU</th>
+<th>RAM</th>
+<th>Disk</th>
+<th>NIC</th>
+<th>Speed (accelerator)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>HP-UX</strong></td>
+<td><code>qemu-system-hppa</code></td>
+<td><code>B160L</code></td>
+<td><code>pa-8700</code></td>
+<td>512 MB</td>
+<td>10 GB</td>
+<td><code>tulip</code></td>
+<td>TCG on every host</td>
+</tr>
+</tbody>
+</table>
+<h3 id="aqemus-tip-for-each-os-2">AQEMU's tip for each OS</h3>
+<p>These are the tips the wizard shows when you pick the OS, copied from
+the source.</p>
+<ul>
+<li><strong>HP-UX:</strong> HP-UX → qemu-system-hppa + B160L. Use SCSI
+disk (lsi53c895a). Needs a PA-RISC QEMU build and HP-UX install
+media.</li>
+</ul>
+<h2 id="dec">DEC</h2>
+<table>
+<thead>
+<tr class="header">
+<th>OS</th>
+<th>Emulator</th>
+<th>Machine</th>
+<th>CPU</th>
+<th>RAM</th>
+<th>Disk</th>
+<th>NIC</th>
+<th>Speed (accelerator)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>OpenVMS</strong></td>
+<td><code>qemu-system-alpha</code></td>
+<td><code>clipper</code></td>
+<td><code>ev4</code></td>
+<td>512 MB</td>
+<td>10 GB</td>
+<td><code>e1000</code></td>
+<td>TCG on every host</td>
+</tr>
+<tr class="even">
+<td><strong>Tru64 UNIX</strong></td>
+<td><code>qemu-system-alpha</code></td>
+<td><code>clipper</code></td>
+<td><code>ev4</code></td>
+<td>512 MB</td>
+<td>10 GB</td>
+<td><code>e1000</code></td>
+<td>TCG on every host</td>
+</tr>
+</tbody>
+</table>
+<h3 id="aqemus-tip-for-each-os-3">AQEMU's tip for each OS</h3>
+<p>These are the tips the wizard shows when you pick the OS, copied from
+the source.</p>
+<ul>
+<li><strong>OpenVMS:</strong> OpenVMS → Alpha Server / clipper (best
+QEMU fit). VAX is not available in mainline QEMU.</li>
+<li><strong>Tru64 UNIX:</strong> Tru64 UNIX → Alpha Server /
+clipper.</li>
+</ul>
+<h2 id="sco">SCO</h2>
+<table>
+<thead>
+<tr class="header">
+<th>OS</th>
+<th>Emulator</th>
+<th>Machine</th>
+<th>CPU</th>
+<th>RAM</th>
+<th>Disk</th>
+<th>NIC</th>
+<th>Speed (accelerator)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>OpenServer</strong></td>
+<td><code>qemu-system-i386</code></td>
+<td><code>pc</code></td>
+<td><code>max</code></td>
+<td>512 MB</td>
+<td>8 GB</td>
+<td><code>rtl8139</code></td>
+<td>TCG on every host (<code>i386</code> binary is TCG only)</td>
+</tr>
+<tr class="even">
+<td><strong>UnixWare</strong></td>
+<td><code>qemu-system-i386</code></td>
+<td><code>pc</code></td>
+<td><code>max</code></td>
+<td>512 MB</td>
+<td>8 GB</td>
+<td><code>rtl8139</code></td>
+<td>TCG on every host (<code>i386</code> binary is TCG only)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="aqemus-tip-for-each-os-4">AQEMU's tip for each OS</h3>
+<p>These are the tips the wizard shows when you pick the OS, copied from
+the source.</p>
+<ul>
+<li><strong>OpenServer:</strong> SCO OpenServer → i386 PC, IDE, cirrus
+VGA. Classic retail/banking Unix; period media required.</li>
+<li><strong>UnixWare:</strong> SCO UnixWare → i386 PC, IDE, cirrus
+VGA.</li>
+</ul>
+<h2 id="ibm">IBM</h2>
+<table>
+<thead>
+<tr class="header">
+<th>OS</th>
+<th>Emulator</th>
+<th>Machine</th>
+<th>CPU</th>
+<th>RAM</th>
+<th>Disk</th>
+<th>NIC</th>
+<th>Speed (accelerator)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>AIX</strong></td>
+<td><code>qemu-system-ppc64</code></td>
+<td><code>pseries</code></td>
+<td><code>POWER8</code></td>
+<td>2 GB</td>
+<td>20 GB</td>
+<td><code>virtio-net-pci</code></td>
+<td>TCG on every host</td>
+</tr>
+</tbody>
+</table>
+<h3 id="aqemus-tip-for-each-os-5">AQEMU's tip for each OS</h3>
+<p>These are the tips the wizard shows when you pick the OS, copied from
+the source.</p>
+<ul>
+<li><strong>AIX:</strong> AIX → qemu-system-ppc64 -M pseries -cpu
+POWER8. WHPX cannot accelerate POWER (TCG only, very slow). Use
+virtio-scsi, ≥2 GB RAM. For a VGA window do not set prom-env
+input/output to /vdevice/vty (that is for -nographic serial). True
+host↔︎guest clipboard needs spice-vdagent in the guest — AIX/SLOF do not
+provide that; paste into the QEMU window is host-display only. Prebuilt
+VMware VMDKs often fail with SLOF E3403 Bad executable.</li>
+</ul>
+<h2 id="next-apple-branch">NeXT (Apple branch)</h2>
+<table>
+<thead>
+<tr class="header">
+<th>OS</th>
+<th>Emulator</th>
+<th>Machine</th>
+<th>CPU</th>
+<th>RAM</th>
+<th>Disk</th>
+<th>NIC</th>
+<th>Speed (accelerator)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>NeXTSTEP</strong></td>
+<td><code>qemu-system-m68k</code></td>
+<td><code>next-cube</code></td>
+<td><code>m68040</code></td>
+<td>128 MB</td>
+<td>4 GB</td>
+<td><code>dp8393x</code></td>
+<td>TCG on every host</td>
+</tr>
+<tr class="even">
+<td><strong>OPENSTEP</strong></td>
+<td><code>qemu-system-i386</code></td>
+<td><code>pc</code></td>
+<td><code>max</code></td>
+<td>256 MB</td>
+<td>4 GB</td>
+<td><code>ne2k_pci</code></td>
+<td>TCG on every host (<code>i386</code> binary is TCG only)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="aqemus-tip-for-each-os-6">AQEMU's tip for each OS</h3>
+<p>These are the tips the wizard shows when you pick the OS, copied from
+the source.</p>
+<ul>
+<li><strong>NeXTSTEP:</strong> NeXTSTEP → qemu-system-m68k + next-cube.
+Supply NeXT install media; experimental.</li>
+<li><strong>OPENSTEP:</strong> OPENSTEP / NeXTSTEP for Intel → i386 PC.
+Use period install media; drivers are picky.</li>
+</ul>
+<hr />
+<p>More: <a href="guest-os.html">All guest OS guides</a> · <a
+href="accelerators.html">Accelerators</a> · <a
+href="new-vm-wizard.html">New VM Wizard</a> · <a
+href="documentation-hub.html">Documentation Hub</a></p>
+
+  </article>
+</div>
+<footer><div class="wrap">
+  <span>© 2026 Chronic Engineering · AQEMU is GPLv2 · QEMU is a trademark of Fabrice Bellard.</span>
+  <span><a href="../">Home</a> · <a href="https://apps.microsoft.com/detail/9P0HGKHQ9W19?cid=ghpages_docs">Microsoft Store</a> · <a href="https://github.com/chronic8000/aqemu">GitHub</a></span>
+</div></footer>
+</body>
+</html>

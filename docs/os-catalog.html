@@ -43,21 +43,25 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}
 <body>
 <header class="nav"><div class="wrap">
   <a class="brand" href="../"><img src="../img/logo.png" alt="AQEMU logo" width="34" height="27">AQEMU <span style="color:var(--mute);font-weight:500">Docs</span></a>
-  <nav><a href="./">Docs</a><a class="hide-sm" href="user-guide.html">User Guide</a><a class="hide-sm" href="windows-11-guide.html">Windows</a><a class="hide-sm on" href="os-catalog.html">OS Catalog</a><a class="hide-sm" href="macos-guide.html">macOS (Experimental)</a><a class="hide-sm" href="ios-apple-soc-guide.html">iOS / Apple SoC (Experimental)</a><a href="https://github.com/chronic8000/aqemu">GitHub</a></nav>
+  <nav><a href="./">Docs</a><a class="hide-sm" href="your-first-vm.html">Your first VM</a><a class="hide-sm" href="guest-os.html">All guest OSes</a><a class="hide-sm" href="troubleshooting.html">Troubleshooting and FAQ</a><a href="https://github.com/chronic8000/aqemu">GitHub</a></nav>
 </div></header>
 <div class="wrap layout">
-  <aside class="side"><h4>Guides</h4><a href="documentation-hub.html">Docs home</a><a href="user-guide.html">User Guide</a><a href="windows-11-guide.html">Windows</a><a href="os-catalog.html" class=on>OS Catalog</a><a href="macos-guide.html">macOS (Experimental)</a><a href="ios-apple-soc-guide.html">iOS / Apple SoC (Experimental)</a>
+  <aside class="side"><h4 style="margin-top:18px">Start here</h4><a href="documentation-hub.html">Docs home</a><a href="install-from-store.html">Install from the Store</a><a href="first-start.html">First start</a><a href="your-first-vm.html">Your first VM</a><a href="command-line.html">Command line</a><h4 style="margin-top:18px">Hosts</h4><a href="host-windows-x64.html">Windows x64</a><a href="host-windows-arm64.html">Windows ARM64</a><a href="host-linux-x64.html">Linux x64</a><a href="host-linux-arm64.html">Linux ARM64</a><h4 style="margin-top:18px">Using AQEMU</h4><a href="new-vm-wizard.html">New VM Wizard</a><a href="session-toolbar.html">Session toolbar</a><a href="display.html">Display and mouse</a><a href="networking.html">Networking</a><a href="storage-and-disks.html">Storage and disks</a><a href="file-transfer.html">File transfer</a><a href="copy-and-paste.html">Copy and paste</a><a href="snapshots.html">Snapshots</a><a href="accelerators.html">Accelerators</a><a href="troubleshooting.html">Troubleshooting and FAQ</a><a href="user-guide.html">User Guide (one page)</a><h4 style="margin-top:18px">Guest operating systems</h4><a href="guest-os.html">All guest OSes</a><a href="windows-11-guide.html">Windows 11 and legacy</a><a href="guest-os-windows.html">Windows family</a><a href="guest-os-windows-11-arm.html">Windows 11 ARM per host</a><a href="guest-os-linux.html">Linux</a><a href="guest-os-bsd.html">BSD</a><a href="guest-os-unix.html">Unix</a><a href="guest-os-retro-dos-os2.html">DOS, OS/2 and retro</a><a href="guest-os-truenas.html">TrueNAS</a><a href="guest-os-other.html">Other OSes</a><a href="guest-os-boards.html">ARM and RISC-V boards</a><a href="os-catalog.html" class=on>OS Catalog</a><a href="macos-guide.html">macOS (Experimental)</a><a href="ios-apple-soc-guide.html">iOS / Apple SoC (Experimental)</a><h4 style="margin-top:18px">Reference</h4><a href="settings-tabs.html">Settings tab map</a><a href="preferences.html">Preferences</a><a href="menus.html">Menus</a><a href="new-vm-wizard-paths.html">Wizard paths</a><a href="virt-manager-comparison.html">AQEMU vs virt-manager</a>
     <div class="store"><a href="https://apps.microsoft.com/detail/9P0HGKHQ9W19?cid=ghpages_docs">Get AQEMU on the Microsoft Store</a></div>
     <p style="font-size:13px;color:var(--mute);margin-top:14px"><a href="https://github.com/chronic8000/aqemu/edit/master/docs/guides/os-catalog.md">Edit this page on GitHub</a></p>
   </aside>
   <article>
 <h1 id="operating-system-catalog">Operating System Catalog</h1>
 <p class="docver"><span>Docs v1</span> Last updated 31 October 2026. These guides are a first version and will be updated.</p>
+<blockquote>
+<p><strong>Looking for one OS?</strong> The <a
+href="guest-os.html">guest OS guides</a> list every OS in the wizard,
+grouped by family, with the settings AQEMU picks.</p>
+</blockquote>
 <p>AQEMU isn't just for Windows. The wizard knows <strong>230 operating
-system profiles</strong> across <strong>28 CPU architecture
-families</strong> (29 QEMU system emulators): Linux and BSD on PC and
-ARM, DOS and OS/2, Solaris on SPARC, AIX on POWER, Linux on IBM Z, and
-plenty of museum pieces.</p>
+system profiles</strong>, which use <strong>19 different QEMU system
+emulators</strong>: Linux and BSD on PC and ARM, DOS and OS/2, Solaris
+on SPARC, AIX on POWER, Linux on IBM Z, and plenty of museum pieces.</p>
 <p>This catalog shows you where to find each family in the <strong>New
 Virtual Machine Wizard</strong>, what AQEMU picks for you, and how to
 install the AQEMU guest tools.</p>
@@ -100,9 +104,7 @@ LoongArch.</li>
 </ul>
 <p>Each profile sets the emulator, machine, CPU, RAM, disk size and
 guest-appropriate devices. The friendly-name-to-QEMU mapping is in the
-<a
-href="https://github.com/chronic8000/aqemu/blob/master/docs/reference/qemu-machine-catalog.md">QEMU
-Machine Catalog</a>.</p>
+QEMU Machine Catalog.</p>
 <h2 id="2-built-in-templates">2. Built-in templates</h2>
 <p>Under <strong>Custom / Advanced → Template</strong> you'll find 25
 ready-made templates. The non-Windows ones:</p>
@@ -331,9 +333,8 @@ the tools folder, run</p>
 <pre class="bat"><code>powershell -STA -ExecutionPolicy Bypass -File aqemu-guest.ps1</code></pre>
 <p><strong>DOS and Windows 95/98:</strong> these can't run the tools.
 Keep using <strong>Paste files</strong>.</p>
-<p>More detail is in <a
-href="https://github.com/chronic8000/aqemu/blob/master/docs/guides/copy-and-paste.md">Copy
-and paste</a>.</p>
+<p>More detail is in <a href="copy-and-paste.html">Copy and
+paste</a>.</p>
 <hr />
 <p>Next: <a href="user-guide.html">User Guide</a> · <a
 href="windows-11-guide.html">Windows guide</a> · <a

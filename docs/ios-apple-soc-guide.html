@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>iOS and Apple SoC (Experimental) – AQEMU Docs</title>
-<meta name="description" content="Experimental research tooling: the Inferno Apple SoC (t8030) tools in AQEMU.">
+<meta name="description" content="Experimental research tooling: the Apple SoC (t8030) tools in AQEMU. You supply all Apple software yourself.">
 <link rel="canonical" href="https://chronic8000.github.io/aqemu/docs/ios-apple-soc-guide.html">
 <meta name="theme-color" content="#0b0f19">
 <link rel="icon" type="image/png" href="../favicon.png">
@@ -43,10 +43,10 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}
 <body>
 <header class="nav"><div class="wrap">
   <a class="brand" href="../"><img src="../img/logo.png" alt="AQEMU logo" width="34" height="27">AQEMU <span style="color:var(--mute);font-weight:500">Docs</span></a>
-  <nav><a href="./">Docs</a><a class="hide-sm" href="user-guide.html">User Guide</a><a class="hide-sm" href="windows-11-guide.html">Windows</a><a class="hide-sm" href="os-catalog.html">OS Catalog</a><a class="hide-sm" href="macos-guide.html">macOS (Experimental)</a><a class="hide-sm on" href="ios-apple-soc-guide.html">iOS / Apple SoC (Experimental)</a><a href="https://github.com/chronic8000/aqemu">GitHub</a></nav>
+  <nav><a href="./">Docs</a><a class="hide-sm" href="your-first-vm.html">Your first VM</a><a class="hide-sm" href="guest-os.html">All guest OSes</a><a class="hide-sm" href="troubleshooting.html">Troubleshooting and FAQ</a><a href="https://github.com/chronic8000/aqemu">GitHub</a></nav>
 </div></header>
 <div class="wrap layout">
-  <aside class="side"><h4>Guides</h4><a href="documentation-hub.html">Docs home</a><a href="user-guide.html">User Guide</a><a href="windows-11-guide.html">Windows</a><a href="os-catalog.html">OS Catalog</a><a href="macos-guide.html">macOS (Experimental)</a><a href="ios-apple-soc-guide.html" class=on>iOS / Apple SoC (Experimental)</a>
+  <aside class="side"><h4 style="margin-top:18px">Start here</h4><a href="documentation-hub.html">Docs home</a><a href="install-from-store.html">Install from the Store</a><a href="first-start.html">First start</a><a href="your-first-vm.html">Your first VM</a><a href="command-line.html">Command line</a><h4 style="margin-top:18px">Hosts</h4><a href="host-windows-x64.html">Windows x64</a><a href="host-windows-arm64.html">Windows ARM64</a><a href="host-linux-x64.html">Linux x64</a><a href="host-linux-arm64.html">Linux ARM64</a><h4 style="margin-top:18px">Using AQEMU</h4><a href="new-vm-wizard.html">New VM Wizard</a><a href="session-toolbar.html">Session toolbar</a><a href="display.html">Display and mouse</a><a href="networking.html">Networking</a><a href="storage-and-disks.html">Storage and disks</a><a href="file-transfer.html">File transfer</a><a href="copy-and-paste.html">Copy and paste</a><a href="snapshots.html">Snapshots</a><a href="accelerators.html">Accelerators</a><a href="troubleshooting.html">Troubleshooting and FAQ</a><a href="user-guide.html">User Guide (one page)</a><h4 style="margin-top:18px">Guest operating systems</h4><a href="guest-os.html">All guest OSes</a><a href="windows-11-guide.html">Windows 11 and legacy</a><a href="guest-os-windows.html">Windows family</a><a href="guest-os-windows-11-arm.html">Windows 11 ARM per host</a><a href="guest-os-linux.html">Linux</a><a href="guest-os-bsd.html">BSD</a><a href="guest-os-unix.html">Unix</a><a href="guest-os-retro-dos-os2.html">DOS, OS/2 and retro</a><a href="guest-os-truenas.html">TrueNAS</a><a href="guest-os-other.html">Other OSes</a><a href="guest-os-boards.html">ARM and RISC-V boards</a><a href="os-catalog.html">OS Catalog</a><a href="macos-guide.html">macOS (Experimental)</a><a href="ios-apple-soc-guide.html" class=on>iOS / Apple SoC (Experimental)</a><h4 style="margin-top:18px">Reference</h4><a href="settings-tabs.html">Settings tab map</a><a href="preferences.html">Preferences</a><a href="menus.html">Menus</a><a href="new-vm-wizard-paths.html">Wizard paths</a><a href="virt-manager-comparison.html">AQEMU vs virt-manager</a>
     <div class="store"><a href="https://apps.microsoft.com/detail/9P0HGKHQ9W19?cid=ghpages_docs">Get AQEMU on the Microsoft Store</a></div>
     <p style="font-size:13px;color:var(--mute);margin-top:14px"><a href="https://github.com/chronic8000/aqemu/edit/master/docs/guides/ios-apple-soc.md">Edit this page on GitHub</a></p>
   </aside>
@@ -55,157 +55,384 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}
 (Experimental)</h1>
 <p class="docver"><span>Docs v1</span> Last updated 31 October 2026. These guides are a first version and will be updated.</p>
 <blockquote>
-<p><strong>Experimental research tooling.</strong> This is not a
-supported or announced AQEMU feature, and it is not an "iPhone
-simulator". AQEMU drives the third-party <a
-href="https://chefkiss.dev/guides/inferno/file-setup/">ChefKiss
-Inferno</a> QEMU fork (<code>qemu-system-applesoc</code>). It's slow
-(TCG only), it needs a lot of manual preparation, and it may not reach
-the home screen on your setup. AQEMU <strong>does not ship</strong>
-IPSWs, kernels, DeviceTrees, tickets or any Apple firmware. You bring
-those, and you're responsible for following Apple's licence terms.</p>
+<p><strong>Experimental.</strong> This is research tooling, not a
+supported feature and not an "iPhone simulator". AQEMU drives a
+third-party QEMU fork called Inferno
+(<code>qemu-system-applesoc</code>). It is slow, it needs a lot of
+manual preparation, and <strong>it may never reach the home screen on
+your machine</strong>. Nothing on this page promises that iOS will
+boot.</p>
 </blockquote>
-<p>The step-by-step walkthrough, with every field explained, is in <a
-href="https://github.com/chronic8000/aqemu/blob/master/extras/Inferno/iOS_Installation.md"><code>extras/Inferno/iOS_Installation.md</code></a>.
-This page is the overview: what exists in AQEMU and where to find
-it.</p>
+<blockquote>
+<p><strong>Apple software: you're on your own, on purpose.</strong>
+AQEMU does not include, and cannot give you, any Apple software: no
+IPSWs, firmware, kernels, DeviceTrees, tickets, SEP files or ROMs. We
+also can't tell you where to get them. Use your brain: you must obtain
+anything proprietary yourself, legally, and follow Apple's licence
+terms. If you can't do that, don't use this feature.</p>
+</blockquote>
+<p><strong>Contents</strong></p>
+<ol type="1">
+<li><a href="#1-how-it-works">How it works</a></li>
+<li><a href="#2-pick-your-host">Pick your host</a></li>
+<li><a href="#3-windows-x64">Windows x64</a></li>
+<li><a href="#4-windows-arm64">Windows ARM64</a></li>
+<li><a href="#5-linux-x64">Linux x64</a></li>
+<li><a href="#6-linux-arm64">Linux ARM64</a></li>
+<li><a href="#7-create-the-ios-vm-all-hosts">Create the iOS VM (all
+hosts)</a></li>
+<li><a href="#8-create-the-restore-companion-all-hosts">Create the
+restore companion (all hosts)</a></li>
+<li><a href="#9-the-apple-tools-vm--apple">The Apple tools (VM →
+Apple)</a></li>
+<li><a href="#10-order-of-operations">Order of operations</a></li>
+<li><a href="#11-hardware-buttons">Hardware buttons</a></li>
+<li><a href="#12-limitations">Limitations</a></li>
+</ol>
 <hr />
-<h2 id="1-what-you-need">1. What you need</h2>
+<h2 id="1-how-it-works">1. How it works</h2>
+<p>There are always <strong>two VMs</strong>:</p>
 <table>
 <thead>
 <tr class="header">
-<th>Item</th>
-<th>Notes</th>
+<th>VM</th>
+<th>What it is</th>
+<th>Emulator</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td><strong>Windows 10/11 + WSL Ubuntu</strong>, or Linux</td>
-<td>On Windows, AQEMU always runs <code>qemu-system-applesoc</code>
-through <strong>WSL</strong></td>
+<td><strong>iOS VM</strong></td>
+<td>An emulated iPhone 11 board (machine <code>t8030</code>)</td>
+<td><code>qemu-system-applesoc</code> (Inferno)</td>
 </tr>
 <tr class="even">
-<td><strong>Inferno <code>qemu-system-applesoc</code></strong></td>
-<td>Installed in Linux or WSL</td>
-</tr>
-<tr class="odd">
-<td><strong>A companion Linux VM</strong></td>
-<td>Runs <code>idevicerestore</code> to restore the IPSW. See step
-3.</td>
-</tr>
-<tr class="even">
-<td><strong>Your IPSW + extracted firmware</strong></td>
-<td>The tooling targets the <strong>iPhone 11 (t8030, n104ap)</strong>.
-Tickets, SEP firmware and the IPSW must all come from the <strong>same
-build</strong>.</td>
+<td><strong>Restore companion</strong></td>
+<td>An ordinary Ubuntu Server VM that runs the restore tools and talks
+to the iOS VM over a USB bridge</td>
+<td>Normal QEMU (<code>x86_64</code>)</td>
 </tr>
 </tbody>
 </table>
+<p>The USB bridge between them is a TCP port
+(<code>127.0.0.1:8030</code>) or a UNIX socket
+(<code>/tmp/InfernoUSBRemote</code>). Both VMs must use the same
+setting.</p>
+<h2 id="2-pick-your-host">2. Pick your host</h2>
+<p>The guest is an ARM64 Apple board. Hardware acceleration (KVM or
+WHPX) only works when the guest CPU family matches the host, so
+<strong>x64 hosts always emulate (TCG)</strong>. Xen is never offered
+for this VM.</p>
+<table>
+<thead>
+<tr class="header">
+<th>Host</th>
+<th>Emulator AQEMU starts</th>
+<th>Accelerator</th>
+<th>CPU</th>
+<th>USB bridge default</th>
+<th>Companion</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Windows x64</strong></td>
+<td>Windows <code>qemu-system-applesoc.exe</code>. Falls back to WSL if
+it's missing.</td>
+<td>TCG</td>
+<td><code>max</code></td>
+<td>IPv4 <code>127.0.0.1:8030</code></td>
+<td>Started in WSL</td>
+</tr>
+<tr class="even">
+<td><strong>Windows ARM64</strong></td>
+<td>Windows <code>qemu-system-applesoc.exe</code>, or the Linux build in
+WSL if you pick KVM and WSL has <code>/dev/kvm</code></td>
+<td>TCG (KVM only through WSL)</td>
+<td><code>max</code></td>
+<td>IPv4 <code>127.0.0.1:8030</code></td>
+<td>Started in WSL</td>
+</tr>
+<tr class="odd">
+<td><strong>Linux x64</strong></td>
+<td>Native <code>qemu-system-applesoc</code></td>
+<td>TCG</td>
+<td><code>max</code></td>
+<td>UNIX <code>/tmp/InfernoUSBRemote</code></td>
+<td>Run its command in a terminal</td>
+</tr>
+<tr class="even">
+<td><strong>Linux ARM64</strong></td>
+<td>Native <code>qemu-system-applesoc</code></td>
+<td>KVM if <code>/dev/kvm</code> works, otherwise TCG</td>
+<td><code>max</code></td>
+<td>UNIX <code>/tmp/InfernoUSBRemote</code></td>
+<td>Run its command in a terminal</td>
+</tr>
+</tbody>
+</table>
+<p><strong>CPU model on every host.</strong> The wizard sets the CPU
+Type to <code>max</code>, and AQEMU passes it straight through as
+<code>-cpu max</code>. Change it on the Machine tab only if you know you
+need to.</p>
 <hr />
-<h2 id="2-create-the-ios-vm">2. Create the iOS VM</h2>
+<h2 id="3-windows-x64">3. Windows x64</h2>
+<p><strong>Accelerator:</strong> TCG (full emulation). WHPX can't run an
+ARM guest on an x64 CPU, and AQEMU forces this VM to TCG.
+<strong>CPU:</strong> <code>max</code>.</p>
+<p><strong>How AQEMU starts it.</strong> AQEMU uses the Windows
+<code>qemu-system-applesoc.exe</code> from its QEMU folder, with TCG. If
+that file isn't there, AQEMU asks whether to start it with WSL instead.
+If you say yes, AQEMU copies its own Linux build
+(<code>wsl/&lt;cpu&gt;/qemu-system-applesoc</code> from the app folder)
+into <code>/usr/local/bin</code> in your WSL distro and runs it there.
+If neither file is in your AQEMU package, starting fails with:</p>
+<blockquote>
+<p>"Windows QEMU for this VM is not installed, and WSL is not available.
+Install qemu-system-applesoc.exe next to AQEMU, or start WSL and try
+again."</p>
+</blockquote>
+<p><strong>Step by step:</strong></p>
+<ol type="1">
+<li>Install WSL with an Ubuntu distro, then run <strong>File → Configure
+WSL…</strong> in AQEMU and pick the distro and user. You need WSL even
+if the iOS VM itself runs as a Windows <code>.exe</code>, because the
+companion and the device tools run through WSL.</li>
+<li>Create the iOS VM (<a href="#7-create-the-ios-vm-all-hosts">section
+7</a>) and the companion (<a
+href="#8-create-the-restore-companion-all-hosts">section 8</a>).</li>
+<li>Leave <strong>USB remote</strong> on <strong>IPv4 localhost
+(recommended)</strong>, <code>127.0.0.1</code>, port <code>8030</code>.
+<strong>Apply localhost preset (127.0.0.1:8030)</strong> in the Apple
+SoC Restore window sets this for you.</li>
+<li>Follow the <a href="#10-order-of-operations">order of
+operations</a>. In the Apple SoC Restore window use <strong>Start
+companion in WSL</strong> and <strong>Stop companion</strong>, and
+<strong>Diagnose USB bridge</strong> if the VMs can't see each
+other.</li>
+</ol>
+<p><strong>Limitations:</strong> slow. Expect long waits at every
+stage.</p>
+<h2 id="4-windows-arm64">4. Windows ARM64</h2>
+<p><strong>Accelerator:</strong> TCG by default. WHPX is not used for
+this VM. <strong>CPU:</strong> <code>max</code>.</p>
+<p><strong>How AQEMU starts it.</strong> It's the same as Windows x64:
+the Windows <code>qemu-system-applesoc.exe</code> with TCG, or the WSL
+fallback if the <code>.exe</code> is missing. There is one extra path.
+If you set the Accelerator to <strong>KVM</strong> and your WSL distro
+has a usable <code>/dev/kvm</code>, AQEMU runs the Linux build inside
+WSL with <code>accel=kvm</code>. It copies the build into the distro,
+fixes <code>/dev/kvm</code> access, and asks you to set up WSL first if
+no distro or user is configured. Whether your WSL exposes
+<code>/dev/kvm</code> depends on your Windows and WSL setup. AQEMU only
+uses it when it's there.</p>
+<p><strong>Step by step:</strong></p>
+<ol type="1">
+<li>Set up WSL and <strong>File → Configure WSL…</strong> as for <a
+href="#3-windows-x64">Windows x64</a>.</li>
+<li>Create the iOS VM and the companion.</li>
+<li>Optional: on the Machine tab, set <strong>Accelerator</strong> to
+<strong>KVM</strong> to try the WSL/KVM path. If WSL has no
+<code>/dev/kvm</code>, stay on TCG.</li>
+<li>Use <strong>IPv4 localhost</strong>, <code>127.0.0.1:8030</code>,
+then follow the <a href="#10-order-of-operations">order of
+operations</a>.</li>
+</ol>
+<p><strong>Limitations:</strong> the KVM path is untested in these docs.
+TCG is the expected path.</p>
+<h2 id="5-linux-x64">5. Linux x64</h2>
+<p><strong>Accelerator:</strong> TCG only. KVM can't run an ARM guest on
+an x64 CPU. <strong>CPU:</strong> <code>max</code>.</p>
+<p><strong>Getting the emulator.</strong> AQEMU runs
+<code>qemu-system-applesoc</code> like any other QEMU binary, so it must
+be in the QEMU folder AQEMU uses. If you build QEMU yourself from the
+AQEMU repo, the special target builds it:</p>
+<pre class="bash"><code>./scripts/build_qemu_linux_x86_64.sh applesoc</code></pre>
+<p><strong>Step by step:</strong></p>
+<ol type="1">
+<li>Make sure <code>qemu-system-applesoc</code> is available
+(above).</li>
+<li>Create the iOS VM and the companion.</li>
+<li>Use <strong>UNIX socket</strong>,
+<code>/tmp/InfernoUSBRemote</code>, on both VMs (the Linux default).
+IPv4 <code>127.0.0.1:8030</code> also works if you set it on both.</li>
+<li>In <strong>VM → Apple → Apple SoC Restore…</strong>, click
+<strong>Copy companion command</strong> and run it in a terminal. On
+Linux, AQEMU tells you: "On Linux, run the companion command shown above
+in a terminal." To stop it, stop that QEMU process in the terminal.</li>
+<li>Follow the <a href="#10-order-of-operations">order of
+operations</a>.</li>
+</ol>
+<p><strong>Limitations:</strong></p>
+<ul>
+<li>Slow (TCG).</li>
+<li><strong>Diagnose USB bridge</strong> is "implemented for the
+Windows/WSL path" only.</li>
+<li>The <strong>Device</strong> tools in <em>iOS Device Tools / Guest
+Internet</em> are "currently wired for Windows + WSL".</li>
+</ul>
+<h2 id="6-linux-arm64">6. Linux ARM64</h2>
+<p><strong>Accelerator:</strong> KVM when <code>/dev/kvm</code> is
+usable. AQEMU then passes <code>accel=kvm:tcg</code>, so QEMU falls back
+to TCG if KVM can't start. Without KVM you get TCG.
+<strong>CPU:</strong> <code>max</code>, as the wizard set it. AQEMU only
+picks <code>host</code> by itself when the CPU Type is empty.</p>
+<p><strong>Getting the emulator:</strong></p>
+<pre class="bash"><code>./scripts/build_qemu_linux_arm64.sh applesoc</code></pre>
+<p>(The Raspberry Pi 5 QEMU script doesn't build this target.)</p>
+<p><strong>Step by step:</strong> the same as <a
+href="#5-linux-x64">Linux x64</a>. For KVM, make sure your user can open
+<code>/dev/kvm</code> (see <a href="host-linux-arm64.html">Linux ARM64
+host guide</a>).</p>
+<p><strong>Limitations:</strong> whether Inferno runs well under KVM on
+your board is not verified. Same Windows-only tool limits as Linux
+x64.</p>
+<hr />
+<h2 id="7-create-the-ios-vm-all-hosts">7. Create the iOS VM (all
+hosts)</h2>
 <p><strong>Guest Operating System → Apple → iOS (ARM64)</strong>. The
 wizard sets:</p>
-<ul>
-<li>Emulator <code>qemu-system-applesoc</code>, machine
-<strong><code>t8030</code></strong>, CPU <code>max</code></li>
-<li>At least <strong>4096 MB</strong> RAM, <strong>4</strong> vCPUs, no
-PC VGA, a USB tablet</li>
-<li>USB bridge: <code>127.0.0.1:8030</code> on Windows (a UNIX socket on
-Linux)</li>
-<li><strong>NAND (root) size</strong>: 16 / 32 / 64 / 128 / 256 GiB, or
-Custom (16 to 2048 GiB). The default is <strong>32 GiB</strong>.</li>
-</ul>
-<h2 id="3-create-the-restore-companion">3. Create the restore
-companion</h2>
+<table>
+<thead>
+<tr class="header">
+<th>Setting</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Emulator</td>
+<td><code>qemu-system-applesoc</code></td>
+</tr>
+<tr class="even">
+<td>Machine</td>
+<td><code>t8030</code></td>
+</tr>
+<tr class="odd">
+<td>CPU</td>
+<td><code>max</code></td>
+</tr>
+<tr class="even">
+<td>Memory</td>
+<td>at least 4096 MB</td>
+</tr>
+<tr class="odd">
+<td>vCPUs</td>
+<td>4 (Inferno needs at least 2)</td>
+</tr>
+<tr class="even">
+<td>Video</td>
+<td>none (no PC VGA)</td>
+</tr>
+<tr class="odd">
+<td>Input</td>
+<td>USB tablet, USB hub</td>
+</tr>
+<tr class="even">
+<td>KASLR</td>
+<td>off (<strong>Disable KASLR (kaslr-off)</strong> is ticked)</td>
+</tr>
+<tr class="odd">
+<td>UEFI</td>
+<td>off</td>
+</tr>
+<tr class="even">
+<td>USB remote</td>
+<td>Windows: IPv4 <code>127.0.0.1</code>:<code>8030</code>. Linux: UNIX
+<code>/tmp/InfernoUSBRemote</code>.</td>
+</tr>
+</tbody>
+</table>
+<p>The wizard also asks for the <strong>NAND (root) size</strong>: 16 /
+32 / 64 / 128 / 256 GiB, or Custom (16 to 2048 GiB). The default is 32
+GiB.</p>
+<p>After creating the VM, the <strong>Machine</strong> tab has the Apple
+SoC fields. You fill in your own files: <strong>Trustcache</strong>,
+<strong>Restore ticket</strong>, <strong>SEP firmware</strong>,
+<strong>SEP ROM</strong>, <strong>SecureROM (optional)</strong>,
+<strong>IPSW (restore)</strong>, <strong>Restore ramdisk
+(-initrd)</strong>, plus <strong>NAND (root) size</strong>,
+<strong>Disable KASLR</strong>, <strong>USB remote</strong> and
+<strong>Fill suggested boot args</strong>.</p>
+<h2 id="8-create-the-restore-companion-all-hosts">8. Create the restore
+companion (all hosts)</h2>
 <p><strong>Guest Operating System → Apple → iPhone IPSW Restore
-Companion</strong> (also listed under Linux as <em>IPSW Restore
-Companion (Ubuntu)</em>). This makes a normal AQEMU VM: Ubuntu Server,
-2048 MB, 20 GB, <code>companion.qcow2</code>. When you click Finish,
-AQEMU downloads Ubuntu Server (or uses your ISO). You can SSH in
-with:</p>
+Companion</strong>. It's also listed under Linux as <em>IPSW Restore
+Companion (Ubuntu)</em>.</p>
+<p>This makes a normal AQEMU VM: x86_64 <code>q35</code>, CPU
+<code>max</code>, 2048 MB, at least 2 vCPUs, a
+<code>companion.qcow2</code> disk, with the Ubuntu Server ISO as a CD.
+When it's installed you can SSH in from the host:</p>
 <pre><code>ssh -p 32222 user@127.0.0.1</code></pre>
-<hr />
-<h2 id="4-the-apple-tools-vm--apple">4. The Apple tools
-(<code>VM → Apple</code>)</h2>
+<p>The <strong>Apple SoC Restore</strong> window asks for the
+companion's <strong>SSH user</strong> and <strong>SSH password</strong>.
+Those are the Linux login you created inside the companion, not an Apple
+account.</p>
+<h2 id="9-the-apple-tools-vm--apple">9. The Apple tools (VM →
+Apple)</h2>
 <table>
 <thead>
 <tr class="header">
 <th>Menu item</th>
-<th>Window</th>
 <th>What it's for</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
 <td><strong>iOS Firmware Tool…</strong></td>
-<td><em>iOS Firmware Tool</em></td>
-<td><strong>Unpack IPSW</strong>, <strong>Forge restore + SEP
-tickets</strong>, <strong>Decrypt + pack SEP firmware</strong>,
-<strong>Run pyimg4</strong>, <strong>Copy locations</strong></td>
+<td>Unpacks an IPSW you supply and prepares the files the Machine tab
+asks for. It needs the <code>img4</code> and <code>pyimg4</code> tools
+installed and tells you if they're missing.</td>
 </tr>
 <tr class="even">
 <td><strong>Apple SoC Restore…</strong></td>
-<td><em>Apple SoC Restore (Inferno companion)</em></td>
-<td><strong>Apply localhost preset (127.0.0.1:8030)</strong>,
-<strong>Start companion in WSL</strong> / <strong>Stop
-companion</strong>, <strong>Diagnose USB bridge</strong>,
-<strong>Restore IPSW via SSH…</strong></td>
+<td>Companion setup, USB remote settings, start/stop the companion
+(WSL), <strong>Diagnose USB bridge</strong>, <strong>Restore IPSW via
+SSH…</strong></td>
 </tr>
 <tr class="odd">
 <td><strong>Apply iOS filesystem patches…</strong></td>
-<td></td>
-<td>Patches the guest <code>root</code> disk after a restore (needed or
-the screen stays black)</td>
+<td>Patches the iOS VM's <code>root</code> disk after a restore. Power
+off the iOS VM first.</td>
 </tr>
 <tr class="even">
 <td><strong>Guest Internet / iOS Device Tools…</strong></td>
-<td><em>iOS Device Tools / Guest Internet</em></td>
-<td><strong>Internet</strong> tab: <strong>Enable guest internet
-(reverse-tether)</strong>. <strong>Device</strong> tab: <strong>Device
-info</strong>, <strong>List apps</strong>, <strong>Install
-IPA...</strong>, <strong>Screenshot</strong></td>
+<td><strong>Enable guest internet (reverse-tether)</strong>, plus device
+info and screenshots through the companion (Windows + WSL only)</td>
 </tr>
 <tr class="odd">
 <td><strong>Wipe Inferno disks…</strong></td>
-<td></td>
-<td>Start over with clean NAND images</td>
+<td>Start again with clean NAND images</td>
 </tr>
 </tbody>
 </table>
 <blockquote>
-<p>Some older text (the wizard's help panel and
-<code>extras/Inferno/iOS_Installation.md</code>) still says <strong>File
-→</strong> for these items. They now live under <strong>VM →
+<p>Some older help text inside the app still says <strong>File
+→</strong> for these items. They live under <strong>VM →
 Apple</strong>.</p>
 </blockquote>
-<h2 id="5-the-order-of-operations">5. The order of operations</h2>
+<h2 id="10-order-of-operations">10. Order of operations</h2>
 <ol type="1">
-<li><strong>iOS Firmware Tool:</strong> unpack your IPSW, forge the
-restore + SEP tickets, and pack the SEP firmware.</li>
-<li>Fill in the firmware paths on the VM's Machine settings, then grow
-<code>root</code> to the size you want <strong>before</strong> the first
-restore.</li>
+<li><strong>iOS Firmware Tool:</strong> unpack your IPSW and prepare
+your files. All the files must come from the <strong>same iOS
+build</strong>. AQEMU warns you about mismatches, and the restore fails
+if they differ.</li>
+<li>Fill in the file paths on the iOS VM's <strong>Machine</strong> tab.
+Set the NAND size <strong>before</strong> the first restore.</li>
 <li><strong>Apple SoC Restore:</strong> set the companion disk and SSH
-login, click <strong>Start companion in WSL</strong>, and wait for SSH
-on port 32222.</li>
-<li>Start the iOS VM. You should see the restore screen, not the home
+login, start the companion (WSL button on Windows, terminal command on
+Linux), and wait for SSH on port 32222.</li>
+<li>Start the iOS VM. At best you'll see a restore screen, not a home
 screen.</li>
-<li>Click <strong>Restore IPSW via SSH…</strong>. When the restore
-finishes, QEMU exits. That's normal.</li>
+<li>Click <strong>Restore IPSW via SSH…</strong>. When it finishes, QEMU
+exits. That's expected.</li>
 <li>Power off and run <strong>Apply iOS filesystem patches…</strong> on
-the guest <code>root</code> disk (not the companion).</li>
+the iOS VM's <code>root</code> disk (not the companion's).</li>
 <li>Power on again.</li>
 </ol>
-<blockquote>
-<p><strong>Build mismatch warning.</strong> If the IPSW is iOS 14.0 beta
-5 (<code>18A5351d</code>) but your tickets and SEP pack were made from a
-different build, the restore fails after NORData with <code>-256</code>.
-AQEMU warns you about this.</p>
-</blockquote>
-<h2 id="6-hardware-buttons">6. Hardware buttons</h2>
+<h2 id="11-hardware-buttons">11. Hardware buttons</h2>
 <p>While the VM runs, click <strong>Pad</strong> on the session toolbar
-("Show / hide floating iOS button pad") to open the <strong>iOS
-buttons</strong> window:</p>
+("Show / hide floating iOS button pad"):</p>
 <table>
 <thead>
 <tr class="header">
@@ -233,22 +460,33 @@ buttons</strong> window:</p>
 <tr class="even">
 <td><strong>Home</strong></td>
 <td>F6</td>
-<td>Click: Home screen. Double-click: App Switcher</td>
+<td>Click: Home. Double-click: App Switcher</td>
 </tr>
 <tr class="odd">
 <td><strong>SOS</strong></td>
 <td></td>
-<td>The Vol-up + Side combo. Use it on the Welcome / "Swipe up"
-screen.</td>
+<td>Vol-up + Side combo</td>
 </tr>
 </tbody>
 </table>
+<h2 id="12-limitations">12. Limitations</h2>
+<ul>
+<li><strong>Experimental.</strong> It may not boot at all on your
+setup.</li>
+<li>Emulated (TCG) on every x64 host. KVM is only possible on ARM64
+hosts and is unverified.</li>
+<li>On Windows, the companion and device tools need WSL.</li>
+<li>These docs don't confirm whether
+<code>qemu-system-applesoc.exe</code> or the WSL Linux build is included
+in every AQEMU package. If yours lacks both, AQEMU tells you when you
+press Start.</li>
+<li>No app-install workflow is documented or supported here.</li>
+</ul>
 <hr />
-<p><a href="documentation-hub.html">Documentation Hub</a> · <a
-href="https://chefkiss.dev/guides/inferno/file-setup/">Inferno file
-setup</a> · <a
-href="https://chefkiss.dev/guides/inferno/fs-patches/">Inferno
-filesystem patches</a></p>
+<p>Related: <a href="macos-guide.html">macOS (experimental)</a> · <a
+href="new-vm-wizard.html">New VM wizard</a> · <a
+href="accelerators.html">Accelerators</a> · <a
+href="documentation-hub.html">Documentation Hub</a></p>
 
   </article>
 </div>

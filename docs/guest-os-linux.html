@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Linux guests – AQEMU Docs</title>
+<meta name="description" content="Linux guests in AQEMU: the settings the wizard picks for each distribution.">
+<link rel="canonical" href="https://chronic8000.github.io/aqemu/docs/guest-os-linux.html">
+<meta name="theme-color" content="#0b0f19">
+<link rel="icon" type="image/png" href="../favicon.png">
+<style>:root{--bg:#0b0f19;--bg2:#111827;--card:#151d2e;--line:#243049;--text:#e6ebf5;--mute:#9aa6bd;--acc:#4f9dff;--acc2:#8b5cf6}
+*{box-sizing:border-box}html{scroll-behavior:smooth}
+body{margin:0;font:16px/1.7 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+a{color:var(--acc);text-decoration:none}a:hover{text-decoration:underline}
+.wrap{max-width:1120px;margin:0 auto;padding:0 20px}
+header.nav{position:sticky;top:0;z-index:10;background:rgba(11,15,25,.85);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+header.nav .wrap{display:flex;align-items:center;justify-content:space-between;height:60px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;color:var(--text);font-size:18px}.brand img{width:34px;height:auto}
+nav a{color:var(--mute);margin-left:22px;font-size:15px}nav a:hover,nav a.on{color:var(--text);text-decoration:none}
+@media(max-width:800px){nav a.hide-sm{display:none}nav a{margin-left:14px}}
+.layout{display:grid;grid-template-columns:220px 1fr;gap:40px;padding:40px 20px 72px}
+@media(max-width:900px){.layout{grid-template-columns:1fr}.side{display:none}}
+.side{position:sticky;top:84px;align-self:start;font-size:15px}
+.side h4{margin:0 0 10px;color:var(--mute);font-size:12px;letter-spacing:.08em;text-transform:uppercase}
+.side a{display:block;padding:6px 10px;border-radius:8px;color:var(--mute)}.side a.on,.side a:hover{background:var(--card);color:var(--text);text-decoration:none}
+.side .store{margin-top:18px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--bg2)}
+article{min-width:0}
+article h1{font-size:clamp(28px,4vw,42px);line-height:1.15;margin:0 0 18px;letter-spacing:-.02em}
+article h2{font-size:26px;margin:44px 0 12px;padding-top:12px;border-top:1px solid var(--line)}
+article h3{font-size:19px;margin:28px 0 8px}
+article p,article li{color:#cfd7e6}
+article hr{border:0;border-top:1px solid var(--line);margin:32px 0}
+article table{border-collapse:collapse;width:100%;margin:16px 0;font-size:15px;display:block;overflow-x:auto}
+article th,article td{border:1px solid var(--line);padding:8px 12px;text-align:left;vertical-align:top}
+article th{background:var(--bg2)}article tr:nth-child(even) td{background:rgba(21,29,46,.5)}
+code{font:13px/1.4 ui-monospace,SFMono-Regular,Consolas,monospace;background:#0e1524;border:1px solid var(--line);padding:2px 6px;border-radius:6px;color:#c9d6ff}
+pre{background:#0e1524;border:1px solid var(--line);border-radius:12px;padding:16px;overflow-x:auto}pre code{border:0;padding:0;background:none}
+blockquote{margin:18px 0;padding:12px 18px;border-left:4px solid var(--acc2);background:var(--card);border-radius:0 10px 10px 0}blockquote p{margin:4px 0}
+.docver{font-size:13px;color:var(--mute);margin:-8px 0 22px}.docver span{display:inline-block;padding:1px 9px;margin-right:8px;border:1px solid var(--line);border-radius:999px;background:var(--bg2);color:var(--text)}
+footer{padding:40px 0;color:var(--mute);font-size:14px;border-top:1px solid var(--line)}
+footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}</style>
+</head>
+<body>
+<header class="nav"><div class="wrap">
+  <a class="brand" href="../"><img src="../img/logo.png" alt="AQEMU logo" width="34" height="27">AQEMU <span style="color:var(--mute);font-weight:500">Docs</span></a>
+  <nav><a href="./">Docs</a><a class="hide-sm" href="your-first-vm.html">Your first VM</a><a class="hide-sm" href="guest-os.html">All guest OSes</a><a class="hide-sm" href="troubleshooting.html">Troubleshooting and FAQ</a><a href="https://github.com/chronic8000/aqemu">GitHub</a></nav>
+</div></header>
+<div class="wrap layout">
+  <aside class="side"><h4 style="margin-top:18px">Start here</h4><a href="documentation-hub.html">Docs home</a><a href="install-from-store.html">Install from the Store</a><a href="first-start.html">First start</a><a href="your-first-vm.html">Your first VM</a><a href="command-line.html">Command line</a><h4 style="margin-top:18px">Hosts</h4><a href="host-windows-x64.html">Windows x64</a><a href="host-windows-arm64.html">Windows ARM64</a><a href="host-linux-x64.html">Linux x64</a><a href="host-linux-arm64.html">Linux ARM64</a><h4 style="margin-top:18px">Using AQEMU</h4><a href="new-vm-wizard.html">New VM Wizard</a><a href="session-toolbar.html">Session toolbar</a><a href="display.html">Display and mouse</a><a href="networking.html">Networking</a><a href="storage-and-disks.html">Storage and disks</a><a href="file-transfer.html">File transfer</a><a href="copy-and-paste.html">Copy and paste</a><a href="snapshots.html">Snapshots</a><a href="accelerators.html">Accelerators</a><a href="troubleshooting.html">Troubleshooting and FAQ</a><a href="user-guide.html">User Guide (one page)</a><h4 style="margin-top:18px">Guest operating systems</h4><a href="guest-os.html">All guest OSes</a><a href="windows-11-guide.html">Windows 11 and legacy</a><a href="guest-os-windows.html">Windows family</a><a href="guest-os-windows-11-arm.html">Windows 11 ARM per host</a><a href="guest-os-linux.html" class=on>Linux</a><a href="guest-os-bsd.html">BSD</a><a href="guest-os-unix.html">Unix</a><a href="guest-os-retro-dos-os2.html">DOS, OS/2 and retro</a><a href="guest-os-truenas.html">TrueNAS</a><a href="guest-os-other.html">Other OSes</a><a href="guest-os-boards.html">ARM and RISC-V boards</a><a href="os-catalog.html">OS Catalog</a><a href="macos-guide.html">macOS (Experimental)</a><a href="ios-apple-soc-guide.html">iOS / Apple SoC (Experimental)</a><h4 style="margin-top:18px">Reference</h4><a href="settings-tabs.html">Settings tab map</a><a href="preferences.html">Preferences</a><a href="menus.html">Menus</a><a href="new-vm-wizard-paths.html">Wizard paths</a><a href="virt-manager-comparison.html">AQEMU vs virt-manager</a>
+    <div class="store"><a href="https://apps.microsoft.com/detail/9P0HGKHQ9W19?cid=ghpages_docs">Get AQEMU on the Microsoft Store</a></div>
+    <p style="font-size:13px;color:var(--mute);margin-top:14px"><a href="https://github.com/chronic8000/aqemu/edit/master/docs/guides/guest-os/linux.md">Edit this page on GitHub</a></p>
+  </aside>
+  <article>
+<h1 id="linux-guests">Linux guests</h1>
+<p class="docver"><span>Docs v1</span> Last updated 31 October 2026. These guides are a first version and will be updated.</p>
+<p>The wizard's <strong>Linux</strong> branch is split three ways:
+<strong>ARM64 / AArch64 (Modern ARM)</strong>, <strong>x86_64 (64-bit
+PC)</strong> and <strong>x86 32-bit (Legacy PC)</strong>. Pick the one
+that matches your installer <em>and</em> your PC if you want speed:
+x86_64 distros are fast on x64 PCs; ARM64 distros are fast on ARM64 PCs
+(Windows on ARM, Raspberry Pi 5 and other ARM64 Linux machines).</p>
+<p>TrueNAS SCALE is in <a href="guest-os-truenas.html">TrueNAS and
+storage labs</a>.</p>
+<h2 id="how-to-make-one-of-these-vms">How to make one of these VMs</h2>
+<ol type="1">
+<li>Click <strong>Add New VM</strong> (or press
+<strong>Ctrl+N</strong>).</li>
+<li>Pick <strong>Guest Operating System</strong>, open the
+<strong>Linux</strong> branch and choose the OS.</li>
+<li>On <strong>Confirm QEMU system</strong>, check the Computer Type and
+Machine Type. They're filled in from the table below and you can still
+change them.</li>
+<li>Go through Accelerator → Name/CPU → Disk → Devices → Network →
+Finish.</li>
+<li>On the VM's <strong>Media</strong> tab, point the CD/DVD drive at
+your installer image, then start the VM.</li>
+</ol>
+<p>You supply the installer media and any licence the OS needs. AQEMU
+doesn't include operating systems.</p>
+<blockquote>
+<p><strong>What the table shows:</strong> each OS's wizard starting
+point, taken from <code>resources/wizard_trees.json</code>. For some
+older OSes the wizard adjusts things further (for example, the Windows
+XP family gets one CPU, IDE disks and Force TCG), so the
+<strong>Confirm</strong> page has the final word. "Speed" follows
+AQEMU's accelerator rules: see <a
+href="accelerators.html">Accelerators</a>.</p>
+</blockquote>
+<h2 id="x86_64-64-bit-pc">x86_64 (64-bit PC)</h2>
+<table>
+<thead>
+<tr class="header">
+<th>OS</th>
+<th>Emulator</th>
+<th>Machine</th>
+<th>CPU</th>
+<th>RAM</th>
+<th>Disk</th>
+<th>NIC</th>
+<th>Speed (accelerator)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>AlmaLinux</strong></td>
+<td><code>qemu-system-x86_64</code></td>
+<td><code>q35</code></td>
+<td><code>max</code></td>
+<td>4 GB</td>
+<td>20 GB</td>
+<td><code>virtio-net-pci</code></td>
+<td>WHPX on Windows x64, KVM on Linux x64. TCG on ARM hosts</td>
+</tr>
+<tr class="even">
+<td><strong>Alpine Linux (64-bit)</strong></td>
+<td><code>qemu-system-x86_64</code></td>
+<td><code>q35</code></td>
+<td><code>max</code></td>
+<td>1 GB</td>
+<td>20 GB</td>
+<td><code>virtio-net-pci</code></td>
+<td>WHPX on Windows x64, KVM on Linux x64. TCG on ARM hosts</td>
+</tr>
+<tr class="odd">
+<td><strong>Arch Linux (64-bit)</strong></td>
+<td><code>qemu-system-x86_64</code></td>
+<td><code>q35</code></td>
+<td><code>max</code></td>
+<td>4 GB</td>
+<td>20 GB</td>
+<td><code>virtio-net-pci</code></td>
+<td>WHPX on Windows x64, KVM on Linux x64. TCG on ARM hosts</td>
+</tr>
+<tr class="even">
+<td><strong>CentOS Stream</strong></td>
+<td><code>qemu-system-x86_64</code></td>
+<td><code>q35</code></td>
+<td><code>max</code></td>
+<td>4 GB</td>
+<td>20 GB</td>
+<td><code>virtio-net-pci</code></td>
+<td>WHPX on Windows x64, KVM on Linux x64. TCG on ARM hosts</td>
+</tr>
+<tr class="odd">
+<td><strong>Debian (64-bit)</strong></td>
+<td><code>qemu-system-x86_64</code></td>
+<td><code>q35</code></td>
+<td><code>max</code></td>
+<td>4 GB</td>
+<td>20 GB</td>
+<td><code>virtio-net-pci</code></td>
+<td>WHPX on Windows x64, KVM on Linux x64. TCG on ARM hosts</td>
+</tr>
+<tr class="even">
+<td><strong>elementary OS</strong></td>
+<td><code>qemu-system-x86_64</code></td>
+<td><code>q35</code></td>
+<td><code>max</code></td>
+<td>4 GB</td>
+<td>20 GB</td>
+<td><code>virtio-net-pci</code></td>
+<td>WHPX on Windows x64, KVM on Linux x64. TCG on ARM hosts</td>
+</tr>
+<tr class="odd">
+<td><strong>Fedora (64-bit)</strong></td>
+<td><code>qemu-system-x86_64</code></td>
+<td><code>q35</code></td>
+<td><code>max</code></td>
+<td>4 GB</td>
+<td>20 GB</td>
+<td><code>virtio-net-pci</code></td>
+<td>WHPX on Windows x64, KVM on Linux x64. TCG on ARM hosts</td>
+</tr>
+<tr class="even">
+<td><strong>Generic Linux (64-bit)</strong></td>
+<td><code>qemu-system-x86_64</code></td>
+<td><code>q35</code></td>
+<td><code>max</code></td>
+<td>4 GB</td>
+<td>20 GB</td>
+<td><code>virtio-net-pci</code></td>
+<td>WHPX on Windows x64, KVM on Linux x64. TCG on ARM hosts</td>
+</tr>
+<tr class="odd">
+<td><strong>Gentoo</strong></td>
+<td><code>qemu-system-x86_64</code></td>
+<td><code>q35</code></td>
+<td><code>max</code></td>
+<td>4 GB</td>
+<td>20 GB</td>
+<td><code>virtio-net-pci</code></td>
+<td>WHPX on Windows x64, KVM on Linux x64. TCG on ARM hosts</td>
+</tr>
+<tr class="even">
+<td><strong>Kali Linux</strong></td>
+<td><code>qemu-system-x86_64</code></td>
+<td><code>q35</code></td>
+<td><code>max</code></td>
+<td>4 GB</td>
+<td>20 GB</td>
+<td><code>virtio-net-pci</code></td>
+<td>WHPX on Windows x64, KVM on Linux x64. TCG on ARM hosts</td>
+</tr>
+<tr class="odd">
+<td><strong>Linux Mint (64-bit)</strong></td>
+<td><code>qemu-system-x86_64</code></td>
+<td><code>q35</code></td>
+<td><code>max</code></td>
+<td>4 GB</td>
+<td>20 GB</td>
+<td><code>virtio-net-pci</code></td>
+<td>WHPX on Windows x64, KVM on Linux x64. TCG on ARM hosts</td>
+</tr>
+<tr class="even">
+<td><strong>NixOS</strong></td>
+<td><code>qemu-system-x86_64</code></td>
+<td><code>q35</code></td>
+<td><code>max</code></td>
+<td>4 GB</td>
+<td>20 GB</td>
+<td><code>virtio-net-pci</code></td>
+<td>WHPX on Windows x64, KVM on Linux x64. TCG on ARM hosts</td>
+</tr>
+<tr class="odd">
+<td><strong>openSUSE (64-bit)</strong></td>
+<td><code>qemu-system-x86_64</code></td>
+<td><code>q35</code></td>
+<td><code>max</code></td>
+<td>4 GB</td>
+<td>20 GB</td>
+<td><code>virtio-net-pci</code></td>
+<td>WHPX on Windows x64, KVM on Linux x64. TCG on ARM hosts</td>
+</tr>
+<tr class="even">
+<td><strong>Pop!_OS</strong></td>
+<td><code>qemu-system-x86_64</code></td>
+<td><code>q35</code></td>
+<td><code>max</code></td>
+<td>4 GB</td>
+<td>40 GB</td>
+<td><code>virtio-net-pci</code></td>
+<td>WHPX on Windows x64, KVM on Linux x64. TCG on ARM hosts</td>
+</tr>
+<tr class="odd">
+<td><strong>RHEL</strong></td>
+<td><code>qemu-system-x86_64</code></td>
+<td><code>q35</code></td>
+<td><code>max</code></td>
+<td>4 GB</td>
+<td>20 GB</td>
+<td><code>virtio-net-pci</code></td>
+<td>WHPX on Windows x64, KVM on Linux x64. TCG on ARM hosts</td>
+</tr>
+<tr class="even">
+<td><strong>Rocky Linux</strong></td>
+<td><code>qemu-system-x86_64</code></td>
+<td><code>q35</code></td>
+<td><code>max</code></td>
+<td>4 GB</td>
+<td>20 GB</td>
+<td><code>virtio-net-pci</code></td>
+<td>WHPX on Windows x64, KVM on Linux x64. TCG on ARM hosts</td>
+</tr>
+<tr class="odd">
+<td><strong>Slackware</strong></td>
+<td><code>qemu-system-x86_64</code></td>
+<td><code>q35</code></td>
+<td><code>max</code></td>
+<td>4 GB</td>
+<td>20 GB</td>
+<td><code>virtio-net-pci</code></td>
+<td>WHPX on Windows x64, KVM on Linux x64. TCG on ARM hosts</td>
+</tr>
+<tr class="even">
+<td><strong>SUSE Linux</strong></td>
+<td><code>qemu-system-x86_64</code></td>
+<td><code>q35</code></td>
+<td><code>max</code></td>
+<td>4 GB</td>
+<td>20 GB</td>
+<td><code>virtio-net-pci</code></td>
+<td>WHPX on Windows x64, KVM on Linux x64. TCG on ARM hosts</td>
+</tr>
+<tr class="odd">
+<td><strong>Tiny Core Linux (64-bit)</strong></td>
+<td><code>qemu-system-x86_64</code></td>
+<td><code>q35</code></td>
+<td><code>max</code></td>
+<td>512 MB</td>
+<td>20 GB</td>
+<td><code>virtio-net-pci</code></td>
+<td>WHPX on Windows x64, KVM on Linux x64. TCG on ARM hosts</td>
+</tr>
+<tr class="even">
+<td><strong>Ubuntu (64-bit)</strong></td>
+<td><code>qemu-system-x86_64</code></td>
+<td><code>q35</code></td>
+<td><code>max</code></td>
+<td>4 GB</td>
+<td>20 GB</td>
+<td><code>virtio-net-pci</code></td>
+<td>WHPX on Windows x64, KVM on Linux x64. TCG on ARM hosts</td>
+</tr>
+<tr class="odd">
+<td><strong>Void Linux</strong></td>
+<td><code>qemu-system-x86_64</code></td>
+<td><code>q35</code></td>
+<td><code>max</code></td>
+<td>4 GB</td>
+<td>20 GB</td>
+<td><code>virtio-net-pci</code></td>
+<td>WHPX on Windows x64, KVM on Linux x64. TCG on ARM hosts</td>
+</tr>
+</tbody>
+</table>
+<h3 id="aqemus-tip-for-each-os">AQEMU's tip for each OS</h3>
+<p>These are the tips the wizard shows when you pick the OS, copied from
+the source.</p>
+<ul>
+<li><strong>AlmaLinux:</strong> AlmaLinux → x86_64 (PC) + Q35 with
+VirtIO.</li>
+<li><strong>Alpine Linux (64-bit):</strong> Alpine Linux → x86_64 (PC) +
+Q35 with VirtIO.</li>
+<li><strong>Arch Linux (64-bit):</strong> Arch Linux → x86_64 (PC) + Q35
+with VirtIO.</li>
+<li><strong>CentOS Stream:</strong> CentOS Stream → x86_64 + Q35 with
+VirtIO (RHEL upstream).</li>
+<li><strong>Debian (64-bit):</strong> Debian → x86_64 (PC) + Q35 with
+VirtIO.</li>
+<li><strong>elementary OS:</strong> elementary OS → x86_64 + Q35 with
+VirtIO.</li>
+<li><strong>Fedora (64-bit):</strong> Fedora → x86_64 (PC) + Q35 with
+VirtIO.</li>
+<li><strong>Generic Linux (64-bit):</strong> Generic Linux → x86_64 (PC)
++ Q35 with VirtIO. Change Computer Type for other arches.</li>
+<li><strong>Gentoo:</strong> Gentoo → x86_64 (PC) + Q35 with
+VirtIO.</li>
+<li><strong>Kali Linux:</strong> Kali Linux → x86_64 (PC) + Q35 with
+VirtIO.</li>
+<li><strong>Linux Mint (64-bit):</strong> Linux Mint → x86_64 (PC) + Q35
+with VirtIO.</li>
+<li><strong>NixOS:</strong> NixOS → x86_64 + Q35 + VirtIO. UEFI/OVMF
+recommended for modern installers.</li>
+<li><strong>openSUSE (64-bit):</strong> openSUSE → x86_64 (PC) + Q35
+with VirtIO.</li>
+<li><strong>Pop!_OS:</strong> Pop!_OS → x86_64 + Q35. Prefer VirtIO VGA
+(GL) on Linux/KVM for COSMIC/GNOME.</li>
+<li><strong>RHEL:</strong> RHEL → x86_64 (PC) + Q35 with VirtIO.</li>
+<li><strong>Rocky Linux:</strong> Rocky Linux → x86_64 (PC) + Q35 with
+VirtIO.</li>
+<li><strong>Slackware:</strong> Slackware → x86_64 (PC) + Q35 with
+VirtIO.</li>
+<li><strong>SUSE Linux:</strong> SUSE Linux → x86_64 (PC) + Q35 with
+VirtIO.</li>
+<li><strong>Tiny Core Linux (64-bit):</strong> Tiny Core Linux → x86_64
+(PC) + Q35 with VirtIO.</li>
+<li><strong>Ubuntu (64-bit):</strong> Ubuntu desktop → x86_64 + Q35, 4
+GB RAM recommended (GNOME live/install fails on 2 GB under TCG). Prefer
+WHPX/KVM; CPU max.</li>
+<li><strong>Void Linux:</strong> Void Linux → x86_64 + Q35 with
+VirtIO.</li>
+</ul>
+<h2 id="arm64--aarch64-modern-arm">ARM64 / AArch64 (Modern ARM)</h2>
+<table>
+<thead>
+<tr class="header">
+<th>OS</th>
+<th>Emulator</th>
+<th>Machine</th>
+<th>CPU</th>
+<th>RAM</th>
+<th>Disk</th>
+<th>NIC</th>
+<th>Speed (accelerator)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>AlmaLinux (ARM64)</strong></td>
+<td><code>qemu-system-aarch64</code></td>
+<td><code>virt</code></td>
+<td><code>max</code></td>
+<td>4 GB</td>
+<td>25 GB</td>
+<td><code>virtio-net-pci</code></td>
+<td>WHPX on Windows ARM64, KVM on Linux ARM64. TCG on x64 hosts</td>
+</tr>
+<tr class="even">
+<td><strong>Alpine Linux (ARM64)</strong></td>
+<td><code>qemu-system-aarch64</code></td>
+<td><code>virt</code></td>
+<td><code>max</code></td>
+<td>1 GB</td>
+<td>10 GB</td>
+<td><code>virtio-net-pci</code></td>
+<td>WHPX on Windows ARM64, KVM on Linux ARM64. TCG on x64 hosts</td>
+</tr>
+<tr class="odd">
+<td><strong>Arch Linux ARM (ARM64)</strong></td>
+<td><code>qemu-system-aarch64</code></td>
+<td><code>virt</code></td>
+<td><code>max</code></td>
+<td>2 GB</td>
+<td>20 GB</td>
+<td><code>virtio-net-pci</code></td>
+<td>WHPX on Windows ARM64, KVM on Linux ARM64. TCG on x64 hosts</td>
+</tr>
+<tr class="even">
+<td><strong>CentOS Stream (ARM64)</strong></td>
+<td><code>qemu-system-aarch64</code></td>
+<td><code>virt</code></td>
+<td><code>max</code></td>
+<td>4 GB</td>
+<td>25 GB</td>
+<td><code>virtio-net-pci</code></td>
+<td>WHPX on Windows ARM64, KVM on Linux ARM64. TCG on x64 hosts</td>
+</tr>
+<tr class="odd">
+<td><strong>Debian (ARM64)</strong></td>
+<td><code>qemu-system-aarch64</code></td>
+<td><code>virt</code></td>
+<td><code>max</code></td>
+<td>2 GB</td>
+<td>20 GB</td>
+<td><code>virtio-net-pci</code></td>
+<td>WHPX on Windows ARM64, KVM on Linux ARM64. TCG on x64 hosts</td>
+</tr>
+<tr class="even">
+<td><strong>Fedora (ARM64)</strong></td>
+<td><code>qemu-system-aarch64</code></td>
+<td><code>virt</code></td>
+<td><code>max</code></td>
+<td>4 GB</td>
+<td>25 GB</td>
+<td><code>virtio-net-pci</code></td>
+<td>WHPX on Windows ARM64, KVM on Linux ARM64. TCG on x64 hosts</td>
+</tr>
+<tr class="odd">
+<td><strong>Generic Linux (ARM64)</strong></td>
+<td><code>qemu-system-aarch64</code></td>
+<td><code>virt</code></td>
+<td><code>max</code></td>
+<td>2 GB</td>
+<td>20 GB</td>
+<td><code>virtio-net-pci</code></td>
+<td>WHPX on Windows ARM64, KVM on Linux ARM64. TCG on x64 hosts</td>
+</tr>
+<tr class="even">
+<td><strong>Gentoo (ARM64)</strong></td>
+<td><code>qemu-system-aarch64</code></td>
+<td><code>virt</code></td>
+<td><code>max</code></td>
+<td>4 GB</td>
+<td>30 GB</td>
+<td><code>virtio-net-pci</code></td>
+<td>WHPX on Windows ARM64, KVM on Linux ARM64. TCG on x64 hosts</td>
+</tr>
+<tr class="odd">
+<td><strong>Kali Linux (ARM64)</strong></td>
+<td><code>qemu-system-aarch64</code></td>
+<td><code>virt</code></td>
+<td><code>max</code></td>
+<td>4 GB</td>
+<td>30 GB</td>
+<td><code>virtio-net-pci</code></td>
+<td>WHPX on Windows ARM64, KVM on Linux ARM64. TCG on x64 hosts</td>
+</tr>
+<tr class="even">
+<td><strong>NixOS (ARM64)</strong></td>
+<td><code>qemu-system-aarch64</code></td>
+<td><code>virt</code></td>
+<td><code>max</code></td>
+<td>4 GB</td>
+<td>30 GB</td>
+<td><code>virtio-net-pci</code></td>
+<td>WHPX on Windows ARM64, KVM on Linux ARM64. TCG on x64 hosts</td>
+</tr>
+<tr class="odd">
+<td><strong>openSUSE (ARM64)</strong></td>
+<td><code>qemu-system-aarch64</code></td>
+<td><code>virt</code></td>
+<td><code>max</code></td>
+<td>4 GB</td>
+<td>25 GB</td>
+<td><code>virtio-net-pci</code></td>
+<td>WHPX on Windows ARM64, KVM on Linux ARM64. TCG on x64 hosts</td>
+</tr>
+<tr class="even">
+<td><strong>Pop!_OS (ARM64)</strong></td>
+<td><code>qemu-system-aarch64</code></td>
+<td><code>virt</code></td>
+<td><code>max</code></td>
+<td>4 GB</td>
+<td>25 GB</td>
+<td><code>virtio-net-pci</code></td>
+<td>WHPX on Windows ARM64, KVM on Linux ARM64. TCG on x64 hosts</td>
+</tr>
+<tr class="odd">
+<td><strong>Raspberry Pi OS (ARM64)</strong></td>
+<td><code>qemu-system-aarch64</code></td>
+<td><code>virt</code></td>
+<td><code>max</code></td>
+<td>2 GB</td>
+<td>16 GB</td>
+<td><code>virtio-net-pci</code></td>
+<td>WHPX on Windows ARM64, KVM on Linux ARM64. TCG on x64 hosts</td>
+</tr>
+<tr class="even">
+<td><strong>Rocky Linux (ARM64)</strong></td>
+<td><code>qemu-system-aarch64</code></td>
+<td><code>virt</code></td>
+<td><code>max</code></td>
+<td>4 GB</td>
+<td>25 GB</td>
+<td><code>virtio-net-pci</code></td>
+<td>WHPX on Windows ARM64, KVM on Linux ARM64. TCG on x64 hosts</td>
+</tr>
+<tr class="odd">
+<td><strong>Ubuntu (ARM64)</strong></td>
+<td><code>qemu-system-aarch64</code></td>
+<td><code>virt</code></td>
+<td><code>max</code></td>
+<td>4 GB</td>
+<td>25 GB</td>
+<td><code>virtio-net-pci</code></td>
+<td>WHPX on Windows ARM64, KVM on Linux ARM64. TCG on x64 hosts</td>
+</tr>
+<tr class="even">
+<td><strong>Void Linux (ARM64)</strong></td>
+<td><code>qemu-system-aarch64</code></td>
+<td><code>virt</code></td>
+<td><code>max</code></td>
+<td>2 GB</td>
+<td>15 GB</td>
+<td><code>virtio-net-pci</code></td>
+<td>WHPX on Windows ARM64, KVM on Linux ARM64. TCG on x64 hosts</td>
+</tr>
+</tbody>
+</table>
+<h3 id="aqemus-tip-for-each-os-1">AQEMU's tip for each OS</h3>
+<p>These are the tips the wizard shows when you pick the OS, copied from
+the source.</p>
+<ul>
+<li><strong>AlmaLinux (ARM64):</strong> AlmaLinux (ARM64 / AArch64) →
+virt + VirtIO, enterprise RHEL-compatible.</li>
+<li><strong>Alpine Linux (ARM64):</strong> Alpine Linux (ARM64 /
+AArch64) → virt + VirtIO, lightweight Alpine for ARM.</li>
+<li><strong>Arch Linux ARM (ARM64):</strong> Arch Linux ARM (AArch64) →
+virt + VirtIO, UEFI firmware. Uses KVM native acceleration on ARM
+hosts.</li>
+<li><strong>CentOS Stream (ARM64):</strong> CentOS Stream (ARM64 /
+AArch64) → virt + VirtIO, UEFI firmware.</li>
+<li><strong>Debian (ARM64):</strong> Debian (ARM64 / AArch64) → virt +
+VirtIO, UEFI firmware. Uses KVM native acceleration on ARM hosts.</li>
+<li><strong>Fedora (ARM64):</strong> Fedora (ARM64 / AArch64) → virt +
+VirtIO, UEFI firmware. Uses KVM native acceleration on ARM hosts.</li>
+<li><strong>Generic Linux (ARM64):</strong> Generic Linux (ARM64 /
+AArch64) → virt + VirtIO, UEFI firmware.</li>
+<li><strong>Gentoo (ARM64):</strong> Gentoo (ARM64 / AArch64) → virt +
+VirtIO, UEFI firmware.</li>
+<li><strong>Kali Linux (ARM64):</strong> Kali Linux (ARM64 / AArch64) →
+virt + VirtIO, UEFI firmware.</li>
+<li><strong>NixOS (ARM64):</strong> NixOS (ARM64 / AArch64) → virt +
+VirtIO, UEFI firmware.</li>
+<li><strong>openSUSE (ARM64):</strong> openSUSE Leap / Tumbleweed
+(ARM64) → virt + VirtIO, UEFI firmware.</li>
+<li><strong>Pop!_OS (ARM64):</strong> Pop!_OS (ARM64 / AArch64) → virt +
+VirtIO, UEFI firmware.</li>
+<li><strong>Raspberry Pi OS (ARM64):</strong> Raspberry Pi OS (ARM64 /
+64-bit) → virt + VirtIO, Debian-based.</li>
+<li><strong>Rocky Linux (ARM64):</strong> Rocky Linux (ARM64 / AArch64)
+→ virt + VirtIO, enterprise RHEL-compatible.</li>
+<li><strong>Ubuntu (ARM64):</strong> Ubuntu (ARM64 / AArch64) → virt +
+VirtIO, UEFI firmware. Uses KVM native acceleration on ARM hosts.</li>
+<li><strong>Void Linux (ARM64):</strong> Void Linux (ARM64 / AArch64) →
+virt + VirtIO, UEFI firmware.</li>
+</ul>
+<h2 id="x86-32-bit-legacy-pc">x86 32-bit (Legacy PC)</h2>
+<table>
+<thead>
+<tr class="header">
+<th>OS</th>
+<th>Emulator</th>
+<th>Machine</th>
+<th>CPU</th>
+<th>RAM</th>
+<th>Disk</th>
+<th>NIC</th>
+<th>Speed (accelerator)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Alpine Linux (32-bit)</strong></td>
+<td><code>qemu-system-i386</code></td>
+<td><code>q35</code></td>
+<td><code>qemu32</code></td>
+<td>512 MB</td>
+<td>10 GB</td>
+<td><code>virtio-net-pci</code></td>
+<td>TCG on every host (<code>i386</code> binary is TCG only)</td>
+</tr>
+<tr class="even">
+<td><strong>Arch Linux (32-bit)</strong></td>
+<td><code>qemu-system-i386</code></td>
+<td><code>q35</code></td>
+<td><code>qemu32</code></td>
+<td>1 GB</td>
+<td>10 GB</td>
+<td><code>virtio-net-pci</code></td>
+<td>TCG on every host (<code>i386</code> binary is TCG only)</td>
+</tr>
+<tr class="odd">
+<td><strong>Debian (32-bit)</strong></td>
+<td><code>qemu-system-i386</code></td>
+<td><code>q35</code></td>
+<td><code>qemu32</code></td>
+<td>1 GB</td>
+<td>10 GB</td>
+<td><code>virtio-net-pci</code></td>
+<td>TCG on every host (<code>i386</code> binary is TCG only)</td>
+</tr>
+<tr class="even">
+<td><strong>Fedora (32-bit)</strong></td>
+<td><code>qemu-system-i386</code></td>
+<td><code>q35</code></td>
+<td><code>qemu32</code></td>
+<td>1 GB</td>
+<td>10 GB</td>
+<td><code>virtio-net-pci</code></td>
+<td>TCG on every host (<code>i386</code> binary is TCG only)</td>
+</tr>
+<tr class="odd">
+<td><strong>Generic Linux (32-bit)</strong></td>
+<td><code>qemu-system-i386</code></td>
+<td><code>q35</code></td>
+<td><code>qemu32</code></td>
+<td>1 GB</td>
+<td>10 GB</td>
+<td><code>virtio-net-pci</code></td>
+<td>TCG on every host (<code>i386</code> binary is TCG only)</td>
+</tr>
+<tr class="even">
+<td><strong>Linux Mint (32-bit)</strong></td>
+<td><code>qemu-system-i386</code></td>
+<td><code>q35</code></td>
+<td><code>qemu32</code></td>
+<td>1 GB</td>
+<td>10 GB</td>
+<td><code>virtio-net-pci</code></td>
+<td>TCG on every host (<code>i386</code> binary is TCG only)</td>
+</tr>
+<tr class="odd">
+<td><strong>openSUSE (32-bit)</strong></td>
+<td><code>qemu-system-i386</code></td>
+<td><code>q35</code></td>
+<td><code>qemu32</code></td>
+<td>1 GB</td>
+<td>10 GB</td>
+<td><code>virtio-net-pci</code></td>
+<td>TCG on every host (<code>i386</code> binary is TCG only)</td>
+</tr>
+<tr class="even">
+<td><strong>Tiny Core Linux (32-bit)</strong></td>
+<td><code>qemu-system-i386</code></td>
+<td><code>q35</code></td>
+<td><code>qemu32</code></td>
+<td>256 MB</td>
+<td>10 GB</td>
+<td><code>virtio-net-pci</code></td>
+<td>TCG on every host (<code>i386</code> binary is TCG only)</td>
+</tr>
+<tr class="odd">
+<td><strong>Ubuntu (32-bit)</strong></td>
+<td><code>qemu-system-i386</code></td>
+<td><code>q35</code></td>
+<td><code>qemu32</code></td>
+<td>1 GB</td>
+<td>10 GB</td>
+<td><code>virtio-net-pci</code></td>
+<td>TCG on every host (<code>i386</code> binary is TCG only)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="aqemus-tip-for-each-os-2">AQEMU's tip for each OS</h3>
+<p>These are the tips the wizard shows when you pick the OS, copied from
+the source.</p>
+<ul>
+<li><strong>Alpine Linux (32-bit):</strong> Alpine Linux 32-bit → i386
+PC. Prefer for older ISOs.</li>
+<li><strong>Arch Linux (32-bit):</strong> Arch Linux 32-bit → i386 PC.
+Prefer for older ISOs.</li>
+<li><strong>Debian (32-bit):</strong> Debian 32-bit → i386 PC. Prefer
+for older ISOs.</li>
+<li><strong>Fedora (32-bit):</strong> Fedora 32-bit → i386 PC. Prefer
+for older ISOs.</li>
+<li><strong>Generic Linux (32-bit):</strong> Generic Linux 32-bit → i386
+PC. Prefer for older ISOs.</li>
+<li><strong>Linux Mint (32-bit):</strong> Linux Mint 32-bit → i386 PC.
+Prefer for older ISOs.</li>
+<li><strong>openSUSE (32-bit):</strong> openSUSE 32-bit → i386 PC.
+Prefer for older ISOs.</li>
+<li><strong>Tiny Core Linux (32-bit):</strong> Tiny Core Linux 32-bit →
+i386 PC. Prefer for older ISOs.</li>
+<li><strong>Ubuntu (32-bit):</strong> Ubuntu 32-bit → i386 PC. Prefer
+for older ISOs.</li>
+</ul>
+<h2 id="linux-on-other-hardware">Linux on other hardware</h2>
+<table>
+<thead>
+<tr class="header">
+<th>OS</th>
+<th>Emulator</th>
+<th>Machine</th>
+<th>CPU</th>
+<th>RAM</th>
+<th>Disk</th>
+<th>NIC</th>
+<th>Speed (accelerator)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Linux on IBM Z</strong></td>
+<td><code>qemu-system-s390x</code></td>
+<td><code>s390-ccw-virtio</code></td>
+<td><code>max</code></td>
+<td>4 GB</td>
+<td>20 GB</td>
+<td><code>virtio-net-ccw</code></td>
+<td>TCG on every host</td>
+</tr>
+</tbody>
+</table>
+<h3 id="aqemus-tip-for-each-os-3">AQEMU's tip for each OS</h3>
+<p>These are the tips the wizard shows when you pick the OS, copied from
+the source.</p>
+<ul>
+<li><strong>Linux on IBM Z:</strong> Linux on IBM Z → qemu-system-s390x
++ s390-ccw-virtio. VirtIO CCW disk/net; typically headless (no
+VGA).</li>
+</ul>
+<blockquote>
+<p><strong>Linux on IBM Z</strong> lives under the <strong>IBM</strong>
+branch in the wizard.</p>
+</blockquote>
+<hr />
+<p>More: <a href="guest-os.html">All guest OS guides</a> · <a
+href="accelerators.html">Accelerators</a> · <a
+href="new-vm-wizard.html">New VM Wizard</a> · <a
+href="documentation-hub.html">Documentation Hub</a></p>
+
+  </article>
+</div>
+<footer><div class="wrap">
+  <span>© 2026 Chronic Engineering · AQEMU is GPLv2 · QEMU is a trademark of Fabrice Bellard.</span>
+  <span><a href="../">Home</a> · <a href="https://apps.microsoft.com/detail/9P0HGKHQ9W19?cid=ghpages_docs">Microsoft Store</a> · <a href="https://github.com/chronic8000/aqemu">GitHub</a></span>
+</div></footer>
+</body>
+</html>

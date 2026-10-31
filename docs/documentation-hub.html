@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>AQEMU Documentation – AQEMU Docs</title>
-<meta name="description" content="AQEMU documentation: user guide, Windows 11 ARM and x86 guide, operating system catalog, and experimental macOS and iOS guides.">
+<meta name="description" content="AQEMU v1 documentation: getting started on each host, the New VM Wizard, settings, networking, storage, troubleshooting and guides for every guest OS.">
 <link rel="canonical" href="https://chronic8000.github.io/aqemu/docs/documentation-hub.html">
 <meta name="theme-color" content="#0b0f19">
 <link rel="icon" type="image/png" href="../favicon.png">
@@ -43,10 +43,10 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}
 <body>
 <header class="nav"><div class="wrap">
   <a class="brand" href="../"><img src="../img/logo.png" alt="AQEMU logo" width="34" height="27">AQEMU <span style="color:var(--mute);font-weight:500">Docs</span></a>
-  <nav><a href="./" class="on">Docs</a><a class="hide-sm" href="user-guide.html">User Guide</a><a class="hide-sm" href="windows-11-guide.html">Windows</a><a class="hide-sm" href="os-catalog.html">OS Catalog</a><a class="hide-sm" href="macos-guide.html">macOS (Experimental)</a><a class="hide-sm" href="ios-apple-soc-guide.html">iOS / Apple SoC (Experimental)</a><a href="https://github.com/chronic8000/aqemu">GitHub</a></nav>
+  <nav><a href="./" class="on">Docs</a><a class="hide-sm" href="your-first-vm.html">Your first VM</a><a class="hide-sm" href="guest-os.html">All guest OSes</a><a class="hide-sm" href="troubleshooting.html">Troubleshooting and FAQ</a><a href="https://github.com/chronic8000/aqemu">GitHub</a></nav>
 </div></header>
 <div class="wrap layout">
-  <aside class="side"><h4>Guides</h4><a href="documentation-hub.html" class=on>Docs home</a><a href="user-guide.html">User Guide</a><a href="windows-11-guide.html">Windows</a><a href="os-catalog.html">OS Catalog</a><a href="macos-guide.html">macOS (Experimental)</a><a href="ios-apple-soc-guide.html">iOS / Apple SoC (Experimental)</a>
+  <aside class="side"><h4 style="margin-top:18px">Start here</h4><a href="documentation-hub.html" class=on>Docs home</a><a href="install-from-store.html">Install from the Store</a><a href="first-start.html">First start</a><a href="your-first-vm.html">Your first VM</a><a href="command-line.html">Command line</a><h4 style="margin-top:18px">Hosts</h4><a href="host-windows-x64.html">Windows x64</a><a href="host-windows-arm64.html">Windows ARM64</a><a href="host-linux-x64.html">Linux x64</a><a href="host-linux-arm64.html">Linux ARM64</a><h4 style="margin-top:18px">Using AQEMU</h4><a href="new-vm-wizard.html">New VM Wizard</a><a href="session-toolbar.html">Session toolbar</a><a href="display.html">Display and mouse</a><a href="networking.html">Networking</a><a href="storage-and-disks.html">Storage and disks</a><a href="file-transfer.html">File transfer</a><a href="copy-and-paste.html">Copy and paste</a><a href="snapshots.html">Snapshots</a><a href="accelerators.html">Accelerators</a><a href="troubleshooting.html">Troubleshooting and FAQ</a><a href="user-guide.html">User Guide (one page)</a><h4 style="margin-top:18px">Guest operating systems</h4><a href="guest-os.html">All guest OSes</a><a href="windows-11-guide.html">Windows 11 and legacy</a><a href="guest-os-windows.html">Windows family</a><a href="guest-os-windows-11-arm.html">Windows 11 ARM per host</a><a href="guest-os-linux.html">Linux</a><a href="guest-os-bsd.html">BSD</a><a href="guest-os-unix.html">Unix</a><a href="guest-os-retro-dos-os2.html">DOS, OS/2 and retro</a><a href="guest-os-truenas.html">TrueNAS</a><a href="guest-os-other.html">Other OSes</a><a href="guest-os-boards.html">ARM and RISC-V boards</a><a href="os-catalog.html">OS Catalog</a><a href="macos-guide.html">macOS (Experimental)</a><a href="ios-apple-soc-guide.html">iOS / Apple SoC (Experimental)</a><h4 style="margin-top:18px">Reference</h4><a href="settings-tabs.html">Settings tab map</a><a href="preferences.html">Preferences</a><a href="menus.html">Menus</a><a href="new-vm-wizard-paths.html">Wizard paths</a><a href="virt-manager-comparison.html">AQEMU vs virt-manager</a>
     <div class="store"><a href="https://apps.microsoft.com/detail/9P0HGKHQ9W19?cid=ghpages_docs">Get AQEMU on the Microsoft Store</a></div>
     <p style="font-size:13px;color:var(--mute);margin-top:14px"><a href="https://github.com/chronic8000/aqemu/edit/master/docs/README.md">Edit this page on GitHub</a></p>
   </aside>
@@ -56,14 +56,68 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}
 <p>Welcome to the AQEMU docs! AQEMU is a desktop front end for QEMU on
 Windows and Linux. You build and run virtual machines from a GUI, and
 you never have to type a QEMU command line unless you want to.</p>
-<p>Everything in these guides was checked against the AQEMU source on
-<code>master</code>: menu names, button labels, defaults, and the QEMU
-flags AQEMU generates. If something in the app doesn't match what you
-read here, please <a
+<p>These are the <strong>v1</strong> docs. Everything in them was
+checked against the AQEMU source on <code>master</code>: menu names,
+button labels, defaults, and the QEMU flags AQEMU generates. If
+something in the app doesn't match what you read here, please <a
 href="https://github.com/chronic8000/aqemu/issues">open an issue</a> and
 tell us.</p>
 <hr />
-<h2 id="guides">Guides</h2>
+<h2 id="start-here">Start here</h2>
+<p>New to AQEMU? Read these in order:</p>
+<ol type="1">
+<li><a href="install-from-store.html">Install AQEMU from the Microsoft
+Store</a> (AQEMU is £12.99, with a 7-day free trial)</li>
+<li><a href="first-start.html">First start</a></li>
+<li><a href="your-first-vm.html">Your first VM</a></li>
+<li>Your host's guide (below)</li>
+</ol>
+<h2 id="pick-your-host">Pick your host</h2>
+<table>
+<thead>
+<tr class="header">
+<th>Your computer</th>
+<th>Guide</th>
+<th>Fast guests (hardware acceleration)</th>
+<th>Everything else</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Windows on Intel/AMD (x64)</td>
+<td><a href="host-windows-x64.html">Windows x64</a></td>
+<td>x86 64-bit guests with <strong>WHPX</strong>, or
+<strong>KVM</strong> inside WSL</td>
+<td>TCG (software)</td>
+</tr>
+<tr class="even">
+<td>Windows on ARM (Snapdragon)</td>
+<td><a href="host-windows-arm64.html">Windows ARM64</a></td>
+<td>ARM64 guests with <strong>WHPX</strong></td>
+<td>TCG (software)</td>
+</tr>
+<tr class="odd">
+<td>Linux on Intel/AMD (x64)</td>
+<td><a href="host-linux-x64.html">Linux x64</a></td>
+<td>x86 64-bit guests with <strong>KVM</strong></td>
+<td>TCG (software)</td>
+</tr>
+<tr class="even">
+<td>Linux on ARM64</td>
+<td><a href="host-linux-arm64.html">Linux ARM64</a></td>
+<td>ARM64 guests with <strong>KVM</strong></td>
+<td>TCG (software)</td>
+</tr>
+</tbody>
+</table>
+<p>32-bit guests (<code>qemu-system-i386</code> and
+<code>qemu-system-arm</code>) always use TCG. See <a
+href="accelerators.html">Accelerators</a>.</p>
+<h2 id="guest-operating-systems">Guest operating systems</h2>
+<p>The New VM Wizard names <strong>144 operating systems</strong>
+(Windows 31, Linux 47, BSD 8, DOS/OS2 7, Unix 16, Other 22, TrueNAS 3,
+Apple 10), plus <strong>69 Consoles &amp; Retro</strong> entries and
+<strong>13 Lab</strong> entries.</p>
 <table>
 <thead>
 <tr class="header">
@@ -73,50 +127,146 @@ tell us.</p>
 </thead>
 <tbody>
 <tr class="odd">
-<td><a href="user-guide.html">User Guide: Getting Started and the New VM
-Wizard</a></td>
-<td>First start, the main window, the <strong>New Virtual Machine
-Wizard</strong>, and the settings tabs</td>
+<td><a href="guest-os.html">Guest OS guides (all families)</a></td>
+<td>Every OS in the wizard, grouped by family, with the settings AQEMU
+picks</td>
 </tr>
 <tr class="even">
 <td><a href="windows-11-guide.html">Windows 11 and Legacy
 Windows</a></td>
-<td>Windows 11 ARM with slipstreamed VirtIO drivers, Windows 11 x86,
-Windows 9x/XP/7</td>
+<td>Windows 11 ARM and x86, Windows 9x/XP/7</td>
 </tr>
 <tr class="odd">
-<td><a href="os-catalog.html">Operating System Catalog</a></td>
-<td>Linux, BSD, retro and other guests, the built-in templates, and the
-AQEMU guest tools</td>
+<td><a href="guest-os-windows-11-arm.html">Windows 11 ARM on each
+host</a></td>
+<td>Per-host steps for Windows 11 on ARM64</td>
 </tr>
 <tr class="even">
-<td><a
-href="https://github.com/chronic8000/aqemu/blob/master/docs/guides/copy-and-paste.md">Copy
-and Paste</a></td>
-<td>Text clipboard through the built-in display, <strong>Paste
-files</strong>, <strong>To guest</strong> / <strong>From guest</strong>,
-and the guest helper</td>
-</tr>
-<tr class="odd">
-<td><a
-href="https://github.com/chronic8000/aqemu/blob/master/docs/guides/qemu-lab-1.6.md">QEMU
-Lab (AQEMU 1.6)</a></td>
-<td>The 1.6 Lab features: port forwards, support bundle, snapshots,
-Chain Studio, virtiofs and bring-your-own wraps</td>
-</tr>
-<tr class="even">
-<td><a href="macos-guide.html">macOS (Experimental)</a></td>
-<td>Classic Mac OS on PowerPC and the experimental Intel macOS
-profile</td>
-</tr>
-<tr class="odd">
 <td><a href="ios-apple-soc-guide.html">iOS and Apple SoC
 (Experimental)</a></td>
-<td>The experimental Inferno (<code>qemu-system-applesoc</code>) tooling
-for iPhone 11 / t8030</td>
+<td>The experimental Apple SoC tooling. You supply all Apple software
+yourself.</td>
+</tr>
+<tr class="odd">
+<td><a href="macos-guide.html">macOS (Experimental)</a></td>
+<td>Classic Mac OS on PowerPC and the experimental Intel macOS profile.
+You supply all Apple software yourself.</td>
+</tr>
+<tr class="even">
+<td><a href="os-catalog.html">Operating System Catalog</a></td>
+<td>Where each family lives in the wizard, templates, and the AQEMU
+guest tools</td>
 </tr>
 </tbody>
 </table>
+<h2 id="using-aqemu">Using AQEMU</h2>
+<table>
+<thead>
+<tr class="header">
+<th>Guide</th>
+<th>What it covers</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><a href="new-vm-wizard.html">New VM Wizard</a></td>
+<td>The wizard's 7 methods, step by step</td>
+</tr>
+<tr class="even">
+<td><a href="session-toolbar.html">Session toolbar</a></td>
+<td>Every button above a running VM: power, media, files, keyboard, full
+screen</td>
+</tr>
+<tr class="odd">
+<td><a href="display.html">Display, mouse and keyboard</a></td>
+<td>Embedded vs separate window, Seamless vs Relative mouse,
+VNC/SPICE</td>
+</tr>
+<tr class="even">
+<td><a href="networking.html">Networking</a></td>
+<td>NAT, bridge, TAP, port forwarding, which network card</td>
+</tr>
+<tr class="odd">
+<td><a href="storage-and-disks.html">Storage and disks</a></td>
+<td>Disk formats, Media tab, disk bus, conversion, SAN, recovery</td>
+</tr>
+<tr class="even">
+<td><a href="file-transfer.html">File transfer</a></td>
+<td>Paste files, To guest / From guest, shared folders</td>
+</tr>
+<tr class="odd">
+<td><a href="copy-and-paste.html">Copy and Paste</a></td>
+<td>The text clipboard and the guest helper</td>
+</tr>
+<tr class="even">
+<td><a href="snapshots.html">Snapshots</a></td>
+<td>Saved state, snapshots, snapshot mode, Recovery Checkpoint</td>
+</tr>
+<tr class="odd">
+<td><a href="accelerators.html">Accelerators</a></td>
+<td>TCG, WHPX, KVM and Xen, and when each is used</td>
+</tr>
+<tr class="even">
+<td><a href="troubleshooting.html">Troubleshooting and FAQ</a></td>
+<td>Error messages, slow guests, getting help</td>
+</tr>
+<tr class="odd">
+<td><a href="command-line.html">Command line</a></td>
+<td><code>aqemu start/stop/…</code> over D-Bus (Linux)</td>
+</tr>
+<tr class="even">
+<td><a href="user-guide.html">User Guide</a></td>
+<td>The original one-page walkthrough of the main window and wizard</td>
+</tr>
+</tbody>
+</table>
+<h2 id="settings-at-a-glance">Settings at a glance</h2>
+<table>
+<thead>
+<tr class="header">
+<th>Tab</th>
+<th>What it's for</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Info</strong></td>
+<td>Read-only summary of the VM</td>
+</tr>
+<tr class="even">
+<td><strong>Machine</strong></td>
+<td>CPU, memory, accelerator, boot, graphics, mouse, sound, disk
+bus</td>
+</tr>
+<tr class="odd">
+<td><strong>Media</strong></td>
+<td>Disks, CDs, floppies, shared folders, ports, kernel boot</td>
+</tr>
+<tr class="even">
+<td><strong>Display</strong></td>
+<td>Where the guest appears, VNC/SPICE remote</td>
+</tr>
+<tr class="odd">
+<td><strong>Network</strong></td>
+<td>Cards, port forwarding, TFTP/SMB</td>
+</tr>
+<tr class="even">
+<td><strong>Storage</strong></td>
+<td>TrueNAS integration</td>
+</tr>
+</tbody>
+</table>
+<p>Full details: <a href="settings-tabs.html">Settings tab map</a> · <a
+href="preferences.html">Preferences</a> · <a
+href="menus.html">Menus</a></p>
+<h2 id="in-session-toolbar">In-session toolbar</h2>
+<p>When a VM runs inside AQEMU, a toolbar sits above it:
+<strong>Power</strong> (pause, save state, reset, shut down, power off),
+<strong>Media</strong> (swap CD/floppy), <strong>Files</strong> (Paste
+files, To guest, From guest), <strong>Devices</strong> (USB, serial
+console), and <strong>Keyboard and screen</strong> (Ctrl+Alt+Del, grab
+mouse, full screen). See <a href="session-toolbar.html">Session
+toolbar</a>.</p>
 <h2 id="reference">Reference</h2>
 <table>
 <thead>
@@ -127,23 +277,24 @@ for iPhone 11 / t8030</td>
 </thead>
 <tbody>
 <tr class="odd">
-<td><a
-href="https://github.com/chronic8000/aqemu/blob/master/docs/reference/new-vm-wizard-paths.md">New
-VM Wizard Paths</a></td>
-<td>How the wizard's Guest OS / Platform / Architecture / Custom paths
-map to QEMU machines, and the guest-aware Devices page</td>
+<td><a href="settings-tabs.html">Settings tab map</a></td>
+<td>Every per-VM settings tab</td>
 </tr>
 <tr class="even">
-<td><a
-href="https://github.com/chronic8000/aqemu/blob/master/docs/reference/qemu-machine-catalog.md">QEMU
-Machine Catalog</a></td>
-<td>Friendly names for every QEMU machine the wizard knows about
-(generated by <code>scripts/probe_qemu_machines.py</code>)</td>
+<td><a href="preferences.html">Preferences</a></td>
+<td><strong>File → Preferences…</strong></td>
 </tr>
 <tr class="odd">
-<td><a
-href="https://github.com/chronic8000/aqemu/blob/master/docs/reference/virt-manager-comparison.md">AQEMU
-vs virt-manager</a></td>
+<td><a href="menus.html">Menus</a></td>
+<td>Every menu item</td>
+</tr>
+<tr class="even">
+<td><a href="new-vm-wizard-paths.html">New VM Wizard Paths</a></td>
+<td>How the wizard's paths map to QEMU machines</td>
+</tr>
+<tr class="odd">
+<td><a href="virt-manager-comparison.html">AQEMU vs
+virt-manager</a></td>
 <td>Where AQEMU differs from virt-manager</td>
 </tr>
 </tbody>
@@ -219,12 +370,6 @@ href="https://github.com/chronic8000/aqemu/blob/master/extras/xemu/README.txt">x
 notes</a></td>
 <td>Original Xbox: bring your own xemu and firmware</td>
 </tr>
-<tr class="even">
-<td><a
-href="https://github.com/chronic8000/aqemu/blob/master/extras/Inferno/iOS_Installation.md">Inferno
-iOS install notes</a></td>
-<td>Step-by-step notes for the experimental iOS tooling</td>
-</tr>
 </tbody>
 </table>
 <hr />
@@ -258,9 +403,10 @@ the QEMU monitor, serial monitor, <strong>Show QEMU Arguments</strong>,
 <code>Recovery Checkpoint…</code>.</li>
 <li><strong>Remote storage.</strong>
 <code>VM → Storage → Attach Remote SAN Storage (iSCSI / NVMe-oF)…</code>.</li>
-<li><strong>Command line.</strong>
+<li><strong>Command line.</strong> On Linux,
 <code>aqemu start|stop|… &lt;vm&gt;</code> and <code>aqemu list</code>
-for scripting.</li>
+talk to the running AQEMU over D-Bus. See <a
+href="command-line.html">Command line</a>.</li>
 </ul>
 <h3 id="copy-and-paste">Copy and paste</h3>
 <p>The built-in display shares the <strong>text</strong> clipboard with
@@ -268,14 +414,13 @@ no guest software. For files, use <strong>Paste files</strong> (no guest
 software needed; AQEMU builds a floppy or a USB stick for the guest), or
 <strong>To guest</strong> / <strong>From guest</strong>, which need
 <code>qemu-guest-agent</code> in the guest. Full details are in <a
-href="https://github.com/chronic8000/aqemu/blob/master/docs/guides/copy-and-paste.md">Copy
-and Paste</a>.</p>
+href="copy-and-paste.html">Copy and Paste</a>.</p>
 <hr />
 <h2 id="getting-aqemu">Getting AQEMU</h2>
 <ul>
 <li><strong>Windows:</strong> <a
-href="https://apps.microsoft.com/detail/9P0HGKHQ9W19?cid=docs_hub">AQEMU
-on the Microsoft Store</a></li>
+href="https://apps.microsoft.com/detail/9P0HGKHQ9W19?cid=docs">AQEMU on
+the Microsoft Store</a></li>
 <li><strong>Linux and source:</strong> <a
 href="https://github.com/chronic8000/aqemu">github.com/chronic8000/aqemu</a></li>
 </ul>
