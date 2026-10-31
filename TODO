@@ -10,7 +10,7 @@
 
 
 
-* virt-manager parity (see `docs/VIRT_MANAGER_COMPARISON.md`):
+* virt-manager parity (see `docs/reference/virt-manager-comparison.md`):
 
   - Done: import disk, ISO OS-guess (ISO9660 + osinfo-detect), serial console,
     storage browser, network UX, clone polish, URL/network install, remote hosts

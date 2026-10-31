@@ -1,4 +1,4 @@
-# AQEMU User Guide: Overview and the New VM Wizard
+# User Guide: Getting Started and the New VM Wizard
 
 Welcome to AQEMU! This guide walks you through the first start, the main window, and the **New Virtual Machine Wizard**, which is how most VMs get made. Every label below is the exact text you'll see in the app.
 
@@ -67,7 +67,7 @@ The first three paths end on a **Confirm QEMU system** page, where the Computer 
 
 **Accelerator → Name / CPU → Disk → Devices → Network → Finish**
 
-The **Devices** page is guest-aware. AQEMU picks sensible devices for the OS you chose (for example IDE, NE2000, Sound Blaster 16 and Cirrus for Windows 98) and hides devices that won't work for that guest unless you tick **Show all QEMU options**. See [New VM Wizard paths](VM_WIZARD_THREE_PATH.md) for the full mapping.
+The **Devices** page is guest-aware. AQEMU picks sensible devices for the OS you chose (for example IDE, NE2000, Sound Blaster 16 and Cirrus for Windows 98) and hides devices that won't work for that guest unless you tick **Show all QEMU options**. See [New VM Wizard paths](../reference/new-vm-wizard-paths.md) for the full mapping.
 
 On the **Disk** page you choose **Create a new disk image** or **Use an existing disk image**. The install media page offers **Local ISO / image file**, **Download ISO from URL**, or **Network install (kernel + initrd URLs)**.
 
@@ -135,4 +135,4 @@ aqemu stop "My VM"
 | **Windows 11 on ARM** | WHPX, TCG | For AArch64 guests under WHPX, AQEMU uses `-cpu max` and needs the AAVMF UEFI firmware |
 | **Linux x86_64 / ARM64** | KVM, TCG | Build from [source](https://github.com/chronic8000/aqemu) |
 
-Next: [Windows 11 (ARM and x86) and Legacy Windows](WINDOWS_11_ARM_AND_X86_GUIDE.md) · [Operating System Catalog](MULTI_PLATFORM_OS_INSTALLATION_CATALOG.md) · [Documentation Hub](DOCUMENTATION_HUB.md)
+Next: [Windows 11 (ARM and x86) and Legacy Windows](windows-11.md) · [Operating System Catalog](os-catalog.md) · [Documentation Hub](../README.md)

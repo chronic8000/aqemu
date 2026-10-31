@@ -1,10 +1,10 @@
-# New VM Wizard — four human-readable paths
+# New VM Wizard Paths
 
 Users never need raw QEMU IDs (`q35`, `raspi3b`, `sun4u`) to start.
-Those stay as internal mappings in [`qemu_machine_catalog.json`](qemu_machine_catalog.json)
-and [`../resources/wizard_trees.json`](../resources/wizard_trees.json).
+Those stay as internal mappings in [`docs/qemu_machine_catalog.json`](../qemu_machine_catalog.json)
+and [`resources/wizard_trees.json`](../../resources/wizard_trees.json).
 
-Friendly catalog: [`QEMU_MACHINE_CATALOG.md`](QEMU_MACHINE_CATALOG.md)
+Friendly catalog: [QEMU machine catalog](qemu-machine-catalog.md)
 
 ## First step
 

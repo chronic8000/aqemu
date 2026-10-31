@@ -1,8 +1,8 @@
-# AQEMU 1.6.0 QEMU Lab
+# QEMU Lab (AQEMU 1.6)
 
 This page is the feature guide for **AQEMU 1.6.0**. Packages built from this tree use `VERSION.txt`, which is `1.6.5.0` (Store MSIX `1.6.5.0`).
 
-Older releases stay in the root [`CHANGELOG`](../CHANGELOG). This file does not replace that history.
+Older releases stay in the root [`CHANGELOG`](../../CHANGELOG). This file does not replace that history.
 
 AQEMU does not ship Xbox firmware, Android images, IPSW files, OpenCore, macOS media, or an Apple OSK. Bring-your-own pages only point at files you already have.
 
@@ -77,7 +77,7 @@ New wizard profiles cover extra architectures, including PowerNV and s390x, plus
 | Wrap | What AQEMU does |
 |--|--|
 | Quickemu | Imports a `.conf` onto the bundled QEMU. No automatic download of proprietary ISOs |
-| xemu | Picks a binary you installed and writes a toml. See [`extras/xemu/README.txt`](../extras/xemu/README.txt). No MCPX, BIOS, HDD, DVD, or EEPROM is shipped |
+| xemu | Picks a binary you installed and writes a toml. See [`extras/xemu/README.txt`](../../extras/xemu/README.txt). No MCPX, BIOS, HDD, DVD, or EEPROM is shipped |
 | Android | Detects an installed SDK and AVD. Does not vendor Google’s emulator |
 | OpenCore | Sits beside the existing macOS profiles. You supply OVMF, OpenCore, and the OSK |
 | Nitro / SEV / TDX | Linux when the host can support them. Hidden on Windows Store builds |

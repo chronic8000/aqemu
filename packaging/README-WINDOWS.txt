@@ -27,7 +27,7 @@ What's new in 1.6.0:
   - Apple commands live under VM → Apple. Windows-only items are grey on other hosts
   - Exit asks for confirmation. Preferences can turn that prompt off
   - Dark mode follows the OS theme. Disabled menu items draw in grey
-  - Full guide: docs/LAB_1.6.0.md
+  - Full guide: docs/guides/qemu-lab-1.6.md
   - SeaBIOS boot logo on 32-bit and 64-bit PCs, with a switch in settings and on each machine
   - OVF import maps old Windows guests to the right profile and i386 PC
   - Host audio follows the QEMU binary. The Windows package prefers spice

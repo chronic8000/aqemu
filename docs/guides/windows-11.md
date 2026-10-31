@@ -1,4 +1,4 @@
-# Windows 11 (ARM and x86) and Legacy Windows
+# Windows 11 and Legacy Windows
 
 This is the Windows guide. It covers Windows 11 on ARM, Windows 11 on x86, and the classics: Windows 9x, XP and 7. AQEMU ships tuned defaults for all of them. This guide shows you where those defaults are, what they do, and what to change when you need to.
 
@@ -128,7 +128,7 @@ You can turn on **Force pure TCG (Win9x / pre-ME)** for any VM under **Machine �
 Tips:
 - Keep RAM at 512 MB or less. Windows 9x has well-known problems with more.
 - Set **Pointer mode** to **Relative** (Windows 9x has no tablet driver). Click the screen to capture the mouse, and middle-click or press Escape to release it.
-- To move files in, use **Paste files**. AQEMU builds a floppy (A:) or a FAT USB drive. See [Copy and paste](COPY_AND_PASTE.md).
+- To move files in, use **Paste files**. AQEMU builds a floppy (A:) or a FAT USB drive. See [Copy and paste](copy-and-paste.md).
 
 ### Windows XP and Windows 7
 
@@ -145,4 +145,4 @@ XP and 7 have no VirtIO drivers in the box, so stay with **IDE** or **AHCI (SATA
 
 ---
 
-Next: [Operating System Catalog](MULTI_PLATFORM_OS_INSTALLATION_CATALOG.md) · [User Guide](USER_GUIDE_OVERVIEW_AND_WIZARD.md) · [Documentation Hub](DOCUMENTATION_HUB.md)
+Next: [Operating System Catalog](os-catalog.md) · [User Guide](user-guide.md) · [Documentation Hub](../README.md)
