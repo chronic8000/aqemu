@@ -13,10 +13,8 @@ Everything in these guides was checked against the AQEMU source on `master`: men
 | [User Guide: Overview and the New VM Wizard](USER_GUIDE_OVERVIEW_AND_WIZARD.md) | First start, the main window, the **New Virtual Machine Wizard**, and the settings tabs |
 | [Windows 11 (ARM and x86) and Legacy Windows](WINDOWS_11_ARM_AND_X86_GUIDE.md) | Windows 11 ARM with slipstreamed VirtIO drivers, Windows 11 x86, Windows 9x/XP/7 |
 | [Operating System Catalog](MULTI_PLATFORM_OS_INSTALLATION_CATALOG.md) | Linux, BSD, retro and other guests, the built-in templates, and the AQEMU guest tools |
-<!-- site:skip-start -->
 | [macOS Guide (Experimental)](MACOS_INSTALLATION_GUIDE.md) | Classic Mac OS on PowerPC and the experimental Intel macOS profile |
 | [iOS / Apple SoC Guide (Experimental)](IOS_APPLE_SOC_INSTALLATION_GUIDE.md) | The experimental Inferno (`qemu-system-applesoc`) tooling for iPhone 11 / t8030 |
-<!-- site:skip-end -->
 
 ## Reference docs already in the repo
 
