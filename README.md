@@ -1,13 +1,12 @@
 <p align="center">
   <a href="https://apps.microsoft.com/detail/9P0HGKHQ9W19?cid=ghreadme"><img src="https://get.microsoft.com/images/en-us%20dark.svg" alt="Get AQEMU from the Microsoft Store" width="200"/></a><br/>
   <b>Website:</b> <a href="https://chronic8000.github.io/aqemu/">chronic8000.github.io/aqemu</a> · 7-day trial on the Microsoft Store, then a one-time purchase<br/>
-  <b>Documentation:</b> <a href="https://chronic8000.github.io/aqemu/docs/">chronic8000.github.io/aqemu/docs</a> · <a href="docs/README.md">docs/README.md</a> (user guide, Windows 11, OS catalog)
+  <b>Documentation:</b> <a href="https://chronic8000.github.io/aqemu/docs/index.html">AQEMU docs home</a> · <a href="docs/README.md">docs/README.md</a> (getting started, every host, settings, guest OS guides, troubleshooting)
 </p>
 
+<h1 align="center">AQEMU</h1>
+
 <p align="center">
-# AQEMU
-
-
   <b>AQEMU is a graphical virtual machine manager for QEMU that lets you create and run virtual machines without memorising complex command-line options.</b>
 </p>
 
@@ -48,6 +47,8 @@
 
 AQEMU is open-source under the **GNU General Public License v2 (GPL-2.0)**. You can freely compile the source code yourself or build custom packages anytime! 
 
+The Microsoft Store build is a **paid app: £12.99, with a 7-day free trial**. New to AQEMU? Start with the **[documentation](https://chronic8000.github.io/aqemu/docs/index.html)**.
+
 If you want to support ongoing development, maintenance, and future feature releases while enjoying seamless automatic updates directly on Windows, purchase **AQEMU VM Manager** on the Microsoft Store:
 
 <p align="center">
@@ -73,14 +74,14 @@ If you have never purchased software through the Microsoft Store before, here is
   Your single purchase allows you to install AQEMU on up to 10 Windows 10/11 devices associated with your Microsoft Account without paying again.
 - **Automatic & Safe Background Updates**:
   Whenever a new release of AQEMU is published, the Microsoft Store automatically downloads and applies updates seamlessly without overwriting your virtual machines, disks, or custom configurations.
-- **Full Open-Source Freedom (GPLv2)**:
-  AQEMU is 100% Free and Open Source Software licensed under the GNU GPLv2. Purchasing on the Microsoft Store directly supports active engineering and ongoing feature development, while the complete source code remains freely available on GitHub.
+- **Open source (GPLv2)**:
+  AQEMU's source code is open under the GNU GPLv2. The Microsoft Store build is paid (£12.99 after a 7-day free trial). Buying it supports engineering and new features, and the complete source code stays public on GitHub.
 
 ---
 
 ## 💖 Sponsor & Donate
 
-AQEMU is 100% free and open-source software. If AQEMU has saved you time, made your virtualization workflows effortless, or if you simply want to support independent open-source engineering, ongoing releases, and new hardware profiles, donations are warmly appreciated!
+AQEMU's source code is open under GPLv2, and the Microsoft Store build is a paid app. Donations are a separate, optional way to say thanks. If AQEMU has saved you time, made your virtualization workflows effortless, or if you simply want to support independent open-source engineering, ongoing releases, and new hardware profiles, donations are warmly appreciated!
 
 ### ☕ Traditional & One-Off Payments
 
@@ -113,42 +114,29 @@ You can also send direct cryptocurrency donations to the following public addres
 
 ---
 
-## iOS on Windows 11 (experimental)
+## iOS / Apple SoC (experimental)
 
-> **Experimental — not yet a supported or announced feature.** The iOS path is a developer preview. It needs your own firmware, a WSL companion VM, and manual steps, and it is not part of what the Microsoft Store listing offers today. Expect breakage.
+> **Experimental — not a supported or announced feature.** The Apple SoC tools are a developer preview. We make no promise that iOS or macOS will run on your PC. They are not part of what the Microsoft Store listing offers. Expect breakage.
 
-Under the hood this is ChefKiss Inferno (`qemu-system-applesoc`); AQEMU provides the GUI, restore flow, filesystem patches, hardware buttons, and guest internet.
+AQEMU does **not** include Apple firmware or software, and we can't distribute it or tell you where to get it. If you try this, you must use your own judgement and source anything Apple-made legally yourself.
 
-In development testing, iOS 14 has reached Setup and SpringBoard on **t8030** (iPhone 11). Newer iOS versions depend on Inferno’s SoC support.
+The tools live under **VM → Apple** in the app. The full walkthrough, with every dialog, per-host requirements, error messages and a FAQ, is the **[iOS / Apple SoC guide](https://chronic8000.github.io/aqemu/docs/ios-apple-soc-guide.html)** ([source](docs/guides/ios-apple-soc.md)).
 
 <p align="center">
-  <img src="screenshots/ios-setup-windows11.png" alt="iOS Setup — Welcome to iPhone — running in AQEMU on Windows 11" width="920"/>
+  <img src="screenshots/ios-setup-windows11.png" alt="Experimental iOS VM window in AQEMU on Windows 11" width="920"/>
 </p>
 
 <p align="center">
-  <i>First boot on Windows 11: Setup (“Welcome to iPhone”) inside AQEMU — iOS (ARM64).</i>
+  <i>Screenshot from development testing on Windows 11. Not a supported feature; your results may differ.</i>
 </p>
 
 <p align="center">
-  <img src="screenshots/ios-springboard-windows11.png" alt="iOS 14 SpringBoard home screen in AQEMU on Windows 11" width="920"/>
+  <img src="screenshots/ios-springboard-windows11.png" alt="Experimental iOS VM in AQEMU with the session toolbar" width="920"/>
 </p>
 
 <p align="center">
-  <i>SpringBoard on the desktop: Home, Side, Vol, SOS on the session toolbar — not a fake phone bezel.</i>
+  <i>The Home, Side, Vol and SOS buttons are on AQEMU's session toolbar. Development testing only.</i>
 </p>
-
-You supply the IPSW and firmware (AQEMU does not ship Apple OS images). After restore, **filesystem patches** are required or the screen stays black. Guest Wi‑Fi is reverse-tether through the companion, not the Network NIC tab.
-
-Full walkthrough (including re-install): [`extras/Inferno/iOS_Installation.md`](extras/Inferno/iOS_Installation.md).
-
-### How to try the experimental iOS path
-
-1. **New VM Wizard → Apple → iOS (ARM64)** — Inferno `t8030`, 4 vCPUs, ≥4 GB RAM.
-2. Fill **kernel**, **DeviceTree** (extracted `.dtb` / `.dec`), trustcache, ticket, SEP, restore ramdisk. **File → iOS Firmware Tool** unpacks the IPSW, forges tickets, and packs SEP with **`img4`** (Windows: `.\scripts\build_img4_windows.ps1`) and DeviceTree IM4P with **`pyimg4`**.
-3. USB remote **`127.0.0.1:8030`**. **File → Apple SoC Restore**: start companion, Power On iOS, restore IPSW.
-4. **File → Apply iOS filesystem patches…** on the guest `root` disk (not the companion). Then Power On for Setup / SpringBoard.
-5. Toolbar **Net** or **File → Guest Internet / iOS Device Tools…** → **Enable guest internet** for Safari / App Store.
-6. This path is **TCG on x86 Windows via WSL** — real, but not iPhone-speed. Machine presets: **`t8030`** (A13) and **`s8000`**.
 
 ---
 
@@ -159,7 +147,7 @@ Full walkthrough (including re-install): [`extras/Inferno/iOS_Installation.md`](
 | **Microsoft Store** | [AQEMU VM Manager on Microsoft Store](https://apps.microsoft.com/detail/9p0hgkhq9w19) (Official Windows installation with automatic updates) |
 | **Releases & Source** | [GitHub Releases](https://github.com/chronic8000/aqemu/releases) / [Repository](https://github.com/chronic8000/aqemu) |
 | **File bugs** | [GitHub Issues](https://github.com/chronic8000/aqemu/issues) — host OS, guest OS, and exact log outputs help us triage quickly. Historical [tobimensch/aqemu issues](https://github.com/tobimensch/aqemu/issues) are archived context only; triage lives in [`docs/development/tobimensch-issue-triage.md`](docs/development/tobimensch-issue-triage.md) |
-| **What we care about** | Install wizards, embedded SPICE, Win9x/XP TCG, Win11 ARM, Intel macOS, Solaris x86, AIX/pseries, migrate/QMP tools, experimental iOS (Inferno) |
+| **What we care about** | Install wizards, embedded SPICE, Win9x/XP TCG, Win11 ARM, experimental Intel macOS, Solaris x86, AIX/pseries, migrate/QMP tools, experimental Apple SoC tools |
 
 ---
 
@@ -174,13 +162,13 @@ AQEMU started with **Andrey Rijov (RDron)**, then the community era under **Tobi
 
 ### https://github.com/chronic8000/aqemu
 
-Compared to [tobimensch/aqemu](https://github.com/tobimensch/aqemu): **probe-driven QEMU catalogs**, **six-path VM creation**, **embedded SPICE/VNC sessions**, **bundled QEMU 11.0.2**, **Win11 ARM**, proper **Win9x TCG**, **classic Mac + Intel macOS** (WSL/KVM), Solaris/AIX/OS/2 recipes, QMP/blockdev/migrate UI, Windows packaging + **Microsoft Store**, and an experimental iOS path (Inferno).
+Compared to [tobimensch/aqemu](https://github.com/tobimensch/aqemu): **probe-driven QEMU catalogs**, **six-path VM creation**, **embedded SPICE/VNC sessions**, **bundled QEMU 11.0.2**, **Win11 ARM**, proper **Win9x TCG**, **classic Mac** and an experimental Intel macOS profile, Solaris/AIX/OS/2 recipes, QMP/blockdev/migrate UI, Windows packaging + **Microsoft Store**, and experimental Apple SoC tools.
 
 Measured against that tree ([compare](https://github.com/tobimensch/aqemu/compare/master...chronic8000:aqemu:master)):
 
 - **118,707 additions / 7,617 deletions** across **416 files** and **197 commits**
 - **195 curated guest OS profiles**
-- **29 selectable QEMU target architectures**, plus ChefKiss Inferno (`qemu-system-applesoc`) and Reims (`qemu-system-reims3d`)
+- **29 selectable QEMU target architectures**, plus the experimental Apple SoC emulator (`qemu-system-applesoc`)
 - Probe data covering **28 architectures, 490 machines, 2,074 CPUs, 604 NICs and 194 display models**
 
 The work reaches through QEMU discovery, command generation, device compatibility, VM persistence, process supervision, display transport, runtime control, migration, packaging and the creation wizard. The interface changed because the system underneath it changed.
@@ -207,7 +195,7 @@ The last widely known community tree — [tobimensch/aqemu](https://github.com/t
 | | Tobias Gläßer’s 0.9.x | AQEMU 1.6.5.0 |
 |--|--|--|
 | **Status** | Community tree, quiet since 2020 | Active. [Microsoft Store](https://apps.microsoft.com/detail/9p0hgkhq9w19) listing with automatic updates |
-| **QEMU** | Whatever was installed on the host. Version detection often stuck on old labels | Bundled **QEMU 11.0.2**: 29 `qemu-system-*` targets, `qemu-img`, firmware, plus Inferno and Reims. Custom QEMU folder still works |
+| **QEMU** | Whatever was installed on the host. Version detection often stuck on old labels | Bundled **QEMU 11.0.2**: 29 `qemu-system-*` targets, `qemu-img` and firmware. Custom QEMU folder still works |
 | **Display** | Embedded VNC | Embedded **SPICE and VNC**, headless QEMU, in-app session toolbar, fullscreen, canvas stretch |
 | **Control** | Monitor window | Asynchronous **QMP**: pause, ACPI shutdown, reset, media change, block queries, live migration |
 | **Create a VM** | Add-new-VM wizard | **Six paths**: Guest OS, System/Board, CPU Architecture, Custom, Existing Disk, **OVA/OVF appliance** |
@@ -216,8 +204,8 @@ The last widely known community tree — [tobimensch/aqemu](https://github.com/t
 | **Storage** | A few disks and one CD-ROM | Unlimited disks and optical drives on IDE, AHCI, SCSI, VirtIO, and NVMe. **4Kn / 512e** sector size. Unique disk serials for ZFS. OVA/OVF import and export |
 | **USB** | Add-device dialog; several upstream bugs around bus and VID:PID | Session-toolbar hotplug on a USB 3.0 XHCI controller, with host mouse/keyboard lockout guards |
 | **Hosts** | Linux, and a Windows port that was still on the TODO list | **Windows x64**, **Windows on ARM** (Snapdragon), **Linux x86_64**, **Raspberry Pi 5** (KVM, 16KB-page kernels) |
-| **Acceleration** | One accelerator choice, easy to apply to the wrong guest | Explicit **TCG**, WHPX/HAX, or KVM. Win9x is forced to TCG. Cross-architecture guests stay on TCG. WSL/KVM path for Intel macOS and Reims |
-| **Guests that needed hand-written flags** | Generic PC | **Windows 11 ARM**, Win9x, classic Mac, Intel macOS + **Reims vGPU**, TrueNAS CORE & SCALE (including ARM64), Solaris, AIX, OS/2. Experimental: iOS 14 via Inferno |
+| **Acceleration** | One accelerator choice, easy to apply to the wrong guest | Explicit **TCG**, WHPX/HAX, or KVM. Win9x is forced to TCG. Cross-architecture guests stay on TCG. Optional WSL/KVM launch path on Windows |
+| **Guests that needed hand-written flags** | Generic PC | **Windows 11 ARM**, Win9x, classic Mac, experimental Intel macOS, TrueNAS CORE & SCALE (including ARM64), Solaris, AIX, OS/2. Experimental: Apple SoC tools |
 | **Packaging** | Build it yourself | GitHub Actions builds **Windows MSIX** (x64 and ARM64) and **Linux tarballs** (x86_64 and Pi 5) on every `master` push. WiX MSI for a classic installer. Version comes from `VERSION.txt` |
 | **Upstream issue list** | [72 open issues](https://github.com/tobimensch/aqemu/issues) we cannot close there | Triaged in [`docs/development/tobimensch-issue-triage.md`](docs/development/tobimensch-issue-triage.md). Launch, network `vlan=`, USB, CD/floppy, UEFI, and QEMU version detection are fixed here. New bugs go to [chronic8000/aqemu](https://github.com/chronic8000/aqemu/issues) |
 
@@ -250,13 +238,13 @@ QEMU can run headless while AQEMU embeds the guest through **SPICE** or **LibVNC
 
 An asynchronous **QMP client** drives pause/resume, ACPI shutdown, reset, media changes, block queries and live migration. Monitor ports are dynamically allocated outside Hyper-V's reserved ranges, and QEMU output is captured so launch failures are shown instead of disappearing in a separate process.
 
-### 5. Guests people fight with today — with recipes that work
+### 5. Guests people fight with today — with ready-made recipes
 | Guest | What we added |
 |--|--|
 | **Windows 11 ARM** | Wizard + lifecycle on **x64 Windows hosts via TCG** (and KVM on Pi 5 / aarch64) |
 | **Windows 95 / 98 / ME** | **Force pure TCG** — WHPX hangs classic 9x; we stop that footgun |
-| **Apple SoC / iOS** | **1.3.0** — *Experimental, not yet supported:* iOS 14 via Inferno + WSL (restore, FS patches, SpringBoard, reverse-tether). Newer iOS as Inferno allows. |
-| **Intel macOS + Reims** | OpenCore + OVMF + OSK; **Reims** accel via WSL `qemu-system-reims3d` + Vulkan (**AMD and NVIDIA** on Windows) |
+| **Apple SoC / iOS** | *Experimental, not supported:* tools under **VM → Apple**. No promise that iOS runs. You supply all Apple software yourself. [Guide](docs/guides/ios-apple-soc.md) |
+| **Intel macOS** | *Experimental:* q35 + OVMF + OpenCore as first disk; you supply your own OpenCore, firmware, OSK and media. No promise that macOS boots |
 | **Classic Mac OS (PPC)** | `mac99` / PowerPC profiles, no PC floppy nonsense |
 | **Solaris 11.4 / AIX / OS/2 / ReactOS** | Wizard defaults matching real QEMU flags (AIX = `ppc64`/`pseries`, TCG on Windows) |
 | **TrueNAS / ZFS (4Kn Native Disks)** | **4096-byte native sector emulation** — VMware & VirtualBox fail on 4Kn disks; AQEMU emulates 4Kn natively on raw/qcow2/VirtIO/NVMe |
@@ -277,7 +265,7 @@ Compatibility guardrails handle vintage Windows guests that hang under WHPX, non
 - **Windows on ARM (WoA)**: Native ARM64 execution for Qualcomm Snapdragon laptops (Snapdragon X Elite, X Plus, 8cx), Clang/LLVM toolchains, and native Store MSIX generation  
 - **Raspberry Pi 5**: Cortex-A76 microarchitecture tuning, 64KB ELF segment alignment for 16KB-page kernels, Wayland desktop support, and KVM hardware virtualization  
 - **WHPX** when the guest arch allows it; **never** shoved onto PPC/ARM guests that cannot use it  
-- **WSL/KVM** launch path for heavy guests (Intel macOS) when `/dev/kvm` is there; optional WSL password can be saved in **Windows Credential Manager** (never in `AQEMU.ini`)  
+- **WSL/KVM** launch path for heavy guests when `/dev/kvm` is there; optional WSL password can be saved in **Windows Credential Manager** (never in `AQEMU.ini`)  
 - Store-safe writable data under `%LOCALAPPDATA%`
 
 ### 9. A complete Windows distribution pipeline
@@ -299,7 +287,7 @@ QEMU already speaks almost every guest architecture and machine type under the s
 - A real **desktop app** (Qt5) on **Windows** and **Linux** (including **Raspberry Pi 5**)
 - **Embedded SPICE + QMP** sessions — guest display and controls in one window
 - **Built-in or custom QEMU** — portable zip includes **11.0.2**
-- **Wizards and profiles** for Win9x → Win11 ARM, classic Mac, Intel macOS, Solaris, AIX, and more
+- **Wizards and profiles** for Win9x → Win11 ARM, classic Mac, experimental Intel macOS, Solaris, AIX, and more
 - **Active maintenance** — this is the fork that ships builds and wants your bug reports
 
 If QEMU can boot it, AQEMU aims to **configure and launch it**. Bring your own ISOs, disks, firmware, and keys where the law requires it.
@@ -346,31 +334,6 @@ AQEMU includes hardware-tailored enhancements specifically for the **Raspberry P
 - **Wayland & SPICE GTK Desktop Acceleration**: Built-in support for native Wayland sessions (`QT_QPA_PLATFORM=wayland`) and hardware-accelerated embedded SPICE display.
 - **Dedicated Automated Build Script**:
   - Raspberry Pi 5 / Debian Bookworm: [`scripts/build_aqemu_pi5.sh`](scripts/build_aqemu_pi5.sh)
-
----
-
-## ⚡ Reims vGPU Acceleration Engine (Linux / WSL)
-
-AQEMU integrates **steelbrain's `qemu-reims-vgpu`** so Intel macOS guests can use Apple's built-in **`AppleParavirtGPU.kext`** with a host-side **Metal → Vulkan** translation path.
-
-### Important (Windows hosts)
-- Real Reims acceleration requires the **Linux** binary **`qemu-system-reims3d`** under **WSL** (with KVM + a working Vulkan/GL stack).
-- The Windows `qemu-system-reimsvgpu.exe` helper is **not** a complete Reims build: it does **not** expose `reims-vgpu-pci`. AQEMU therefore **forces Launch via WSL** for Reims VMs and runs `/usr/local/bin/qemu-system-reims3d`.
-- Build or install `qemu-system-reims3d` inside your WSL distro (typically `/usr/local/bin/qemu-system-reims3d`).
-- **Display path:** early OpenCore/text stays in AQEMU’s **embedded VNC** (`-display none`). QEMU **SDL/GTK** (“Separate QEMU window”) is **unsupported** for Reims on WSL (libGL/DRI3 failures). The Reims **WSLg host window** (`REIMS_VGPU_WINDOW=1`) is **off by default**: Mesa Dozen on WSLg NVIDIA can segfault inside `vkCreateDevice` and kill QEMU — enable under Advanced Settings → WSL only to experiment.
-- **Boot stack:** OSX-KVM `OVMF_CODE_4M`, `reims-vgpu-gop.rom` on the device, and OpenCore `reims-vgpu-efi.efi` (AQEMU installs the EFI driver into new/existing OpenCore FAT images when possible).
-- **WSL Vulkan caveat:** WSLg exposes the GPU as **D3D12** (`/dev/dxg`). `nvidia-smi` can work while `vulkaninfo` only shows **llvmpipe** if Mesa **Dozen (`dzn` / `libvulkan_dzn`)** is missing. Stock Ubuntu often omits it.
-- **Automatic provisioning:** Creating or starting a **Reims vGPU** VM on Windows runs `WSL_Ensure_Reims_Vulkan_Stack` inside the configured distro (via `wsl -u root` / optional remembered sudo). It installs **native-arch** Mesa Dozen only (never treats a foreign multiarch `libvulkan_dzn.so` as success), removes conflicting `mesa-vulkan-drivers:<foreign-arch>` packages, then verifies `vulkaninfo`.
-
-### How Reims accelerates macOS graphics
-- **Zero guest kext mods**: macOS already includes **`AppleParavirtGPU.kext`**. The Reims QEMU device presents the MMIO/IRQ shims that driver expects (`-device reims-vgpu-pci`).
-- **Metal → Vulkan (`metal2vulkan`)**: guest Metal command streams are translated to host Vulkan.
-- **No dGPU VFIO required** for the paravirtual path (separate from optional AMD Metal passthrough on bare-metal Linux).
-
-### AQEMU integration
-- Wizard profiles: **`macOS x86_64 vGPU (Reims)`** (and related Reims targets)
-- Computer type: `qemu-system-reimsvgpu` (AQEMU label) → WSL launch of **`qemu-system-reims3d`**
-- Defaults: q35, OpenCore/Intel macOS profile fields, `reims-vgpu-pci`, Launch via WSL enabled, embedded early-boot display
 
 ---
 
@@ -496,8 +459,8 @@ From **Win9x setup screens** to **Windows 11 ARM “Almost there”** — same a
 
 - `qemu-system-x86_64`, **q35**, dual-pflash **OVMF**, OpenCore as first disk, Apple SMC **only if you paste your own OSK**
 - Optional Recovery/BaseSystem path
-- Native **WHPX** on Windows, or **WSL/KVM** when `/dev/kvm` works (`wsl.exe` + Linux QEMU, SPICE still on localhost)
-- Host-matching resolution via OpenCore; AMD Metal passthrough UI on bare-metal Linux (see [`docs/reference/intel-macos-graphics.md`](docs/reference/intel-macos-graphics.md))
+- Launch with **WHPX** on Windows, or **WSL/KVM** when `/dev/kvm` works (`wsl.exe` + Linux QEMU, SPICE still on localhost)
+- **Experimental.** We make no claim that macOS works on your PC. Guide: [`docs/guides/macos.md`](docs/guides/macos.md)
 - **AQEMU does not ship** OpenCore, OVMF bundles as Apple IP, OS images, or a pre-filled OSK
 
 <p align="center">
@@ -506,8 +469,8 @@ From **Win9x setup screens** to **Windows 11 ARM “Almost there”** — same a
 </p>
 
 <p align="center">
-  <img src="screenshots/intel-macos-sonoma-session.png" alt="Intel macOS Sonoma running inside AQEMU" width="900"/>
-  <br/><i>Intel macOS Sonoma running as an experimental AQEMU guest, with the AQEMU session toolbar still visible.</i>
+  <img src="screenshots/intel-macos-sonoma-session.png" alt="Experimental Intel macOS session in AQEMU" width="900"/>
+  <br/><i>Screenshot of an experimental Intel macOS session from development testing. Not supported; your results may differ.</i>
 </p>
 
 ### Out of scope (for now)
@@ -518,15 +481,13 @@ Apple Silicon macOS guests on Snapdragon Windows hosts — not this release’s 
 
 ## Apple Silicon (macOS ARM64) — experimental
 
-The experimental iOS path is documented **[above](#ios-on-windows-11-experimental)** (screenshots and install steps).
-
-The same Inferno binary can target **macOS Apple Silicon (ARM64)** in the wizard. Do not expect M1/`t8101` unless your `qemu-system-applesoc` lists it in `-machine help`. AQEMU does **not** ship IPSW files, kernels, DeviceTrees, SHSH/`ticket.shsh2`, or Apple OS images.
+**macOS Apple Silicon (ARM64)** appears in the wizard's Apple list, but it has no profile of its own: AQEMU sets it up like the experimental [iOS / Apple SoC](#ios--apple-soc-experimental) VM. We make no claim that it works. AQEMU does **not** include Apple firmware or software, and we can't distribute it or tell you where to get it.
 
 ---
 
 ## Screenshots
 
-More of the guest zoo — Win11 ARM and classic Windows under the same session UI. (Sonoma teaser is at the top of this README.)
+More of the guest zoo — Win11 ARM and classic Windows under the same session UI.
 
 **Windows 11 ARM** running *inside* AQEMU on a Windows host — embedded SPICE session, full toolbar, guest progressing through setup:
 
@@ -633,15 +594,13 @@ Get the official **AQEMU VM Manager** package on the Microsoft Store:
 </p>
 
 This repository builds **AQEMU 1.6.5.0**. A Store install includes:
-- Apple SoC (Inferno/iOS) and the existing Reims path via WSL
 - **Bundled QEMU 11.0.2** binaries (no separate QEMU setup required)
 - **Automatic background updates** via the Microsoft Store
 - Dedicated Windows app installation & single-click launcher
-- **AMD and NVIDIA** GPU acceleration for Reims guests through WSLg Vulkan (WSL required)
 
 ### Build from Source (Linux / Pi 5 / Windows x64 & ARM64)
 
-AQEMU is 100% open-source software under **GPLv2**. Automated, dedicated build scripts are provided in the [`scripts/`](scripts/) directory for every supported platform.
+AQEMU is open-source software under **GPLv2**. Automated, dedicated build scripts are provided in the [`scripts/`](scripts/) directory for every supported platform.
 
 ---
 
@@ -788,7 +747,7 @@ Dedicated QEMU build scripts are provided for every host platform, with full AQE
   ```
 
 #### Individual Architecture & Target Scripts (`scripts/qemu_targets/`):
-Dedicated standalone build scripts are provided for **all 31 supported target architectures**, including upstream QEMU targets plus **ChefKiss Inferno** and **steelbrain Reims vGPU**:
+Dedicated standalone build scripts are provided for the upstream QEMU targets plus the experimental Apple SoC emulator:
 
 | Target Script | Target Emulator Binary | Target Description |
 |:---|:---|:---|
@@ -796,8 +755,7 @@ Dedicated standalone build scripts are provided for **all 31 supported target ar
 | [`build_qemu_i386.sh`](scripts/qemu_targets/build_qemu_i386.sh) | `qemu-system-i386` | Intel / AMD 32-bit PC |
 | [`build_qemu_aarch64.sh`](scripts/qemu_targets/build_qemu_aarch64.sh) | `qemu-system-aarch64` | ARM 64-bit (ARMv8/v9) |
 | [`build_qemu_arm.sh`](scripts/qemu_targets/build_qemu_arm.sh) | `qemu-system-arm` | ARM 32-bit |
-| [`build_qemu_applesoc.sh`](scripts/qemu_targets/build_qemu_applesoc.sh) | `qemu-system-applesoc` | **ChefKiss Inferno** (iOS / Apple Silicon A13/t8030) |
-| [`build_qemu_reims.sh`](scripts/qemu_targets/build_qemu_reims.sh) | `qemu-system-reims3d` | **steelbrain Reims vGPU** (macOS Metal → Vulkan paravirtualization) |
+| [`build_qemu_applesoc.sh`](scripts/qemu_targets/build_qemu_applesoc.sh) | `qemu-system-applesoc` | Apple SoC emulator (experimental, machine `t8030`) |
 | [`build_qemu_ppc64.sh`](scripts/qemu_targets/build_qemu_ppc64.sh) | `qemu-system-ppc64` | PowerPC 64-bit (PowerNV, pSeries) |
 | [`build_qemu_ppc.sh`](scripts/qemu_targets/build_qemu_ppc.sh) | `qemu-system-ppc` | PowerPC 32-bit (Mac G3/G4, PREP) |
 | [`build_qemu_riscv64.sh`](scripts/qemu_targets/build_qemu_riscv64.sh) | `qemu-system-riscv64` | RISC-V 64-bit |
@@ -824,7 +782,7 @@ Dedicated standalone build scripts are provided for **all 31 supported target ar
 | [`build_qemu_xtensa.sh`](scripts/qemu_targets/build_qemu_xtensa.sh) | `qemu-system-xtensa` | Tensilica Xtensa |
 | [`build_qemu_xtensaeb.sh`](scripts/qemu_targets/build_qemu_xtensaeb.sh) | `qemu-system-xtensaeb` | Tensilica Xtensa Big Endian |
 
-To build all 31 individual targets in batch:
+To build the individual targets in batch:
 ```bash
 ./scripts/qemu_targets/build_all_targets.sh
 ```
