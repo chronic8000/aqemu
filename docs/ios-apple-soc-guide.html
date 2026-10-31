@@ -55,43 +55,62 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}
 (Experimental)</h1>
 <p class="docver"><span>Docs v1</span> Last updated 31 October 2026. These guides are a first version and will be updated.</p>
 <blockquote>
-<p><strong>Experimental.</strong> This is research tooling, not a
-supported feature and not an "iPhone simulator". AQEMU drives a
-third-party QEMU fork called Inferno
-(<code>qemu-system-applesoc</code>). It is slow, it needs a lot of
-manual preparation, and <strong>it may never reach the home screen on
-your machine</strong>. Nothing on this page promises that iOS will
-boot.</p>
+<p><strong>Experimental.</strong> This is research tooling. It isn't a
+supported feature, and it isn't an "iPhone simulator". AQEMU drives an
+Apple SoC emulator (<code>qemu-system-applesoc</code>) that models one
+iPhone board. It is slow, it needs a lot of manual preparation, and
+<strong>it may never reach a home screen on your machine</strong>.
+Nothing on this page promises that iOS will boot.</p>
 </blockquote>
 <blockquote>
 <p><strong>Apple software: you're on your own, on purpose.</strong>
-AQEMU does not include, and cannot give you, any Apple software: no
-IPSWs, firmware, kernels, DeviceTrees, tickets, SEP files or ROMs. We
-also can't tell you where to get them. Use your brain: you must obtain
-anything proprietary yourself, legally, and follow Apple's licence
-terms. If you can't do that, don't use this feature.</p>
+AQEMU does not include any Apple firmware or software: no IPSWs,
+kernels, DeviceTrees, tickets, SEP files, ROMs or keys. We can't
+distribute them, and we can't tell you where to get them. If you use
+this feature, you source anything proprietary yourself, legally, using
+your own judgement, and you follow Apple's licence terms. If you can't
+do that, don't use this feature.</p>
+</blockquote>
+<blockquote>
+<p><strong>Third-party links inside the app.</strong> A few buttons and
+messages in the Apple dialogs open or mention third-party websites.
+Those sites aren't part of AQEMU, and these docs don't cover them.</p>
 </blockquote>
 <p><strong>Contents</strong></p>
 <ol type="1">
 <li><a href="#1-how-it-works">How it works</a></li>
-<li><a href="#2-pick-your-host">Pick your host</a></li>
-<li><a href="#3-windows-x64">Windows x64</a></li>
-<li><a href="#4-windows-arm64">Windows ARM64</a></li>
-<li><a href="#5-linux-x64">Linux x64</a></li>
-<li><a href="#6-linux-arm64">Linux ARM64</a></li>
-<li><a href="#7-create-the-ios-vm-all-hosts">Create the iOS VM (all
-hosts)</a></li>
-<li><a href="#8-create-the-restore-companion-all-hosts">Create the
-restore companion (all hosts)</a></li>
-<li><a href="#9-the-apple-tools-vm--apple">The Apple tools (VM →
-Apple)</a></li>
-<li><a href="#10-order-of-operations">Order of operations</a></li>
-<li><a href="#11-hardware-buttons">Hardware buttons</a></li>
-<li><a href="#12-limitations">Limitations</a></li>
+<li><a href="#2-what-you-need-per-host">What you need, per host</a></li>
+<li><a href="#3-what-aqemu-automates-on-each-host">What AQEMU automates
+on each host</a></li>
+<li><a href="#4-one-time-setup">One-time setup</a></li>
+<li><a href="#5-create-the-restore-companion-vm">Create the restore
+companion VM</a></li>
+<li><a href="#6-create-the-ios-vm">Create the iOS VM</a></li>
+<li><a href="#7-the-machine-tab-apple-soc-fields">The Machine tab (Apple
+SoC fields)</a></li>
+<li><a href="#8-vm--apple--ios-firmware-tool">VM → Apple → iOS Firmware
+Tool…</a></li>
+<li><a href="#9-vm--apple--apple-soc-restore">VM → Apple → Apple SoC
+Restore…</a></li>
+<li><a href="#10-vm--apple--apply-ios-filesystem-patches">VM → Apple →
+Apply iOS filesystem patches…</a></li>
+<li><a href="#11-vm--apple--guest-internet--ios-device-tools">VM → Apple
+→ Guest Internet / iOS Device Tools…</a></li>
+<li><a href="#12-vm--apple--wipe-inferno-disks">VM → Apple → Wipe
+Inferno disks…</a></li>
+<li><a href="#13-order-of-operations-windows--wsl">Order of operations
+(Windows + WSL)</a></li>
+<li><a href="#14-the-boot-process-what-to-expect">The boot process: what
+to expect</a></li>
+<li><a href="#15-hardware-buttons">Hardware buttons</a></li>
+<li><a href="#16-limitations-and-what-isnt-working-yet">Limitations and
+what isn't working yet</a></li>
+<li><a href="#17-troubleshooting">Troubleshooting</a></li>
+<li><a href="#18-faq">FAQ</a></li>
 </ol>
 <hr />
 <h2 id="1-how-it-works">1. How it works</h2>
-<p>There are always <strong>two VMs</strong>:</p>
+<p>You always run <strong>two VMs at the same time</strong>:</p>
 <table>
 <thead>
 <tr class="header">
@@ -103,195 +122,271 @@ Apple)</a></li>
 <tbody>
 <tr class="odd">
 <td><strong>iOS VM</strong></td>
-<td>An emulated iPhone 11 board (machine <code>t8030</code>)</td>
-<td><code>qemu-system-applesoc</code> (Inferno)</td>
+<td>An emulated iPhone 11 board (machine <code>t8030</code>, model
+<code>n104ap</code>)</td>
+<td><code>qemu-system-applesoc</code></td>
 </tr>
 <tr class="even">
 <td><strong>Restore companion</strong></td>
-<td>An ordinary Ubuntu Server VM that runs the restore tools and talks
-to the iOS VM over a USB bridge</td>
-<td>Normal QEMU (<code>x86_64</code>)</td>
+<td>An ordinary Ubuntu Server VM. The restore tools
+(<code>usbmuxd</code>, <code>idevicerestore</code> and friends) run
+<strong>inside</strong> it.</td>
+<td>An x86_64 QEMU build with a <code>usb-tcp-remote</code> device,
+named <code>qemu-system-x86_64-inferno</code></td>
 </tr>
 </tbody>
 </table>
-<p>The USB bridge between them is a TCP port
+<p>The emulated iPhone's USB port isn't connected to your host. It's
+carried over a <strong>USB bridge</strong>: a TCP port
 (<code>127.0.0.1:8030</code>) or a UNIX socket
-(<code>/tmp/InfernoUSBRemote</code>). Both VMs must use the same
-setting.</p>
-<h2 id="2-pick-your-host">2. Pick your host</h2>
-<p>The guest is an ARM64 Apple board. Hardware acceleration (KVM or
-WHPX) only works when the guest CPU family matches the host, so
-<strong>x64 hosts always emulate (TCG)</strong>. Xen is never offered
-for this VM.</p>
+(<code>/tmp/InfernoUSBRemote</code>). The companion listens on the
+bridge, the iOS VM connects to it, and the phone then appears as a USB
+device inside the companion. <strong>Both VMs must use the same bridge
+setting</strong>, and the companion must be listening
+<strong>before</strong> the iOS VM starts.</p>
+<p>The menu items for all of this are under <strong>VM → Apple</strong>,
+in this order:</p>
+<ol type="1">
+<li><strong>iOS Firmware Tool…</strong></li>
+<li><strong>Apple SoC Restore…</strong></li>
+<li><strong>Apply iOS filesystem patches…</strong></li>
+<li><strong>Guest Internet / iOS Device Tools…</strong></li>
+<li><strong>Wipe Inferno disks…</strong></li>
+</ol>
+<p>If you open one without an iOS VM selected, AQEMU says: "Add or
+select an Apple SoC / iOS (Inferno) virtual machine first."</p>
+<h2 id="2-what-you-need-per-host">2. What you need, per host</h2>
+<p>The guest is an ARM64 Apple board. Hardware acceleration only works
+when the guest CPU family matches the host, so <strong>x64 hosts always
+emulate (TCG)</strong>. Xen is never offered for this VM. The CPU Type
+is <code>max</code> on every host, and AQEMU passes it straight through
+as <code>-cpu max</code>.</p>
 <table>
 <thead>
 <tr class="header">
 <th>Host</th>
-<th>Emulator AQEMU starts</th>
+<th>iOS VM emulator AQEMU starts</th>
 <th>Accelerator</th>
-<th>CPU</th>
-<th>USB bridge default</th>
 <th>Companion</th>
+<th>Guided restore</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
 <td><strong>Windows x64</strong></td>
-<td>Windows <code>qemu-system-applesoc.exe</code>. Falls back to WSL if
-it's missing.</td>
+<td>Windows <code>qemu-system-applesoc.exe</code>. If it's missing,
+AQEMU offers to run its Linux build in WSL instead.</td>
 <td>TCG</td>
-<td><code>max</code></td>
-<td>IPv4 <code>127.0.0.1:8030</code></td>
 <td>Started in WSL</td>
+<td>Yes</td>
 </tr>
 <tr class="even">
 <td><strong>Windows ARM64</strong></td>
 <td>Windows <code>qemu-system-applesoc.exe</code>, or the Linux build in
-WSL if you pick KVM and WSL has <code>/dev/kvm</code></td>
+WSL if you set <strong>KVM</strong> and WSL has
+<code>/dev/kvm</code></td>
 <td>TCG (KVM only through WSL)</td>
-<td><code>max</code></td>
-<td>IPv4 <code>127.0.0.1:8030</code></td>
 <td>Started in WSL</td>
+<td>Yes</td>
 </tr>
 <tr class="odd">
 <td><strong>Linux x64</strong></td>
 <td>Native <code>qemu-system-applesoc</code></td>
 <td>TCG</td>
-<td><code>max</code></td>
-<td>UNIX <code>/tmp/InfernoUSBRemote</code></td>
-<td>Run its command in a terminal</td>
+<td>You run its command in a terminal</td>
+<td>No (manual)</td>
 </tr>
 <tr class="even">
 <td><strong>Linux ARM64</strong></td>
 <td>Native <code>qemu-system-applesoc</code></td>
-<td>KVM if <code>/dev/kvm</code> works, otherwise TCG</td>
-<td><code>max</code></td>
-<td>UNIX <code>/tmp/InfernoUSBRemote</code></td>
-<td>Run its command in a terminal</td>
+<td>KVM if <code>/dev/kvm</code> works (<code>accel=kvm:tcg</code>),
+otherwise TCG</td>
+<td>You run its command in a terminal</td>
+<td>No (manual)</td>
 </tr>
 </tbody>
 </table>
-<p><strong>CPU model on every host.</strong> The wizard sets the CPU
-Type to <code>max</code>, and AQEMU passes it straight through as
-<code>-cpu max</code>. Change it on the Machine tab only if you know you
-need to.</p>
-<hr />
-<h2 id="3-windows-x64">3. Windows x64</h2>
-<p><strong>Accelerator:</strong> TCG (full emulation). WHPX can't run an
-ARM guest on an x64 CPU, and AQEMU forces this VM to TCG.
-<strong>CPU:</strong> <code>max</code>.</p>
-<p><strong>How AQEMU starts it.</strong> AQEMU uses the Windows
-<code>qemu-system-applesoc.exe</code> from its QEMU folder, with TCG. If
-that file isn't there, AQEMU asks whether to start it with WSL instead.
-If you say yes, AQEMU copies its own Linux build
-(<code>wsl/&lt;cpu&gt;/qemu-system-applesoc</code> from the app folder)
-into <code>/usr/local/bin</code> in your WSL distro and runs it there.
-If neither file is in your AQEMU package, starting fails with:</p>
-<blockquote>
-<p>"Windows QEMU for this VM is not installed, and WSL is not available.
-Install qemu-system-applesoc.exe next to AQEMU, or start WSL and try
-again."</p>
-</blockquote>
-<p><strong>Step by step:</strong></p>
-<ol type="1">
-<li>Install WSL with an Ubuntu distro, then run <strong>File → Configure
-WSL…</strong> in AQEMU and pick the distro and user. You need WSL even
-if the iOS VM itself runs as a Windows <code>.exe</code>, because the
-companion and the device tools run through WSL.</li>
-<li>Create the iOS VM (<a href="#7-create-the-ios-vm-all-hosts">section
-7</a>) and the companion (<a
-href="#8-create-the-restore-companion-all-hosts">section 8</a>).</li>
-<li>Leave <strong>USB remote</strong> on <strong>IPv4 localhost
-(recommended)</strong>, <code>127.0.0.1</code>, port <code>8030</code>.
-<strong>Apply localhost preset (127.0.0.1:8030)</strong> in the Apple
-SoC Restore window sets this for you.</li>
-<li>Follow the <a href="#10-order-of-operations">order of
-operations</a>. In the Apple SoC Restore window use <strong>Start
-companion in WSL</strong> and <strong>Stop companion</strong>, and
-<strong>Diagnose USB bridge</strong> if the VMs can't see each
-other.</li>
-</ol>
-<p><strong>Limitations:</strong> slow. Expect long waits at every
-stage.</p>
-<h2 id="4-windows-arm64">4. Windows ARM64</h2>
-<p><strong>Accelerator:</strong> TCG by default. WHPX is not used for
-this VM. <strong>CPU:</strong> <code>max</code>.</p>
-<p><strong>How AQEMU starts it.</strong> It's the same as Windows x64:
-the Windows <code>qemu-system-applesoc.exe</code> with TCG, or the WSL
-fallback if the <code>.exe</code> is missing. There is one extra path.
-If you set the Accelerator to <strong>KVM</strong> and your WSL distro
-has a usable <code>/dev/kvm</code>, AQEMU runs the Linux build inside
-WSL with <code>accel=kvm</code>. It copies the build into the distro,
-fixes <code>/dev/kvm</code> access, and asks you to set up WSL first if
-no distro or user is configured. Whether your WSL exposes
-<code>/dev/kvm</code> depends on your Windows and WSL setup. AQEMU only
-uses it when it's there.</p>
-<p><strong>Step by step:</strong></p>
-<ol type="1">
-<li>Set up WSL and <strong>File → Configure WSL…</strong> as for <a
-href="#3-windows-x64">Windows x64</a>.</li>
-<li>Create the iOS VM and the companion.</li>
-<li>Optional: on the Machine tab, set <strong>Accelerator</strong> to
-<strong>KVM</strong> to try the WSL/KVM path. If WSL has no
-<code>/dev/kvm</code>, stay on TCG.</li>
-<li>Use <strong>IPv4 localhost</strong>, <code>127.0.0.1:8030</code>,
-then follow the <a href="#10-order-of-operations">order of
-operations</a>.</li>
-</ol>
-<p><strong>Limitations:</strong> the KVM path is untested in these docs.
-TCG is the expected path.</p>
-<h2 id="5-linux-x64">5. Linux x64</h2>
-<p><strong>Accelerator:</strong> TCG only. KVM can't run an ARM guest on
-an x64 CPU. <strong>CPU:</strong> <code>max</code>.</p>
-<p><strong>Getting the emulator.</strong> AQEMU runs
-<code>qemu-system-applesoc</code> like any other QEMU binary, so it must
-be in the QEMU folder AQEMU uses. If you build QEMU yourself from the
-AQEMU repo, the special target builds it:</p>
-<pre class="bash"><code>./scripts/build_qemu_linux_x86_64.sh applesoc</code></pre>
-<p><strong>Step by step:</strong></p>
-<ol type="1">
-<li>Make sure <code>qemu-system-applesoc</code> is available
-(above).</li>
-<li>Create the iOS VM and the companion.</li>
-<li>Use <strong>UNIX socket</strong>,
-<code>/tmp/InfernoUSBRemote</code>, on both VMs (the Linux default).
-IPv4 <code>127.0.0.1:8030</code> also works if you set it on both.</li>
-<li>In <strong>VM → Apple → Apple SoC Restore…</strong>, click
-<strong>Copy companion command</strong> and run it in a terminal. On
-Linux, AQEMU tells you: "On Linux, run the companion command shown above
-in a terminal." To stop it, stop that QEMU process in the terminal.</li>
-<li>Follow the <a href="#10-order-of-operations">order of
-operations</a>.</li>
-</ol>
-<p><strong>Limitations:</strong></p>
+<p><strong>Memory and CPU.</strong> The iOS VM is set to <strong>4096
+MB</strong> and <strong>4 vCPUs</strong> (it needs at least 2). The
+companion is set to <strong>2048 MB</strong> and 2 vCPUs. That's about 6
+GB of guest memory while both run, on top of what your host itself
+needs.</p>
+<p><strong>Disk space.</strong></p>
 <ul>
-<li>Slow (TCG).</li>
-<li><strong>Diagnose USB bridge</strong> is "implemented for the
-Windows/WSL path" only.</li>
-<li>The <strong>Device</strong> tools in <em>iOS Device Tools / Guest
-Internet</em> are "currently wired for Windows + WSL".</li>
+<li>iOS VM: the <strong>NAND (root)</strong> image is the size you pick
+(default <strong>32 GiB</strong>), plus about 276 MiB of small images
+(listed in <a href="#14-the-boot-process-what-to-expect">section
+14</a>). AQEMU checks free space first and wants the total <strong>plus
+512 MiB</strong> free. On Windows the root image is sparse, so it only
+uses real space as it fills.</li>
+<li>Companion: a <strong>20 GB</strong> <code>companion.qcow2</code> (it
+grows as it fills) and the Ubuntu Server ISO (about 2–3 GB).</li>
+<li>Your own firmware files and the folder they're unpacked into.</li>
 </ul>
-<h2 id="6-linux-arm64">6. Linux ARM64</h2>
-<p><strong>Accelerator:</strong> KVM when <code>/dev/kvm</code> is
-usable. AQEMU then passes <code>accel=kvm:tcg</code>, so QEMU falls back
-to TCG if KVM can't start. Without KVM you get TCG.
-<strong>CPU:</strong> <code>max</code>, as the wizard set it. AQEMU only
-picks <code>host</code> by itself when the CPU Type is empty.</p>
-<p><strong>Getting the emulator:</strong></p>
-<pre class="bash"><code>./scripts/build_qemu_linux_arm64.sh applesoc</code></pre>
-<p>(The Raspberry Pi 5 QEMU script doesn't build this target.)</p>
-<p><strong>Step by step:</strong> the same as <a
-href="#5-linux-x64">Linux x64</a>. For KVM, make sure your user can open
-<code>/dev/kvm</code> (see <a href="host-linux-arm64.html">Linux ARM64
-host guide</a>).</p>
-<p><strong>Limitations:</strong> whether Inferno runs well under KVM on
-your board is not verified. Same Windows-only tool limits as Linux
-x64.</p>
-<hr />
-<h2 id="7-create-the-ios-vm-all-hosts">7. Create the iOS VM (all
-hosts)</h2>
-<p><strong>Guest Operating System → Apple → iOS (ARM64)</strong>. The
-wizard sets:</p>
+<p><strong>Software on Windows (x64 and ARM64):</strong></p>
+<ul>
+<li><strong>WSL</strong> with an Ubuntu distro, set in <strong>File →
+Configure WSL…</strong>. You need it even when the iOS VM runs as a
+Windows <code>.exe</code>, because the companion, the restore and the
+device tools all run through WSL.</li>
+<li>Inside WSL: <code>qemu-system-x86_64-inferno</code> in
+<code>/usr/local/bin</code> and SeaBIOS
+(<code>/usr/share/seabios/bios-256k.bin</code>). AQEMU doesn't build or
+install the companion emulator for you. <code>sshpass</code> is
+installed automatically the first time you restore.</li>
+<li>For the filesystem patch step: <strong>KVM inside WSL</strong>
+(nested virtualization).</li>
+<li>For the Firmware Tool: <strong>Python 3</strong>,
+<strong>img4</strong> (img4lib) and <strong>pyimg4</strong>. Set their
+paths in <strong>File → Preferences… → Emulator → iOS firmware
+tools</strong>, or leave the boxes empty to use <code>PATH</code>. AQEMU
+also looks next to <code>aqemu.exe</code>.</li>
+</ul>
+<p><strong>Software on Linux (x64 and ARM64):</strong></p>
+<ul>
+<li><code>qemu-system-applesoc</code> in the QEMU folder AQEMU uses. If
+you build QEMU from the AQEMU repo, the special target builds it:
+<code>./scripts/build_qemu_linux_x86_64.sh applesoc</code> or
+<code>./scripts/build_qemu_linux_arm64.sh applesoc</code>. (The
+Raspberry Pi 5 script doesn't build this target.)</li>
+<li><code>/usr/local/bin/qemu-system-x86_64-inferno</code> and SeaBIOS
+for the companion. AQEMU's build scripts don't build it.</li>
+<li>Python 3, img4 and pyimg4 for the Firmware Tool.</li>
+<li>For KVM on ARM64, your user must be able to open
+<code>/dev/kvm</code> (see <a href="host-linux-arm64.html">Linux
+ARM64</a>).</li>
+</ul>
+<h2 id="3-what-aqemu-automates-on-each-host">3. What AQEMU automates on
+each host</h2>
+<p>The guided restore flow is built for <strong>Windows + WSL</strong>.
+On Linux, several buttons only print a message.</p>
+<table>
+<thead>
+<tr class="header">
+<th>Step</th>
+<th>Windows + WSL</th>
+<th>Linux</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Firmware Tool, Step 1 (Unpack IPSW)</td>
+<td>Yes. It uses PowerShell <code>Expand-Archive</code>.</td>
+<td>Uses PowerShell too, so expect it to fail. Unzip the IPSW yourself
+and browse to the files in Steps 2–4.</td>
+</tr>
+<tr class="even">
+<td>Firmware Tool, Steps 2–4</td>
+<td>Yes</td>
+<td>Yes, if Python 3, img4 and pyimg4 are installed</td>
+</tr>
+<tr class="odd">
+<td><strong>Start companion in WSL</strong> / <strong>Stop
+companion</strong></td>
+<td>Yes</td>
+<td>No. "On Linux, run the companion command shown above in a
+terminal."</td>
+</tr>
+<tr class="even">
+<td><strong>Diagnose USB bridge</strong></td>
+<td>Yes</td>
+<td>No. "Diagnose is implemented for the Windows/WSL path."</td>
+</tr>
+<tr class="odd">
+<td><strong>Restore IPSW via SSH…</strong></td>
+<td>Yes</td>
+<td>No. "Automated companion SSH restore is implemented for the
+Windows/WSL path."</td>
+</tr>
+<tr class="even">
+<td><strong>Apply filesystem patches…</strong></td>
+<td>Yes (a temporary Ubuntu KVM guest in WSL)</td>
+<td>No. You run <code>extras/Inferno/apply-fs-patches-wsl.sh</code> with
+<code>ROOT_IMG</code> set.</td>
+</tr>
+<tr class="odd">
+<td>Device Tools</td>
+<td>Yes</td>
+<td>No. "Device Tools SSH helper is currently wired for Windows +
+WSL."</td>
+</tr>
+<tr class="even">
+<td>Wipe Inferno disks</td>
+<td>Yes</td>
+<td>Yes</td>
+</tr>
+</tbody>
+</table>
+<p>On Linux, these docs don't walk through the manual restore inside the
+companion.</p>
+<h2 id="4-one-time-setup">4. One-time setup</h2>
+<ol type="1">
+<li><strong>Windows:</strong> install WSL with Ubuntu, then <strong>File
+→ Configure WSL…</strong> and pick the distro and user. Put
+<code>qemu-system-x86_64-inferno</code> and SeaBIOS into that
+distro.</li>
+<li>Install Python 3, img4 and pyimg4 on the host, and set them in
+<strong>File → Preferences… → Emulator → iOS firmware tools</strong> if
+they aren't on <code>PATH</code>. (The Firmware Tool's own help text
+calls this "File → Configure → iOS firmware tools". The menu item is now
+<strong>Preferences…</strong>.)</li>
+<li><strong>Optional, Windows:</strong> if your WSL copy of
+<code>qemu-system-applesoc</code> isn't in <code>/usr/local/bin</code>,
+set <strong>File → Preferences… → Emulator → Apple SoC binary in
+WSL</strong>.</li>
+</ol>
+<h2 id="5-create-the-restore-companion-vm">5. Create the restore
+companion VM</h2>
+<p>Run the New VM wizard and pick <strong>Guest Operating System → Apple
+→ iPhone IPSW Restore Companion</strong>. It's also listed under Linux
+as <em>IPSW Restore Companion (Ubuntu)</em>.</p>
+<p>When you click <strong>Finish</strong>, AQEMU:</p>
+<ol type="1">
+<li>Downloads the official <strong>Ubuntu Server 24.04</strong> live ISO
+(about 2–3 GB), unless you already have one. It asks first: "Continue
+download?" If the download fails, it tells you where to put the ISO by
+hand.</li>
+<li>Creates a <strong>20 GB</strong> disk,
+<code>companion.qcow2</code>.</li>
+<li>Mounts the ISO as the CD-ROM so the first <strong>Power On</strong>
+boots the installer.</li>
+<li>Forwards SSH: host <code>127.0.0.1:32222</code> → guest port
+22.</li>
+</ol>
+<p>The VM is x86_64 <code>q35</code>, CPU <code>max</code>, 2048 MB, 2
+vCPUs, <code>virtio-vga</code>, virtio disk and network. AQEMU then
+shows <strong>Companion setup — do these steps next</strong>, a
+checklist with a <strong>Copy all</strong> button.</p>
+<p><strong>Inside the companion (you do this once):</strong></p>
+<ol type="1">
+<li>Power it on and install Ubuntu Server. Enable
+<strong>OpenSSH</strong> when asked, and create a user. That username
+and password are what AQEMU's <strong>Companion SSH
+user/password</strong> boxes mean. They're a Linux login, not an Apple
+account.</li>
+<li>Shut down, remove the ISO (or put the hard disk first in the boot
+order), and power on again.</li>
+<li>Install the iDevice tools the checklist lists (<code>usbmuxd</code>,
+the libimobiledevice stack and <code>idevicerestore</code>). AQEMU's
+restore script checks these and stops with a message if something is
+missing. The <code>idevicerestore</code> build has to be patched for
+this emulated board, otherwise the restore fails with "Unable to
+discover device type". The source repo includes the patch as
+<code>extras/Inferno/idevicerestore.patch</code>.</li>
+<li>Give your companion user passwordless <code>sudo</code>. The restore
+script checks for it ("Checking passwordless sudo...") and stops if it's
+missing.</li>
+<li><strong>Power Off the companion VM in the AQEMU list.</strong> For
+restores, AQEMU starts the same disk itself with the bridge attached.
+Only one can use the disk at a time ("same disk, one lock").</li>
+</ol>
+<p>To SSH in from Windows, use WSL:
+<code>wsl ssh -p 32222 user@127.0.0.1</code>. A plain Windows
+<code>ssh</code> to that port is refused. On Linux:
+<code>ssh -p 32222 user@127.0.0.1</code>.</p>
+<h2 id="6-create-the-ios-vm">6. Create the iOS VM</h2>
+<p>Run the New VM wizard and pick <strong>Guest Operating System → Apple
+→ iOS (ARM64)</strong>. The wizard sets:</p>
 <table>
 <thead>
 <tr class="header">
@@ -318,7 +413,7 @@ wizard sets:</p>
 </tr>
 <tr class="odd">
 <td>vCPUs</td>
-<td>4 (Inferno needs at least 2)</td>
+<td>4 (needs at least 2)</td>
 </tr>
 <tr class="even">
 <td>Video</td>
@@ -343,101 +438,586 @@ wizard sets:</p>
 </tr>
 </tbody>
 </table>
-<p>The wizard also asks for the <strong>NAND (root) size</strong>: 16 /
-32 / 64 / 128 / 256 GiB, or Custom (16 to 2048 GiB). The default is 32
-GiB.</p>
-<p>After creating the VM, the <strong>Machine</strong> tab has the Apple
-SoC fields. You fill in your own files: <strong>Trustcache</strong>,
-<strong>Restore ticket</strong>, <strong>SEP firmware</strong>,
-<strong>SEP ROM</strong>, <strong>SecureROM (optional)</strong>,
-<strong>IPSW (restore)</strong>, <strong>Restore ramdisk
-(-initrd)</strong>, plus <strong>NAND (root) size</strong>,
-<strong>Disable KASLR</strong>, <strong>USB remote</strong> and
-<strong>Fill suggested boot args</strong>.</p>
-<h2 id="8-create-the-restore-companion-all-hosts">8. Create the restore
-companion (all hosts)</h2>
-<p><strong>Guest Operating System → Apple → iPhone IPSW Restore
-Companion</strong>. It's also listed under Linux as <em>IPSW Restore
-Companion (Ubuntu)</em>.</p>
-<p>This makes a normal AQEMU VM: x86_64 <code>q35</code>, CPU
-<code>max</code>, 2048 MB, at least 2 vCPUs, a
-<code>companion.qcow2</code> disk, with the Ubuntu Server ISO as a CD.
-When it's installed you can SSH in from the host:</p>
-<pre><code>ssh -p 32222 user@127.0.0.1</code></pre>
-<p>The <strong>Apple SoC Restore</strong> window asks for the
-companion's <strong>SSH user</strong> and <strong>SSH password</strong>.
-Those are the Linux login you created inside the companion, not an Apple
-account.</p>
-<h2 id="9-the-apple-tools-vm--apple">9. The Apple tools (VM →
-Apple)</h2>
+<p>The disk page becomes <strong>NAND (root) size</strong>: 16 / 32 / 64
+/ 128 / 256 GiB, or <strong>Custom…</strong> from 16 to 2048 GiB. The
+default is <strong>32 GiB</strong>. Less than 16 is refused ("Pick at
+least 16 GiB…"). Pick the size now: changing it later doesn't grow a
+phone that's already restored.</p>
+<p>The VM is created with no Apple files. You fill them in on the
+Machine tab.</p>
+<h2 id="7-the-machine-tab-apple-soc-fields">7. The Machine tab (Apple
+SoC fields)</h2>
+<p>AQEMU never invents a boot file. Everything here is a file you
+supply.</p>
 <table>
 <thead>
 <tr class="header">
-<th>Menu item</th>
-<th>What it's for</th>
+<th>Field</th>
+<th>What it is</th>
+<th>Notes</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td><strong>iOS Firmware Tool…</strong></td>
-<td>Unpacks an IPSW you supply and prepares the files the Machine tab
-asks for. It needs the <code>img4</code> and <code>pyimg4</code> tools
-installed and tells you if they're missing.</td>
+<td><strong>Machine type</strong></td>
+<td><code>t8030</code></td>
+<td>Required</td>
 </tr>
 <tr class="even">
-<td><strong>Apple SoC Restore…</strong></td>
-<td>Companion setup, USB remote settings, start/stop the companion
-(WSL), <strong>Diagnose USB bridge</strong>, <strong>Restore IPSW via
-SSH…</strong></td>
+<td><strong>DeviceTree (.dec / .dtb / .im4p)</strong></td>
+<td>Passed as <code>-dtb</code></td>
+<td>Required. The Firmware Tool fills it if it's empty.</td>
 </tr>
 <tr class="odd">
-<td><strong>Apply iOS filesystem patches…</strong></td>
-<td>Patches the iOS VM's <code>root</code> disk after a restore. Power
-off the iOS VM first.</td>
+<td><strong>Kernel (.research / .elf)</strong></td>
+<td>The kernel</td>
+<td>Required. The Firmware Tool doesn't fill it.</td>
 </tr>
 <tr class="even">
-<td><strong>Guest Internet / iOS Device Tools…</strong></td>
-<td><strong>Enable guest internet (reverse-tether)</strong>, plus device
-info and screenshots through the companion (Windows + WSL only)</td>
+<td><strong>Boot Arguments</strong></td>
+<td>Passed as <code>-append</code></td>
+<td>Optional. <strong>Fill suggested boot args</strong> inserts
+<code>tlto_us=-1 mtxspin=-1 agm-genuine=1 agm-authentic=1 agm-trusted=1 serial=3 wdt=-1 -vm_compressor_wk_sw</code>.</td>
 </tr>
 <tr class="odd">
-<td><strong>Wipe Inferno disks…</strong></td>
-<td>Start again with clean NAND images</td>
+<td><strong>Trustcache</strong></td>
+<td></td>
+<td>Required unless <strong>SecureROM</strong> is set. Auto-filled from
+<code>Firmware/&lt;ramdisk&gt;.trustcache</code> when that file
+exists.</td>
+</tr>
+<tr class="even">
+<td><strong>Restore ticket</strong></td>
+<td>The <code>root_ticket.der</code> from Firmware Tool Step 2</td>
+<td>Must exist if set. The Firmware Tool always sets it.</td>
+</tr>
+<tr class="odd">
+<td><strong>SEP firmware</strong></td>
+<td>The <strong>packed</strong> <code>.new.img4</code> from Firmware
+Tool Step 3</td>
+<td>Not the raw <code>.im4p</code>. The tooltip warns the raw file
+causes error -256 after NORData.</td>
+</tr>
+<tr class="even">
+<td><strong>SEP ROM</strong></td>
+<td></td>
+<td>Set both SEP fields, or neither.</td>
+</tr>
+<tr class="odd">
+<td><strong>SecureROM (optional)</strong></td>
+<td></td>
+<td>Must exist if set</td>
+</tr>
+<tr class="even">
+<td><strong>IPSW (restore)</strong></td>
+<td>The IPSW you restore from</td>
+<td>The Firmware Tool fills it if it's empty.</td>
+</tr>
+<tr class="odd">
+<td><strong>Restore ramdisk (-initrd)</strong></td>
+<td>The restore ramdisk named in BuildManifest</td>
+<td>While it's set, AQEMU boots in recovery mode
+(<code>boot-mode=enter_recovery</code>). It's cleared automatically
+after filesystem patches succeed.</td>
+</tr>
+<tr class="even">
+<td><strong>NAND (root) size</strong></td>
+<td>16–2048 GiB, default 32</td>
+<td>Set before the first restore</td>
+</tr>
+<tr class="odd">
+<td><strong>Disable KASLR (kaslr-off)</strong></td>
+<td></td>
+<td>Ticked by default</td>
+</tr>
+<tr class="even">
+<td><strong>USB remote</strong></td>
+<td><strong>(none / Inferno UNIX default)</strong>, <strong>IPv4
+localhost (recommended)</strong>, or <strong>UNIX socket</strong>, plus
+address and port (default <code>8030</code>)</td>
+<td>Must match the companion</td>
 </tr>
 </tbody>
 </table>
-<blockquote>
-<p>Some older help text inside the app still says <strong>File
-→</strong> for these items. They live under <strong>VM →
-Apple</strong>.</p>
-</blockquote>
-<h2 id="10-order-of-operations">10. Order of operations</h2>
+<p>Buttons: <strong>Fill suggested boot args</strong>, <strong>Restore
+IPSW…</strong> (opens Apple SoC Restore), <strong>Wipe Inferno
+disks…</strong>, and <strong>Apply filesystem patches…</strong>
+("Required for SpringBoard / setup").</p>
+<h2 id="8-vm--apple--ios-firmware-tool">8. VM → Apple → iOS Firmware
+Tool…</h2>
+<p>The window is titled <strong>iOS Firmware Tool</strong>, with the
+heading <strong>iOS Firmware Unpacker</strong>. It prepares the files
+the Machine tab asks for <strong>from an IPSW you supply</strong>. It
+works through four steps. Under them are an <strong>Output log</strong>,
+an <strong>Extracted file locations</strong> list with <strong>Copy
+locations</strong>, and <strong>Close</strong>. Only one task runs at a
+time ("Wait for the current task to finish.").</p>
+<h3 id="step-1-unpack-ipsw-archive">Step 1: Unpack IPSW Archive</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Field</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>IPSW File</strong> (<code>*.ipsw *.zip</code>)</td>
+<td>(empty)</td>
+</tr>
+<tr class="even">
+<td><strong>Extraction Output Directory</strong></td>
+<td><code>firmware_extracted</code> in the app folder</td>
+</tr>
+</tbody>
+</table>
+<p>Click <strong>Unpack IPSW</strong>. AQEMU unzips it with PowerShell
+(so this is Windows-only), then:</p>
+<ul>
+<li>lists the payloads in <code>Firmware/all_flash</code>;</li>
+<li>fills in BuildManifest, the two ticket output paths, the DeviceTree
+<code>.im4p</code>, the SEP <code>.im4p</code>, and the decrypted and
+packed SEP paths;</li>
+<li>suggests the restore ramdisk from BuildManifest. If there isn't one,
+it says so and warns you not to use the largest <code>.dmg</code> ("that
+is usually the OS image");</li>
+<li>sends the IPSW path to the Machine tab;</li>
+<li>logs "Next: Step 2 — Forge restore + SEP tickets."</li>
+</ul>
+<h3 id="step-2-forge-restore--sep-tickets">Step 2: Forge restore + SEP
+tickets</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Field</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Model</strong></td>
+<td><code>n104ap — iPhone 11 / t8030</code> (the only choice)</td>
+</tr>
+<tr class="even">
+<td><strong>BuildManifest.plist</strong></td>
+<td>Filled after Unpack IPSW</td>
+</tr>
+<tr class="odd">
+<td><strong>ticket.shsh2</strong></td>
+<td>Remembered between sessions</td>
+</tr>
+<tr class="even">
+<td><strong>Restore ticket (.der)</strong></td>
+<td><code>root_ticket.der</code></td>
+</tr>
+<tr class="odd">
+<td><strong>SEP ticket (.der)</strong></td>
+<td><code>sep_root_ticket.der</code></td>
+</tr>
+</tbody>
+</table>
+<p>You need a <code>ticket.shsh2</code> file. It isn't inside the IPSW,
+and AQEMU doesn't ship it. Click <strong>Forge restore + SEP
+tickets</strong>. AQEMU finds Python (<code>py</code>,
+<code>python3</code> or <code>python</code>), installs
+<code>pyasn1</code> with <code>pip --user</code> if it's missing, then
+runs its own scripts <code>create_apticket.py</code> and
+<code>create_septicket.py</code> (from <code>extras/Inferno</code>) to
+write both <code>.der</code> files. The restore ticket is always copied
+to Machine → <strong>Restore ticket</strong>.</p>
+<h3 id="step-3-pack-sep-firmware">Step 3: Pack SEP firmware</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Field</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>SEP .im4p</strong></td>
+<td>Filled after Unpack IPSW</td>
+</tr>
+<tr class="even">
+<td><strong>IVKEY (IV then key, no space)</strong></td>
+<td>(empty)</td>
+</tr>
+<tr class="odd">
+<td><strong>Decrypted SEP</strong></td>
+<td><code>sep-firmware.n104.RELEASE</code></td>
+</tr>
+<tr class="even">
+<td><strong>Packed SEP (.img4)</strong></td>
+<td><code>sep-firmware.n104.RELEASE.new.img4</code></td>
+</tr>
+</tbody>
+</table>
+<p>The IVKEY is 96 hex characters: the SEP firmware's 32-character IV
+followed straight away by its 64-character key, for <strong>this exact
+IPSW build</strong>. Spaces and <code>iv:</code>/<code>key:</code>
+prefixes are stripped. AQEMU doesn't supply it.</p>
+<p>Click <strong>Decrypt + pack SEP firmware</strong>. AQEMU runs
+<code>img4</code> to decrypt the <code>.im4p</code>, then packs it with
+your SEP ticket into the <code>.new.img4</code>, and sets Machine →
+<strong>SEP firmware</strong>.</p>
+<h3 id="step-4-process-im4p-pyimg4">Step 4: Process IM4P (pyimg4)</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Field</th>
+<th>Options</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>IM4P Payload File</strong></td>
+<td>Any <code>.im4p</code></td>
+</tr>
+<tr class="even">
+<td><strong>Operation</strong></td>
+<td><strong>Extract raw payload</strong>, <strong>Decrypt payload
+(--key/--iv)</strong>, <strong>Show payload info</strong></td>
+</tr>
+<tr class="odd">
+<td><strong>AES IV</strong>, <strong>AES Key</strong></td>
+<td>Optional, for Decrypt</td>
+</tr>
+</tbody>
+</table>
+<p>Click <strong>Run pyimg4</strong>. The output is
+<code>&lt;file&gt;.dec</code>. If the file name contains
+<code>DeviceTree</code>, the result goes into Machine →
+<strong>DeviceTree</strong> when that field is empty.</p>
+<h3 id="what-the-firmware-tool-fills-on-the-machine-tab">What the
+Firmware Tool fills on the Machine tab</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Machine field</th>
+<th>When</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>DeviceTree</td>
+<td>Only if empty</td>
+</tr>
+<tr class="even">
+<td>Restore ticket</td>
+<td>Always</td>
+</tr>
+<tr class="odd">
+<td>IPSW (restore)</td>
+<td>Only if empty</td>
+</tr>
+<tr class="even">
+<td>Restore ramdisk</td>
+<td>Only if empty. Trustcache is then set from
+<code>Firmware/&lt;ramdisk&gt;.trustcache</code> if that file
+exists.</td>
+</tr>
+<tr class="odd">
+<td>SEP firmware</td>
+<td>Always</td>
+</tr>
+</tbody>
+</table>
+<h2 id="9-vm--apple--apple-soc-restore">9. VM → Apple → Apple SoC
+Restore…</h2>
+<p>The window is titled <strong>Apple SoC Restore (Inferno
+companion)</strong>. It runs the companion with the USB bridge and
+drives the restore. Its intro sums up the flow: start the companion here
+(don't also Power On the Ubuntu companion in the AQEMU list), it keeps
+running in WSL, Power On iOS with the same USB remote, then enter the
+SSH login and press <strong>Restore IPSW via SSH…</strong>.</p>
+<h3 id="fields">Fields</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Field</th>
+<th>Default</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>IPSW</strong></td>
+<td>From the VM</td>
+<td>The file <code>idevicerestore</code> uses</td>
+</tr>
+<tr class="even">
+<td><strong>NAND (root) size</strong></td>
+<td>32 GiB (16/32/64/128/256 or Custom… 16–2048)</td>
+<td>Saved to the VM. Doesn't grow a phone that's already restored.</td>
+</tr>
+<tr class="odd">
+<td><strong>iOS VM file</strong></td>
+<td>(label)</td>
+<td>The <code>.aqemu</code> path and "Inferno disks: <folder>", or "(no
+iOS VM selected)" / "(unsaved VM)"</td>
+</tr>
+<tr class="even">
+<td><strong>Companion disk</strong></td>
+<td>Remembered</td>
+<td><strong>Browse…</strong> or <strong>Create…</strong> (runs the
+companion setup in <a href="#5-create-the-restore-companion-vm">section
+5</a>)</td>
+</tr>
+<tr class="odd">
+<td><strong>Companion SSH user</strong></td>
+<td><code>bob</code> (remembered)</td>
+<td>Your Linux user inside the companion</td>
+</tr>
+<tr class="even">
+<td><strong>Companion SSH password</strong></td>
+<td>(empty, never saved)</td>
+<td>Masked</td>
+</tr>
+<tr class="odd">
+<td><strong>USB remote type</strong></td>
+<td><strong>IPv4 localhost (recommended — match both VMs)</strong> or
+<strong>UNIX socket</strong></td>
+<td>On Windows it's forced to IPv4 unless the VM has an explicit UNIX
+path.</td>
+</tr>
+<tr class="even">
+<td><strong>USB remote addr</strong></td>
+<td><code>127.0.0.1</code> (IPv4) or <code>/tmp/InfernoUSBRemote</code>
+(UNIX)</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td><strong>USB remote port</strong></td>
+<td><code>8030</code> (1–65535)</td>
+<td>IPv4 only</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Apply localhost preset (127.0.0.1:8030)</strong> saves IPv4
+<code>127.0.0.1</code> port <code>8030</code> on the VM. If the Machine
+tab still shows UNIX or (none), set it there too, then restart the iOS
+guest once the companion is listening.</p>
+<h3 id="companion-command">Companion command</h3>
+<p>The box <strong>Companion QEMU (Linux guest + usb-tcp-remote; start
+BEFORE iOS):</strong> shows the exact command, which <strong>Copy
+companion command</strong> copies. It runs
+<code>/usr/local/bin/qemu-system-x86_64-inferno</code> with
+<code>-M q35</code>, 2048 MB (512 MB with no disk),
+<code>-accel tcg</code>, <code>-nographic</code>, the companion disk,
+SSH forwarded on <code>32222</code>, and a USB controller with the
+<code>usb-tcp-remote</code> bridge device. The status line under it
+tells you if the address is missing or invalid, or if no companion disk
+is set. A diskless companion only opens the bridge, so the restore tools
+can't see the phone.</p>
+<h3 id="buttons">Buttons</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Button</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Start companion in WSL</strong></td>
+<td>Windows only. Starts the command above in WSL, detached. It shares
+the IPSW's folder into the companion (9p, as
+<code>/mnt/aqemu_ipsw/aqemu-restore-current.ipsw</code>) and stages the
+restore ticket. Then it waits up to about 3 minutes for SSH on port
+32222 ("TCG boot often needs 1-3 minutes"). A companion that's already
+running with the same settings is reused. Log:
+<code>/tmp/aqemu-inferno-companion.log</code> in WSL.</td>
+</tr>
+<tr class="even">
+<td><strong>Stop companion</strong></td>
+<td>Windows only. Stops it.</td>
+</tr>
+<tr class="odd">
+<td><strong>Diagnose USB bridge</strong></td>
+<td>Windows only. Checks the bridge and the companion's view of
+USB.</td>
+</tr>
+<tr class="even">
+<td><strong>Copy companion command</strong></td>
+<td>Copies the command</td>
+</tr>
+<tr class="odd">
+<td><strong>Restore IPSW via SSH…</strong></td>
+<td>Windows only. See below.</td>
+</tr>
+<tr class="even">
+<td><strong>Wipe Inferno disks…</strong></td>
+<td>See <a href="#12-vm--apple--wipe-inferno-disks">section 12</a></td>
+</tr>
+<tr class="odd">
+<td><strong>Apply filesystem patches…</strong></td>
+<td>See <a href="#10-vm--apple--apply-ios-filesystem-patches">section
+10</a></td>
+</tr>
+</tbody>
+</table>
+<h3 id="restore-ipsw-via-ssh">Restore IPSW via SSH…</h3>
 <ol type="1">
-<li><strong>iOS Firmware Tool:</strong> unpack your IPSW and prepare
-your files. All the files must come from the <strong>same iOS
-build</strong>. AQEMU warns you about mismatches, and the restore fails
-if they differ.</li>
-<li>Fill in the file paths on the iOS VM's <strong>Machine</strong> tab.
-Set the NAND size <strong>before</strong> the first restore.</li>
-<li><strong>Apple SoC Restore:</strong> set the companion disk and SSH
-login, start the companion (WSL button on Windows, terminal command on
-Linux), and wait for SSH on port 32222.</li>
-<li>Start the iOS VM. At best you'll see a restore screen, not a home
-screen.</li>
-<li>Click <strong>Restore IPSW via SSH…</strong>. When it finishes, QEMU
-exits. That's expected.</li>
-<li>Power off and run <strong>Apply iOS filesystem patches…</strong> on
-the iOS VM's <code>root</code> disk (not the companion's).</li>
-<li>Power on again.</li>
+<li>AQEMU asks you to confirm the IPSW: "idevicerestore will use this
+file (must match tickets + SEP pack)". If you changed the IPSW,
+<strong>Stop companion</strong> and <strong>Start companion</strong>
+first so the shared folder is restaged.</li>
+<li>It SSHes into the companion (installing <code>sshpass</code> in WSL
+the first time), checks disk space, <code>sudo</code>, the shared IPSW
+and the <code>idevicerestore</code> build, and sets up
+<code>usbmuxd</code>.</li>
+<li>It logs <strong>"Power On the iOS guest NOW (companion SSH is up).
+Waiting for USB..."</strong>. Power On the iOS VM then, not before. The
+log warns: "iOS only waits ~120s for restore once the Apple logo
+appears."</li>
+<li>When the phone shows up on the companion's USB, it runs
+<code>idevicerestore</code> (erase + restore mode, with your restore
+ticket). It tries up to twice.</li>
+<li>At the end you see "Command finished with exit code %1". On success,
+the next step is filesystem patches.</li>
 </ol>
-<h2 id="11-hardware-buttons">11. Hardware buttons</h2>
+<h2 id="10-vm--apple--apply-ios-filesystem-patches">10. VM → Apple →
+Apply iOS filesystem patches…</h2>
+<p>The window is titled <strong>Apply iOS filesystem patches
+(Inferno)</strong>. The step is "Required after idevicerestore for
+SpringBoard / setup to appear". It patches the <strong>iOS VM's root
+disk</strong>, not the companion.</p>
+<table>
+<thead>
+<tr class="header">
+<th>Control</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Guest root disk</strong></td>
+<td>Placeholder <code>…/&lt;VM&gt;_inferno/root</code></td>
+</tr>
+<tr class="even">
+<td><strong>Browse…</strong> / <strong>Use current VM root</strong></td>
+<td>Pick the file</td>
+</tr>
+<tr class="odd">
+<td><strong>Apply filesystem patches…</strong></td>
+<td>Runs the patch</td>
+</tr>
+</tbody>
+</table>
+<p>The status line warns if the root image isn't found, if the helper
+scripts are missing, or that you must Power Off the iOS guest first (the
+root disk is locked while it runs).</p>
+<p>On Windows it starts a temporary Ubuntu KVM guest in WSL with APFS
+support, so <strong>WSL needs KVM</strong> (nested virtualization). On
+success: "Dyld cache + LaunchDaemons updated…", and the <strong>Restore
+ramdisk</strong> field is cleared for you. On Linux the dialog tells you
+to run <code>extras/Inferno/apply-fs-patches-wsl.sh</code> yourself with
+<code>ROOT_IMG</code> set.</p>
+<h2 id="11-vm--apple--guest-internet--ios-device-tools">11. VM → Apple →
+Guest Internet / iOS Device Tools…</h2>
+<p>The window is titled <strong>iOS Device Tools / Guest
+Internet</strong>. It works through the companion over SSH, so it's
+<strong>Windows + WSL only</strong>. It asks for <strong>Companion SSH
+user</strong>, <strong>password</strong> and <strong>SSH port</strong>
+(<code>32222</code>). Use the same login as Apple SoC Restore.</p>
+<ul>
+<li><strong>Internet</strong> tab: <strong>Enable guest internet
+(reverse-tether)</strong> sets up <code>usbmuxd</code> and connection
+sharing in the companion so the phone can reach the network through it.
+There are also <strong>Diagnose USB / idevice</strong> and <strong>Copy
+manual commands</strong>. Whether the guest actually gets online is not
+verified in these docs.</li>
+<li><strong>Device</strong> tab: <strong>Device info</strong>,
+<strong>List apps</strong> and <strong>Screenshot</strong> (saved as
+<code>aqemu-ios.png</code>). The tab has other buttons that v1 docs
+don't cover.</li>
+</ul>
+<h2 id="12-vm--apple--wipe-inferno-disks">12. VM → Apple → Wipe Inferno
+disks…</h2>
+<p>Deletes the iOS VM's NAND images so you can restore from scratch.
+Select the iOS VM and Power it Off first. The confirmation lists what
+will be removed (it defaults to <strong>No</strong>). It
+<strong>doesn't</strong> delete the VM file, your IPSW, the firmware
+extract or <code>companion.qcow2</code>.</p>
+<p>Afterwards AQEMU says: "Start companion (if needed), Power On iOS
+(that writes the placeholder GPT on root), then Restore IPSW via SSH. Do
+not apply filesystem patches until restore rewrites that GPT."</p>
+<h2 id="13-order-of-operations-windows--wsl">13. Order of operations
+(Windows + WSL)</h2>
+<ol type="1">
+<li><a href="#4-one-time-setup">One-time setup</a>, then <a
+href="#5-create-the-restore-companion-vm">create the companion</a> and
+install Ubuntu and the tools in it. <strong>Power Off the companion
+VM</strong> in the list.</li>
+<li><a href="#6-create-the-ios-vm">Create the iOS VM</a>. Choose the
+NAND size now.</li>
+<li><strong>iOS Firmware Tool</strong>, Steps 1 → 2 → 3, plus Step 4 if
+your DeviceTree is still an <code>.im4p</code>. Every file must come
+from <strong>the same iOS build</strong> as the IPSW.</li>
+<li><strong>Machine tab:</strong> check DeviceTree, Restore ticket, SEP
+firmware, IPSW and Restore ramdisk. Add your Kernel, Trustcache (or
+SecureROM) and SEP ROM. Set <strong>USB remote</strong> to IPv4
+<code>127.0.0.1:8030</code>. Optionally click <strong>Fill suggested
+boot args</strong>.</li>
+<li><strong>Apple SoC Restore:</strong> set the companion disk, SSH user
+and password, and click <strong>Apply localhost preset
+(127.0.0.1:8030)</strong>.</li>
+<li>Click <strong>Start companion in WSL</strong>. Wait for SSH (often
+1–3 minutes).</li>
+<li>Click <strong>Restore IPSW via SSH…</strong> and confirm.</li>
+<li>When the log says <strong>Power On the iOS guest NOW</strong>, Power
+On the iOS VM. It boots in recovery mode because the Restore ramdisk is
+set.</li>
+<li>Wait. When the restore completes, the emulator exits on purpose and
+AQEMU shows <strong>iOS restore finished - apply filesystem
+patches</strong>: "Inferno shut down after restore stage 1 (exit 0).
+That is expected."</li>
+<li>Click <strong>Apply filesystem patches...</strong> (the iOS VM must
+be off). When that succeeds, the Restore ramdisk is cleared.</li>
+<li>Power On the iOS VM. AQEMU's message says to "wait for data
+migration / setup". How far it gets depends on your setup and
+files.</li>
+</ol>
+<h2 id="14-the-boot-process-what-to-expect">14. The boot process: what
+to expect</h2>
+<ul>
+<li><strong>First Power On creates the disks.</strong> AQEMU makes a
+folder named <code>&lt;VM file name&gt;_inferno</code> next to the
+<code>.aqemu</code> file, containing: <code>root</code> (your NAND
+size), <code>firmware</code> (256 MiB), <code>panic_log</code> (16 MiB),
+<code>sep_ssc</code> (128 KiB), <code>sep_nvram</code> (64 KiB), and
+<code>syscfg</code>, <code>ctrl_bits</code>, <code>nvram</code>,
+<code>effaceable</code> (1 MiB each). <code>root</code> gets a
+placeholder GPT until a restore rewrites it.</li>
+<li><strong>Checks before launch.</strong> AQEMU refuses to start if a
+required file is missing (see <a
+href="#17-troubleshooting">Troubleshooting</a>). It never adds boot
+files or boot args you didn't set.</li>
+<li><strong>The screen takes a long time.</strong> The session shows
+"Waiting for guest display… (n)" for up to about 3 minutes. After that
+it warns "Guest display still waiting" but keeps trying, and the VM
+keeps running.</li>
+<li><strong>It's slow.</strong> Every x64 host emulates the whole ARM
+board in software (TCG). Expect long waits at every stage.</li>
+<li><strong>Lots of <code>info:</code>/<code>warning:</code> lines are
+normal.</strong> The emulator prints its kernel-patch steps there. On
+WSL, ALSA "Failed to create voice" messages are harmless.</li>
+<li><strong>The log.</strong> Everything the emulator prints goes to
+<code>qemu-boot.log</code> in the <code>_inferno</code> folder, with a
+header and an exit line. Check it first when something stops.</li>
+<li><strong>An exit after a restore is expected.</strong> See step 9
+above.</li>
+<li><strong>Without filesystem patches the screen stays
+black.</strong></li>
+</ul>
+<h2 id="15-hardware-buttons">15. Hardware buttons</h2>
 <p>While the VM runs, click <strong>Pad</strong> on the session toolbar
 ("Show / hide floating iOS button pad"):</p>
 <table>
 <thead>
 <tr class="header">
 <th>Button</th>
-<th>Inferno key</th>
+<th>Key</th>
 <th>Action</th>
 </tr>
 </thead>
@@ -455,12 +1035,12 @@ the iOS VM's <code>root</code> disk (not the companion's).</li>
 <tr class="odd">
 <td><strong>Side</strong></td>
 <td>F5</td>
-<td>Click: sleep/wake. Hold about 2 s: power menu</td>
+<td>Click: sleep/wake. Hold about 2 s: power menu.</td>
 </tr>
 <tr class="even">
 <td><strong>Home</strong></td>
 <td>F6</td>
-<td>Click: Home. Double-click: App Switcher</td>
+<td>Click: Home. Double-click: App Switcher.</td>
 </tr>
 <tr class="odd">
 <td><strong>SOS</strong></td>
@@ -469,23 +1049,320 @@ the iOS VM's <code>root</code> disk (not the companion's).</li>
 </tr>
 </tbody>
 </table>
-<h2 id="12-limitations">12. Limitations</h2>
+<h2 id="16-limitations-and-what-isnt-working-yet">16. Limitations and
+what isn't working yet</h2>
 <ul>
 <li><strong>Experimental.</strong> It may not boot at all on your
 setup.</li>
-<li>Emulated (TCG) on every x64 host. KVM is only possible on ARM64
-hosts and is unverified.</li>
-<li>On Windows, the companion and device tools need WSL.</li>
+<li><strong>One board only:</strong> <code>n104ap</code> / iPhone 11
+(<code>t8030</code>).</li>
+<li><strong>Slow:</strong> TCG on every x64 host. KVM is only possible
+on ARM64 hosts (natively on Linux, through WSL on Windows) and is
+unverified in these docs.</li>
+<li><strong>The guided flow is Windows + WSL only.</strong> On Linux you
+run the companion, the restore and the filesystem patches by hand (<a
+href="#3-what-aqemu-automates-on-each-host">section 3</a>).</li>
+<li><strong>Firmware Tool Step 1 uses PowerShell</strong>, so it doesn't
+work on Linux.</li>
+<li><strong>AQEMU doesn't build or ship
+<code>qemu-system-x86_64-inferno</code></strong> for the companion.</li>
 <li>These docs don't confirm whether
-<code>qemu-system-applesoc.exe</code> or the WSL Linux build is included
-in every AQEMU package. If yours lacks both, AQEMU tells you when you
-press Start.</li>
-<li>No app-install workflow is documented or supported here.</li>
+<code>qemu-system-applesoc.exe</code> or the WSL Linux build is in every
+AQEMU package. If yours has neither, AQEMU tells you when you press
+Power On.</li>
+<li><strong>NAND size can't grow</strong> after a restore. Wipe and
+restore again.</li>
+<li><strong>No app-install workflow</strong> is documented or supported
+here, and the internet tab is unverified.</li>
+<li><strong>Help text in the app still mentions old menu paths</strong>
+such as "File → Apple SoC Restore", "File → Apply iOS filesystem
+patches" and "File → Configure → iOS firmware tools". The real places
+are <strong>VM → Apple</strong> and <strong>File →
+Preferences…</strong>.</li>
 </ul>
+<h2 id="17-troubleshooting">17. Troubleshooting</h2>
+<p>Messages are quoted from the app. "…" marks text we've shortened.</p>
+<table>
+<thead>
+<tr class="header">
+<th>Message</th>
+<th>What it means / what to do</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>"Add or select an Apple SoC / iOS (Inferno) virtual machine
+first."</td>
+<td>Select the iOS VM in the list, then reopen the VM → Apple item.</td>
+</tr>
+<tr class="even">
+<td>"Choose a Machine type on the MACHINE tab (for Inferno, typically
+t8030 / iphone11 / similar)."</td>
+<td>Set Machine type to <code>t8030</code>.</td>
+</tr>
+<tr class="odd">
+<td>"Missing %1. On the MACHINE tab, scroll to Options and choose the
+file for "%1"."</td>
+<td>Kernel or DeviceTree is empty. Fill it in.</td>
+</tr>
+<tr class="even">
+<td>"%1 file not found:… Pick an existing file in Options on the MACHINE
+tab."</td>
+<td>The path points at a file that's gone.</td>
+</tr>
+<tr class="odd">
+<td>"SEP firmware and SEP ROM must both be set, or both left
+empty."</td>
+<td>Set both, or clear both.</td>
+</tr>
+<tr class="even">
+<td>"USB remote type is set, but the address is empty…"</td>
+<td>Use <strong>Apply localhost preset</strong>, or set
+<code>127.0.0.1</code> / <code>/tmp/InfernoUSBRemote</code>.</td>
+</tr>
+<tr class="odd">
+<td>"USB remote is IPv4 but the TCP port is missing."</td>
+<td>Set the port to <code>8030</code>.</td>
+</tr>
+<tr class="even">
+<td>"Not enough free disk space for Apple SoC images under… Need about
+%2 MiB free (have %3 MiB)."</td>
+<td>Free space, or pick a smaller NAND size before the first boot.</td>
+</tr>
+<tr class="odd">
+<td>"Cannot format seed APFS: extras/Inferno/format-seed-apfs.sh not
+found."</td>
+<td>The <code>extras/Inferno</code> folder is missing next to AQEMU.
+Reinstall or rebuild.</td>
+</tr>
+<tr class="even">
+<td>"Windows QEMU for this VM is not installed, and WSL is not
+available…"</td>
+<td>Neither <code>qemu-system-applesoc.exe</code> nor WSL is available.
+Set up WSL.</td>
+</tr>
+<tr class="odd">
+<td>"AQEMU could not put its Linux Apple SoC binary into the WSL distro
+you selected (%1)… That file is not in this package yet."</td>
+<td>Your package has no WSL build. Put <code>qemu-system-applesoc</code>
+in WSL yourself, or set <strong>Apple SoC binary in WSL</strong>.</td>
+</tr>
+<tr class="even">
+<td>"Linux Inferno binary not found on WSL PATH"</td>
+<td>Same as above.</td>
+</tr>
+<tr class="odd">
+<td>"WSL configuration is required to launch this VM."</td>
+<td><strong>File → Configure WSL…</strong></td>
+</tr>
+<tr class="even">
+<td>"img4 not found" / "pyimg4 not found" / "Python 3 was not
+found."</td>
+<td>Install it, or set its path in <strong>File → Preferences… → iOS
+firmware tools</strong>.</td>
+</tr>
+<tr class="odd">
+<td>"Please select a valid .ipsw or .zip firmware file."</td>
+<td>Step 1 or the Restore window has no valid IPSW.</td>
+</tr>
+<tr class="even">
+<td>"Unpack the IPSW first (Step 1), or browse to
+BuildManifest.plist."</td>
+<td>Step 2 needs BuildManifest.</td>
+</tr>
+<tr class="odd">
+<td>"ticket.shsh2 is not inside the IPSW and AQEMU does not ship
+it."</td>
+<td>Step 2 needs a <code>ticket.shsh2</code> file you supply.</td>
+</tr>
+<tr class="even">
+<td>"Could not import/install pyasn1. Install Python 3 and retry."</td>
+<td>Python or pip isn't working.</td>
+</tr>
+<tr class="odd">
+<td>"Missing script": "create_apticket.py was not found:"</td>
+<td><code>extras/Inferno</code> is missing next to AQEMU.</td>
+</tr>
+<tr class="even">
+<td>"Need the SEP-Firmware IV (32 hex) immediately followed by its Key
+(64 hex), 96 characters total. Not iBoot. Must match this IPSW build.
+You pasted %1 hex character(s)."</td>
+<td>Fix the IVKEY in Step 3.</td>
+</tr>
+<tr class="odd">
+<td>"Forge restore + SEP tickets (Step 2) first."</td>
+<td>Step 3 needs the SEP ticket.</td>
+</tr>
+<tr class="even">
+<td>"Could not start img4 pack (decrypted SEP missing)."</td>
+<td>The decrypt part of Step 3 failed. Check the IVKEY and the log.</td>
+</tr>
+<tr class="odd">
+<td>"Process failed with exit code %1"</td>
+<td>Read the Output log above it.</td>
+</tr>
+<tr class="even">
+<td>"Missing companion disk. A diskless companion only binds the USB
+socket…"</td>
+<td>Set <strong>Companion disk</strong>.</td>
+</tr>
+<tr class="odd">
+<td>"WSL distro and username are required."</td>
+<td><strong>File → Configure WSL…</strong></td>
+</tr>
+<tr class="even">
+<td>"qemu-system-x86_64-inferno not found"</td>
+<td>Put the companion emulator in <code>/usr/local/bin</code> in
+WSL.</td>
+</tr>
+<tr class="odd">
+<td>"bios-256k.bin not found — install seabios (and qemu-system-data) in
+WSL"</td>
+<td><code>sudo apt install seabios qemu-system-data</code> in WSL.</td>
+</tr>
+<tr class="even">
+<td>"If write lock: Power Off the AQEMU Ubuntu companion VM, then
+retry."</td>
+<td>The companion VM is running from the list. Power it Off.</td>
+</tr>
+<tr class="odd">
+<td>"The iPhone USB link needs Inferno's Linux QEMU
+(qemu-system-x86_64-inferno)…"</td>
+<td>You powered on the companion from the list without the companion
+emulator in WSL. Use <strong>Start companion in WSL</strong>
+instead.</td>
+</tr>
+<tr class="even">
+<td>"Enter the companion Linux SSH username and password…"</td>
+<td>Fill in the SSH user and password.</td>
+</tr>
+<tr class="odd">
+<td>"Cannot SSH to companion after waiting."</td>
+<td>The companion didn't boot or SSH isn't installed. Check
+<code>/tmp/aqemu-inferno-companion.log</code> in WSL.</td>
+</tr>
+<tr class="even">
+<td>"Companion needs passwordless sudo for bob…"</td>
+<td>Give your companion user passwordless <code>sudo</code>.</td>
+</tr>
+<tr class="odd">
+<td>"IPSW not on 9p mount at:
+/mnt/aqemu_ipsw/aqemu-restore-current.ipsw"</td>
+<td>Stop companion, then Start companion with the IPSW selected.</td>
+</tr>
+<tr class="even">
+<td>"idevicerestore not found in companion PATH." / "FATAL: companion
+idevicerestore is missing the … patch."</td>
+<td>Install the patched <code>idevicerestore</code> inside the companion
+(<a href="#5-create-the-restore-companion-vm">section 5</a>).</td>
+</tr>
+<tr class="odd">
+<td>"Still no Apple USB after waiting (lsusb had no 05ac)."</td>
+<td>The order was wrong or the bridge doesn't match. Start companion →
+wait for SSH → Restore → Power On iOS when told. Check both VMs use
+<code>127.0.0.1:8030</code>.</td>
+</tr>
+<tr class="even">
+<td>"Another restore/diagnose command is still running."</td>
+<td>Wait for it to finish.</td>
+</tr>
+<tr class="odd">
+<td>"NORData then read error -256: USB bridge dropped; wipe disks and
+retry."</td>
+<td>Wipe Inferno disks and run the restore again. Also check SEP
+firmware is the packed <code>.new.img4</code>.</td>
+</tr>
+<tr class="even">
+<td>"GPT 78/75: Power Off, Power On (APFS Data seed), Restore
+once."</td>
+<td>Follow it exactly.</td>
+</tr>
+<tr class="odd">
+<td>"Power Off the iOS guest first."</td>
+<td>For Wipe and filesystem patches.</td>
+</tr>
+<tr class="even">
+<td>"Could not delete %1 (is iOS still Powered On?)"</td>
+<td>Power it Off and retry.</td>
+</tr>
+<tr class="odd">
+<td>"Failed to start wsl.exe. Configure File → WSL Launch first."</td>
+<td>Set up WSL (<a href="#4-one-time-setup">section 4</a>).</td>
+</tr>
+<tr class="even">
+<td>Filesystem patch failure: "Ensure the iOS VM is Powered Off and WSL
+has KVM (nested virtualization)."</td>
+<td>Turn on nested virtualization for WSL.</td>
+</tr>
+<tr class="odd">
+<td>"Guest display still waiting"</td>
+<td>Not an error. Leave it running and check
+<code>qemu-boot.log</code>.</td>
+</tr>
+<tr class="even">
+<td>"qemu-system-applesoc crashed (SIGSEGV / exit 139) after
+starting."</td>
+<td>Try Power On again. Start the companion first, or clear USB remote
+for a plain boot test.</td>
+</tr>
+<tr class="odd">
+<td>"The Inferno loader exited 0 before the kernel printed
+anything."</td>
+<td>Read the line under it. "Nothing is listening on…" means start the
+companion first.</td>
+</tr>
+<tr class="even">
+<td>"Apple SoC / iOS QEMU stopped (exit %1)."</td>
+<td>Usual causes: companion bridge not up, a guest panic, or a restore
+waiting on <code>idevicerestore</code>. Check
+<code>qemu-boot.log</code>.</td>
+</tr>
+<tr class="odd">
+<td>"Device Tools SSH helper is currently wired for Windows + WSL."</td>
+<td>Linux isn't supported for Device Tools.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="18-faq">18. FAQ</h2>
+<p><strong>Is this an iPhone simulator?</strong> No. It's an
+experimental emulator of one iPhone board, run as research tooling. It
+may not boot.</p>
+<p><strong>Does AQEMU come with iOS, or tell me where to get
+it?</strong> No. AQEMU doesn't include any Apple firmware or software
+and can't say where to get it. You source it yourself, legally, using
+your own judgement.</p>
+<p><strong>Which iOS versions work?</strong> We don't publish a list.
+The tools target <code>n104ap</code> (iPhone 11, <code>t8030</code>)
+only, and every file must come from the same build as your IPSW.</p>
+<p><strong>Why do I need a second Ubuntu VM?</strong> The emulated
+phone's USB only exists over the bridge, and the restore tools run on
+Linux. The companion is where the phone appears as a USB device.</p>
+<p><strong>Can I make it faster?</strong> Not on an x64 host: it's
+always TCG. On ARM64 you can try KVM (Linux natively, or Windows through
+WSL). That's unverified.</p>
+<p><strong>Can I use it on Linux?</strong> The iOS VM starts on Linux,
+but the guided restore, diagnose, Device Tools and automatic filesystem
+patching are Windows + WSL only. See <a
+href="#3-what-aqemu-automates-on-each-host">section 3</a>.</p>
+<p><strong>Why is the screen black?</strong> Usually because filesystem
+patches weren't applied after the restore, or because the display isn't
+up yet. See <a href="#14-the-boot-process-what-to-expect">section
+14</a>.</p>
+<p><strong>Can I make the NAND bigger later?</strong> No. Wipe Inferno
+disks, set the new size, and restore again.</p>
+<p><strong>Can I install apps?</strong> These docs don't cover or
+support that.</p>
+<p><strong>Does it delete my VM if I wipe?</strong> No. Wipe only
+removes the NAND images in the <code>_inferno</code> folder.</p>
+<p><strong>What do I check first when it fails?</strong> The Output log
+in the dialog you used, then <code>qemu-boot.log</code> in the
+<code>_inferno</code> folder, then
+<code>/tmp/aqemu-inferno-companion.log</code> in WSL.</p>
 <hr />
-<p>Related: <a href="macos-guide.html">macOS (experimental)</a> · <a
+<p>Related: <a href="accelerators.html">Accelerators</a> · <a
 href="new-vm-wizard.html">New VM wizard</a> · <a
-href="accelerators.html">Accelerators</a> · <a
+href="preferences.html">Preferences</a> · <a
+href="troubleshooting.html">Troubleshooting</a> · <a
 href="documentation-hub.html">Documentation Hub</a></p>
 
   </article>
