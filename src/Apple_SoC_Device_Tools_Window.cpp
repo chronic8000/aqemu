@@ -255,8 +255,7 @@ Apple_SoC_Device_Tools_Window::Apple_SoC_Device_Tools_Window( Virtual_Machine *v
 		"<li>NetworkManager <b>Shared</b> on USB/NCM ethernet (not the companion's main NIC)</li>"
 		"<li>Checks <code>idevice_id</code> can see the iPhone guest</li>"
 		"</ol>"
-		"<p>Then open Safari / App Store on the guest. "
-		"(ChefKiss <a href=\"https://github.com/ChefKissInc/Inferno/discussions/192\">#192</a>)</p>" ) );
+		"<p>Then open Safari / App Store on the guest.</p>" ) );
 	lblNet->setWordWrap( true );
 	lblNet->setOpenExternalLinks( true );
 	netLay->addWidget( lblNet );
@@ -274,16 +273,10 @@ Apple_SoC_Device_Tools_Window::Apple_SoC_Device_Tools_Window( Virtual_Machine *v
 	auto *netBtns = new QHBoxLayout();
 	auto *btnDiag = new QPushButton( tr( "Diagnose USB / idevice" ) );
 	auto *btnHints = new QPushButton( tr( "Copy manual commands" ) );
-	auto *btnGuide = new QPushButton( tr( "Open ChefKiss setup..." ) );
 	connect( btnDiag, &QPushButton::clicked, this, &Apple_SoC_Device_Tools_Window::Run_Network_Diagnose );
 	connect( btnHints, &QPushButton::clicked, this, &Apple_SoC_Device_Tools_Window::Apply_Reverse_Tether_Hints );
-	connect( btnGuide, &QPushButton::clicked, this, []() {
-		QDesktopServices::openUrl( QUrl( QStringLiteral(
-			"https://chefkiss.dev/guides/inferno/companion-setup/" ) ) );
-	} );
 	netBtns->addWidget( btnDiag );
 	netBtns->addWidget( btnHints );
-	netBtns->addWidget( btnGuide );
 	netBtns->addStretch();
 	netLay->addLayout( netBtns );
 	netLay->addStretch();
@@ -741,8 +734,7 @@ void Apple_SoC_Device_Tools_Window::Apply_Reverse_Tether_Hints()
 		"nmcli device\n"
 		"idevice_id -l\n"
 		"\n"
-		"# Then try Safari / App Store on the guest.\n"
-		"# Ref: https://github.com/ChefKissInc/Inferno/discussions/192\n" );
+		"# Then try Safari / App Store on the guest.\n" );
 	Text_Log->clear();
 	Append_Log( hints );
 	QApplication::clipboard()->setText( hints );

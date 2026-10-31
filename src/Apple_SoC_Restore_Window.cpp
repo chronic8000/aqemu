@@ -100,7 +100,7 @@ Apple_SoC_Restore_Window::Apple_SoC_Restore_Window( Virtual_Machine *vm, QWidget
 	lay->setSizeConstraint( QLayout::SetMinimumSize );
 
 	QLabel *intro = new QLabel( tr(
-		"<p><b>IPSW restore (ChefKiss Inferno) — two guests at once</b></p>"
+		"<p><b>IPSW restore (Inferno) — two guests at once</b></p>"
 		"<ol>"
 		"<li><b>Start companion</b> here (Inferno + <code>usb-tcp-remote</code> + your "
 		"<code>companion.qcow2</code>). Do <b>not</b> also Power On the Ubuntu companion "
@@ -112,10 +112,7 @@ Apple_SoC_Restore_Window::Apple_SoC_Restore_Window( Virtual_Machine *vm, QWidget
 		"<li>Enter companion SSH user/password below, then "
 		"<b>Restore IPSW via SSH</b> — AQEMU uploads the IPSW and runs "
 		"<code>idevicerestore</code> inside the companion (no manual scp).</li>"
-		"</ol>"
-		"<p>Docs: "
-		"<a href=\"https://chefkiss.dev/guides/inferno/companion-setup/\">Companion setup</a> · "
-		"<a href=\"https://chefkiss.dev/guides/inferno/troubleshooting/\">Troubleshooting</a>.</p>" ) );
+		"</ol>" ) );
 	intro->setWordWrap( true );
 	intro->setOpenExternalLinks( true );
 	lay->addWidget( intro );
@@ -1284,24 +1281,23 @@ void Apple_SoC_Restore_Window::Run_IDeviceRestore()
 		// Inferno reports HardwareModel N104DEV; stock libirecovery only knows N104AP.
 		// ChefKiss patch rewrites DEV→AP (logs \"INFO: model is …\"). Without it:
 		// \"Unable to discover device type\" after serial is seen.
-		"echo 'Checking idevicerestore ChefKiss patch (DEV→AP)...'\n"
+		"echo 'Checking idevicerestore Inferno patch (DEV→AP)...'\n"
 		"ssh_do 'command -v idevicerestore >/dev/null' || {\n"
 		"  echo 'idevicerestore not found in companion PATH.'; exit 1; }\n"
 		"if ! ssh_do 'strings \"$(command -v idevicerestore)\" 2>/dev/null | grep -Fq \"INFO: model is\"'; then\n"
 		"  echo\n"
-		"  echo 'FATAL: companion idevicerestore is missing the ChefKiss Inferno patch.'\n"
+		"  echo 'FATAL: companion idevicerestore is missing the Inferno patch.'\n"
 		"  echo 'Inferno reports model N104DEV; unpatched builds cannot map it →'\n"
 		"  echo '  \"Unable to discover device type\" (after serial INFERNO_…).'\n"
 		"  echo 'Fix inside companion (once):'\n"
 		"  echo '  cd ~/idevicerestore  # or re-clone libimobiledevice/idevicerestore'\n"
-		"  echo '  curl -fsSL -o ../idevicerestore.patch '\n"
-		"  echo '    https://chefkiss.dev/Extras/Inferno/idevicerestore.patch'\n"
+		"  echo '  # copy AQEMU extras/Inferno/idevicerestore.patch to ~ first'\n"
 		"  echo '  git apply ../idevicerestore.patch   # or use #119 ASR patch if this fails'\n"
 		"  echo '  PKG_CONFIG_PATH=/usr/local/lib/pkgconfig ./autogen.sh && make -j\"$(nproc)\" && sudo make install'\n"
 		"  echo 'Also need a real root_ticket.der (not the 2-byte placeholder) for -T.'\n"
 		"  exit 4\n"
 		"fi\n"
-		"echo 'idevicerestore looks ChefKiss-patched (INFO: model is present).'\n"
+		"echo 'idevicerestore looks Inferno-patched (INFO: model is present).'\n"
 		"echo 'Pinning companion idevicerestore to ChefKiss-era 74e3bd9 if needed (once)...'\n"
 		"if [ -n \"$CFS_PY\" ] && [ -f \"$CFS_PY\" ]; then\n"
 		"  sshpass -e scp -P 32222 \"${SSH_OPTS[@]}\" \"$CFS_PY\" "
@@ -1489,8 +1485,8 @@ void Apple_SoC_Restore_Window::Run_IDeviceRestore()
 		"  echo\n"
 		"  echo 'idevicerestore failed.'\n"
 		"  echo 'If log said \"Unable to discover device type\" after serial INFERNO_*:'\n"
-		"  echo '  companion idevicerestore lacks ChefKiss N104DEV→AP patch.'\n"
-		"  echo '  https://chefkiss.dev/Extras/Inferno/idevicerestore.patch'\n"
+		"  echo '  companion idevicerestore lacks the Inferno N104DEV→AP patch'\n"
+		"  echo '  (AQEMU extras/Inferno/idevicerestore.patch).'\n"
 		"  echo 'If log said \"invalid GPT header\" or \"Storage with GPT format\" (78) or \"Missing data volume\" (75):'\n"
 		"  echo '  Update-path ramrod needs an APFS Data volume. Power Off, Power On, Restore.'\n"
 		"  echo 'If log reached \"Done sending NORData\" then \"Could not read data (-256)\":'\n"
@@ -1564,9 +1560,9 @@ void Apple_SoC_Restore_Window::On_Process_Finished( int code, QProcess::ExitStat
 	if( code == 0 )
 	{
 		Append_Log( tr(
-			"\nNext (required): apply ChefKiss filesystem patches to the guest "
+			"\nNext (required): apply iOS filesystem patches to the guest "
 			"root disk before SpringBoard will boot — otherwise VNC stays black.\n"
-			"  https://chefkiss.dev/guides/inferno/fs-patches/\n"
+			"  VM → Apple → Apply iOS filesystem patches…\n"
 			"Then clear MACHINE → Restore ramdisk (-initrd) and Power On." ) );
 	}
 	else

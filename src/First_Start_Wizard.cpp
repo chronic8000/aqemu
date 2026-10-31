@@ -106,7 +106,7 @@ bool First_Start_Wizard::Find_Emulators()
 void First_Start_Wizard::on_Button_Cancel_clicked()
 {
 	if( QMessageBox::information( this, tr( "Warning!" ),
-		tr( "Are you sure? You can configure AQEMU at any time in File → Settings." ),
+		tr( "Are you sure? You can configure AQEMU at any time in File → Preferences…." ),
 		QMessageBox::Yes | QMessageBox::No, QMessageBox::No ) == QMessageBox::Yes )
 	{
 		reject();

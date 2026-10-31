@@ -2430,11 +2430,6 @@ void VM_Session_Widget::On_Apple_More_Buttons()
 			On_Toggle_Button_Pad();
 		}
 	} );
-	menu.addSeparator();
-	menu.addAction( tr( "ChefKiss button guide…" ), this, []() {
-		QDesktopServices::openUrl( QUrl( QStringLiteral(
-			"https://chefkiss.dev/guides/inferno/device-buttons/" ) ) );
-	} );
 	if( Act_Apple_More )
 	{
 		QWidget *w = Toolbar ? Toolbar->widgetForAction( Act_Apple_More ) : nullptr;

@@ -15556,7 +15556,7 @@ void Virtual_Machine::QEMU_Finished( int exitCode, QProcess::ExitStatus exitStat
 			"Apply filesystem patches to the iOS guest root disk "
 			"(not the Ubuntu companion).\n"
 			"Root image:\n%1\n\n"
-			"Use File -> Apply iOS filesystem patches... "
+			"Use VM -> Apple -> Apply iOS filesystem patches... "
 			"(or the button in Apple SoC Restore / MACHINE tab).\n"
 			"After patches succeed, Restore ramdisk is cleared automatically; "
 			"then Power On and wait for data migration / setup.\n\n"

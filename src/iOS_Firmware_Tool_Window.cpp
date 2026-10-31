@@ -74,7 +74,7 @@ bool iOS_Firmware_Tool_Window::Ensure_Img4_Available()
 	{
 		QMessageBox::warning( this, tr( "img4 not found" ),
 			tr( "img4 (xerub img4lib) was not found.\n\n"
-			    "Set File → Configure → iOS firmware tools → img4, "
+			    "Set File → Preferences… → Emulator → iOS firmware tools → img4, "
 			    "or place img4.exe beside aqemu.exe / on PATH." ) );
 		return false;
 	}
@@ -88,7 +88,7 @@ bool iOS_Firmware_Tool_Window::Ensure_PyIMG4_Available()
 	{
 		QMessageBox::warning( this, tr( "pyimg4 not found" ),
 			tr( "pyimg4 was not found.\n\n"
-			    "Set File → Configure → iOS firmware tools → pyimg4, "
+			    "Set File → Preferences… → Emulator → iOS firmware tools → pyimg4, "
 			    "or place pyimg4.exe beside aqemu.exe / on PATH." ) );
 		return false;
 	}
@@ -120,8 +120,8 @@ void iOS_Firmware_Tool_Window::Setup_Ui()
 
 	QLabel *subtitle = new QLabel( tr(
 		"Stay in this window: unpack the IPSW, forge restore/SEP tickets, pack SEP firmware, "
-		"then process DeviceTree/kernel IM4P. Python / img4 / pyimg4: File → Configure → "
-		"iOS firmware tools (or PATH / next to aqemu.exe)." ) );
+		"then process DeviceTree/kernel IM4P. Python / img4 / pyimg4: File → Preferences… → "
+		"Emulator → iOS firmware tools (or PATH / next to aqemu.exe)." ) );
 	subtitle->setWordWrap( true );
 	main_lay->addWidget( subtitle );
 
@@ -159,7 +159,7 @@ void iOS_Firmware_Tool_Window::Setup_Ui()
 		"Uses bundled extras/Inferno scripts. Needs Python 3 with pyasn1 "
 		"(AQEMU will pip-install if missing). "
 		"ticket.shsh2 is not in the IPSW and is not shipped by AQEMU — "
-		"get it from ChefKiss Inferno file setup, then Browse…" ) );
+		"Browse… to your own copy." ) );
 	lblTickInfo->setWordWrap( true );
 	gridT->addWidget( lblTickInfo, 0, 0, 1, 3 );
 
@@ -178,22 +178,13 @@ void iOS_Firmware_Tool_Window::Setup_Ui()
 
 	gridT->addWidget( new QLabel( tr( "ticket.shsh2:" ) ), 3, 0 );
 	Edit_SHSH = new QLineEdit();
-	Edit_SHSH->setPlaceholderText( tr( "Not in the IPSW — Browse after you save ChefKiss’s file" ) );
+	Edit_SHSH->setPlaceholderText( tr( "Not in the IPSW — Browse… to your ticket.shsh2" ) );
 	gridT->addWidget( Edit_SHSH, 3, 1 );
 	auto *shshRow = new QHBoxLayout();
 	shshRow->setContentsMargins( 0, 0, 0, 0 );
 	auto *btnShsh = new QPushButton( tr( "Browse..." ) );
 	connect( btnShsh, &QPushButton::clicked, this, &iOS_Firmware_Tool_Window::Browse_SHSH );
-	auto *btnShshWeb = new QPushButton( tr( "How to get this…" ) );
-	btnShshWeb->setToolTip( tr(
-		"Opens ChefKiss Inferno file setup. They host ticket.shsh2 for the unsigned IPSW flow. "
-		"AQEMU does not download or ship that blob (Apple Img4 ticket data)." ) );
-	connect( btnShshWeb, &QPushButton::clicked, this, []() {
-		QDesktopServices::openUrl( QUrl( QStringLiteral(
-			"https://chefkiss.dev/guides/inferno/file-setup/" ) ) );
-	} );
 	shshRow->addWidget( btnShsh );
-	shshRow->addWidget( btnShshWeb );
 	QWidget *shshBtns = new QWidget();
 	shshBtns->setLayout( shshRow );
 	gridT->addWidget( shshBtns, 3, 2 );
@@ -250,12 +241,12 @@ void iOS_Firmware_Tool_Window::Setup_Ui()
 	}
 
 	QGroupBox *gb_sep = new QGroupBox( tr(
-		"Step 3: Pack SEP firmware (img4 — same ChefKiss recipe, no cmd.exe)" ) );
+		"Step 3: Pack SEP firmware (img4, no cmd.exe)" ) );
 	QGridLayout *gridS = new QGridLayout( gb_sep );
 	gridS->setColumnStretch( 1, 1 );
 	QLabel *lblSepInfo = new QLabel( tr(
 		"Needs img4 (xerub img4lib) next to AQEMU or on PATH. "
-		"IV+Key concatenated from The Apple Wiki for this SEP IM4P. "
+		"IV+Key concatenated for this SEP IM4P. "
 		"Decrypt then wrap with the SEP ticket from Step 2." ) );
 	lblSepInfo->setWordWrap( true );
 	gridS->addWidget( lblSepInfo, 0, 0, 1, 3 );
@@ -273,16 +264,10 @@ void iOS_Firmware_Tool_Window::Setup_Ui()
 	Edit_SEP_IVKEY->setPlaceholderText( tr(
 		"SEP-Firmware only: 32-char IV then 64-char Key, no spaces (96 hex)" ) );
 	Edit_SEP_IVKEY->setToolTip( tr(
-		"Apple Wiki → your IPSW build → iPhone12,1 → heading SEP-Firmware "
+		"SEP-Firmware IV and Key for your IPSW build "
 		"(sep-firmware.n104.RELEASE.im4p). Paste IV immediately followed by Key. "
 		"Do not use iBoot/iBEC keys. Build 18A373 keys do not decrypt 18A5351d." ) );
 	gridS->addWidget( Edit_SEP_IVKEY, 2, 1 );
-	auto *btnWiki = new QPushButton( tr( "Apple Wiki…" ) );
-	connect( btnWiki, &QPushButton::clicked, this, []() {
-		QDesktopServices::openUrl( QUrl( QStringLiteral(
-			"https://theapplewiki.com/wiki/Firmware_Keys" ) ) );
-	} );
-	gridS->addWidget( btnWiki, 2, 2 );
 
 	gridS->addWidget( new QLabel( tr( "Decrypted SEP:" ) ), 3, 0 );
 	Edit_SEP_Dec = new QLineEdit();
@@ -435,7 +420,7 @@ void iOS_Firmware_Tool_Window::Browse_Manifest()
 void iOS_Firmware_Tool_Window::Browse_SHSH()
 {
 	const QString file = QFileDialog::getOpenFileName(
-		this, tr( "ChefKiss ticket.shsh2" ),
+		this, tr( "ticket.shsh2" ),
 		Edit_SHSH->text(),
 		tr( "SHSH2 (*.shsh2);;All (*)" ) );
 	if( file.isEmpty() )
@@ -570,7 +555,7 @@ bool iOS_Firmware_Tool_Window::Ensure_Python_Ready()
 	{
 		QMessageBox::warning( this, tr( "Python 3" ),
 			tr( "Python 3 was not found.\n\n"
-			    "Set File → Configure → iOS firmware tools → Python 3, "
+			    "Set File → Preferences… → Emulator → iOS firmware tools → Python 3, "
 			    "or install Python and add it to PATH. AQEMU starts it — you do not type commands." ) );
 		return false;
 	}
@@ -767,9 +752,7 @@ void iOS_Firmware_Tool_Window::Run_Forge_Tickets()
 	{
 		QMessageBox::warning( this, tr( "ticket.shsh2" ),
 			tr( "ticket.shsh2 is not inside the IPSW and AQEMU does not ship it.\n\n"
-			    "On ChefKiss Inferno file setup, download the ticket SHSH they provide "
-			    "for this flow, save it, then Browse… to that file.\n"
-			    "https://chefkiss.dev/guides/inferno/file-setup/" ) );
+			    "Browse… to your ticket.shsh2 file." ) );
 		return;
 	}
 	QSettings s;
@@ -958,7 +941,7 @@ void iOS_Firmware_Tool_Window::On_Process_Finished( int exitCode, QProcess::Exit
 	{
 		Text_Result_Paths->append( tr( "SEP ticket: %1" ).arg( Last_Ticket_Out ) );
 		Text_Console_Log->append( tr(
-			"Next: Step 3 — paste Apple Wiki IVKEY and Decrypt + pack SEP firmware." ) );
+			"Next: Step 3 — paste the SEP IVKEY and Decrypt + pack SEP firmware." ) );
 		return;
 	}
 

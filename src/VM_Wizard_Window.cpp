@@ -5241,7 +5241,7 @@ void VM_Wizard_Window::Build_Inferno_Companion_Page()
 
 	QLabel *tip = new QLabel( tr(
 		"<i>After Finish:</i> Power On this VM, install Ubuntu (enable OpenSSH), then use "
-		"<b>File → Apple SoC Restore → Start companion</b> before the iOS guest." ),
+		"<b>VM → Apple → Apple SoC Restore… → Start companion</b> before the iOS guest." ),
 		Inferno_Companion_Page );
 	tip->setWordWrap( true );
 	lay->addWidget( tip );
@@ -6880,7 +6880,7 @@ void VM_Wizard_Window::Update_Finish_Page_Guidance()
 			"creates <code>companion.qcow2</code>.</li>"
 			"<li><b>Mounts the ISO as CD-ROM</b> and boots the installer first.</li>"
 			"<li>SSH from the host: <code>ssh -p 32222 user@127.0.0.1</code></li>"
-			"<li>After Ubuntu is installed, use <b>File → Apple SoC Restore → Start companion</b> "
+			"<li>After Ubuntu is installed, use <b>VM → Apple → Apple SoC Restore… → Start companion</b> "
 			"so Inferno presents the iPhone USB <b>inside</b> this Linux guest for "
 			"<code>idevicerestore</code>.</li>"
 			"</ul>"
@@ -6896,8 +6896,8 @@ void VM_Wizard_Window::Update_Finish_Page_Guidance()
 			"or Custom (16–2048 GiB). Default 32 GiB. Same control as MACHINE.</li>"
 			"<li>Create the companion first: Guest OS → Apple → "
 			"<b>iPhone IPSW Restore Companion</b>, then "
-			"<b>File → Apple SoC Restore</b>.</li>"
-			"<li>Use <b>File → iOS Firmware Tool</b> to unpack IPSW / IM4P when needed.</li>"
+			"<b>VM → Apple → Apple SoC Restore…</b>.</li>"
+			"<li>Use <b>VM → Apple → iOS Firmware Tool…</b> to unpack IPSW / IM4P when needed.</li>"
 			"</ul>" ).arg( QLatin1String( CURRENT_AQEMU_VERSION ) );
 	}
 	else if( Selected_OS_Name.contains( "Reims", Qt::CaseInsensitive ) ||

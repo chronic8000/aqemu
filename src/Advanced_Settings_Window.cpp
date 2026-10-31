@@ -253,7 +253,8 @@ Advanced_Settings_Window::Advanced_Settings_Window( QWidget *parent )
 		wslLay->addWidget( CH_WSL_Remember_Password );
 
 		QHBoxLayout *vkLay = new QHBoxLayout();
-		vkLay->addWidget( new QLabel( tr( "Reims Vulkan GPU:" ) ) );
+		QLabel *vkLabel = new QLabel( tr( "Reims Vulkan GPU:" ) );
+		vkLay->addWidget( vkLabel );
 		CB_WSL_Vulkan_Device = new QComboBox();
 		CB_WSL_Vulkan_Device->setEditable( true );
 		CB_WSL_Vulkan_Device->addItem( tr( "Auto (first accelerated device)" ), QStringLiteral( "auto" ) );
@@ -273,6 +274,9 @@ Advanced_Settings_Window::Advanced_Settings_Window( QWidget *parent )
 		else if( ! saved_vk.isEmpty() && saved_vk != QLatin1String( "auto" ) )
 			CB_WSL_Vulkan_Device->setEditText( saved_vk );
 		vkLay->addWidget( CB_WSL_Vulkan_Device );
+		// Hidden until Reims ships (#42). Widgets stay so the saved value round-trips.
+		vkLabel->setVisible( false );
+		CB_WSL_Vulkan_Device->setVisible( false );
 		wslLay->addLayout( vkLay );
 
 		CH_WSL_Reims_Host_Window = new QCheckBox( tr(
@@ -286,6 +290,7 @@ Advanced_Settings_Window::Advanced_Settings_Window( QWidget *parent )
 			"segfaults inside vkCreateDevice. Leave unchecked unless you are testing present. "
 			"AQEMU's embedded viewer stays blank either way (-vga none)." ) );
 		wslLay->addWidget( CH_WSL_Reims_Host_Window );
+		CH_WSL_Reims_Host_Window->setVisible( false ); // Hidden until Reims ships (#42).
 
 		QHBoxLayout *binLay = new QHBoxLayout();
 		binLay->addWidget( new QLabel( tr( "QEMU binary in WSL:" ) ) );
@@ -312,11 +317,8 @@ Advanced_Settings_Window::Advanced_Settings_Window( QWidget *parent )
 
 		QLabel *note = new QLabel( tr(
 			"SPICE/QMP stay on 127.0.0.1 — requires WSL localhostForwarding.\n"
-			"Apple SoC / Reims always use WSL Linux binaries. KVM fixes prefer wsl -u root; "
-			"an optional password can be saved in Windows Credential Manager (never AQEMU.ini).\n"
-			"Reims uses host Vulkan via WSLg D3D12 (NVIDIA, AMD, or Intel) — not a Windows "
-			"VFIO picker. If vulkaninfo only shows llvmpipe, install Mesa Dozen (dzn).\n"
-			"Reims display: -display none + embedded VNC for early boot; do not use QEMU SDL/GTK." ) );
+			"Apple SoC always uses WSL Linux binaries. KVM fixes prefer wsl -u root; "
+			"an optional password can be saved in Windows Credential Manager (never AQEMU.ini)." ) );
 		note->setWordWrap( true );
 		wslLay->addWidget( note );
 
@@ -335,7 +337,7 @@ Advanced_Settings_Window::Advanced_Settings_Window( QWidget *parent )
 		QGroupBox *fwBox = new QGroupBox( tr( "iOS firmware tools" ), ui.Tab_General );
 		QVBoxLayout *fwLay = new QVBoxLayout( fwBox );
 		QLabel *fwHelp = new QLabel( tr(
-			"Used by File → iOS Firmware Tool. A path here is used when the file exists. "
+			"Used by VM → Apple → iOS Firmware Tool. A path here is used when the file exists. "
 			"Leave empty to search next to AQEMU, then the system PATH." ) );
 		fwHelp->setWordWrap( true );
 		fwLay->addWidget( fwHelp );
@@ -772,7 +774,7 @@ void Advanced_Settings_Window::VNC_Warning( bool state )
 	if( Settings.value("Show_VNC_Warning", "yes").toString() == "yes" )
 	{
 		if( QMessageBox::information(this, tr("Information"),
-			tr("Support for this feature is not complete! If there is no picture, click \"View->Reinit VNC\"\nShow This Message Again?"),
+			tr("Support for this feature is not complete! If there is no picture, open VM → Tools → Show Emulator Control and click \"View → Reinit VNC\".\nShow This Message Again?"),
 			QMessageBox::Yes | QMessageBox::No) == QMessageBox::No )
 		{
 			Settings.setValue( "Show_VNC_Warning", "no" );

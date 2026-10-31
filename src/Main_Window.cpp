@@ -7796,7 +7796,7 @@ void Main_Window::Build_Apple_SoC_Inferno_Ui()
 			"When set, AQEMU also passes boot-mode=enter_recovery so NVRAM "
 			"auto-boot=true from a prior restore cannot skip recovery.\n"
 			"Clear this field after restore + filesystem patches for normal "
-			"SpringBoard boot (File → Apply iOS filesystem patches clears it).\n"
+			"SpringBoard boot (VM → Apple → Apply iOS filesystem patches… clears it).\n"
 			"Typical: …/firmware_extracted/038-44135-124.dmg" ) );
 	}
 
