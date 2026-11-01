@@ -4,6 +4,14 @@ Welcome to the AQEMU docs! AQEMU is a desktop front end for QEMU on Windows and 
 
 These are the **v1** docs. Everything in them was checked against the AQEMU source on `master`: menu names, button labels, defaults, and the QEMU flags AQEMU generates. If something in the app doesn't match what you read here, please [open an issue](https://github.com/chronic8000/aqemu/issues) and tell us.
 
+## Get support
+
+**Stuck? We reply.** Pick whichever suits you:
+
+- **Facebook:** message or comment on the [Chronic Engineering Page](https://www.facebook.com/profile.php?id=61596274823653). Bugs reported there get logged on GitHub.
+- **GitHub:** open an issue at [GitHub Issues](https://github.com/chronic8000/aqemu/issues). **Help → Copy setup for a GitHub issue** copies your AQEMU version, host and QEMU path, so paste that in.
+- **Docs:** try [Troubleshooting and FAQ](guides/features/troubleshooting.md) or the [guides below](#start-here).
+
 ---
 
 ## Start here

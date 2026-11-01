@@ -4,6 +4,14 @@
 
 Something not working? Find the message or symptom below. Messages in quotes are copied from AQEMU itself.
 
+## Get support
+
+**Stuck? We reply.** Pick whichever suits you:
+
+- **Facebook:** message or comment on the [Chronic Engineering Page](https://www.facebook.com/profile.php?id=61596274823653). Bugs reported there get logged on GitHub.
+- **GitHub:** open an issue at [GitHub Issues](https://github.com/chronic8000/aqemu/issues). **Help → Copy setup for a GitHub issue** copies your AQEMU version, host and QEMU path, so paste that in.
+- **Docs:** look for your symptom below, or browse the [docs home](../../README.md).
+
 ---
 
 ## 1. "Cannot start emulator!"

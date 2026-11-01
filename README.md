@@ -4,6 +4,10 @@
   <b>Documentation:</b> <a href="https://chronic8000.github.io/aqemu/docs/index.html">AQEMU docs home</a> · <a href="docs/README.md">docs/README.md</a> (getting started, every host, settings, guest OS guides, troubleshooting)
 </p>
 
+<p align="center">
+  <b>Stuck? We reply.</b> Message or comment on the <a href="https://www.facebook.com/profile.php?id=61596274823653">Chronic Engineering Facebook Page</a> (bugs get logged on GitHub) · open a <a href="https://github.com/chronic8000/aqemu/issues">GitHub issue</a> · read the <a href="https://chronic8000.github.io/aqemu/docs/troubleshooting.html">Troubleshooting and FAQ</a> or <a href="https://chronic8000.github.io/aqemu/docs/">docs</a>
+</p>
+
 <h1 align="center">AQEMU</h1>
 
 <p align="center">
@@ -42,6 +46,14 @@
 </p>
 
 ---
+
+## 🛟 Get support
+
+**Stuck? We reply.** Pick whichever suits you:
+
+- **Facebook:** message or comment on the [Chronic Engineering Page](https://www.facebook.com/profile.php?id=61596274823653). Bugs reported there get logged on GitHub.
+- **GitHub:** open an issue at [GitHub Issues](https://github.com/chronic8000/aqemu/issues). In the app, **Help → Copy setup for a GitHub issue** copies your AQEMU version, host and QEMU path, so paste that in.
+- **Docs:** [Troubleshooting and FAQ](https://chronic8000.github.io/aqemu/docs/troubleshooting.html) · [docs home](https://chronic8000.github.io/aqemu/docs/) · [`docs/README.md`](docs/README.md)
 
 ## 🛒 Get AQEMU VM Manager
 
