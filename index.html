@@ -58,6 +58,8 @@ h1 .grad{background:linear-gradient(90deg,var(--acc),var(--acc2));-webkit-backgr
 .stats{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin:0 0 24px}.stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
 .stat b{display:block;font-size:28px;line-height:1.15;letter-spacing:-.01em}.stat span{color:var(--mute);font-size:14px}.stat a{color:var(--acc)}
 .btn.try{background:linear-gradient(135deg,var(--acc),var(--acc2));border:0;color:#fff}.btn.try:hover{text-decoration:none;filter:brightness(1.08)}
+.support{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}@media(max-width:800px){.support{grid-template-columns:1fr}}
+.support a.card{display:block;color:var(--text)}.support a.card:hover{text-decoration:none;border-color:var(--acc)}.support h3{margin:0 0 6px}.support p{margin:0;color:var(--mute)}
 section{padding:72px 0}section.alt{background:var(--bg2);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
 h2{font-size:clamp(26px,3.4vw,36px);margin:0 0 12px;letter-spacing:-.01em}
 .sub{color:var(--mute);margin:0 0 36px;max-width:720px}
@@ -86,7 +88,7 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}
 <body>
 <header class="nav"><div class="wrap">
   <a class="brand" href="#top"><img src="img/logo.png" alt="AQEMU logo" width="34" height="27">AQEMU</a>
-  <nav><a class="hide-sm" href="#features">Features</a><a class="hide-sm" href="#pricing">Pricing</a><a href="docs/">Docs</a><a href="#faq">FAQ</a><a href="https://github.com/chronic8000/aqemu">GitHub</a></nav>
+  <nav><a class="hide-sm" href="#features">Features</a><a class="hide-sm" href="#pricing">Pricing</a><a href="docs/">Docs</a><a href="#faq">FAQ</a><a href="#support">Support</a><a href="https://github.com/chronic8000/aqemu">GitHub</a></nav>
 </div></header>
 
 <main id="top">
@@ -102,6 +104,16 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}
     <p class="note">7-day trial on the Microsoft Store, then a one-time £12.99. No subscription. Source code is GPLv2.</p>
   </div>
   <figure class="shot"><img src="img/reactos.webp" alt="ReactOS 64-bit running inside AQEMU on Windows, with the Paste files, To guest and From guest toolbar" width="1600" height="1066" fetchpriority="high"></figure>
+</div></section>
+
+<section id="support" style="padding:48px 0"><div class="wrap">
+  <h2>Stuck? We reply.</h2>
+  <p class="sub" style="margin-bottom:24px">Trying AQEMU and something isn't working? Get in touch whichever way suits you.</p>
+  <div class="support">
+    <a class="card" href="https://www.facebook.com/profile.php?id=61596274823653" rel="noopener"><h3>💬 Facebook</h3><p>Message or comment on the Chronic Engineering Page. Bugs reported there get logged on GitHub.</p></a>
+    <a class="card" href="https://github.com/chronic8000/aqemu/issues" rel="noopener"><h3>🐞 GitHub Issues</h3><p>Report a bug or ask a question. In the app, Help → Copy setup for a GitHub issue copies your version and host.</p></a>
+    <a class="card" href="docs/troubleshooting.html"><h3>📖 Docs</h3><p>Troubleshooting and FAQ, plus guides for every host and guest in the <span style="color:var(--acc)">docs</span>.</p></a>
+  </div>
 </div></section>
 
 <section id="proof" class="alt"><div class="wrap proof">
@@ -216,7 +228,7 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}
 
 <footer><div class="wrap">
   <span>© 2026 Chronic Engineering · AQEMU is GPLv2 · QEMU is a trademark of Fabrice Bellard.</span>
-  <span><a href="https://apps.microsoft.com/detail/9P0HGKHQ9W19?cid=ghpages">Microsoft Store</a> · <a href="https://github.com/chronic8000/aqemu">GitHub</a> · <a href="https://github.com/chronic8000/aqemu/blob/master/PRIVACY.md">Privacy</a></span>
+  <span><a href="#support">Get support</a> · <a href="https://www.facebook.com/profile.php?id=61596274823653">Facebook</a> · <a href="https://apps.microsoft.com/detail/9P0HGKHQ9W19?cid=ghpages">Microsoft Store</a> · <a href="https://github.com/chronic8000/aqemu">GitHub</a> · <a href="https://github.com/chronic8000/aqemu/blob/master/PRIVACY.md">Privacy</a></span>
 </div></footer>
 </body>
 </html>
