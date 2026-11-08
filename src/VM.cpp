@@ -7648,9 +7648,11 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		// GICv3 for modern aarch64 guests (Win11 ARM / Linux virt).
 		// Explicit gic-version=3 (not max) so TCG on x86 never silently falls back to GICv2.
 		// WHPX cannot instantiate a GICv3 ITS ("ITS not supported on WHPX").
-		// msi=gicv2m is the MSI controller QEMU uses for WHPX. highmem=on stays off
-		// on that path: it is not part of QEMU's WHPX default and has been tied to
-		// host crashes on Insider ARM builds.
+		// msi=gicv2m is the MSI controller QEMU uses for WHPX.
+		// highmem=off limits the whole map to 32 bits. RAM starts at 1 GiB, so
+		// an 8 GiB guest is rejected ("memory exceeds it by 5368709120 bytes").
+		// The 512 GiB high PCIe window is what does not belong on this WHPX
+		// path. RAM above 4 GiB stays, and those high windows stay off.
 		if( is_virt_arch &&
 			( Computer_Type.contains( "aarch64", Qt::CaseInsensitive ) ||
 			  Computer_Type.contains( "qemu-system-arm", Qt::CaseInsensitive ) ) &&
@@ -7666,7 +7668,10 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			if( whpx_virt )
 			{
 				props << QStringLiteral( "msi=gicv2m" );
-				props << QStringLiteral( "highmem=off" );
+				props << QStringLiteral( "highmem=on" );
+				props << QStringLiteral( "highmem-redists=off" );
+				props << QStringLiteral( "highmem-ecam=off" );
+				props << QStringLiteral( "highmem-mmio=off" );
 			}
 			else
 			{
@@ -7750,6 +7755,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			if( whpx_virt &&
 			    ( p.startsWith( QLatin1String( "its=" ), Qt::CaseInsensitive ) ||
 			      p.startsWith( QLatin1String( "highmem=" ), Qt::CaseInsensitive ) ||
+			      p.startsWith( QLatin1String( "highmem-" ), Qt::CaseInsensitive ) ||
 			      p.compare( QLatin1String( "msi=its" ), Qt::CaseInsensitive ) == 0 ) )
 				continue;
 			props << p;
