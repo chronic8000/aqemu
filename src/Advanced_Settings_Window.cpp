@@ -614,7 +614,7 @@ Advanced_Settings_Window::Advanced_Settings_Window( QWidget *parent )
 	const QStringList catalogs = AQ_List_Translation_Catalogs();
 	for( int dd = 0; dd < catalogs.count(); ++dd )
 	{
-		ui.CB_Language->addItem( catalogs.at( dd ) );
+		ui.CB_Language->addItem( AQ_Translation_Display_Name( catalogs.at( dd ) ), catalogs.at( dd ) );
 		if( catalogs.at( dd ) == saved_lang )
 			ui.CB_Language->setCurrentIndex( dd + 1 ); // First item English
 	}
@@ -1163,8 +1163,14 @@ void Advanced_Settings_Window::done(int r)
 	    else Settings.setValue( "Use_New_Device_Changer", "no" );
 	
 	    // Interface Language
-	    if( ui.CB_Language->currentIndex() == 0 ) Settings.setValue( "Language", "en" );
-	    else Settings.setValue( "Language", ui.CB_Language->itemText(ui.CB_Language->currentIndex()) );
+	    if( ui.CB_Language->currentIndex() == 0 )
+		    Settings.setValue( "Language", "en" );
+	    else
+	    {
+		    const QVariant id = ui.CB_Language->itemData( ui.CB_Language->currentIndex() );
+		    Settings.setValue( "Language",
+			id.isValid() ? id.toString() : ui.CB_Language->itemText( ui.CB_Language->currentIndex() ) );
+	    }
 	
 	    // VM Icons Size
 	    switch( ui.CB_VM_Icons_Size->currentIndex() )
