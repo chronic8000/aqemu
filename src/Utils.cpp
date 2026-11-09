@@ -3730,10 +3730,14 @@ QStringList AQ_Translation_Dirs()
 		add( data );
 		add( QDir( data ).filePath( QStringLiteral( "translations" ) ) );
 	}
+	add( QCoreApplication::applicationDirPath() );
 	add( QDir( QCoreApplication::applicationDirPath() ).filePath( QStringLiteral( "translations" ) ) );
 	const QString generic = QStandardPaths::writableLocation( QStandardPaths::GenericDataLocation );
 	if( ! generic.isEmpty() )
+	{
 		add( QDir( generic ).filePath( QStringLiteral( "aqemu" ) ) );
+		add( QDir( generic ).filePath( QStringLiteral( "aqemu/translations" ) ) );
+	}
 #ifndef Q_OS_WIN
 	add( QStringLiteral( "/usr/share/aqemu" ) );
 	add( QStringLiteral( "/usr/local/share/aqemu" ) );
@@ -3761,6 +3765,24 @@ QStringList AQ_List_Translation_Catalogs()
 		}
 	}
 	return names;
+}
+
+QString AQ_Translation_Display_Name( const QString &catalog )
+{
+	const QString c = catalog.trimmed();
+	if( c.compare( QLatin1String( "Chinese_Simplified" ), Qt::CaseInsensitive ) == 0 )
+		return QStringLiteral( "中文（简体）" );
+	if( c.compare( QLatin1String( "Chinese_Traditional" ), Qt::CaseInsensitive ) == 0 )
+		return QStringLiteral( "中文（繁體）" );
+	if( c.compare( QLatin1String( "Chinese_Hong_Kong" ), Qt::CaseInsensitive ) == 0 )
+		return QStringLiteral( "中文（香港）" );
+	if( c.compare( QLatin1String( "French" ), Qt::CaseInsensitive ) == 0 )
+		return QStringLiteral( "Français" );
+	if( c.compare( QLatin1String( "German" ), Qt::CaseInsensitive ) == 0 )
+		return QStringLiteral( "Deutsch" );
+	if( c.compare( QLatin1String( "Ukrainian" ), Qt::CaseInsensitive ) == 0 )
+		return QStringLiteral( "Українська" );
+	return c;
 }
 
 bool AQ_Load_App_Translation( QTranslator *translator, const QString &language )

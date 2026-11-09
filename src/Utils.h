@@ -410,8 +410,11 @@ class QTranslator;
 /** Directories that may contain AQEMU *.qm catalogs. */
 QStringList AQ_Translation_Dirs();
 
-/** Language catalog base names (French, German, Ukrainian). English is the source language. */
+/** Language catalog base names (French, German, Ukrainian, Chinese_*). English is the source language. */
 QStringList AQ_List_Translation_Catalogs();
+
+/** Friendly label for a catalog base name (e.g. Chinese_Simplified → 中文（简体）). */
+QString AQ_Translation_Display_Name( const QString &catalog );
 
 /** Load a catalog into translator. Returns false for English or a missing file. */
 bool AQ_Load_App_Translation( QTranslator *translator, const QString &language );

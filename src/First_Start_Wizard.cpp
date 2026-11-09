@@ -395,7 +395,7 @@ void First_Start_Wizard::Load_Settings()
 	const QStringList catalogs = AQ_List_Translation_Catalogs();
 	for( int dd = 0; dd < catalogs.count(); ++dd )
 	{
-		ui.CB_Language->addItem( catalogs.at( dd ) );
+		ui.CB_Language->addItem( AQ_Translation_Display_Name( catalogs.at( dd ) ), catalogs.at( dd ) );
 		if( catalogs.at( dd ) == saved_lang )
 			ui.CB_Language->setCurrentIndex( dd + 1 ); // First item English
 	}
@@ -429,7 +429,11 @@ bool First_Start_Wizard::Save_Settings()
 	if( ui.CB_Language->currentIndex() == 0 )
 		Settings.setValue( "Language", "en" );
 	else
-		Settings.setValue( "Language", ui.CB_Language->currentText() );
+	{
+		const QVariant id = ui.CB_Language->currentData();
+		Settings.setValue( "Language",
+			id.isValid() ? id.toString() : ui.CB_Language->currentText() );
+	}
 
 	// First Start flag
 	Settings.setValue( "First_Start", "no" );
@@ -447,8 +451,11 @@ void First_Start_Wizard::retranslateUi()
 
 	if( ui.CB_Language->currentIndex() > 0 )
 	{
-		if( AQ_Load_App_Translation( &appTranslator,
-				ui.CB_Language->itemText( ui.CB_Language->currentIndex() ) ) )
+		const QVariant id = ui.CB_Language->itemData( ui.CB_Language->currentIndex() );
+		const QString catalog = id.isValid()
+			? id.toString()
+			: ui.CB_Language->itemText( ui.CB_Language->currentIndex() );
+		if( AQ_Load_App_Translation( &appTranslator, catalog ) )
 			QCoreApplication::installTranslator( &appTranslator );
 	}
 

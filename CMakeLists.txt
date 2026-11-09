@@ -325,10 +325,14 @@ SET( aqemu_man_page
     resources/docs/aqemu.1 )
 
 # English.ts is the source catalog and is not shipped. Russian is not shipped.
+# Chinese: Simplified (mainland/Singapore), Traditional Taiwan, Traditional Hong Kong.
 SET( translation_ts
      ${CMAKE_CURRENT_SOURCE_DIR}/resources/translations/French.ts
      ${CMAKE_CURRENT_SOURCE_DIR}/resources/translations/German.ts
-     ${CMAKE_CURRENT_SOURCE_DIR}/resources/translations/Ukrainian.ts )
+     ${CMAKE_CURRENT_SOURCE_DIR}/resources/translations/Ukrainian.ts
+     ${CMAKE_CURRENT_SOURCE_DIR}/resources/translations/Chinese_Simplified.ts
+     ${CMAKE_CURRENT_SOURCE_DIR}/resources/translations/Chinese_Traditional.ts
+     ${CMAKE_CURRENT_SOURCE_DIR}/resources/translations/Chinese_Hong_Kong.ts )
 
 # Find includes in corresponding build directories
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
@@ -401,6 +405,9 @@ ADD_EXECUTABLE( aqemu
 	${moc_srcs}
     ${aqemu_qrc}
 )
+
+# Build language catalogs with the app (Windows build dir is the runtime share).
+ADD_DEPENDENCIES( aqemu translations_target )
 
 target_include_directories(aqemu PUBLIC src/ )
 
