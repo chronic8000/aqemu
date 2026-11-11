@@ -1,0 +1,29 @@
+diff --git a/crypto/cipher-nettle.c.inc b/crypto/cipher-nettle.c.inc
+index 1111111..2222222 100644
+--- a/crypto/cipher-nettle.c.inc
++++ b/crypto/cipher-nettle.c.inc
+@@ -28,6 +28,7 @@
+ #include <nettle/ctr.h>
+ #include <nettle/xts.h>
+ #include <nettle/gcm.h>
++#include <nettle/version.h>
+ #ifdef CONFIG_CRYPTO_SM4
+ #include <nettle/sm4.h>
+ #endif
+@@ -477,8 +478,17 @@ static int qcrypto_nettle_aes_gcm_gettag(QCryptoCipher *cipher,
+ {
+     QCryptoNettleAESGCM *ctx = container_of(cipher, QCryptoNettleAESGCM, base);
+ 
++    /* Nettle 4 always writes GCM_DIGEST_SIZE and dropped the length argument. */
++    if (len != GCM_DIGEST_SIZE) {
++        error_setg(errp, "GCM tag length must be %d", GCM_DIGEST_SIZE);
++        return -1;
++    }
++#if NETTLE_VERSION_MAJOR >= 4
++    gcm_digest(&ctx->gcm_ctx, &ctx->gcm_key, &ctx->cipher, ctx->encrypt, tag);
++#else
+     gcm_digest(&ctx->gcm_ctx, &ctx->gcm_key, &ctx->cipher, ctx->encrypt,
+                len, tag);
++#endif
+     return 0;
+ }

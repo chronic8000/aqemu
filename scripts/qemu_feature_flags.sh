@@ -34,8 +34,8 @@ aqemu_force_lf() {
 	fi
 }
 
-aqemu_apply_qemu_patches() {
-	local src="${ROOT}/third_party/qemu"
+aqemu_apply_qemu_patches_to() {
+	local src="${1:?qemu source tree}"
 	local dir="${ROOT}/third_party/patches"
 	local p norm f
 	[[ -d "${dir}" ]] || return 0
@@ -47,7 +47,7 @@ aqemu_apply_qemu_patches() {
 	done
 	shopt -s nullglob
 	for p in "${dir}"/*.patch; do
-		echo "Applying QEMU patch $(basename "${p}")"
+		echo "Applying QEMU patch $(basename "${p}") -> ${src}"
 		norm="$(mktemp)"
 		tr -d '\r' < "${p}" > "${norm}"
 		if git -C "${src}" apply --check "${norm}" >/dev/null 2>&1; then
@@ -55,16 +55,24 @@ aqemu_apply_qemu_patches() {
 		elif git -C "${src}" apply --reverse --check "${norm}" >/dev/null 2>&1; then
 			echo "QEMU patch $(basename "${p}") already applied"
 		else
-			echo "ERROR: QEMU patch $(basename "${p}") did not apply" >&2
-			git -C "${src}" apply --check "${norm}" >&2 || true
-			rm -f "${norm}"
-			return 1
+			echo "WARN: QEMU patch $(basename "${p}") did not apply to ${src}" >&2
 		fi
 		rm -f "${norm}"
 	done
+	shopt -u nullglob
+}
+
+aqemu_apply_qemu_patches() {
+	aqemu_apply_qemu_patches_to "${ROOT}/third_party/qemu"
+	# Native Windows Reims builds QEMU from reims-vgpu's vendor tree.
+	if [[ -f "${ROOT}/third_party/reims-vgpu/vendor/qemu/configure" ]]; then
+		aqemu_apply_qemu_patches_to "${ROOT}/third_party/reims-vgpu/vendor/qemu"
+	fi
 }
 
 aqemu_qemu_feature_flags() {
+	# Callers under `set -u` may not have exported PKG_CONFIG yet.
+	PKG_CONFIG="${PKG_CONFIG:-pkg-config}"
 	aqemu_apply_qemu_patches
 	# Upstream QEMU is used as checked out, plus third_party/patches.
 	AQEMU_QEMU_EXTRA_CONFIGURE=(
@@ -131,21 +139,29 @@ aqemu_qemu_feature_flags() {
 	# Built from source by scripts/build_libiscsi_mingw.sh. MSYS2 has no package.
 	_aqemu_require_enable libiscsi libiscsi || return 1
 	# lzo, snappy, and bzip2 have no pkg-config module. QEMU finds the library.
-	if [[ -f "${PKG_CONFIG_PATH%%:*}/../include/lzo/lzo1x.h" || -f /clangarm64/include/lzo/lzo1x.h || -f /ucrt64/include/lzo/lzo1x.h ]]; then
+	# Check MSYS prefixes and the usual Linux /usr paths (WSL Reims builds).
+	_aqemu_pc_include="${PKG_CONFIG_PATH:-}"
+	_aqemu_pc_include="${_aqemu_pc_include%%:*}"
+	if [[ -n "${_aqemu_pc_include}" ]]; then
+		_aqemu_pc_include="${_aqemu_pc_include}/../include"
+	else
+		_aqemu_pc_include="/usr/include"
+	fi
+	if [[ -f "${_aqemu_pc_include}/lzo/lzo1x.h" || -f /clangarm64/include/lzo/lzo1x.h || -f /ucrt64/include/lzo/lzo1x.h || -f /usr/include/lzo/lzo1x.h ]]; then
 		AQEMU_QEMU_EXTRA_CONFIGURE+=(--enable-lzo)
 		echo "OK: lzo"
 	else
 		echo "ERROR: lzo headers not found (lzo/lzo1x.h)." >&2
 		return 1
 	fi
-	if [[ -f "${PKG_CONFIG_PATH%%:*}/../include/snappy-c.h" || -f /clangarm64/include/snappy-c.h || -f /ucrt64/include/snappy-c.h ]]; then
+	if [[ -f "${_aqemu_pc_include}/snappy-c.h" || -f /clangarm64/include/snappy-c.h || -f /ucrt64/include/snappy-c.h || -f /usr/include/snappy-c.h || -f /usr/include/snappy.h ]]; then
 		AQEMU_QEMU_EXTRA_CONFIGURE+=(--enable-snappy)
 		echo "OK: snappy"
 	else
 		echo "ERROR: snappy headers not found (snappy-c.h)." >&2
 		return 1
 	fi
-	if [[ -f "${PKG_CONFIG_PATH%%:*}/../include/bzlib.h" || -f /clangarm64/include/bzlib.h || -f /ucrt64/include/bzlib.h ]]; then
+	if [[ -f "${_aqemu_pc_include}/bzlib.h" || -f /clangarm64/include/bzlib.h || -f /ucrt64/include/bzlib.h || -f /usr/include/bzlib.h ]]; then
 		AQEMU_QEMU_EXTRA_CONFIGURE+=(--enable-bzip2)
 		echo "OK: bzip2"
 	else
@@ -155,8 +171,12 @@ aqemu_qemu_feature_flags() {
 	if "$PKG_CONFIG" --exists libfdt 2>/dev/null; then
 		AQEMU_QEMU_EXTRA_CONFIGURE+=(--enable-fdt=system)
 		echo "OK: fdt (libfdt $($PKG_CONFIG --modversion libfdt 2>/dev/null || true))"
+	elif [[ -f /usr/include/libfdt.h || -f /clangarm64/include/libfdt.h || -f /ucrt64/include/libfdt.h ]]; then
+		# Ubuntu's libfdt-dev sometimes ships headers/libs without a .pc file.
+		AQEMU_QEMU_EXTRA_CONFIGURE+=(--enable-fdt=system)
+		echo "OK: fdt (libfdt.h present; no pkg-config module)"
 	else
-		echo "ERROR: pkg-config module 'libfdt' not found. Install dtc." >&2
+		echo "ERROR: pkg-config module 'libfdt' not found. Install dtc / libfdt-dev." >&2
 		return 1
 	fi
 

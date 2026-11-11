@@ -40,37 +40,50 @@ import sys
 from pathlib import Path
 p = Path(sys.argv[1])
 t = p.read_text(encoding="utf-8")
-old = """    if pvg.found() and (target in accelerator_targets.get('CONFIG_HVF', []) or
-                        target in accelerator_targets.get('CONFIG_KVM', []) or
-                        target in accelerator_targets.get('CONFIG_WHPX', []) or
-                        (host_os == 'windows' and target == 'x86_64-softmmu'))
+changed = False
+# Upstream tip only probes reims-vgpu on darwin/linux. Windows still needs the
+# pkg-config dependency for the AQEMU Windows PE helper when that port exists.
+if "if host_os in ['darwin', 'linux']" in t and "dependency('reims-vgpu'" in t:
+    t2 = t.replace(
+        "if host_os in ['darwin', 'linux']",
+        "if host_os in ['darwin', 'linux', 'windows']",
+        1,
+    )
+    if t2 != t:
+        t = t2
+        changed = True
+        print("Patched meson pvg host_os to include windows")
+# Reims guests are x86_64; enable CONFIG_MAC_PVG for that softmmu even when the
+# host has no KVM/HVF/WHPX entry for it (Windows ARM64 TCG, Linux ARM64 TCG).
+old_gate = """    if pvg.found() and (target in accelerator_targets.get('CONFIG_HVF', []) or
+                        target in accelerator_targets.get('CONFIG_KVM', []))
       target_kconfig += 'CONFIG_MAC_PVG=y'
     endif"""
-new = """    # Reims is an x86_64 guest; enable the PCI device whenever the library is
-    # present (Windows ARM64 TCG and Linux/WSL ARM64 TCG included).
+new_gate = """    # AQEMU: x86_64 softmmu always when the library is present (TCG hosts too).
     if pvg.found() and (target in accelerator_targets.get('CONFIG_HVF', []) or
                         target in accelerator_targets.get('CONFIG_KVM', []) or
                         target in accelerator_targets.get('CONFIG_WHPX', []) or
                         target == 'x86_64-softmmu')
       target_kconfig += 'CONFIG_MAC_PVG=y'
     endif"""
-if old in t:
-    p.write_text(t.replace(old, new), encoding="utf-8")
-    print("Patched meson MAC_PVG gate")
-elif "host_os == 'windows' and target == 'x86_64-softmmu'" in t:
-    p.write_text(
-        t.replace(
-            "(host_os == 'windows' and target == 'x86_64-softmmu')",
-            "target == 'x86_64-softmmu'",
-            1,
-        ),
-        encoding="utf-8",
-    )
-    print("Patched meson MAC_PVG gate (windows-only -> x86_64-softmmu)")
+if old_gate in t:
+    t = t.replace(old_gate, new_gate)
+    changed = True
+    print("Patched meson MAC_PVG gate for x86_64-softmmu")
 elif "target == 'x86_64-softmmu')" in t and "CONFIG_MAC_PVG=y" in t:
     print("meson MAC_PVG gate already allows x86_64-softmmu")
+elif "host_os == 'windows' and target == 'x86_64-softmmu'" in t:
+    t = t.replace(
+        "(host_os == 'windows' and target == 'x86_64-softmmu')",
+        "target == 'x86_64-softmmu'",
+        1,
+    )
+    changed = True
+    print("Patched meson MAC_PVG gate (windows-only -> x86_64-softmmu)")
 else:
     print("WARN: could not patch meson MAC_PVG gate; continuing")
+if changed:
+    p.write_text(t, encoding="utf-8", newline="\n")
 PY
 fi
 
@@ -81,44 +94,29 @@ import sys
 from pathlib import Path
 p = Path(sys.argv[1])
 t = p.read_text(encoding="utf-8")
-needle = """static const TypeInfo apple_gfx_pci_types[] = {
-    {
-        .name          = TYPE_APPLE_GFX_PCI,
-        .parent        = TYPE_PCI_DEVICE,
-        .instance_size = sizeof(AppleGFXPCIState),
-        .class_init    = apple_gfx_pci_class_init,
-        .instance_init = apple_gfx_pci_init,
-        .instance_finalize = apple_gfx_pci_finalize,
-        .interfaces = (const InterfaceInfo[]) {
-            { INTERFACE_PCIE_DEVICE },
-            { },
-        },
-    }
-};
-DEFINE_TYPES(apple_gfx_pci_types)"""
-repl = """static const TypeInfo apple_gfx_pci_types[] = {
-    {
-        .name          = TYPE_APPLE_GFX_PCI,
-        .parent        = TYPE_PCI_DEVICE,
-        .instance_size = sizeof(AppleGFXPCIState),
-        .class_init    = apple_gfx_pci_class_init,
-        .instance_init = apple_gfx_pci_init,
-        .instance_finalize = apple_gfx_pci_finalize,
-        .interfaces = (const InterfaceInfo[]) {
-            { INTERFACE_PCIE_DEVICE },
-            { },
-        },
-    },
-    /* AQEMU uses this name for the same PCI device. */
+# Current upstream registers apple-gfx-pci plus apple-gfx-iosurface-pci.
+anchor = "DEFINE_TYPES(apple_gfx_pci_types)"
+alias = """    /* AQEMU uses this name for the same PCI device. */
     {
         .name   = "reims-vgpu-pci",
         .parent = TYPE_APPLE_GFX_PCI,
     },
-};
-DEFINE_TYPES(apple_gfx_pci_types)"""
-if needle in t:
-    p.write_text(t.replace(needle, repl), encoding="utf-8")
-    print("Added reims-vgpu-pci type alias")
+"""
+if alias.strip() in t:
+    print("reims-vgpu-pci alias already present")
+elif anchor in t and "TYPE_APPLE_GFX_PCI" in t:
+    # Insert alias as an extra TypeInfo before DEFINE_TYPES by extending the array.
+    # Prefer splicing before the closing of apple_gfx_pci_types[].
+    close = t.rfind("};\n" + anchor)
+    if close < 0:
+        close = t.rfind("};\r\n" + anchor)
+    if close < 0:
+        print("WARN: apple-gfx-pci.c shape changed; alias not applied")
+    else:
+        # Insert a new TypeInfo before the array's closing `};`.
+        t = t[:close] + alias + t[close:]
+        p.write_text(t, encoding="utf-8", newline="\n")
+        print("Added reims-vgpu-pci type alias")
 else:
     print("WARN: apple-gfx-pci.c shape changed; alias not applied")
 PY

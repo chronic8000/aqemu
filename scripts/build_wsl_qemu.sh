@@ -59,6 +59,21 @@ build_reims() {
     echo "ERROR: Reims QEMU sources missing at ${src}" >&2
     return 1
   fi
+  # vendor/qemu lives on the Windows checkout: git symlinks become text files
+  # there. Recreate them before ninja or libvhost-user/libvduse fail to compile.
+  if [[ -d "${src}/.git" || -f "${src}/.git" ]] || git -C "${src}" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    echo "=== fixing vendor/qemu git symlinks ==="
+    while read -r mode hash _stage path; do
+      case "${mode}" in
+      120000)
+        target="$(git -C "${src}" cat-file -p "${hash}" | tr -d '\r\n')"
+        rm -rf "${src}/${path}"
+        mkdir -p "$(dirname "${src}/${path}")"
+        ln -s "${target}" "${src}/${path}"
+        ;;
+      esac
+    done < <(git -C "${src}" ls-files -s)
+  fi
   export CARGO_TARGET_DIR="${WORK}/reims-cargo"
   mkdir -p "${CARGO_TARGET_DIR}"
   # Guest atomics use ldsetal. This Snapdragon has LSE; the aarch64 baseline does not.

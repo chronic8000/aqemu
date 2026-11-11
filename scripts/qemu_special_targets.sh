@@ -694,22 +694,44 @@ aqemu_patch_metal2vulkan_windows() {
   if ! command -v python3 >/dev/null 2>&1; then
     py="python"
   fi
-  local checkout texture
+  local checkout texture lib_rs
   shopt -s nullglob
-  for checkout in "${cargo_home}/git/checkouts"/metal2vulkan-*/720ef1c; do
+  for checkout in "${cargo_home}/git/checkouts"/metal2vulkan-*/*; do
+    lib_rs="${checkout}/crates/metal2vulkan-runtime/src/lib.rs"
+    if [[ -f "${lib_rs}" ]]; then
+      "${py}" -c '
+import pathlib, sys
+p = pathlib.Path(sys.argv[1])
+text = p.read_text(encoding="utf-8")
+orig = text
+# Tip gates dirty_pages behind unix but leaves imports unconditional; the module is portable.
+text = text.replace(
+    "#[cfg(unix)]\nmod dirty_pages;\n",
+    "mod dirty_pages;\n",
+)
+# Tip left dma_buf ungated; it uses std::os::fd and must stay Unix-only.
+if "#[cfg(unix)]\nmod dma_buf;\n" not in text:
+    text = text.replace("\nmod dma_buf;\n", "\n#[cfg(unix)]\nmod dma_buf;\n", 1)
+if text != orig:
+    p.write_text(text, encoding="utf-8", newline="\n")
+    print("Patched", p, "windows module gates")
+' "${lib_rs}"
+    fi
     texture="${checkout}/crates/metal2vulkan-runtime/src/texture.rs"
     [[ -f "${texture}" ]] || continue
     "${py}" -c '
 import pathlib, sys
 p = pathlib.Path(sys.argv[1])
 text = p.read_text(encoding="utf-8")
-if "fn foreign_acquirer" in text and "not(unix)" in text:
-    sys.exit(0)
-needle = "impl Device {\n"
-at = text.find(needle)
-if at < 0:
-    sys.exit("metal2vulkan texture.rs has no impl Device")
-insert = """impl Device {
+orig = text
+# rotation.rs is portable; tip gates it unix-only while call sites are unconditional.
+text = text.replace("#[cfg(unix)]\nmod rotation;\n", "mod rotation;\n")
+if "fn foreign_acquirer" not in text or "not(unix)" not in text:
+    needle = "impl Device {\n"
+    at = text.find(needle)
+    if at < 0:
+        sys.exit("metal2vulkan texture.rs has no impl Device")
+    insert = """impl Device {
     // AQEMU_WIN_FOREIGN_ACQUIRER: Unix dma_buf.rs is not built on Windows.
     #[cfg(not(unix))]
     pub(super) fn foreign_acquirer(&self) -> u32 {
@@ -720,10 +742,88 @@ insert = """impl Device {
     }
 
 """
-text = text[:at] + insert + text[at + len(needle):]
-p.write_text(text, encoding="utf-8", newline="\n")
-print("Patched", p)
+    text = text[:at] + insert + text[at + len(needle):]
+if text != orig:
+    p.write_text(text, encoding="utf-8", newline="\n")
+    print("Patched", p)
 ' "${texture}"
+    rebind="${checkout}/crates/metal2vulkan-runtime/src/rebind.rs"
+    if [[ -f "${rebind}" ]]; then
+      "${py}" -c '
+import pathlib, sys
+p = pathlib.Path(sys.argv[1])
+text = p.read_text(encoding="utf-8")
+if "ImportHold::Unsupported" in text:
+    sys.exit(0)
+old = """pub(super) enum ImportHold {
+    #[cfg(unix)]
+    Held(Arc<Imported>),
+    #[cfg(unix)]
+    Waiting(Weak<Imported>),
+}"""
+new = """pub(super) enum ImportHold {
+    #[cfg(unix)]
+    Held(Arc<Imported>),
+    #[cfg(unix)]
+    Waiting(Weak<Imported>),
+    // AQEMU_WINDOWS_HOST: no dma-buf imports on Windows.
+    #[cfg(not(unix))]
+    Unsupported,
+}"""
+if old not in text:
+    print("skip", p, "ImportHold shape differs")
+    sys.exit(0)
+text = text.replace(old, new, 1)
+text = text.replace(
+    """    fn wait(&mut self) {
+        match self {
+            #[cfg(unix)]
+            ImportHold::Held(held) => *self = ImportHold::Waiting(Arc::downgrade(held)),
+            #[cfg(unix)]
+            ImportHold::Waiting(_) => {}
+        }
+    }""",
+    """    fn wait(&mut self) {
+        match self {
+            #[cfg(unix)]
+            ImportHold::Held(held) => *self = ImportHold::Waiting(Arc::downgrade(held)),
+            #[cfg(unix)]
+            ImportHold::Waiting(_) => {}
+            #[cfg(not(unix))]
+            ImportHold::Unsupported => {}
+        }
+    }""",
+    1,
+)
+text = text.replace(
+    """    fn retained(self) -> Option<Box<dyn Any + Send + Sync>> {
+        match self {
+            #[cfg(unix)]
+            ImportHold::Held(held) => Some(Box::new(held)),
+            #[cfg(unix)]
+            ImportHold::Waiting(held) => held
+                .upgrade()
+                .map(|held| Box::new(held) as Box<dyn Any + Send + Sync>),
+        }
+    }""",
+    """    fn retained(self) -> Option<Box<dyn Any + Send + Sync>> {
+        match self {
+            #[cfg(unix)]
+            ImportHold::Held(held) => Some(Box::new(held)),
+            #[cfg(unix)]
+            ImportHold::Waiting(held) => held
+                .upgrade()
+                .map(|held| Box::new(held) as Box<dyn Any + Send + Sync>),
+            #[cfg(not(unix))]
+            ImportHold::Unsupported => None,
+        }
+    }""",
+    1,
+)
+p.write_text(text, encoding="utf-8", newline="\n")
+print("Patched", p, "ImportHold")
+' "${rebind}"
+    fi
   done
   shopt -u nullglob
 }
