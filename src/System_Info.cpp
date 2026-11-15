@@ -4076,13 +4076,9 @@ bool System_Info::Has_Qualcomm_Display_GPU()
 bool System_Info::Host_Reims_Prefers_Windows_Binary()
 {
 #ifdef Q_OS_WIN32
-	// Intel, AMD, and NVIDIA keep the WSL/Dozen path. Those hosts have a
-	// usable Vulkan ICD inside WSL; Snapdragon does not.
-	if( Has_AMD_Display_GPU() || Has_NVIDIA_Display_GPU() || Has_Intel_Display_GPU() )
-		return false;
-	if( Has_Qualcomm_Display_GPU() )
-		return true;
-	return QSysInfo::currentCpuArchitecture().startsWith( QLatin1String( "arm" ), Qt::CaseInsensitive );
+	// Prefer native Windows qemu-system-reims3d.exe (tqmane windows-native-tahoe:
+	// WHPX + Vulkan). WSL/Dozen remains an optional override in the UI.
+	return true;
 #else
 	return false;
 #endif

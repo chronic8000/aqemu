@@ -2677,41 +2677,184 @@ bool AQ_Guest_Matches_Host_Architecture( const QString &guest_target )
 	return false;
 }
 
-bool AQ_Host_WHPX_Usable()
+#ifdef Q_OS_WIN
+static void AQ_Read_Windows_Build_Numbers( quint32 *build, quint32 *ubr )
 {
+	if( build )
+		*build = 0;
+	if( ubr )
+		*ubr = 0;
+	HKEY key = nullptr;
+	if( RegOpenKeyExW( HKEY_LOCAL_MACHINE,
+	                   L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion",
+	                   0, KEY_READ | KEY_WOW64_64KEY, &key ) != ERROR_SUCCESS )
+		return;
+	wchar_t buf[64] = {};
+	DWORD type = 0;
+	DWORD size = sizeof( buf );
+	if( RegQueryValueExW( key, L"CurrentBuildNumber", nullptr, &type,
+	                      reinterpret_cast<LPBYTE>( buf ), &size ) == ERROR_SUCCESS &&
+	    ( type == REG_SZ || type == REG_EXPAND_SZ ) && build )
+		*build = static_cast<quint32>( QString::fromWCharArray( buf ).toUInt() );
+	DWORD ubr_val = 0;
+	size = sizeof( ubr_val );
+	if( RegQueryValueExW( key, L"UBR", nullptr, &type,
+	                      reinterpret_cast<LPBYTE>( &ubr_val ), &size ) == ERROR_SUCCESS &&
+	    type == REG_DWORD && ubr )
+		*ubr = static_cast<quint32>( ubr_val );
+	RegCloseKey( key );
+}
+#endif
+
+AQ_WHPX_Host_Status AQ_Host_WHPX_Status()
+{
+	AQ_WHPX_Host_Status st;
+	st.host_arch = AQ_Get_Host_CPU_Architecture();
+	st.host_is_aarch64 = ( st.host_arch == QLatin1String( "aarch64" ) );
+	st.host_is_x86_64 =
+		( st.host_arch == QLatin1String( "x86_64" ) || st.host_arch == QLatin1String( "i386" ) );
 #ifndef Q_OS_WIN
-	return false;
+	st.summary = QObject::tr( "WHPX is only available on Windows hosts." );
+	st.advice = QObject::tr( "Use KVM on Linux or HVF on macOS." );
+	return st;
 #else
-	static int cached = -1;
-	if( cached >= 0 )
-		return cached == 1;
-	cached = 0;
+	static AQ_WHPX_Host_Status cached;
+	static bool have_cache = false;
+	if( have_cache )
+		return cached;
+
+	AQ_Read_Windows_Build_Numbers( &st.windows_build, &st.windows_ubr );
 
 	HMODULE library = LoadLibraryW( L"WinHvPlatform.dll" );
 	if( ! library )
-		return false;
+	{
+		st.summary = QObject::tr( "WinHvPlatform.dll was not found (Windows Hypervisor Platform)." );
+		st.advice = QObject::tr(
+			"Enable Optional Features → Windows Hypervisor Platform "
+			"(and Virtual Machine Platform). Then reboot." );
+		have_cache = true;
+		cached = st;
+		return cached;
+	}
+	st.dll_loaded = true;
+
 	typedef HRESULT (WINAPI *GetCapabilityFn)( UINT32, void *, UINT32, UINT32 * );
 	GetCapabilityFn get_capability = reinterpret_cast<GetCapabilityFn>(
 		GetProcAddress( library, "WHvGetCapability" ) );
 	if( ! get_capability )
-		return false;
+	{
+		FreeLibrary( library );
+		st.summary = QObject::tr( "WHvGetCapability is missing from WinHvPlatform.dll." );
+		st.advice = QObject::tr( "Update Windows, or reinstall Windows Hypervisor Platform." );
+		have_cache = true;
+		cached = st;
+		return cached;
+	}
 
 	BOOL present = FALSE;
 	UINT32 written = 0;
 	const HRESULT present_hr = get_capability( 0, &present, sizeof( present ), &written );
-	if( present_hr < 0 || ! present )
-		return false;
+	st.hypervisor_present = ( present_hr >= 0 && present );
+	if( ! st.hypervisor_present )
+	{
+		FreeLibrary( library );
+		st.summary = QObject::tr( "The Windows hypervisor is not present or not running." );
+		st.advice = QObject::tr(
+			"Enable Hyper-V / Virtual Machine Platform / Windows Hypervisor Platform "
+			"in Optional Features, ensure virtualization is on in firmware, then reboot." );
+		have_cache = true;
+		cached = st;
+		return cached;
+	}
 
-	if( AQ_Get_Host_CPU_Architecture() == QLatin1String( "aarch64" ) )
+	if( st.host_is_aarch64 )
 	{
 		AQ_WHPX_Arm_Features features;
 		const HRESULT features_hr = get_capability( 1, &features, sizeof( features ), &written );
-		if( features_hr < 0 || ! features.Arm64Support )
-			return false;
+		st.arm64_support = ( features_hr >= 0 && features.Arm64Support );
+		FreeLibrary( library );
+		if( ! st.arm64_support )
+		{
+			const bool build_hint =
+				st.windows_build > 0 &&
+				( st.windows_build < 26100u ||
+				  ( st.windows_build == 26100u && st.windows_ubr < 3915u ) );
+			st.summary = QObject::tr(
+				"This ARM64 PC does not report WHPX Arm64Support "
+				"(build %1.%2)." )
+				.arg( st.windows_build ).arg( st.windows_ubr );
+			st.advice = build_hint
+				? QObject::tr(
+					"Hardware acceleration for ARM64 guests needs Windows 11 24H2 "
+					"build 26100.3915 or later with Arm64Support. "
+					"Update Windows, then retry. Until then AQEMU uses TCG." )
+				: QObject::tr(
+					"Arm64Support is off even though the Windows build looks recent. "
+					"Confirm Windows Hypervisor Platform is enabled and reboot. "
+					"Until then AQEMU uses TCG." );
+			have_cache = true;
+			cached = st;
+			return cached;
+		}
+		st.usable = true;
+		st.summary = QObject::tr(
+			"WHPX is ready on this ARM64 host (Arm64Support, build %1.%2)." )
+			.arg( st.windows_build ).arg( st.windows_ubr );
+		st.advice = QObject::tr(
+			"Matching aarch64 guests can use WHPX. Cross-arch guests (x86) stay on TCG; "
+			"Prism is not exposed to QEMU." );
+	}
+	else
+	{
+		FreeLibrary( library );
+		st.usable = true;
+		st.summary = QObject::tr(
+			"WHPX is ready on this %1 host (build %2.%3)." )
+			.arg( st.host_arch.isEmpty() ? QStringLiteral( "x86" ) : st.host_arch )
+			.arg( st.windows_build ).arg( st.windows_ubr );
+		st.advice = QObject::tr(
+			"Matching x86_64 guests can use WHPX. ARM64 guests on this PC use TCG "
+			"(no Arm64Support on x86 hosts)." );
 	}
 
-	cached = 1;
-	return true;
+	have_cache = true;
+	cached = st;
+	return cached;
+#endif
+}
+
+bool AQ_Host_WHPX_Usable()
+{
+	return AQ_Host_WHPX_Status().usable;
+}
+
+QString AQ_WHPX_Unavailable_Message( const QString &guest_qemu_name )
+{
+	const QString guest = AQ_Normalize_CPU_Architecture( guest_qemu_name );
+	const AQ_WHPX_Host_Status st = AQ_Host_WHPX_Status();
+#ifndef Q_OS_WIN
+	Q_UNUSED( guest );
+	return st.summary + QLatin1Char( '\n' ) + st.advice;
+#else
+	if( ! guest.isEmpty() && ! AQ_Guest_Matches_Host_Architecture( guest ) )
+	{
+		return QObject::tr(
+			"WHPX cannot accelerate this %1 guest on a %2 PC. "
+			"AQEMU will use software emulation (TCG).\n\n"
+			"%3" )
+			.arg( guest )
+			.arg( st.host_arch )
+			.arg( st.advice );
+	}
+	if( st.usable )
+	{
+		return QObject::tr(
+			"WHPX is available on this PC, but this QEMU binary was built without it "
+			"or cannot take WHPX for this guest. Falling back to TCG.\n\n%1" )
+			.arg( st.summary );
+	}
+	return st.summary + QLatin1String( "\n\n" ) + st.advice + QLatin1String( "\n\n" ) +
+		QObject::tr( "Falling back to software emulation (TCG)." );
 #endif
 }
 

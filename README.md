@@ -263,14 +263,20 @@ Storage tooling now covers image creation, backing files, conversion, compressio
 
 ### 7. Acceleration that respects the guest architecture
 
-AQEMU distinguishes explicit **TCG**, native acceleration and Xen. On Windows, the native path maps compatible x86 guests to WHPX/HAX with fallback; selecting TCG means pure TCG. Cross-architecture guests stay on TCG rather than being silently pushed toward an accelerator that cannot execute them.
+AQEMU distinguishes explicit **TCG**, native acceleration and Xen. On Windows, WHPX detection follows **the host AQEMU is running on**:
 
-Compatibility guardrails handle vintage Windows guests that hang under WHPX, non-x86 guests on x86 hosts and KVM-capable AArch64 Linux hosts. Configuration refreshes preserve user-selected accelerator, machine and CPU values instead of resetting them to the first list entry.
+- **x86_64 host:** matching x86_64 guests use WHPX when `WinHvPlatform` reports a hypervisor; ARM guests stay on TCG.
+- **ARM64 host (Snapdragon / WoA):** matching aarch64 guests use WHPX when `WHvGetCapability` reports **Arm64Support** (Windows 11 24H2 build **26100.3915+**); x86 guests stay on TCG (Prism is not exposed to QEMU).
+
+Selecting TCG means pure TCG. Cross-architecture guests are never pushed toward an accelerator that cannot execute them. Help → WHPX health shows host arch, Windows build, Arm64Support, and whether the QEMU binary lists `whpx`.
+
+Compatibility guardrails handle vintage Windows guests that hang under WHPX, and KVM-capable Linux AArch64 hosts. Configuration refreshes preserve user-selected accelerator, machine and CPU values instead of resetting them to the first list entry.
 
 ### 8. Windows (x86_64 & Windows on ARM / Snapdragon), Linux and Raspberry Pi 5 hosts that match how people work
 - **Windows on ARM (WoA)**: Native ARM64 execution for Qualcomm Snapdragon laptops (Snapdragon X Elite, X Plus, 8cx), Clang/LLVM toolchains, and native Store MSIX generation  
 - **Raspberry Pi 5**: Cortex-A76 microarchitecture tuning, 64KB ELF segment alignment for 16KB-page kernels, Wayland desktop support, and KVM hardware virtualization  
-- **WHPX** when the guest arch allows it; **never** shoved onto PPC/ARM guests that cannot use it  
+- **WHPX** on both **x86_64 and ARM64 Windows** hosts when the guest family matches; **never** shoved onto cross-arch / PPC guests  
+- Bundled Windows QEMU builds pass **`--enable-whpx`** for `qemu-system-x86_64` and `qemu-system-aarch64`; install verify fails if `whpx` is missing from `-accel help`
 - **WSL/KVM** launch path for heavy guests (Intel macOS) when `/dev/kvm` is there; optional WSL password can be saved in **Windows Credential Manager** (never in `AQEMU.ini`)  
 - Store-safe writable data under `%LOCALAPPDATA%`
 
@@ -300,13 +306,11 @@ If QEMU can boot it, AQEMU aims to **configure and launch it**. Bring your own I
 
 ---
 
-## Windows 11 ARM on x86_64 — yes, really
+## Windows 11 ARM — host-aware acceleration
 
-On a normal **Intel/AMD Windows PC**, an aarch64 guest cannot use WHPX for ARM. AQEMU drives **TCG** with sane defaults (multi-vCPU, VirtIO-oriented Win11 ARM wizard, UEFI/AAVMF discovery, install → first-boot → normal lifecycle).
-
-It is **not as fast as a Pi 5 + KVM** or an ARM laptop. It **is usable**: you can install, update, and work through OOBE in the embedded SPICE view (see [Screenshots](#screenshots)). Perfect for testing ARM Windows without buying ARM hardware.
-
-On **Raspberry Pi 5 / Linux aarch64** hosts, the same profile can lean on **KVM** where available — much snappier.
+- **Intel/AMD Windows (x86_64):** an aarch64 guest cannot use WHPX for ARM. AQEMU drives **TCG** with sane defaults (multi-vCPU, VirtIO-oriented Win11 ARM wizard, UEFI/AAVMF discovery, install → first-boot → normal lifecycle). Usable for testing without ARM hardware; not as fast as native ARM.
+- **Windows on ARM (Snapdragon):** the same aarch64 guest can use **WHPX** when Arm64Support is present (24H2 build 26100.3915+). Machine defaults use `virt,gic-version=3` with WHPX-safe MSI/highmem knobs; CPU is `max` under WHPX.
+- **Raspberry Pi 5 / Linux aarch64:** the same profile can lean on **KVM** where available — much snappier.
 
 <p align="center">
   <img src="screenshots/win11-arm-profile.png" alt="AQEMU Windows 11 ARM virtual machine profile" width="900"/>

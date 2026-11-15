@@ -673,19 +673,26 @@ bool AQ_Lab_Prepare_Start( Virtual_Machine *vm )
 	}
 	else if( policy == QLatin1String( "hw" ) )
 	{
-		const bool x86 = vm->Get_Computer_Type().contains( QLatin1String( "x86" ), Qt::CaseInsensitive ) ||
-		                 vm->Get_Computer_Type().contains( QLatin1String( "i386" ), Qt::CaseInsensitive );
 #ifdef Q_OS_WIN
-		if( ! x86 )
+		// Prefer native WHPX whenever the guest family matches this host
+		// (x86_64 on x86_64, aarch64 on Snapdragon). Cross-arch stays TCG.
+		const QString qemu_bin = vm->Get_Current_Emulator_Binary_Path( vm->Get_Computer_Type() );
+		const AQ_Accel_Flags avail =
+			AQ_Accelerator_Availability( vm->Get_Computer_Type(), qemu_bin, false );
+		if( avail.whpx )
+		{
+			vm->Use_Force_TCG( false );
+			vm->Use_Launch_Via_WSL( false );
+			vm->Set_Machine_Accelerator( VM::KVM ); // native WHPX encoding
+			AQ_Lab_Set( vm, QStringLiteral( "accel_forced" ), QStringLiteral( "whpx" ) );
+		}
+		else
 		{
 			vm->Use_Force_TCG( true );
 			vm->Set_Machine_Accelerator( VM::TCG );
 			AQ_Lab_Set( vm, QStringLiteral( "accel_forced" ), QStringLiteral( "tcg" ) );
 		}
-		else
-			vm->Set_Machine_Accelerator( VM::KVM );
 #else
-		Q_UNUSED( x86 );
 		vm->Set_Machine_Accelerator( VM::KVM );
 #endif
 	}
@@ -872,29 +879,41 @@ QString AQ_Lab_Effective_Accel( const Virtual_Machine *vm )
 	if( ! vm )
 		return QString();
 	const QString policy = AQ_Lab_Get( vm, QStringLiteral( "accel_policy" ) );
-	const bool x86 = vm->Get_Computer_Type().contains( QLatin1String( "x86" ), Qt::CaseInsensitive ) ||
-	                 vm->Get_Computer_Type().contains( QLatin1String( "i386" ), Qt::CaseInsensitive );
 	if( policy == QLatin1String( "tcg" ) || vm->Use_Force_TCG() )
 		return QObject::tr( "TCG" );
 	if( policy == QLatin1String( "wsl" ) )
 		return QObject::tr( "WSL KVM" );
+
+	const QString qemu_bin = vm->Get_Current_Emulator_Binary_Path( vm->Get_Computer_Type() );
+	const bool via_wsl = vm->Use_Launch_Via_WSL();
+	const AQ_Accel_Flags avail =
+		AQ_Accelerator_Availability( vm->Get_Computer_Type(), qemu_bin, via_wsl );
+	const QString host = AQ_Get_Host_CPU_Architecture();
+	const QString guest = AQ_Normalize_CPU_Architecture( vm->Get_Computer_Type() );
+
 	if( policy == QLatin1String( "hw" ) )
 	{
 #ifdef Q_OS_WIN
-		if( ! x86 )
-			return QObject::tr( "TCG (this host cannot offer WHPX for this guest)" );
-		return QObject::tr( "WHPX, then TCG" );
+		if( avail.whpx )
+			return QObject::tr( "WHPX on this %1 host (guest %2)" ).arg( host, guest );
+		return QObject::tr( "TCG (WHPX unavailable for %1 guest on %2 host)" )
+			.arg( guest, host );
 #else
+		Q_UNUSED( host );
+		Q_UNUSED( guest );
 		return QObject::tr( "KVM, then TCG" );
 #endif
 	}
 	if( vm->Get_Machine_Accelerator() == VM::TCG )
 		return QObject::tr( "TCG" );
 #ifdef Q_OS_WIN
-	if( ! x86 )
-		return QObject::tr( "TCG" );
-	return QObject::tr( "WHPX, then TCG" );
+	if( avail.whpx && ! via_wsl )
+		return QObject::tr( "WHPX, then TCG" );
+	if( avail.kvm && via_wsl )
+		return QObject::tr( "WSL KVM, then TCG" );
+	return QObject::tr( "TCG" );
 #else
+	Q_UNUSED( avail );
 	return QObject::tr( "KVM, then TCG" );
 #endif
 }
@@ -2141,21 +2160,39 @@ void AQ_Lab_Catalog( QWidget *parent, Virtual_Machine *vm )
 void AQ_Lab_Health( QWidget *parent, Virtual_Machine *vm )
 {
 	QString report;
+	const AQ_WHPX_Host_Status whpx = AQ_Host_WHPX_Status();
+	report += QObject::tr( "AQEMU host CPU: %1\n" ).arg( whpx.host_arch );
+#ifdef Q_OS_WIN
+	report += QObject::tr( "Windows build: %1.%2\n" ).arg( whpx.windows_build ).arg( whpx.windows_ubr );
+	report += QObject::tr( "WinHvPlatform.dll: %1\n" )
+		.arg( whpx.dll_loaded ? QObject::tr( "loaded" ) : QObject::tr( "missing" ) );
+	report += QObject::tr( "Hypervisor present: %1\n" )
+		.arg( whpx.hypervisor_present ? QObject::tr( "yes" ) : QObject::tr( "no" ) );
+	if( whpx.host_is_aarch64 )
+		report += QObject::tr( "Arm64Support: %1\n" )
+			.arg( whpx.arm64_support ? QObject::tr( "yes" ) : QObject::tr( "no" ) );
+	report += whpx.summary + QLatin1Char( '\n' );
+	if( ! whpx.advice.isEmpty() )
+		report += whpx.advice + QLatin1Char( '\n' );
+	report += QLatin1Char( '\n' );
+#endif
 	const QString bin = vm ? vm->Get_Current_Emulator_Binary_Path( vm->Get_Computer_Type() ) : QString();
 	if( ! bin.isEmpty() )
 	{
 		int code = 0;
+		report += QObject::tr( "QEMU binary: %1\n" ).arg( bin );
 		report += Run_Tool( bin, QStringList() << QStringLiteral( "-accel" ) << QStringLiteral( "help" ), 4000, &code );
+		report += QLatin1Char( '\n' );
 	}
 #ifdef Q_OS_WIN
 	int code = 0;
-	report += QLatin1Char( '\n' );
 	report += Run_Tool( QStringLiteral( "reg" ), QStringList() << QStringLiteral( "query" )
 		<< QStringLiteral( "HKLM\\SYSTEM\\CurrentControlSet\\Control\\DeviceGuard" )
 		<< QStringLiteral( "/v" ) << QStringLiteral( "EnableVirtualizationBasedSecurity" ), 4000, &code );
 #endif
 #ifdef Q_OS_WIN
-	const bool failed = report.contains( QLatin1String( "whpx" ), Qt::CaseInsensitive ) == false && ! bin.isEmpty();
+	const bool bin_has_whpx = ! bin.isEmpty() && AQ_QEMU_Has_WHPX( bin );
+	const bool failed = ! whpx.usable || ( ! bin.isEmpty() && ! bin_has_whpx );
 #else
 	const bool failed = false;
 #endif
@@ -2163,8 +2200,12 @@ void AQ_Lab_Health( QWidget *parent, Virtual_Machine *vm )
 	settings.setValue( QStringLiteral( "Lab/Whpx_Probe_Failed" ), failed );
 	QMessageBox box( parent );
 	box.setWindowTitle( QObject::tr( "Hyper-V / WHPX health" ) );
-	box.setText( report.left( 1800 ) );
-	box.setInformativeText( QObject::tr( "Optional Features: Hyper-V, Virtual Machine Platform, Windows Hypervisor Platform. Core isolation is Memory Integrity. A failed probe offers Force TCG the next time a VM starts." ) );
+	box.setText( report.left( 2200 ) );
+	box.setInformativeText( QObject::tr(
+		"x86_64 hosts accelerate matching x86 guests with WHPX. "
+		"ARM64 hosts need Windows 11 24H2 build 26100.3915+ with Arm64Support for aarch64 guests. "
+		"Cross-architecture guests always use TCG. "
+		"Optional Features: Hyper-V, Virtual Machine Platform, Windows Hypervisor Platform." ) );
 	QPushButton *features = box.addButton( QObject::tr( "Optional Features" ), QMessageBox::ActionRole );
 	QPushButton *core = box.addButton( QObject::tr( "Core isolation" ), QMessageBox::ActionRole );
 	box.addButton( QMessageBox::Close );

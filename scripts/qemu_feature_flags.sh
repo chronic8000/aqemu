@@ -280,33 +280,55 @@ aqemu_qemu_verify_install() {
 	echo "VERIFY OK: every qemu-system-* under ${prefix} has -audiodev spice"
 	case "$(uname -s 2>/dev/null || echo unknown)" in
 		MINGW*|MSYS*|CYGWIN*|Windows_NT)
-			local host_arch expect accel_bin accel_help
+			# WHPX must be in every host-matching softmmu we ship. Check the
+			# requested target first, then both aarch64 and x86_64 when present
+			# so a dual-arch prefix cannot silently drop WHPX on one side.
+			local host_arch expect_list t accel_bin accel_help missing_whpx=0
 			host_arch="$(uname -m 2>/dev/null || echo unknown)"
-			if [[ "${MSYSTEM:-}" == "CLANGARM64" || "$host_arch" == "aarch64" ]]; then
-				expect="aarch64"
-			else
-				expect="x86_64"
+			expect_list=()
+			if [[ -n "$target" ]]; then
+				case "$target" in
+					*aarch64*) expect_list+=(aarch64) ;;
+					*x86_64*|*i386*) expect_list+=(x86_64) ;;
+				esac
 			fi
-			accel_bin=""
-			for cand in \
-				"${prefix}/bin/qemu-system-${expect}.exe" \
-				"${prefix}/qemu-system-${expect}.exe" \
-				"${prefix}/bin/qemu-system-${expect}" \
-				"${prefix}/qemu-system-${expect}"
-			do
-				if [[ -x "$cand" ]]; then
-					accel_bin="$cand"
-					break
-				fi
-			done
-			if [[ -n "$accel_bin" ]]; then
+			if [[ "${MSYSTEM:-}" == "CLANGARM64" || "$host_arch" == "aarch64" || "$host_arch" == "arm64" ]]; then
+				expect_list+=(aarch64)
+			else
+				expect_list+=(x86_64)
+			fi
+			# Also verify the other arch if that binary was installed in this prefix.
+			expect_list+=(aarch64 x86_64)
+			local checked=""
+			for t in "${expect_list[@]}"; do
+				case " $checked " in
+					*" $t "*) continue ;;
+				esac
+				checked+=" $t"
+				accel_bin=""
+				for cand in \
+					"${prefix}/bin/qemu-system-${t}.exe" \
+					"${prefix}/qemu-system-${t}.exe" \
+					"${prefix}/bin/qemu-system-${t}" \
+					"${prefix}/qemu-system-${t}"
+				do
+					if [[ -x "$cand" ]]; then
+						accel_bin="$cand"
+						break
+					fi
+				done
+				[[ -n "$accel_bin" ]] || continue
 				accel_help="$("$accel_bin" -accel help 2>&1 || true)"
-				if ! grep -q whpx <<<"$accel_help"; then
-					echo "ERROR: '$accel_bin' was built without WHPX." >&2
+				if ! grep -qiE '(^|[[:space:]])whpx($|[[:space:]])' <<<"$accel_help"; then
+					echo "ERROR: '$accel_bin' was built without WHPX (--enable-whpx required for x86_64 and aarch64 Windows builds)." >&2
 					echo "$accel_help" >&2
-					return 1
+					missing_whpx=1
+					continue
 				fi
 				echo "VERIFY OK: $accel_bin lists accelerator whpx"
+			done
+			if [[ "$missing_whpx" -ne 0 ]]; then
+				return 1
 			fi
 			;;
 	esac

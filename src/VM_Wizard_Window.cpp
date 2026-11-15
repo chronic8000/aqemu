@@ -3029,14 +3029,25 @@ void VM_Wizard_Window::Prefer_Accelerator_For_Target( const QString &target )
 
 	QString tip;
 	if( whpx )
-		tip = tr( "This PC is %1 and this guest is %2. WHPX and TCG can both be selected." )
-			.arg( host ).arg( guest.isEmpty() ? target : guest );
+	{
+		const AQ_WHPX_Host_Status whpx_st = AQ_Host_WHPX_Status();
+		tip = tr( "This PC is %1 and this guest is %2. WHPX and TCG can both be selected.\n%3" )
+			.arg( host )
+			.arg( guest.isEmpty() ? target : guest )
+			.arg( whpx_st.summary );
+	}
 	else if( kvm )
 		tip = tr( "This PC is %1 and this guest is %2. KVM and TCG can both be selected." )
 			.arg( host ).arg( guest.isEmpty() ? target : guest );
 	else
+	{
+#ifdef Q_OS_WIN
+		tip = AQ_WHPX_Unavailable_Message( target );
+#else
 		tip = tr( "This PC is %1 and this guest is %2. Only TCG can run this guest." )
 			.arg( host ).arg( guest.isEmpty() ? target : guest );
+#endif
+	}
 	if( caps.force_tcg && ! caps.summary.isEmpty() )
 		tip = caps.summary;
 

@@ -8287,14 +8287,22 @@ void Main_Window::Enforce_Accel_Honesty()
 		{
 			label = tr( "WHPX" );
 			allowed = avail.whpx;
+			const AQ_WHPX_Host_Status whpx_st = AQ_Host_WHPX_Status();
 			if( guest_bin.contains( QLatin1String( "applesoc" ), Qt::CaseInsensitive ) )
 				tip = tr( "qemu-system-applesoc.exe includes TCG only." );
 			else if( ! AQ_Guest_Matches_Host_Architecture( guest ) )
-				tip = tr( "WHPX runs a guest that matches this %1 PC. This %2 guest uses TCG." ).arg( host ).arg( guest );
+				tip = tr( "WHPX accelerates guests that match this %1 PC. This %2 guest uses TCG (cross-arch)." )
+					.arg( host ).arg( guest );
+			else if( ! whpx_st.usable )
+				tip = whpx_st.summary + QLatin1Char( '\n' ) + whpx_st.advice;
 			else if( ! allowed )
-				tip = tr( "WHPX is not available for this guest on this PC." );
+				tip = tr( "This QEMU binary was built without WHPX, or WHPX cannot run this guest here." );
+			else if( whpx_st.host_is_aarch64 )
+				tip = tr( "Windows Hypervisor Platform on ARM64 (Arm64Support). "
+				          "Choosing it turns Run via WSL off and starts the Windows QEMU." );
 			else
-				tip = tr( "Windows Hypervisor Platform. Choosing it turns Run via WSL off and starts the Windows QEMU." );
+				tip = tr( "Windows Hypervisor Platform on x86. "
+				          "Choosing it turns Run via WSL off and starts the Windows QEMU." );
 		}
 		else if( id == QLatin1String( "kvm" ) )
 		{

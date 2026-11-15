@@ -11457,6 +11457,31 @@ bool Virtual_Machine::Start_impl()
 	}
 	Lab_Start_Companions lab_companions( this );
 
+#ifdef Q_OS_WIN
+	// Intelligent WHPX preflight: based on the host AQEMU is running on
+	// (x86_64 vs aarch64), not on wishful guest settings alone.
+	// Build_QEMU_Args already emits TCG when whpx is unavailable; warn once
+	// so the user knows why acceleration did not engage. Do not rewrite saved accel.
+	if( ! Force_TCG && ! Launch_Via_WSL && Machine_Accelerator == VM::KVM &&
+	    ! AQ_Is_Apple_SoC_VM( this ) )
+	{
+		const QString qemu_bin = Get_Current_Emulator_Binary_Path( Computer_Type );
+		const AQ_Accel_Flags avail =
+			AQ_Accelerator_Availability( Computer_Type, qemu_bin, false );
+		if( ! avail.whpx )
+		{
+			static QStringList warned_keys;
+			const QString key = Computer_Type + QLatin1Char( '|' ) + AQ_Get_Host_CPU_Architecture();
+			if( ! warned_keys.contains( key ) )
+			{
+				warned_keys.append( key );
+				AQGraphic_Warning( tr( "Hardware acceleration" ),
+					AQ_WHPX_Unavailable_Message( Computer_Type ) );
+			}
+		}
+	}
+#endif
+
 	QEMU_Stderr_History.clear();
 	QEMU_Stdout_History.clear();
 	User_Requested_Power_Off = false;

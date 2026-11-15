@@ -378,6 +378,36 @@ bool AQ_Should_Prefer_Native_Accelerator( const QString &guest_target );
  */
 bool AQ_Host_WHPX_Usable();
 
+/**
+ * Detailed WHPX host probe for UI / health / preflight.
+ * Always reflects the architecture AQEMU itself is running on
+ * (x86_64 vs aarch64), never the guest arch alone.
+ */
+struct AQ_WHPX_Host_Status
+{
+	bool usable = false;
+	bool dll_loaded = false;
+	bool hypervisor_present = false;
+	bool arm64_support = false; // meaningful only when host is aarch64
+	bool host_is_aarch64 = false;
+	bool host_is_x86_64 = false;
+	quint32 windows_build = 0;
+	quint32 windows_ubr = 0;
+	QString host_arch; // normalized: x86_64 / aarch64 / …
+	QString summary;   // one-line human status
+	QString advice;    // what to do if not usable
+};
+
+/** Cached detailed probe. Safe to call often. Non-Windows: usable=false. */
+AQ_WHPX_Host_Status AQ_Host_WHPX_Status();
+
+/**
+ * User-facing text when WHPX cannot accelerate this guest on this host.
+ * Distinguishes cross-arch guests, missing Optional Feature, and ARM64
+ * build/Arm64Support requirements.
+ */
+QString AQ_WHPX_Unavailable_Message( const QString &guest_qemu_name );
+
 /** True when this QEMU binary lists whpx in `-accel help`. Cached. */
 bool AQ_QEMU_Has_WHPX( const QString &qemu_binary );
 
