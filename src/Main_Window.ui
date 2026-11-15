@@ -4295,7 +4295,7 @@
      <normaloff>:/document-open.png</normaloff>:/document-open.png</iconset>
    </property>
    <property name="text">
-    <string>&amp;Import Appliance (OVA / OVF)...</string>
+    <string>&amp;Import VM (VMware / VirtualBox / OVA)…</string>
    </property>
    <property name="shortcut">
     <string>Ctrl+I</string>

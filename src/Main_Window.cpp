@@ -130,6 +130,7 @@
 #include "QEMU_Hardware_Browser.h"
 #include "Blockdev_Graph_Window.h"
 #include "Appliance_Import_Window.h"
+#include "Foreign_VM_Import.h"
 #include "VM_Scanner_Window.h"
 #include "Storage_Recovery_Window.h"
 #include "Storage_Guest_Tab.h"
@@ -6073,11 +6074,28 @@ void Main_Window::on_actionAttach_SAN_Storage_triggered()
 
 void Main_Window::on_actionImport_Appliance_triggered()
 {
-	Appliance_Import_Window import_win( this );
-	if( import_win.exec() == QDialog::Accepted && import_win.Get_Imported_VM() != nullptr )
+	const QString path = QFileDialog::getOpenFileName( this, tr( "Import virtual machine" ),
+		AQEMU_Default_VM_Directory(),
+		tr( "Virtual machines (*.vmx *.vbox *.ova *.ovf);;"
+		    "VMware (*.vmx);;VirtualBox (*.vbox);;"
+		    "Appliance (*.ova *.ovf);;All files (*)" ) );
+	if( path.isEmpty() )
+		return;
+
+	const QString lower = path.toLower();
+	if( lower.endsWith( QLatin1String( ".vmx" ) ) || lower.endsWith( QLatin1String( ".vbox" ) ) )
 	{
-		Add_VM_To_List( import_win.Get_Imported_VM() );
+		Foreign_VM_Import_Window import_win( this );
+		import_win.Set_Source_Path( path );
+		if( import_win.exec() == QDialog::Accepted && import_win.Get_Imported_VM() )
+			Add_VM_To_List( import_win.Get_Imported_VM() );
+		return;
 	}
+
+	Appliance_Import_Window import_win( this );
+	import_win.Set_Appliance_Path( path );
+	if( import_win.exec() == QDialog::Accepted && import_win.Get_Imported_VM() != nullptr )
+		Add_VM_To_List( import_win.Get_Imported_VM() );
 }
 
 void Main_Window::on_actionExport_Appliance_triggered()

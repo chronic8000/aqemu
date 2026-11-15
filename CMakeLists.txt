@@ -176,6 +176,7 @@ SET( aqemu_headers
 	src/VM_Session_Widget.h
 	src/OVF_Parser.h
 	src/Appliance_Import_Window.h
+	src/Foreign_VM_Import.h
 	src/Appliance_Export_Window.h
 	src/SAN_Storage_Dialog.h
 	src/Storage_Recovery.h
@@ -268,6 +269,7 @@ SET( aqemu_sources
 	src/VM_Session_Widget.cpp
 	src/OVF_Parser.cpp
 	src/Appliance_Import_Window.cpp
+	src/Foreign_VM_Import.cpp
 	src/Appliance_Export_Window.cpp
 	src/SAN_Storage_Dialog.cpp
 	src/Storage_Recovery.cpp
