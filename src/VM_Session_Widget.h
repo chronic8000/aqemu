@@ -162,6 +162,7 @@ class VM_Session_Widget : public QWidget
 		QString USB_Device_Add_Command( const VM_USB &u, const QString &qemu_id ) const;
 		QString USB_Target_Bus() const;
 		void Deliver_Files( const QStringList &paths );
+		void Confirm_And_Deliver_Files( const QStringList &paths );
 		void Start_Guest_Copy( bool to_guest, const QString &host, const QString &guest );
 
 		Virtual_Machine *VM;

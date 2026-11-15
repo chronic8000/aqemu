@@ -6,15 +6,15 @@ Text and files are different paths.
 
 | What you copy | What AQEMU does | Guest software |
 |--|--|--|
-| Text | The embedded VNC display already shares the clipboard | None |
-| Files, no installer | **Paste files**, or drop them on the guest window | None. The guest opens floppy A or an AQEMU USB drive |
+| Text | The embedded VNC display already shares the clipboard. Optional Lab → Devices → **Clipboard sharing (qemu-vdagent)** adds `com.redhat.spice.0` for spice-vdagent guests | None for VNC text; spice-vdagent / spice guest tools for qemu-vdagent |
+| Files, no installer | **Paste files**, or drop them on the guest window (both ask for confirmation) | None. The guest opens floppy A or an AQEMU USB drive |
 | One file to a guest path | **To guest** | `qemu-guest-agent` |
 | One file from a guest path | **From guest** | `qemu-guest-agent` |
 | Files copied inside the guest file manager | The guest helper sends them. AQEMU asks where to save them | `qemu-guest-agent` plus the AQEMU helper |
 
 ## Paste files into the guest
 
-Copy the files in the host file manager, then click **Paste files**. AQEMU lists the paths and copies them only after you confirm. Text on the clipboard is ignored, including a path sent by the guest. You can also drop files on the guest window.
+Copy the files in the host file manager, then click **Paste files**. AQEMU lists the paths and copies them only after you confirm. Dropping files on the guest window uses the same confirmation. Text on the clipboard is ignored, including a path sent by the guest.
 
 AQEMU writes a FAT disk and gives it to the running guest:
 
@@ -40,7 +40,7 @@ The agent can read and write files that its user can read and write. On many Lin
 
 ## Install the guest tools once
 
-Click **Guest tools**. AQEMU inserts a floppy with four files:
+Click **Guest tools**. AQEMU shows the Linux and Windows install steps, then inserts a floppy (or AQEMU USB disk) with four files after you confirm:
 
 | File | Role |
 |--|--|

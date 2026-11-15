@@ -594,7 +594,7 @@ bool VM_Session_Widget::eventFilter( QObject *obj, QEvent *event )
 	if( ours && event->type() == QEvent::Drop )
 	{
 		QDropEvent *drop = static_cast<QDropEvent *>( event );
-		Deliver_Files( AQ_File_Paths_From_Mime( drop->mimeData() ) );
+		Confirm_And_Deliver_Files( AQ_File_Paths_From_Mime( drop->mimeData() ) );
 		drop->acceptProposedAction();
 		return true;
 	}
@@ -610,7 +610,7 @@ void VM_Session_Widget::dragEnterEvent( QDragEnterEvent *event )
 
 void VM_Session_Widget::dropEvent( QDropEvent *event )
 {
-	Deliver_Files( AQ_File_Paths_From_Mime( event->mimeData() ) );
+	Confirm_And_Deliver_Files( AQ_File_Paths_From_Mime( event->mimeData() ) );
 	event->acceptProposedAction();
 }
 
@@ -777,6 +777,20 @@ static bool Private_Work_Dir( const QString &name, QString *error )
 
 void VM_Session_Widget::On_Insert_Guest_Tools()
 {
+	const QString steps = tr(
+		"AQEMU will insert a floppy (or an AQEMU USB disk) with guest tools.\n\n"
+		"Linux guest — open the disk and run:\n"
+		"  sh install-linux.sh\n"
+		"That installs qemu-guest-agent and starts aqemu-guest.py (needs python3 and wl-paste or xclip).\n\n"
+		"Windows guest — install qemu-guest-agent / virtio serial first, then run:\n"
+		"  powershell -STA -ExecutionPolicy Bypass -File aqemu-guest.ps1\n"
+		"Leave that window open so files copied in Explorer can return to the host.\n\n"
+		"DOS and Windows 9x cannot use these tools; use Paste files instead.\n\n"
+		"Insert the guest tools now?" );
+	if( QMessageBox::question( this, tr( "Guest tools" ), steps,
+			QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes ) != QMessageBox::Yes )
+		return;
+
 	QString dir_error;
 	if( ! Private_Work_Dir( QStringLiteral( "guest-tools" ), &dir_error ) )
 	{
@@ -809,6 +823,8 @@ void VM_Session_Widget::On_Insert_Guest_Tools()
 		paths << path;
 	}
 	Deliver_Files( paths );
+	QMessageBox::information( this, tr( "Guest tools" ),
+		tr( "The guest tools disk is attached. Open floppy A or the AQEMU USB drive in the guest and follow the steps shown before insert." ) );
 }
 
 static QString Paste_Path_List( const QStringList &paths )
@@ -823,10 +839,8 @@ static QString Paste_Path_List( const QStringList &paths )
 	return text;
 }
 
-void VM_Session_Widget::On_Paste_Files()
+void VM_Session_Widget::Confirm_And_Deliver_Files( const QStringList &paths )
 {
-	const QClipboard *clip = QGuiApplication::clipboard();
-	const QStringList paths = AQ_File_Paths_From_Mime( clip ? clip->mimeData() : nullptr );
 	if( paths.isEmpty() )
 	{
 		QMessageBox::information( this, tr( "Paste files" ),
@@ -838,6 +852,12 @@ void VM_Session_Widget::On_Paste_Files()
 			QMessageBox::Yes | QMessageBox::No, QMessageBox::No ) != QMessageBox::Yes )
 		return;
 	Deliver_Files( paths );
+}
+
+void VM_Session_Widget::On_Paste_Files()
+{
+	const QClipboard *clip = QGuiApplication::clipboard();
+	Confirm_And_Deliver_Files( AQ_File_Paths_From_Mime( clip ? clip->mimeData() : nullptr ) );
 }
 
 void VM_Session_Widget::Deliver_Files( const QStringList &paths )

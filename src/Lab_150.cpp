@@ -587,6 +587,54 @@ void AQ_Lab_Append_Args( QStringList &args, Virtual_Machine *vm )
 		}
 	}
 
+	if( opt.value( QStringLiteral( "clipboard" ) ) == QLatin1String( "on" ) )
+	{
+		bool have_vdagent = false;
+		bool have_vserial = false;
+		QString vserial_bus;
+		for( int i = 0; i < args.count(); ++i )
+		{
+			if( args.at( i ).contains( QLatin1String( "qemu-vdagent" ) )
+			    || args.at( i ).contains( QLatin1String( "com.redhat.spice.0" ) ) )
+				have_vdagent = true;
+			if( args.at( i ) == QLatin1String( "-device" ) && i + 1 < args.count() )
+			{
+				const QString &dev = args.at( i + 1 );
+				if( dev.startsWith( QLatin1String( "virtio-serial" ) ) )
+				{
+					have_vserial = true;
+					if( vserial_bus.isEmpty() )
+					{
+						const int id_pos = dev.indexOf( QStringLiteral( "id=" ) );
+						if( id_pos >= 0 )
+						{
+							QString id = dev.mid( id_pos + 3 );
+							id = id.section( QLatin1Char( ',' ), 0, 0 );
+							if( ! id.isEmpty() )
+								vserial_bus = id + QStringLiteral( ".0" );
+						}
+					}
+				}
+			}
+		}
+		if( ! have_vdagent )
+		{
+			if( ! have_vserial )
+			{
+				args << QStringLiteral( "-device" )
+				     << QStringLiteral( "virtio-serial-pci,id=aqemu_vdagent_bus" );
+				vserial_bus = QStringLiteral( "aqemu_vdagent_bus.0" );
+			}
+			else if( vserial_bus.isEmpty() )
+				vserial_bus = QStringLiteral( "virtio-serial0.0" );
+			args << QStringLiteral( "-chardev" )
+			     << QStringLiteral( "qemu-vdagent,id=aqvdagent,name=vdagent,clipboard=on,mouse=off" );
+			args << QStringLiteral( "-device" )
+			     << ( QStringLiteral( "virtserialport,bus=" ) + vserial_bus
+				  + QStringLiteral( ",chardev=aqvdagent,name=com.redhat.spice.0" ) );
+		}
+	}
+
 	if( opt.value( QStringLiteral( "smartcard" ) ) == QLatin1String( "emulated" ) )
 		args << QStringLiteral( "-device" ) << QStringLiteral( "usb-ccid" )
 		     << QStringLiteral( "-device" ) << QStringLiteral( "ccid-card-emulated" );
@@ -683,6 +731,18 @@ static bool Device_Listed( Virtual_Machine *vm, const QString &name )
 		return false;
 	int code = 0;
 	const QString help = Run_Tool( bin, QStringList() << QStringLiteral( "-device" ) << QStringLiteral( "help" ), 2500, &code );
+	return help.contains( name );
+}
+
+static bool Chardev_Listed( Virtual_Machine *vm, const QString &name )
+{
+	if( ! vm || name.isEmpty() )
+		return false;
+	const QString bin = vm->Get_Current_Emulator_Binary_Path( vm->Get_Computer_Type() );
+	if( bin.isEmpty() )
+		return false;
+	int code = 0;
+	const QString help = Run_Tool( bin, QStringList() << QStringLiteral( "-chardev" ) << QStringLiteral( "help" ), 2500, &code );
 	return help.contains( name );
 }
 
@@ -1925,6 +1985,10 @@ void AQ_Lab_Open_VM_Window( Virtual_Machine *vm, const QList<Virtual_Machine*> &
 	ga->setChecked( opt.value( QStringLiteral( "guest_agent" ) ) == QLatin1String( "on" ) );
 	QCheckBox *ga_exec = new QCheckBox( QObject::tr( "Allow guest-exec from the QMP scratchpad" ), dev );
 	ga_exec->setChecked( opt.value( QStringLiteral( "guest_exec" ) ) == QLatin1String( "on" ) );
+	QCheckBox *clip = new QCheckBox( QObject::tr( "Clipboard sharing (qemu-vdagent)" ), dev );
+	clip->setChecked( opt.value( QStringLiteral( "clipboard" ) ) == QLatin1String( "on" ) );
+	clip->setToolTip( QObject::tr(
+		"Adds a virtio serial port named com.redhat.spice.0. Install spice-vdagent (Linux) or spice guest tools (Windows) in the guest. Works best with a QEMU UI that supports qemu-vdagent; embedded VNC already syncs text without this." ) );
 	QLabel *ga_badge = new QLabel( dev );
 	const QString qga_sock = QDir( AQEMU_User_Data_Dir() ).filePath( QStringLiteral( "qga-" ) + vm->Get_Machine_Name() + QStringLiteral( ".sock" ) );
 	ga_badge->setText( QFileInfo( qga_sock ).exists() && vm->Get_State() == VM::VMS_Running
@@ -1978,6 +2042,7 @@ void AQ_Lab_Open_VM_Window( Virtual_Machine *vm, const QList<Virtual_Machine*> &
 	dev_form->addRow( QObject::tr( "Smartcard" ), card );
 	dev_form->addRow( ga );
 	dev_form->addRow( ga_exec );
+	dev_form->addRow( clip );
 	dev_form->addRow( ga_badge );
 	dev_form->addRow( QObject::tr( "Period preset" ), period );
 	dev_form->addRow( QObject::tr( "Display heads" ), heads );
@@ -1994,7 +2059,10 @@ void AQ_Lab_Open_VM_Window( Virtual_Machine *vm, const QList<Virtual_Machine*> &
 	dev_form->addRow( QObject::tr( "LUKS secret" ), secret );
 	dev_form->addRow( QObject::tr( "LUKS image" ), luks );
 	dev_form->addRow( ramfb );
-	QLabel *spice = new QLabel( QObject::tr( "SPICE agent: clipboard, drag-and-drop, and file transfer need spice-vdagent inside the guest. AQEMU only shows the channel; it does not install the guest agent." ), dev );
+	QLabel *spice = new QLabel( QObject::tr(
+		"Clipboard checkbox uses qemu-vdagent when this QEMU lists that chardev. The guest still needs spice-vdagent or Windows spice guest tools. "
+		"File paste/drop and Guest tools on the session toolbar do not need vdagent — see docs/COPY_AND_PASTE.md." ),
+		dev );
 	spice->setWordWrap( true );
 	dev_form->addRow( spice );
 	tabs->addTab( dev, QObject::tr( "Devices" ) );
@@ -2271,6 +2339,14 @@ void AQ_Lab_Open_VM_Window( Virtual_Machine *vm, const QList<Virtual_Machine*> &
 			opt.insert( QStringLiteral( "smartcard" ), card->currentData().toString() );
 		opt.insert( QStringLiteral( "guest_agent" ), ga->isChecked() ? QStringLiteral( "on" ) : QString() );
 		opt.insert( QStringLiteral( "guest_exec" ), ga_exec->isChecked() ? QStringLiteral( "on" ) : QString() );
+		if( clip->isChecked() && ! Chardev_Listed( vm, QStringLiteral( "qemu-vdagent" ) ) )
+		{
+			AQGraphic_Warning( QObject::tr( "Clipboard" ),
+				QObject::tr( "This QEMU build does not list qemu-vdagent, so clipboard sharing was not enabled. Embedded VNC text sync and Paste files still work." ) );
+			opt.insert( QStringLiteral( "clipboard" ), QString() );
+		}
+		else
+			opt.insert( QStringLiteral( "clipboard" ), clip->isChecked() ? QStringLiteral( "on" ) : QString() );
 		if( period->currentData().toString() == QLatin1String( "dos" ) || period->currentData().toString() == QLatin1String( "win9x" ) )
 		{
 			VM::Sound_Cards sound;
