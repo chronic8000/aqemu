@@ -2029,8 +2029,13 @@ void AQ_Lab_Open_VM_Window( Virtual_Machine *vm, const QList<Virtual_Machine*> &
 	QCheckBox *tpm = new QCheckBox( QObject::tr( "TPM 2.0 emulator (swtpm socket)" ), dev );
 	tpm->setChecked( vm->Get_TPM_Type() == QLatin1String( "emulator" ) );
 	QLineEdit *tpm_path = new QLineEdit( vm->Get_TPM_Path(), dev );
-	QCheckBox *secure = new QCheckBox( QObject::tr( "Secure Boot: keep a private OVMF VARS file" ), dev );
-	secure->setChecked( vm->Use_UEFI() );
+	QCheckBox *secure = new QCheckBox( QObject::tr( "UEFI Secure Boot (secboot CODE + enrolled VARS)" ), dev );
+	secure->setChecked( opt.value( QStringLiteral( "secure_boot" ) ) == QLatin1String( "on" )
+		|| ( vm->Use_UEFI() && (
+			vm->Get_UEFI_CODE_File().contains( QLatin1String( "secboot" ), Qt::CaseInsensitive )
+			|| vm->Get_UEFI_CODE_File().contains( QLatin1String( ".ms." ), Qt::CaseInsensitive ) ) ) );
+	secure->setToolTip( QObject::tr(
+		"Uses Secure Boot firmware when available (AAVMF/OVMF secboot). Each VM still gets its own writable VARS copy." ) );
 	QLineEdit *secret = new QLineEdit( dev );
 	secret->setEchoMode( QLineEdit::Password );
 	secret->setPlaceholderText( QObject::tr( "LUKS passphrase. Stored in the OS credential store, not the VM file." ) );
@@ -2375,7 +2380,9 @@ void AQ_Lab_Open_VM_Window( Virtual_Machine *vm, const QList<Virtual_Machine*> &
 			vm->Set_TPM_Type( QStringLiteral( "emulator" ) );
 			vm->Set_TPM_Path( tpm_path->text().trimmed() );
 		}
-		vm->Use_UEFI( secure->isChecked() );
+		opt.insert( QStringLiteral( "secure_boot" ), secure->isChecked() ? QStringLiteral( "on" ) : QString() );
+		if( secure->isChecked() )
+			vm->Use_UEFI( true );
 		if( ! secret->text().isEmpty() )
 		{
 			Store_Secret( vm->Get_Machine_Name(), secret->text() );

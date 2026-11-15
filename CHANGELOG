@@ -1,3 +1,11 @@
+2026-11-15 Chronic Engineering — AQEMU 1.6.5.0
+
+	* ARM64/x86 UEFI firmware search prefers the bundled share directory,
+	  pairs CODE with a matching-size VARS template (including Secure Boot),
+	  and runs pre-start display/port checks in one dialog. Behaviour
+	  inspired by TrueNAS pylibvirt (clean-room); thanks to Jon (shoulders)
+	  for the find.
+
 2026-10-18 Chronic Engineering — AQEMU 1.6.0
 
 	* The guest agent uses a Unix socket on Linux and a named pipe on

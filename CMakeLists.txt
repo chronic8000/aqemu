@@ -280,6 +280,7 @@ SET( aqemu_sources
 	src/Audio_Host.cpp
 	src/Audio_Settings_Window.cpp
 	src/Lab_150.cpp
+	src/Start_Validation.cpp
 )
 
 SET( aqemu_ui

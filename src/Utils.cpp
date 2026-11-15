@@ -3357,6 +3357,8 @@ QString Find_UEFI_Firmware_CODE( const QString &qemu_binary_path, const QString 
 {
 	QStringList candidates;
 	const bool x86 = UEFI_Arch_Is_X86( arch );
+	// Bundled AQEMU firmware first, then distro / QEMU share paths (#107).
+	Append_Bundled_UEFI_CODE( candidates, qemu_binary_path, x86 );
 
 	#ifdef Q_OS_WIN32
 	QString binDir;
@@ -3441,7 +3443,6 @@ QString Find_UEFI_Firmware_CODE( const QString &qemu_binary_path, const QString 
 	}
 	#endif
 
-	Append_Bundled_UEFI_CODE( candidates, qemu_binary_path, x86 );
 	return First_Existing_Path( candidates );
 }
 
@@ -3449,6 +3450,7 @@ QString Find_UEFI_Firmware_VARS_Template( const QString &qemu_binary_path, const
 {
 	QStringList candidates;
 	const bool x86 = UEFI_Arch_Is_X86( arch );
+	Append_Bundled_UEFI_VARS( candidates, qemu_binary_path, x86 );
 
 	#ifdef Q_OS_WIN32
 	QString binDir;
@@ -3530,13 +3532,13 @@ QString Find_UEFI_Firmware_VARS_Template( const QString &qemu_binary_path, const
 	}
 	#endif
 
-	Append_Bundled_UEFI_VARS( candidates, qemu_binary_path, x86 );
 	return First_Existing_Path( candidates );
 }
 
 static QStringList UEFI_Search_Dirs( const QString &qemu_binary_path )
 {
 	QStringList dirs;
+	dirs << ( QCoreApplication::applicationDirPath() + QStringLiteral( "/share" ) );
 	if( ! qemu_binary_path.isEmpty() )
 	{
 		const QString bin = QFileInfo( qemu_binary_path ).absolutePath();
@@ -3545,7 +3547,6 @@ static QStringList UEFI_Search_Dirs( const QString &qemu_binary_path )
 		     << QDir( bin ).absoluteFilePath( QStringLiteral( "../share" ) )
 		     << QDir( bin ).absoluteFilePath( QStringLiteral( "../share/qemu" ) );
 	}
-	dirs << ( QCoreApplication::applicationDirPath() + QStringLiteral( "/share" ) );
 #ifdef Q_OS_WIN32
 	const QStringList qemu_dirs = AQ_Windows_Qemu_Dirs();
 	for( int i = 0; i < qemu_dirs.size(); ++i )
@@ -3587,8 +3588,7 @@ QString Find_UEFI_Secure_CODE( const QString &qemu_binary_path, const QString &a
 		: ( QStringList()
 			<< QStringLiteral( "AAVMF_CODE.ms.fd" )
 			<< QStringLiteral( "AAVMF_CODE.secboot.fd" )
-			<< QStringLiteral( "edk2-aarch64-secure-code.fd" )
-			<< QStringLiteral( "AAVMF_CODE.fd" ) );
+			<< QStringLiteral( "edk2-aarch64-secure-code.fd" ) );
 	return First_Named_Firmware( UEFI_Search_Dirs( qemu_binary_path ), names );
 }
 
@@ -3642,14 +3642,27 @@ bool Prepare_UEFI_VARS_File( const QString &dest_path, const QString &qemu_binar
 	return true;
 }
 
+static bool AQ_UEFI_Name_Looks_Secure( const QString &name )
+{
+	return name.contains( QLatin1String( "secboot" ), Qt::CaseInsensitive )
+		|| name.contains( QLatin1String( ".ms." ), Qt::CaseInsensitive )
+		|| name.contains( QLatin1String( "secure" ), Qt::CaseInsensitive );
+}
+
 QString AQ_UEFI_VARS_Template_For_Code( const QString &code_path, const QString &qemu_binary_path,
                                         const QString &arch )
 {
 	const QFileInfo code( code_path );
 	if( ! code.exists() || code.size() <= 0 )
 		return QString();
-	const bool secboot = code_path.contains( QLatin1String( "secboot" ), Qt::CaseInsensitive );
+	const bool secboot = AQ_UEFI_Name_Looks_Secure( code_path );
 	QStringList names;
+	if( secboot )
+	{
+		const QString secure = Find_UEFI_Secure_VARS_Template( qemu_binary_path, arch );
+		if( ! secure.isEmpty() )
+			names << secure;
+	}
 	const QString tmpl = Find_UEFI_Firmware_VARS_Template( qemu_binary_path, arch );
 	if( ! tmpl.isEmpty() )
 		names << tmpl;
@@ -3668,7 +3681,9 @@ QString AQ_UEFI_VARS_Template_For_Code( const QString &code_path, const QString 
 		const QFileInfo info( names.at( i ) );
 		if( ! info.exists() || info.size() <= 0 )
 			continue;
-		const bool vars_sec = info.fileName().contains( QLatin1String( "secboot" ), Qt::CaseInsensitive );
+		if( code.size() != info.size() )
+			continue;
+		const bool vars_sec = AQ_UEFI_Name_Looks_Secure( info.fileName() );
 		if( secboot == vars_sec )
 			return info.absoluteFilePath();
 		if( fallback.isEmpty() )
@@ -3693,6 +3708,19 @@ bool AQ_UEFI_Pair_Ready( const QString &code_path, const QString &vars_path, QSt
 			*error = QObject::tr( "UEFI VARS was not created. A VARS template for this firmware was not found." );
 		return false;
 	}
+	if( code.size() != vars.size() )
+	{
+		if( error )
+		{
+			*error = QObject::tr(
+				"UEFI CODE (%1 bytes) and VARS (%2 bytes) sizes do not match. "
+				"Use a matching AAVMF/OVMF pair (for example both 2 MiB or both 64 MiB pflash images)." )
+				.arg( code.size() ).arg( vars.size() );
+		}
+		return false;
+	}
+	// Private per-VM VARS files keep a plain name (Machine_VARS.fd) even when
+	// copied from an enrolled-keys template, so do not require "ms/secboot" in the VARS name.
 	return true;
 }
 

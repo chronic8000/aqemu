@@ -73,6 +73,7 @@
 #include "VM.h"
 #include "Guest_Agent.h"
 #include "Lab_150.h"
+#include "Start_Validation.h"
 #include "QMP_Client.h"
 #include "Utils.h"
 #include "Physical_Drive.h"
@@ -10067,7 +10068,13 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		}
 		if( code_path.isEmpty() )
 		{
-			code_path = Find_UEFI_Firmware_CODE( qemu_bin, arch );
+			const bool want_secure =
+				AQ_Lab_Get( this, QStringLiteral( "secure_boot" ) ) == QLatin1String( "on" );
+			code_path = want_secure
+				? Find_UEFI_Secure_CODE( qemu_bin, arch )
+				: Find_UEFI_Firmware_CODE( qemu_bin, arch );
+			if( code_path.isEmpty() && want_secure )
+				code_path = Find_UEFI_Firmware_CODE( qemu_bin, arch );
 			if( ! code_path.isEmpty() )
 				UEFI_CODE_File = code_path;
 		}
@@ -10100,7 +10107,14 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 					arch = QStringLiteral( "aarch64" );
 				else if( Computer_Type.contains( "x86_64", Qt::CaseInsensitive ) )
 					arch = QStringLiteral( "x86_64" );
-				Prepare_UEFI_VARS_File( UEFI_VARS_File, qemu_bin, arch );
+				const QString tmpl = AQ_UEFI_VARS_Template_For_Code( code_path, qemu_bin, arch );
+				if( ! tmpl.isEmpty() )
+				{
+					QDir().mkpath( QFileInfo( UEFI_VARS_File ).absolutePath() );
+					QFile::copy( tmpl, UEFI_VARS_File );
+				}
+				else
+					Prepare_UEFI_VARS_File( UEFI_VARS_File, qemu_bin, arch );
 			}
 		}
 
@@ -11456,6 +11470,12 @@ bool Virtual_Machine::Start_impl()
 		Start_Cancelled_By_User = true;
 		return false;
 	}
+	if( ! AQ_Run_Start_Validation( this ) )
+	{
+		AQ_Lab_Stop_Companions( this );
+		Start_Cancelled_By_User = true;
+		return false;
+	}
 	Lab_Start_Companions lab_companions( this );
 
 #ifdef Q_OS_WIN
@@ -11568,9 +11588,21 @@ bool Virtual_Machine::Start_impl()
 			arch = QStringLiteral( "aarch64" );
 		else if( Computer_Type.contains( QLatin1String( "x86_64" ), Qt::CaseInsensitive ) )
 			arch = QStringLiteral( "x86_64" );
+		const bool want_secure =
+			AQ_Lab_Get( this, QStringLiteral( "secure_boot" ) ) == QLatin1String( "on" );
 		if( UEFI_CODE_File.isEmpty() || ! QFile::exists( UEFI_CODE_File ) )
 		{
-			const QString found = Find_UEFI_Firmware_CODE( qemu_bin, arch );
+			const QString found = want_secure
+				? Find_UEFI_Secure_CODE( qemu_bin, arch )
+				: Find_UEFI_Firmware_CODE( qemu_bin, arch );
+			if( found.isEmpty() && want_secure )
+			{
+				AQGraphic_Error( "bool Virtual_Machine::Start()", tr( "UEFI firmware" ),
+					tr( "Secure Boot firmware was not found for this guest. Install an AAVMF/OVMF secboot CODE image, or turn Secure Boot off." ),
+					false );
+				Start_Snapshot_Tag = "";
+				return false;
+			}
 			if( ! found.isEmpty() )
 				UEFI_CODE_File = found;
 		}
