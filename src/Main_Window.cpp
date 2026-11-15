@@ -207,7 +207,7 @@ Main_Window::Main_Window( QWidget *parent )
 	ui.setupUi( this );
 	ui_ao.setupUi( Advanced_Options );
 	Storage_Tab = new Storage_Guest_Tab( ui.Tabs );
-	ui.Tabs->addTab( Storage_Tab, tr( "Storage" ) );
+	ui.Tabs->addTab( Storage_Tab, tr( "TrueNAS Storage" ) );
 	Build_Apple_SoC_Inferno_Ui();
 	Build_Next_ROM_Ui();
 

@@ -12,7 +12,7 @@ AQEMU does not ship Xbox firmware, Android images, IPSW files, OpenCore, macOS m
 |--|--|
 | **VM → Lab** | Per-VM lab window, command diff, block jobs, migrate, Chain Studio, firmware library, snippets, linked clones, and tagged groups |
 | **Network** page | Port-forward table. SSH, RDP, and HTTP presets. Saves `hostfwd=` rules |
-| **VM → Storage** | Manage Snapshots, and remote SAN attach |
+| **VM → TrueNAS Storage** | Manage Snapshots, and remote SAN attach |
 | **File → Disks** | Storage browser, create and convert disk images, qemu-nbd |
 | **File → Import and Export** | OVA/OVF, lab packs, and Quickemu conf |
 | **Help → Diagnostics** | Support bundle, QEMU catalog, bundle auditor, WHPX health, first-run cards, WSL dashboard |
