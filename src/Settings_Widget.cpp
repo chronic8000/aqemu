@@ -133,6 +133,11 @@ Settings_Widget::Settings_Widget(QTabWidget* tab_widget, QBoxLayout::Direction d
 
     setLayout(l);
 
+    // Preferences used to ACCESS_VIOLATION in Qt5Widgets when All_Tabs had no
+    // parent layout — never call replaceWidget / parentWidget()->layout() blind.
+    if( ! tab_widget )
+	return;
+
     int i = 0;
     QWidget* widget = nullptr;
 
@@ -147,10 +152,14 @@ Settings_Widget::Settings_Widget(QTabWidget* tab_widget, QBoxLayout::Direction d
 
     tab_widget->hide();
 
-    tab_widget->parentWidget()->layout()->replaceWidget( tab_widget, this );
-
-    if ( erase_margins && erase_parent_margins )
-        tab_widget->parentWidget()->layout()->setContentsMargins(0,0,0,0);
+    QWidget *tab_parent = tab_widget->parentWidget();
+    QLayout *tab_layout = tab_parent ? tab_parent->layout() : nullptr;
+    if( tab_layout )
+    {
+	tab_layout->replaceWidget( tab_widget, this );
+	if( erase_margins && erase_parent_margins )
+		tab_layout->setContentsMargins( 0, 0, 0, 0 );
+    }
     
 
     if ( dir != QBoxLayout::TopToBottom )

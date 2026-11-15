@@ -250,7 +250,7 @@ An asynchronous **QMP client** drives pause/resume, ACPI shutdown, reset, media 
 | **Windows 11 ARM** | Wizard + lifecycle on **x64 Windows hosts via TCG** (and KVM on Pi 5 / aarch64) |
 | **Windows 95 / 98 / ME** | **Force pure TCG** — WHPX hangs classic 9x; we stop that footgun |
 | **Apple SoC / iOS** | **1.3.0** — **iOS 14 on Windows 11** (Inferno + WSL): restore, FS patches, SpringBoard, reverse-tether. Newer iOS as Inferno allows. |
-| **Intel macOS + Reims** | OpenCore + OVMF + OSK; **Reims** accel via WSL `qemu-system-reims3d` + Vulkan (**AMD and NVIDIA** on Windows) |
+| **Intel macOS + Reims** | OpenCore + OVMF + OSK; **Reims** via native Windows WHPX `qemu-system-reims3d.exe` + Vulkan (WSL fallback still available) |
 | **Classic Mac OS (PPC)** | `mac99` / PowerPC profiles, no PC floppy nonsense |
 | **Solaris 11.4 / AIX / OS/2 / ReactOS** | Wizard defaults matching real QEMU flags (AIX = `ppc64`/`pseries`, TCG on Windows) |
 | **TrueNAS / ZFS (4Kn Native Disks)** | **4096-byte native sector emulation** — VMware & VirtualBox fail on 4Kn disks; AQEMU emulates 4Kn natively on raw/qcow2/VirtIO/NVMe |
@@ -343,18 +343,17 @@ AQEMU includes hardware-tailored enhancements specifically for the **Raspberry P
 
 ---
 
-## ⚡ Reims vGPU Acceleration Engine (Linux / WSL)
+## ⚡ Reims vGPU Acceleration Engine (Windows WHPX / Linux / WSL)
 
-AQEMU integrates **steelbrain's `qemu-reims-vgpu`** so Intel macOS guests can use Apple's built-in **`AppleParavirtGPU.kext`** with a host-side **Metal → Vulkan** translation path.
+AQEMU vendors **[tqmane/reims-vgpu](https://github.com/tqmane/reims-vgpu)** (`windows-native-tahoe`) — a Windows-native WHPX + Vulkan fork of steelbrain’s Reims — so Intel macOS guests can use Apple’s built-in **`AppleParavirtGPU.kext`** with host-side **Metal → Vulkan**.
 
 ### Important (Windows hosts)
-- Real Reims acceleration requires the **Linux** binary **`qemu-system-reims3d`** under **WSL** (with KVM + a working Vulkan/GL stack).
-- The Windows `qemu-system-reimsvgpu.exe` helper is **not** a complete Reims build: it does **not** expose `reims-vgpu-pci`. AQEMU therefore **forces Launch via WSL** for Reims VMs and runs `/usr/local/bin/qemu-system-reims3d`.
-- Build or install `qemu-system-reims3d` inside your WSL distro (typically `/usr/local/bin/qemu-system-reims3d`).
-- **Display path:** early OpenCore/text stays in AQEMU’s **embedded VNC** (`-display none`). QEMU **SDL/GTK** (“Separate QEMU window”) is **unsupported** for Reims on WSL (libGL/DRI3 failures). The Reims **WSLg host window** (`REIMS_VGPU_WINDOW=1`) is **off by default**: Mesa Dozen on WSLg NVIDIA can segfault inside `vkCreateDevice` and kill QEMU — enable under Advanced Settings → WSL only to experiment.
-- **Boot stack:** OSX-KVM `OVMF_CODE_4M`, `reims-vgpu-gop.rom` on the device, and OpenCore `reims-vgpu-efi.efi` (AQEMU installs the EFI driver into new/existing OpenCore FAT images when possible).
-- **WSL Vulkan caveat:** WSLg exposes the GPU as **D3D12** (`/dev/dxg`). `nvidia-smi` can work while `vulkaninfo` only shows **llvmpipe** if Mesa **Dozen (`dzn` / `libvulkan_dzn`)** is missing. Stock Ubuntu often omits it.
-- **Automatic provisioning:** Creating or starting a **Reims vGPU** VM on Windows runs `WSL_Ensure_Reims_Vulkan_Stack` inside the configured distro (via `wsl -u root` / optional remembered sudo). It installs **native-arch** Mesa Dozen only (never treats a foreign multiarch `libvulkan_dzn.so` as success), removes conflicting `mesa-vulkan-drivers:<foreign-arch>` packages, then verifies `vulkaninfo`.
+- **Default path:** native **`qemu-system-reims3d.exe`** with **WHPX** + host Vulkan (no WSL required). Build from `third_party/reims-vgpu` (`scripts/windows/build.ps1` upstream, or AQEMU’s Reims target scripts).
+- Enable **Windows Hypervisor Platform**, then restart, before normal WHPX boots.
+- **WSL fallback** remains available (checkbox): Linux `qemu-system-reims3d` under WSL/KVM + Vulkan/Dozen. Useful when debugging or when a native PE is not installed yet.
+- **Display path (WSL):** early OpenCore/text stays in AQEMU’s **embedded VNC** (`-display none`). The Reims **WSLg host window** (`REIMS_VGPU_WINDOW=1`) is **off by default**.
+- **Boot stack:** OSX-KVM `OVMF_CODE_4M`, `reims-vgpu-gop.rom` on the device, and OpenCore `reims-vgpu-efi.efi`.
+- **Snapdragon / Windows ARM64:** WHPX does not accelerate an **x86_64** macOS guest (TCG only). Prefer an **x86_64 Windows** host for daily Reims use.
 
 ### How Reims accelerates macOS graphics
 - **Zero guest kext mods**: macOS already includes **`AppleParavirtGPU.kext`**. The Reims QEMU device presents the MMIO/IRQ shims that driver expects (`-device reims-vgpu-pci`).
@@ -363,8 +362,8 @@ AQEMU integrates **steelbrain's `qemu-reims-vgpu`** so Intel macOS guests can us
 
 ### AQEMU integration
 - Wizard profiles: **`macOS x86_64 vGPU (Reims)`** (and related Reims targets)
-- Computer type: `qemu-system-reimsvgpu` (AQEMU label) → WSL launch of **`qemu-system-reims3d`**
-- Defaults: q35, OpenCore/Intel macOS profile fields, `reims-vgpu-pci`, Launch via WSL enabled, embedded early-boot display
+- Computer type: `qemu-system-reimsvgpu` → native Windows **`qemu-system-reims3d.exe`** by default (WSL optional)
+- Defaults: q35, OpenCore/Intel macOS profile fields, `reims-vgpu-pci`, WHPX when available, embedded early-boot display
 
 ---
 
@@ -782,7 +781,7 @@ Dedicated QEMU build scripts are provided for every host platform, with full AQE
   ```
 
 #### Individual Architecture & Target Scripts (`scripts/qemu_targets/`):
-Dedicated standalone build scripts are provided for **all 31 supported target architectures**, including upstream QEMU targets plus **ChefKiss Inferno** and **steelbrain Reims vGPU**:
+Dedicated standalone build scripts are provided for **all 31 supported target architectures**, including upstream QEMU targets plus **ChefKiss Inferno** and **tqmane Reims vGPU**:
 
 | Target Script | Target Emulator Binary | Target Description |
 |:---|:---|:---|
@@ -791,7 +790,7 @@ Dedicated standalone build scripts are provided for **all 31 supported target ar
 | [`build_qemu_aarch64.sh`](scripts/qemu_targets/build_qemu_aarch64.sh) | `qemu-system-aarch64` | ARM 64-bit (ARMv8/v9) |
 | [`build_qemu_arm.sh`](scripts/qemu_targets/build_qemu_arm.sh) | `qemu-system-arm` | ARM 32-bit |
 | [`build_qemu_applesoc.sh`](scripts/qemu_targets/build_qemu_applesoc.sh) | `qemu-system-applesoc` | **ChefKiss Inferno** (iOS / Apple Silicon A13/t8030) |
-| [`build_qemu_reims.sh`](scripts/qemu_targets/build_qemu_reims.sh) | `qemu-system-reims3d` | **steelbrain Reims vGPU** (macOS Metal → Vulkan paravirtualization) |
+| [`build_qemu_reims.sh`](scripts/qemu_targets/build_qemu_reims.sh) | `qemu-system-reims3d` | **tqmane Reims vGPU** (Windows WHPX + Metal → Vulkan; steelbrain lineage) |
 | [`build_qemu_ppc64.sh`](scripts/qemu_targets/build_qemu_ppc64.sh) | `qemu-system-ppc64` | PowerPC 64-bit (PowerNV, pSeries) |
 | [`build_qemu_ppc.sh`](scripts/qemu_targets/build_qemu_ppc.sh) | `qemu-system-ppc` | PowerPC 32-bit (Mac G3/G4, PREP) |
 | [`build_qemu_riscv64.sh`](scripts/qemu_targets/build_qemu_riscv64.sh) | `qemu-system-riscv64` | RISC-V 64-bit |

@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Re-apply AQEMU Windows host shims to steelbrain/reims-vgpu (Vulkan OS + fd)."""
+"""Re-apply AQEMU Windows host shims to third_party/reims-vgpu (Vulkan OS + fd).
+
+Primary Windows tree is now tqmane/reims-vgpu@windows-native-tahoe (WHPX).
+These shims were for the older steelbrain tip / ARM64 PE experiments.
+"""
 from __future__ import annotations
 
 from pathlib import Path

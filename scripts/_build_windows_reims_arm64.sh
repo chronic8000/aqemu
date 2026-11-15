@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Fresh-clone steelbrain/reims-vgpu and build Windows ARM64 qemu-system-reims3d.exe
-# into third_party/qemu-install-arm64 and build_woa next to aqemu.exe.
+# Fresh-clone tqmane/reims-vgpu (windows-native-tahoe) and build Windows ARM64
+# qemu-system-reims3d.exe into third_party/qemu-install-arm64 and build_woa.
+# Note: WHPX accelerates same-ISA guests; x86_64 macOS on Snapdragon stays TCG.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -28,9 +29,11 @@ if [[ -d "${OLD}" ]]; then
   mv "${OLD}" "${BAK}"
 fi
 
-echo "=== cloning https://github.com/steelbrain/reims-vgpu.git ==="
+REIMS_URL="${AQEMU_REIMS_GIT_URL:-https://github.com/tqmane/reims-vgpu.git}"
+REIMS_BRANCH="${AQEMU_REIMS_GIT_BRANCH:-windows-native-tahoe}"
+echo "=== cloning ${REIMS_URL} @ ${REIMS_BRANCH} ==="
 # Only vendor/qemu is required. --recurse-submodules pulls unused EDK2/openssl trees.
-git clone --depth 1 https://github.com/steelbrain/reims-vgpu.git "${OLD}"
+git clone --depth 1 --branch "${REIMS_BRANCH}" "${REIMS_URL}" "${OLD}"
 git -C "${OLD}" submodule update --init --depth 1 vendor/qemu
 
 MESON="${OLD}/vendor/qemu/meson.build"

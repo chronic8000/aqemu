@@ -118,9 +118,11 @@ void Snapshots_Window::on_Button_Create_clicked()
 			}
 		}
 		
-        //Current_VM->Add_Snapshot( tag, prop_win.Get_Snapshot_Name(), prop_win.Get_Snapshot_Description() );
-        //Current_VM->Save_VM_State( tag, false ); //TODO
-		
+		Current_VM->Add_Snapshot( tag, prop_win.Get_Snapshot_Name(), prop_win.Get_Snapshot_Description() );
+		Current_VM->Save_VM();
+		// Live QMP savevm while the guest is running (Create is disabled when powered off).
+		Current_VM->Save_VM_State( tag, false );
+		on_Button_Update_clicked();
 		accept();
 	}
 }
@@ -182,7 +184,7 @@ void Snapshots_Window::on_Button_Start_clicked()
 		
 		if( ret == QMessageBox::Yes )
 		{
-            //TODO //Current_VM->Load_VM_State( ui.Snapshots_Tree->currentItem()->text(0) );
+			Current_VM->Load_VM_State( ui.Snapshots_Tree->currentItem()->text(0) );
 			accept();
 		}
 	}

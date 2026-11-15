@@ -2250,7 +2250,9 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
 			const QString caption = ui.CB_Machine_Accelerator->currentText().trimmed().toLower();
 			if( caption.startsWith( QLatin1String( "tcg" ) ) || caption.contains( QLatin1String( "software" ) ) )
 				accel_id = QStringLiteral( "tcg" );
-			else if( caption.startsWith( QLatin1String( "kvm" ) ) || caption.contains( QLatin1String( "whpx" ) ) )
+			else if( caption.contains( QLatin1String( "whpx" ) ) )
+				accel_id = QStringLiteral( "whpx" );
+			else if( caption.startsWith( QLatin1String( "kvm" ) ) )
 				accel_id = QStringLiteral( "kvm" );
 			else if( caption.startsWith( QLatin1String( "xen" ) ) )
 				accel_id = QStringLiteral( "xen" );
@@ -2258,6 +2260,13 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
 				accel_id = caption;
 		}
 		tmp_vm->Set_Machine_Accelerator( VM::String_To_Accel( accel_id ) );
+#ifdef Q_OS_WIN
+		// Persist WHPX vs WSL-KVM with the accelerator choice for every guest.
+		if( accel_id == QLatin1String( "whpx" ) )
+			tmp_vm->Use_Launch_Via_WSL( false );
+		else if( accel_id == QLatin1String( "kvm" ) )
+			tmp_vm->Use_Launch_Via_WSL( true );
+#endif
 	}
 
 	// Computer Type
@@ -3274,9 +3283,10 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 	}
 
     int found = false;
-	QString want_id = VM::Accel_To_String( tmp_vm->Get_Machine_Accelerator() ).toLower();
+	QString want_id = VM::Accel_To_String(
+		tmp_vm->Get_Machine_Accelerator(), tmp_vm->Use_Launch_Via_WSL() ).toLower();
 #ifdef Q_OS_WIN
-	// Stored KVM is the WHPX row when this VM starts the Windows QEMU.
+	// Older configs saved "kvm" for native Windows Hyper-V — map to the WHPX row.
 	if( want_id == QLatin1String( "kvm" ) && ! tmp_vm->Use_Launch_Via_WSL() )
 		want_id = QStringLiteral( "whpx" );
 #endif
@@ -6075,7 +6085,9 @@ void Main_Window::on_actionExport_Appliance_triggered()
 
 void Main_Window::on_actionShow_Advanced_Settings_Window_triggered()
 {
-	Advanced_Settings_Window ad_set;
+	// Parent to the main window so Qt tears the dialog down safely on Store builds
+	// (unparented Preferences crashes were reported as ACCESS_VIOLATION in Qt5Widgets).
+	Advanced_Settings_Window ad_set( this );
 
 	if( ad_set.exec() == QDialog::Accepted )
 	{
@@ -9010,17 +9022,17 @@ void Main_Window::Update_Intel_MacOS_Settings_Ui()
 			if( windows_reims )
 			{
 				ui.CH_Intel_Mac_WSL_Main->setChecked( false );
-				ui.CH_Intel_Mac_WSL_Main->setEnabled( false );
+				ui.CH_Intel_Mac_WSL_Main->setEnabled( true );
 				ui.CH_Intel_Mac_WSL_Main->setToolTip( tr(
-					"This PC is Qualcomm Snapdragon. WSL has no Adreno Vulkan driver, "
-					"so Reims starts qemu-system-reims3d.exe and uses the Windows GPU driver.\n"
-					"Intel and AMD PCs still use the WSL binary." ) );
+					"Default: native Windows qemu-system-reims3d.exe (WHPX + Vulkan).\n"
+					"Check to force the older WSL/Dozen Linux binary instead.\n"
+					"Apply before Start." ) );
 			}
 			else
 			{
 				ui.CH_Intel_Mac_WSL_Main->setEnabled( true );
 				ui.CH_Intel_Mac_WSL_Main->setToolTip( tr(
-					"Checked: Linux qemu-system-reims3d inside WSL (Vulkan, or Mesa Dozen on NVIDIA/AMD/Intel).\n"
+					"Checked: Linux qemu-system-reims3d inside WSL (Vulkan / Mesa Dozen).\n"
 					"Unchecked: native Windows qemu-system-reims3d.exe next to AQEMU.\n"
 					"Apply before Start." ) );
 			}
@@ -9166,13 +9178,13 @@ void Main_Window::Apply_Intel_Mac_GPU_Passthrough_Ui_From_Cache()
 		if( System_Info::Host_Reims_Prefers_Windows_Binary() )
 		{
 			ui.Label_Intel_Mac_GPU_Status->setText( tr(
-				"Reims on this Qualcomm/ARM PC uses Windows qemu-system-reims3d.exe "
-				"and the native GPU driver. WSL is not used: it has no Adreno Vulkan ICD.\n"
+				"Reims defaults to native Windows qemu-system-reims3d.exe "
+				"(WHPX + Vulkan, apple-gfx-pci).\n"
 				"Windows GPUs: %1.\n"
-				"AQEMU's viewer stays blank (the VM is -vga none; the Reims framebuffer "
-				"is not the VNC surface). Early boot text is on the serial console. "
-				"A native window is off unless Advanced Settings → Reims host window is enabled.\n"
-				"Intel and AMD PCs still launch the Linux binary inside WSL." )
+				"After first boot to a blank wallpaper, set Metal's error mode once "
+				"from Recovery (METAL_ERROR_MODE=5) — see Reims qemu.md.\n"
+				"WSL/Dozen remains an optional override. On Snapdragon, x86_64 macOS "
+				"stays on TCG (WHPX does not accelerate that ISA)." )
 				.arg( vendors ) );
 			Q_UNUSED( has_wsl_gpu );
 			Q_UNUSED( has_amd );
@@ -9187,11 +9199,11 @@ void Main_Window::Apply_Intel_Mac_GPU_Passthrough_Ui_From_Cache()
 		if( vk.isEmpty() )
 		{
 			ui.Label_Intel_Mac_GPU_Status->setText( tr(
-				"Reims needs qemu-system-reims3d + reims-vgpu-pci under WSL with Vulkan.\n"
-				"Windows GPUs: %1 — but WSL Vulkan is only llvmpipe.\n"
-				"WSLg exposes the GPU as D3D12; install Mesa Dozen (dzn / libvulkan_dzn), "
-				"e.g. Kisak mesa-vulkan-drivers, then check: vulkaninfo --summary\n"
-				"Optional: Advanced Settings → Reims Vulkan GPU. PCIe Metal VFIO is Linux-only." )
+				"Native Windows Reims (WHPX + apple-gfx-pci) is preferred when "
+				"qemu-system-reims3d.exe is installed. WSL fallback needs Vulkan.\n"
+				"Windows GPUs: %1 — WSL Vulkan is only llvmpipe right now.\n"
+				"For WSL: install Mesa Dozen (dzn), then vulkaninfo --summary.\n"
+				"Blank desktop after first boot: set METAL_ERROR_MODE=5 from Recovery." )
 				.arg( vendors ) );
 		}
 		else

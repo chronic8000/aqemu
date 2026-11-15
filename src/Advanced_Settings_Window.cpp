@@ -312,11 +312,13 @@ Advanced_Settings_Window::Advanced_Settings_Window( QWidget *parent )
 
 		QLabel *note = new QLabel( tr(
 			"SPICE/QMP stay on 127.0.0.1 — requires WSL localhostForwarding.\n"
-			"Apple SoC / Reims always use WSL Linux binaries. KVM fixes prefer wsl -u root; "
-			"an optional password can be saved in Windows Credential Manager (never AQEMU.ini).\n"
-			"Reims uses host Vulkan via WSLg D3D12 (NVIDIA, AMD, or Intel) — not a Windows "
-			"VFIO picker. If vulkaninfo only shows llvmpipe, install Mesa Dozen (dzn).\n"
-			"Reims display: -display none + embedded VNC for early boot; do not use QEMU SDL/GTK." ) );
+			"Apple SoC and Reims default to native Windows QEMU next to aqemu.exe. "
+			"WSL is optional (Linux ELF, companion USB bridge, or Dozen fallback). "
+			"KVM fixes prefer wsl -u root; an optional password can be saved in "
+			"Windows Credential Manager (never AQEMU.ini).\n"
+			"WSL Reims uses host Vulkan via WSLg D3D12 — if vulkaninfo only shows "
+			"llvmpipe, install Mesa Dozen (dzn).\n"
+			"Reims early boot: -display none + embedded VNC; avoid QEMU SDL/GTK on WSLg." ) );
 		note->setWordWrap( true );
 		wslLay->addWidget( note );
 

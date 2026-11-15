@@ -1447,7 +1447,8 @@ bool Virtual_Machine::Create_VM_File( const QString &file_name, bool template_mo
 	// Emulator Type (legacy name) = now Machine_Accelerator
 	Dom_Element = New_Dom_Document.createElement( "Machine_Accelerator" );
 	VM_Element.appendChild( Dom_Element );
-	Dom_Text = New_Dom_Document.createTextNode( VM::Accel_To_String(Machine_Accelerator) );
+	Dom_Text = New_Dom_Document.createTextNode(
+		VM::Accel_To_String( Machine_Accelerator, Launch_Via_WSL ) );
 	Dom_Element.appendChild( Dom_Text );
 	
 	// Computer Type
@@ -5746,6 +5747,16 @@ bool Virtual_Machine::Load_VM( const QString &file_name )
 			OpenCore_Boot_Path = AQ_Normalize_File_Path( Child_Element.firstChildElement( "OpenCore_Boot_Path" ).text() );
 			Mac_Recovery_Image_Path = AQ_Normalize_File_Path( Child_Element.firstChildElement( "Mac_Recovery_Image_Path" ).text() );
 			Launch_Via_WSL = ( Child_Element.firstChildElement( "Launch_Via_WSL" ).text() == "true" );
+#ifdef Q_OS_WIN
+			// Explicit "whpx" storage always means native Windows Hyper-V (not WSL KVM).
+			{
+				QString accel_xml = Child_Element.firstChildElement( "Machine_Accelerator" ).text().trimmed().toLower();
+				if( accel_xml.isEmpty() )
+					accel_xml = Child_Element.firstChildElement( "Emulator_Type" ).text().trimmed().toLower();
+				if( accel_xml == QLatin1String( "whpx" ) )
+					Launch_Via_WSL = false;
+			}
+#endif
 			GPU_Passthrough = ( Child_Element.firstChildElement( "GPU_Passthrough" ).text() == "true" );
 			GPU_PCI_Address = Child_Element.firstChildElement( "GPU_PCI_Address" ).text().trimmed();
 			GPU_Audio_PCI_Address = Child_Element.firstChildElement( "GPU_Audio_PCI_Address" ).text().trimmed();
@@ -7494,12 +7505,16 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	}
 	else if( device_based_video )
 	{
-		if( effective_video == "reims-vgpu-pci" || is_reims_vgpu )
+		if( effective_video == "reims-vgpu-pci" || effective_video == "apple-gfx-pci" || is_reims_vgpu )
 		{
 			Args << "-vga" << "none";
-			// This Windows qemu-system-reims3d.exe has reims-vgpu-pci. apple-gfx-pci
-			// realizes during startup and never reaches the VNC or serial listeners.
-			const QString reims_pci = QStringLiteral( "reims-vgpu-pci" );
+			// tqmane windows-native-tahoe exposes apple-gfx-pci; Linux/WSL Reims
+			// commonly uses reims-vgpu-pci. Prefer the native Windows device name.
+			QString reims_pci = QStringLiteral( "reims-vgpu-pci" );
+#ifdef Q_OS_WIN
+			if( ! Launch_Via_WSL )
+				reims_pci = QStringLiteral( "apple-gfx-pci" );
+#endif
 			bool have_reims = false;
 			for( int ai = 0; ai < Args.size(); ++ai )
 			{
@@ -11635,18 +11650,17 @@ bool Virtual_Machine::Start_impl()
 		if( is_reims )
 		{
 			// UI may still show "std"; product path is always reims-vgpu-pci
-			// (see https://reims-vgpu.com / steelbrain/reims-vgpu).
+			// (see https://reims-vgpu.com / tqmane/reims-vgpu windows-native-tahoe).
 			if( Video_Card.trimmed().compare( QLatin1String( "reims-vgpu-pci" ), Qt::CaseInsensitive ) != 0 )
 				Video_Card = QStringLiteral( "reims-vgpu-pci" );
-			// Snapdragon WSL has no Adreno Vulkan ICD (only llvmpipe / Dozen).
-			// The Windows PE talks to the native driver. Intel/AMD/NVIDIA stay on WSL.
+			// Prefer native Windows PE (WHPX + Vulkan). WSL remains an optional UI override.
 			if( ! System_Info::Host_GPU_Was_Scanned() )
 				System_Info::Update_Host_GPU();
 			if( System_Info::Host_Reims_Prefers_Windows_Binary() )
 			{
 				Launch_Via_WSL = false;
 				AQDebug( "bool Virtual_Machine::Start_impl()",
-				         QStringLiteral( "Reims: Qualcomm/ARM host, using Windows qemu-system-reims3d.exe" ) );
+				         QStringLiteral( "Reims: using Windows qemu-system-reims3d.exe (WHPX/Vulkan)" ) );
 			}
 		}
 		// A present Windows exe wins. KVM keeps WSL. The companion stays on

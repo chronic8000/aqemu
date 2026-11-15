@@ -4,7 +4,7 @@
 # ==============================================================================
 # Shared helper functions to clone, configure, build, stage, and deploy:
 #   1. qemu-system-applesoc (ChefKiss Inferno - Apple Silicon / iOS)
-#   2. qemu-system-reimsvgpu / qemu-system-reims3d (steelbrain Reims vGPU)
+#   2. qemu-system-reimsvgpu / qemu-system-reims3d (tqmane Reims vGPU / WHPX)
 #
 # These are external forks of QEMU that live in separate Git repositories.
 # Building into isolated staging directories prevents overwriting upstream
@@ -22,7 +22,8 @@ export AQEMU_MSYS_ROOT="$(aqemu_resolve_msys_root)"
 aqemu_git_clone() {
   local url="$1"
   local dest="$2"
-  echo "Cloning ${url}"
+  local branch="${3:-}"
+  echo "Cloning ${url}${branch:+ (branch ${branch})}"
   (
     local i
     unset GIT_CONFIG_COUNT GIT_CONFIG_PARAMETERS GIT_CONFIG_GLOBAL GIT_CONFIG_SYSTEM || true
@@ -30,7 +31,11 @@ aqemu_git_clone() {
       unset "GIT_CONFIG_KEY_${i}" "GIT_CONFIG_VALUE_${i}" || true
     done
     export PATH="/usr/bin:${PATH}"
-    git clone --depth 1 "${url}" "${dest}"
+    if [[ -n "${branch}" ]]; then
+      git clone --depth 1 --branch "${branch}" "${url}" "${dest}"
+    else
+      git clone --depth 1 "${url}" "${dest}"
+    fi
   )
 }
 
@@ -866,8 +871,12 @@ aqemu_build_reims() {
   elif [[ -f "${reims_dir}/configure" ]]; then
     reims_src="${reims_dir}"
   else
-    echo "Cloning steelbrain reims-vgpu repository..."
-    aqemu_git_clone "https://github.com/steelbrain/reims-vgpu.git" "${reims_dir}" || true
+    # Native Windows WHPX path: tqmane's windows-native-tahoe fork (bobba84 /
+    # daily Tahoe). Override with AQEMU_REIMS_GIT_URL / AQEMU_REIMS_GIT_BRANCH.
+    local reims_url="${AQEMU_REIMS_GIT_URL:-https://github.com/tqmane/reims-vgpu.git}"
+    local reims_branch="${AQEMU_REIMS_GIT_BRANCH:-windows-native-tahoe}"
+    echo "Cloning Reims vGPU (${reims_url} @ ${reims_branch})..."
+    aqemu_git_clone "${reims_url}" "${reims_dir}" "${reims_branch}" || true
     if [[ -d "${reims_dir}" ]]; then
       git -C "${reims_dir}" submodule update --init --depth 1 vendor/qemu || true
     fi
@@ -879,7 +888,7 @@ aqemu_build_reims() {
   fi
 
   if [[ -z "${reims_src}" || ! -f "${reims_src}/configure" ]]; then
-    echo "WARN: steelbrain reims-vgpu sources not available — skipping Reims build"
+    echo "WARN: Reims vGPU sources not available — skipping Reims build"
     return 0
   fi
 

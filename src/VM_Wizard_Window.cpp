@@ -2532,7 +2532,7 @@ void VM_Wizard_Window::Apply_Guest_Hardware_To_New_VM()
 #ifdef Q_OS_WIN32
 			if( ! System_Info::Host_GPU_Was_Scanned() )
 				System_Info::Update_Host_GPU();
-			// Snapdragon: Windows PE. Intel/AMD/NVIDIA: WSL Vulkan/Dozen.
+			// Native Windows Reims (WHPX + Vulkan) when the Windows binary is preferred.
 			New_VM->Use_Launch_Via_WSL( ! System_Info::Host_Reims_Prefers_Windows_Binary() );
 #else
 			New_VM->Use_Launch_Via_WSL( true );
@@ -6903,8 +6903,9 @@ void VM_Wizard_Window::Update_Finish_Page_Guidance()
 	else if( Is_Apple_Silicon_Or_iOS_Template() )
 	{
 		help = tr( "<p><b>Apple SoC / iOS (Inferno) — AQEMU %1</b></p><ul>"
-			"<li>Uses Linux <code>qemu-system-applesoc</code> (ChefKiss Inferno). "
-			"On Windows this is forced through <b>WSL</b> (UNIX sockets / companion restore).</li>"
+			"<li>Uses <code>qemu-system-applesoc</code> (ChefKiss Inferno). "
+			"On Windows the default is the native <code>qemu-system-applesoc.exe</code> "
+			"(TCG). Optional WSL is only for the Linux ELF / companion USB bridge path.</li>"
 			"<li>The wizard <b>NAND (root) size</b> page: 16 / 32 / 64 / 128 / 256 GiB "
 			"or Custom (16–2048 GiB). Default 32 GiB. Same control as MACHINE.</li>"
 			"<li>Create the companion first: Guest OS → Apple → "
@@ -6921,11 +6922,12 @@ void VM_Wizard_Window::Update_Finish_Page_Guidance()
 	{
 		help = tr( "<p><b>Intel macOS / Reims — AQEMU %1</b></p><ul>"
 			"<li>You must supply OpenCore boot disk, OVMF firmware, OSK, and install/system disks.</li>"
-			"<li><b>Reims vGPU</b> (hardware-accelerated Metal path) uses Linux "
-			"<code>qemu-system-reims3d</code> under <b>WSL</b> with host Vulkan — "
-			"<b>AMD and NVIDIA</b> GPUs on Windows via WSLg.</li>"
-			"<li>The Windows <code>qemu-system-reimsvgpu.exe</code> helper does not expose "
-			"<code>reims-vgpu-pci</code>.</li>"
+			"<li><b>Reims vGPU</b> on Windows defaults to native "
+			"<code>qemu-system-reims3d.exe</code> with <b>WHPX + Vulkan</b> "
+			"(<code>apple-gfx-pci</code>). WSL/Dozen remains an optional override.</li>"
+			"<li>After first boot to a blank desktop wallpaper, set Metal's error mode once "
+			"from Recovery: <code>defaults write … METAL_ERROR_MODE -int 5</code> "
+			"(see steelbrain Reims docs).</li>"
 			"<li>AMD Metal <b>PCIe VFIO</b> remains bare-metal Linux only — not available on Windows.</li>"
 			"</ul>" ).arg( QLatin1String( CURRENT_AQEMU_VERSION ) );
 	}

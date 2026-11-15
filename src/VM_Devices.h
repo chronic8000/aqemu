@@ -45,26 +45,30 @@ class VM
 		// Virtual Machine State
 		enum VM_State { VMS_Running, VMS_Power_Off, VMS_Pause, VMS_Saved, VMS_In_Error };
 
-        static QString Accel_To_String(Machine_Accelerator accel)
+        // Storage / QEMU id. On Windows, native Hyper-V is saved as "whpx";
+        // WSL/Linux keep "kvm". Older configs that saved "kvm" with WSL off
+        // are still read as WHPX via String_To_Accel + Launch_Via_WSL.
+        static QString Accel_To_String( Machine_Accelerator accel, bool via_wsl = false )
         {
-            switch(accel)
+            switch( accel )
             {
                 case KVM:
-                    return "kvm";
-                    break;
+#ifdef Q_OS_WIN
+                    if( ! via_wsl )
+                        return QStringLiteral( "whpx" );
+#else
+                    Q_UNUSED( via_wsl );
+#endif
+                    return QStringLiteral( "kvm" );
                 case XEN:
-                    return "xen";
-                    break;
+                    return QStringLiteral( "xen" );
                 case TCG:
-                    return "tcg";
-                    break;
+                    return QStringLiteral( "tcg" );
                 default:
-                    return "";
+                    return QString();
             }
         }
 
-        // Windows stores the Hyper-V accelerator as "kvm" and shows it as WHPX.
-        // WSL still runs Linux KVM, so that path keeps the KVM label.
         static QString Accel_Display_Name( Machine_Accelerator accel, bool via_wsl = false )
         {
 #ifdef Q_OS_WIN
@@ -73,7 +77,7 @@ class VM
 #else
             Q_UNUSED( via_wsl );
 #endif
-            return Accel_To_String( accel ).toUpper();
+            return Accel_To_String( accel, via_wsl ).toUpper();
         }
 
         static Machine_Accelerator String_To_Accel(QString accel)
