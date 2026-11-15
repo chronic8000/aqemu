@@ -38,12 +38,14 @@
 class AQEMU_Service;
 class Emulator_Control_Window;
 class VM_Session_Widget;
+class Snapshots_Window;
 
 // Vitrual Machine
 class Virtual_Machine: public QObject
 {
     friend class AQEMU_Service;
     friend class VM_Session_Widget;
+    friend class Snapshots_Window;
 
 	Q_OBJECT
 
