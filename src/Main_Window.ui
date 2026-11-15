@@ -4268,13 +4268,13 @@
      <normaloff>:/hdd.png</normaloff>:/hdd.png</iconset>
    </property>
    <property name="text">
-    <string>Convert &amp;HDD Image</string>
+    <string>qemu-img &amp;Tools…</string>
    </property>
    <property name="iconText">
-    <string>Convert HDD Image</string>
+    <string>qemu-img Tools</string>
    </property>
    <property name="toolTip">
-    <string>Convert HDD Image</string>
+    <string>Convert, resize, info, check, and manage internal disk image snapshots</string>
    </property>
   </action>
   <action name="actionAttach_SAN_Storage">
