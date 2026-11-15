@@ -1,5 +1,15 @@
-2026-11-15 Chronic Engineering — AQEMU 1.6.5.0
+2026-11-15 Chronic Engineering — AQEMU 1.7.0.0
 
+	* Version bump from the 1.6.5 line: WHPX host detection, firmware setup,
+	  qemu-img Tools, VMware/VirtualBox import, WinDbg/KDNET, guest-tools
+	  confirmations, AAVMF Secure Boot pairing, and pre-start validation.
+	* New VMs default to Documents\Virtual Machines\AQEMU (per-VM folders
+	  unchanged). Existing VM_Directory settings are kept.
+	* Store builds: Buy uses RequestPurchaseAsync when WinRT is available,
+	  hides Buy when fully licensed, and still opens the Store page as a
+	  fallback. Listing copy lives in packaging/STORE_DESCRIPTION.txt.
+	* Retro DOS/Win9x profiles show a one-time ATAPI CD tip (issue #100).
+	  PC-98 research notes are in docs/PC98_RESEARCH.md (issue #124).
 	* ARM64/x86 UEFI firmware search prefers the bundled share directory,
 	  pairs CODE with a matching-size VARS template (including Secure Boot),
 	  and runs pre-start display/port checks in one dialog. Behaviour

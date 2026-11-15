@@ -12,6 +12,7 @@
 
 #include "VM.h"
 #include "Utils.h"
+#include "Store_Trial.h"
 #include "QMP_Client.h"
 #include "QEMU_Probe_Catalog.h"
 #include "WSL_Launch.h"
@@ -904,6 +905,18 @@ bool AQ_Lab_Prepare_Start( Virtual_Machine *vm )
 		}
 	}
 
+	if( opt.value( QStringLiteral( "atapi_hint" ) ) == QLatin1String( "pending" ) )
+	{
+		QMessageBox::information( nullptr, QObject::tr( "Retro CD-ROM tip" ),
+			QObject::tr(
+				"Some 1990s DOS CD drivers (notably OAKCDROM.SYS) fail to detect QEMU's ATAPI CD-ROM "
+				"because of timing and signature quirks in the IDE path.\n\n"
+				"If the CD is missing in DOS, try XDVD2.SYS or VIDE-CDD.SYS instead of OAKCDROM.SYS, "
+				"keep the ISO on the secondary IDE channel (ide1), and use Force TCG (already set for this profile).\n\n"
+				"This is a QEMU/SeaBIOS ATAPI limitation, not an AQEMU settings bug. See GitHub issue #100." ) );
+		AQ_Lab_Set( vm, QStringLiteral( "atapi_hint" ), QStringLiteral( "shown" ) );
+	}
+
 	QSettings settings;
 #ifdef Q_OS_WIN
 	const bool whpx_bad = settings.value( QStringLiteral( "Lab/Whpx_Probe_Failed" ), false ).toBool();
@@ -1242,6 +1255,8 @@ void AQ_Lab_Apply_Guest_Profile( Virtual_Machine *vm, const QString &os_name )
 		VM::Sound_Cards sound;
 		sound.Audio_sb16 = true;
 		vm->Set_Audio_Cards( sound );
+		if( os == QLatin1String( "MS-DOS" ) || os == QLatin1String( "Windows 98" ) )
+			AQ_Lab_Set( vm, QStringLiteral( "atapi_hint" ), QStringLiteral( "pending" ) );
 	}
 }
 
@@ -2581,6 +2596,22 @@ void AQ_Lab_Support_Bundle( QWidget *parent, Virtual_Machine *vm )
 	Zip_Add( zip, central, count, QStringLiteral( "settings.txt" ), settings_text.toUtf8() );
 	Zip_Add( zip, central, count, QStringLiteral( "qemu-command.txt" ), command.toUtf8() );
 	Zip_Add( zip, central, count, QStringLiteral( "qemu-boot.log" ), boot_log.toUtf8() );
+#if defined( Q_OS_WIN ) && defined( AQEMU_STORE_BUILD )
+	{
+		QString lic = QStringLiteral( "state=" );
+		if( AQ_Store_Is_Fully_Licensed() )
+			lic += QStringLiteral( "full\n" );
+		else if( AQ_Store_Licence_Inactive() )
+			lic += QStringLiteral( "inactive\n" );
+		else
+		{
+			const QString trial = AQ_Store_Status_Text();
+			lic += trial.isEmpty() ? QStringLiteral( "unknown\n" )
+				: ( QStringLiteral( "trial\nstatus=" ) + trial + QLatin1Char( '\n' ) );
+		}
+		Zip_Add( zip, central, count, QStringLiteral( "store-licence.txt" ), lic.toUtf8() );
+	}
+#endif
 	const quint32 central_off = quint32( zip.size() );
 	zip.append( central );
 	zip.append( "PK\x05\x06", 4 );

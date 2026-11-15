@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
   Stage build_win payload and build AQEMU-*-win64.msix (Desktop Bridge / runFullTrust).
@@ -55,7 +55,7 @@ if (-not $Version) {
             $Version = $raw
         }
     } else {
-        $Version = "1.6.5.0"
+        $Version = "1.7.0.0"
     }
 }
 

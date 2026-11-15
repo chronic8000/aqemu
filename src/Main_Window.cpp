@@ -541,8 +541,10 @@ Main_Window::Main_Window( QWidget *parent )
 		ui.menuHelp->addAction( actWsl );
 #if defined( Q_OS_WIN ) && defined( AQEMU_STORE_BUILD )
 		QAction *actBuy = new QAction( tr( "&Buy AQEMU" ), this );
-		connect( actBuy, &QAction::triggered, this, []() { AQ_Store_Buy(); } );
+		connect( actBuy, &QAction::triggered, this, [this]() { AQ_Store_Buy( this ); } );
 		ui.menuHelp->addAction( actBuy );
+		if( AQ_Store_Is_Fully_Licensed() )
+			actBuy->setVisible( false );
 		const QString trial = AQ_Store_Status_Text();
 		if( ! trial.isEmpty() && statusBar() )
 			statusBar()->showMessage( trial );
@@ -558,7 +560,7 @@ Main_Window::Main_Window( QWidget *parent )
 			QPushButton *quit = box.addButton( tr( "Quit" ), QMessageBox::DestructiveRole );
 			box.exec();
 			if( box.clickedButton() == buy )
-				AQ_Store_Buy();
+				AQ_Store_Buy( this );
 			else if( box.clickedButton() == quit )
 				qApp->quit();
 		}

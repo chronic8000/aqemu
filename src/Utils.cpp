@@ -290,7 +290,19 @@ QString AQEMU_User_Data_Dir()
 
 QString AQEMU_Default_VM_Directory()
 {
-	const QString vms = AQEMU_With_Trailing_Sep( AQEMU_User_Data_Dir() + QStringLiteral( "VMs" ) );
+	// New installs: put VMs where users can see and back them up (VirtualBox-style).
+	// App settings/logs stay under AppLocalData via AQEMU_User_Data_Dir().
+	// Existing VM_Directory values in QSettings are left alone.
+#ifdef Q_OS_WIN
+	QString docs = QStandardPaths::writableLocation( QStandardPaths::DocumentsLocation );
+	if( docs.isEmpty() )
+		docs = QDir::homePath();
+	const QString vms = AQEMU_With_Trailing_Sep(
+		docs + QStringLiteral( "/Virtual Machines/AQEMU" ) );
+#else
+	const QString vms = AQEMU_With_Trailing_Sep(
+		QDir::homePath() + QStringLiteral( "/Virtual Machines/AQEMU" ) );
+#endif
 	QDir().mkpath( vms );
 	QDir().mkpath( vms + QStringLiteral( "os_templates" ) );
 	return vms;
@@ -563,7 +575,7 @@ void AQEMU_Ensure_Writable_User_Paths( QSettings &settings )
 {
 	QString vm_dir = settings.value( QStringLiteral( "VM_Directory" ), QString() ).toString().trimmed();
 	#ifdef Q_OS_WIN
-	// Store / Windows: default VMs under AppData (never next to the exe / WindowsApps).
+	// Store / Windows: default VMs under Documents\Virtual Machines\AQEMU (never next to the exe / WindowsApps).
 	// A Store install must not keep using a developer tree such as C:\msys64\home\...
 	if( vm_dir.isEmpty() || AQEMU_Path_Is_Install_Dir( vm_dir ) ||
 	    vm_dir == QLatin1String( "~" ) ||

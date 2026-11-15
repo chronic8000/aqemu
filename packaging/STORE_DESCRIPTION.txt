@@ -1,0 +1,16 @@
+Short description (Microsoft Store listing)
+
+QEMU on Windows 10 and 11, without the command line. Multi-arch guests, Retro PCs and an iOS lab. 512n, 512e and 4Kn disks are supported along with a wide range of virtual disk image formats. You just bring the installation media.
+
+---
+
+Optional longer blurb
+
+If you are running VMs on a TrueNAS box and their Zvols have 4096 sectors, then AQEMU will help you configure QEMU to run and test your exported virtual disk images on a Windows PC because it supports the configuration of 4096 sectors (where a virtual disk image format supports this sector size).
+
+---
+
+Notes for Store editors
+
+- Prefer “512n, 512e and 4Kn” over “TrueNAS 4K disks”. Those sector layouts are not TrueNAS-only.
+- AQEMU 1.7.0.0 highlights: host-aware WHPX (x64 and Snapdragon), WinDbg kernel debug, qemu-img Tools, VMware/VirtualBox import, AAVMF Secure Boot pairing, Documents\Virtual Machines\AQEMU default VM folder.
