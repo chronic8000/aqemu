@@ -231,11 +231,19 @@ if (Test-Path -LiteralPath $wslSrc) {
 # Ensure QEMU firmware share/ is present (required for Store embedded sessions).
 $shareBios = Join-Path $layoutDir "share\bios-256k.bin"
 if (-not (Test-Path $shareBios)) {
-    $qemuPrefix = Join-Path $RepoRoot "third_party\qemu-install"
+    $qemuPrefix = if ($manifestArch -eq "arm64") {
+        Join-Path $RepoRoot "third_party\qemu-install-arm64"
+    } else {
+        Join-Path $RepoRoot "third_party\qemu-install"
+    }
     $shareCandidates = @(
+        (Join-Path $BuildDir "share"),
         (Join-Path $qemuPrefix "share"),
         (Join-Path $qemuPrefix "share\qemu"),
-        (Join-Path $BuildDir "share")
+        (Join-Path $RepoRoot "third_party\qemu-install\share"),
+        (Join-Path $RepoRoot "third_party\qemu-install\share\qemu"),
+        (Join-Path $RepoRoot "third_party\qemu-install-arm64\share"),
+        (Join-Path $RepoRoot "third_party\qemu-install-arm64\share\qemu")
     )
     if ($MsysLocation -and (Test-Path $MsysLocation)) {
         $shareCandidates += (Join-Path $MsysLocation "ucrt64\share\qemu")
@@ -277,9 +285,16 @@ if (-not (Test-Path $shareBios)) {
 $keymapFile = Join-Path $layoutDir "share\keymaps\en-us"
 if (-not (Test-Path $keymapFile)) {
     $keymapCandidates = @()
-    $qemuPrefix = Join-Path $RepoRoot "third_party\qemu-install"
+    $qemuPrefix = if ($manifestArch -eq "arm64") {
+        Join-Path $RepoRoot "third_party\qemu-install-arm64"
+    } else {
+        Join-Path $RepoRoot "third_party\qemu-install"
+    }
+    $keymapCandidates += (Join-Path $BuildDir "share\keymaps")
     $keymapCandidates += (Join-Path $qemuPrefix "share\qemu\keymaps")
     $keymapCandidates += (Join-Path $qemuPrefix "share\keymaps")
+    $keymapCandidates += (Join-Path $RepoRoot "third_party\qemu-install\share\qemu\keymaps")
+    $keymapCandidates += (Join-Path $RepoRoot "third_party\qemu-install-arm64\share\qemu\keymaps")
     if ($MsysLocation -and (Test-Path $MsysLocation)) {
         foreach ($sub in @("ucrt64\share\qemu\keymaps", "clangarm64\share\qemu\keymaps", "mingw64\share\qemu\keymaps")) {
             $keymapCandidates += (Join-Path $MsysLocation $sub)

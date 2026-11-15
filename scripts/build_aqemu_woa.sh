@@ -80,6 +80,10 @@ CMAKE_FLAGS=(
   -DCMAKE_CXX_COMPILER="${win_cxx}"
   -DWIN_ARM64_OPTIMIZATIONS=ON
 )
+# Set AQEMU_STORE_BUILD=1 for Microsoft Store / MSIX channel builds.
+if [[ "${AQEMU_STORE_BUILD:-}" == "1" || "${AQEMU_STORE_BUILD:-}" == "ON" ]]; then
+  CMAKE_FLAGS+=(-DAQEMU_STORE_BUILD=ON)
+fi
 
 if [[ "${AQEMU_SKIP_SPICE:-}" != "1" ]] && "${PKG_CONFIG}" --exists spice-client-glib-2.0; then
   CMAKE_FLAGS+=(-DAQEMU_WITH_SPICE_GTK=ON)
