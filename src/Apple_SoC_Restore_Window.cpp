@@ -1236,9 +1236,9 @@ void Apple_SoC_Restore_Window::On_Process_Finished( int code, QProcess::ExitStat
 	if( code == 0 )
 	{
 		Append_Log( tr(
-			"\nNext (required): apply ChefKiss filesystem patches to the guest "
+			"\nNext (required): apply iOS filesystem patches to the guest "
 			"root disk before SpringBoard will boot — otherwise VNC stays black.\n"
-			"  https://chefkiss.dev/guides/inferno/fs-patches/\n"
+			"  VM → Apple → Apply iOS filesystem patches…\n"
 			"Then clear MACHINE → Restore ramdisk (-initrd) and Power On." ) );
 	}
 	else

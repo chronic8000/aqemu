@@ -105,10 +105,7 @@ Apple_SoC_FS_Patch_Window::Apple_SoC_FS_Patch_Window( Virtual_Machine *vm, QWidg
 	QLabel *intro = new QLabel( tr(
 		"<b>Required after idevicerestore</b> for SpringBoard / setup to appear.<br>"
 		"Patches the <b>iOS guest</b> <code>root</code> NVMe image "
-		"(not the IPSW restore companion).<br>"
-		"ChefKiss guide: "
-		"<a href=\"https://chefkiss.dev/guides/inferno/fs-patches/\">"
-		"chefkiss.dev/guides/inferno/fs-patches</a>" ) );
+		"(not the IPSW restore companion)." ) );
 	intro->setWordWrap( true );
 	intro->setOpenExternalLinks( true );
 	lay->addWidget( intro );
@@ -351,13 +348,13 @@ void Apple_SoC_FS_Patch_Window::Start_Patch()
 	{
 		Btn_Start->setEnabled( true );
 		QMessageBox::critical( this, tr( "WSL" ),
-			tr( "Failed to start wsl.exe. Configure File → WSL Launch first." ) );
+			tr( "Failed to start wsl.exe. Configure File → Host → Configure WSL… first." ) );
 	}
 #else
 	Q_UNUSED( script_win );
 	QMessageBox::information( this, tr( "Host OS" ),
 		tr( "Automated FS patching from this dialog is currently wired for Windows + WSL.\n"
-		    "On macOS use hdiutil per https://chefkiss.dev/guides/inferno/fs-patches/\n"
+		    "On macOS apply the same patches with hdiutil.\n"
 		    "On Linux run extras/Inferno/apply-fs-patches-wsl.sh with ROOT_IMG set." ) );
 #endif
 }

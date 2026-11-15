@@ -1,4 +1,4 @@
-# Copy and paste
+# Copy and Paste
 
 AQEMU copies text and files between the host and a running guest on Linux and Windows, on x86_64 and ARM. Start the virtual machine and use the session toolbar. Quit AQEMU and start it again after an update so the menu launches the new build.
 

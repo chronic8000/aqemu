@@ -10,8 +10,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PROBE = ROOT / "qemu_probe_full_v3"
 WIZARD = ROOT / "resources" / "wizard_trees.json"
-OUT = ROOT / "docs" / "wizard_probe_audit.json"
-TXT_OUT = ROOT / "docs" / "wizard_probe_audit_arch.txt"
+OUT = ROOT / "docs" / "development" / "probe-audit" / "wizard-probe-audit.json"
+TXT_OUT = ROOT / "docs" / "development" / "probe-audit" / "wizard-probe-audit-arch.txt"
 GUEST_CAP = ROOT / "src" / "Guest_Capabilities.cpp"
 WIZARD_CPP = ROOT / "src" / "VM_Wizard_Window.cpp"
 SYSINFO = ROOT / "src" / "System_Info.cpp"

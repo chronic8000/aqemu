@@ -219,7 +219,7 @@ out = {
     ],
 }
 
-out_path = ROOT / "docs" / "final_probe_audit.json"
+out_path = ROOT / "docs" / "development" / "probe-audit" / "final-probe-audit.json"
 out_path.write_text(json.dumps(out, indent=2), encoding="utf-8")
 print(json.dumps(out["summary"], indent=2))
 print("verdict", json.dumps(out["verdict"], indent=2))

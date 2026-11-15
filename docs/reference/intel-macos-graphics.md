@@ -1,4 +1,4 @@
-# Intel macOS graphics in AQEMU
+# Intel macOS Graphics
 
 ## Defaults (everyone)
 

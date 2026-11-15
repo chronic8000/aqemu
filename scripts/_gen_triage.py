@@ -143,7 +143,7 @@ if unmapped:
     for i in unmapped:
         lines.append(f"- #{i['number']}: {i['title']}")
 
-out = pathlib.Path("docs/TOBIMENSCH_ISSUE_TRIAGE.md")
+out = pathlib.Path("docs/development/tobimensch-issue-triage.md")
 out.write_text("\n".join(lines) + "\n", encoding="utf-8")
 print(f"Wrote {out} ({len(issues)} issues)")
 print(dict(c))
