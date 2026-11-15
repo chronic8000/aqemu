@@ -40,6 +40,7 @@ LUKS passphrases stay out of the VM file. Windows keeps them in Credential Manag
 
 ## Debug, launch, and firmware
 
+- **Kernel debug (WinDbg)** on the Lab Debug tab: serial KD over a named pipe (Windows) or TCP, plus KDNET with an e1000/e1000e NIC. Copy WinDbg `-k` strings and guest `bcdedit` commands, or open WinDbg when it is installed. See [`WINDBG_KERNEL_DEBUG.md`](WINDBG_KERNEL_DEBUG.md).
 - GDB stub (`-gdb tcp:127.0.0.1:port` / `-S`) and a guest memory dump through QMP `dump-guest-memory`. The copied `target remote` command uses that same localhost address.
 - Record/replay with an icount shift. Choosing Off clears `-icount`.
 - Command diff of the live argv, a QMP scratchpad, and an additional-arguments snippet list.

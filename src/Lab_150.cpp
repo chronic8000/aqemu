@@ -276,6 +276,141 @@ static bool Args_Have( const QStringList &args, const QString &flag )
 	return args.contains( flag );
 }
 
+static QString AQ_Lab_Sanitize_Pipe_Id( QString id )
+{
+	for( int i = 0; i < id.size(); ++i )
+	{
+		const QChar c = id.at( i );
+		if( ! c.isLetterOrNumber() && c != QLatin1Char( '-' ) && c != QLatin1Char( '_' )
+		    && c != QLatin1Char( '.' ) )
+			id[ i ] = QLatin1Char( '_' );
+	}
+	if( id.isEmpty() )
+		id = QStringLiteral( "vm" );
+	if( id.size() > 200 )
+		id = id.left( 200 );
+	return id;
+}
+
+static QString AQ_Lab_Normalize_Kd_Mode( const QString &raw )
+{
+	if( raw == QLatin1String( "serial" ) || raw == QLatin1String( "pipe" ) )
+		return QStringLiteral( "pipe" );
+	if( raw == QLatin1String( "tcp" ) )
+		return QStringLiteral( "tcp" );
+	if( raw == QLatin1String( "net" ) )
+		return QStringLiteral( "net" );
+	return QStringLiteral( "off" );
+}
+
+bool AQ_Lab_Uses_Kernel_Debug_Serial( const Virtual_Machine *vm )
+{
+	if( ! vm )
+		return false;
+	const QString mode = AQ_Lab_Normalize_Kd_Mode( AQ_Lab_Get( vm, QStringLiteral( "kd" ) ) );
+	return mode == QLatin1String( "pipe" ) || mode == QLatin1String( "tcp" );
+}
+
+static QString AQ_Lab_Kd_Pipe_Name( const Virtual_Machine *vm, const QMap<QString, QString> &opt )
+{
+	QString custom = opt.value( QStringLiteral( "kd_pipe" ) ).trimmed();
+	if( custom.isEmpty() )
+	{
+		const QString base = vm ? vm->Get_Machine_Name() : QStringLiteral( "vm" );
+		custom = QStringLiteral( "aqemu-kd-" ) + AQ_Lab_Sanitize_Pipe_Id( base );
+	}
+	return AQ_Lab_Sanitize_Pipe_Id( custom );
+}
+
+static void Insert_Before_First_Serial( QStringList &args, const QStringList &chunk )
+{
+	const int serial_idx = args.indexOf( QStringLiteral( "-serial" ) );
+	if( serial_idx < 0 )
+	{
+		args.append( chunk );
+		return;
+	}
+	for( int i = chunk.count() - 1; i >= 0; --i )
+		args.insert( serial_idx, chunk.at( i ) );
+}
+
+static QString Generate_Kdnet_Key()
+{
+	const QByteArray h = QCryptographicHash::hash(
+		QUuid::createUuid().toByteArray() + QByteArray::number( QDateTime::currentMSecsSinceEpoch() ),
+		QCryptographicHash::Sha256 );
+	auto part = [&h]( int off ) {
+		return QString::fromLatin1( h.mid( off, 4 ).toHex() );
+	};
+	return part( 0 ) + QLatin1Char( '.' ) + part( 4 ) + QLatin1Char( '.' )
+		+ part( 8 ) + QLatin1Char( '.' ) + part( 12 );
+}
+
+static QString Kdnet_Secret_Name( const QString &vm_name )
+{
+	return vm_name + QStringLiteral( ".kdnet" );
+}
+
+static QString Load_Secret_Text( const QString &vm_name ); // defined with Store_Secret
+
+static bool Nic_Supports_Kdnet( const Virtual_Machine *vm )
+{
+	if( ! vm )
+		return false;
+	const QList<VM_Net_Card_Native> native = vm->Get_Network_Cards_Nativ();
+	for( int i = 0; i < native.count(); ++i )
+	{
+		const QString m = native.at( i ).Get_Card_Model().toLower();
+		if( m.contains( QLatin1String( "e1000" ) ) )
+			return true;
+	}
+	const QList<VM_Net_Card> cards = vm->Get_Network_Cards();
+	for( int i = 0; i < cards.count(); ++i )
+	{
+		const QString m = cards.at( i ).Get_Card_Model().toLower();
+		if( m.contains( QLatin1String( "e1000" ) ) )
+			return true;
+	}
+	return false;
+}
+
+static QString Find_WinDbg_Binary()
+{
+#ifdef Q_OS_WIN
+	const QStringList candidates = QStringList()
+		<< QStringLiteral( "windbgx.exe" )
+		<< QStringLiteral( "WinDbgX.exe" )
+		<< QStringLiteral( "windbg.exe" );
+	for( int i = 0; i < candidates.count(); ++i )
+	{
+		const QString found = QStandardPaths::findExecutable( candidates.at( i ) );
+		if( ! found.isEmpty() )
+			return found;
+	}
+	const QStringList roots = QStringList()
+		<< QString::fromLocal8Bit( qgetenv( "ProgramFiles(x86)" ) )
+		<< QString::fromLocal8Bit( qgetenv( "ProgramFiles" ) )
+		<< QStringLiteral( "C:/Program Files (x86)" )
+		<< QStringLiteral( "C:/Program Files" );
+	const QStringList tails = QStringList()
+		<< QStringLiteral( "Windows Kits/10/Debuggers/x64/windbg.exe" )
+		<< QStringLiteral( "Windows Kits/10/Debuggers/x86/windbg.exe" )
+		<< QStringLiteral( "Windows Kits/10/Debuggers/arm64/windbg.exe" );
+	for( int r = 0; r < roots.count(); ++r )
+	{
+		if( roots.at( r ).isEmpty() )
+			continue;
+		for( int t = 0; t < tails.count(); ++t )
+		{
+			const QString path = QDir( roots.at( r ) ).filePath( tails.at( t ) );
+			if( QFileInfo( path ).exists() )
+				return path;
+		}
+	}
+#endif
+	return QString();
+}
+
 void AQ_Lab_Append_Args( QStringList &args, Virtual_Machine *vm )
 {
 	if( ! vm )
@@ -291,32 +426,44 @@ void AQ_Lab_Append_Args( QStringList &args, Virtual_Machine *vm )
 			args << QStringLiteral( "-S" );
 	}
 
-	const QString kd_mode = opt.value( QStringLiteral( "kd" ) );
-	if( ( kd_mode == QLatin1String( "serial" ) || kd_mode == QLatin1String( "tcp" ) )
-	    && vm->Get_Serial_Ports().isEmpty() && ! Args_Have( args, QStringLiteral( "-serial" ) ) )
+	const QString kd_mode = AQ_Lab_Normalize_Kd_Mode( opt.value( QStringLiteral( "kd" ) ) );
+	if( kd_mode == QLatin1String( "pipe" ) || kd_mode == QLatin1String( "tcp" ) )
 	{
-		const QString port = opt.value( QStringLiteral( "kd_port" ), QStringLiteral( "50000" ) );
-		QString serial;
-		if( kd_mode == QLatin1String( "tcp" ) )
-			serial = QStringLiteral( "tcp:127.0.0.1:%1,server=on,wait=off" ).arg( port );
+		const QString port = opt.value( QStringLiteral( "kd_tcp_port" ),
+			opt.value( QStringLiteral( "kd_port" ), QStringLiteral( "50000" ) ) );
+		const bool any = opt.value( QStringLiteral( "kd_tcp_any" ) ) == QLatin1String( "on" );
+		const QString host = any ? QStringLiteral( "0.0.0.0" ) : QStringLiteral( "127.0.0.1" );
+		QStringList chunk;
+		bool use_tcp = ( kd_mode == QLatin1String( "tcp" ) );
+#ifndef Q_OS_WIN
+		// Named-pipe KD is a Windows host path; Linux falls back to TCP.
+		use_tcp = true;
+#endif
+		if( use_tcp )
+		{
+			chunk << QStringLiteral( "-chardev" )
+			      << QStringLiteral( "socket,id=aqkd0,host=%1,port=%2,server=on,wait=off" )
+					.arg( host, port )
+			      << QStringLiteral( "-serial" ) << QStringLiteral( "chardev:aqkd0" );
+		}
+#ifdef Q_OS_WIN
 		else
 		{
-#ifdef Q_OS_WIN
-			QString id = vm->Get_Machine_Name();
-			for( int i = 0; i < id.size(); ++i )
+			const QString pipe = AQ_Lab_Kd_Pipe_Name( vm, opt );
+			if( vm->Use_Modern_Chardev() )
 			{
-				const QChar c = id.at( i );
-				if( ! c.isLetterOrNumber() && c != QLatin1Char( '-' ) && c != QLatin1Char( '_' ) )
-					id[ i ] = QLatin1Char( '_' );
+				chunk << QStringLiteral( "-chardev" )
+				      << ( QStringLiteral( "pipe,id=aqkd0,path=" ) + pipe )
+				      << QStringLiteral( "-serial" ) << QStringLiteral( "chardev:aqkd0" );
 			}
-			if( id.isEmpty() )
-				id = QStringLiteral( "vm" );
-			serial = QStringLiteral( "pipe:aqemu-kd-" ) + id;
-#else
-			serial = QStringLiteral( "tcp:127.0.0.1:%1,server=on,wait=off" ).arg( port );
-#endif
+			else
+			{
+				chunk << QStringLiteral( "-serial" ) << ( QStringLiteral( "pipe:" ) + pipe );
+			}
 		}
-		args << QStringLiteral( "-serial" ) << serial;
+#endif
+		if( ! chunk.isEmpty() )
+			Insert_Before_First_Serial( args, chunk );
 	}
 
 	const QString plugin = opt.value( QStringLiteral( "tcg_plugin" ) ).trimmed();
@@ -616,6 +763,67 @@ bool AQ_Lab_Prepare_Start( Virtual_Machine *vm )
 		return true;
 	g_note_launch = true;
 	const QMap<QString, QString> opt = AQ_Lab_Map( vm->Get_Lab_Options() );
+
+	const QString kd_mode = AQ_Lab_Normalize_Kd_Mode( opt.value( QStringLiteral( "kd" ) ) );
+	if( kd_mode == QLatin1String( "net" ) )
+	{
+		if( ! Nic_Supports_Kdnet( vm ) )
+		{
+			const int answer = QMessageBox::warning( nullptr, QObject::tr( "KDNET" ),
+				QObject::tr( "KDNET needs an Intel e1000/e1000e NIC. Switch the first NIC to e1000e, continue anyway, or cancel start." ),
+				QObject::tr( "Switch to e1000e" ), QObject::tr( "Continue" ), QObject::tr( "Cancel" ), 0, 2 );
+			if( answer == 2 )
+			{
+				g_note_launch = false;
+				return false;
+			}
+			if( answer == 0 )
+			{
+				QList<VM_Net_Card_Native> native = vm->Get_Network_Cards_Nativ();
+				if( ! native.isEmpty() )
+				{
+					native[ 0 ].Set_Card_Model( QStringLiteral( "e1000e" ) );
+					vm->Set_Network_Cards_Nativ( native );
+				}
+				else
+				{
+					QList<VM_Net_Card> cards = vm->Get_Network_Cards();
+					if( ! cards.isEmpty() )
+					{
+						cards[ 0 ].Set_Card_Model( QStringLiteral( "e1000e" ) );
+						vm->Set_Network_Cards( cards );
+					}
+					else
+					{
+						AQGraphic_Warning( QObject::tr( "KDNET" ),
+							QObject::tr( "This VM has no NIC to switch. Add an e1000e card first." ) );
+						g_note_launch = false;
+						return false;
+					}
+				}
+			}
+		}
+		if( Load_Secret_Text( Kdnet_Secret_Name( vm->Get_Machine_Name() ) ).isEmpty()
+		    && opt.value( QStringLiteral( "kd_net_key" ) ).isEmpty() )
+		{
+			AQGraphic_Warning( QObject::tr( "KDNET" ),
+				QObject::tr( "No KDNET key is stored. Open Lab → Debug, generate a key, and save before starting." ) );
+			g_note_launch = false;
+			return false;
+		}
+	}
+	if( kd_mode == QLatin1String( "pipe" ) )
+	{
+		const QString pipe = AQ_Lab_Kd_Pipe_Name( vm, opt );
+		static const QRegularExpression pipe_re( QStringLiteral( "^[A-Za-z0-9._-]{1,200}$" ) );
+		if( ! pipe_re.match( pipe ).hasMatch() )
+		{
+			AQGraphic_Warning( QObject::tr( "Kernel debug" ),
+				QObject::tr( "The kernel-debug pipe name \"%1\" is invalid." ).arg( pipe ) );
+			g_note_launch = false;
+			return false;
+		}
+	}
 
 	if( opt.value( QStringLiteral( "check_chain" ) ) == QLatin1String( "on" ) )
 	{
@@ -1042,7 +1250,7 @@ static void Lock_Secret_File( const QString &path )
 }
 #endif
 
-static QString Load_Secret_File( const QString &vm_name )
+static QString Load_Secret_Text( const QString &vm_name )
 {
 #ifdef Q_OS_WIN
 	const QString target = QStringLiteral( "AQEMU/" ) + vm_name;
@@ -1052,6 +1260,21 @@ static QString Load_Secret_File( const QString &vm_name )
 	const QString secret = QString::fromUtf16( (const ushort *)cred->CredentialBlob,
 		int( cred->CredentialBlobSize / sizeof( ushort ) ) );
 	CredFree( cred );
+	return secret;
+#else
+	QFile file( Secret_Store_Path( vm_name ) );
+	if( ! file.open( QIODevice::ReadOnly ) )
+		return QString();
+	return QString::fromUtf8( file.readAll() ).trimmed();
+#endif
+}
+
+static QString Load_Secret_File( const QString &vm_name )
+{
+#ifdef Q_OS_WIN
+	const QString secret = Load_Secret_Text( vm_name );
+	if( secret.isEmpty() )
+		return QString();
 	const QString path = Secret_Store_Path( vm_name );
 	QFile file( path );
 	if( file.open( QIODevice::WriteOnly | QIODevice::Truncate ) )
@@ -1259,56 +1482,221 @@ void AQ_Lab_Open_VM_Window( Virtual_Machine *vm, const QList<Virtual_Machine*> &
 	dbg_form->addRow( QObject::tr( "Port" ), gdb_port );
 	dbg_form->addRow( gdb_wait );
 	dbg_form->addRow( copy_gdb );
+	QLabel *kd_head = new QLabel(
+		QObject::tr( "Kernel debug (WinDbg) — attach WinDbg to this Windows guest. Run the guest commands once, then reboot." ),
+		dbg );
+	kd_head->setWordWrap( true );
 	QComboBox *kd = new QComboBox( dbg );
 	kd->addItem( QObject::tr( "Off" ), QStringLiteral( "off" ) );
-	kd->addItem( QObject::tr( "Serial" ), QStringLiteral( "serial" ) );
-	kd->addItem( QObject::tr( "TCP" ), QStringLiteral( "tcp" ) );
-	const int kd_idx = kd->findData( opt.value( QStringLiteral( "kd" ), QStringLiteral( "off" ) ) );
-	kd->setCurrentIndex( kd_idx >= 0 ? kd_idx : 0 );
+	kd->addItem( QObject::tr( "Serial KD (named pipe)" ), QStringLiteral( "pipe" ) );
+	kd->addItem( QObject::tr( "Serial KD (TCP)" ), QStringLiteral( "tcp" ) );
+	kd->addItem( QObject::tr( "KDNET (network)" ), QStringLiteral( "net" ) );
+	{
+		const QString saved_kd = AQ_Lab_Normalize_Kd_Mode( opt.value( QStringLiteral( "kd" ), QStringLiteral( "off" ) ) );
+		const int kd_idx = kd->findData( saved_kd );
+		kd->setCurrentIndex( kd_idx >= 0 ? kd_idx : 0 );
+	}
+	QLineEdit *kd_pipe_edit = new QLineEdit( opt.value( QStringLiteral( "kd_pipe" ) ), dbg );
+	kd_pipe_edit->setPlaceholderText( QStringLiteral( "aqemu-kd-" ) + AQ_Lab_Sanitize_Pipe_Id( vm->Get_Machine_Name() ) );
 	QSpinBox *kd_port = new QSpinBox( dbg );
-	kd_port->setRange( 1, 65535 );
-	kd_port->setValue( opt.value( QStringLiteral( "kd_port" ), QStringLiteral( "50000" ) ).toInt() );
+	kd_port->setRange( 1024, 65535 );
+	kd_port->setValue( opt.value( QStringLiteral( "kd_tcp_port" ),
+		opt.value( QStringLiteral( "kd_port" ), QStringLiteral( "50000" ) ) ).toInt() );
+	QCheckBox *kd_any = new QCheckBox( QObject::tr( "Listen on all interfaces (0.0.0.0)" ), dbg );
+	kd_any->setChecked( opt.value( QStringLiteral( "kd_tcp_any" ) ) == QLatin1String( "on" ) );
+	QComboBox *kd_baud = new QComboBox( dbg );
+	const QStringList bauds = QStringList() << QStringLiteral( "9600" ) << QStringLiteral( "19200" )
+		<< QStringLiteral( "38400" ) << QStringLiteral( "57600" ) << QStringLiteral( "115200" );
+	kd_baud->addItems( bauds );
+	{
+		const int b = kd_baud->findText( opt.value( QStringLiteral( "kd_baud" ), QStringLiteral( "115200" ) ) );
+		kd_baud->setCurrentIndex( b >= 0 ? b : bauds.count() - 1 );
+	}
+	QSpinBox *kd_com = new QSpinBox( dbg );
+	kd_com->setRange( 1, 4 );
+	kd_com->setValue( qBound( 1, opt.value( QStringLiteral( "kd_com" ), QStringLiteral( "1" ) ).toInt(), 4 ) );
+	QLineEdit *kd_net_ip = new QLineEdit( opt.value( QStringLiteral( "kd_net_hostip" ), QStringLiteral( "10.0.2.2" ) ), dbg );
+	kd_net_ip->setPlaceholderText( QObject::tr( "Host IP as seen by the guest (user-net: 10.0.2.2)" ) );
+	QSpinBox *kd_net_port = new QSpinBox( dbg );
+	kd_net_port->setRange( 49152, 65535 );
+	kd_net_port->setValue( opt.value( QStringLiteral( "kd_net_port" ), QStringLiteral( "50000" ) ).toInt() );
+	QLineEdit *kd_net_key = new QLineEdit( dbg );
+	{
+		QString key = Load_Secret_Text( Kdnet_Secret_Name( vm->Get_Machine_Name() ) );
+		if( key.isEmpty() )
+			key = opt.value( QStringLiteral( "kd_net_key" ) ); // legacy plain blob, migrate on save
+		if( key.isEmpty() )
+			key = Generate_Kdnet_Key();
+		kd_net_key->setText( key );
+	}
+	QPushButton *kd_key_regen = new QPushButton( QObject::tr( "Regenerate key" ), dbg );
+	QObject::connect( kd_key_regen, &QPushButton::clicked, &dlg, [kd_net_key]() {
+		kd_net_key->setText( Generate_Kdnet_Key() );
+	} );
 	QLabel *kd_note = new QLabel( dbg );
 	kd_note->setWordWrap( true );
-	if( vm->Get_Serial_Ports().count() > 0 )
-		kd_note->setText( QObject::tr( "This virtual machine already has a serial port. Kernel debug will not replace the session console." ) );
-	else
-		kd_note->setText( QObject::tr( "Serial uses a private pipe on Windows and a local TCP port on Linux. TCP is available on both." ) );
-	auto kd_pipe = [vm]() {
-		QString id = vm->Get_Machine_Name();
-		for( int i = 0; i < id.size(); ++i )
+	QLabel *kd_status = new QLabel( dbg );
+	kd_status->setWordWrap( true );
+	QLabel *kd_warn = new QLabel( dbg );
+	kd_warn->setWordWrap( true );
+	kd_warn->setStyleSheet( QStringLiteral( "color: #a15c00;" ) );
+	auto refresh_kd = [vm, kd, kd_pipe_edit, kd_port, kd_any, kd_baud, kd_com, kd_net_ip, kd_net_port,
+		kd_net_key, kd_note, kd_status, kd_warn, accel_now]() {
+		const QString mode = AQ_Lab_Normalize_Kd_Mode( kd->currentData().toString() );
+		const bool serial = ( mode == QLatin1String( "pipe" ) || mode == QLatin1String( "tcp" ) );
+		const bool net = ( mode == QLatin1String( "net" ) );
+		kd_pipe_edit->setEnabled( mode == QLatin1String( "pipe" ) );
+		kd_port->setEnabled( mode == QLatin1String( "tcp" )
+#ifndef Q_OS_WIN
+			|| mode == QLatin1String( "pipe" )
+#endif
+			);
+		kd_any->setEnabled( mode == QLatin1String( "tcp" ) );
+		kd_baud->setEnabled( serial );
+		kd_com->setEnabled( serial );
+		kd_net_ip->setEnabled( net );
+		kd_net_port->setEnabled( net );
+		kd_net_key->setEnabled( net );
+		QString note = QObject::tr( "Serial KD lands on COM%1. The auto serial monitor yields COM1 when KD is on. "
+			"GDB stub still works with any accelerator; for Windows internals prefer KD." )
+			.arg( kd_com->value() );
+#ifndef Q_OS_WIN
+		if( mode == QLatin1String( "pipe" ) )
+			note += QObject::tr( " On this host, named-pipe KD uses a local TCP port instead." );
+#endif
+		kd_note->setText( note );
+		QString status;
+		if( mode == QLatin1String( "pipe" ) )
 		{
-			const QChar c = id.at( i );
-			if( ! c.isLetterOrNumber() && c != QLatin1Char( '-' ) && c != QLatin1Char( '_' ) )
-				id[ i ] = QLatin1Char( '_' );
+			QString pipe = kd_pipe_edit->text().trimmed();
+			if( pipe.isEmpty() )
+				pipe = kd_pipe_edit->placeholderText();
+			pipe = AQ_Lab_Sanitize_Pipe_Id( pipe );
+#ifdef Q_OS_WIN
+			status = QObject::tr( "WinDbg connects to: \\\\.\\pipe\\%1" ).arg( pipe );
+#else
+			status = QObject::tr( "WinDbg (or a bridge) connects to TCP 127.0.0.1:%1" ).arg( kd_port->value() );
+#endif
 		}
-		if( id.isEmpty() )
-			id = QStringLiteral( "vm" );
-		return QStringLiteral( "aqemu-kd-" ) + id;
+		else if( mode == QLatin1String( "tcp" ) )
+		{
+			const QString host = kd_any->isChecked() ? QStringLiteral( "0.0.0.0" ) : QStringLiteral( "127.0.0.1" );
+			status = QObject::tr( "WinDbg connects to: %1:%2" ).arg( host ).arg( kd_port->value() );
+		}
+		else if( mode == QLatin1String( "net" ) )
+		{
+			status = QObject::tr( "WinDbg: net:port=%1,key=%2" )
+				.arg( kd_net_port->value() )
+				.arg( kd_net_key->text().trimmed() );
+		}
+		else
+			status = QObject::tr( "Kernel debug is off." );
+		status += QLatin1Char( '\n' ) + accel_now->text();
+		kd_status->setText( status );
+		QStringList warns;
+		if( serial && vm->Get_Serial_Ports().count() > 0 )
+			warns << QObject::tr( "This VM already lists serial ports; KD is inserted as COM%1 ahead of them." )
+				.arg( kd_com->value() );
+		if( net && ! Nic_Supports_Kdnet( vm ) )
+			warns << QObject::tr( "KDNET needs an e1000/e1000e NIC. Start will offer to switch the first NIC." );
+		if( vm->Use_UEFI() )
+			warns << QObject::tr( "Secure Boot / UEFI secboot must be off in firmware before bcdedit can enable kernel debug." );
+		if( ! vm->Get_TPM_Type().isEmpty() && vm->Get_TPM_Type() != QLatin1String( "none" ) )
+			warns << QObject::tr( "Changing debug settings on a BitLocker volume triggers recovery. Suspend BitLocker first." );
+		if( vm->Get_Computer_Type().contains( QLatin1String( "aarch64" ), Qt::CaseInsensitive ) && serial )
+			warns << QObject::tr( "ARM64 Windows guests usually need KDNET; legacy serial KD is often unreliable." );
+		kd_warn->setText( warns.join( QLatin1Char( '\n' ) ) );
+		kd_warn->setVisible( ! warns.isEmpty() );
+	};
+	QObject::connect( kd, static_cast<void (QComboBox::*)(int)>( &QComboBox::currentIndexChanged ), &dlg, refresh_kd );
+	QObject::connect( kd_pipe_edit, &QLineEdit::textChanged, &dlg, refresh_kd );
+	QObject::connect( kd_port, static_cast<void (QSpinBox::*)(int)>( &QSpinBox::valueChanged ), &dlg, refresh_kd );
+	QObject::connect( kd_any, &QCheckBox::toggled, &dlg, refresh_kd );
+	QObject::connect( kd_baud, static_cast<void (QComboBox::*)(int)>( &QComboBox::currentIndexChanged ), &dlg, refresh_kd );
+	QObject::connect( kd_com, static_cast<void (QSpinBox::*)(int)>( &QSpinBox::valueChanged ), &dlg, refresh_kd );
+	QObject::connect( kd_net_port, static_cast<void (QSpinBox::*)(int)>( &QSpinBox::valueChanged ), &dlg, refresh_kd );
+	QObject::connect( kd_net_key, &QLineEdit::textChanged, &dlg, refresh_kd );
+	refresh_kd();
+	auto windbg_connection = [kd, kd_pipe_edit, kd_port, kd_any, kd_net_port, kd_net_key, vm]() {
+		const QString mode = AQ_Lab_Normalize_Kd_Mode( kd->currentData().toString() );
+		if( mode == QLatin1String( "net" ) )
+		{
+			return QStringLiteral( "net:port=%1,key=%2" )
+				.arg( kd_net_port->value() )
+				.arg( kd_net_key->text().trimmed() );
+		}
+		if( mode == QLatin1String( "tcp" )
+#ifndef Q_OS_WIN
+		    || mode == QLatin1String( "pipe" )
+#endif
+		  )
+		{
+			const QString host = kd_any->isChecked() ? QHostInfo::localHostName() : QStringLiteral( "127.0.0.1" );
+			return QStringLiteral( "tcp:Port=%1,Server=%2" ).arg( kd_port->value() ).arg( host );
+		}
+		QString pipe = kd_pipe_edit->text().trimmed();
+		if( pipe.isEmpty() )
+			pipe = QStringLiteral( "aqemu-kd-" ) + AQ_Lab_Sanitize_Pipe_Id( vm->Get_Machine_Name() );
+		pipe = AQ_Lab_Sanitize_Pipe_Id( pipe );
+		return QStringLiteral( "com:pipe,port=\\\\.\\pipe\\%1,resets=0,reconnect" ).arg( pipe );
+	};
+	auto guest_commands = [kd, kd_baud, kd_com, kd_net_ip, kd_net_port, kd_net_key]() {
+		const QString mode = AQ_Lab_Normalize_Kd_Mode( kd->currentData().toString() );
+		QString text = QStringLiteral( "bcdedit /debug on\r\n" );
+		if( mode == QLatin1String( "net" ) )
+		{
+			text += QStringLiteral( "bcdedit /dbgsettings net hostip:%1 port:%2 key:%3\r\n" )
+				.arg( kd_net_ip->text().trimmed().isEmpty() ? QStringLiteral( "10.0.2.2" ) : kd_net_ip->text().trimmed() )
+				.arg( kd_net_port->value() )
+				.arg( kd_net_key->text().trimmed() );
+		}
+		else
+		{
+			text += QStringLiteral( "bcdedit /dbgsettings serial debugport:%1 baudrate:%2\r\n" )
+				.arg( kd_com->value() )
+				.arg( kd_baud->currentText() );
+			text += QStringLiteral( "\r\n:: XP / 2000 / NT — add to boot.ini:\r\n"
+				":: /debug /debugport=COM%1 /baudrate=%2\r\n" )
+				.arg( kd_com->value() )
+				.arg( kd_baud->currentText() );
+		}
+		text += QStringLiteral( "\r\n:: If the guest uses VBS/HVCI or Hyper-V, also review:\r\n"
+			":: bcdedit /set hypervisordebug on\r\n" );
+		return text;
 	};
 	QPushButton *copy_kd = new QPushButton( QObject::tr( "Copy WinDbg connection" ), dbg );
-	QObject::connect( copy_kd, &QPushButton::clicked, &dlg, [kd, kd_port, kd_pipe]() {
-		QString text;
-		if( kd->currentData().toString() == QLatin1String( "tcp" ) )
-			text = QStringLiteral( "-k tcp:Port=%1,Server=127.0.0.1" ).arg( kd_port->value() );
-		else
-#ifdef Q_OS_WIN
-			text = QStringLiteral( "-k com:pipe,port=\\\\.\\pipe\\%1,resets=0" ).arg( kd_pipe() );
-#else
-			text = QStringLiteral( "-k tcp:Port=%1,Server=127.0.0.1" ).arg( kd_port->value() );
-#endif
-		QGuiApplication::clipboard()->setText( text );
+	QObject::connect( copy_kd, &QPushButton::clicked, &dlg, [windbg_connection]() {
+		QGuiApplication::clipboard()->setText( QStringLiteral( "-k " ) + windbg_connection() );
 	} );
 	QPushButton *copy_bcd = new QPushButton( QObject::tr( "Copy guest bcdedit commands" ), dbg );
-	QObject::connect( copy_bcd, &QPushButton::clicked, &dlg, []() {
-		QGuiApplication::clipboard()->setText(
-			QStringLiteral( "bcdedit /debug on\r\nbcdedit /dbgsettings serial debugport:1 baudrate:115200\r\n" ) );
+	QObject::connect( copy_bcd, &QPushButton::clicked, &dlg, [guest_commands]() {
+		QGuiApplication::clipboard()->setText( guest_commands() );
 	} );
+	QPushButton *open_kd = new QPushButton( QObject::tr( "Open WinDbg" ), dbg );
+	QObject::connect( open_kd, &QPushButton::clicked, &dlg, [windbg_connection]() {
+		const QString bin = Find_WinDbg_Binary();
+		if( bin.isEmpty() )
+		{
+			AQGraphic_Warning( QObject::tr( "WinDbg" ),
+				QObject::tr( "WinDbg / WinDbgX was not found. Install Debugging Tools for Windows, then copy the connection string." ) );
+			return;
+		}
+		QProcess::startDetached( bin, QStringList() << QStringLiteral( "-k" ) << windbg_connection() );
+	} );
+	dbg_form->addRow( kd_head );
 	dbg_form->addRow( QObject::tr( "Kernel debug" ), kd );
-	dbg_form->addRow( QObject::tr( "Kernel debug port" ), kd_port );
+	dbg_form->addRow( QObject::tr( "Named pipe" ), kd_pipe_edit );
+	dbg_form->addRow( QObject::tr( "TCP listen port" ), kd_port );
+	dbg_form->addRow( kd_any );
+	dbg_form->addRow( QObject::tr( "Baud rate" ), kd_baud );
+	dbg_form->addRow( QObject::tr( "Guest COM port" ), kd_com );
+	dbg_form->addRow( QObject::tr( "KDNET host IP" ), kd_net_ip );
+	dbg_form->addRow( QObject::tr( "KDNET port" ), kd_net_port );
+	dbg_form->addRow( QObject::tr( "KDNET key" ), Row( dbg, kd_net_key, kd_key_regen ) );
 	dbg_form->addRow( kd_note );
-	dbg_form->addRow( copy_kd );
-	dbg_form->addRow( copy_bcd );
+	dbg_form->addRow( kd_status );
+	dbg_form->addRow( kd_warn );
+	dbg_form->addRow( Row( dbg, copy_kd, Row( dbg, copy_bcd, open_kd ) ) );
 	QPushButton *dump = new QPushButton( QObject::tr( "Dump guest memory (ELF)" ), dbg );
 	QObject::connect( dump, &QPushButton::clicked, &dlg, [vm, &dlg]() {
 		if( ! vm->Get_QMP() || ! vm->Get_QMP()->Is_Connected() )
@@ -1750,8 +2138,75 @@ void AQ_Lab_Open_VM_Window( Virtual_Machine *vm, const QList<Virtual_Machine*> &
 		opt.insert( QStringLiteral( "gdb" ), gdb->isChecked() ? QStringLiteral( "on" ) : QString() );
 		opt.insert( QStringLiteral( "gdb_port" ), QString::number( gdb_port->value() ) );
 		opt.insert( QStringLiteral( "gdb_wait" ), gdb_wait->isChecked() ? QStringLiteral( "on" ) : QString() );
-		opt.insert( QStringLiteral( "kd" ), kd->currentData().toString() );
-		opt.insert( QStringLiteral( "kd_port" ), QString::number( kd_port->value() ) );
+		{
+			const QString mode = AQ_Lab_Normalize_Kd_Mode( kd->currentData().toString() );
+			opt.insert( QStringLiteral( "kd" ), mode == QLatin1String( "off" ) ? QString() : mode );
+			QString pipe = kd_pipe_edit->text().trimmed();
+			if( pipe.isEmpty() )
+				pipe = QStringLiteral( "aqemu-kd-" ) + AQ_Lab_Sanitize_Pipe_Id( vm->Get_Machine_Name() );
+			pipe = AQ_Lab_Sanitize_Pipe_Id( pipe );
+			static const QRegularExpression pipe_re( QStringLiteral( "^[A-Za-z0-9._-]{1,200}$" ) );
+			if( ( mode == QLatin1String( "pipe" ) || mode == QLatin1String( "tcp" ) ) && ! pipe_re.match( pipe ).hasMatch() )
+			{
+				AQGraphic_Warning( QObject::tr( "Kernel debug" ),
+					QObject::tr( "Pipe names may only use letters, digits, '.', '_' and '-', up to 200 characters." ) );
+				return;
+			}
+			for( int o = 0; o < others.count() && mode == QLatin1String( "pipe" ); ++o )
+			{
+				if( ! others.at( o ) || others.at( o ) == vm )
+					continue;
+				const QMap<QString, QString> oopt = AQ_Lab_Map( others.at( o )->Get_Lab_Options() );
+				if( AQ_Lab_Normalize_Kd_Mode( oopt.value( QStringLiteral( "kd" ) ) ) != QLatin1String( "pipe" ) )
+					continue;
+				if( AQ_Lab_Kd_Pipe_Name( others.at( o ), oopt ) == pipe )
+				{
+					AQGraphic_Warning( QObject::tr( "Kernel debug" ),
+						QObject::tr( "Pipe \"%1\" is already used by \"%2\"." )
+							.arg( pipe, others.at( o )->Get_Machine_Name() ) );
+					return;
+				}
+			}
+			opt.insert( QStringLiteral( "kd_pipe" ), pipe );
+			opt.insert( QStringLiteral( "kd_tcp_port" ), QString::number( kd_port->value() ) );
+			opt.insert( QStringLiteral( "kd_port" ), QString::number( kd_port->value() ) ); // legacy alias
+			opt.insert( QStringLiteral( "kd_tcp_any" ), kd_any->isChecked() ? QStringLiteral( "on" ) : QString() );
+			opt.insert( QStringLiteral( "kd_baud" ), kd_baud->currentText() );
+			opt.insert( QStringLiteral( "kd_com" ), QString::number( kd_com->value() ) );
+			opt.insert( QStringLiteral( "kd_net_port" ), QString::number( kd_net_port->value() ) );
+			opt.insert( QStringLiteral( "kd_net_hostip" ), kd_net_ip->text().trimmed() );
+			opt.remove( QStringLiteral( "kd_net_key" ) ); // keep key out of the VM file
+			const QString key = kd_net_key->text().trimmed();
+			if( mode == QLatin1String( "net" ) )
+			{
+				if( key.isEmpty() || key.count( QLatin1Char( '.' ) ) != 3 )
+				{
+					AQGraphic_Warning( QObject::tr( "Kernel debug" ),
+						QObject::tr( "KDNET key must look like a.b.c.d (four groups)." ) );
+					return;
+				}
+				Store_Secret( Kdnet_Secret_Name( vm->Get_Machine_Name() ), key );
+			}
+			if( mode == QLatin1String( "tcp" ) || mode == QLatin1String( "net" ) )
+			{
+				const int gdbp = gdb->isChecked() ? gdb_port->value() : -1;
+				const int kdp = ( mode == QLatin1String( "net" ) ) ? kd_net_port->value() : kd_port->value();
+				if( kdp == gdbp )
+				{
+					AQGraphic_Warning( QObject::tr( "Kernel debug" ),
+						QObject::tr( "Kernel debug port %1 clashes with the GDB stub port." ).arg( kdp ) );
+					return;
+				}
+			}
+			if( kd_any->isChecked() && mode == QLatin1String( "tcp" ) )
+			{
+				const int ans = QMessageBox::warning( &dlg, QObject::tr( "Kernel debug" ),
+					QObject::tr( "Listening on all interfaces exposes the KD serial port on the network. Continue?" ),
+					QMessageBox::Yes | QMessageBox::No, QMessageBox::No );
+				if( ans != QMessageBox::Yes )
+					return;
+			}
+		}
 		opt.insert( QStringLiteral( "rr" ), rr->currentData().toString() );
 		opt.insert( QStringLiteral( "rrfile" ), rrfile->text().trimmed() );
 		opt.insert( QStringLiteral( "icount_shift" ), QString::number( shift->value() ) );

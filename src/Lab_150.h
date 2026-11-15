@@ -24,6 +24,8 @@ QString AQ_Lab_Write_Xemu_Config( Virtual_Machine *vm, const QString &mcpx, cons
 void AQ_Lab_Append_Args( QStringList &args, Virtual_Machine *vm );
 void AQ_Lab_Adjust_Launch( Virtual_Machine *vm, QString &bin_path, QStringList *args );
 bool AQ_Lab_Prepare_Start( Virtual_Machine *vm );
+/** True when Lab Kernel debug owns a serial port (pipe/TCP KD), so COM1 must not be the serial monitor. */
+bool AQ_Lab_Uses_Kernel_Debug_Serial( const Virtual_Machine *vm );
 void AQ_Lab_After_Start( Virtual_Machine *vm, QProcess *proc );
 void AQ_Lab_Stop_Companions( Virtual_Machine *vm );
 void AQ_Lab_Apply_Guest_Profile( Virtual_Machine *vm, const QString &os_name );

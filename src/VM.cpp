@@ -9347,7 +9347,8 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 				break;
 			}
 		}
-		if( ! have_tcp_serial && serial_monitor )
+		// Lab serial KD must own COM1; skip the auto monitor so WinDbg debugport:1 matches.
+		if( ! have_tcp_serial && serial_monitor && ! AQ_Lab_Uses_Kernel_Debug_Serial( this ) )
 		{
 			// OS ephemeral probe (0) guarantees an unbound port outside Hyper-V dynamic exclusion ranges
 			quint16 sport = Find_Free_TCP_Port( 0 );
