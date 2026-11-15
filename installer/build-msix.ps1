@@ -173,11 +173,18 @@ if ($LASTEXITCODE -ge 8) {
     Write-Error "robocopy failed with exit code $LASTEXITCODE"
 }
 
-# Explicitly stage QEMU binaries and runtime DLLs from third_party/qemu-install if present
-$qemuPrefixCandidates = @(
-    (Join-Path $RepoRoot "third_party\qemu-install"),
-    (Join-Path $BuildDir "third_party\qemu-install")
-)
+# Explicitly stage QEMU binaries and runtime DLLs from the arch-matching install tree.
+# ARM64 packages must not pull x64 qemu-install (and vice versa).
+$qemuPrefixCandidates = @()
+if ($manifestArch -eq "arm64") {
+    $qemuPrefixCandidates += (Join-Path $RepoRoot "third_party\qemu-install-arm64")
+    $qemuPrefixCandidates += (Join-Path $BuildDir "third_party\qemu-install-arm64")
+}
+$qemuPrefixCandidates += (Join-Path $RepoRoot "third_party\qemu-install")
+$qemuPrefixCandidates += (Join-Path $BuildDir "third_party\qemu-install")
+if ($manifestArch -eq "x64") {
+    $qemuPrefixCandidates += (Join-Path $RepoRoot "third_party\qemu-install-x86_64")
+}
 foreach ($qp in $qemuPrefixCandidates) {
     if (Test-Path $qp) {
         $searchDirs = @($qp)
