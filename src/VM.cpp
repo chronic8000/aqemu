@@ -251,6 +251,10 @@ Virtual_Machine::Virtual_Machine( const Virtual_Machine &vm )
 	this->Show_Boot_Menu = vm.Get_Show_Boot_Menu();
 	this->Show_Boot_Logo = vm.Get_Show_Boot_Logo();
 	this->Boot_Menu_Seconds = vm.Get_Boot_Menu_Seconds();
+	this->Always_Boot_To_Firmware_Setup = vm.Get_Always_Boot_To_Firmware_Setup();
+	this->Boot_To_Firmware_Setup_Once = false;
+	this->Firmware_Setup_Need_Esc_Fallback = false;
+	this->Firmware_Setup_Esc_Remaining = 0;
     this->Video_Card = vm.Get_Video_Card();
 	this->Display_Resolution = vm.Get_Display_Resolution();
 	this->Mouse_Type = vm.Get_Mouse_Type();
@@ -598,6 +602,10 @@ void Virtual_Machine::Shared_Constructor()
 	Show_Boot_Menu = true;
 	Show_Boot_Logo = true;
 	Boot_Menu_Seconds = 0;
+	Always_Boot_To_Firmware_Setup = false;
+	Boot_To_Firmware_Setup_Once = false;
+	Firmware_Setup_Need_Esc_Fallback = false;
+	Firmware_Setup_Esc_Remaining = 0;
 	
     Video_Card = "";
 	Display_Resolution = "native";
@@ -813,6 +821,7 @@ bool Virtual_Machine::operator==( const Virtual_Machine &vm ) const
 		this->Show_Boot_Menu == vm.Get_Show_Boot_Menu() &&
 		this->Show_Boot_Logo == vm.Get_Show_Boot_Logo() &&
 		this->Boot_Menu_Seconds == vm.Get_Boot_Menu_Seconds() &&
+		this->Always_Boot_To_Firmware_Setup == vm.Get_Always_Boot_To_Firmware_Setup() &&
         this->Video_Card == vm.Get_Video_Card() &&
 		this->Display_Resolution == vm.Get_Display_Resolution() &&
 		this->Mouse_Type == vm.Get_Mouse_Type() &&
@@ -1113,6 +1122,10 @@ Virtual_Machine &Virtual_Machine::operator=( const Virtual_Machine &vm )
 	Show_Boot_Menu = vm.Get_Show_Boot_Menu();
 	Show_Boot_Logo = vm.Get_Show_Boot_Logo();
 	Boot_Menu_Seconds = vm.Get_Boot_Menu_Seconds();
+	Always_Boot_To_Firmware_Setup = vm.Get_Always_Boot_To_Firmware_Setup();
+	Boot_To_Firmware_Setup_Once = false;
+	Firmware_Setup_Need_Esc_Fallback = false;
+	Firmware_Setup_Esc_Remaining = 0;
 	Video_Card = vm.Get_Video_Card();
 	Display_Resolution = vm.Get_Display_Resolution();
 	Mouse_Type = vm.Get_Mouse_Type();
@@ -1587,6 +1600,11 @@ bool Virtual_Machine::Create_VM_File( const QString &file_name, bool template_mo
 	Dom_Element = New_Dom_Document.createElement( "Boot_Menu_Seconds" );
 	VM_Element.appendChild( Dom_Element );
 	Dom_Text = New_Dom_Document.createTextNode( QString::number( Boot_Menu_Seconds ) );
+	Dom_Element.appendChild( Dom_Text );
+
+	Dom_Element = New_Dom_Document.createElement( "Always_Boot_To_Firmware_Setup" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( Always_Boot_To_Firmware_Setup ? "true" : "false" );
 	Dom_Element.appendChild( Dom_Text );
 	
 	// Video_Card
@@ -4785,6 +4803,8 @@ bool Virtual_Machine::Load_VM( const QString &file_name )
 					seconds = 60;
 				Boot_Menu_Seconds = seconds;
 			}
+			Always_Boot_To_Firmware_Setup =
+				( Child_Element.firstChildElement( "Always_Boot_To_Firmware_Setup" ).text() == "true" );
 			
 			// Video Card
 			Video_Card = Child_Element.firstChildElement("Video_Card").text();
@@ -6819,12 +6839,16 @@ static QString Build_X86_Boot_Arg( const Virtual_Machine &vm, bool show_menu )
 	QSettings splash_settings;
 	const bool app_logo = splash_settings.value( QStringLiteral( "Show_Boot_Logo" ), QStringLiteral( "yes" ) ).toString() != QLatin1String( "no" );
 	const bool splash = app_logo && vm.Get_Show_Boot_Logo() && Guest_Supports_Boot_Splash( vm );
+	const bool firmware_setup = vm.Wants_Boot_To_Firmware_Setup() && ! vm.Use_UEFI();
 	// The picture is only drawn when menu=on. splash-time lets the guest continue.
-	const bool menu = show_menu || splash;
+	// SeaBIOS has no true "enter setup"; firmware-setup requests open the boot menu.
+	const bool menu = show_menu || splash || firmware_setup;
 	QString arg = QString( "order=%1,menu=%2" ).arg( letters, menu ? QStringLiteral( "on" ) : QStringLiteral( "off" ) );
 	int wait_ms = 0;
 	if( menu && vm.Get_Boot_Menu_Seconds() > 0 )
 		wait_ms = vm.Get_Boot_Menu_Seconds() * 1000;
+	else if( firmware_setup )
+		wait_ms = 10000;
 	else if( splash )
 		wait_ms = 3000;
 	if( splash )
@@ -11506,6 +11530,10 @@ bool Virtual_Machine::Start_impl()
 		}
 	}
 
+	Firmware_Setup_Need_Esc_Fallback = false;
+	Firmware_Setup_Esc_Remaining = 0;
+	const bool want_fw_setup = Wants_Boot_To_Firmware_Setup();
+
 	if( UEFI && ! AQ_Is_Apple_SoC_VM( this ) )
 	{
 		QString qemu_bin = Get_Current_Emulator_Binary_Path( Computer_Type );
@@ -11536,7 +11564,33 @@ bool Virtual_Machine::Start_impl()
 			Start_Snapshot_Tag = "";
 			return false;
 		}
+		if( want_fw_setup )
+		{
+			QString oi_err;
+			if( AQ_UEFI_Request_Boot_To_FW_UI( UEFI_VARS_File, &oi_err ) )
+			{
+				AQDebug( "bool Virtual_Machine::Start()",
+				         "UEFI OsIndications BOOT_TO_FW_UI set in VARS" );
+			}
+			else
+			{
+				AQWarning( "bool Virtual_Machine::Start()",
+				           QStringLiteral( "VARS OsIndications patch failed (%1); will send ESC" )
+				               .arg( oi_err ) );
+				Firmware_Setup_Need_Esc_Fallback = true;
+				Firmware_Setup_Esc_Remaining = 6;
+			}
+		}
 	}
+	else if( want_fw_setup && ! UEFI )
+	{
+#ifdef Q_OS_WIN
+		AQWarning( "bool Virtual_Machine::Start()",
+		           "SeaBIOS firmware-setup: -boot is omitted on Windows; guest may boot normally." );
+#endif
+	}
+	if( Boot_To_Firmware_Setup_Once )
+		Boot_To_Firmware_Setup_Once = false;
 
 	if( AQ_Is_Apple_SoC_VM( this ) )
 	{
@@ -13843,6 +13897,31 @@ void Virtual_Machine::Set_Boot_Menu_Seconds( int seconds )
 	Boot_Menu_Seconds = seconds;
 }
 
+bool Virtual_Machine::Get_Always_Boot_To_Firmware_Setup() const
+{
+	return Always_Boot_To_Firmware_Setup;
+}
+
+void Virtual_Machine::Set_Always_Boot_To_Firmware_Setup( bool use )
+{
+	Always_Boot_To_Firmware_Setup = use;
+}
+
+bool Virtual_Machine::Get_Boot_To_Firmware_Setup_Once() const
+{
+	return Boot_To_Firmware_Setup_Once;
+}
+
+void Virtual_Machine::Set_Boot_To_Firmware_Setup_Once( bool use )
+{
+	Boot_To_Firmware_Setup_Once = use;
+}
+
+bool Virtual_Machine::Wants_Boot_To_Firmware_Setup() const
+{
+	return Always_Boot_To_Firmware_Setup || Boot_To_Firmware_Setup_Once;
+}
+
 bool Virtual_Machine::Use_Fullscreen_Mode() const
 {
 	return Fullscreen;
@@ -15656,7 +15735,41 @@ void Virtual_Machine::QEMU_Started()
 		QTimer::singleShot( 400, this, SLOT(Connect_Embedded_QMP()) );
 	}
 
+	if( Firmware_Setup_Need_Esc_Fallback && Firmware_Setup_Esc_Remaining > 0 )
+		QTimer::singleShot( 700, this, SLOT(Firmware_Setup_Send_Esc()) );
+
 	emit QEMU_Start();
+}
+
+void Virtual_Machine::Firmware_Setup_Send_Esc()
+{
+	if( ! Firmware_Setup_Need_Esc_Fallback || Firmware_Setup_Esc_Remaining <= 0 )
+	{
+		Firmware_Setup_Need_Esc_Fallback = false;
+		Firmware_Setup_Esc_Remaining = 0;
+		return;
+	}
+	if( State != VM::VMS_Running && State != VM::VMS_Pause )
+	{
+		Firmware_Setup_Need_Esc_Fallback = false;
+		Firmware_Setup_Esc_Remaining = 0;
+		return;
+	}
+
+	bool sent = false;
+	if( QMP && QMP->Is_Connected() )
+		sent = QMP->Human_Monitor( QStringLiteral( "sendkey esc" ) );
+	if( ! sent && Monitor_Socket && Monitor_Socket->state() == QAbstractSocket::ConnectedState )
+	{
+		Send_Emulator_Command( QStringLiteral( "sendkey esc\n" ) );
+		sent = true;
+	}
+
+	--Firmware_Setup_Esc_Remaining;
+	if( Firmware_Setup_Esc_Remaining > 0 )
+		QTimer::singleShot( sent ? 600 : 400, this, SLOT(Firmware_Setup_Send_Esc()) );
+	else
+		Firmware_Setup_Need_Esc_Fallback = false;
 }
 
 void Virtual_Machine::Connect_Embedded_QMP()

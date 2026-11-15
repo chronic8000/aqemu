@@ -44,6 +44,9 @@ class Boot_Device_Window: public QDialog
 
 		int bootMenuSeconds() const;
 		void setBootMenuSeconds( int seconds );
+
+		bool alwaysBootToFirmwareSetup() const;
+		void setAlwaysBootToFirmwareSetup( bool use );
 		
 	private slots:
 		void on_TB_Up_clicked();

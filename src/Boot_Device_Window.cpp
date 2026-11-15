@@ -167,6 +167,16 @@ void Boot_Device_Window::setBootMenuSeconds( int seconds )
 	ui.SB_Boot_Wait->setValue( seconds );
 }
 
+bool Boot_Device_Window::alwaysBootToFirmwareSetup() const
+{
+	return ui.CH_Always_Firmware_Setup->isChecked();
+}
+
+void Boot_Device_Window::setAlwaysBootToFirmwareSetup( bool use )
+{
+	ui.CH_Always_Firmware_Setup->setChecked( use );
+}
+
 void Boot_Device_Window::on_TB_Up_clicked()
 {
 	int index = Get_Current_Index();

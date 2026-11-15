@@ -147,16 +147,26 @@
     </widget>
    </item>
    <item row="6" column="0">
+    <widget class="QCheckBox" name="CH_Always_Firmware_Setup">
+     <property name="text">
+      <string>Always boot into firmware setup</string>
+     </property>
+     <property name="toolTip">
+      <string>UEFI (OVMF/AAVMF): open the firmware UI on every start. SeaBIOS: open the interactive boot menu (there is no true setup screen). Does not change the saved boot order. Use Machine → Boot into firmware setup for a one-shot start.</string>
+     </property>
+    </widget>
+   </item>
+   <item row="7" column="0">
     <widget class="QLabel" name="Label_Boot_Windows">
      <property name="wordWrap">
       <bool>true</bool>
      </property>
      <property name="text">
-      <string>On Windows this wait is saved with the virtual machine. The bundled QEMU crashes if AQEMU passes -boot, so the menu wait is not sent there.</string>
+      <string>On Windows this wait is saved with the virtual machine. The bundled QEMU crashes if AQEMU passes -boot, so the SeaBIOS menu wait is not sent there. UEFI firmware setup still works via the VARS OsIndications bit.</string>
      </property>
     </widget>
    </item>
-   <item row="7" column="0">
+   <item row="8" column="0">
     <layout class="QHBoxLayout" name="horizontalLayout">
      <item>
       <widget class="Dialog_Button_Box" name="buttonBox">
@@ -186,6 +196,7 @@
   <tabstop>CH_Boot_Menu</tabstop>
   <tabstop>SB_Boot_Wait</tabstop>
   <tabstop>CH_Boot_Logo</tabstop>
+  <tabstop>CH_Always_Firmware_Setup</tabstop>
  </tabstops>
  <resources>
   <include location="../resources/icons.qrc"/>

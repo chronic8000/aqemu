@@ -48,6 +48,7 @@
 #include <QTemporaryDir>
 
 #include <cmath>
+#include <cstring>
 
 #ifdef Q_OS_UNIX
 #include <unistd.h>
@@ -3550,6 +3551,141 @@ bool AQ_UEFI_Pair_Ready( const QString &code_path, const QString &vars_path, QSt
 		return false;
 	}
 	return true;
+}
+
+static bool AQ_UEFI_Guid_Is_Global( const uchar *guid )
+{
+	// EFI_GLOBAL_VARIABLE {8BE4DF61-93CA-11D2-AA0D-00E098032B8C} little-endian
+	static const uchar kGlobal[16] = {
+		0x61, 0xDF, 0xE4, 0x8B, 0xCA, 0x93, 0xD2, 0x11,
+		0xAA, 0x0D, 0x00, 0xE0, 0x98, 0x03, 0x2B, 0x8C
+	};
+	return memcmp( guid, kGlobal, 16 ) == 0;
+}
+
+static bool AQ_UEFI_Name_Is_OsIndications( const uchar *name, quint32 name_size )
+{
+	static const char16_t kName[] = u"OsIndications";
+	const quint32 expect = (quint32)( sizeof( kName ) ); // includes trailing NUL
+	if( name_size != expect )
+		return false;
+	return memcmp( name, kName, expect ) == 0;
+}
+
+static bool AQ_UEFI_Patch_OsIndications_In_Store( QByteArray &buf )
+{
+	static const quint16 kVarData = 0x55AA;
+	static const uchar kAdded = 0x3f;
+	static const uchar kInDeleted = 0xfe;
+	bool patched = false;
+
+	auto try_at = [&]( int hdr_size, int name_off, int data_size_off, int guid_off ) -> void {
+		for( int i = 0; i + hdr_size < buf.size(); ++i )
+		{
+			const uchar *p = reinterpret_cast<const uchar *>( buf.constData() + i );
+			if( p[0] != 0xAA || p[1] != 0x55 )
+				continue;
+			const uchar state = p[2];
+			if( state != kAdded && state != kInDeleted )
+				continue;
+			if( i + hdr_size > buf.size() )
+				continue;
+			quint32 name_size = 0;
+			quint32 data_size = 0;
+			memcpy( &name_size, p + name_off, 4 );
+			memcpy( &data_size, p + data_size_off, 4 );
+			if( name_size < 2 || name_size > 512 || data_size > 4096 )
+				continue;
+			if( i + hdr_size + (int)name_size + (int)data_size > buf.size() )
+				continue;
+			if( ! AQ_UEFI_Guid_Is_Global( p + guid_off ) )
+				continue;
+			if( ! AQ_UEFI_Name_Is_OsIndications( p + hdr_size, name_size ) )
+				continue;
+			if( data_size < 8 )
+				continue;
+			// Name then Data are contiguous; only the next header is 4-byte aligned.
+			const int data_pos = i + hdr_size + (int)name_size;
+			if( data_pos + 8 > buf.size() )
+				continue;
+			uchar *d = reinterpret_cast<uchar *>( buf.data() + data_pos );
+			d[0] |= 0x01; // EFI_OS_INDICATIONS_BOOT_TO_FW_UI
+			if( state == kInDeleted )
+				buf[ i + 2 ] = (char)kAdded;
+			patched = true;
+			return;
+		}
+	};
+
+	// VARIABLE_HEADER (32): NameSize@8 DataSize@12 Guid@16
+	try_at( 32, 8, 12, 16 );
+	if( patched )
+		return true;
+	// AUTHENTICATED_VARIABLE_HEADER (60): NameSize@36 DataSize@40 Guid@44
+	try_at( 60, 36, 40, 44 );
+	return patched;
+}
+
+static bool AQ_UEFI_Try_Virt_Fw_Vars( const QString &vars_path, QString *error )
+{
+	const QString tool = QStandardPaths::findExecutable( QStringLiteral( "virt-fw-vars" ) );
+	if( tool.isEmpty() )
+	{
+		if( error )
+			*error = QObject::tr( "OsIndications was not found in the VARS image and virt-fw-vars is not installed." );
+		return false;
+	}
+	QProcess proc;
+	proc.setProgram( tool );
+	proc.setArguments( QStringList()
+		<< QStringLiteral( "--input" ) << vars_path
+		<< QStringLiteral( "--output" ) << vars_path
+		<< QStringLiteral( "--set-boot-to-fw-ui" ) );
+	proc.start();
+	if( ! proc.waitForFinished( 15000 ) || proc.exitStatus() != QProcess::NormalExit || proc.exitCode() != 0 )
+	{
+		if( error )
+			*error = QObject::tr( "virt-fw-vars failed to set boot-to-firmware-UI:\n%1" )
+				.arg( QString::fromLocal8Bit( proc.readAllStandardError() ) );
+		return false;
+	}
+	return true;
+}
+
+bool AQ_UEFI_Request_Boot_To_FW_UI( const QString &vars_path, QString *error )
+{
+	if( vars_path.trimmed().isEmpty() || ! QFile::exists( vars_path ) )
+	{
+		if( error )
+			*error = QObject::tr( "UEFI VARS file is missing." );
+		return false;
+	}
+	QFile f( vars_path );
+	if( ! f.open( QIODevice::ReadWrite ) )
+	{
+		if( error )
+			*error = QObject::tr( "Cannot open UEFI VARS for writing:\n%1" ).arg( vars_path );
+		return false;
+	}
+	QByteArray buf = f.readAll();
+	if( buf.isEmpty() )
+	{
+		if( error )
+			*error = QObject::tr( "UEFI VARS file is empty." );
+		return false;
+	}
+	if( AQ_UEFI_Patch_OsIndications_In_Store( buf ) )
+	{
+		if( ! f.seek( 0 ) || f.write( buf ) != buf.size() || ! f.flush() )
+		{
+			if( error )
+				*error = QObject::tr( "Failed to write OsIndications into VARS." );
+			return false;
+		}
+		return true;
+	}
+	f.close();
+	return AQ_UEFI_Try_Virt_Fw_Vars( vars_path, error );
 }
 
 QString Win11_OOBE_Bypass_Guest_Commands()

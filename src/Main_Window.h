@@ -137,6 +137,7 @@ class Main_Window: public QMainWindow
 		void on_actionShow_Advanced_Settings_Window_triggered();
 		void on_actionShow_First_Run_Wizard_triggered();
 		void on_actionPower_On_triggered();
+		void on_actionBoot_Firmware_Setup_triggered();
 		void on_actionSave_triggered();
         void on_actionShutdown_triggered();
         void on_actionPower_Off_triggered();
@@ -375,6 +376,7 @@ class Main_Window: public QMainWindow
 		bool Show_Boot_Menu;
 		bool Show_Boot_Logo = true;
 		int Boot_Menu_Seconds = 0;
+		bool Always_Boot_To_Firmware_Setup = false;
 		
 		HDD_Image_Info* HDA_Info;
 		HDD_Image_Info* HDB_Info;

@@ -189,6 +189,17 @@ class Virtual_Machine: public QObject
 		/** Seconds the firmware boot menu stays open. 0 keeps the short default. */
 		int Get_Boot_Menu_Seconds() const;
 		void Set_Boot_Menu_Seconds( int seconds );
+
+		/** Persist: every Power On opens firmware setup (UEFI) or boot menu (SeaBIOS). */
+		bool Get_Always_Boot_To_Firmware_Setup() const;
+		void Set_Always_Boot_To_Firmware_Setup( bool use );
+
+		/** One-shot: next Start opens firmware setup; cleared after that Start. Does not change boot order. */
+		bool Get_Boot_To_Firmware_Setup_Once() const;
+		void Set_Boot_To_Firmware_Setup_Once( bool use );
+
+		/** True when Always or Once is set for the upcoming Start. */
+		bool Wants_Boot_To_Firmware_Setup() const;
 		
 		const QString &Get_Video_Card() const;
 		void Set_Video_Card( const QString &card );
@@ -809,6 +820,7 @@ class Virtual_Machine: public QObject
 		void QEMU_Started();
 		void QEMU_Finished( int exitCode, QProcess::ExitStatus exitStatus );
 		void Connect_Embedded_QMP();
+		void Firmware_Setup_Send_Esc();
 		void Force_Kill_QEMU();
 		void Force_Kill_QEMU_Hard();
 		
@@ -876,6 +888,10 @@ class Virtual_Machine: public QObject
 		bool Show_Boot_Menu; // Enable interactive boot menu
 		bool Show_Boot_Logo; // SeaBIOS AQEMU picture; default on
 		int Boot_Menu_Seconds; // 0 = short default, 1-60 seconds
+		bool Always_Boot_To_Firmware_Setup; // Persist: open firmware UI every boot
+		bool Boot_To_Firmware_Setup_Once; // Runtime one-shot; not saved
+		bool Firmware_Setup_Need_Esc_Fallback; // After Start: send ESC if VARS patch failed
+		int Firmware_Setup_Esc_Remaining;
         QString Video_Card; // std vga, cirus logic
 		QString Display_Resolution; // virtio-gpu EDID: native|auto|WxH
 		QString Mouse_Type; // ps2|usb-tablet|usb-mouse|...

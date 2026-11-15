@@ -314,6 +314,13 @@ QString AQ_UEFI_VARS_Template_For_Code( const QString &code_path, const QString 
 /** True when CODE and VARS both exist and are non-empty. */
 bool AQ_UEFI_Pair_Ready( const QString &code_path, const QString &vars_path, QString *error );
 
+/**
+ * Set EFI_OS_INDICATIONS_BOOT_TO_FW_UI in a writable OVMF/AAVMF VARS image so the
+ * next boot opens the firmware UI. Returns true when the bit was written.
+ * Falls back to virt-fw-vars on PATH when the variable is missing from the store.
+ */
+bool AQ_UEFI_Request_Boot_To_FW_UI( const QString &vars_path, QString *error = nullptr );
+
 // Windows 11 ARM helpers (BVM-style UCPD.sys removal + OOBE skip recipes)
 QString Win11_OOBE_Bypass_Guest_Commands();
 QString Win11_UCPD_Guest_Commands();

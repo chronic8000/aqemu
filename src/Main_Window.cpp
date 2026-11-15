@@ -991,6 +991,7 @@ Main_Window::Main_Window( QWidget *parent )
 	Icon_Menu = new QMenu( ui.Machines_List );
 
     Icon_Menu->addAction( ui.actionPower_On );
+	Icon_Menu->addAction( ui.actionBoot_Firmware_Setup );
 	Icon_Menu->addAction( ui.actionConnect_Session );
 	Icon_Menu->addAction( ui.actionPause );
     Icon_Menu->addAction( ui.actionShutdown );
@@ -2392,6 +2393,7 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
 	tmp_vm->Set_Show_Boot_Menu( Show_Boot_Menu );
 	tmp_vm->Set_Show_Boot_Logo( Show_Boot_Logo );
 	tmp_vm->Set_Boot_Menu_Seconds( Boot_Menu_Seconds );
+	tmp_vm->Set_Always_Boot_To_Firmware_Setup( Always_Boot_To_Firmware_Setup );
 
 	// Audio
 	VM::Sound_Cards snd_card;
@@ -3484,6 +3486,7 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 	Show_Boot_Menu = tmp_vm->Get_Show_Boot_Menu();
 	Show_Boot_Logo = tmp_vm->Get_Show_Boot_Logo();
 	Boot_Menu_Seconds = tmp_vm->Get_Boot_Menu_Seconds();
+	Always_Boot_To_Firmware_Setup = tmp_vm->Get_Always_Boot_To_Firmware_Setup();
 
 	// Audio Cards
 	if( tmp_vm->Get_Audio_Cards().Audio_sb16 ) ui.CH_sb16->setChecked( true );
@@ -4661,6 +4664,7 @@ void Main_Window::Change_The_Icon(Virtual_Machine* vm, QString _icon)
 void Main_Window::setStateActionsEnabled(bool enabled)
 {
 	ui.actionPower_On->setEnabled( enabled );
+	ui.actionBoot_Firmware_Setup->setEnabled( enabled );
 	ui.actionSave->setEnabled( enabled );
 	ui.actionPause->setEnabled( enabled );
 	ui.actionPower_Off->setEnabled( enabled );
@@ -4695,6 +4699,7 @@ void Main_Window::Show_State_Current( Virtual_Machine *vm)
 		case VM::VMS_Running:
 		    setStateActionsEnabled( true );
 			ui.actionPower_On->setEnabled( false );
+			ui.actionBoot_Firmware_Setup->setEnabled( false );
 			ui.actionPause->setChecked( false );
 
 			Set_Widgets_State( false );
@@ -4703,6 +4708,7 @@ void Main_Window::Show_State_Current( Virtual_Machine *vm)
 		case VM::VMS_Power_Off:
 		    setStateActionsEnabled( false );
 			ui.actionPower_On->setEnabled( true );
+			ui.actionBoot_Firmware_Setup->setEnabled( true );
 			ui.actionPause->setChecked( false );
 
 			Set_Widgets_State( true );
@@ -4711,6 +4717,7 @@ void Main_Window::Show_State_Current( Virtual_Machine *vm)
 		case VM::VMS_Pause:
 		    setStateActionsEnabled( true );
 			ui.actionPower_On->setEnabled( false );
+			ui.actionBoot_Firmware_Setup->setEnabled( false );
 			ui.actionPause->setChecked( true );
 
 			Set_Widgets_State( false );
@@ -4718,6 +4725,7 @@ void Main_Window::Show_State_Current( Virtual_Machine *vm)
 
 		case VM::VMS_Saved:
 			ui.actionPower_On->setEnabled( true );
+			ui.actionBoot_Firmware_Setup->setEnabled( true );
 			ui.actionSave->setEnabled( false );
 			ui.actionPause->setEnabled( false );
 			ui.actionPause->setChecked( false );
@@ -6267,7 +6275,10 @@ bool Main_Window::Save_Or_Discard(bool forced)
 		disconnect( cur_vm, SIGNAL(State_Changed(Virtual_Machine*, VM::VM_State)),
 					this, SLOT(VM_State_Changed(Virtual_Machine*, VM::VM_State)) );
 
+		// Keep runtime one-shot firmware-setup across UI apply (not a saved setting).
+		const bool fw_once = cur_vm->Get_Boot_To_Firmware_Setup_Once();
 		*cur_vm = tmp_vm;
+		cur_vm->Set_Boot_To_Firmware_Setup_Once( fw_once );
 
 		cur_vm->Save_VM();
 		// Refresh UI from the saved VM (CPU count must survive Update_Disabled_Controls).
@@ -6282,6 +6293,46 @@ bool Main_Window::Save_Or_Discard(bool forced)
 	}
 
     return true;
+}
+
+void Main_Window::on_actionBoot_Firmware_Setup_triggered()
+{
+	Virtual_Machine *cur_vm = Get_Current_VM();
+	if( ! cur_vm )
+	{
+		AQError( "void Main_Window::on_actionBoot_Firmware_Setup_triggered()",
+		         "cur_vm == NULL" );
+		return;
+	}
+	if( cur_vm->Get_State() == VM::VMS_Running || cur_vm->Get_State() == VM::VMS_Pause )
+	{
+		QMessageBox::information( this, tr( "Firmware setup" ),
+			tr( "Stop the virtual machine first, then use Boot into firmware setup." ) );
+		return;
+	}
+	if( AQ_Is_Apple_SoC_VM( cur_vm ) )
+	{
+		QMessageBox::information( this, tr( "Firmware setup" ),
+			tr( "Apple SoC (Inferno) guests do not use OVMF/SeaBIOS firmware setup." ) );
+		return;
+	}
+	if( ! cur_vm->Use_UEFI() )
+	{
+#ifdef Q_OS_WIN
+		QMessageBox::information( this, tr( "Firmware setup" ),
+			tr( "This guest uses SeaBIOS. On Windows the bundled QEMU cannot take a -boot "
+			    "argument, so AQEMU cannot force the boot menu. Enable UEFI for a true "
+			    "firmware UI, or use Boot Order → interactive boot menu on Linux/macOS." ) );
+		return;
+#else
+		QMessageBox::information( this, tr( "Firmware setup" ),
+			tr( "SeaBIOS has no setup screen. AQEMU will open the interactive boot menu "
+			    "for this start only. Saved boot order is unchanged." ) );
+#endif
+	}
+	// Set before Save_Or_Discard; that path preserves the runtime one-shot flag.
+	cur_vm->Set_Boot_To_Firmware_Setup_Once( true );
+	on_actionPower_On_triggered();
 }
 
 void Main_Window::on_actionPower_On_triggered()
@@ -8652,6 +8703,7 @@ void Main_Window::on_TB_Show_Boot_Settings_Window_clicked()
 	boot_win.setUseBootMenu( Show_Boot_Menu );
 	boot_win.setUseBootLogo( Show_Boot_Logo );
 	boot_win.setBootMenuSeconds( Boot_Menu_Seconds );
+	boot_win.setAlwaysBootToFirmwareSetup( Always_Boot_To_Firmware_Setup );
 
 	if( boot_win.exec() == QDialog::Accepted )
 	{
@@ -8659,6 +8711,7 @@ void Main_Window::on_TB_Show_Boot_Settings_Window_clicked()
 		Show_Boot_Menu = boot_win.useBootMenu();
 		Show_Boot_Logo = boot_win.useBootLogo();
 		Boot_Menu_Seconds = boot_win.bootMenuSeconds();
+		Always_Boot_To_Firmware_Setup = boot_win.alwaysBootToFirmwareSetup();
 
 		// Apply data to UI and persist (Set_Boot_Order alone may not emit
 		// currentIndexChanged when the combo index stays the same).
