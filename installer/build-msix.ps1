@@ -175,15 +175,17 @@ if ($LASTEXITCODE -ge 8) {
 
 # Explicitly stage QEMU binaries and runtime DLLs from the arch-matching install tree.
 # ARM64 packages must not pull x64 qemu-install (and vice versa).
+# Never mix arches: x64 packages must not stage from qemu-install-arm64, and
+# ARM64 packages must not stage from the default x64 qemu-install tree.
 $qemuPrefixCandidates = @()
 if ($manifestArch -eq "arm64") {
     $qemuPrefixCandidates += (Join-Path $RepoRoot "third_party\qemu-install-arm64")
     $qemuPrefixCandidates += (Join-Path $BuildDir "third_party\qemu-install-arm64")
-}
-$qemuPrefixCandidates += (Join-Path $RepoRoot "third_party\qemu-install")
-$qemuPrefixCandidates += (Join-Path $BuildDir "third_party\qemu-install")
-if ($manifestArch -eq "x64") {
+} else {
+    $qemuPrefixCandidates += (Join-Path $RepoRoot "third_party\qemu-install")
+    $qemuPrefixCandidates += (Join-Path $BuildDir "third_party\qemu-install")
     $qemuPrefixCandidates += (Join-Path $RepoRoot "third_party\qemu-install-x86_64")
+    $qemuPrefixCandidates += (Join-Path $RepoRoot "third_party\qemu-install-x64")
 }
 foreach ($qp in $qemuPrefixCandidates) {
     if (Test-Path $qp) {
@@ -591,11 +593,13 @@ $knownSysDlls = @(
     "DBGHELP.DLL",    # Debug helper (Windows SDK / OS)
     "DBGCORE.DLL",    # Debug core (Windows 10+)
     # Networking / security
-    "WSOCK32.DLL", "MPR.DLL", "NETUTILS.DLL", "SRVCLI.DLL", "WLDAP32.DLL",
+    "WSOCK32.DLL", "MSWSOCK.DLL", "MPR.DLL", "NETUTILS.DLL", "SRVCLI.DLL", "WLDAP32.DLL",
     "CFGMGR32.DLL", "DEVOBJ.DLL", "WINTRUST.DLL", "IMAGEHLP.DLL",
+    "BCRYPTPRIMITIVES.DLL",
     # UI / graphics
     "PROPSYS.DLL", "DXGI.DLL", "D3D11.DLL", "D3D9.DLL", "D2D1.DLL", "DWRITE.DLL",
     "WINDOWSCODECS.DLL", "WINDOWSCODELCS.DLL", "COMBASE.DLL", "SHCORE.DLL",
+    "MSIMG32.DLL", "HID.DLL", "GDIPLUS.DLL",
     # CRT / runtime
     "MSVCP140.DLL", "VCRUNTIME140.DLL", "VCRUNTIME140_1.DLL",
     "MSVCP140_1.DLL", "MSVCP140_2.DLL", "CONCRT140.DLL",

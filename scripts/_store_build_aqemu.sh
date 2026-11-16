@@ -27,8 +27,17 @@ esac
 
 export AQEMU_STORE_BUILD=1
 export CHERE_INVOKING=1
-# shellcheck disable=SC1091
-source /etc/profile
+# Only load profile when launched outside an MSYS login shell (re-sourcing breaks
+# non-interactive runs on `read` of printer registry keys under set -e).
+if [[ -z "${MINGW_PREFIX:-}" ]]; then
+  # shellcheck disable=SC1091
+  source /etc/profile
+fi
+if [[ -z "${MINGW_PREFIX:-}" || ! -d "${MINGW_PREFIX}" ]]; then
+  echo "MINGW_PREFIX not set for MSYSTEM=${MSYSTEM:-}" >&2
+  exit 1
+fi
+export PATH="${MINGW_PREFIX}/bin:${PATH}"
 
 # Configure + attempt full build; ignore test-link failures, then build aqemu target.
 set +e
