@@ -13,4 +13,4 @@ If you are running VMs on a TrueNAS box and their Zvols have 4096 sectors, then 
 Notes for Store editors
 
 - Prefer “512n, 512e and 4Kn” over “TrueNAS 4K disks”. Those sector layouts are not TrueNAS-only.
-- AQEMU 1.7.0.0 highlights: host-aware WHPX (x64 and Snapdragon), WinDbg kernel debug, qemu-img Tools, VMware/VirtualBox import, AAVMF Secure Boot pairing, Documents\Virtual Machines\AQEMU default VM folder.
+- AQEMU 1.7.1.0 highlights: host-aware WHPX (x64 and Snapdragon), WinDbg kernel debug, qemu-img Tools, VMware/VirtualBox import, AAVMF Secure Boot pairing, Documents\Virtual Machines\AQEMU default VM folder. Store packages are PE-arch gated so x64 and ARM64 runtimes cannot be mixed.

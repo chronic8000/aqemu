@@ -14,6 +14,8 @@ param(
     [string] $Version = "",
     [string] $Architecture = "x64",
     [string] $OutDir = "",
+    # Optional override for the large staging tree (use a drive with free space).
+    [string] $LayoutDir = "",
     [string] $MsysLocation = "",
     # Must match Partner Center Product identity Publisher (CN=...)
     [string] $Publisher = "CN=16318CB3-C262-4B44-BCCF-310B0DDA3950",
@@ -72,13 +74,124 @@ $arch = $Architecture.ToLowerInvariant().Trim()
 if ($arch -eq "arm64" -or $arch -eq "aarch64") {
     $archTag = "win-arm64"
     $manifestArch = "arm64"
+    $expectedPeArch = "ARM64"
 } else {
     $archTag = "win64"
     $manifestArch = "x64"
+    $expectedPeArch = "x64"
+}
+
+function Get-PeMachineType {
+    param([Parameter(Mandatory = $true)][string] $Path)
+    try {
+        $fs = [IO.File]::OpenRead($Path)
+        try {
+            $br = New-Object IO.BinaryReader $fs
+            if ($fs.Length -lt 0x40) { return "unknown" }
+            if ($br.ReadUInt16() -ne 0x5A4D) { return "not-PE" }
+            $fs.Seek(0x3C, 'Begin') | Out-Null
+            $pe = $br.ReadInt32()
+            if (($pe + 6) -gt $fs.Length -or $pe -lt 0) { return "bad-PE" }
+            $fs.Seek($pe + 4, 'Begin') | Out-Null
+            $mach = $br.ReadUInt16()
+            switch ($mach) {
+                0x8664 { return "x64" }
+                0xAA64 { return "ARM64" }
+                0x14c  { return "x86" }
+                default { return ("0x{0:X}" -f $mach) }
+            }
+        } finally { $fs.Close() }
+    } catch {
+        return "unreadable"
+    }
+}
+
+function Test-PeArchMatch {
+    param(
+        [Parameter(Mandatory = $true)][string] $Path,
+        [Parameter(Mandatory = $true)][string] $Expected
+    )
+    $actual = Get-PeMachineType $Path
+    return ($actual -eq $Expected)
+}
+
+function Copy-ArchMatchedFile {
+    param(
+        [Parameter(Mandatory = $true)][string] $Source,
+        [Parameter(Mandatory = $true)][string] $Destination,
+        [Parameter(Mandatory = $true)][string] $Expected,
+        [switch] $Force
+    )
+    if (-not (Test-Path -LiteralPath $Source)) { return $false }
+    if (-not (Test-PeArchMatch -Path $Source -Expected $Expected)) {
+        Write-Warning ("Skipping wrong-arch file ({0}): {1}" -f (Get-PeMachineType $Source), $Source)
+        return $false
+    }
+    $destDir = Split-Path -Parent $Destination
+    if ($destDir -and -not (Test-Path -LiteralPath $destDir)) {
+        New-Item -ItemType Directory -Path $destDir -Force | Out-Null
+    }
+    Copy-Item -LiteralPath $Source -Destination $Destination -Force:$Force
+    return $true
+}
+
+function Assert-LayoutPeArch {
+    param(
+        [Parameter(Mandatory = $true)][string] $LayoutRoot,
+        [Parameter(Mandatory = $true)][string] $Expected
+    )
+    $bad = @()
+    Get-ChildItem -LiteralPath $LayoutRoot -Recurse -File -ErrorAction SilentlyContinue |
+        Where-Object {
+            $_.Extension -match '^\.(exe|dll)$' -and
+            $_.FullName -notmatch '[\\/]wsl[\\/]'
+        } |
+        ForEach-Object {
+            $actual = Get-PeMachineType $_.FullName
+            if ($actual -ne $Expected) {
+                $bad += [pscustomobject]@{
+                    Path   = $_.FullName.Substring($LayoutRoot.Length).TrimStart('\')
+                    Actual = $actual
+                }
+            }
+        }
+    if ($bad.Count -gt 0) {
+        $sample = ($bad | Select-Object -First 25 | ForEach-Object { "  $($_.Actual)  $($_.Path)" }) -join "`n"
+        throw ("FATAL: MSIX layout has {0} wrong-arch PE file(s); expected {1}. This causes Store 0xc000007b.`n{2}" -f $bad.Count, $Expected, $sample)
+    }
+    Write-Host ("PE arch gate OK: all staged exe/dll match {0}" -f $Expected)
+}
+
+function Remove-WrongArchPes {
+    param(
+        [Parameter(Mandatory = $true)][string] $Root,
+        [Parameter(Mandatory = $true)][string] $Expected
+    )
+    $removed = 0
+    Get-ChildItem -LiteralPath $Root -Recurse -File -ErrorAction SilentlyContinue |
+        Where-Object {
+            $_.Extension -match '^\.(exe|dll)$' -and
+            $_.FullName -notmatch '[\\/]wsl[\\/]'
+        } |
+        ForEach-Object {
+            $actual = Get-PeMachineType $_.FullName
+            if ($actual -ne $Expected -and $actual -ne "not-PE") {
+                Write-Warning ("Removing wrong-arch {0} ({1})" -f $_.Name, $actual)
+                Remove-Item -LiteralPath $_.FullName -Force
+                $removed++
+            }
+        }
+    if ($removed -gt 0) {
+        Write-Host ("Removed {0} wrong-arch PE file(s) from {1}" -f $removed, $Root)
+    }
 }
 
 $msixSrc = Join-Path $RepoRoot "installer\msix"
-$layoutDir = Join-Path $RepoRoot "installer\msix_layout"
+if ([string]::IsNullOrWhiteSpace($LayoutDir)) {
+    $layoutDir = Join-Path $RepoRoot "installer\msix_layout"
+} else {
+    $layoutDir = $LayoutDir
+}
 $msixName = "AQEMU-$Version-$archTag.msix"
 if ($Version -match '^(\d+\.\d+\.\d+)\.0$') {
     $msixName = "AQEMU-$($Matches[1])-$archTag.msix"
@@ -129,6 +242,12 @@ $aqemu = Join-Path $BuildDir "aqemu.exe"
 if (-not (Test-Path $aqemu)) {
     Write-Error "Missing $aqemu - build AQEMU into build_win first."
 }
+$aqemuPe = Get-PeMachineType $aqemu
+if ($aqemuPe -ne $expectedPeArch) {
+    throw ("FATAL: $aqemu is $aqemuPe but this package is $expectedPeArch. Refusing to package a mixed-arch Store build.")
+}
+# Payload trees on dual-arch hosts can accumulate wrong-arch runtime DLLs.
+Remove-WrongArchPes -Root $BuildDir -Expected $expectedPeArch
 
 $splashSrc = Join-Path $msixSrc "Assets\SplashScreen.png"
 if (-not (Test-Path $splashSrc)) {
@@ -156,13 +275,19 @@ Write-Host "Version:  $Version"
 Write-Host "Output:   $msixPath"
 
 if (Test-Path $layoutDir) {
-    Remove-Item $layoutDir -Recurse -Force
+    # Large Store payloads often trip PowerShell Remove-Item on long paths / busy files.
+    cmd /c "rmdir /s /q `"$layoutDir`"" | Out-Null
+    if (Test-Path $layoutDir) {
+        throw "FATAL: could not clear layout directory: $layoutDir"
+    }
 }
-New-Item -ItemType Directory -Path $layoutDir | Out-Null
+New-Item -ItemType Directory -Path $layoutDir -Force | Out-Null
 
 Write-Host "Staging files into MSIX layout..."
+# /MT multithreaded + /J unbuffered: large QEMU payloads were hanging for 30+ min
+# under single-threaded robocopy when Defender scanned every write.
 $roboArgs = @(
-    $BuildDir, $layoutDir, "/E", "/NFL", "/NDL", "/NJH", "/NJS", "/nc", "/ns", "/np",
+    $BuildDir, $layoutDir, "/E", "/MT:16", "/J", "/NFL", "/NDL", "/NJH", "/NJS", "/nc", "/ns", "/np", "/R:2", "/W:2",
     "/XD", "CMakeFiles", "aqemu_autogen", "Testing", "CMakeTmp",
     "/XF", "*.cmake", "CMakeCache.txt", "Makefile", "*.log",
     "aqemu_err*.txt", "aqemu_out.txt", "qerr.txt", "qout.txt",
@@ -172,6 +297,7 @@ $roboArgs = @(
 if ($LASTEXITCODE -ge 8) {
     Write-Error "robocopy failed with exit code $LASTEXITCODE"
 }
+Write-Host "Payload robocopy finished (exit $LASTEXITCODE)."
 
 # Explicitly stage QEMU binaries and runtime DLLs from the arch-matching install tree.
 # ARM64 packages must not pull x64 qemu-install (and vice versa).
@@ -199,14 +325,15 @@ foreach ($qp in $qemuPrefixCandidates) {
             Get-ChildItem $sDir -Filter "qemu-*.exe" -ErrorAction SilentlyContinue | ForEach-Object {
                 $dest = Join-Path $layoutDir $_.Name
                 if (-not (Test-Path $dest)) {
-                    Copy-Item $_.FullName $dest -Force
-                    Write-Host "Staged QEMU binary: $($_.Name)"
+                    if (Copy-ArchMatchedFile -Source $_.FullName -Destination $dest -Expected $expectedPeArch -Force) {
+                        Write-Host "Staged QEMU binary: $($_.Name)"
+                    }
                 }
             }
             Get-ChildItem $sDir -Filter "*.dll" -ErrorAction SilentlyContinue | ForEach-Object {
                 $dest = Join-Path $layoutDir $_.Name
                 if (-not (Test-Path $dest)) {
-                    Copy-Item $_.FullName $dest -Force
+                    Copy-ArchMatchedFile -Source $_.FullName -Destination $dest -Expected $expectedPeArch -Force | Out-Null
                 }
             }
         }
@@ -318,45 +445,77 @@ if (-not (Test-Path $keymapFile)) {
     }
 }
 
-# Ensure runtime DLL dependencies are fully bundled (GCC, Qt, GLib, QEMU deps)
+# Ensure runtime DLL dependencies are fully bundled (GCC, Qt, GLib, QEMU deps).
+# CRITICAL: on Snapdragon hosts both clangarm64 and ucrt64 exist. Searching both
+# caused 1.7.0 Store packages to mix ARM64 Qt/SPICE DLLs into the x64 MSIX
+# (and some x64 runtimes into ARM64) → customer 0xc000007b on launch.
 Write-Host "Checking runtime DLL dependencies for MS Store / MSIX sandbox..."
-$binSearchDirs = @()
-if ($MsysLocation -and (Test-Path $MsysLocation)) {
-    foreach ($sub in @("clangarm64\bin", "ucrt64\bin", "mingw64\bin", "clang64\bin", "bin")) {
-        $cand = Join-Path $MsysLocation $sub
-        if ((Test-Path $cand) -and ($binSearchDirs -notcontains $cand)) {
-            $binSearchDirs += $cand
-        }
-    }
+$msysEnvNames = if ($manifestArch -eq "arm64") {
+    @("clangarm64", "mingwarm64")
+} else {
+    @("ucrt64", "mingw64", "clang64")
 }
-if ($env:MSYSTEM_PREFIX -and (Test-Path (Join-Path $env:MSYSTEM_PREFIX "bin"))) {
-    $binSearchDirs += (Join-Path $env:MSYSTEM_PREFIX "bin")
+$binSearchDirs = @()
+function Add-ArchMatchedBinDir([string] $cand) {
+    if (-not $cand -or -not (Test-Path -LiteralPath $cand)) { return }
+    if ($script:binSearchDirs -contains $cand) { return }
+    $probe = @(
+        (Join-Path $cand "Qt5Core.dll"),
+        (Join-Path $cand "libwinpthread-1.dll"),
+        (Join-Path $cand "cc.exe")
+    ) | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+    if ($probe -and -not (Test-PeArchMatch -Path $probe -Expected $expectedPeArch)) {
+        Write-Host ("Ignoring wrong-arch DLL search dir ({0}): {1}" -f (Get-PeMachineType $probe), $cand)
+        return
+    }
+    $script:binSearchDirs += $cand
+}
+$msysRoots = @()
+if ($MsysLocation -and (Test-Path $MsysLocation)) { $msysRoots += $MsysLocation }
+foreach ($root in @(Get-AqemuMsysCandidates)) {
+    if ($root -and ($msysRoots -notcontains $root)) { $msysRoots += $root }
 }
 if ($env:RUNNER_TEMP) {
-    foreach ($sub in @("msys64\clangarm64\bin", "msys64\ucrt64\bin", "msys64\mingw64\bin", "msys64\clang64\bin")) {
-        $cand = Join-Path $env:RUNNER_TEMP $sub
-        if ((Test-Path $cand) -and ($binSearchDirs -notcontains $cand)) {
-            $binSearchDirs += $cand
-        }
+    $rt = Join-Path $env:RUNNER_TEMP "msys64"
+    if ((Test-Path $rt) -and ($msysRoots -notcontains $rt)) { $msysRoots += $rt }
+}
+foreach ($root in $msysRoots) {
+    foreach ($sub in $msysEnvNames) {
+        Add-ArchMatchedBinDir (Join-Path $root ($sub + "\bin"))
     }
 }
-foreach ($cand in @(Get-AqemuMsysBinDirs)) {
-    if ((Test-Path $cand) -and ($binSearchDirs -notcontains $cand)) {
-        $binSearchDirs += $cand
-    }
+if ($env:MSYSTEM_PREFIX) {
+    Add-ArchMatchedBinDir (Join-Path $env:MSYSTEM_PREFIX "bin")
 }
+if ($env:MINGW_PREFIX) {
+    Add-ArchMatchedBinDir (Join-Path $env:MINGW_PREFIX "bin")
+}
+# Prefer MSYS Qt/runtime dirs; only then allow arch-matched PATH entries that look like toolchains.
 foreach ($p in ($env:PATH -split ";")) {
-    if ($p -and (Test-Path $p) -and ($binSearchDirs -notcontains $p)) {
-        if ((Test-Path (Join-Path $p "libwinpthread-1.dll")) -or (Test-Path (Join-Path $p "Qt5Core.dll"))) {
-            $binSearchDirs += $p
-        }
+    if (-not $p) { continue }
+    if ($p -match '(?i)\\(clangarm64|ucrt64|mingw64|clang64|mingwarm64)\\bin$') {
+        Add-ArchMatchedBinDir $p
+        continue
     }
+    # Skip random PATH junk (games, media tools) even if PE arch matches.
+}
+Write-Host ("Arch-filtered DLL search dirs ({0}): {1}" -f $expectedPeArch, ($binSearchDirs -join "; "))
+if ($binSearchDirs.Count -lt 1) {
+    throw ("FATAL: no $expectedPeArch MSYS bin directory found for runtime DLL staging. Install MSYS2 $($msysEnvNames[0]).")
+}
+# Require Qt from the matching prefix — llvm-mingw alone is not enough for Store packaging.
+$hasQt = $false
+foreach ($d in $binSearchDirs) {
+    if (Test-Path (Join-Path $d "Qt5Core.dll")) { $hasQt = $true; break }
+}
+if (-not $hasQt) {
+    throw ("FATAL: no Qt5Core.dll in $expectedPeArch search dirs. Refusing to package without matching Qt runtimes.")
 }
 
-# Run windeployqt if available to collect Qt plugins (platforms, styles) and Qt DLLs
+# Run matching-arch windeployqt only (wrong-arch windeployqt deploys wrong Qt plugins).
 $windeployqt = $null
 foreach ($d in $binSearchDirs) {
-    foreach ($exe in @("windeployqt.exe", "windeployqt-qt5.exe")) {
+    foreach ($exe in @("windeployqt-qt5.exe", "windeployqt.exe")) {
         $wdq = Join-Path $d $exe
         if (Test-Path $wdq) {
             $windeployqt = $wdq
@@ -376,6 +535,8 @@ if ($windeployqt) {
     } finally {
         $ErrorActionPreference = $prevEAP
     }
+    # windeployqt must never leave foreign-arch plugins in the layout.
+    Remove-WrongArchPes -Root $layoutDir -Expected $expectedPeArch
 }
 
 # Ensure Qt platform plugins (required for GUI window display on Windows)
@@ -390,8 +551,7 @@ if (-not (Test-Path $platDest)) {
             (Join-Path $d "platforms\qwindows.dll")
         )
         foreach ($c in $candidates) {
-            if (Test-Path $c) {
-                Copy-Item $c $platDest -Force
+            if (Copy-ArchMatchedFile -Source $c -Destination $platDest -Expected $expectedPeArch -Force) {
                 Write-Host "Deployed platforms/qwindows.dll from $c"
                 break
             }
@@ -411,8 +571,7 @@ if (-not (Test-Path $styleDest)) {
             (Join-Path $d "styles\qwindowsvistastyle.dll")
         )
         foreach ($c in $candidates) {
-            if (Test-Path $c) {
-                Copy-Item $c $styleDest -Force
+            if (Copy-ArchMatchedFile -Source $c -Destination $styleDest -Expected $expectedPeArch -Force) {
                 Write-Host "Deployed styles/qwindowsvistastyle.dll from $c"
                 break
             }
@@ -453,8 +612,17 @@ foreach ($dll in $essentialDlls) {
     if (-not (Test-Path $dest)) {
         foreach ($d in $binSearchDirs) {
             $src = Join-Path $d $dll
-            if (Test-Path $src) {
-                Copy-Item $src $dest -Force
+            if (Copy-ArchMatchedFile -Source $src -Destination $dest -Expected $expectedPeArch -Force) {
+                Write-Host "Bundled essential runtime DLL: $dll"
+                break
+            }
+        }
+    } elseif (-not (Test-PeArchMatch -Path $dest -Expected $expectedPeArch)) {
+        Write-Warning ("Replacing wrong-arch essential DLL already in layout: $dll")
+        Remove-Item $dest -Force
+        foreach ($d in $binSearchDirs) {
+            $src = Join-Path $d $dll
+            if (Copy-ArchMatchedFile -Source $src -Destination $dest -Expected $expectedPeArch -Force) {
                 Write-Host "Bundled essential runtime DLL: $dll"
                 break
             }
@@ -634,8 +802,7 @@ do {
                 $found = $false
                 foreach ($d in $binSearchDirs) {
                     $cand = Join-Path $d $dllName
-                    if (Test-Path $cand) {
-                        Copy-Item $cand $inLayout -Force
+                    if (Copy-ArchMatchedFile -Source $cand -Destination $inLayout -Expected $expectedPeArch -Force) {
                         Write-Host "Auto-resolved dependency (Pass $pass): $dllName (required by $($bin.Name))"
                         $found = $true
                         $newDllAdded = $true
@@ -675,6 +842,9 @@ if ($qemuSystems.Count -lt 25) {
 if (-not (Test-Path (Join-Path $layoutDir "aqemu.exe"))) {
     throw "Staging failed - aqemu.exe not in layout."
 }
+# Hard stop: never ship a mixed-arch Store package again (0xc000007b).
+Remove-WrongArchPes -Root $layoutDir -Expected $expectedPeArch
+Assert-LayoutPeArch -LayoutRoot $layoutDir -Expected $expectedPeArch
 $fileCount = (Get-ChildItem $layoutDir -Recurse -File -ErrorAction SilentlyContinue | Measure-Object).Count
 Write-Host "Staged $fileCount files."
 
